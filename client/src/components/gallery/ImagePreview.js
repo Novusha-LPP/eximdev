@@ -26,11 +26,11 @@ const ImagePreview = ({
   // Ensure `images` is always an array and handle both string URLs and object URLs
   const imageArray = Array.isArray(images)
     ? images.map((img) =>
-        typeof img === "object" && img !== null ? img.url : img
-      )
+      typeof img === "object" && img !== null ? img.url : img
+    )
     : images
-    ? [typeof images === "object" && images !== null ? images.url : images]
-    : [];
+      ? [typeof images === "object" && images !== null ? images.url : images]
+      : [];
 
   // Function to extract the file name from the URL, with error handling
   const extractFileName = (url) => {
@@ -86,28 +86,20 @@ const ImagePreview = ({
   };
 
   return (
-    <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
+    <Box mt={1}>
       {imageArray.length > 0 ? (
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>Image Name</TableCell>
-              {!readOnly && <TableCell>Action</TableCell>}
-            </TableRow>
-          </TableHead>
+        <Table size="small" sx={{ "& td, & th": { border: 0 } }}>
           <TableBody>
             {imageArray.map((link, index) => (
-              <TableRow key={index}>
-                {" "}
-                <TableCell>
+              <TableRow key={index} sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
+                <TableCell style={{ padding: "0px", wordBreak: "break-all" }}>
                   {link ? (
                     <a
                       href={link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ textDecoration: "none", color: "blue" }}
+                      style={{ textDecoration: "none", color: "blue", fontSize: "0.85rem" }}
                       onClick={(e) => {
-                        // Call onImageClick if provided
                         if (onImageClick) {
                           onImageClick(index, link);
                         }
@@ -120,12 +112,13 @@ const ImagePreview = ({
                   )}
                 </TableCell>
                 {!readOnly && (
-                  <TableCell>
+                  <TableCell style={{ padding: "0px", textAlign: "right", width: "40px" }}>
                     <IconButton
                       onClick={() => handleDeleteClick(index)}
                       color="error"
+                      size="small"
                     >
-                      <DeleteIcon />
+                      <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
                 )}
@@ -134,7 +127,7 @@ const ImagePreview = ({
           </TableBody>
         </Table>
       ) : (
-        <p>No asset uploaded yet.</p>
+        <p style={{ fontSize: "0.8rem", color: "#6c757d", margin: 0 }}>No files.</p>
       )}
       {!readOnly && (
         <ConfirmDialog

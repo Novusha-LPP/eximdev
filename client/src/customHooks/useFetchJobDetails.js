@@ -48,7 +48,7 @@ function useFetchJobDetails(
   const [data, setData] = useState(null);
   const [detentionFrom, setDetentionFrom] = useState([]);
   const navigate = useNavigate();
-  const [ cthDocuments, setCthDocuments] = useState([
+  const [cthDocuments, setCthDocuments] = useState([
     {
       document_name: "Commercial Invoice",
       document_code: "380000",
@@ -105,7 +105,7 @@ function useFetchJobDetails(
     // { document_name: "Certificate of Analysis", document_code: "001000" },
   ];
   const cth_Dropdown = [
-   
+
     {
       document_name: "Certificate of Origin",
       document_code: "861000",
@@ -216,7 +216,7 @@ function useFetchJobDetails(
       setData(response.data);
       setSelectedDocuments(response.data.documents);
       setSelectedChargesDocuments(response.data.DsrCharges || []);
-      
+
       // Update DsrCharges to include custom charges from database
       if (response.data.DsrCharges && response.data.DsrCharges.length > 0) {
         const predefinedCharges = [
@@ -226,17 +226,17 @@ function useFetchJobDetails(
           { document_name: "CE Certification Charges" },
           { document_name: "ADC/NOC Charges" },
         ];
-        
+
         // Get unique custom charges from database (excluding predefined ones)
         const customChargesFromDB = response.data.DsrCharges
           .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
           .map(charge => ({ document_name: charge.document_name }));
-        
+
         // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
+        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
           index === self.findIndex(c => c.document_name === charge.document_name)
         );
-        
+
         // Combine predefined and unique custom charges
         const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
         setDsrCharges(allCharges);
@@ -263,79 +263,79 @@ function useFetchJobDetails(
     getDocuments();
   }, []);
 
-useEffect(() => {
-  async function getCthDocs() {
-    if (data?.cth_no) {
-      try {
-        // Handle multiple CTH numbers separated by " / "
-        const cthNumbers = data.cth_no.split(' / ').map(cth => cth.trim());
-        
-        // Create query parameter string
-        const queryParams = new URLSearchParams();
-        cthNumbers.forEach(cth => queryParams.append('cth_nos', cth));
-        
-        const cthRes = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-cth-docs?${queryParams.toString()}`
-        );
+  useEffect(() => {
+    async function getCthDocs() {
+      if (data?.cth_no) {
+        try {
+          // Handle multiple CTH numbers separated by " / "
+          const cthNumbers = data.cth_no.split(' / ').map(cth => cth.trim());
 
-        // Rest of your existing logic...
-        const fetchedCthDocuments =
-          Array.isArray(cthRes.data) &&
-          cthRes.data.map((cthDoc) => {
-            const additionalData = data?.cth_documents.find(
-              (doc) => doc.document_name === cthDoc.document_name
-            );
+          // Create query parameter string
+          const queryParams = new URLSearchParams();
+          cthNumbers.forEach(cth => queryParams.append('cth_nos', cth));
 
-            return {
-              ...cthDoc,
-              url: additionalData ? additionalData.url : "",
-            };
-          });
-
-        // Continue with your existing merging logic...
-        let documentsToMerge = [...cthDocuments];
-
-        if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
-          documentsToMerge = [...documentsToMerge, ...additionalDocs];
-        }
-
-        documentsToMerge = fetchedCthDocuments
-          ? [...documentsToMerge, ...fetchedCthDocuments]
-          : [...documentsToMerge];
-
-        documentsToMerge = [...documentsToMerge, ...data.cth_documents];
-
-        const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
-          const existingDocIndex = acc.findIndex(
-            (doc) => doc.document_name === current.document_name
+          const cthRes = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-cth-docs?${queryParams.toString()}`
           );
 
-          if (existingDocIndex === -1) {
-            return acc.concat([current]);
-          } else {
-            if (current.url) {
-              acc[existingDocIndex] = current;
-            }
-            return acc;
+          // Rest of your existing logic...
+          const fetchedCthDocuments =
+            Array.isArray(cthRes.data) &&
+            cthRes.data.map((cthDoc) => {
+              const additionalData = data?.cth_documents.find(
+                (doc) => doc.document_name === cthDoc.document_name
+              );
+
+              return {
+                ...cthDoc,
+                url: additionalData ? additionalData.url : "",
+              };
+            });
+
+          // Continue with your existing merging logic...
+          let documentsToMerge = [...cthDocuments];
+
+          if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
+            documentsToMerge = [...documentsToMerge, ...additionalDocs];
           }
-        }, []);
 
-        setCthDocuments(uniqueDocuments);
-      } catch (error) {
-        console.error("Error fetching CTH documents:", error);
+          documentsToMerge = fetchedCthDocuments
+            ? [...documentsToMerge, ...fetchedCthDocuments]
+            : [...documentsToMerge];
+
+          documentsToMerge = [...documentsToMerge, ...data.cth_documents];
+
+          const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
+            const existingDocIndex = acc.findIndex(
+              (doc) => doc.document_name === current.document_name
+            );
+
+            if (existingDocIndex === -1) {
+              return acc.concat([current]);
+            } else {
+              if (current.url) {
+                acc[existingDocIndex] = current;
+              }
+              return acc;
+            }
+          }, []);
+
+          setCthDocuments(uniqueDocuments);
+        } catch (error) {
+          console.error("Error fetching CTH documents:", error);
+        }
+      } else if (data?.cth_documents && data.cth_documents.length > 0) {
+        setCthDocuments(data.cth_documents);
       }
-    } else if (data?.cth_documents && data.cth_documents.length > 0) {
-      setCthDocuments(data.cth_documents);
     }
-  }
 
-  if (data) {
-    setSelectedDocuments(data.documents);
-    setSelectedChargesDocuments(data.DsrCharges || []);
-  }
+    if (data) {
+      setSelectedDocuments(data.documents);
+      setSelectedChargesDocuments(data.DsrCharges || []);
+    }
 
-  getCthDocs();
-}, [data]);
+    getCthDocs();
+  }, [data]);
 
 
   // Formik
@@ -382,6 +382,9 @@ useEffect(() => {
       do_validity_upto_job_level: "",
       do_revalidation_upto_job_level: "",
       required_do_validity_upto: "",
+      invoice_number: "",
+      invoice_date: "",
+      total_inv_value: "",
       cth_no: "",
       checklist: [],
       job_sticker_upload: [],
@@ -437,7 +440,7 @@ useEffect(() => {
       igst_ammount: "",
       sws_ammount: "",
       bcd_ammount: "",
-      intrest_ammount: "",      is_checklist_aprroved_date: "",
+      intrest_ammount: "", is_checklist_aprroved_date: "",
       is_checklist_aprroved: false,
       is_checklist_clicked: false,
       DsrCharges: [],
@@ -515,6 +518,9 @@ useEffect(() => {
           firstCheck: values.firstCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
+          invoice_number: values.invoice_number,
+          invoice_date: values.invoice_date,
+          total_inv_value: values.total_inv_value,
           payment_method: values.payment_method,
           gross_weight: values.gross_weight,
           job_net_weight: values.job_net_weight,
@@ -544,7 +550,7 @@ useEffect(() => {
           gate_pass_copies: values.gate_pass_copies,
           all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
-          do_revalidation_date: values.do_revalidation_date,          is_checklist_aprroved_date: values.is_checklist_aprroved_date,
+          do_revalidation_date: values.do_revalidation_date, is_checklist_aprroved_date: values.is_checklist_aprroved_date,
           is_checklist_aprroved: values.is_checklist_aprroved,
           is_checklist_clicked: Boolean(values.is_checklist_clicked),
           lockBankDetails: Boolean(values.lockBankDetails),
@@ -564,9 +570,9 @@ useEffect(() => {
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
-          do_completed: values.do_completed,   
+          do_completed: values.do_completed,
           import_terms: values.import_terms,
-          freight: values.freight,      
+          freight: values.freight,
           cifValue: values.cifValue,
           insurance: values.insurance,
           bill_date: values.bill_date,
@@ -575,7 +581,7 @@ useEffect(() => {
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
           bcd_ammount: values.bcd_ammount,
-          intrest_ammount: values.intrest_ammount,         
+          intrest_ammount: values.intrest_ammount,
           fine_amount: values.fine_amount,
           penalty_amount: values.penalty_amount,
           total_duty: values.total_duty,
@@ -586,18 +592,18 @@ useEffect(() => {
       );
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
-           // Close the tab after successful submit
-                setTimeout(() => {
-          window.close();
-        }, 500);
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
 
     },
   });
 
   // Utility function to handle undefined/null checks
-const safeValue = (value, defaultVal = "") =>
-  value === undefined || value === null ? defaultVal : value;
+  const safeValue = (value, defaultVal = "") =>
+    value === undefined || value === null ? defaultVal : value;
   const filteredClearanceOptions =
     clearanceOptionsMapping[formik.values.type_of_b_e] || [];
   // When the BE type changes, update Formik's clearanceValue field to the first available option only if no value is set.
@@ -643,178 +649,181 @@ const safeValue = (value, defaultVal = "") =>
         data.sims_reg_no
           ? "sims"
           : data.pims_reg_no
-          ? "pims"
-          : data.nfmims_reg_no
-          ? "nfmims"
-          : ""
+            ? "pims"
+            : data.nfmims_reg_no
+              ? "nfmims"
+              : ""
       );
 
-const container_nos = safeValue(data.container_nos, []).map((container) => ({
-  do_revalidation: safeValue(container.do_revalidation, []),
-  required_do_validity_upto: safeValue(container.required_do_validity_upto),
-  arrival_date: checked
-    ? safeValue(data.arrival_date)
-    : safeValue(container.arrival_date)
-    ? convertDateFormatForUI(container.arrival_date)
-    : "",
-  container_number: safeValue(container.container_number),
-  size: safeValue(container.size, "20"),
-  seal_number: safeValue(container.seal_number),
-  net_weight_as_per_PL_document: safeValue(container.net_weight_as_per_PL_document),
-  container_rail_out_date: safeValue(container.container_rail_out_date),
-  by_road_movement_date: safeValue(container.by_road_movement_date),
-  delivery_date: safeValue(container.delivery_date),
-  emptyContainerOffLoadDate: safeValue(container.emptyContainerOffLoadDate),
-  weighment_slip_images: safeValue(container.weighment_slip_images, []),
-  container_images: safeValue(container.container_images, []),
-  loose_material_photo: safeValue(container.loose_material_photo, []),
-  loose_material: safeValue(container.loose_material, []),
-  examination_videos: safeValue(container.examination_videos, []),
-  container_pre_damage_images: safeValue(container.container_pre_damage_images, []),
-  physical_weight: safeValue(container.physical_weight),
-  do_revalidation_date: safeValue(container.do_revalidation_date),
-  do_validity_upto_container_level: safeValue(container.do_validity_upto_container_level),
-  do_revalidation_upto_container_level: safeValue(container.do_revalidation_upto_container_level),
-  tare_weight: safeValue(container.tare_weight),
-  actual_weight: safeValue(container.actual_weight),
-  net_weight: safeValue(container.net_weight),
-  container_gross_weight: safeValue(container.container_gross_weight),
-  weight_shortage:
-    safeValue(container.physical_weight) &&
-    safeValue(container.container_gross_weight) &&
-    safeValue(container.actual_weight) &&
-    safeValue(container.tare_weight) &&
-    container.physical_weight !== "0" &&
-    container.container_gross_weight !== "0" &&
-    container.actual_weight !== "0" &&
-    container.tare_weight !== "0"
-      ? safeValue(container.weight_shortage)
-      : "",
-  weight_excess:
-    safeValue(container.physical_weight) &&
-    safeValue(container.container_gross_weight) &&
-    safeValue(container.actual_weight) &&
-    safeValue(container.tare_weight) &&
-    container.physical_weight !== "0" &&
-    container.container_gross_weight !== "0" &&
-    container.actual_weight !== "0" &&
-    container.tare_weight !== "0"
-      ? safeValue(container.weight_excess)
-      : "",
-  transporter: safeValue(container.transporter),
-}));
+      const container_nos = safeValue(data.container_nos, []).map((container) => ({
+        do_revalidation: safeValue(container.do_revalidation, []),
+        required_do_validity_upto: safeValue(container.required_do_validity_upto),
+        arrival_date: checked
+          ? safeValue(data.arrival_date)
+          : safeValue(container.arrival_date)
+            ? convertDateFormatForUI(container.arrival_date)
+            : "",
+        container_number: safeValue(container.container_number),
+        size: safeValue(container.size, "20"),
+        seal_number: safeValue(container.seal_number),
+        net_weight_as_per_PL_document: safeValue(container.net_weight_as_per_PL_document),
+        container_rail_out_date: safeValue(container.container_rail_out_date),
+        by_road_movement_date: safeValue(container.by_road_movement_date),
+        delivery_date: safeValue(container.delivery_date),
+        emptyContainerOffLoadDate: safeValue(container.emptyContainerOffLoadDate),
+        weighment_slip_images: safeValue(container.weighment_slip_images, []),
+        container_images: safeValue(container.container_images, []),
+        loose_material_photo: safeValue(container.loose_material_photo, []),
+        loose_material: safeValue(container.loose_material, []),
+        examination_videos: safeValue(container.examination_videos, []),
+        container_pre_damage_images: safeValue(container.container_pre_damage_images, []),
+        physical_weight: safeValue(container.physical_weight),
+        do_revalidation_date: safeValue(container.do_revalidation_date),
+        do_validity_upto_container_level: safeValue(container.do_validity_upto_container_level),
+        do_revalidation_upto_container_level: safeValue(container.do_revalidation_upto_container_level),
+        tare_weight: safeValue(container.tare_weight),
+        actual_weight: safeValue(container.actual_weight),
+        net_weight: safeValue(container.net_weight),
+        container_gross_weight: safeValue(container.container_gross_weight),
+        weight_shortage:
+          safeValue(container.physical_weight) &&
+            safeValue(container.container_gross_weight) &&
+            safeValue(container.actual_weight) &&
+            safeValue(container.tare_weight) &&
+            container.physical_weight !== "0" &&
+            container.container_gross_weight !== "0" &&
+            container.actual_weight !== "0" &&
+            container.tare_weight !== "0"
+            ? safeValue(container.weight_shortage)
+            : "",
+        weight_excess:
+          safeValue(container.physical_weight) &&
+            safeValue(container.container_gross_weight) &&
+            safeValue(container.actual_weight) &&
+            safeValue(container.tare_weight) &&
+            container.physical_weight !== "0" &&
+            container.container_gross_weight !== "0" &&
+            container.actual_weight !== "0" &&
+            container.tare_weight !== "0"
+            ? safeValue(container.weight_excess)
+            : "",
+        transporter: safeValue(container.transporter),
+      }));
 
 
-formik.setValues({
-  container_nos,
-  checkedDocs: safeValue(data.checkedDocs, []),
-  is_obl_recieved: safeValue(data.is_obl_recieved, false),
-  document_received_date: safeValue(data.document_received_date),
-  arrival_date: safeValue(data.arrival_date),
-  vessel_berthing: safeValue(data.vessel_berthing)
-    ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
-    : "",
-  free_time: safeValue(data.free_time, 0),
-  status: safeValue(data.status),
-  detailed_status: safeValue(data.detailed_status, "ETA Date Pending"),
-  do_validity: safeValue(data.do_validity),
-  cth_no: safeValue(data.cth_no),
-  doPlanning: safeValue(data.doPlanning, false),
-  do_planning_date: safeValue(data.do_planning_date),
-  is_checklist_aprroved: safeValue(data.is_checklist_aprroved),
-  is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
-  lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
-  is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
-  examinationPlanning: safeValue(data.examinationPlanning, false),
-  examination_planning_date: safeValue(data.examination_planning_date),
-  do_validity_upto_job_level: safeValue(data.do_validity_upto_job_level),
-  do_revalidation_upto_job_level: safeValue(data.do_revalidation_upto_job_level),
-  checklist: safeValue(data.checklist, []),
-  job_sticker_upload: safeValue(data.job_sticker_upload, []),
-  remarks: safeValue(data.remarks),
-  description: safeValue(data.description),
-  consignment_type: safeValue(data.consignment_type),
-  sims_reg_no: safeValue(data.sims_reg_no),
-  pims_reg_no: safeValue(data.pims_reg_no),
-  nfmims_reg_no: safeValue(data.nfmims_reg_no),
-  sims_date: safeValue(data.sims_date),
-  pims_date: safeValue(data.pims_date),
-  nfmims_date: safeValue(data.nfmims_date),
-  delivery_date: safeValue(data.delivery_date),
-  gateway_igm_date: safeValue(data.gateway_igm_date),
-  gateway_igm: safeValue(data.gateway_igm),
-  igm_date: safeValue(data.igm_date),
-  igm_no: safeValue(data.igm_no),
-  line_no: safeValue(data.line_no),
-  no_of_pkgs: safeValue(data.no_of_pkgs),
-  hss: safeValue(data.hss),
-  saller_name: safeValue(data.saller_name),
-  adCode: safeValue(data.adCode),
-  bank_name: safeValue(data.bank_name),
-  firstCheck: safeValue(data.firstCheck),
-  priorityJob: safeValue(data.priorityJob, "Normal"),
-  emptyContainerOffLoadDate: safeValue(data.emptyContainerOffLoadDate),
-  job_net_weight: safeValue(data.job_net_weight),
-  payment_method: safeValue(data.payment_method, "Transaction"),
-  gross_weight: safeValue(data.gross_weight),
-  fta_Benefit_date_time: safeValue(data.fta_Benefit_date_time),
-  be_no: safeValue(data.be_no),
-  in_bond_be_no: safeValue(data.in_bond_be_no),
-  be_date: safeValue(data.be_date),
-  be_filing_type: safeValue(data.be_filing_type),
-  in_bond_be_date: safeValue(data.in_bond_be_date),
-  discharge_date: safeValue(data.discharge_date),
-  hawb_hbl_date: safeValue(data.hawb_hbl_date),
-  hawb_hbl_no: safeValue(data.hawb_hbl_no),
-  awb_bl_date: safeValue(data.awb_bl_date),
-  awb_bl_no: safeValue(data.awb_bl_no),
-  assessment_date: safeValue(data.assessment_date),
-  examination_date: safeValue(data.examination_date),
-  pcv_date: safeValue(data.pcv_date),
-  type_of_b_e: safeValue(data.type_of_b_e),
-  exBondValue: safeValue(data.exBondValue),
-  scheme: safeValue(data.scheme),
-  clearanceValue: safeValue(data.clearanceValue),
-  duty_paid_date: safeValue(data.duty_paid_date),
-  assessable_ammount: safeValue(data.assessable_ammount),
-  penalty_amount: safeValue(data.penalty_amount),
-  fine_amount: safeValue(data.fine_amount),
-  igst_ammount: safeValue(data.igst_ammount),
-  sws_ammount: safeValue(data.sws_ammount),
-  intrest_ammount: safeValue(data.intrest_ammount),
-  bcd_ammount: safeValue(data.bcd_ammount),
-  total_duty: safeValue(data.total_duty),
-  do_copies: safeValue(data.do_copies, []),
-  do_queries: safeValue(data.do_queries, []),
-  documentationQueries: safeValue(data.documentationQueries, []),
-  submissionQueries: safeValue(data.submissionQueries, []),
-  eSachitQueries: safeValue(data.eSachitQueries, []),
-  processed_be_attachment: safeValue(data.processed_be_attachment, []),
-  ooc_copies: safeValue(data.ooc_copies, []),
-  in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
-  gate_pass_copies: safeValue(data.gate_pass_copies, []),
-  all_documents: safeValue(data.all_documents, []),
-  do_revalidation: safeValue(data.do_revalidation, false),
-  do_revalidation_date: safeValue(data.do_revalidation_date),
-  documentation_completed_date_time: safeValue(data.documentation_completed_date_time),
-  submission_completed_date_time: safeValue(data.submission_completed_date_time),
-  completed_operation_date: safeValue(data.completed_operation_date),
-  esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
-  bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
-  do_completed: safeValue(data.do_completed),
-  import_terms: safeValue(data.import_terms),
-  freight: safeValue(data.freight),
-  insurance: safeValue(data.insurance),
-  bill_date: safeValue(data.bill_date),
-  bill_no: safeValue(data.bill_no),
-  cifValue: safeValue(data.cifValue),
-  out_of_charge: safeValue(data.out_of_charge),
-  checked: safeValue(data.checked, false),
-  type_of_Do: safeValue(data.type_of_Do),
+      formik.setValues({
+        container_nos,
+        checkedDocs: safeValue(data.checkedDocs, []),
+        is_obl_recieved: safeValue(data.is_obl_recieved, false),
+        document_received_date: safeValue(data.document_received_date),
+        arrival_date: safeValue(data.arrival_date),
+        vessel_berthing: safeValue(data.vessel_berthing)
+          ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
+          : "",
+        free_time: safeValue(data.free_time, 0),
+        status: safeValue(data.status),
+        detailed_status: safeValue(data.detailed_status, "ETA Date Pending"),
+        do_validity: safeValue(data.do_validity),
+        cth_no: safeValue(data.cth_no),
+        doPlanning: safeValue(data.doPlanning, false),
+        do_planning_date: safeValue(data.do_planning_date),
+        is_checklist_aprroved: safeValue(data.is_checklist_aprroved),
+        is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
+        lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
+        is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
+        examinationPlanning: safeValue(data.examinationPlanning, false),
+        examination_planning_date: safeValue(data.examination_planning_date),
+        do_validity_upto_job_level: safeValue(data.do_validity_upto_job_level),
+        do_revalidation_upto_job_level: safeValue(data.do_revalidation_upto_job_level),
+        checklist: safeValue(data.checklist, []),
+        job_sticker_upload: safeValue(data.job_sticker_upload, []),
+        remarks: safeValue(data.remarks),
+        description: safeValue(data.description),
+        consignment_type: safeValue(data.consignment_type),
+        sims_reg_no: safeValue(data.sims_reg_no),
+        pims_reg_no: safeValue(data.pims_reg_no),
+        nfmims_reg_no: safeValue(data.nfmims_reg_no),
+        sims_date: safeValue(data.sims_date),
+        pims_date: safeValue(data.pims_date),
+        nfmims_date: safeValue(data.nfmims_date),
+        delivery_date: safeValue(data.delivery_date),
+        gateway_igm_date: safeValue(data.gateway_igm_date),
+        gateway_igm: safeValue(data.gateway_igm),
+        igm_date: safeValue(data.igm_date),
+        igm_no: safeValue(data.igm_no),
+        line_no: safeValue(data.line_no),
+        no_of_pkgs: safeValue(data.no_of_pkgs),
+        hss: safeValue(data.hss),
+        saller_name: safeValue(data.saller_name),
+        adCode: safeValue(data.adCode),
+        bank_name: safeValue(data.bank_name),
+        firstCheck: safeValue(data.firstCheck),
+        priorityJob: safeValue(data.priorityJob, "Normal"),
+        emptyContainerOffLoadDate: safeValue(data.emptyContainerOffLoadDate),
+        job_net_weight: safeValue(data.job_net_weight),
+        payment_method: safeValue(data.payment_method, "Transaction"),
+        gross_weight: safeValue(data.gross_weight),
+        fta_Benefit_date_time: safeValue(data.fta_Benefit_date_time),
+        be_no: safeValue(data.be_no),
+        in_bond_be_no: safeValue(data.in_bond_be_no),
+        be_date: safeValue(data.be_date),
+        be_filing_type: safeValue(data.be_filing_type),
+        in_bond_be_date: safeValue(data.in_bond_be_date),
+        discharge_date: safeValue(data.discharge_date),
+        hawb_hbl_date: safeValue(data.hawb_hbl_date),
+        hawb_hbl_no: safeValue(data.hawb_hbl_no),
+        awb_bl_date: safeValue(data.awb_bl_date),
+        awb_bl_no: safeValue(data.awb_bl_no),
+        assessment_date: safeValue(data.assessment_date),
+        examination_date: safeValue(data.examination_date),
+        pcv_date: safeValue(data.pcv_date),
+        type_of_b_e: safeValue(data.type_of_b_e),
+        exBondValue: safeValue(data.exBondValue),
+        scheme: safeValue(data.scheme),
+        clearanceValue: safeValue(data.clearanceValue),
+        duty_paid_date: safeValue(data.duty_paid_date),
+        assessable_ammount: safeValue(data.assessable_ammount),
+        penalty_amount: safeValue(data.penalty_amount),
+        fine_amount: safeValue(data.fine_amount),
+        igst_ammount: safeValue(data.igst_ammount),
+        sws_ammount: safeValue(data.sws_ammount),
+        intrest_ammount: safeValue(data.intrest_ammount),
+        bcd_ammount: safeValue(data.bcd_ammount),
+        total_duty: safeValue(data.total_duty),
+        do_copies: safeValue(data.do_copies, []),
+        do_queries: safeValue(data.do_queries, []),
+        documentationQueries: safeValue(data.documentationQueries, []),
+        submissionQueries: safeValue(data.submissionQueries, []),
+        eSachitQueries: safeValue(data.eSachitQueries, []),
+        processed_be_attachment: safeValue(data.processed_be_attachment, []),
+        ooc_copies: safeValue(data.ooc_copies, []),
+        in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
+        gate_pass_copies: safeValue(data.gate_pass_copies, []),
+        all_documents: safeValue(data.all_documents, []),
+        do_revalidation: safeValue(data.do_revalidation, false),
+        do_revalidation_date: safeValue(data.do_revalidation_date),
+        documentation_completed_date_time: safeValue(data.documentation_completed_date_time),
+        submission_completed_date_time: safeValue(data.submission_completed_date_time),
+        completed_operation_date: safeValue(data.completed_operation_date),
+        esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
+        bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
+        do_completed: safeValue(data.do_completed),
+        import_terms: safeValue(data.import_terms),
+        freight: safeValue(data.freight),
+        insurance: safeValue(data.insurance),
+        invoice_number: safeValue(data.invoice_number),
+        invoice_date: safeValue(data.invoice_date),
+        total_inv_value: safeValue(data.total_inv_value),
+        bill_date: safeValue(data.bill_date),
+        bill_no: safeValue(data.bill_no),
+        cifValue: safeValue(data.cifValue),
+        out_of_charge: safeValue(data.out_of_charge),
+        checked: safeValue(data.checked, false),
+        type_of_Do: safeValue(data.type_of_Do),
 
-  DsrCharges: safeValue(data.DsrCharges, []),
-  dsr_queries: safeValue(data.dsr_queries, []),
-});
+        DsrCharges: safeValue(data.DsrCharges, []),
+        dsr_queries: safeValue(data.dsr_queries, []),
+      });
       // Update DsrCharges state to include custom charges from database
       if (data.DsrCharges && data.DsrCharges.length > 0) {
         const predefinedCharges = [
@@ -824,17 +833,17 @@ formik.setValues({
           { document_name: "CE Certification Charges" },
           { document_name: "ADC/NOC Charges" },
         ];
-        
+
         // Get unique custom charges from database (excluding predefined ones)
         const customChargesFromDB = data.DsrCharges
           .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
           .map(charge => ({ document_name: charge.document_name }));
-        
+
         // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
+        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
           index === self.findIndex(c => c.document_name === charge.document_name)
         );
-        
+
         // Combine predefined and unique custom charges
         const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
         setDsrCharges(allCharges);
@@ -895,41 +904,41 @@ formik.setValues({
 
       // Find the earliest date from updatedDate
       // Find the earliest date from updatedDate
-const earliestDate = updatedDate.reduce((earliest, current) => {
-  return current < earliest ? current : earliest;
-}, "9999-12-31");
+      const earliestDate = updatedDate.reduce((earliest, current) => {
+        return current < earliest ? current : earliest;
+      }, "9999-12-31");
 
-// Helper to subtract one day safely
-function subtractOneDay(dateString) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  date.setDate(date.getDate() - 1);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+      // Helper to subtract one day safely
+      function subtractOneDay(dateString) {
+        if (!dateString) return "";
+        const date = new Date(dateString);
+        date.setDate(date.getDate() - 1);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
 
-if (earliestDate !== "9999-12-31") {
-  const earliest = new Date(earliestDate);
-  const oneDayBefore = new Date(earliest);
-  oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+      if (earliestDate !== "9999-12-31") {
+        const earliest = new Date(earliestDate);
+        const oneDayBefore = new Date(earliest);
+        oneDayBefore.setDate(oneDayBefore.getDate() - 1);
 
-  // If difference between earliestDate and oneDayBefore is > 0, use oneDayBefore
-  const diffDays = (earliest - oneDayBefore) / (1000 * 60 * 60 * 24);
+        // If difference between earliestDate and oneDayBefore is > 0, use oneDayBefore
+        const diffDays = (earliest - oneDayBefore) / (1000 * 60 * 60 * 24);
 
-  const validityDate =
-    diffDays > 0
-      ? subtractOneDay(earliestDate)
-      : earliestDate;
+        const validityDate =
+          diffDays > 0
+            ? subtractOneDay(earliestDate)
+            : earliestDate;
 
-  formik.setFieldValue("do_validity_upto_job_level", validityDate);
-} else {
-  formik.setFieldValue(
-    "do_validity_upto_job_level",
-    data.do_validity_upto_job_level
-  );
-}
+        formik.setFieldValue("do_validity_upto_job_level", validityDate);
+      } else {
+        formik.setFieldValue(
+          "do_validity_upto_job_level",
+          data.do_validity_upto_job_level
+        );
+      }
 
     }
     // eslint-disable-next-line
@@ -1076,7 +1085,7 @@ if (earliestDate !== "9999-12-31") {
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
-    
+
     // Charges related exports
     DsrCharges,
     setDsrCharges,

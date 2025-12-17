@@ -46,6 +46,8 @@ import {
   DialogTitle,
   Button,
   Box,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 import FileUpload from "../../components/gallery/FileUpload.js";
@@ -57,7 +59,19 @@ import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 
+const compactInputSx = {
+  "& .MuiOutlinedInput-root": { height: "32px" },
+  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.8rem" },
+  "& .MuiInputLabel-root": { fontSize: "0.8rem", top: "-4px" }, // Adjust label position if needed
+  "& .MuiInputLabel-shrink": { top: "0px" }
+};
+
 function JobDetails() {
+  const [viewJobTab, setViewJobTab] = useState(0);
+  const handleViewJobTabChange = (event, newValue) => {
+    setViewJobTab(newValue);
+  };
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
 
@@ -206,6 +220,7 @@ function JobDetails() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [selectedContainerIndex, setSelectedContainerIndex] = useState(0);
 
   // Import Terms state
   const [importTerms, setImportTerms] = useState("CIF");
@@ -577,7 +592,7 @@ function JobDetails() {
       setTimeout(() => {
         setFileSnackbar(false);
       }, 3000);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleTransporterChange = (e, index) => {
@@ -759,7 +774,7 @@ function JobDetails() {
               bl_no_ref={bl_no_ref}
               setSnackbar={setSnackbar}
               container_nos={formik.values.container_nos}
-              // Passing be_no from formik
+            // Passing be_no from formik
             />
           </div>
           {/* Importer info End*/}
@@ -777,3396 +792,1642 @@ function JobDetails() {
             />
           </div>
 
-          {/* completion status start*/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Completion Status" />
+          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2, bgcolor: "white", borderRadius: 1 }}>
+            <Tabs value={viewJobTab} onChange={handleViewJobTabChange} aria-label="job details tabs"
+              variant="scrollable" scrollButtons="auto"
+              sx={{ "& .MuiTab-root": { textTransform: "none", fontWeight: 600, fontSize: "1rem" } }}
+            >
+              <Tab label="Completion Status" />
+              <Tab label="Tracking Status" />
+              <Tab label="Containers" />
+              <Tab label="Documents" />
+              <Tab label="Charges" />
+            </Tabs>
+          </Box>
 
-            {/* Row 1: Status Display - Documentation, E-Sanchit, Submission, DO */}
-            <Row style={{ marginBottom: "0px", padding: "0px" }}>
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span style={{ fontWeight: "600", color: "#495057" }}>
-                    Documentation:
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: "500",
-                      color: formik.values.documentation_completed_date_time
-                        ? "#28a745"
-                        : "#dc3545",
-                    }}
-                  >
-                    {formik.values.documentation_completed_date_time
-                      ? new Date(
-                          formik.values.documentation_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          month: "short",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                      : "Pending"}
-                  </span>
-                </div>
-                {user?.role === "Admin" && (
-                  <div>
-                    <TextField
-                      type="datetime-local"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="documentation_completed_date_time"
-                      name="documentation_completed_date_time"
-                      value={
-                        formik.values.documentation_completed_date_time || ""
-                      }
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "documentation_completed_date_time",
-                          e.target.value
-                        )
-                      }
-                      InputLabelProps={{ shrink: true }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { height: "32px" },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "6px 8px",
-                          fontSize: "0.8rem",
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </Col>
+          {viewJobTab === 0 && (
+            <>
+              {/* completion status start*/}
+              <div className="job-details-container">
+                <JobDetailsRowHeading heading="Completion Status" />
 
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span style={{ fontWeight: "600", color: "#495057" }}>
-                    E-Sanchit:
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: "500",
-                      color: formik.values.esanchit_completed_date_time
-                        ? "#28a745"
-                        : "#dc3545",
-                    }}
-                  >
-                    {formik.values.esanchit_completed_date_time
-                      ? new Date(
-                          formik.values.esanchit_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          month: "short",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                      : "Pending"}
-                  </span>
-                </div>
-                {user?.role === "Admin" && (
-                  <div>
-                    <TextField
-                      type="datetime-local"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="esanchit_completed_date_time"
-                      name="esanchit_completed_date_time"
-                      value={formik.values.esanchit_completed_date_time || ""}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "esanchit_completed_date_time",
-                          e.target.value
-                        )
-                      }
-                      InputLabelProps={{ shrink: true }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { height: "32px" },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "6px 8px",
-                          fontSize: "0.8rem",
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span style={{ fontWeight: "600", color: "#495057" }}>
-                    Submission:
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: "500",
-                      color: formik.values.submission_completed_date_time
-                        ? "#28a745"
-                        : "#dc3545",
-                    }}
-                  >
-                    {formik.values.submission_completed_date_time
-                      ? new Date(
-                          formik.values.submission_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          month: "short",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                      : "Pending"}
-                  </span>
-                </div>
-                {user?.role === "Admin" && (
-                  <div>
-                    <TextField
-                      type="datetime-local"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="submission_completed_date_time"
-                      name="submission_completed_date_time"
-                      value={formik.values.submission_completed_date_time || ""}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "submission_completed_date_time",
-                          e.target.value
-                        )
-                      }
-                      InputLabelProps={{ shrink: true }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { height: "32px" },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "6px 8px",
-                          fontSize: "0.8rem",
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span style={{ fontWeight: "600", color: "#495057" }}>
-                    DO:
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: "500",
-                      color: formik.values.do_completed ? "#28a745" : "#dc3545",
-                    }}
-                  >
-                    {formik.values.do_completed
-                      ? new Date(formik.values.do_completed).toLocaleString(
-                          "en-US",
-                          {
-                            timeZone: "Asia/Kolkata",
-                            month: "short",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "Pending"}
-                  </span>
-                </div>
-                {user?.role === "Admin" && (
-                  <div>
-                    <TextField
-                      type="datetime-local"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="do_completed"
-                      name="do_completed"
-                      value={
-                        formik.values.do_completed
-                          ? new Date(formik.values.do_completed)
-                              .toISOString()
-                              .slice(0, 16)
-                          : ""
-                      }
-                      onChange={(e) =>
-                        formik.setFieldValue("do_completed", e.target.value)
-                      }
-                      InputLabelProps={{ shrink: true }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { height: "32px" },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "6px 8px",
-                          fontSize: "0.8rem",
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </Col>
-            </Row>
-
-            {/* Row 2: Operation Completion, Delivery Completion, Status, Detailed Status */}
-            <Row style={{ marginBottom: "0px", padding: "0px" }}>
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span style={{ fontWeight: "600", color: "#495057" }}>
-                    Operation Completed:
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: "500",
-                      color: formik.values.completed_operation_date
-                        ? "#28a745"
-                        : "#212529",
-                    }}
-                  >
-                    {formik.values.completed_operation_date
-                      ? new Date(
-                          formik.values.completed_operation_date
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          month: "short",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                      : "-"}
-                  </span>
-                </div>
-                {user?.role === "Admin" && (
-                  <div>
-                    <TextField
-                      type="datetime-local"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="completed_operation_date"
-                      name="completed_operation_date"
-                      value={formik.values.completed_operation_date || ""}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "completed_operation_date",
-                          e.target.value
-                        )
-                      }
-                      InputLabelProps={{ shrink: true }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { height: "32px" },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "6px 8px",
-                          fontSize: "0.8rem",
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span style={{ fontWeight: "600", color: "#495057" }}>
-                    Delivery Completed:
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: "500",
-                      color: data?.bill_document_sent_to_accounts
-                        ? "#28a745"
-                        : "#212529",
-                    }}
-                  >
-                    {data?.bill_document_sent_to_accounts
-                      ? new Date(
-                          data.bill_document_sent_to_accounts
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          month: "short",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                      : "-"}
-                  </span>
-                </div>
-                {user?.role === "Admin" && (
-                  <div>
-                    <TextField
-                      type="datetime-local"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="bill_document_sent_to_accounts"
-                      name="bill_document_sent_to_accounts"
-                      value={
-                        data?.bill_document_sent_to_accounts
-                          ? formatDateForInput(
-                              data.bill_document_sent_to_accounts
-                            )
-                          : ""
-                      }
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "bill_document_sent_to_accounts",
-                          e.target.value
-                        )
-                      }
-                      InputLabelProps={{ shrink: true }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { height: "32px" },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "6px 8px",
-                          fontSize: "0.8rem",
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div style={{ fontSize: "0.875rem", marginBottom: "4px" }}>
-                  <span
-                    style={{
-                      fontWeight: "600",
-                      color: "#495057",
-                      marginRight: "8px",
-                    }}
-                  >
-                    Status:
-                  </span>
-                </div>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  id="status"
-                  name="status"
-                  value={formik.values.status || ""}
-                  onChange={formik.handleChange}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { height: "32px" },
-                    "& .MuiOutlinedInput-input": {
-                      padding: "6px 8px",
-                      fontSize: "0.8rem",
-                    },
-                  }}
-                >
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="Completed">Completed</MenuItem>
-                  <MenuItem value="Cancelled">Cancelled</MenuItem>
-                </TextField>
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div style={{ fontSize: "0.875rem", marginBottom: "4px" }}>
-                  <span
-                    style={{
-                      fontWeight: "600",
-                      color: "#495057",
-                      marginRight: "8px",
-                    }}
-                  >
-                    Detailed Status:
-                  </span>
-                </div>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  id="detailed_status"
-                  name="detailed_status"
-                  value={formik.values.detailed_status || ""}
-                  onChange={formik.handleChange}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { height: "32px" },
-                    "& .MuiOutlinedInput-input": {
-                      padding: "6px 8px",
-                      fontSize: "0.8rem",
-                    },
-                  }}
-                >
-                  <MenuItem value="ETA Date Pending">ETA Date Pending</MenuItem>
-                  <MenuItem value="Estimated Time of Arrival">ETA</MenuItem>
-                  <MenuItem value="Gateway IGM Filed">
-                    Gateway IGM Filed
-                  </MenuItem>
-                  <MenuItem value="Discharged">Discharged</MenuItem>
-                  <MenuItem value="Rail Out">Rail Out</MenuItem>
-                  <MenuItem value="BE Noted, Arrival Pending">
-                    BE Noted, Arrival Pending
-                  </MenuItem>
-                  <MenuItem value="Arrived, BE Note Pending">
-                    Arrived, BE Note Pending
-                  </MenuItem>
-                  <MenuItem value="BE Noted, Clearance Pending">
-                    BE Noted, Clearance Pending
-                  </MenuItem>
-                  <MenuItem value="PCV Done, Duty Payment Pending">
-                    PCV Done, Duty Payment Pending
-                  </MenuItem>
-                  <MenuItem value="Custom Clearance Completed">
-                    Cus.Clearance Completed
-                  </MenuItem>
-                  <MenuItem value="Billing Pending">Billing Pending</MenuItem>
-                  <MenuItem value="Status Completed">Status Completed</MenuItem>
-                </TextField>
-              </Col>
-            </Row>
-
-            {/* Row 3: Bill Agency, Bill Reimbursement, Bill Date */}
-            <Row style={{ marginBottom: "0px", padding: "0px" }}>
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#6c757d",
-                    marginBottom: "2px",
-                  }}
-                >
-                  Bill Agency
-                </div>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  placeholder="Enter Bill Agency"
-                  value={(formik.values.bill_no?.split(",")[0] || "").trim()}
-                  onChange={(e) => {
-                    const currentBillNo = formik.values.bill_no || "";
-                    const billParts = currentBillNo.split(",");
-                    const newBillNo = `${e.target.value.trim()},${(
-                      billParts[1] || ""
-                    ).trim()}`;
-                    formik.setFieldValue("bill_no", newBillNo);
-                  }}
-                  disabled={user?.role !== "Admin" && isSubmissionDate}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { height: "32px" },
-                    "& .MuiOutlinedInput-input": {
-                      padding: "6px 8px",
-                      fontSize: "0.8rem",
-                    },
-                  }}
-                />
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#6c757d",
-                    marginBottom: "2px",
-                  }}
-                >
-                  Bill Reimbursement
-                </div>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  placeholder="Enter Bill Reimbursement"
-                  value={(formik.values.bill_no?.split(",")[1] || "").trim()}
-                  onChange={(e) => {
-                    const currentBillNo = formik.values.bill_no || "";
-                    const billParts = currentBillNo.split(",");
-                    const newBillNo = `${(
-                      billParts[0] || ""
-                    ).trim()},${e.target.value.trim()}`;
-                    formik.setFieldValue("bill_no", newBillNo);
-                  }}
-                  disabled={user?.role !== "Admin" && isSubmissionDate}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { height: "32px" },
-                    "& .MuiOutlinedInput-input": {
-                      padding: "6px 8px",
-                      fontSize: "0.8rem",
-                    },
-                  }}
-                />
-              </Col>
-
-              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#6c757d",
-                    marginBottom: "2px",
-                  }}
-                >
-                  Bill Date
-                </div>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  type="datetime-local"
-                  value={(() => {
-                    const firstDateStr = (formik.values.bill_date || "")
-                      .split(",")[0]
-                      ?.trim();
-                    if (firstDateStr) {
-                      const date = new Date(firstDateStr);
-                      if (!isNaN(date.getTime())) {
-                        return date.toISOString().slice(0, 16);
-                      }
-                    }
-                    return "";
-                  })()}
-                  onChange={(e) => {
-                    const currentBillDate = formik.values.bill_date || "";
-                    const dateParts = currentBillDate.split(",");
-                    const newBillDate = `${e.target.value},${(
-                      dateParts[1] || ""
-                    ).trim()}`;
-                    formik.setFieldValue("bill_date", newBillDate);
-                  }}
-                  disabled={user?.role !== "Admin" && isSubmissionDate}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { height: "32px" },
-                    "& .MuiOutlinedInput-input": {
-                      padding: "6px 8px",
-                      fontSize: "0.8rem",
-                    },
-                  }}
-                />
-              </Col>
-            </Row>
-          </div>
-
-          {/* completion status end  */}
-          {/* Tracking status start*/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Tracking Status" />
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>BL No:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="awb_bl_no"
-                    name="awb_bl_no"
-                    // disabled={isSubmissionDate}
-                    value={formik.values.awb_bl_no || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter BL No"
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>BL Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="awb_bl_date"
-                    name="awb_bl_date"
-                    value={
-                      formik.values.awb_bl_date
-                        ? formik.values.awb_bl_date.length === 10
-                          ? `${formik.values.awb_bl_date}T00:00`
-                          : formik.values.awb_bl_date
-                        : ""
-                    }
-                    // disabled={ExBondflag || isSubmissionDate}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>HAWBL No:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="hawb_hbl_no"
-                    name="hawb_hbl_no"
-                    // disabled={isSubmissionDate}
-                    value={formik.values.hawb_hbl_no || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter HAWBL No"
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>HAWBL Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="hawb_hbl_date"
-                    name="hawb_hbl_date"
-                    value={
-                      formik.values.hawb_hbl_date
-                        ? formik.values.hawb_hbl_date.length === 10
-                          ? `${formik.values.hawb_hbl_date}T00:00`
-                          : formik.values.hawb_hbl_date
-                        : ""
-                    }
-                    // disabled={ExBondflag || isSubmissionDate}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>ETA Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="vessel_berthing"
-                    name="vessel_berthing"
-                    value={
-                      formik.values.vessel_berthing
-                        ? formik.values.vessel_berthing.length === 10
-                          ? `${formik.values.vessel_berthing}T00:00`
-                          : formik.values.vessel_berthing
-                        : ""
-                    }
-                    disabled={
-                      !(user?.role === "Admin") &&
-                      (ExBondflag || isSubmissionDate)
-                    }
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>G-IGM No:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="gatweay_igm"
-                    name="gateway_igm"
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                    value={formik.values.gateway_igm || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter IGM No"
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>G-IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="gateway_igm_date"
-                    name="gateway_igm_date"
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                    value={
-                      formik.values.gateway_igm_date
-                        ? formik.values.gateway_igm_date.length === 10
-                          ? `${formik.values.gateway_igm_date}T00:00`
-                          : formik.values.gateway_igm_date
-                        : ""
-                    }
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>IGM No:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="igm_no"
-                    name="igm_no"
-                    value={formik.values.igm_no || ""}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter IGM No"
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="igm_date"
-                    name="igm_date"
-                    value={
-                      formik.values.igm_date
-                        ? formik.values.igm_date.length === 10
-                          ? `${formik.values.igm_date}T00:00`
-                          : formik.values.igm_date
-                        : ""
-                    }
-                    disabled={
-                      !(user?.role === "Admin") &&
-                      (ExBondflag || isSubmissionDate)
-                    }
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Discharge/ L-IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="discharge_date"
-                    name="discharge_date"
-                    disabled={
-                      !(user?.role === "Admin") &&
-                      (!formik.values.vessel_berthing ||
-                        ExBondflag ||
-                        isSubmissionDate)
-                    }
-                    value={
-                      formik.values.discharge_date
-                        ? formik.values.discharge_date.length === 10
-                          ? `${formik.values.discharge_date}T00:00`
-                          : formik.values.discharge_date
-                        : ""
-                    }
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>Line No:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="line_no"
-                    name="line_no"
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                    value={formik.values.line_no || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter Line No"
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>No Of packages:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="no_of_pkgs"
-                    name="no_of_pkgs"
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                    value={formik.values.no_of_pkgs || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter No Of packages"
-                  />
-                </div>
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* HSS Field */}
-                  <strong>HSS:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    select
-                    size="small"
-                    variant="outlined"
-                    id="hss"
-                    name="hss"
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                    value={formik.values.hss || "No"}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                  >
-                    <MenuItem value="Yes">Yes</MenuItem>
-                    <MenuItem value="No">No</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-
-              {formik.values.hss && formik.values.hss == "Yes" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    {/* Seller Name Field */}
-                    <strong>Seller Name:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="saller_name"
-                      name="saller_name"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.saller_name || ""}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      placeholder="Enter Seller Name"
-                    />
-                  </div>
-                </Col>
-              )}
-
-              {formik.values.consignment_type !== "LCL" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Free time:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      select
-                      size="small"
-                      variant="outlined"
-                      id="free_time"
-                      name="free_time"
-                      value={formik.values.free_time || ""}
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      // disabled={user.role !== "Admin"} // Disable if the user is not Admin
-                    >
-                      {options?.map((option, id) => (
-                        <MenuItem key={id} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </div>
-                </Col>
-              )}
-
-              <Row style={{ marginTop: "20px" }}>
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    {/* Seller Name Field */}
-                    <strong>AD Code:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="adCode"
-                      name="adCode"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.adCode || ""}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      placeholder="Enter AD Code"
-                    />
-                  </div>
-                </Col>
-
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    {/* Seller Name Field */}
-                    <strong>Bank Name:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="bank_name"
-                      name="bank_name"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.bank_name || ""}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      placeholder="Enter Bank Name"
-                    />
-                  </div>
-                </Col>
-              </Row>
-
-              {/* Import Terms Section */}
-              <Row style={{ marginTop: "20px" }}>
-                <Col xs={12}>
-                  <Box sx={{ mt: 2 }}>
-                    <FormLabel
-                      component="legend"
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: "14px",
-                        color: "#34495e",
-                        mb: 2,
-                        display: "block",
-                      }}
-                    >
-                      Terms of Invoice
-                    </FormLabel>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 4,
-                        flexWrap: "wrap",
-                        "@media (max-width: 768px)": {
-                          flexDirection: "column",
-                          gap: 2,
-                        },
-                      }}
-                    >
-                      {/* Radio Group Section */}
-                      <Box sx={{ minWidth: 200 }}>
-                        <FormControl component="fieldset">
-                          <RadioGroup
-                            aria-label="import-terms"
-                            name="import_terms"
-                            value={formik.values.import_terms || importTerms}
-                            onChange={handleImportTermsChange}
-                            sx={{ gap: 0.5 }}
-                          >
-                            <FormControlLabel
-                              value="CIF"
-                              control={<Radio size="small" />}
-                              label={
-                                <Typography sx={{ fontSize: "14px" }}>
-                                  CIF
-                                </Typography>
-                              }
-                            />
-                            <FormControlLabel
-                              value="FOB"
-                              control={<Radio size="small" />}
-                              label={
-                                <Typography sx={{ fontSize: "14px" }}>
-                                  FOB
-                                </Typography>
-                              }
-                            />
-                            <FormControlLabel
-                              value="CF"
-                              control={<Radio size="small" />}
-                              label={
-                                <Typography sx={{ fontSize: "14px" }}>
-                                  C&F
-                                </Typography>
-                              }
-                            />
-                            <FormControlLabel
-                              value="CI"
-                              control={<Radio size="small" />}
-                              label={
-                                <Typography sx={{ fontSize: "14px" }}>
-                                  C&I
-                                </Typography>
-                              }
-                            />
-                          </RadioGroup>
-                        </FormControl>
-                      </Box>
-
-                      {/* Conditional Fields Section */}
-                      <Box
-                        sx={{
-                          flex: 1,
-                          minWidth: 300,
-                          padding: 2,
-                          backgroundColor: "#f8f9fa",
-                          borderRadius: 2,
-                          border: "1px solid #e9ecef",
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 2,
-                          }}
-                        >
-                          <TextField
-                            label={`${
-                              formik.values.import_terms || importTerms
-                            } Value (₹)`}
-                            type="number"
-                            name="cifValue"
-                            value={formik.values.cifValue || ""}
-                            onChange={formik.handleChange}
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              maxWidth: 250,
-                              "& .MuiOutlinedInput-root": {
-                                backgroundColor: "white",
-                              },
-                            }}
-                          />
-
-                          {((formik.values.import_terms || importTerms) ===
-                            "FOB" ||
-                            (formik.values.import_terms || importTerms) ===
-                              "CI") && (
-                            <TextField
-                              label="Freight (₹)"
-                              type="number"
-                              name="freight"
-                              value={formik.values.freight || ""}
-                              onChange={formik.handleChange}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                maxWidth: 250,
-                                "& .MuiOutlinedInput-root": {
-                                  backgroundColor: "white",
-                                },
-                              }}
-                            />
-                          )}
-
-                          {((formik.values.import_terms || importTerms) ===
-                            "FOB" ||
-                            (formik.values.import_terms || importTerms) ===
-                              "CF") && (
-                            <TextField
-                              label="Insurance (₹)"
-                              type="number"
-                              name="insurance"
-                              value={formik.values.insurance || ""}
-                              onChange={formik.handleChange}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                maxWidth: 250,
-                                "& .MuiOutlinedInput-root": {
-                                  backgroundColor: "white",
-                                },
-                              }}
-                            />
-                          )}
-
-                          {/* Helper text based on selected import terms */}
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: "#6c757d",
-                              fontStyle: "italic",
-                              mt: 1,
-                            }}
-                          >
-                            {(formik.values.import_terms || importTerms) ===
-                              "CIF" && "Cost, Insurance & Freight included"}
-                            {(formik.values.import_terms || importTerms) ===
-                              "FOB" &&
-                              "Free on Board - Add freight & insurance"}
-                            {(formik.values.import_terms || importTerms) ===
-                              "CF" && "Cost & Freight - Add insurance"}
-                            {(formik.values.import_terms || importTerms) ===
-                              "CI" && "Cost & Insurance - Add freight"}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Col>
-              </Row>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col
-                xs={12}
-                lg={4}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Priority :&nbsp;</strong>
-
-                  <RadioGroup
-                    row
-                    name="priorityJob"
-                    value={formik.values.priorityJob || ""}
-                    onChange={formik.handleChange}
-                    sx={{ alignItems: "center" }}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  >
-                    <FormControlLabel
-                      value="normal"
-                      control={
-                        <Radio
-                          size="small"
-                          disabled={user?.role !== "Admin" && isSubmissionDate}
-                        />
-                      }
-                      label="Normal"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      sx={{
-                        color: "green",
-                        "& .MuiSvgIcon-root": { color: "green" },
-                      }}
-                    />
-                    <FormControlLabel
-                      value="Priority"
-                      control={
-                        <Radio
-                          size="small"
-                          disabled={user?.role !== "Admin" && isSubmissionDate}
-                        />
-                      }
-                      label="Priority"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      sx={{
-                        color: "orange",
-                        "& .MuiSvgIcon-root": { color: "orange" },
-                      }}
-                    />
-                    <FormControlLabel
-                      value="High Priority"
-                      control={
-                        <Radio
-                          size="small"
-                          disabled={user?.role !== "Admin" && isSubmissionDate}
-                        />
-                      }
-                      label="High Priority"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      sx={{
-                        color: "red",
-                        "& .MuiSvgIcon-root": { color: "red" },
-                      }}
-                    />
-                  </RadioGroup>
-                </div>
-              </Col>
-              <Col
-                xs={12}
-                lg={4}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Payment Method:&nbsp;</strong>
-
-                  <RadioGroup
-                    row
-                    name="payment_method"
-                    value={formik.values.payment_method || ""}
-                    onChange={formik.handleChange}
-                    sx={{ alignItems: "center" }}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  >
-                    <FormControlLabel
-                      value="Transaction"
-                      control={
-                        <Radio
-                          size="small"
-                          disabled={user?.role !== "Admin" && isSubmissionDate}
-                        />
-                      }
-                      label="Transaction"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      // sx={{
-                      //   color: "green",
-                      //   "& .MuiSvgIcon-root": { color: "green" },
-                      // }}
-                    />
-                    <FormControlLabel
-                      value="Deferred"
-                      control={
-                        <Radio
-                          size="small"
-                          disabled={user?.role !== "Admin" && isSubmissionDate}
-                        />
-                      }
-                      label="Deferred"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                      // sx={{
-                      //   color: "orange",
-                      //   "& .MuiSvgIcon-root": { color: "orange" },
-                      // }}
-                    />
-                  </RadioGroup>
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>FTA Benefit: &nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="do_revalidation_date"
-                    name="do_revalidation_date"
-                    value={
-                      formik.values.fta_Benefit_date_time
-                        ? formik.values.fta_Benefit_date_time
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      if (newValue) {
-                        formik.setFieldValue("fta_Benefit_date_time", newValue);
-                      } else {
-                        formik.setFieldValue("fta_Benefit_date_time", "");
-                      }
-                    }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  />
-                </div>
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Description:&nbsp;</strong>
-                  <TextField
-                    size="small"
-                    fullWidth
-                    margin="normal"
-                    variant="outlined"
-                    id="description"
-                    name="description"
-                    value={formik.values.description || ""}
-                    onChange={formik.handleChange}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  />
-                  <IconButton
-                    size="small"
-                    onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                    onClick={(event) => {
-                      handleCopy(event, formik.values.description);
-                    }}
-                  >
-                    <abbr title="Copy description">
-                      <ContentCopyIcon fontSize="inherit" />
-                    </abbr>
-                  </IconButton>
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>CTH No.: &nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="cth_no"
-                    name="cth_no"
-                    value={formik.values.cth_no || ""}
-                    onChange={formik.handleChange}
-                    // InputLabelProps={{ shrink: true }}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  />
-                </div>
-              </Col>
-              {/* BE Type Selection */}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>BOE Type:&nbsp;</strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    margin="normal"
-                    name="type_of_b_e"
-                    value={formik.values.type_of_b_e || ""}
-                    onChange={formik.handleChange}
-                    displayempty="true"
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  >
-                    <MenuItem value="" disabled>
-                      Select BE Type
-                    </MenuItem>
-                    {beTypeOptions.map((option, index) => (
-                      <MenuItem key={index} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </div>
-              </Col>
-            </Row>
-            {/* Clearance under start */}
-            <Row style={{ marginTop: "20px" }}>
-              {/* Clearance Under Selection */}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Clearance Under:&nbsp;</strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    name="clearanceValue"
-                    value={formik.values.clearanceValue || ""}
-                    onChange={(e) => {
-                      if (canChangeClearance()) {
-                        formik.setFieldValue("clearanceValue", e.target.value);
-                      } else {
-                        alert(
-                          "Please clear Ex-Bond details before changing Clearance Under."
-                        );
-                      }
-                    }}
-                  >
-                    <MenuItem value="" disabled>
-                      Select Clearance Type
-                    </MenuItem>
-                    {filteredClearanceOptions.map((option, index) => (
-                      <MenuItem key={index} value={option.value || ""}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </div>
-              </Col>
-              {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
-              <Col xs={12} lg={4}>
-                {ExBondflag && (
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>In Bond:&nbsp;</strong>
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      name="exBondValue"
-                      value={formik.values.exBondValue || ""}
-                      onChange={formik.handleChange}
-                    >
-                      <MenuItem value="" disabled>
-                        Select In-Bond Type
-                      </MenuItem>
-                      {/* Static "Other" option */}
-                      <MenuItem value="other">Other</MenuItem>
-                      {/* Dynamic Job Details from API */}
-                      {jobDetails.map((job) => (
-                        <MenuItem key={job.job_no} value={job.job_no}>
-                          {`${job.job_no} - ${job.importer}`}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </div>
-                )}
-              </Col>
-
-              {/* Additional BE Details if the "other" option is selected */}
-              {formik.values.exBondValue === "other" && (
-                <>
-                  <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                    <div
-                      className="job-detail-input-container"
-                      style={{ justifyContent: "flex-start" }}
-                    >
-                      <strong>InBond BE Number:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        name="in_bond_be_no"
-                        value={formik.values.in_bond_be_no || ""}
-                        onChange={formik.handleChange}
-                      />
-                    </div>
-                  </Col>
-
-                  <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                    <div
-                      className="job-detail-input-container"
-                      style={{ justifyContent: "flex-start" }}
-                    >
-                      <strong>InBond BE Date:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        label="InBond BE Date"
-                        type="date"
-                        InputLabelProps={{ shrink: true }}
-                        name="in_bond_be_date"
-                        value={formik.values.in_bond_be_date || ""}
-                        onChange={formik.handleChange}
-                      />
-                    </div>
-                  </Col>
-
-                  <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                    <FileUpload
-                      label="Upload InBond BE Copy"
-                      bucketPath="ex_be_copy_documents"
-                      onFilesUploaded={(newFiles) =>
-                        formik.setFieldValue("in_bond_ooc_copies", [
-                          ...formik.values.in_bond_ooc_copies,
-                          ...newFiles,
-                        ])
-                      }
-                      multiple
-                    />
-                    <ImagePreview
-                      images={formik.values.in_bond_ooc_copies || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [
-                          ...formik.values.in_bond_ooc_copies,
-                        ];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue(
-                          "in_bond_ooc_copies",
-                          updatedFiles
-                        );
-                      }}
-                    />
-                  </Col>
-                </>
-              )}
-              {formik.values.exBondValue !== "other" &&
-                formik.values.exBondValue !== "" &&
-                (() => {
-                  // Find the matching job based on job_no
-                  const matchedJob = jobDetails.find(
-                    (job) => job.job_no === formik.values.exBondValue
-                  );
-
-                  return matchedJob ? (
-                    <>
-                      <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                        <strong>BE No:</strong>&nbsp;&nbsp;&nbsp;&nbsp;{" "}
-                        {matchedJob.be_no || "N/A"}
-                      </Col>
-                      <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                        <strong>BE Date:</strong> &nbsp;&nbsp;&nbsp;&nbsp;{" "}
-                        {matchedJob.be_date || "N/A"}
-                      </Col>
-                      <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                        <strong>OOC copy:</strong>
-                        <ImagePreview
-                          images={matchedJob.ooc_copies || []} // Corrected optional chaining syntax
-                          readOnly
-                        />
-                      </Col>
-                    </>
-                  ) : (
-                    <Col xs={12} style={{ marginTop: "20px" }}>
-                      No matching job found.
-                    </Col>
-                  );
-                })()}
-
-              <Col xs={12} lg={4} style={{ marginTop: "30px" }}>
-                {ExBondflag && (
-                  <Row>
-                    <Col xs={12}>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={resetOtherDetails}
-                      >
-                        Reset Ex-Bond Details
-                      </Button>
-                    </Col>
-                  </Row>
-                )}
-              </Col>
-            </Row>
-            {/* Clearance under end */}
-            {/* total weight start */}
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Gross Weight (KGS):&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="gross_weight"
-                    name="gross_weight"
-                    value={formik.values.gross_weight || ""}
-                    onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Net Weight (KGS):&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="job_net_weight"
-                    name="job_net_weight"
-                    value={formik.values.job_net_weight || ""}
-                    onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
-              </Col>
-            </Row>
-            {/* total weight end */}
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>BOE NO:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="be_no"
-                    name="be_no"
-                    value={formik.values.be_no || ""}
-                    onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>BOE Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="be_date"
-                    name="be_date"
-                    value={formik.values.be_date || ""}
-                    onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Assessment Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="assessment_date"
-                    name="assessment_date"
-                    value={formik.values.assessment_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col
-                xs={12}
-                lg={4}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>BOE Filing:&nbsp;</strong>
-
-                  <RadioGroup
-                    row
-                    name="be_filing_type"
-                    value={formik.values.be_filing_type || ""}
-                    onChange={formik.handleChange}
-                    sx={{ alignItems: "center" }}
-                    disabled={user?.role !== "Admin" && isSubmissionDate}
-                  >
-                    <FormControlLabel
-                      value="Discharge"
-                      control={<Radio size="small" />}
-                      label="Discharge"
-                      // disabled={
-                      //   isSubmissionDate ||
-                      //   !formik.values.discharge_date ||
-                      //   !formik.values.gateway_igm_date ||
-                      //   !formik.values.esanchit_completed_date_time ||
-                      //   !formik.values.documentation_completed_date_time
-                      // }
-                    />
-                    <FormControlLabel
-                      value="Railout"
-                      control={<Radio size="small" />}
-                      label="Railout"
-                    />
-                    <FormControlLabel
-                      value="Advanced"
-                      control={<Radio size="small" />}
-                      label="Advanced"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                    />
-                    <FormControlLabel
-                      value="Prior"
-                      control={<Radio size="small" />}
-                      label="Prior"
-                      disabled={user?.role !== "Admin" && isSubmissionDate}
-                    />
-                  </RadioGroup>
-                </div>
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Checklist"
-                  bucketPath="checklist"
-                  onFilesUploaded={(newFiles, replaceMode) => {
-                    if (replaceMode) {
-                      // Replace existing files with new uploaded file
-                      formik.setFieldValue("checklist", newFiles);
-                    } else {
-                      // Append to existing files (default behavior)
-                      const existingFiles = formik.values.checklist || [];
-                      const updatedFiles = [...existingFiles, ...newFiles];
-                      formik.setFieldValue("checklist", updatedFiles);
-                    }
-                  }}
-                  singleFileOnly={true}
-                  replaceMode={true}
-                />
-
-                <ImagePreview
-                  images={formik.values.checklist || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.checklist];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("checklist", updatedFiles);
-                  }}
-                  onImageClick={() => {
-                    formik.setFieldValue("is_checklist_clicked", true);
-                  }}
-                />
-              </Col>
-              {/* <Col xs={12} lg={4}>
-                <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                  <Button
-                    variant="primary"
-                    onClick={handleGenerate}
-                    style={{
-                      padding: "10px 20px",
-                      fontSize: "16px",
-                      borderRadius: "6px",
-                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                    }}
-                  >
-                    Generate Job Sticker
-                  </Button>
-                </div>
-              </Col> */}
-              <JobStickerPDF
-                ref={pdfRef}
-                jobData={{
-                  job_no: formik.values.job_no,
-                  year: formik.values.year,
-                  importer: formik.values.importer,
-                  be_no: formik.values.be_no,
-                  be_date: formik.values.be_date,
-                  invoice_number: formik.values.invoice_number,
-                  invoice_date: formik.values.invoice_date,
-                  loading_port: formik.values.loading_port,
-                  no_of_pkgs: formik.values.no_of_pkgs,
-                  description: formik.values.description,
-                  gross_weight: formik.values.gross_weight,
-                  job_net_weight: formik.values.job_net_weight,
-                  gateway_igm: formik.values.gateway_igm,
-                  gateway_igm_date: formik.values.gateway_igm_date,
-                  igm_no: formik.values.igm_no,
-                  igm_date: formik.values.igm_date,
-                  awb_bl_no: formik.values.awb_bl_no,
-                  awb_bl_date: formik.values.awb_bl_date,
-                  shipping_line_airline: formik.values.shipping_line_airline,
-                  custom_house: formik.values.custom_house,
-                  container_nos: formik.values.container_nos,
-                }}
-                data={data}
-              />
-              <Col xs={12} lg={4}>
-                {/* Only show FileUpload if there's NO PDF in the array */}
-
-                <div
-                  style={{
-                    display: "flex", // puts items in a row
-                    alignItems: "center", // vertically center items
-                    gap: "10px", // space between items
-                    marginBottom: "10px", // optional spacing below
-                  }}
-                >
-                  <Button
-                    variant="primary"
-                    onClick={handleGenerate}
-                    style={{
-                      padding: "10px 20px",
-                      fontSize: "16px",
-                      borderRadius: "6px",
-                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                    }}
-                  >
-                    Generate Job Sticker
-                  </Button>
-
-                  <FileUpload
-                    label="Job Sticker Upload"
-                    bucketPath="job-sticker"
-                    onFilesUploaded={(newFiles) => {
-                      const existingFiles =
-                        formik.values.job_sticker_upload || [];
-                      const updatedFiles = [...existingFiles, ...newFiles];
-                      formik.setFieldValue("job_sticker_upload", updatedFiles);
-                    }}
-                    multiple={true}
-                  />
-                </div>
-
-                <ImagePreview
-                  images={formik.values.job_sticker_upload || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.job_sticker_upload];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                />
-              </Col>
-              <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Processed BE Copy"
-                  bucketPath="processed_be_attachment"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles =
-                      formik.values.processed_be_attachment || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue(
-                      "processed_be_attachment",
-                      updatedFiles
-                    );
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.processed_be_attachment || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [
-                      ...formik.values.processed_be_attachment,
-                    ];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue(
-                      "processed_be_attachment",
-                      updatedFiles
-                    );
-                  }}
-                />
-              </Col>{" "}
-              <Row style={{ marginTop: "10px" }}>
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Checklist Approved:&nbsp;</strong>{" "}
-                    <Checkbox
-                      checked={formik.values.is_checklist_aprroved}
-                      disabled={
-                        user?.role !== "Admin" &&
-                        !formik.values.is_checklist_clicked
-                      }
-                      onChange={(e) => {
-                        const isChecked = e.target.checked;
-                        if (isChecked) {
-                          // Set current date-time adjusted to local timezone
-                          const currentDateTime = new Date(
-                            Date.now() - new Date().getTimezoneOffset() * 60000
-                          )
-                            .toISOString()
-                            .slice(0, 16);
-                          formik.setFieldValue("is_checklist_aprroved", true);
-                          formik.setFieldValue(
-                            "is_checklist_aprroved_date",
-                            currentDateTime
-                          );
-                        } else {
-                          // Clear values when unchecked
-                          formik.setFieldValue("is_checklist_aprroved", false);
-                          formik.setFieldValue(
-                            "is_checklist_aprroved_date",
-                            ""
-                          );
-                        }
-                      }}
-                    />
-                    {!formik.values.is_checklist_clicked && (
-                      <span
-                        style={{
-                          marginLeft: "10px",
-                          fontSize: "12px",
-                          color: "#666",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        (Click on a checklist file first to enable)
-                      </span>
-                    )}
-                    {formik.values.is_checklist_aprroved_date && (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.is_checklist_aprroved_date
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </Col>{" "}
-              </Row>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Examination Planning Date:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.examinationPlanning}
-                    checked={formik.values.examinationPlanning}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time when checked, adjusted to local timezone
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16);
-                        formik.setFieldValue("examinationPlanning", true);
-                        formik.setFieldValue(
-                          "examination_planning_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("examinationPlanning", false);
-                        formik.setFieldValue("examination_planning_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.examination_planning_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(
-                        formik.values.examination_planning_date
-                      ).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </Col>
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Examination Planning Date:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="examination_planning_date"
-                      name="examination_planning_date"
-                      value={
-                        formik.values.examination_planning_date
-                          ? formik.values.examination_planning_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("examinationPlanning", true);
-                          formik.setFieldValue(
-                            "examination_planning_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("examinationPlanning", false);
-                          formik.setFieldValue("examination_planning_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-              <Col
-                xs={12}
-                lg={4}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <Typography variant="body1" sx={{ mr: 1 }}>
-                  First Check
-                </Typography>
-                <Switch
-                  checked={Boolean(formik.values.firstCheck)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
-                      const currentDateTime = new Date(
-                        Date.now() - new Date().getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      formik.setFieldValue("firstCheck", currentDateTime);
-                    } else {
-                      formik.setFieldValue("firstCheck", "");
-                    }
-                  }}
-                  name="firstCheck"
-                  color="primary"
-                  disabled={
-                    user?.role !== "Admin" &&
-                    Boolean(formik.values.out_of_charge?.trim())
-                  } // Disable if OOC date is not empty
-                />
-                {formik.values.firstCheck && (
-                  <>
-                    <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
-                      YES &nbsp;
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ ml: 1, fontWeight: "bold" }}
-                    >
-                      {new Date(formik.values.firstCheck).toLocaleString(
-                        "en-GB",
-                        {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                          timeZone: "Asia/Kolkata",
-                        }
-                      )}
-                    </Typography>
-                  </>
-                )}
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  <strong>Examination Date:&nbsp;</strong>
-                  {data.examination_date ? data.examination_date : ""}
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>PCV Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="pcv_date"
-                    name="pcv_date"
-                    value={
-                      formik.values.pcv_date
-                        ? formik.values.pcv_date.length === 10
-                          ? `${formik.values.pcv_date}T00:00`
-                          : formik.values.pcv_date
-                        : ""
-                    }
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>{" "}
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Duty Paid Date:&nbsp;</strong>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="duty_paid_date"
-                      name="duty_paid_date"
-                      value={formik.values.duty_paid_date}
-                      onChange={formik.handleChange}
-                      disabled={
-                        user?.role !== "Admin" && isDutyPaidDateDisabled
-                      }
-                      sx={{ flex: 1 }}
-                    />
-                    <IconButton
-                      onClick={handleOpenDutyModal}
-                      size="small"
-                      sx={{ mt: 1 }}
-                      title="Add Duty Details"
-                    >
-                      <AddIcon />
-                    </IconButton>
-                  </Box>
-                  {isDutyPaidDateDisabled && (
-                    <Typography
-                      variant="caption"
-                      color="error"
-                      sx={{ mt: 1, display: "block" }}
-                    >
-                      Please add Assessment Date and IGST Amount details first
-                    </Typography>
-                  )}{" "}
-                </div>
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Out of Charge Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="out_of_charge"
-                    name="out_of_charge"
-                    value={
-                      formik.values.out_of_charge
-                        ? formik.values.out_of_charge.length === 10
-                          ? `${formik.values.out_of_charge}T00:00`
-                          : formik.values.out_of_charge
-                        : ""
-                    }
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={4}>
-                <FileUpload
-                  label="Upload OOC Copy"
-                  bucketPath="ooc_copies"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.ooc_copies || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("ooc_copies", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.ooc_copies || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.ooc_copies];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("ooc_copies", updatedFiles);
-                  }}
-                />
-              </Col>
-              <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Customs Gate Pass Copy"
-                  bucketPath="gate_pass_copies"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.gate_pass_copies || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("gate_pass_copies", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.gate_pass_copies || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.gate_pass_copies];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("gate_pass_copies", updatedFiles);
-                  }}
-                />
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>
-                    {formik.values.is_obl_recieved
-                      ? "OBL Recived By DO Team "
-                      : ""}
-                  </strong>
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <FormControl>
-                  <RadioGroup
-                    row
-                    aria-labelledby="demo-radio-buttons-group-label"
-                    name="radio-buttons-group"
-                    value={formik.values.obl_telex_bl}
-                    onChange={handleBlStatusChange}
-                    style={{ marginTop: "10px" }}
-                  >
-                    <FormControlLabel
-                      value="OBL"
-                      control={
-                        <Radio checked={formik.values.obl_telex_bl === "OBL"} />
-                      }
-                      label="Original Documents"
-                    />
-                    <FormControlLabel
-                      value="Telex"
-                      control={
-                        <Radio
-                          checked={formik.values.obl_telex_bl === "Telex"}
-                        />
-                      }
-                      label="Telex"
-                    />
-                    <FormControlLabel
-                      value="Surrender BL"
-                      control={
-                        <Radio
-                          checked={
-                            formik.values.obl_telex_bl === "Surrender BL"
-                          }
-                        />
-                      }
-                      label="Surrender BL"
-                    />
-                    <FormControlLabel
-                      value="Waybill"
-                      control={
-                        <Radio
-                          checked={formik.values.obl_telex_bl === "Waybill"}
-                        />
-                      }
-                      label="Waybill"
-                    />
-                    <FormControlLabel
-                      value="clear"
-                      control={<Radio />}
-                      label="Clear"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              </Col>
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>
-                      {formik.values.obl_telex_bl === "OBL"
-                        ? "Original Document Received Date:"
-                        : "Document Received Date:"}
-                    </strong>
-                    &nbsp;
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="document_received_date"
-                      name="document_received_date"
-                      value={
-                        formik.values.document_received_date
-                          ? formik.values.document_received_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue(
-                            "document_received_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("document_received_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              {/* Checkbox for DO Planning */}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Planning:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.doPlanning}
-                    checked={formik.values.doPlanning}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time when checked
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16); // Format to "yyyy-MM-ddTHH:mm"
-                        formik.setFieldValue("doPlanning", true);
-                        formik.setFieldValue(
-                          "do_planning_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("doPlanning", false);
-                        formik.setFieldValue("do_planning_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.do_planning_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(formik.values.do_planning_date).toLocaleString(
-                        "en-US",
-                        {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        }
-                      )}
-                    </span>
-                  )}
-                </div>
-              </Col>
-
-              {/* Radio Button for DO Planning Type */}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Planning Type:&nbsp;</strong>
-                  <RadioGroup
-                    row
-                    aria-label="do-planning-type"
-                    name="type_of_Do"
-                    value={formik.values.type_of_Do}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      if (selectedValue === "Clear") {
-                        // Retain the current date but reset only the type
-                        formik.setFieldValue("type_of_Do", "");
-                      } else {
-                        // Set the selected type without changing the date
-                        formik.setFieldValue("type_of_Do", selectedValue);
-                      }
-                    }}
-                    style={{ marginLeft: "10px" }}
-                  >
-                    <FormControlLabel
-                      value="ICD"
-                      control={
-                        <Radio
-                          style={{
-                            color:
-                              formik.values.type_of_Do === "ICD"
-                                ? "green"
-                                : "inherit",
-                          }}
-                        />
-                      }
-                      label="ICD"
-                    />
-                    <FormControlLabel
-                      value="Factory"
-                      control={
-                        <Radio
-                          style={{
-                            color:
-                              formik.values.type_of_Do === "Factory"
-                                ? "green"
-                                : "inherit",
-                          }}
-                        />
-                      }
-                      label="Factory"
-                    />
-                    <FormControlLabel
-                      value="Clear"
-                      control={
-                        <Radio
-                          style={{
-                            color:
-                              formik.values.type_of_Do === "Clear"
-                                ? "red"
-                                : "inherit",
-                          }}
-                        />
-                      }
-                      label="Clear"
-                    />
-                  </RadioGroup>
-                </div>
-              </Col>
-
-              {/* Admin TextField for DO Planning Date */}
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>DO Planning Date (Admin Only):&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="do_planning_date"
-                      name="do_planning_date"
-                      value={formik.values.do_planning_date || ""}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("do_planning_date", newValue);
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
-                  {formik.values.do_revalidation ? (
-                    formik.values.do_validity_upto_job_level
-                  ) : (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="date"
-                      id="do_validity_upto_job_level"
-                      name="do_validity_upto_job_level"
-                      value={formik.values.do_validity_upto_job_level}
-                      onChange={formik.handleChange}
-                    />
-                  )}
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <Col xs={12} lg={12}>
-                    <div className="job-detail-input-container">
-                      <strong>Required DO Validity Upto:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        type="date"
-                        id={`required_do_validity_upto_0`}
-                        name={`container_nos[0].required_do_validity_upto`}
-                        value={
-                          formik.values.container_nos[0]
-                            ?.required_do_validity_upto || ""
-                        }
-                        onChange={(e) => handleDateChange(e.target.value)}
-                      />
-                    </div>
-                  </Col>
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Revalidation:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.do_revalidatioFn}
-                    checked={formik.values.do_revalidation}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time adjusted to local timezone
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16);
-                        formik.setFieldValue("do_revalidation", true);
-                        formik.setFieldValue(
-                          "do_revalidation_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("do_revalidation", false);
-                        formik.setFieldValue("do_revalidation_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.do_revalidation_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(
-                        formik.values.do_revalidation_date
-                      ).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </Col>
-
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>DO Revalidation Date:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="do_revalidation_date"
-                      name="do_revalidation_date"
-                      value={
-                        formik.values.do_revalidation_date
-                          ? formik.values.do_revalidation_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("do_revalidation", true);
-                          formik.setFieldValue(
-                            "do_revalidation_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("do_revalidation", false);
-                          formik.setFieldValue("do_revalidation_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Received Date:</strong>
-                  &nbsp;
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="do_completed"
-                    name="do_completed"
-                    value={formatDateTime(
-                      formik.values.do_completed
-                        ? formik.values.do_completed
-                        : ""
-                    )}
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      if (newValue) {
-                        formik.setFieldValue("do_completed", newValue);
-                      } else {
-                        formik.setFieldValue("do_completed", "");
-                      }
-                    }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Valid Up to:</strong> &nbsp;&nbsp;
-                  {formik.values.do_validity_upto_job_level}
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="mb-3">
-                  <strong>DO Copies:&nbsp;</strong>
-                  <ImagePreview
-                    images={formik.values.do_copies || []} // Corrected optional chaining syntax
-                    readOnly
-                  />
-                </div>
-              </Col>
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              <Col>
-                <div className="job-detail-input-container">
-                  <strong>Remarks:&nbsp;</strong>
-                  <TextField
-                    multiline
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="remarks"
-                    name="remarks"
-                    value={formik.values.remarks}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-          </div>
-          {/* Tracking status end*/}
-
-          {/* document section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Documents" />
-            <br />
-
-            {/* CTH Documents Section */}
-            <Row>
-              {cthDocuments?.map((doc, index) => (
-                <Col
-                  xs={12}
-                  md={6}
-                  lg={4}
-                  key={`cth-${index}`}
-                  style={{ marginBottom: "30px", position: "relative" }}
-                >
-                  <div
-                    className="document-card"
-                    style={{
-                      border: "1px solid #e0e0e0",
-                      borderRadius: "8px",
-                      padding: "15px",
-                      backgroundColor: "#fafafa",
-                    }}
-                  >
-                    {/* Document Header with Title and Actions */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "15px",
-                        borderBottom: "1px solid #e0e0e0",
-                        paddingBottom: "10px",
-                      }}
-                    >
-                      <h6
-                        style={{
-                          margin: 0,
-                          fontWeight: "600",
-                          color: "#333",
-                        }}
-                      >
-                        {doc.document_name} ({doc.document_code})
-                      </h6>
-
-                      {/* Action Buttons */}
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "10px",
-                          alignItems: "center",
-                        }}
-                      >
-                        <span
-                          style={{
-                            cursor: "pointer",
-                            color: "#007bff",
-                            fontSize: "18px",
-                          }}
-                          onClick={() => handleOpenDialog(doc, true)}
-                          title="Edit Document"
-                        >
-                          <Edit fontSize="inherit" />
-                        </span>
-                        <span
-                          style={{
-                            cursor: "pointer",
-                            color: "#dc3545",
-                            fontSize: "18px",
-                          }}
-                          onClick={() => handleOpenDialog(doc, false)}
-                          title="Delete Document"
-                        >
-                          <Delete fontSize="inherit" />
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Document Details Row */}
-                    <Row style={{ marginBottom: "15px" }}>
-                      {/* Document Check Date */}
-                      <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
+                <Row>
+                  {/* Left Column: Completion Stages (Grid) */}
+                  <Col lg={9}>
+                    <Row>
+                      <Col xs={12} md={6} lg={3} className="pb-3">
                         <div
                           style={{
-                            padding: "8px 12px",
-                            border: "1px solid #e0e0e0",
-                            borderRadius: "4px",
-                            backgroundColor: "#f9f9f9",
-                            fontSize: "14px",
-                            color: "#555",
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
                           }}
                         >
-                          <strong style={{ color: "#333", marginRight: "8px" }}>
-                            Completed Date:
-                          </strong>
-                          {doc.document_check_date ? (
-                            new Date(doc.document_check_date).toLocaleString(
-                              "en-IN",
-                              {
-                                year: "numeric",
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Documentation:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.documentation_completed_date_time
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.documentation_completed_date_time
+                              ? new Date(
+                                formik.values.documentation_completed_date_time
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
                                 month: "short",
                                 day: "2-digit",
                                 hour: "2-digit",
                                 minute: "2-digit",
                                 hour12: true,
-                              }
-                            )
-                          ) : (
-                            <span
-                              style={{ color: "#999", fontStyle: "italic" }}
-                            >
-                              Not set
-                            </span>
-                          )}
+                              })
+                              : "Pending"}
+                          </span>
                         </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="documentation_completed_date_time"
+                              name="documentation_completed_date_time"
+                              value={
+                                formik.values.documentation_completed_date_time || ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "documentation_completed_date_time",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
                       </Col>
 
-                      {/* Is Sent to E-Sanchit Checkbox */}
-                      <Col
-                        xs={12}
-                        md={6}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          marginBottom: "10px",
-                        }}
-                      >
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={doc.is_sent_to_esanchit || false}
-                              onChange={(e) => {
-                                const updatedDocuments = [...cthDocuments];
-                                updatedDocuments[index].is_sent_to_esanchit =
-                                  e.target.checked;
-                                setCthDocuments(updatedDocuments);
-                              }}
-                              color="primary"
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            E-Sanchit:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.esanchit_completed_date_time
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.esanchit_completed_date_time
+                              ? new Date(
+                                formik.values.esanchit_completed_date_time
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
                               size="small"
+                              variant="outlined"
+                              id="esanchit_completed_date_time"
+                              name="esanchit_completed_date_time"
+                              value={formik.values.esanchit_completed_date_time || ""}
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "esanchit_completed_date_time",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
                             />
-                          }
-                          label={
-                            <span style={{ fontSize: "14px", color: "#555" }}>
-                              Sent to E-Sanchit
-                            </span>
-                          }
-                        />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Submission:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.submission_completed_date_time
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.submission_completed_date_time
+                              ? new Date(
+                                formik.values.submission_completed_date_time
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="submission_completed_date_time"
+                              name="submission_completed_date_time"
+                              value={formik.values.submission_completed_date_time || ""}
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "submission_completed_date_time",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            DO:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.do_completed ? "#28a745" : "#dc3545",
+                            }}
+                          >
+                            {formik.values.do_completed
+                              ? new Date(formik.values.do_completed).toLocaleString(
+                                "en-US",
+                                {
+                                  timeZone: "Asia/Kolkata",
+                                  month: "short",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                }
+                              )
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="do_completed"
+                              name="do_completed"
+                              value={
+                                formik.values.do_completed
+                                  ? new Date(formik.values.do_completed)
+                                    .toISOString()
+                                    .slice(0, 16)
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue("do_completed", e.target.value)
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Operation Completed:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.completed_operation_date
+                                ? "#28a745"
+                                : "#212529",
+                            }}
+                          >
+                            {formik.values.completed_operation_date
+                              ? new Date(
+                                formik.values.completed_operation_date
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "-"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="completed_operation_date"
+                              name="completed_operation_date"
+                              value={formik.values.completed_operation_date || ""}
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "completed_operation_date",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Delivery Completed:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: data?.bill_document_sent_to_accounts
+                                ? "#28a745"
+                                : "#212529",
+                            }}
+                          >
+                            {data?.bill_document_sent_to_accounts
+                              ? new Date(
+                                data.bill_document_sent_to_accounts
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "-"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="bill_document_sent_to_accounts"
+                              name="bill_document_sent_to_accounts"
+                              value={
+                                data?.bill_document_sent_to_accounts
+                                  ? formatDateForInput(
+                                    data.bill_document_sent_to_accounts
+                                  )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "bill_document_sent_to_accounts",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
+                          <span
+                            style={{
+                              fontWeight: "600",
+                              color: "#495057",
+                              marginRight: "8px",
+                            }}
+                          >
+                            Status:
+                          </span>
+                        </div>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          id="status"
+                          name="status"
+                          value={formik.values.status || ""}
+                          onChange={formik.handleChange}
+                          sx={compactInputSx}
+                        >
+                          <MenuItem value="Pending">Pending</MenuItem>
+                          <MenuItem value="Completed">Completed</MenuItem>
+                          <MenuItem value="Cancelled">Cancelled</MenuItem>
+                        </TextField>
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
+                          <span
+                            style={{
+                              fontWeight: "600",
+                              color: "#495057",
+                              marginRight: "8px",
+                            }}
+                          >
+                            Detailed Status:
+                          </span>
+                        </div>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          id="detailed_status"
+                          name="detailed_status"
+                          value={formik.values.detailed_status || ""}
+                          onChange={formik.handleChange}
+                          sx={compactInputSx}
+                        >
+                          <MenuItem value="ETA Date Pending">ETA Date Pending</MenuItem>
+                          <MenuItem value="Estimated Time of Arrival">ETA</MenuItem>
+                          <MenuItem value="Gateway IGM Filed">
+                            Gateway IGM Filed
+                          </MenuItem>
+                          <MenuItem value="Discharged">Discharged</MenuItem>
+                          <MenuItem value="Rail Out">Rail Out</MenuItem>
+                          <MenuItem value="BE Noted, Arrival Pending">
+                            BE Noted, Arrival Pending
+                          </MenuItem>
+                          <MenuItem value="Arrived, BE Note Pending">
+                            Arrived, BE Note Pending
+                          </MenuItem>
+                          <MenuItem value="BE Noted, Clearance Pending">
+                            BE Noted, Clearance Pending
+                          </MenuItem>
+                          <MenuItem value="PCV Done, Duty Payment Pending">
+                            PCV Done, Duty Payment Pending
+                          </MenuItem>
+                          <MenuItem value="Custom Clearance Completed">
+                            Cus.Clearance Completed
+                          </MenuItem>
+                          <MenuItem value="Billing Pending">Billing Pending</MenuItem>
+                          <MenuItem value="Status Completed">Status Completed</MenuItem>
+                        </TextField>
                       </Col>
                     </Row>
+                  </Col>
 
-                    {/* File Upload Section */}
-                    <div style={{ marginBottom: "15px" }}>
-                      <FileUpload
-                        label="Upload Documents"
-                        bucketPath={`cth-documents/${doc.document_name}`}
-                        onFilesUploaded={(urls) => {
-                          const updatedDocuments = [...cthDocuments];
-                          updatedDocuments[index].url = [
-                            ...(updatedDocuments[index].url || []),
-                            ...urls,
-                          ];
-                          setCthDocuments(updatedDocuments);
-                        }}
-                        multiple={true}
-                      />
-                    </div>
-
-                    {/* Image Preview Section */}
-                    <ImagePreview
-                      images={doc.url || []}
-                      isDsr={true}
-                      onDeleteImage={(deleteIndex) => {
-                        const updatedDocuments = [...cthDocuments];
-                        updatedDocuments[index].url = updatedDocuments[
-                          index
-                        ].url.filter((_, i) => i !== deleteIndex);
-                        setCthDocuments(updatedDocuments);
-                      }}
-                      readOnly={false}
-                    />
-                  </div>
-                </Col>
-              ))}
-            </Row>
-
-            {/* Add Document Section */}
-            <div
-              style={{
-                backgroundColor: "#f8f9fa",
-                border: "2px dashed #dee2e6",
-                borderRadius: "8px",
-                padding: "20px",
-                marginTop: "20px",
-              }}
-            >
-              <h6
-                style={{
-                  marginBottom: "15px",
-                  color: "#6c757d",
-                  fontWeight: "500",
-                }}
-              >
-                Add New Document
-              </h6>
-
-              <Row>
-                <Col xs={12} lg={4}>
-                  <FormControl
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                  >
-                    <InputLabel>Select Document</InputLabel>
-                    <Select
-                      value={selectedDocument}
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        if (selectedValue === "other") {
-                          setNewDocumentName("");
-                          setNewDocumentCode("");
-                        }
-                        setSelectedDocument(selectedValue);
-                      }}
-                      label="Select Document"
-                    >
-                      {cth_Dropdown
-                        .filter(
-                          (doc) =>
-                            !cthDocuments.some(
-                              (existingDoc) =>
-                                existingDoc.document_code === doc.document_code
-                            )
-                        )
-                        .map((doc) => (
-                          <MenuItem
-                            key={doc.document_code}
-                            value={doc.document_code}
-                          >
-                            {doc.document_name}
-                          </MenuItem>
-                        ))}
-                      <MenuItem value="other">
-                        <em>Other (Custom Document)</em>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-                </Col>
-
-                {selectedDocument === "other" && (
-                  <>
-                    <Col xs={12} lg={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        label="Document Name"
-                        value={newDocumentName}
-                        onChange={(e) => setNewDocumentName(e.target.value)}
-                        onKeyDown={preventFormSubmitOnEnter}
-                        required
-                      />
-                    </Col>
-                    <Col xs={12} lg={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        label="Document Code"
-                        value={newDocumentCode}
-                        onChange={(e) => setNewDocumentCode(e.target.value)}
-                        onKeyDown={preventFormSubmitOnEnter}
-                        required
-                      />
-                    </Col>
-                  </>
-                )}
-
-                <Col
-                  xs={12}
-                  lg={2}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    style={{
-                      marginTop: "8px",
-                      height: "fit-content",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                    }}
-                    onClick={() => {
-                      if (
-                        selectedDocument !== "other" &&
-                        selectedDocument &&
-                        cth_Dropdown.some(
-                          (doc) => doc.document_code === selectedDocument
-                        )
-                      ) {
-                        const selectedDoc = cth_Dropdown.find(
-                          (doc) => doc.document_code === selectedDocument
-                        );
-                        setCthDocuments([
-                          ...cthDocuments,
-                          {
-                            document_name: selectedDoc.document_name,
-                            document_code: selectedDoc.document_code,
-                            url: [],
-                            document_check_date: "",
-                            is_sent_to_esanchit: false,
-                          },
-                        ]);
-                      } else if (
-                        selectedDocument === "other" &&
-                        newDocumentName.trim() &&
-                        newDocumentCode.trim()
-                      ) {
-                        setCthDocuments([
-                          ...cthDocuments,
-                          {
-                            document_name: newDocumentName.trim(),
-                            document_code: newDocumentCode.trim(),
-                            url: [],
-                            document_check_date: "",
-                            is_sent_to_esanchit: false,
-                          },
-                        ]);
-                        setNewDocumentName("");
-                        setNewDocumentCode("");
-                      }
-                      setSelectedDocument("");
-                    }}
-                    disabled={
-                      !(user?.role === "Admin") &&
-                      (!selectedDocument ||
-                        (selectedDocument === "other" &&
-                          (!newDocumentName.trim() || !newDocumentCode.trim())))
-                    }
-                  >
-                    <i className="fas fa-plus"></i>
-                    Add Document
-                  </button>
-                </Col>
-              </Row>
-            </div>
-          </div>
-
-          {/* charges section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Charges" />
-            <br />
-
-            {/* All Charges Documents (Predefined + Custom) in same row structure */}
-            <Row>
-              {DsrCharges?.map((doc, index) => {
-                const selectedChargesDoc =
-                  selectedChargesDocuments.find(
-                    (selected) => selected.document_name === doc.document_name
-                  ) || {};
-
-                return (
-                  <Col
-                    xs={12}
-                    lg={4}
-                    key={`charges-${index}`}
-                    style={{ marginBottom: "20px", position: "relative" }}
-                  >
-                    <div style={{ display: "inline" }}>
-                      <FileUpload
-                        label={doc.document_name}
-                        bucketPath={`charges-documents/${doc.document_name}`}
-                        onFilesUploaded={(urls) => {
-                          const updatedChargesDocuments = [
-                            ...selectedChargesDocuments,
-                          ];
-                          const existingIndex =
-                            updatedChargesDocuments.findIndex(
-                              (selected) =>
-                                selected.document_name === doc.document_name
-                            );
-
-                          if (existingIndex !== -1) {
-                            updatedChargesDocuments[existingIndex].url = [
-                              ...(updatedChargesDocuments[existingIndex].url ||
-                                []),
-                              ...urls,
-                            ];
-                          } else {
-                            updatedChargesDocuments.push({
-                              document_name: doc.document_name,
-                              url: urls,
-                              document_check_date: "",
-                              document_amount_details: "",
-                            });
-                          }
-                          setSelectedChargesDocuments(updatedChargesDocuments);
-                        }}
-                        multiple={true}
-                      />
-                      <div style={{ marginTop: "10px" }}>
-                        <TextField
-                          label="Amount Details"
-                          variant="outlined"
-                          size="small"
-                          fullWidth
-                          type="number"
-                          inputProps={{
-                            min: 0,
-                            step: "0.01",
-                            pattern: "[0-9]+(\\.[0-9]+)?",
-                          }}
-                          value={
-                            selectedChargesDoc.document_amount_details || ""
-                          }
-                          onChange={(e) => {
-                            // Only allow numbers and decimal points
-                            const value = e.target.value;
-                            if (value === "" || /^\d+(\.\d*)?$/.test(value)) {
-                              const updatedChargesDocuments = [
-                                ...selectedChargesDocuments,
-                              ];
-                              const existingIndex =
-                                updatedChargesDocuments.findIndex(
-                                  (selected) =>
-                                    selected.document_name === doc.document_name
-                                );
-
-                              if (existingIndex !== -1) {
-                                updatedChargesDocuments[
-                                  existingIndex
-                                ].document_amount_details = value;
-                              } else {
-                                updatedChargesDocuments.push({
-                                  document_name: doc.document_name,
-                                  url: [],
-                                  document_check_date: "",
-                                  document_amount_details: value,
-                                });
-                              }
-                              setSelectedChargesDocuments(
-                                updatedChargesDocuments
-                              );
-                            }
-                          }}
-                          style={{ marginTop: "5px" }}
-                        />
-                      </div>
-                    </div>
-                    <ImagePreview
-                      images={selectedChargesDoc.url || []}
-                      onDeleteImage={(deleteIndex) => {
-                        const updatedChargesDocuments = [
-                          ...selectedChargesDocuments,
-                        ];
-                        const docIndex = updatedChargesDocuments.findIndex(
-                          (selected) =>
-                            selected.document_name === doc.document_name
-                        );
-                        if (docIndex !== -1) {
-                          updatedChargesDocuments[docIndex].url =
-                            updatedChargesDocuments[docIndex].url.filter(
-                              (_, i) => i !== deleteIndex
-                            );
-                          setSelectedChargesDocuments(updatedChargesDocuments);
-                        }
-                      }}
-                      readOnly={false}
-                    />
-
-                    {/* Delete button for custom documents only */}
-                    {![
-                      "Notary",
-                      "Duty",
-                      "MISC",
-                      "CE Certification Charges",
-                      "ADC/NOC Charges",
-                    ].includes(doc.document_name) && (
+                  {/* Right Column: Billing Details (Vertical Stack) */}
+                  <Col lg={3} style={{ borderLeft: '1px solid #dee2e6', paddingLeft: '20px' }}>
+                    <div className="mb-3">
                       <div
                         style={{
-                          position: "absolute",
-                          top: "10px",
-                          right: "10px",
-                          cursor: "pointer",
-                          color: "#dc3545",
-                        }}
-                        onClick={() => {
-                          // Remove from DsrCharges
-                          const updatedDsrCharges = DsrCharges.filter(
-                            (_, i) => i !== index
-                          );
-                          setDsrCharges(updatedDsrCharges);
-
-                          // Remove from selectedChargesDocuments
-                          const updatedSelectedChargesDocuments =
-                            selectedChargesDocuments.filter(
-                              (selected) =>
-                                selected.document_name !== doc.document_name
-                            );
-                          setSelectedChargesDocuments(
-                            updatedSelectedChargesDocuments
-                          );
+                          fontSize: "0.75rem",
+                          color: "#6c757d",
+                          marginBottom: "4px",
+                          fontWeight: "600"
                         }}
                       >
-                        <i className="fas fa-trash-alt" title="Delete"></i>
+                        Bill Agency
                       </div>
-                    )}
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        placeholder="Enter Bill Agency"
+                        value={(formik.values.bill_no?.split(",")[0] || "").trim()}
+                        onChange={(e) => {
+                          const currentBillNo = formik.values.bill_no || "";
+                          const billParts = currentBillNo.split(",");
+                          const newBillNo = `${e.target.value.trim()},${(
+                            billParts[1] || ""
+                          ).trim()}`;
+                          formik.setFieldValue("bill_no", newBillNo);
+                        }}
+                        disabled={user?.role !== "Admin" && isSubmissionDate}
+                        sx={compactInputSx}
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6c757d",
+                          marginBottom: "4px",
+                          fontWeight: "600"
+                        }}
+                      >
+                        Bill Reimbursement
+                      </div>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        placeholder="Enter Bill Reimbursement"
+                        value={(formik.values.bill_no?.split(",")[1] || "").trim()}
+                        onChange={(e) => {
+                          const currentBillNo = formik.values.bill_no || "";
+                          const billParts = currentBillNo.split(",");
+                          const newBillNo = `${(
+                            billParts[0] || ""
+                          ).trim()},${e.target.value.trim()}`;
+                          formik.setFieldValue("bill_no", newBillNo);
+                        }}
+                        disabled={user?.role !== "Admin" && isSubmissionDate}
+                        sx={compactInputSx}
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6c757d",
+                          marginBottom: "4px",
+                          fontWeight: "600"
+                        }}
+                      >
+                        Bill Date
+                      </div>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        type="datetime-local"
+                        value={(() => {
+                          const firstDateStr = (formik.values.bill_date || "")
+                            .split(",")[0]
+                            ?.trim();
+                          if (firstDateStr) {
+                            const date = new Date(firstDateStr);
+                            if (!isNaN(date.getTime())) {
+                              return date.toISOString().slice(0, 16);
+                            }
+                          }
+                          return "";
+                        })()}
+                        onChange={(e) => {
+                          const currentBillDate = formik.values.bill_date || "";
+                          const dateParts = currentBillDate.split(",");
+                          const newBillDate = `${e.target.value},${(
+                            dateParts[1] || ""
+                          ).trim()}`;
+                          formik.setFieldValue("bill_date", newBillDate);
+                        }}
+                        disabled={user?.role !== "Admin" && isSubmissionDate}
+                        sx={compactInputSx}
+                      />
+                    </div>
                   </Col>
-                );
-              })}
-            </Row>
+                </Row>
+              </div>
+              {/* completion status end  */}
+            </>
+          )}
 
-            {/* Add Custom Charges Document Section */}
-            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
-              <Col xs={12} lg={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  label="Custom Charge Document Name"
-                  value={newChargesDocumentName}
-                  onChange={(e) => setNewChargesDocumentName(e.target.value)}
-                  onKeyDown={preventFormSubmitOnEnter}
-                />
-              </Col>
+          {viewJobTab === 1 && (
+            <>
+              {/* Tracking status start*/}
+              <div className="job-details-container">
+                <JobDetailsRowHeading heading="Tracking Status" />
 
-              <Col
-                xs={12}
-                lg={2}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ marginTop: "8px", height: "fit-content" }}
-                  onClick={() => {
-                    if (
-                      newChargesDocumentName.trim() &&
-                      !DsrCharges.some(
-                        (doc) =>
-                          doc.document_name === newChargesDocumentName.trim()
-                      )
-                    ) {
-                      setDsrCharges([
-                        ...DsrCharges,
+                {/* --- Section: Shipment Journey --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Shipment Journey & Identifiers
+                  </h6>
+                  <Row>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BL Number</label>
+                      <TextField fullWidth size="small" variant="outlined" id="awb_bl_no" name="awb_bl_no" value={formik.values.awb_bl_no || ""}
+                        onChange={formik.handleChange} placeholder="Enter BL No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BL Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="awb_bl_date" name="awb_bl_date"
+                        value={formik.values.awb_bl_date ? (formik.values.awb_bl_date.length === 10 ? `${formik.values.awb_bl_date}T00:00` : formik.values.awb_bl_date) : ""}
+                        onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>HAWBL Number</label>
+                      <TextField fullWidth size="small" variant="outlined" id="hawb_hbl_no" name="hawb_hbl_no" value={formik.values.hawb_hbl_no || ""}
+                        onChange={formik.handleChange} placeholder="Enter HAWBL No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>HAWBL Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="hawb_hbl_date" name="hawb_hbl_date"
+                        value={formik.values.hawb_hbl_date ? (formik.values.hawb_hbl_date.length === 10 ? `${formik.values.hawb_hbl_date}T00:00` : formik.values.hawb_hbl_date) : ""}
+                        onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Gross Weight (KGS)</label>
+                      <TextField fullWidth size="small" variant="outlined" id="gross_weight" name="gross_weight" value={formik.values.gross_weight || ""}
+                        onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Net Weight (KGS)</label>
+                      <TextField fullWidth size="small" variant="outlined" id="job_net_weight" name="job_net_weight" value={formik.values.job_net_weight || ""}
+                        onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>ETA Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="vessel_berthing" name="vessel_berthing"
+                        value={formik.values.vessel_berthing ? (formik.values.vessel_berthing.length === 10 ? `${formik.values.vessel_berthing}T00:00` : formik.values.vessel_berthing) : ""}
+                        disabled={!(user?.role === "Admin") && (ExBondflag || isSubmissionDate)} onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Gateway IGM No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="gateway_igm" name="gateway_igm" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.gateway_igm || ""} onChange={formik.handleChange} placeholder="Enter Gateway IGM" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Gateway IGM Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="gateway_igm_date" name="gateway_igm_date" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.gateway_igm_date ? (formik.values.gateway_igm_date.length === 10 ? `${formik.values.gateway_igm_date}T00:00` : formik.values.gateway_igm_date) : ""}
+                        onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>IGM Number</label>
+                      <TextField fullWidth size="small" variant="outlined" id="igm_no" name="igm_no" value={formik.values.igm_no || ""}
+                        disabled={user?.role !== "Admin" && isSubmissionDate} onChange={formik.handleChange} placeholder="Enter IGM No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>IGM Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="igm_date" name="igm_date"
+                        value={formik.values.igm_date ? (formik.values.igm_date.length === 10 ? `${formik.values.igm_date}T00:00` : formik.values.igm_date) : ""}
+                        disabled={!(user?.role === "Admin") && (ExBondflag || isSubmissionDate)} onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Discharge / L-IGM Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="discharge_date" name="discharge_date"
+                        disabled={!(user?.role === "Admin") && (!formik.values.vessel_berthing || ExBondflag || isSubmissionDate)}
+                        value={formik.values.discharge_date ? (formik.values.discharge_date.length === 10 ? `${formik.values.discharge_date}T00:00` : formik.values.discharge_date) : ""}
+                        onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={6} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Line No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="line_no" name="line_no" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.line_no || ""} onChange={formik.handleChange} placeholder="Line No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={6} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>No of Packages</label>
+                      <TextField fullWidth size="small" variant="outlined" id="no_of_pkgs" name="no_of_pkgs" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.no_of_pkgs || ""} onChange={formik.handleChange} placeholder="No of Pkgs" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>HSS</label>
+                      <TextField fullWidth select size="small" variant="outlined" id="hss" name="hss"
+                        disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss || "No"} onChange={formik.handleChange} sx={compactInputSx}>
+                        <MenuItem value="Yes">Yes</MenuItem>
+                        <MenuItem value="No">No</MenuItem>
+                      </TextField>
+                    </Col>
+                    {formik.values.hss === "Yes" && (
+                      <Col xs={12} md={4} lg={3} className="mb-3">
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Seller Name</label>
+                        <TextField fullWidth size="small" variant="outlined" id="saller_name" name="saller_name"
+                          disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.saller_name || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                      </Col>
+                    )}
+
+                    {formik.values.consignment_type !== "LCL" && (
+                      <Col xs={12} md={2} lg={2} className="mb-3">
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Free Time</label>
+                        <TextField fullWidth select size="small" variant="outlined" id="free_time" name="free_time"
+                          value={formik.values.free_time || ""} disabled={user?.role !== "Admin" && isSubmissionDate} onChange={formik.handleChange} sx={compactInputSx}>
+                          {options?.map((option, id) => (<MenuItem key={id} value={option}>{option}</MenuItem>))}
+                        </TextField>
+                      </Col>
+                    )}
+                  </Row>
+                </div>
+
+                {/* --- Section: Cargo & Terms --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Invoice Terms & Priority
+                  </h6>
+                  <Row>
+
+
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>AD Code</label>
+                      <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Bank Name</label>
+                      <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Invoice No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="invoice_number" name="invoice_number" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.invoice_number || ""} onChange={formik.handleChange} placeholder="Invoice No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Invoice Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="date" id="invoice_date" name="invoice_date" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.invoice_date || ""} onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={4} lg={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Invoice Value</label>
+                      <TextField fullWidth size="small" variant="outlined" id="total_inv_value" name="total_inv_value" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.total_inv_value || ""} onChange={formik.handleChange} placeholder={`${data?.inv_currency || ""} ${((formik.values.cifValue || data?.cifValue) && (data?.exrate)) ? ((formik.values.cifValue || data?.cifValue) / data?.exrate).toFixed(2) : ""}`} sx={compactInputSx} />
+                    </Col>
+                  </Row>
+
+                  <div style={{ marginTop: "16px", padding: "16px", background: "#f8f9fa", borderRadius: "6px" }}>
+                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#34495e", mb: 1 }}> Terms of Invoice </FormLabel>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' }}>
+                      <RadioGroup row name="import_terms" value={formik.values.import_terms || importTerms} onChange={handleImportTermsChange}>
+                        <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>CIF</span>} />
+                        <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>FOB</span>} />
+                        <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>C&F</span>} />
+                        <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>C&I</span>} />
+                      </RadioGroup>
+
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <TextField label={`${formik.values.import_terms || importTerms} Value (₹)`} type="number" name="cifValue"
+                          value={formik.values.cifValue || ""} onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 150, bgcolor: 'white', ...compactInputSx }} />
+
+                        {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CI") && (
+                          <TextField label="Freight (₹)" type="number" name="freight" value={formik.values.freight || ""}
+                            onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 150, bgcolor: 'white', ...compactInputSx }} />
+                        )}
+                        {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CF") && (
+                          <TextField label="Insurance (₹)" type="number" name="insurance" value={formik.values.insurance || ""}
+                            onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 150, bgcolor: 'white', ...compactInputSx }} />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Row className="mt-3">
+                    <Col xs={12} lg={4} className="mb-3 d-flex align-items-center">
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '0.8rem', color: '#6c757d' }}>Priority:</div>
+                      <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
+                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '0.8rem' }}>Normal</span>} />
+                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '0.8rem' }}>Priority</span>} />
+                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '0.8rem' }}>High</span>} />
+                      </RadioGroup>
+                    </Col>
+                    <Col xs={12} lg={4} className="mb-3 d-flex align-items-center">
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '0.8rem', color: '#6c757d' }}>Payment:</div>
+                      <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange} >
+                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Transaction</span>} />
+                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Deferred</span>} />
+                      </RadioGroup>
+                    </Col>
+
+                    <Col xs={12} lg={2} className="mb-3">
+                      <TextField fullWidth label="FTA Benefit Date" size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
+                        value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
+                        onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
+                        disabled={user?.role !== "Admin" && isSubmissionDate} sx={compactInputSx} />
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col xs={12} lg={6} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Description</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <TextField size="small" fullWidth multiline rows={2} variant="outlined" id="description" name="description"
+                          value={formik.values.description || ""} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} />
+                        <IconButton size="small" onClick={(event) => handleCopy(event, formik.values.description)}>
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    </Col>
+                    <Col xs={12} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>CTH No.</label>
+                      <TextField fullWidth size="small" variant="outlined" id="cth_no" name="cth_no" value={formik.values.cth_no || ""}
+                        onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} sx={compactInputSx} />
+                    </Col>
+                  </Row>
+                </div>
+
+                {/* --- Section: Clearance, Weights & BE Details --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Clearance & BE Details
+                  </h6>
+                  <Row>
+                    <Col xs={12} md={4} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BOE Type</label>
+                      <TextField select fullWidth size="small" variant="outlined" name="type_of_b_e" value={formik.values.type_of_b_e || ""}
+                        onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} displayEmpty sx={compactInputSx}>
+                        <MenuItem value="" disabled>Select BE Type</MenuItem>
+                        {beTypeOptions.map((option, index) => (<MenuItem key={index} value={option}>{option}</MenuItem>))}
+                      </TextField>
+                    </Col>
+                    <Col xs={12} md={4} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Clearance Under</label>
+                      <TextField select fullWidth size="small" variant="outlined" name="clearanceValue" value={formik.values.clearanceValue || ""}
+                        onChange={(e) => { if (canChangeClearance()) { formik.setFieldValue("clearanceValue", e.target.value); } else { alert("Please clear Ex-Bond details before changing Clearance Under."); } }} sx={compactInputSx}>
+                        <MenuItem value="" disabled>Select Clearance Type</MenuItem>
+                        {filteredClearanceOptions.map((option, index) => (<MenuItem key={index} value={option.value || ""}>{option.label}</MenuItem>))}
+                      </TextField>
+                    </Col>
+
+                    {ExBondflag && (
+                      <Col xs={12} md={4} lg={2} className="mb-3">
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>In Bond</label>
+                        <TextField select fullWidth size="small" variant="outlined" name="exBondValue" value={formik.values.exBondValue || ""} onChange={formik.handleChange} sx={compactInputSx}>
+                          <MenuItem value="" disabled>Select In-Bond Type</MenuItem>
+                          <MenuItem value="other">Other</MenuItem>
+                          {jobDetails.map((job) => (<MenuItem key={job.job_no} value={job.job_no}>{`${job.job_no} - ${job.importer}`}</MenuItem>))}
+                        </TextField>
+                      </Col>
+                    )}
+                  </Row>
+
+                  {/* Ex-Bond "Other" Logic */}
+                  {formik.values.exBondValue === "other" && (
+                    <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "6px", marginBottom: "16px" }}>
+                      <h6 style={{ fontSize: "0.85rem", fontWeight: "600", marginBottom: "12px", color: "#555" }}>In-Bond Details (Other)</h6>
+                      <Row>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>InBond BE Number</label>
+                          <TextField fullWidth size="small" variant="outlined" name="in_bond_be_no" value={formik.values.in_bond_be_no || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>InBond BE Date</label>
+                          <TextField fullWidth size="small" variant="outlined" type="date" InputLabelProps={{ shrink: true }} name="in_bond_be_date"
+                            value={formik.values.in_bond_be_date || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} className="mb-3">
+                          <FileUpload label="Upload InBond BE Copy" bucketPath="ex_be_copy_documents" multiple
+                            onFilesUploaded={(newFiles) => formik.setFieldValue("in_bond_ooc_copies", [...formik.values.in_bond_ooc_copies, ...newFiles])} />
+                          <ImagePreview images={formik.values.in_bond_ooc_copies || []} onDeleteImage={(index) => {
+                            const updatedFiles = [...formik.values.in_bond_ooc_copies]; updatedFiles.splice(index, 1); formik.setFieldValue("in_bond_ooc_copies", updatedFiles);
+                          }} />
+                        </Col>
+                      </Row>
+                    </div>
+                  )}
+
+                  {/* Ex-Bond Selected Job Logic */}
+                  {formik.values.exBondValue !== "other" && formik.values.exBondValue !== "" && (() => {
+                    const matchedJob = jobDetails.find((job) => job.job_no === formik.values.exBondValue);
+                    return matchedJob ? (
+                      <div style={{ background: "#f0f4ff", padding: "16px", borderRadius: "6px", marginBottom: "16px", border: "1px solid #d0d7de" }}>
+                        <Row>
+                          <Col xs={12} md={4} className="mb-2"><strong>BE No:</strong> {matchedJob.be_no || "N/A"}</Col>
+                          <Col xs={12} md={4} className="mb-2"><strong>BE Date:</strong> {matchedJob.be_date || "N/A"}</Col>
+                          <Col xs={12} md={4} className="mb-2">
+                            <strong>OOC copy:</strong>
+                            <ImagePreview images={matchedJob.ooc_copies || []} readOnly />
+                          </Col>
+                        </Row>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {ExBondflag && (
+                    <Row className="mb-3">
+                      <Col xs={12}>
+                        <Button variant="contained" color="secondary" size="small" onClick={resetOtherDetails}>Reset Ex-Bond Details</Button>
+                      </Col>
+                    </Row>
+                  )}
+
+
+
+                  <Row className="mt-2">
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BOE Number</label>
+                      <TextField fullWidth size="small" variant="outlined" id="be_no" name="be_no" value={formik.values.be_no || ""}
+                        onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BOE Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="date" id="be_date" name="be_date" value={formik.values.be_date || ""}
+                        onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Assessment Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="assessment_date" name="assessment_date"
+                        value={formik.values.assessment_date} onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={6} lg={4} className="mb-3 d-flex align-items-center">
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '0.8rem', color: '#6c757d' }}>BOE Filing:</div>
+                      <RadioGroup row name="be_filing_type" value={formik.values.be_filing_type || ""} onChange={formik.handleChange}
+                        disabled={user?.role !== "Admin" && isSubmissionDate}>
+                        <FormControlLabel value="Discharge" control={<Radio size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Discharge</span>} />
+                        <FormControlLabel value="Railout" control={<Radio size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Railout</span>} />
+                        <FormControlLabel value="Advanced" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Advanced</span>} />
+                        <FormControlLabel value="Prior" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Prior</span>} />
+                      </RadioGroup>
+                    </Col>
+                  </Row>
+                </div>
+                {/* --- Section: Process Verification & Documents --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Process Verification & Documents
+                  </h6>
+
+                  {/* Checklist Section */}
+                  <Row className="mb-4">
+                    <Col xs={12} md={6}>
+                      <div style={{ padding: "12px", border: "1px dashed #ced4da", borderRadius: "6px", background: "#fcfcfc" }}>
+                        <h6 style={{ fontSize: "0.8rem", fontWeight: "600", marginBottom: "8px" }}>Checklist</h6>
+                        <div className="d-flex gap-3 align-items-start">
+                          <div style={{ flex: 1 }}>
+                            <FileUpload label="Upload Checklist" bucketPath="checklist" singleFileOnly={true} replaceMode={true}
+                              onFilesUploaded={(newFiles, replaceMode) => {
+                                if (replaceMode) { formik.setFieldValue("checklist", newFiles); }
+                                else { const existing = formik.values.checklist || []; formik.setFieldValue("checklist", [...existing, ...newFiles]); }
+                              }} />
+                            <ImagePreview images={formik.values.checklist || []}
+                              onDeleteImage={(index) => { const u = [...formik.values.checklist]; u.splice(index, 1); formik.setFieldValue("checklist", u); }}
+                              onImageClick={() => formik.setFieldValue("is_checklist_clicked", true)} />
+                          </div>
+
+                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px" }}>
+                            <Checkbox checked={formik.values.is_checklist_aprroved}
+                              disabled={user?.role !== "Admin" && !formik.values.is_checklist_clicked}
+                              onChange={(e) => {
+                                const isChecked = e.target.checked;
+                                if (isChecked) {
+                                  const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                  formik.setFieldValue("is_checklist_aprroved", true);
+                                  formik.setFieldValue("is_checklist_aprroved_date", dt);
+                                } else {
+                                  formik.setFieldValue("is_checklist_aprroved", false);
+                                  formik.setFieldValue("is_checklist_aprroved_date", "");
+                                }
+                              }} />
+                            <div>
+                              <div style={{ fontSize: "0.8rem", fontWeight: "600" }}>Approved</div>
+                              {formik.values.is_checklist_aprroved_date && (
+                                <div style={{ fontSize: "0.75rem", color: "#28a745" }}>
+                                  {new Date(formik.values.is_checklist_aprroved_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
+                                </div>
+                              )}
+                              {!formik.values.is_checklist_clicked && <div style={{ fontSize: "0.7rem", color: "#dc3545" }}>(View file to enable)</div>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <div style={{ padding: "12px", border: "1px dashed #ced4da", borderRadius: "6px", background: "#fcfcfc" }}>
+                        <h6 style={{ fontSize: "0.8rem", fontWeight: "600", marginBottom: "8px" }}>Job Sticker</h6>
+                        <div className="d-flex gap-2 align-items-center mb-2">
+                          <JobStickerPDF ref={pdfRef} jobData={{
+                            job_no: formik.values.job_no, year: formik.values.year, importer: formik.values.importer, be_no: formik.values.be_no, be_date: formik.values.be_date,
+                            invoice_number: formik.values.invoice_number, invoice_date: formik.values.invoice_date, loading_port: formik.values.loading_port,
+                            no_of_pkgs: formik.values.no_of_pkgs, description: formik.values.description, gross_weight: formik.values.gross_weight,
+                            job_net_weight: formik.values.job_net_weight, gateway_igm: formik.values.gateway_igm, gateway_igm_date: formik.values.gateway_igm_date,
+                            igm_no: formik.values.igm_no, igm_date: formik.values.igm_date, awb_bl_no: formik.values.awb_bl_no, awb_bl_date: formik.values.awb_bl_date,
+                            shipping_line_airline: formik.values.shipping_line_airline, custom_house: formik.values.custom_house, container_nos: formik.values.container_nos,
+                          }} data={data} />
+                          <Button variant="contained" size="small" onClick={handleGenerate}>Generate</Button>
+                        </div>
+                        <FileUpload label="Upload Job Sticker" bucketPath="job-sticker" multiple={true}
+                          onFilesUploaded={(newFiles) => { const existing = formik.values.job_sticker_upload || []; formik.setFieldValue("job_sticker_upload", [...existing, ...newFiles]); }} />
+                        <ImagePreview images={formik.values.job_sticker_upload || []}
+                          onDeleteImage={(index) => { const u = [...formik.values.job_sticker_upload]; u.splice(index, 1); formik.setFieldValue("job_sticker_upload", u); }} />
+                      </div>
+                    </Col>
+                  </Row>
+
+                  <Row className="mb-3">
+                    <Col xs={12} md={4} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}> Examination Planning & Details</label>
+                      <div className="d-flex flex-column gap-2">
+                        <div className="d-flex align-items-center gap-2">
+                          <Checkbox checked={formik.values.examinationPlanning} onChange={(e) => {
+                            if (e.target.checked) {
+                              const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                              formik.setFieldValue("examinationPlanning", true); formik.setFieldValue("examination_planning_date", dt);
+                            } else { formik.setFieldValue("examinationPlanning", false); formik.setFieldValue("examination_planning_date", ""); }
+                          }} />
+                          <span style={{ fontSize: "0.8rem" }}>Exam Planning</span>
+                        </div>
+                        {formik.values.examination_planning_date && (
+                          <div style={{ fontSize: "0.75rem", color: "green", paddingLeft: "30px" }}>
+                            {new Date(formik.values.examination_planning_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
+                          </div>
+                        )}
+
+                        <div className="d-flex align-items-center gap-2 mt-2">
+                          <Switch checked={Boolean(formik.values.firstCheck)} disabled={user?.role !== "Admin" && Boolean(formik.values.out_of_charge?.trim())}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                formik.setFieldValue("firstCheck", dt);
+                              } else { formik.setFieldValue("firstCheck", ""); }
+                            }} />
+                          <span style={{ fontSize: "0.8rem" }}>First Check</span>
+                        </div>
+                        {formik.values.firstCheck && (
+                          <div style={{ fontSize: "0.75rem", color: "green", paddingLeft: "30px" }}>
+                            YES {new Date(formik.values.firstCheck).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
+                          </div>
+                        )}
+                      </div>
+                    </Col>
+
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Dates</label>
+                      <div className="mb-4">
+                        <TextField fullWidth size="small" variant="outlined" label="Examination Date" value={data.examination_date || ""} InputProps={{ readOnly: true }} disabled sx={compactInputSx} />
+                      </div>
+                      <div className="mb-2">
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="PCV Date" InputLabelProps={{ shrink: true }}
+                          name="pcv_date" value={formik.values.pcv_date ? (formik.values.pcv_date.length === 10 ? `${formik.values.pcv_date}T00:00` : formik.values.pcv_date) : ""} onChange={formik.handleChange} sx={compactInputSx} />
+                      </div>
+                    </Col>
+
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Duty & OOC</label>
+                      <div className="d-flex gap-1 mb-4">
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="Duty Paid Date" InputLabelProps={{ shrink: true }}
+                          name="duty_paid_date" value={formik.values.duty_paid_date} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isDutyPaidDateDisabled} sx={compactInputSx} />
+                        <IconButton onClick={handleOpenDutyModal} size="small"><AddIcon /></IconButton>
+                      </div>
+                      <div className="mb-2">
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="Out of Charge Date" InputLabelProps={{ shrink: true }}
+                          name="out_of_charge" value={formik.values.out_of_charge ? (formik.values.out_of_charge.length === 10 ? `${formik.values.out_of_charge}T00:00` : formik.values.out_of_charge) : ""} onChange={formik.handleChange} sx={compactInputSx} />
+                      </div>
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col xs={12} md={4} className="mb-3">
+                      <FileUpload label="Upload Processed BE" bucketPath="processed_be_attachment" multiple={true}
+                        onFilesUploaded={(newFiles) => { const existing = formik.values.processed_be_attachment || []; formik.setFieldValue("processed_be_attachment", [...existing, ...newFiles]); }} />
+                      <ImagePreview images={formik.values.processed_be_attachment || []}
+                        onDeleteImage={(index) => { const u = [...formik.values.processed_be_attachment]; u.splice(index, 1); formik.setFieldValue("processed_be_attachment", u); }} />
+                    </Col>
+                    <Col xs={12} md={4} className="mb-3">
+                      <FileUpload label="Upload OOC Copy" bucketPath="ooc_copies" multiple={true}
+                        onFilesUploaded={(newFiles) => { const existing = formik.values.ooc_copies || []; formik.setFieldValue("ooc_copies", [...existing, ...newFiles]); }} />
+                      <ImagePreview images={formik.values.ooc_copies || []}
+                        onDeleteImage={(index) => { const u = [...formik.values.ooc_copies]; u.splice(index, 1); formik.setFieldValue("ooc_copies", u); }} />
+                    </Col>
+                    <Col xs={12} md={4} className="mb-3">
+                      <FileUpload label="Upload Gate Pass" bucketPath="gate_pass_copies" multiple={true}
+                        onFilesUploaded={(newFiles) => { const existing = formik.values.gate_pass_copies || []; formik.setFieldValue("gate_pass_copies", [...existing, ...newFiles]); }} />
+                      <ImagePreview images={formik.values.gate_pass_copies || []}
+                        onDeleteImage={(index) => { const u = [...formik.values.gate_pass_copies]; u.splice(index, 1); formik.setFieldValue("gate_pass_copies", u); }} />
+                    </Col>
+                  </Row>
+                </div>
+
+                {/* --- Section: Original Document & DO Planning --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Original Document & DO Planning
+                  </h6>
+                  <Row>
+                    <Col xs={12} md={6} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>OBL / Document Status</label>
+                      <RadioGroup row name="radio-buttons-group" value={formik.values.obl_telex_bl} onChange={handleBlStatusChange}>
+                        <FormControlLabel value="OBL" control={<Radio checked={formik.values.obl_telex_bl === "OBL"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Original</span>} />
+                        <FormControlLabel value="Telex" control={<Radio checked={formik.values.obl_telex_bl === "Telex"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Telex</span>} />
+                        <FormControlLabel value="Surrender BL" control={<Radio checked={formik.values.obl_telex_bl === "Surrender BL"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Surrender</span>} />
+                        <FormControlLabel value="Waybill" control={<Radio checked={formik.values.obl_telex_bl === "Waybill"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Waybill</span>} />
+                        <FormControlLabel value="clear" control={<Radio size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Clear</span>} />
+                      </RadioGroup>
+
+                      {user.role === "Admin" && (
+                        <div className="mt-2">
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" label={formik.values.obl_telex_bl === "OBL" ? "Original Doc Received Date" : "Doc Received Date"}
+                            InputLabelProps={{ shrink: true }} name="document_received_date" value={formik.values.document_received_date || ""}
+                            onChange={(e) => { const v = e.target.value; formik.setFieldValue("document_received_date", v ? v : ""); }} sx={compactInputSx} />
+                        </div>
+                      )}
+                    </Col>
+
+                    <Col xs={12} md={6} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Planning</label>
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <Checkbox checked={formik.values.doPlanning} onChange={(e) => {
+                          if (e.target.checked) {
+                            const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                            formik.setFieldValue("doPlanning", true); formik.setFieldValue("do_planning_date", dt);
+                          } else { formik.setFieldValue("doPlanning", false); formik.setFieldValue("do_planning_date", ""); }
+                        }} />
+                        <span style={{ fontSize: "0.85rem", fontWeight: "600" }}>DO Planning Active</span>
+                      </div>
+                      <RadioGroup row name="type_of_Do" value={formik.values.type_of_Do} onChange={(e) => {
+                        const val = e.target.value; formik.setFieldValue("type_of_Do", val === "Clear" ? "" : val);
+                      }}>
+                        <FormControlLabel value="ICD" control={<Radio style={{ color: formik.values.type_of_Do === "ICD" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>ICD</span>} />
+                        <FormControlLabel value="Factory" control={<Radio style={{ color: formik.values.type_of_Do === "Factory" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Factory</span>} />
+                        <FormControlLabel value="Clear" control={<Radio style={{ color: formik.values.type_of_Do === "Clear" ? "red" : "inherit" }} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Clear</span>} />
+                      </RadioGroup>
+
+                      {user.role === "Admin" && (
+                        <div className="mt-2">
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="DO Planning Date (Admin)"
+                            InputLabelProps={{ shrink: true }} name="do_planning_date" value={formik.values.do_planning_date || ""}
+                            onChange={(e) => { if (e.target.value) formik.setFieldValue("do_planning_date", e.target.value); }} sx={compactInputSx} />
+                        </div>
+                      )}
+                    </Col>
+                  </Row>
+                </div>
+
+                {/* --- Section: Delivery Order Details --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Delivery Order Details
+                  </h6>
+                  <Row className="mb-3">
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Validity</label>
+                      {formik.values.do_revalidation ? (
+                        <div style={{ padding: "8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #ced4da", fontSize: "0.9rem" }}>
+                          {formik.values.do_validity_upto_job_level || "-"}
+                        </div>
+                      ) : (
+                        <TextField fullWidth size="small" variant="outlined" type="date"
+                          id="do_validity_upto_job_level" name="do_validity_upto_job_level"
+                          value={formik.values.do_validity_upto_job_level || ""} onChange={formik.handleChange}
+                          InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                      )}
+                    </Col>
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Required DO Validity Upto</label>
+                      <TextField fullWidth size="small" variant="outlined" type="date"
+                        id="required_do_validity_upto_0" name="container_nos[0].required_do_validity_upto"
+                        value={formik.values.container_nos?.[0]?.required_do_validity_upto || ""}
+                        onChange={(e) => handleDateChange(e.target.value)}
+                        InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Revalidation</label>
+                      <div className="d-flex align-items-center gap-2">
+                        <Checkbox checked={formik.values.do_revalidation} onChange={(e) => {
+                          if (e.target.checked) {
+                            const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                            formik.setFieldValue("do_revalidation", true);
+                            formik.setFieldValue("do_revalidation_date", dt);
+                          } else {
+                            formik.setFieldValue("do_revalidation", false);
+                            formik.setFieldValue("do_revalidation_date", "");
+                          }
+                        }} />
+                        <span style={{ fontSize: "0.85rem" }}>Revalidation Active</span>
+                      </div>
+                      {formik.values.do_revalidation_date && (
+                        <div style={{ fontSize: "0.75rem", color: "green", marginTop: "4px" }}>
+                          {new Date(formik.values.do_revalidation_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
+                        </div>
+                      )}
+                    </Col>
+                  </Row>
+
+                  <Row className="mb-3">
+                    {user.role === "Admin" && (
+                      <Col xs={12} md={3} className="mb-3">
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Revalidation Date (Admin)</label>
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local"
+                          id="do_revalidation_date" name="do_revalidation_date"
+                          value={formik.values.do_revalidation_date || ""}
+                          onChange={(e) => {
+                            if (e.target.value) { formik.setFieldValue("do_revalidation", true); formik.setFieldValue("do_revalidation_date", e.target.value); }
+                            else { formik.setFieldValue("do_revalidation", false); formik.setFieldValue("do_revalidation_date", ""); }
+                          }}
+                          InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                      </Col>
+                    )}
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Received Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local"
+                        id="do_completed" name="do_completed"
+                        value={formik.values.do_completed ? (formik.values.do_completed.length === 10 ? `${formik.values.do_completed}T00:00` : formik.values.do_completed) : ""}
+                        onChange={(e) => formik.setFieldValue("do_completed", e.target.value)}
+                        InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Valid Up to</label>
+                      <div style={{ padding: "8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #ced4da", fontSize: "0.9rem", minHeight: "38px" }}>
+                        {formik.values.do_validity_upto_job_level || "-"}
+                      </div>
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col xs={12} md={4} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Copies</label>
+                      <ImagePreview images={formik.values.do_copies || []} readOnly />
+                    </Col>
+                    <Col xs={12} md={8} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Remarks</label>
+                      <TextField multiline minRows={2} fullWidth size="small" variant="outlined"
+                        id="remarks" name="remarks" value={formik.values.remarks || ""} onChange={formik.handleChange} />
+                    </Col>
+                  </Row>
+                </div>
+              </div>
+              {/* Tracking status end*/}
+            </>
+          )}
+
+          {/* document section */}
+          {viewJobTab === 3 && (
+            <div className="job-details-container">
+              <JobDetailsRowHeading heading="CTH Documents" />
+              <br />
+
+              {/* CTH Documents Section */}
+              <div className="table-responsive">
+                <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
+                  <thead style={{ backgroundColor: "#f8f9fa" }}>
+                    <tr>
+                      <th style={{ width: "25%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
+                      <th style={{ width: "15%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Completed Date</th>
+                      <th style={{ width: "10%", fontWeight: "600", color: "#495057", textAlign: "center", padding: "4px 8px" }}>E-Sanchit</th>
+                      <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
+                      <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cthDocuments?.map((doc, index) => (
+                      <tr key={`cth-${index}`}>
+                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
+                              <div style={{ fontSize: "0.8rem", color: "#6c757d" }}>{doc.document_code}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: "2px" }}>
+                              <IconButton size="small" onClick={() => handleOpenDialog(doc, true)} style={{ padding: "4px" }}><Edit style={{ fontSize: "1rem" }} color="primary" /></IconButton>
+                              <IconButton size="small" onClick={() => handleOpenDialog(doc, false)} style={{ padding: "4px" }}><Delete style={{ fontSize: "1rem" }} color="error" /></IconButton>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                          <span style={{ fontSize: "0.85rem", color: doc.document_check_date ? "#28a745" : "#6c757d", fontWeight: doc.document_check_date ? "600" : "normal" }}>
+                            {doc.document_check_date ? new Date(doc.document_check_date).toLocaleString("en-IN", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true }) : "-"}
+                          </span>
+                        </td>
+                        <td style={{ verticalAlign: "middle", textAlign: "center", padding: "4px 8px" }}>
+                          <Checkbox size="small" checked={doc.is_sent_to_esanchit || false} style={{ padding: "4px" }} onChange={(e) => {
+                            const updatedDocuments = [...cthDocuments];
+                            updatedDocuments[index].is_sent_to_esanchit = e.target.checked;
+                            setCthDocuments(updatedDocuments);
+                          }} />
+                        </td>
+                        <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
+                          <FileUpload
+                            label="Upload"
+                            bucketPath={`cth-documents/${doc.document_name}`}
+                            multiple={true}
+                            containerStyles={{ marginTop: 0 }}
+                            buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
+                            onFilesUploaded={(urls) => {
+                              const updatedDocuments = [...cthDocuments];
+                              updatedDocuments[index].url = [...(updatedDocuments[index].url || []), ...urls];
+                              setCthDocuments(updatedDocuments);
+                            }} />
+                        </td>
+                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                          <ImagePreview images={doc.url || []} isDsr={true} readOnly={false}
+                            onDeleteImage={(deleteIndex) => {
+                              const updatedDocuments = [...cthDocuments];
+                              updatedDocuments[index].url = updatedDocuments[index].url.filter((_, i) => i !== deleteIndex);
+                              setCthDocuments(updatedDocuments);
+                            }} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add New Document Card */}
+              <div style={{ background: "#f8f9fa", borderRadius: "8px", border: "1px dashed #ced4da", padding: "20px", marginTop: "20px" }}>
+                <h6 style={{ fontSize: "0.9rem", fontWeight: "700", color: "#495057", marginBottom: "15px" }}>Add New Document</h6>
+                <Row className="align-items-center">
+                  <Col xs={12} lg={4} className="mb-2">
+                    <FormControl fullWidth size="small" variant="outlined">
+                      <InputLabel>Select Document</InputLabel>
+                      <Select label="Select Document" value={selectedDocument} onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "other") { setNewDocumentName(""); setNewDocumentCode(""); }
+                        setSelectedDocument(val);
+                      }}>
+                        {cth_Dropdown
+                          .filter(doc => !cthDocuments.some(existing => existing.document_code === doc.document_code))
+                          .map(doc => (
+                            <MenuItem key={doc.document_code} value={doc.document_code}>{doc.document_name}</MenuItem>
+                          ))}
+                        <MenuItem value="other"><em>Other (Custom Document)</em></MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Col>
+
+                  {selectedDocument === "other" && (
+                    <>
+                      <Col xs={12} lg={3} className="mb-2">
+                        <TextField fullWidth size="small" label="Document Name" variant="outlined" value={newDocumentName} onChange={(e) => setNewDocumentName(e.target.value)} onKeyDown={preventFormSubmitOnEnter} sx={compactInputSx} />
+                      </Col>
+                      <Col xs={12} lg={3} className="mb-2">
+                        <TextField fullWidth size="small" label="Document Code" variant="outlined" value={newDocumentCode} onChange={(e) => setNewDocumentCode(e.target.value)} onKeyDown={preventFormSubmitOnEnter} sx={compactInputSx} />
+                      </Col>
+                    </>
+                  )}
+
+                  <Col xs={12} lg={2} className="mb-2">
+                    <Button variant="contained" color="primary" startIcon={<AddIcon />}
+                      disabled={!(user?.role === "Admin") && (!selectedDocument || (selectedDocument === "other" && (!newDocumentName.trim() || !newDocumentCode.trim())))}
+                      onClick={() => {
+                        if (selectedDocument !== "other" && selectedDocument) {
+                          const sel = cth_Dropdown.find(d => d.document_code === selectedDocument);
+                          if (sel) setCthDocuments([...cthDocuments, { document_name: sel.document_name, document_code: sel.document_code, url: [], document_check_date: "", is_sent_to_esanchit: false }]);
+                        } else if (selectedDocument === "other") {
+                          setCthDocuments([...cthDocuments, { document_name: newDocumentName.trim(), document_code: newDocumentCode.trim(), url: [], document_check_date: "", is_sent_to_esanchit: false }]);
+                          setNewDocumentName(""); setNewDocumentCode("");
+                        }
+                        setSelectedDocument("");
+                      }}>
+                      Add
+                    </Button>
+                  </Col>
+                </Row>
+              </div>
+            </div>
+          )}
+
+          {/* charges section */}
+          {viewJobTab === 4 && (
+            <div className="job-details-container">
+              {/* Charges Section */}
+              <JobDetailsRowHeading heading="Charges" />
+              <div className="table-responsive">
+                <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
+                  <thead style={{ backgroundColor: "#f8f9fa" }}>
+                    <tr>
+                      <th style={{ width: "25%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
+                      <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Amount Details</th>
+                      <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
+                      <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DsrCharges?.map((doc, index) => {
+                      const selectedChargesDoc = selectedChargesDocuments.find(s => s.document_name === doc.document_name) || {};
+                      const isCustom = !["Notary", "Duty", "MISC", "CE Certification Charges", "ADC/NOC Charges"].includes(doc.document_name);
+
+                      return (
+                        <tr key={`charges-${index}`}>
+                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
+                              {isCustom && (
+                                <IconButton size="small" color="error" onClick={() => {
+                                  const updatedDsrCharges = DsrCharges.filter((_, i) => i !== index);
+                                  setDsrCharges(updatedDsrCharges);
+                                  const updatedSelected = selectedChargesDocuments.filter(s => s.document_name !== doc.document_name);
+                                  setSelectedChargesDocuments(updatedSelected);
+                                }} style={{ padding: "4px" }}>
+                                  <Delete style={{ fontSize: "1rem" }} fontSize="small" />
+                                </IconButton>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              placeholder="Amount"
+                              type="number"
+                              variant="outlined"
+                              value={selectedChargesDoc.document_amount_details || ""}
+                              inputProps={{ min: 0, step: "0.01", pattern: "[0-9]+(\\.[0-9]+)?" }}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "" || /^\d+(\.\d*)?$/.test(value)) {
+                                  const updated = [...selectedChargesDocuments];
+                                  const idx = updated.findIndex(s => s.document_name === doc.document_name);
+                                  if (idx !== -1) updated[idx].document_amount_details = value;
+                                  else updated.push({ document_name: doc.document_name, url: [], document_check_date: "", document_amount_details: value });
+                                  setSelectedChargesDocuments(updated);
+                                }
+                              }}
+                              sx={{
+                                ...compactInputSx,
+                                "& .MuiOutlinedInput-root": { height: "30px" }, // Match table row height better
+                              }}
+                            />
+                          </td>
+                          <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
+                            <FileUpload
+                              label="Upload"
+                              bucketPath={`charges-documents/${doc.document_name}`}
+                              multiple={true}
+                              containerStyles={{ marginTop: 0 }}
+                              buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
+                              onFilesUploaded={(urls) => {
+                                const updated = [...selectedChargesDocuments];
+                                const idx = updated.findIndex(s => s.document_name === doc.document_name);
+                                if (idx !== -1) updated[idx].url = [...(updated[idx].url || []), ...urls];
+                                else updated.push({ document_name: doc.document_name, url: urls, document_check_date: "", document_amount_details: "" });
+                                setSelectedChargesDocuments(updated);
+                              }}
+                            />
+                          </td>
+                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                            <ImagePreview
+                              images={selectedChargesDoc.url || []}
+                              readOnly={false}
+                              onDeleteImage={(delIdx) => {
+                                const updated = [...selectedChargesDocuments];
+                                const idx = updated.findIndex(s => s.document_name === doc.document_name);
+                                if (idx !== -1) {
+                                  updated[idx].url = updated[idx].url.filter((_, i) => i !== delIdx);
+                                  setSelectedChargesDocuments(updated);
+                                }
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add Custom Charge */}
+              <div style={{ background: "#f8f9fa", borderRadius: "8px", border: "1px dashed #ced4da", padding: "20px", marginTop: "10px", marginBottom: "30px" }}>
+                <h6 style={{ fontSize: "0.9rem", fontWeight: "700", color: "#495057", marginBottom: "15px" }}>Add Custom Charge Document</h6>
+                <Row className="align-items-center">
+                  <Col xs={12} lg={6}>
+                    <TextField fullWidth size="small" label="Document Name" variant="outlined" value={newChargesDocumentName}
+                      onChange={(e) => setNewChargesDocumentName(e.target.value)} onKeyDown={preventFormSubmitOnEnter} sx={compactInputSx} />
+                  </Col>
+                  <Col xs={12} lg={2}>
+                    <Button variant="contained" color="primary"
+                      disabled={!(user?.role === "Admin") && (!newChargesDocumentName.trim() || DsrCharges.some(d => d.document_name === newChargesDocumentName.trim()))}
+                      onClick={() => {
+                        if (newChargesDocumentName.trim() && !DsrCharges.some(d => d.document_name === newChargesDocumentName.trim())) {
+                          setDsrCharges([...DsrCharges, { document_name: newChargesDocumentName.trim() }]);
+                          setNewChargesDocumentName("");
+                        }
+                      }}>
+                      Add
+                    </Button>
+                  </Col>
+                </Row>
+              </div>
+
+              {/* All Documents Section */}
+              <JobDetailsRowHeading heading="All General Documents" />
+              <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginTop: "15px", marginBottom: "30px" }}>
+                <Row>
+                  <Col xs={12} md={6}>
+                    <FileUpload label="Upload General Documents" bucketPath="all_documents" multiple={true}
+                      onFilesUploaded={(urls) => formik.setFieldValue("all_documents", [...(formik.values.all_documents || []), ...urls])} />
+                  </Col>
+                  <Col xs={12} md={12}>
+                    <div className="mt-3">
+                      <ImagePreview images={formik.values.all_documents || []}
+                        onDeleteImage={(idx) => {
+                          const updated = [...formik.values.all_documents];
+                          updated.splice(idx, 1);
+                          formik.setFieldValue("all_documents", updated);
+                        }} />
+                    </div>
+                  </Col>
+                </Row>
+              </div>
+            </div>
+          )}
+
+          {viewJobTab === 2 && (
+            <div className="job-details-container">
+              <JobDetailsRowHeading heading="Container Details" />
+              <Row>
+                <Col md={2} style={{ borderRight: "1px solid #e0e0e0" }}>
+                  <div style={{ maxHeight: "80vh", overflowY: "auto", paddingRight: "5px" }}>
+                    {(formik.values.status !== "" &&
+                      formik.values.container_nos?.length > 0
+                      ? formik.values.container_nos
+                      : [
                         {
-                          document_name: newChargesDocumentName.trim(),
+                          container_number: "",
+                          size: "",
+                          arrival_date: "",
+                          container_rail_out_date: "",
+                          do_revalidation: [],
                         },
-                      ]);
-                      setNewChargesDocumentName("");
-                    }
-                  }}
-                  disabled={
-                    !(user?.role === "Admin") &&
-                    (!newChargesDocumentName.trim() ||
-                      DsrCharges.some(
-                        (doc) =>
-                          doc.document_name === newChargesDocumentName.trim()
-                      ))
-                  }
-                >
-                  Add Custom Charge Document
-                </button>
-              </Col>
-            </Row>
-          </div>
-          {/* charges section end */}
+                      ]
+                    ).map((container, i) => (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedContainerIndex(i)}
+                        style={{
+                          padding: "10px",
+                          marginBottom: "5px",
+                          cursor: "pointer",
+                          borderRadius: "4px",
+                          backgroundColor: selectedContainerIndex === i ? "#e9ecef" : "#fff",
+                          border: selectedContainerIndex === i ? "1px solid #007bff" : "1px solid #dee2e6",
+                        }}
+                      >
+                        <div style={{ fontWeight: "600", color: "#495057", fontSize: "0.9rem" }}>
+                          {container.container_number || `Container ${i + 1}`}
+                        </div>
+                        {container.size && (
+                          <div style={{ fontSize: "0.75rem", color: "#6c757d" }}>
+                            Size: {container.size}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <Button variant="contained" color="primary" fullWidth onClick={() => {
+                      handleAddContainer();
+                      // Switch to the newly added container (next index)
+                      setSelectedContainerIndex(formik.values.container_nos.length);
+                    }} startIcon={<AddIcon />}>
+                      Add Container
+                    </Button>
+                  </div>
+                </Col>
 
-          {/* test232423242 */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="All Documents" />
-            <br />
-            <Col xs={6}>
-              <FileUpload
-                label="All Documents"
-                bucketPath="all_documents"
-                onFilesUploaded={(newFiles) => {
-                  const existingFiles = formik.values.all_documents || [];
-                  const updatedFiles = [...existingFiles, ...newFiles];
-                  formik.setFieldValue("all_documents", updatedFiles);
-                }}
-                multiple={true}
-              />
+                <Col md={10}>
+                  {(() => {
+                    const containerList =
+                      formik.values.status !== "" &&
+                        formik.values.container_nos?.length > 0
+                        ? formik.values.container_nos
+                        : [
+                          {
+                            container_number: "",
+                            size: "",
+                            arrival_date: "",
+                            container_rail_out_date: "",
+                            do_revalidation: [],
+                          },
+                        ];
 
-              <ImagePreview
-                images={formik.values.all_documents || []}
-                onDeleteImage={(index) => {
-                  const updatedFiles = [...formik.values.all_documents];
-                  updatedFiles.splice(index, 1);
-                  formik.setFieldValue("all_documents", updatedFiles);
-                }}
-              />
-            </Col>
-          </div>
+                    const index =
+                      selectedContainerIndex < containerList.length
+                        ? selectedContainerIndex
+                        : 0;
+                    const container = containerList[index];
 
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Container Details" />
-            {/* {formik.values.status !== "" && 
-              formik.values.container_nos?.map((container, index) => {
-                return ( */}
-            {(formik.values.status !== "" &&
-            formik.values.container_nos?.length > 0
-              ? formik.values.container_nos
-              : [
-                  {
-                    container_number: "",
-                    size: "",
-                    arrival_date: "",
-                    container_rail_out_date: "",
-                    do_revalidation: [],
-                  },
-                ]
-            )?.map((container, index) => {
-              return (
-                <div key={index}>
-                  <div
-                    style={{
-                      padding: "30px",
-                    }}
-                  >
-                    <Row>
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <h6 style={{ marginBottom: 0 }}>
-                          <strong>
-                            {index + 1}. Container Number:&nbsp;
-                            <span ref={container_number_ref[index]}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                value={container.container_number}
-                                key={index}
-                                variant="outlined"
-                                id={`container_number_${index}`}
-                                name={`container_nos[${index}].container_number`}
-                                onChange={formik.handleChange}
-                              />
-                            </span>
+                    const labelStyle = {
+                      display: "block",
+                      marginBottom: "4px",
+                      fontSize: "0.75rem",
+                      fontWeight: "600",
+                      color: "#6c757d",
+                    };
+                    const readOnlyStyle = {
+                      padding: "8px",
+                      background: "#f8f9fa",
+                      borderRadius: "4px",
+                      border: "1px solid #ced4da",
+                      fontSize: "0.9rem",
+                      minHeight: "38px",
+                    };
+
+                    return (
+                      <div
+                        style={{
+                          marginBottom: "30px",
+                          background: "#fff",
+                          borderRadius: "8px",
+                          border: "1px solid #e0e0e0",
+                          overflow: "hidden",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                        }}
+                      >
+                        {/* Header */}
+                        <div
+                          style={{
+                            background: "#f8f9fa",
+                            padding: "12px 20px",
+                            borderBottom: "1px solid #e0e0e0",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                            }}
+                          >
+                            <h6
+                              style={{
+                                margin: 0,
+                                fontWeight: "700",
+                                color: "#495057",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              #{index + 1} Container:
+                              <span
+                                style={{ color: "#007bff", minWidth: "150px" }}
+                                ref={(el) => (container_number_ref.current[index] = el)}
+                              >
+                                <TextField
+                                  variant="standard"
+                                  size="small"
+                                  value={container.container_number}
+                                  onChange={formik.handleChange}
+                                  name={`container_nos[${index}].container_number`}
+                                  InputProps={{
+                                    disableUnderline: true,
+                                    style: { fontWeight: "bold", fontSize: "1rem" },
+                                  }}
+                                />
+                              </span>
+                            </h6>
                             <IconButton
                               onClick={() =>
                                 handleCopyContainerNumber(
@@ -4174,607 +2435,567 @@ function JobDetails() {
                                   setSnackbar
                                 )
                               }
-                              aria-label="copy-btn"
+                              size="small"
                             >
-                              <ContentCopyIcon />
+                              <ContentCopyIcon fontSize="small" />
                             </IconButton>
-                          </strong>
-                        </h6>
-                      </Col>
-
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <strong>Size:&nbsp;</strong>
-                        <TextField
-                          select
-                          fullWidth
-                          size="small"
-                          variant="outlined"
-                          id={`size_${index}`}
-                          name={`container_nos[${index}].size`}
-                          value={container.size}
-                          onChange={formik.handleChange}
-                        >
-                          <MenuItem value="20">20</MenuItem>
-                          <MenuItem value="40">40</MenuItem>
-                        </TextField>
-                      </Col>
-
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <div className="job-detail-input-container">
-                          <strong>Seal Number:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            id={`seal_number${index}`}
-                            name={`container_nos[${index}].seal_number`}
-                            value={container.seal_number}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col>
-
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <div className="job-detail-input-container">
-                          <strong>Railout Date:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            type="datetime-local"
-                            id={`container_rail_out_date${index}`}
-                            name={`container_nos[${index}].container_rail_out_date`}
-                            disabled={
-                              !(user?.role === "Admin") &&
-                              (LCLFlag || ExBondflag)
-                            }
-                            value={container.container_rail_out_date}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col>
-
-                      {LCLFlag && (
-                        <Col xs={12} md={4} lg={3} className="mb-2">
-                          <div className="job-detail-input-container">
-                            <strong>By Road Movement Date:&nbsp;</strong>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              variant="outlined"
-                              type="datetime-local"
-                              id={`by_road_movement_date${index}`}
-                              name={`container_nos[${index}].by_road_movement_date`}
-                              value={container.by_road_movement_date}
-                              disabled={user?.role !== "Admin" && ExBondflag} // Optional: Disable if ExBondflag is true
-                              onChange={formik.handleChange}
-                            />
                           </div>
-                        </Col>
-                      )}
-                    </Row>
-
-                    <br />
-                    <Row>
-                      <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Arrival Date:&nbsp;</strong>
-                          {formik.values.checked ? (
-                            <span>
-                              {container.arrival_date || "Not Available"}
-                            </span>
-                          ) : (
-                            <TextField
-                              fullWidth
-                              size="small"
-                              margin="normal"
-                              variant="outlined"
-                              type="datetime-local"
-                              id={`arrival_date_${index}`}
-                              name={`container_nos[${index}].arrival_date`}
-                              value={container.arrival_date}
-                              disabled={
-                                !(user?.role === "Admin") &&
-                                (ExBondflag ||
-                                  (LCLFlag
-                                    ? !container.by_road_movement_date
-                                    : !container.container_rail_out_date))
-                              }
-                              onChange={formik.handleChange}
-                            />
-                          )}
-                        </div>
-                      </Col>
-                      <Col xs={12} lg={2} className="flex-div">
-                        <strong>Detention From:&nbsp;</strong>
-                        {detentionFrom[index]}
-                      </Col>
-                      <Col xs={12} lg={2} className="flex-div">
-                        <strong>DO Validity:&nbsp;</strong>
-                        {subtractOneDay(detentionFrom[index])}
-                      </Col>
-                      <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Required DO Validity Upto:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            key={index}
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            type="date"
-                            id={`required_do_validity_upto_${index}`}
-                            name={`container_nos[${index}].required_do_validity_upto`}
-                            value={container.required_do_validity_upto}
-                            onChange={(e) => handleDateChange(e.target.value)}
-                          />
-                        </div>
-                      </Col>
-                    </Row>
-
-                    {container.do_revalidation?.map((item, id) => {
-                      return (
-                        <Row key={id}>
-                          <Col xs={12} lg={3}>
-                            <div className="job-detail-input-container">
-                              <strong>DO Revalidation Upto:&nbsp;</strong>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                margin="normal"
-                                variant="outlined"
-                                type="date"
-                                id={`do_revalidation_date_${index}_${id}`}
-                                name={`container_nos[${index}].do_revalidation[${id}].do_revalidation_upto`}
-                                value={item.do_revalidation_upto}
-                                onChange={formik.handleChange}
-                              />
-                            </div>
-                          </Col>
-                          <Col xs={10} lg={8}>
-                            <div className="job-detail-input-container">
-                              <strong>Remarks:&nbsp;</strong>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                margin="normal"
-                                variant="outlined"
-                                id={`remarks_${index}_${id}`}
-                                name={`container_nos[${index}].do_revalidation[${id}].remarks`}
-                                value={item.remarks}
-                                onChange={formik.handleChange}
-                              />
-                            </div>
-                          </Col>
-                          <Col
-                            xs={2}
-                            lg={1}
-                            className="d-flex align-items-center"
-                          >
+                          <div>
                             <IconButton
-                              aria-label="delete-revalidation"
-                              onClick={() =>
-                                handleDeleteRevalidation(index, id)
-                              }
+                              onClick={() => {
+                                setOpenDialog(true);
+                                setContainerToDelete(index);
+                              }}
+                              size="small"
                               color="error"
                             >
-                              <DeleteIcon />
+                              <DeleteIcon fontSize="small" />
                             </IconButton>
-                          </Col>
-                        </Row>
-                      );
-                    })}
+                          </div>
+                        </div>
 
-                    {/* Add DO Revalidation Button */}
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        const newRevalidation = {
-                          do_revalidation_upto: "",
-                          remarks: "",
-                        };
-                        formik.setFieldValue(
-                          `container_nos[${index}].do_revalidation`,
-                          [...container.do_revalidation, newRevalidation]
-                        );
-                      }}
-                    >
-                      Add DO Revalidation
-                    </button>
-
-                    <Row className="job-detail-row">
-                      <Col xs={12} lg={2}>
-                        <div className="job-detail-input-container">
-                          <strong>Physical Weight:&nbsp;</strong>
-                          {container.physical_weight}
-                        </div>
-                      </Col>
-                      <Col xs={12} lg={2}>
-                        <div className="job-detail-input-container">
-                          <strong>Tare Weight:&nbsp;</strong>
-                          {container.tare_weight}
-                        </div>
-                      </Col>
-                      <Col xs={12} lg={2}>
-                        <div className="job-detail-input-container">
-                          <strong>Actual Weight:&nbsp;</strong>
-                          {container.actual_weight}
-                        </div>
-                      </Col>
-                      <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Gross Weight as per Document:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            key={index}
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            id={`container_gross_weight_${index}`}
-                            name={`container_nos[${index}].container_gross_weight`}
-                            value={container.container_gross_weight}
-                            onChange={(e) =>
-                              handleGrossWeightChange(e, index, formik)
-                            }
-                          />
-                        </div>
-                      </Col>
-
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <div className="job-detail-input-container">
-                          <strong>Netweight As Per PL:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            id={`net_weight_as_per_PL_document${index}`}
-                            name={`container_nos[${index}].net_weight_as_per_PL_document`}
-                            value={container.net_weight_as_per_PL_document}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col>
-                    </Row>
-
-                    <Row>
-                      <Col xs={12} lg={3}>
-                        <div
-                          className="job-detail-input-container"
-                          style={{
-                            backgroundColor:
-                              container.weight_shortage < 0
-                                ? "red"
-                                : "transparent",
-                            padding: "5px",
-                            borderRadius: "4px",
-                            color:
-                              container.weight_shortage < 0
-                                ? "white"
-                                : "inherit",
-                          }}
-                        >
-                          <strong>Weight Excess/Shortage:&nbsp;</strong>
-                          {container.container_gross_weight &&
-                          container.container_gross_weight !== "0" ? (
-                            <>{container.weight_shortage || ""}</>
-                          ) : (
-                            ""
-                          )}
-                        </div>
-                      </Col>
-
-                      <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <FormGroup>
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={container.transporter === "SRCC"}
-                                  disabled={
-                                    user?.role !== "Admin" &&
-                                    !formik.values.out_of_charge
+                        <div style={{ padding: "20px" }}>
+                          {/* Row 1: Basic Info */}
+                          <Row className="mb-3">
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Size</label>
+                              <TextField
+                                select
+                                fullWidth
+                                size="small"
+                                variant="outlined"
+                                name={`container_nos[${index}].size`}
+                                value={container.size}
+                                onChange={formik.handleChange}
+                                sx={compactInputSx}
+                              >
+                                <MenuItem value="20">20</MenuItem>
+                                <MenuItem value="40">40</MenuItem>
+                              </TextField>
+                            </Col>
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Seal Number</label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                variant="outlined"
+                                name={`container_nos[${index}].seal_number`}
+                                value={container.seal_number}
+                                onChange={formik.handleChange}
+                                sx={compactInputSx}
+                              />
+                            </Col>
+                            <Col xs={12} md={6} lg={4} className="mb-3">
+                              <label style={labelStyle}>Transporter</label>
+                              {/* Transporter Logic */}
+                              <div className="d-flex align-items-center gap-3">
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={container.transporter === "SRCC"}
+                                      disabled={
+                                        user?.role !== "Admin" &&
+                                        !formik.values.out_of_charge
+                                      }
+                                      onChange={(e) =>
+                                        handleTransporterChange(e, index)
+                                      }
+                                    />
+                                  }
+                                  label={
+                                    <span style={{ fontSize: "0.85rem" }}>
+                                      SRCC
+                                    </span>
                                   }
                                 />
-                              }
-                              label="Transporter: SRCC"
-                              onChange={(e) =>
-                                handleTransporterChange(e, index)
-                              }
-                            />
-                          </FormGroup>
-                        </div>
-                      </Col>
-                      <Col>
-                        {container.transporter !== "SRCC" && (
-                          <div className="job-detail-input-container">
-                            <strong>Transporter:&nbsp;</strong>
-                            <TextField
-                              fullWidth
-                              key={index}
-                              size="small"
-                              margin="normal"
-                              variant="outlined"
-                              id={`transporter_${index}`}
-                              name={`container_nos[${index}].transporter`}
-                              value={container.transporter}
-                              onChange={formik.handleChange}
-                            />
-                          </div>
-                        )}
-                      </Col>
-                    </Row>
 
-                    <Row
-                      style={{
-                        marginTop: "20px",
-                        displayflex: "flex",
-                        alignItems: "baseline",
-                      }}
-                    >
-                      {!InBondflag && (
-                        <Col xs={12} md={4} lg={3} className="mb-2">
-                          <div className="job-detail-input-container">
-                            <strong>Delivery Date:&nbsp;</strong>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              variant="outlined"
-                              type="datetime-local"
-                              id={`delivery_date${index}`}
-                              name={`container_nos[${index}].delivery_date`}
-                              value={formatDateForInput(
-                                container.delivery_date
+                                {container.transporter !== "SRCC" && (
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    variant="outlined"
+                                    label="Transporter Name"
+                                    InputLabelProps={{ shrink: true }}
+                                    name={`container_nos[${index}].transporter`}
+                                    value={container.transporter}
+                                    onChange={formik.handleChange}
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              </div>
+                            </Col>
+                          </Row>
+
+                          {/* Row 2: Dates */}
+                          <Row className="mb-3">
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Arrival Date</label>
+                              {formik.values.checked ? (
+                                <div style={readOnlyStyle}>
+                                  {container.arrival_date || "Not Available"}
+                                </div>
+                              ) : (
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].arrival_date`}
+                                  value={container.arrival_date}
+                                  disabled={
+                                    !(user?.role === "Admin") &&
+                                    (ExBondflag ||
+                                      (LCLFlag
+                                        ? !container.by_road_movement_date
+                                        : !container.container_rail_out_date))
+                                  }
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
                               )}
-                              onChange={formik.handleChange}
-                            />
-                          </div>
-                        </Col>
-                      )}
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <div className="job-detail-input-container">
-                          <strong>
-                            {InBondflag
-                              ? "Destuffing / Empty Cont. Off-Load Date"
-                              : "Empty Cont. Off-Load / Destuffing Date"}
-                            :&nbsp;
-                          </strong>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            type="datetime-local"
-                            id={`emptyContainerOffLoadDate${index}`}
-                            name={`container_nos[${index}].emptyContainerOffLoadDate`}
-                            value={formatDateForInput(
-                              container.emptyContainerOffLoadDate
+                            </Col>
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Railout Date</label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="datetime-local"
+                                variant="outlined"
+                                name={`container_nos[${index}].container_rail_out_date`}
+                                value={container.container_rail_out_date}
+                                disabled={
+                                  !(user?.role === "Admin") &&
+                                  (LCLFlag || ExBondflag)
+                                }
+                                onChange={formik.handleChange}
+                                InputLabelProps={{ shrink: true }}
+                                sx={compactInputSx}
+                              />
+                            </Col>
+                            {LCLFlag && (
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>
+                                  By Road Movement Date
+                                </label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].by_road_movement_date`}
+                                  value={container.by_road_movement_date}
+                                  disabled={user?.role !== "Admin" && ExBondflag}
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
                             )}
-                            disabled={LCLFlag} // Disable if the user is not Admin
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col>
-                    </Row>
+                            {!InBondflag && (
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Delivery Date</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].delivery_date`}
+                                  value={formatDateForInput(
+                                    container.delivery_date
+                                  )}
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                            )}
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>
+                                {InBondflag
+                                  ? "Destuffing Date"
+                                  : "Empty Off-Load Date"}
+                              </label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="datetime-local"
+                                variant="outlined"
+                                name={`container_nos[${index}].emptyContainerOffLoadDate`}
+                                value={formatDateForInput(
+                                  container.emptyContainerOffLoadDate
+                                )}
+                                disabled={LCLFlag}
+                                onChange={formik.handleChange}
+                                InputLabelProps={{ shrink: true }}
+                                sx={compactInputSx}
+                              />
+                            </Col>
+                          </Row>
 
-                    <Row>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginTop: "20px",
-                        }}
-                      >
-                        <DeliveryChallanPdf
-                          year={params.selected_year}
-                          jobNo={params.job_no}
-                          containerIndex={index}
-                        />
-                        <IgstCalculationPDF
-                          year={params.selected_year}
-                          jobNo={params.job_no}
-                          containerIndex={index}
-                        />
+                          {/* Row 3: DO & Detention */}
+                          <Row className="mb-3">
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Detention From</label>
+                              <div style={readOnlyStyle}>
+                                {detentionFrom[index]}
+                              </div>
+                            </Col>
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>DO Validity</label>
+                              <div style={readOnlyStyle}>
+                                {subtractOneDay(detentionFrom[index])}
+                              </div>
+                            </Col>
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>
+                                Required DO Validity Upto
+                              </label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="date"
+                                variant="outlined"
+                                name={`container_nos[${index}].required_do_validity_upto`}
+                                value={container.required_do_validity_upto}
+                                onChange={(e) => handleDateChange(e.target.value)}
+                                InputLabelProps={{ shrink: true }}
+                                sx={compactInputSx}
+                              />
+                            </Col>
+                            <Col
+                              xs={12}
+                              md={3}
+                              lg={6}
+                              className="mb-3"
+                              style={{
+                                display: "flex",
+                                gap: "10px",
+                                alignItems: "center",
+                              }}
+                            >
+                              <DeliveryChallanPdf
+                                year={params.selected_year}
+                                jobNo={params.job_no}
+                                containerIndex={index}
+                              />
+                              <IgstCalculationPDF
+                                year={params.selected_year}
+                                jobNo={params.job_no}
+                                containerIndex={index}
+                              />
+                            </Col>
+                          </Row>
+
+                          {/* Row 4: DO Revalidations */}
+                          {container.do_revalidation?.map((item, id) => (
+                            <Row
+                              key={id}
+                              className="mb-2 mx-1"
+                              style={{
+                                background: "#fafafa",
+                                padding: "10px",
+                                borderRadius: "4px",
+                                border: "1px dashed #ced4da",
+                              }}
+                            >
+                              <Col xs={12} md={3}>
+                                <label style={labelStyle}>
+                                  DO Revalidation Upto
+                                </label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="date"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].do_revalidation[${id}].do_revalidation_upto`}
+                                  value={item.do_revalidation_upto}
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col xs={12} md={8}>
+                                <label style={labelStyle}>Remarks</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].do_revalidation[${id}].remarks`}
+                                  value={item.remarks}
+                                  onChange={formik.handleChange}
+                                />
+                              </Col>
+                              <Col
+                                xs={12}
+                                md={1}
+                                className="d-flex align-items-end"
+                              >
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() =>
+                                    handleDeleteRevalidation(index, id)
+                                  }
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Col>
+                            </Row>
+                          ))}
+                          <div className="mb-3">
+                            <Button
+                              size="small"
+                              variant="text"
+                              startIcon={<AddIcon />}
+                              onClick={() => {
+                                const newRevalidation = {
+                                  do_revalidation_upto: "",
+                                  remarks: "",
+                                };
+                                formik.setFieldValue(
+                                  `container_nos[${index}].do_revalidation`,
+                                  [
+                                    ...(container.do_revalidation || []),
+                                    newRevalidation,
+                                  ]
+                                );
+                              }}
+                              sx={{ textTransform: "none", fontWeight: 600 }}
+                            >
+                              Add DO Revalidation
+                            </Button>
+                          </div>
+
+                          {/* Row 5: Weights */}
+                          <Row className="mb-3">
+                            <Col xs={6} md={2} className="mb-3">
+                              <label style={labelStyle}>Physical Weight</label>
+                              <div style={readOnlyStyle}>
+                                {container.physical_weight}
+                              </div>
+                            </Col>
+                            <Col xs={6} md={2} className="mb-3">
+                              <label style={labelStyle}>Tare Weight</label>
+                              <div style={readOnlyStyle}>
+                                {container.tare_weight}
+                              </div>
+                            </Col>
+                            <Col xs={6} md={2} className="mb-3">
+                              <label style={labelStyle}>Actual Weight</label>
+                              <div style={readOnlyStyle}>
+                                {container.actual_weight}
+                              </div>
+                            </Col>
+                            <Col xs={6} md={2} className="mb-3">
+                              <label style={labelStyle}>
+                                Gross Weight (Doc)
+                              </label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                variant="outlined"
+                                name={`container_nos[${index}].container_gross_weight`}
+                                value={container.container_gross_weight}
+                                onChange={(e) =>
+                                  handleGrossWeightChange(e, index, formik)
+                                }
+                                sx={compactInputSx}
+                              />
+                            </Col>
+                            <Col xs={6} md={2} className="mb-3">
+                              <label style={labelStyle}>Net Weight (PL)</label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                variant="outlined"
+                                name={`container_nos[${index}].net_weight_as_per_PL_document`}
+                                value={container.net_weight_as_per_PL_document}
+                                onChange={formik.handleChange}
+                                sx={compactInputSx}
+                              />
+                            </Col>
+                            <Col xs={6} md={2} className="mb-3">
+                              <label style={labelStyle}>Excess/Shortage</label>
+                              <div
+                                style={{
+                                  ...readOnlyStyle,
+                                  color:
+                                    container.weight_shortage < 0
+                                      ? "white"
+                                      : "inherit",
+                                  background:
+                                    container.weight_shortage < 0
+                                      ? "#dc3545"
+                                      : "#f8f9fa",
+                                }}
+                              >
+                                {container.container_gross_weight &&
+                                  container.container_gross_weight !== "0"
+                                  ? container.weight_shortage
+                                  : "-"}
+                              </div>
+                            </Col>
+                          </Row>
+
+                          {/* Uploads Grid */}
+                          <Row>
+                            <Col xs={12} md={6}>
+                              <div className="mb-3">
+                                <label
+                                  htmlFor={`weighmentSlip${index}`}
+                                  style={{
+                                    ...labelStyle,
+                                    cursor: "pointer",
+                                    color: "#007bff",
+                                  }}
+                                >
+                                  Upload Weighment Slip
+                                </label>
+                                <input
+                                  type="file"
+                                  multiple
+                                  id={`weighmentSlip${index}`}
+                                  style={{ display: "none" }}
+                                  onChange={(e) =>
+                                    handleWeighmentSlip(
+                                      e,
+                                      container.container_number,
+                                      "weighment_slip_images"
+                                    )
+                                  }
+                                  ref={weighmentSlipRef}
+                                />
+                                <ImagePreview
+                                  images={container?.weighment_slip_images || []}
+                                  onDeleteImage={(imageIndex) => {
+                                    const updatedContainers = [
+                                      ...formik.values.container_nos,
+                                    ];
+                                    const imgs = [
+                                      ...(updatedContainers[index]
+                                        .weighment_slip_images || []),
+                                    ];
+                                    imgs.splice(imageIndex, 1);
+                                    updatedContainers[
+                                      index
+                                    ].weighment_slip_images = imgs;
+                                    formik.setFieldValue(
+                                      "container_nos",
+                                      updatedContainers
+                                    );
+                                  }}
+                                />
+                              </div>
+                              <div className="mb-3">
+                                <label style={labelStyle}>
+                                  Container Pre-Damage Images
+                                </label>
+                                <ImagePreview
+                                  images={
+                                    container?.container_pre_damage_images || []
+                                  }
+                                  onDeleteImage={(imageIndex) => {
+                                    const updatedContainers = [
+                                      ...formik.values.container_nos,
+                                    ];
+                                    const imgs = [
+                                      ...(updatedContainers[index]
+                                        .container_pre_damage_images || []),
+                                    ];
+                                    imgs.splice(imageIndex, 1);
+                                    updatedContainers[
+                                      index
+                                    ].container_pre_damage_images = imgs;
+                                    formik.setFieldValue(
+                                      "container_nos",
+                                      updatedContainers
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </Col>
+                            <Col xs={12} md={6}>
+                              <div className="mb-3">
+                                <label style={labelStyle}>Container Images</label>
+                                <ImagePreview
+                                  images={container?.container_images || []}
+                                  onDeleteImage={(imageIndex) => {
+                                    const updatedContainers = [
+                                      ...formik.values.container_nos,
+                                    ];
+                                    const imgs = [
+                                      ...(updatedContainers[index]
+                                        .container_images || []),
+                                    ];
+                                    imgs.splice(imageIndex, 1);
+                                    updatedContainers[index].container_images =
+                                      imgs;
+                                    formik.setFieldValue(
+                                      "container_nos",
+                                      updatedContainers
+                                    );
+                                  }}
+                                />
+                              </div>
+                              <div className="mb-3">
+                                <label style={labelStyle}>
+                                  Loose Material Images
+                                </label>
+                                <ImagePreview
+                                  images={container?.loose_material || []}
+                                  onDeleteImage={(imageIndex) => {
+                                    const updatedContainers = [
+                                      ...formik.values.container_nos,
+                                    ];
+                                    const imgs = [
+                                      ...(updatedContainers[index]
+                                        .loose_material || []),
+                                    ];
+                                    imgs.splice(imageIndex, 1);
+                                    updatedContainers[index].loose_material =
+                                      imgs;
+                                    formik.setFieldValue(
+                                      "container_nos",
+                                      updatedContainers
+                                    );
+                                  }}
+                                />
+                              </div>
+                              <div className="mb-3">
+                                <label style={labelStyle}>
+                                  Examination Videos
+                                </label>
+                                <ImagePreview
+                                  images={container?.examination_videos || []}
+                                  onDeleteImage={(imageIndex) => {
+                                    const updatedContainers = [
+                                      ...formik.values.container_nos,
+                                    ];
+                                    const imgs = [
+                                      ...(updatedContainers[index]
+                                        .examination_videos || []),
+                                    ];
+                                    imgs.splice(imageIndex, 1);
+                                    updatedContainers[index].examination_videos =
+                                      imgs;
+                                    formik.setFieldValue(
+                                      "container_nos",
+                                      updatedContainers
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </Col>
+                          </Row>
+                        </div>
                       </div>
-                    </Row>
-
-                    <Row>
-                      <Col>
-                        <br />
-                        <label
-                          htmlFor={`weighmentSlip${index}`}
-                          className="btn"
-                        >
-                          Upload Weighment Slip
-                        </label>
-                        <input
-                          type="file"
-                          multiple
-                          id={`weighmentSlip${index}`}
-                          onChange={(e) => {
-                            handleWeighmentSlip(
-                              e,
-                              container.container_number,
-                              "weighment_slip_images"
-                            );
-                          }}
-                          className="input-hidden"
-                          ref={weighmentSlipRef}
-                        />
-                        <br />
-                        <br />
-                        {container.weighment_slip_images?.map((image, id) => {
-                          // eslint-disable-next-line
-                          return <a href={image.url} key={id} />;
-                        })}
-                      </Col>
-                    </Row>
-
-                    <Row>
-                      <Col xs={12} md={6}>
-                        {/* Weighment Slip Images */}
-
-                        <div className="mb-3">
-                          <strong>Weighment Slip Images:&nbsp;</strong>
-                          <ImagePreview
-                            images={container?.weighment_slip_images || []}
-                            onDeleteImage={(imageIndex) => {
-                              // clone the full container_nos array
-                              const updatedContainers = [
-                                ...formik.values.container_nos,
-                              ];
-
-                              // clone this container's images array
-                              const imgs = [
-                                ...(updatedContainers[index]
-                                  .weighment_slip_images || []),
-                              ];
-
-                              // remove the image at imageIndex
-                              imgs.splice(imageIndex, 1);
-
-                              // write back into the container
-                              updatedContainers[index].weighment_slip_images =
-                                imgs;
-
-                              // update formik
-                              formik.setFieldValue(
-                                "container_nos",
-                                updatedContainers
-                              );
-                            }}
-                          />
-                        </div>
-
-                        {/* Container Pre-Damage Images */}
-                        <div className="mb-3">
-                          <strong>Container Pre-Damage Images:&nbsp;</strong>
-                          <ImagePreview
-                            images={
-                              container?.container_pre_damage_images || []
-                            }
-                            onDeleteImage={(imageIndex) => {
-                              const updatedContainers = [
-                                ...formik.values.container_nos,
-                              ];
-                              const imgs = [
-                                ...(updatedContainers[index]
-                                  .container_pre_damage_images || []),
-                              ];
-                              imgs.splice(imageIndex, 1);
-                              updatedContainers[
-                                index
-                              ].container_pre_damage_images = imgs;
-                              formik.setFieldValue(
-                                "container_nos",
-                                updatedContainers
-                              );
-                            }}
-                          />
-                        </div>
-                      </Col>
-
-                      <Col xs={12} md={6}>
-                        {/* Container Images */}
-                        <div className="mb-3">
-                          <strong>Container Images:&nbsp;</strong>
-                          <ImagePreview
-                            images={container?.container_images || []}
-                            onDeleteImage={(imageIndex) => {
-                              const updatedContainers = [
-                                ...formik.values.container_nos,
-                              ];
-                              const imgs = [
-                                ...(updatedContainers[index].container_images ||
-                                  []),
-                              ];
-                              imgs.splice(imageIndex, 1);
-                              updatedContainers[index].container_images = imgs;
-                              formik.setFieldValue(
-                                "container_nos",
-                                updatedContainers
-                              );
-                            }}
-                          />
-                        </div>
-
-                        {/* Loose Material Images */}
-                        <div className="mb-3">
-                          <strong>Loose Material Images:&nbsp;</strong>
-                          <ImagePreview
-                            images={container?.loose_material || []}
-                            onDeleteImage={(imageIndex) => {
-                              const updatedContainers = [
-                                ...formik.values.container_nos,
-                              ];
-                              const imgs = [
-                                ...(updatedContainers[index].loose_material ||
-                                  []),
-                              ];
-                              imgs.splice(imageIndex, 1);
-                              updatedContainers[index].loose_material = imgs;
-                              formik.setFieldValue(
-                                "container_nos",
-                                updatedContainers
-                              );
-                            }}
-                          />
-                        </div>
-                      </Col>
-
-                      <Col xs={12} md={6}>
-                        {/* Examination Videos */}
-                        <div className="mb-3">
-                          <strong>Examination Videos:&nbsp;</strong>
-                          <ImagePreview
-                            images={container?.examination_videos || []}
-                            onDeleteImage={(imageIndex) => {
-                              const updatedContainers = [
-                                ...formik.values.container_nos,
-                              ];
-                              const imgs = [
-                                ...(updatedContainers[index]
-                                  .examination_videos || []),
-                              ];
-                              imgs.splice(imageIndex, 1);
-                              updatedContainers[index].examination_videos =
-                                imgs;
-                              formik.setFieldValue(
-                                "container_nos",
-                                updatedContainers
-                              );
-                            }}
-                          />
-                        </div>
-                      </Col>
-                    </Row>
-                  </div>{" "}
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={handleAddContainer}
-                    >
-                      Add Container
-                    </button>
-                    <button
-                      className="btn-danger"
-                      type="button"
-                      onClick={() => {
-                        setOpenDialog(true);
-                        setContainerToDelete(index);
-                      }}
-                    >
-                      Delete Container
-                    </button>
-                  </div>
-                  <hr />
-                </div>
-              );
-            })}
-          </div>
+                    );
+                  })()}
+                </Col>
+              </Row>
+            </div>
+          )}
 
           {/*************************** Row 8 ****************************/}
 
@@ -4794,7 +3015,7 @@ function JobDetails() {
               </button>
             </Col>
           </Row>
-        </form>
+        </form >
       )}
       {/* Snackbar */}
       <Snackbar

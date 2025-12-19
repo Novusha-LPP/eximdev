@@ -277,26 +277,41 @@ function EditBillingSheet() {
               />
 
               <div className="mt-3">
-                <FileUpload
-                  label="Concor Invoice & Receipt Copy"
-                  bucketPath="concor_invoice_and_receipt_copy"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.concor_invoice_and_receipt_copy || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("concor_invoice_and_receipt_copy", updatedFiles);
-                  }}
-                  multiple={true}
-                  containerStyles={{ marginTop: "0px" }}
-                  buttonSx={{ width: "50%", minHeight: "40px" }}
-                />
-                <ImagePreview
-                  images={formik.values.concor_invoice_and_receipt_copy || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.concor_invoice_and_receipt_copy];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("concor_invoice_and_receipt_copy", updatedFiles);
-                  }}
-                />
+                {data?.custom_house?.includes("ICD KHODIYAR") && (
+                  <>
+                    <FileUpload
+                      label="Concor Invoice & Receipt Copy"
+                      bucketPath="concor_invoice_and_receipt_copy"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.concor_invoice_and_receipt_copy || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                      multiple={true}
+                      containerStyles={{ marginTop: "0px" }}
+                      buttonSx={{ width: "50%", minHeight: "40px" }}
+                    />
+                    <ImagePreview
+                      images={
+                        formik.values.concor_invoice_and_receipt_copy || []
+                      }
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.concor_invoice_and_receipt_copy,
+                        ];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                    />
+                  </>
+                )}
               </div>
             </Col>
 

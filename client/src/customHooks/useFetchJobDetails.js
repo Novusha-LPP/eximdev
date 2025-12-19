@@ -610,9 +610,9 @@ function useFetchJobDetails(
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
       // Close the tab after successful submit
-      // setTimeout(() => {
-      //   window.close();
-      // }, 500);
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
 
     },
@@ -837,6 +837,7 @@ function useFetchJobDetails(
         out_of_charge: safeValue(data.out_of_charge),
         checked: safeValue(data.checked, false),
         type_of_Do: safeValue(data.type_of_Do),
+        obl_telex_bl: safeValue(data.obl_telex_bl),
 
         DsrCharges: safeValue(data.DsrCharges, []),
         dsr_queries: safeValue(data.dsr_queries, []),

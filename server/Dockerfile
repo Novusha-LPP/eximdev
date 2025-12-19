@@ -1,19 +1,23 @@
-FROM mcr.microsoft.com/playwright:v1.57.0-jammy
+# Use official Node.js image
+FROM node:24-alpine
 
+# Set working directory
 WORKDIR /server
 
-# Copy package files
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies (Playwright + browsers are already in the base image)
-RUN npm ci --only=production
+# Install dependencies
+RUN npm install --force
 
-# Copy source code
+# Copy application source code
 COPY . .
 
-# Copy environment file
+# Copy environment variables file (optional – can also mount during run)
 COPY .env .env
 
+# Expose the application port
 EXPOSE 9000
 
-CMD ["npm","start"]
+# Start the application
+CMD ["npm", "start"]

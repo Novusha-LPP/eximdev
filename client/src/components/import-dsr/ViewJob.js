@@ -1367,7 +1367,19 @@ function JobDetails() {
             <>
               {/* Tracking status start*/}
               <div className="job-details-container">
-                <JobDetailsRowHeading heading="Tracking Status" />
+                <JobDetailsRowHeading
+                  heading="Tracking Status"
+                  rightContent={
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
+                      <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
+                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
+                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
+                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
+                      </RadioGroup>
+                    </div>
+                  }
+                />
 
                 {/* --- Section: Shipment Journey --- */}
                 <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
@@ -1516,55 +1528,57 @@ function JobDetails() {
                   </Row>
 
                   <div style={{ marginTop: "16px", padding: "16px", background: "#f8f9fa", borderRadius: "6px" }}>
-                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "1rem", color: "#34495e", mb: 1 }}> Terms of Invoice </FormLabel>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' }}>
-                      <RadioGroup row name="import_terms" value={formik.values.import_terms || importTerms} onChange={handleImportTermsChange}>
-                        <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>CIF</span>} />
-                        <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>FOB</span>} />
-                        <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>C&F</span>} />
-                        <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>C&I</span>} />
-                      </RadioGroup>
+                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "1rem", color: "#34495e", mb: 1 }}> Terms of Invoice & Payment </FormLabel>
 
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        <TextField label={`${formik.values.import_terms || importTerms} Value (₹)`} type="number" name="cifValue"
-                          value={formik.values.cifValue || ""} onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 150, bgcolor: 'white', ...compactInputSx }} />
+                    <Row className="align-items-center">
+                      {/* 1. Import Terms Radios */}
+                      <Col xs={12} lg={4} className="mb-2">
+                        <RadioGroup row name="import_terms" value={formik.values.import_terms || importTerms} onChange={handleImportTermsChange}>
+                          <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>CIF</span>} />
+                          <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>FOB</span>} />
+                          <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>C&F</span>} />
+                          <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>C&I</span>} />
+                        </RadioGroup>
+                      </Col>
 
-                        {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CI") && (
-                          <TextField label="Freight (₹)" type="number" name="freight" value={formik.values.freight || ""}
-                            onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 150, bgcolor: 'white', ...compactInputSx }} />
-                        )}
-                        {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CF") && (
-                          <TextField label="Insurance (₹)" type="number" name="insurance" value={formik.values.insurance || ""}
-                            onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 150, bgcolor: 'white', ...compactInputSx }} />
-                        )}
-                      </div>
-                    </div>
+                      {/* 2. Values Inputs (Conditionals) */}
+                      <Col xs={12} lg={4} className="mb-2">
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          <TextField label={`${formik.values.import_terms || importTerms} Value (₹)`} type="number" name="cifValue"
+                            value={formik.values.cifValue || ""} onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+
+                          {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CI") && (
+                            <TextField label="Freight (₹)" type="number" name="freight" value={formik.values.freight || ""}
+                              onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+                          )}
+                          {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CF") && (
+                            <TextField label="Insurance (₹)" type="number" name="insurance" value={formik.values.insurance || ""}
+                              onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+                          )}
+                        </div>
+                      </Col>
+
+                      {/* Payment radios moved beside FTA Benefit Date (see below) */}
+                    </Row>
+
+                    <Row className="align-items-center">
+                      <Col xs={12} lg={3} className="mt-2">
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
+                          value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
+                          onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
+                          disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: 'white', ...compactInputSx }} />
+                      </Col>
+
+                      <Col xs={12} lg={4} className="mt-2 d-flex align-items-center">
+                        <div style={{ marginRight: '8px', fontWeight: '600', fontSize: '0.9rem', color: '#6c757d' }}>Payment:</div>
+                        <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
+                          <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.9rem' }}>Transaction</span>} />
+                          <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.9rem' }}>Deferred</span>} />
+                        </RadioGroup>
+                      </Col>
+                    </Row>
                   </div>
-
-                  <Row className="mt-3">
-                    <Col xs={12} lg={4} className="mb-3 d-flex align-items-center">
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
-                      <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
-                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
-                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
-                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
-                      </RadioGroup>
-                    </Col>
-                    <Col xs={12} lg={4} className="mb-3 d-flex align-items-center">
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Payment:</div>
-                      <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange} >
-                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Transaction</span>} />
-                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Deferred</span>} />
-                      </RadioGroup>
-                    </Col>
-
-                    <Col xs={12} lg={2} className="mb-3">
-                      <TextField fullWidth label="FTA Benefit Date" size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
-                        value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
-                        onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
-                        disabled={user?.role !== "Admin" && isSubmissionDate} sx={compactInputSx} />
-                    </Col>
-                  </Row>
 
                   <Row>
                     <Col xs={12} lg={6} className="mb-3">
@@ -1816,21 +1830,26 @@ function JobDetails() {
                         <TextField fullWidth size="small" variant="outlined" label="Examination Date" value={data.examination_date || ""} InputProps={{ readOnly: true }} disabled sx={compactInputSx} />
                       </div>
                       <div className="mb-2">
-                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="PCV Date" InputLabelProps={{ shrink: true }}
-                          name="pcv_date" value={formik.values.pcv_date ? (formik.values.pcv_date.length === 10 ? `${formik.values.pcv_date}T00:00` : formik.values.pcv_date) : ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "700", color: "#000000" }}>PCV Date</label>
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" InputLabelProps={{ shrink: true }}
+                          name="pcv_date" value={formik.values.pcv_date ? (formik.values.pcv_date.length === 10 ? `${formik.values.pcv_date}T00:00` : formik.values.pcv_date) : ""} onChange={formik.handleChange} sx={{ ...compactInputSx, maxWidth: "220px" }} />
                       </div>
                     </Col>
 
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Duty & OOC</label>
-                      <div className="d-flex gap-1 mb-4">
-                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="Duty Paid Date" InputLabelProps={{ shrink: true }}
-                          name="duty_paid_date" value={formik.values.duty_paid_date} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isDutyPaidDateDisabled} sx={compactInputSx} />
-                        <IconButton onClick={handleOpenDutyModal} size="small"><AddIcon /></IconButton>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "700", color: "#000000" }}>Duty & OOC</label>
+                      <div className="d-flex gap-1 mb-4 align-items-end">
+                        <div style={{ flexGrow: 1, maxWidth: "220px" }}>
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "700", color: "#000000" }}>Duty Paid Date</label>
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" InputLabelProps={{ shrink: true }}
+                            name="duty_paid_date" value={formik.values.duty_paid_date} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isDutyPaidDateDisabled} sx={compactInputSx} />
+                        </div>
+                        <IconButton onClick={handleOpenDutyModal} size="small" style={{ marginBottom: "4px" }}><AddIcon /></IconButton>
                       </div>
                       <div className="mb-2">
-                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="Out of Charge Date" InputLabelProps={{ shrink: true }}
-                          name="out_of_charge" value={formik.values.out_of_charge ? (formik.values.out_of_charge.length === 10 ? `${formik.values.out_of_charge}T00:00` : formik.values.out_of_charge) : ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "700", color: "#000000" }}>Out of Charge Date</label>
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" InputLabelProps={{ shrink: true }}
+                          name="out_of_charge" value={formik.values.out_of_charge ? (formik.values.out_of_charge.length === 10 ? `${formik.values.out_of_charge}T00:00` : formik.values.out_of_charge) : ""} onChange={formik.handleChange} sx={{ ...compactInputSx, maxWidth: "220px" }} />
                       </div>
                     </Col>
                   </Row>
@@ -1875,9 +1894,12 @@ function JobDetails() {
 
                       {user.role === "Admin" && (
                         <div className="mt-2">
-                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" label={formik.values.obl_telex_bl === "OBL" ? "Original Doc Received Date" : "Doc Received Date"}
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "700", color: "#000000" }}>
+                            {formik.values.obl_telex_bl === "OBL" ? "Original Doc Received Date" : "Doc Received Date"}
+                          </label>
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local"
                             InputLabelProps={{ shrink: true }} name="document_received_date" value={formik.values.document_received_date || ""}
-                            onChange={(e) => { const v = e.target.value; formik.setFieldValue("document_received_date", v ? v : ""); }} sx={compactInputSx} />
+                            onChange={(e) => { const v = e.target.value; formik.setFieldValue("document_received_date", v ? v : ""); }} sx={{ ...compactInputSx, maxWidth: "220px" }} />
                         </div>
                       )}
                     </Col>
@@ -1903,9 +1925,10 @@ function JobDetails() {
 
                       {user.role === "Admin" && (
                         <div className="mt-2">
-                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="DO Planning Date (Admin)"
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "700", color: "#000000" }}>DO Planning Date (Admin)</label>
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local"
                             InputLabelProps={{ shrink: true }} name="do_planning_date" value={formik.values.do_planning_date || ""}
-                            onChange={(e) => { if (e.target.value) formik.setFieldValue("do_planning_date", e.target.value); }} sx={compactInputSx} />
+                            onChange={(e) => { if (e.target.value) formik.setFieldValue("do_planning_date", e.target.value); }} sx={{ ...compactInputSx, maxWidth: "220px" }} />
                         </div>
                       )}
                     </Col>
@@ -2361,7 +2384,7 @@ function JobDetails() {
                       display: "block",
                       marginBottom: "4px",
                       fontSize: "0.9rem",
-                      fontWeight: "600",
+                      fontWeight: "700",
                       color: "#000000",
                     };
                     const readOnlyStyle = {
@@ -2384,6 +2407,7 @@ function JobDetails() {
                           boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
                         }}
                       >
+
                         {/* Header */}
                         <div
                           style={{

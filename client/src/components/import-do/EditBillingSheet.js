@@ -230,7 +230,7 @@ function EditBillingSheet() {
       <Charges job_no={job_no} year={year} />
 
       <div className="job-details-container">
-        <form onSubmit={formik.handleSubmit}>
+        <form id="billing-sheet-form" onSubmit={formik.handleSubmit}>
           <Row>
             <Col xs={12} md={6}>
               {data?.custom_house === "ICD Sabarmati, Ahmedabad" && (
@@ -485,16 +485,18 @@ function EditBillingSheet() {
               </Col>
             )}
           </Row>
-          <button
-            className="btn sticky-btn"
-            type="submit"
-            style={{ float: "right", margin: "10px" }}
-            aria-label="submit-btn"
-          >
-            Submit
-          </button>
+          <Box sx={{ height: "60px" }} />
         </form>
       </div>
+
+      <button
+        className="btn sticky-btn"
+        type="submit"
+        form="billing-sheet-form"
+        aria-label="submit-btn"
+      >
+        Submit
+      </button>
 
       <Snackbar
         open={fileSnackbar.open}

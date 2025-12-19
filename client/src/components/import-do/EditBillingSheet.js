@@ -84,6 +84,7 @@ function EditBillingSheet() {
       dsr_queries: [],
       thar_invoices: [],
       hasti_invoices: [],
+      concor_invoice_and_receipt_copy: [],
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -174,6 +175,7 @@ function EditBillingSheet() {
           dsr_queries: jobData.dsr_queries || [],
           thar_invoices: jobData.thar_invoices || [],
           hasti_invoices: jobData.hasti_invoices || [],
+          concor_invoice_and_receipt_copy: jobData.concor_invoice_and_receipt_copy || [],
         });
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -273,6 +275,29 @@ function EditBillingSheet() {
                   formik.setFieldValue("icd_cfs_invoice_img", updatedFiles);
                 }}
               />
+
+              <div className="mt-3">
+                <FileUpload
+                  label="Concor Invoice & Receipt Copy"
+                  bucketPath="concor_invoice_and_receipt_copy"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.concor_invoice_and_receipt_copy || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("concor_invoice_and_receipt_copy", updatedFiles);
+                  }}
+                  multiple={true}
+                  containerStyles={{ marginTop: "0px" }}
+                  buttonSx={{ width: "50%", minHeight: "40px" }}
+                />
+                <ImagePreview
+                  images={formik.values.concor_invoice_and_receipt_copy || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.concor_invoice_and_receipt_copy];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("concor_invoice_and_receipt_copy", updatedFiles);
+                  }}
+                />
+              </div>
             </Col>
 
             <Col xs={12} md={4}>
@@ -393,7 +418,7 @@ function EditBillingSheet() {
                           const currentDate = new Date();
                           const isoDate = new Date(
                             currentDate.getTime() -
-                              currentDate.getTimezoneOffset() * 60000
+                            currentDate.getTimezoneOffset() * 60000
                           )
                             .toISOString()
                             .slice(0, 16);

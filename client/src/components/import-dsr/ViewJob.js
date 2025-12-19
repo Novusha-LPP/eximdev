@@ -61,8 +61,8 @@ import QueriesComponent from "../../utils/QueriesComponent.js";
 
 const compactInputSx = {
   "& .MuiOutlinedInput-root": { height: "32px" },
-  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.8rem" },
-  "& .MuiInputLabel-root": { fontSize: "0.8rem", top: "-4px" }, // Adjust label position if needed
+  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.95rem", fontWeight: "bold" },
+  "& .MuiInputLabel-root": { fontSize: "0.95rem", fontWeight: "bold", top: "-4px" }, // Adjust label position if needed
   "& .MuiInputLabel-shrink": { top: "0px" }
 };
 
@@ -1259,8 +1259,8 @@ function JobDetails() {
                     <div className="mb-3">
                       <div
                         style={{
-                          fontSize: "0.75rem",
-                          color: "#6c757d",
+                          fontSize: "0.9rem",
+                          color: "#000000",
                           marginBottom: "4px",
                           fontWeight: "600"
                         }}
@@ -1289,8 +1289,8 @@ function JobDetails() {
                     <div className="mb-3">
                       <div
                         style={{
-                          fontSize: "0.75rem",
-                          color: "#6c757d",
+                          fontSize: "0.9rem",
+                          color: "#000000",
                           marginBottom: "4px",
                           fontWeight: "600"
                         }}
@@ -1319,8 +1319,8 @@ function JobDetails() {
                     <div className="mb-3">
                       <div
                         style={{
-                          fontSize: "0.75rem",
-                          color: "#6c757d",
+                          fontSize: "0.9rem",
+                          color: "#000000",
                           marginBottom: "4px",
                           fontWeight: "600"
                         }}
@@ -1376,84 +1376,84 @@ function JobDetails() {
                   </h6>
                   <Row>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BL Number</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BL Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="awb_bl_no" name="awb_bl_no" value={formik.values.awb_bl_no || ""}
                         onChange={formik.handleChange} placeholder="Enter BL No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BL Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BL Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="awb_bl_date" name="awb_bl_date"
                         value={formik.values.awb_bl_date ? (formik.values.awb_bl_date.length === 10 ? `${formik.values.awb_bl_date}T00:00` : formik.values.awb_bl_date) : ""}
                         onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>HAWBL Number</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HAWBL Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="hawb_hbl_no" name="hawb_hbl_no" value={formik.values.hawb_hbl_no || ""}
                         onChange={formik.handleChange} placeholder="Enter HAWBL No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>HAWBL Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HAWBL Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="hawb_hbl_date" name="hawb_hbl_date"
                         value={formik.values.hawb_hbl_date ? (formik.values.hawb_hbl_date.length === 10 ? `${formik.values.hawb_hbl_date}T00:00` : formik.values.hawb_hbl_date) : ""}
                         onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Gross Weight (KGS)</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gross Weight (KGS)</label>
                       <TextField fullWidth size="small" variant="outlined" id="gross_weight" name="gross_weight" value={formik.values.gross_weight || ""}
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Net Weight (KGS)</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Net Weight (KGS)</label>
                       <TextField fullWidth size="small" variant="outlined" id="job_net_weight" name="job_net_weight" value={formik.values.job_net_weight || ""}
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>ETA Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>ETA Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="vessel_berthing" name="vessel_berthing"
                         value={formik.values.vessel_berthing ? (formik.values.vessel_berthing.length === 10 ? `${formik.values.vessel_berthing}T00:00` : formik.values.vessel_berthing) : ""}
                         disabled={!(user?.role === "Admin") && (ExBondflag || isSubmissionDate)} onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Gateway IGM No</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM No</label>
                       <TextField fullWidth size="small" variant="outlined" id="gateway_igm" name="gateway_igm" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.gateway_igm || ""} onChange={formik.handleChange} placeholder="Enter Gateway IGM" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Gateway IGM Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="gateway_igm_date" name="gateway_igm_date" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.gateway_igm_date ? (formik.values.gateway_igm_date.length === 10 ? `${formik.values.gateway_igm_date}T00:00` : formik.values.gateway_igm_date) : ""}
                         onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>IGM Number</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>IGM Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="igm_no" name="igm_no" value={formik.values.igm_no || ""}
                         disabled={user?.role !== "Admin" && isSubmissionDate} onChange={formik.handleChange} placeholder="Enter IGM No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>IGM Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>IGM Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="igm_date" name="igm_date"
                         value={formik.values.igm_date ? (formik.values.igm_date.length === 10 ? `${formik.values.igm_date}T00:00` : formik.values.igm_date) : ""}
                         disabled={!(user?.role === "Admin") && (ExBondflag || isSubmissionDate)} onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Discharge / L-IGM Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Discharge / L-IGM Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="discharge_date" name="discharge_date"
                         disabled={!(user?.role === "Admin") && (!formik.values.vessel_berthing || ExBondflag || isSubmissionDate)}
                         value={formik.values.discharge_date ? (formik.values.discharge_date.length === 10 ? `${formik.values.discharge_date}T00:00` : formik.values.discharge_date) : ""}
                         onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={6} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Line No</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Line No</label>
                       <TextField fullWidth size="small" variant="outlined" id="line_no" name="line_no" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.line_no || ""} onChange={formik.handleChange} placeholder="Line No" sx={compactInputSx} />
                     </Col>
                     <Col xs={6} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>No of Packages</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>No of Packages</label>
                       <TextField fullWidth size="small" variant="outlined" id="no_of_pkgs" name="no_of_pkgs" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.no_of_pkgs || ""} onChange={formik.handleChange} placeholder="No of Pkgs" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>HSS</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HSS</label>
                       <TextField fullWidth select size="small" variant="outlined" id="hss" name="hss"
                         disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss || "No"} onChange={formik.handleChange} sx={compactInputSx}>
                         <MenuItem value="Yes">Yes</MenuItem>
@@ -1462,7 +1462,7 @@ function JobDetails() {
                     </Col>
                     {formik.values.hss === "Yes" && (
                       <Col xs={12} md={4} lg={3} className="mb-3">
-                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Seller Name</label>
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Seller Name</label>
                         <TextField fullWidth size="small" variant="outlined" id="saller_name" name="saller_name"
                           disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.saller_name || ""} onChange={formik.handleChange} sx={compactInputSx} />
                       </Col>
@@ -1470,7 +1470,7 @@ function JobDetails() {
 
                     {formik.values.consignment_type !== "LCL" && (
                       <Col xs={12} md={2} lg={2} className="mb-3">
-                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Free Time</label>
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Free Time</label>
                         <TextField fullWidth select size="small" variant="outlined" id="free_time" name="free_time"
                           value={formik.values.free_time || ""} disabled={user?.role !== "Admin" && isSubmissionDate} onChange={formik.handleChange} sx={compactInputSx}>
                           {options?.map((option, id) => (<MenuItem key={id} value={option}>{option}</MenuItem>))}
@@ -1489,40 +1489,40 @@ function JobDetails() {
 
 
                     <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>AD Code</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
                       <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Bank Name</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
                       <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Invoice No</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Invoice No</label>
                       <TextField fullWidth size="small" variant="outlined" id="invoice_number" name="invoice_number" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.invoice_number || ""} onChange={formik.handleChange} placeholder="Invoice No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Invoice Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Invoice Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="date" id="invoice_date" name="invoice_date" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.invoice_date || ""} onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={4} lg={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Invoice Value</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Invoice Value</label>
                       <TextField fullWidth size="small" variant="outlined" id="total_inv_value" name="total_inv_value" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.total_inv_value || ""} onChange={formik.handleChange} placeholder={`${data?.inv_currency || ""} ${((formik.values.cifValue || data?.cifValue) && (data?.exrate)) ? ((formik.values.cifValue || data?.cifValue) / data?.exrate).toFixed(2) : ""}`} sx={compactInputSx} />
                     </Col>
                   </Row>
 
                   <div style={{ marginTop: "16px", padding: "16px", background: "#f8f9fa", borderRadius: "6px" }}>
-                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#34495e", mb: 1 }}> Terms of Invoice </FormLabel>
+                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "1rem", color: "#34495e", mb: 1 }}> Terms of Invoice </FormLabel>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' }}>
                       <RadioGroup row name="import_terms" value={formik.values.import_terms || importTerms} onChange={handleImportTermsChange}>
-                        <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>CIF</span>} />
-                        <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>FOB</span>} />
-                        <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>C&F</span>} />
-                        <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '0.85rem' }}>C&I</span>} />
+                        <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>CIF</span>} />
+                        <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>FOB</span>} />
+                        <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>C&F</span>} />
+                        <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>C&I</span>} />
                       </RadioGroup>
 
                       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -1543,18 +1543,18 @@ function JobDetails() {
 
                   <Row className="mt-3">
                     <Col xs={12} lg={4} className="mb-3 d-flex align-items-center">
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '0.8rem', color: '#6c757d' }}>Priority:</div>
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
                       <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
-                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '0.8rem' }}>Normal</span>} />
-                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '0.8rem' }}>Priority</span>} />
-                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '0.8rem' }}>High</span>} />
+                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
+                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
+                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
                       </RadioGroup>
                     </Col>
                     <Col xs={12} lg={4} className="mb-3 d-flex align-items-center">
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '0.8rem', color: '#6c757d' }}>Payment:</div>
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Payment:</div>
                       <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange} >
-                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Transaction</span>} />
-                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Deferred</span>} />
+                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Transaction</span>} />
+                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Deferred</span>} />
                       </RadioGroup>
                     </Col>
 
@@ -1568,7 +1568,7 @@ function JobDetails() {
 
                   <Row>
                     <Col xs={12} lg={6} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Description</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Description</label>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <TextField size="small" fullWidth multiline rows={2} variant="outlined" id="description" name="description"
                           value={formik.values.description || ""} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} />
@@ -1578,7 +1578,7 @@ function JobDetails() {
                       </div>
                     </Col>
                     <Col xs={12} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>CTH No.</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>CTH No.</label>
                       <TextField fullWidth size="small" variant="outlined" id="cth_no" name="cth_no" value={formik.values.cth_no || ""}
                         onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} sx={compactInputSx} />
                     </Col>
@@ -1592,7 +1592,7 @@ function JobDetails() {
                   </h6>
                   <Row>
                     <Col xs={12} md={4} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BOE Type</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BOE Type</label>
                       <TextField select fullWidth size="small" variant="outlined" name="type_of_b_e" value={formik.values.type_of_b_e || ""}
                         onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} displayEmpty sx={compactInputSx}>
                         <MenuItem value="" disabled>Select BE Type</MenuItem>
@@ -1600,7 +1600,7 @@ function JobDetails() {
                       </TextField>
                     </Col>
                     <Col xs={12} md={4} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Clearance Under</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Clearance Under</label>
                       <TextField select fullWidth size="small" variant="outlined" name="clearanceValue" value={formik.values.clearanceValue || ""}
                         onChange={(e) => { if (canChangeClearance()) { formik.setFieldValue("clearanceValue", e.target.value); } else { alert("Please clear Ex-Bond details before changing Clearance Under."); } }} sx={compactInputSx}>
                         <MenuItem value="" disabled>Select Clearance Type</MenuItem>
@@ -1610,7 +1610,7 @@ function JobDetails() {
 
                     {ExBondflag && (
                       <Col xs={12} md={4} lg={2} className="mb-3">
-                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>In Bond</label>
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>In Bond</label>
                         <TextField select fullWidth size="small" variant="outlined" name="exBondValue" value={formik.values.exBondValue || ""} onChange={formik.handleChange} sx={compactInputSx}>
                           <MenuItem value="" disabled>Select In-Bond Type</MenuItem>
                           <MenuItem value="other">Other</MenuItem>
@@ -1623,14 +1623,14 @@ function JobDetails() {
                   {/* Ex-Bond "Other" Logic */}
                   {formik.values.exBondValue === "other" && (
                     <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "6px", marginBottom: "16px" }}>
-                      <h6 style={{ fontSize: "0.85rem", fontWeight: "600", marginBottom: "12px", color: "#555" }}>In-Bond Details (Other)</h6>
+                      <h6 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "12px", color: "#555" }}>In-Bond Details (Other)</h6>
                       <Row>
                         <Col xs={12} md={3} lg={2} className="mb-3">
-                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>InBond BE Number</label>
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>InBond BE Number</label>
                           <TextField fullWidth size="small" variant="outlined" name="in_bond_be_no" value={formik.values.in_bond_be_no || ""} onChange={formik.handleChange} sx={compactInputSx} />
                         </Col>
                         <Col xs={12} md={3} lg={2} className="mb-3">
-                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>InBond BE Date</label>
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>InBond BE Date</label>
                           <TextField fullWidth size="small" variant="outlined" type="date" InputLabelProps={{ shrink: true }} name="in_bond_be_date"
                             value={formik.values.in_bond_be_date || ""} onChange={formik.handleChange} sx={compactInputSx} />
                         </Col>
@@ -1674,28 +1674,28 @@ function JobDetails() {
 
                   <Row className="mt-2">
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BOE Number</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BOE Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="be_no" name="be_no" value={formik.values.be_no || ""}
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>BOE Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BOE Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="date" id="be_date" name="be_date" value={formik.values.be_date || ""}
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Assessment Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Assessment Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="assessment_date" name="assessment_date"
                         value={formik.values.assessment_date} onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={6} lg={4} className="mb-3 d-flex align-items-center">
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '0.8rem', color: '#6c757d' }}>BOE Filing:</div>
+                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>BOE Filing:</div>
                       <RadioGroup row name="be_filing_type" value={formik.values.be_filing_type || ""} onChange={formik.handleChange}
                         disabled={user?.role !== "Admin" && isSubmissionDate}>
-                        <FormControlLabel value="Discharge" control={<Radio size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Discharge</span>} />
-                        <FormControlLabel value="Railout" control={<Radio size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Railout</span>} />
-                        <FormControlLabel value="Advanced" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Advanced</span>} />
-                        <FormControlLabel value="Prior" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.8rem' }}>Prior</span>} />
+                        <FormControlLabel value="Discharge" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>Discharge</span>} />
+                        <FormControlLabel value="Railout" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>Railout</span>} />
+                        <FormControlLabel value="Advanced" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Advanced</span>} />
+                        <FormControlLabel value="Prior" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Prior</span>} />
                       </RadioGroup>
                     </Col>
                   </Row>
@@ -1710,7 +1710,7 @@ function JobDetails() {
                   <Row className="mb-4">
                     <Col xs={12} md={6}>
                       <div style={{ padding: "12px", border: "1px dashed #ced4da", borderRadius: "6px", background: "#fcfcfc" }}>
-                        <h6 style={{ fontSize: "0.8rem", fontWeight: "600", marginBottom: "8px" }}>Checklist</h6>
+                        <h6 style={{ fontSize: "0.95rem", fontWeight: "600", marginBottom: "8px" }}>Checklist</h6>
                         <div className="d-flex gap-3 align-items-start">
                           <div style={{ flex: 1 }}>
                             <FileUpload label="Upload Checklist" bucketPath="checklist" singleFileOnly={true} replaceMode={true}
@@ -1738,9 +1738,9 @@ function JobDetails() {
                                 }
                               }} />
                             <div>
-                              <div style={{ fontSize: "0.8rem", fontWeight: "600" }}>Approved</div>
+                              <div style={{ fontSize: "0.95rem", fontWeight: "600" }}>Approved</div>
                               {formik.values.is_checklist_aprroved_date && (
-                                <div style={{ fontSize: "0.75rem", color: "#28a745" }}>
+                                <div style={{ fontSize: "0.9rem", color: "#28a745" }}>
                                   {new Date(formik.values.is_checklist_aprroved_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
                                 </div>
                               )}
@@ -1753,7 +1753,7 @@ function JobDetails() {
 
                     <Col xs={12} md={6}>
                       <div style={{ padding: "12px", border: "1px dashed #ced4da", borderRadius: "6px", background: "#fcfcfc" }}>
-                        <h6 style={{ fontSize: "0.8rem", fontWeight: "600", marginBottom: "8px" }}>Job Sticker</h6>
+                        <h6 style={{ fontSize: "0.95rem", fontWeight: "600", marginBottom: "8px" }}>Job Sticker</h6>
                         <div className="d-flex gap-2 align-items-center mb-2">
                           <JobStickerPDF ref={pdfRef} jobData={{
                             job_no: formik.values.job_no, year: formik.values.year, importer: formik.values.importer, be_no: formik.values.be_no, be_date: formik.values.be_date,
@@ -1775,7 +1775,7 @@ function JobDetails() {
 
                   <Row className="mb-3">
                     <Col xs={12} md={4} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}> Examination Planning & Details</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}> Examination Planning & Details</label>
                       <div className="d-flex flex-column gap-2">
                         <div className="d-flex align-items-center gap-2">
                           <Checkbox checked={formik.values.examinationPlanning} onChange={(e) => {
@@ -1784,10 +1784,10 @@ function JobDetails() {
                               formik.setFieldValue("examinationPlanning", true); formik.setFieldValue("examination_planning_date", dt);
                             } else { formik.setFieldValue("examinationPlanning", false); formik.setFieldValue("examination_planning_date", ""); }
                           }} />
-                          <span style={{ fontSize: "0.8rem" }}>Exam Planning</span>
+                          <span style={{ fontSize: "0.95rem" }}>Exam Planning</span>
                         </div>
                         {formik.values.examination_planning_date && (
-                          <div style={{ fontSize: "0.75rem", color: "green", paddingLeft: "30px" }}>
+                          <div style={{ fontSize: "0.9rem", color: "green", paddingLeft: "30px" }}>
                             {new Date(formik.values.examination_planning_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
                           </div>
                         )}
@@ -1800,10 +1800,10 @@ function JobDetails() {
                                 formik.setFieldValue("firstCheck", dt);
                               } else { formik.setFieldValue("firstCheck", ""); }
                             }} />
-                          <span style={{ fontSize: "0.8rem" }}>First Check</span>
+                          <span style={{ fontSize: "0.95rem" }}>First Check</span>
                         </div>
                         {formik.values.firstCheck && (
-                          <div style={{ fontSize: "0.75rem", color: "green", paddingLeft: "30px" }}>
+                          <div style={{ fontSize: "0.9rem", color: "green", paddingLeft: "30px" }}>
                             YES {new Date(formik.values.firstCheck).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
                           </div>
                         )}
@@ -1811,7 +1811,7 @@ function JobDetails() {
                     </Col>
 
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Dates</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Dates</label>
                       <div className="mb-4">
                         <TextField fullWidth size="small" variant="outlined" label="Examination Date" value={data.examination_date || ""} InputProps={{ readOnly: true }} disabled sx={compactInputSx} />
                       </div>
@@ -1822,7 +1822,7 @@ function JobDetails() {
                     </Col>
 
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Duty & OOC</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Duty & OOC</label>
                       <div className="d-flex gap-1 mb-4">
                         <TextField fullWidth size="small" variant="outlined" type="datetime-local" label="Duty Paid Date" InputLabelProps={{ shrink: true }}
                           name="duty_paid_date" value={formik.values.duty_paid_date} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isDutyPaidDateDisabled} sx={compactInputSx} />
@@ -1864,13 +1864,13 @@ function JobDetails() {
                   </h6>
                   <Row>
                     <Col xs={12} md={6} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>OBL / Document Status</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>OBL / Document Status</label>
                       <RadioGroup row name="radio-buttons-group" value={formik.values.obl_telex_bl} onChange={handleBlStatusChange}>
-                        <FormControlLabel value="OBL" control={<Radio checked={formik.values.obl_telex_bl === "OBL"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Original</span>} />
-                        <FormControlLabel value="Telex" control={<Radio checked={formik.values.obl_telex_bl === "Telex"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Telex</span>} />
-                        <FormControlLabel value="Surrender BL" control={<Radio checked={formik.values.obl_telex_bl === "Surrender BL"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Surrender</span>} />
-                        <FormControlLabel value="Waybill" control={<Radio checked={formik.values.obl_telex_bl === "Waybill"} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Waybill</span>} />
-                        <FormControlLabel value="clear" control={<Radio size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Clear</span>} />
+                        <FormControlLabel value="OBL" control={<Radio checked={formik.values.obl_telex_bl === "OBL"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Original</span>} />
+                        <FormControlLabel value="Telex" control={<Radio checked={formik.values.obl_telex_bl === "Telex"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Telex</span>} />
+                        <FormControlLabel value="Surrender BL" control={<Radio checked={formik.values.obl_telex_bl === "Surrender BL"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Surrender</span>} />
+                        <FormControlLabel value="Waybill" control={<Radio checked={formik.values.obl_telex_bl === "Waybill"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Waybill</span>} />
+                        <FormControlLabel value="clear" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>Clear</span>} />
                       </RadioGroup>
 
                       {user.role === "Admin" && (
@@ -1883,7 +1883,7 @@ function JobDetails() {
                     </Col>
 
                     <Col xs={12} md={6} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Planning</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Planning</label>
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <Checkbox checked={formik.values.doPlanning} onChange={(e) => {
                           if (e.target.checked) {
@@ -1891,14 +1891,14 @@ function JobDetails() {
                             formik.setFieldValue("doPlanning", true); formik.setFieldValue("do_planning_date", dt);
                           } else { formik.setFieldValue("doPlanning", false); formik.setFieldValue("do_planning_date", ""); }
                         }} />
-                        <span style={{ fontSize: "0.85rem", fontWeight: "600" }}>DO Planning Active</span>
+                        <span style={{ fontSize: "1rem", fontWeight: "600" }}>DO Planning Active</span>
                       </div>
                       <RadioGroup row name="type_of_Do" value={formik.values.type_of_Do} onChange={(e) => {
                         const val = e.target.value; formik.setFieldValue("type_of_Do", val === "Clear" ? "" : val);
                       }}>
-                        <FormControlLabel value="ICD" control={<Radio style={{ color: formik.values.type_of_Do === "ICD" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>ICD</span>} />
-                        <FormControlLabel value="Factory" control={<Radio style={{ color: formik.values.type_of_Do === "Factory" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Factory</span>} />
-                        <FormControlLabel value="Clear" control={<Radio style={{ color: formik.values.type_of_Do === "Clear" ? "red" : "inherit" }} size="small" />} label={<span style={{ fontSize: '0.8rem' }}>Clear</span>} />
+                        <FormControlLabel value="ICD" control={<Radio style={{ color: formik.values.type_of_Do === "ICD" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '1rem' }}>ICD</span>} />
+                        <FormControlLabel value="Factory" control={<Radio style={{ color: formik.values.type_of_Do === "Factory" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '1rem' }}>Factory</span>} />
+                        <FormControlLabel value="Clear" control={<Radio style={{ color: formik.values.type_of_Do === "Clear" ? "red" : "inherit" }} size="small" />} label={<span style={{ fontSize: '1rem' }}>Clear</span>} />
                       </RadioGroup>
 
                       {user.role === "Admin" && (
@@ -1919,7 +1919,7 @@ function JobDetails() {
                   </h6>
                   <Row className="mb-3">
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Validity</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Validity</label>
                       {formik.values.do_revalidation ? (
                         <div style={{ padding: "8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #ced4da", fontSize: "0.9rem" }}>
                           {formik.values.do_validity_upto_job_level || "-"}
@@ -1932,7 +1932,7 @@ function JobDetails() {
                       )}
                     </Col>
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Required DO Validity Upto</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Required DO Validity Upto</label>
                       <TextField fullWidth size="small" variant="outlined" type="date"
                         id="required_do_validity_upto_0" name="container_nos[0].required_do_validity_upto"
                         value={formik.values.container_nos?.[0]?.required_do_validity_upto || ""}
@@ -1940,7 +1940,7 @@ function JobDetails() {
                         InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Revalidation</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Revalidation</label>
                       <div className="d-flex align-items-center gap-2">
                         <Checkbox checked={formik.values.do_revalidation} onChange={(e) => {
                           if (e.target.checked) {
@@ -1952,10 +1952,10 @@ function JobDetails() {
                             formik.setFieldValue("do_revalidation_date", "");
                           }
                         }} />
-                        <span style={{ fontSize: "0.85rem" }}>Revalidation Active</span>
+                        <span style={{ fontSize: "1rem" }}>Revalidation Active</span>
                       </div>
                       {formik.values.do_revalidation_date && (
-                        <div style={{ fontSize: "0.75rem", color: "green", marginTop: "4px" }}>
+                        <div style={{ fontSize: "0.9rem", color: "green", marginTop: "4px" }}>
                           {new Date(formik.values.do_revalidation_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
                         </div>
                       )}
@@ -1965,7 +1965,7 @@ function JobDetails() {
                   <Row className="mb-3">
                     {user.role === "Admin" && (
                       <Col xs={12} md={3} className="mb-3">
-                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Revalidation Date (Admin)</label>
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Revalidation Date (Admin)</label>
                         <TextField fullWidth size="small" variant="outlined" type="datetime-local"
                           id="do_revalidation_date" name="do_revalidation_date"
                           value={formik.values.do_revalidation_date || ""}
@@ -1977,7 +1977,7 @@ function JobDetails() {
                       </Col>
                     )}
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Received Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Received Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local"
                         id="do_completed" name="do_completed"
                         value={formik.values.do_completed ? (formik.values.do_completed.length === 10 ? `${formik.values.do_completed}T00:00` : formik.values.do_completed) : ""}
@@ -1985,7 +1985,7 @@ function JobDetails() {
                         InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Valid Up to</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Valid Up to</label>
                       <div style={{ padding: "8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #ced4da", fontSize: "0.9rem", minHeight: "38px" }}>
                         {formik.values.do_validity_upto_job_level || "-"}
                       </div>
@@ -1994,11 +1994,11 @@ function JobDetails() {
 
                   <Row>
                     <Col xs={12} md={4} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>DO Copies</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>DO Copies</label>
                       <ImagePreview images={formik.values.do_copies || []} readOnly />
                     </Col>
                     <Col xs={12} md={8} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.75rem", fontWeight: "600", color: "#6c757d" }}>Remarks</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Remarks</label>
                       <TextField multiline minRows={2} fullWidth size="small" variant="outlined"
                         id="remarks" name="remarks" value={formik.values.remarks || ""} onChange={formik.handleChange} />
                     </Col>
@@ -2034,7 +2034,7 @@ function JobDetails() {
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
                               <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
-                              <div style={{ fontSize: "0.8rem", color: "#6c757d" }}>{doc.document_code}</div>
+                              <div style={{ fontSize: "0.95rem", color: "#000000" }}>{doc.document_code}</div>
                             </div>
                             <div style={{ display: "flex", gap: "2px" }}>
                               <IconButton size="small" onClick={() => handleOpenDialog(doc, true)} style={{ padding: "4px" }}><Edit style={{ fontSize: "1rem" }} color="primary" /></IconButton>
@@ -2043,7 +2043,7 @@ function JobDetails() {
                           </div>
                         </td>
                         <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                          <span style={{ fontSize: "0.85rem", color: doc.document_check_date ? "#28a745" : "#6c757d", fontWeight: doc.document_check_date ? "600" : "normal" }}>
+                          <span style={{ fontSize: "1rem", color: doc.document_check_date ? "#28a745" : "#6c757d", fontWeight: doc.document_check_date ? "600" : "normal" }}>
                             {doc.document_check_date ? new Date(doc.document_check_date).toLocaleString("en-IN", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true }) : "-"}
                           </span>
                         </td>
@@ -2060,7 +2060,7 @@ function JobDetails() {
                             bucketPath={`cth-documents/${doc.document_name}`}
                             multiple={true}
                             containerStyles={{ marginTop: 0 }}
-                            buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
+                            buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
                             onFilesUploaded={(urls) => {
                               const updatedDocuments = [...cthDocuments];
                               updatedDocuments[index].url = [...(updatedDocuments[index].url || []), ...urls];
@@ -2224,7 +2224,7 @@ function JobDetails() {
                               bucketPath={`charges-documents/${doc.document_name}`}
                               multiple={true}
                               containerStyles={{ marginTop: 0 }}
-                              buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
+                              buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
                               onFilesUploaded={(urls) => {
                                 const updated = [...selectedChargesDocuments];
                                 const idx = updated.findIndex(s => s.document_name === doc.document_name);
@@ -2317,7 +2317,7 @@ function JobDetails() {
                           {container.container_number || `Container ${i + 1}`}
                         </div>
                         {container.size && (
-                          <div style={{ fontSize: "0.75rem", color: "#6c757d" }}>
+                          <div style={{ fontSize: "0.9rem", color: "#000000" }}>
                             Size: {container.size}
                           </div>
                         )}
@@ -2360,9 +2360,9 @@ function JobDetails() {
                     const labelStyle = {
                       display: "block",
                       marginBottom: "4px",
-                      fontSize: "0.75rem",
+                      fontSize: "0.9rem",
                       fontWeight: "600",
-                      color: "#6c757d",
+                      color: "#000000",
                     };
                     const readOnlyStyle = {
                       padding: "8px",
@@ -2505,7 +2505,7 @@ function JobDetails() {
                                     />
                                   }
                                   label={
-                                    <span style={{ fontSize: "0.85rem" }}>
+                                    <span style={{ fontSize: "1rem" }}>
                                       SRCC
                                     </span>
                                   }
@@ -2530,6 +2530,24 @@ function JobDetails() {
 
                           {/* Row 2: Dates */}
                           <Row className="mb-3">
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Railout Date</label>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="datetime-local"
+                                variant="outlined"
+                                name={`container_nos[${index}].container_rail_out_date`}
+                                value={container.container_rail_out_date}
+                                disabled={
+                                  !(user?.role === "Admin") &&
+                                  (LCLFlag || ExBondflag)
+                                }
+                                onChange={formik.handleChange}
+                                InputLabelProps={{ shrink: true }}
+                                sx={compactInputSx}
+                              />
+                            </Col>
                             <Col xs={12} md={3} lg={2} className="mb-3">
                               <label style={labelStyle}>Arrival Date</label>
                               {formik.values.checked ? (
@@ -2556,24 +2574,6 @@ function JobDetails() {
                                   sx={compactInputSx}
                                 />
                               )}
-                            </Col>
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Railout Date</label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="datetime-local"
-                                variant="outlined"
-                                name={`container_nos[${index}].container_rail_out_date`}
-                                value={container.container_rail_out_date}
-                                disabled={
-                                  !(user?.role === "Admin") &&
-                                  (LCLFlag || ExBondflag)
-                                }
-                                onChange={formik.handleChange}
-                                InputLabelProps={{ shrink: true }}
-                                sx={compactInputSx}
-                              />
                             </Col>
                             {LCLFlag && (
                               <Col xs={12} md={3} lg={2} className="mb-3">

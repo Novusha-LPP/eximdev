@@ -47,7 +47,8 @@ router.patch(
         "dsr_queries", // ✅ allow updating dsr_queries from billing stage too
         "thar_invoices",
         "hasti_invoices",
-        
+        "concor_invoice_and_receipt_copy",
+
       ];
 
       // Validate fields sent by client

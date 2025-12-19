@@ -1700,51 +1700,6 @@ function DoPlanning() {
           }}
         >
           <DoDocCountsDisplay />
-
-          {/* Notification Bell and Today's Jobs Toggle */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Chip
-              label={showTodayJobs ? "Today's Jobs" : "All Jobs"}
-              color={showTodayJobs ? "primary" : "default"}
-              variant={showTodayJobs ? "filled" : "outlined"}
-              onClick={handleViewAllJobs}
-              onDelete={showTodayJobs ? handleViewAllJobs : undefined}
-              deleteIcon={showTodayJobs ? <span>✕</span> : undefined}
-              sx={{ fontWeight: 500 }}
-            />
-
-            <IconButton
-              onClick={handleViewTodayJobs}
-              sx={{
-                position: "relative",
-                background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)",
-                color: "white",
-                "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #ff5252 0%, #d63031 100%)",
-                  transform: "scale(1.05)",
-                },
-                transition: "all 0.3s ease",
-                boxShadow: "0 4px 12px rgba(255, 107, 107, 0.3)",
-              }}
-            >
-              <Badge
-                badgeContent={newJobsCount}
-                color="error"
-                overlap="circular"
-                sx={{
-                  "& .MuiBadge-badge": {
-                    fontSize: "0.75rem",
-                    minWidth: "20px",
-                    height: "20px",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  },
-                }}
-              >
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Box>
         </div>
 
         {/* Second Row - Filters */}

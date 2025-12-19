@@ -454,14 +454,31 @@ function useFetchJobDetails(
       lockBankDetails: false
     },
     onSubmit: async (values) => {
-      // Create a copy of cthDocuments to modify
-      const updatedCthDocuments = cthDocuments.map((doc) => {
-        if (doc.document_check_date === "") {
-          // Clear the esanchit_completed_date_time if a document_check_date is empty
+      // Filter documents that are sent to e-Sanchit
+      const sentDocuments = cthDocuments.filter(
+        (doc) => doc.is_sent_to_esanchit === true
+      );
+
+      if (sentDocuments.length > 0) {
+        // Check if all *sent* documents are checked
+        const allSentDocumentsChecked = sentDocuments.every(
+          (doc) => doc.document_check_date && doc.document_check_date !== ""
+        );
+
+        if (allSentDocumentsChecked) {
+          // Find the latest check date among sent documents
+          const latestCheckDate = sentDocuments.reduce((max, doc) => {
+            return doc.document_check_date > max
+              ? doc.document_check_date
+              : max;
+          }, "");
+          values.esanchit_completed_date_time = latestCheckDate;
+        } else {
           values.esanchit_completed_date_time = "";
         }
-        return doc;
-      });
+      }
+
+      const updatedCthDocuments = [...cthDocuments];
 
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
@@ -593,9 +610,9 @@ function useFetchJobDetails(
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
       // Close the tab after successful submit
-      setTimeout(() => {
-        window.close();
-      }, 500);
+      // setTimeout(() => {
+      //   window.close();
+      // }, 500);
 
 
     },

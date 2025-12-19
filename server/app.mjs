@@ -1,6 +1,21 @@
 import * as Sentry from "@sentry/node";
-import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import logger from "./logger.js";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+let nodeProfilingIntegration;
+try {
+  if (
+    process.env.DISABLE_SENTRY_PROFILING !== "true" &&
+    process.platform === "linux"
+  ) {
+    const profilingMod = await import("@sentry/profiling-node");
+    nodeProfilingIntegration = profilingMod.nodeProfilingIntegration;
+  }
+} catch (e) {
+  console.warn("Sentry profiling integration not available:", e && e.message ? e.message : e);
+}
 
 
 process.on("uncaughtException", (error) => {
@@ -14,7 +29,6 @@ process.on("unhandledRejection", (reason, promise) => {
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import compression from "compression";
 import cluster from "cluster";
 import os from "os";
@@ -24,13 +38,11 @@ import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 
-dotenv.config();
-
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
-  integrations: [nodeProfilingIntegration()],
+  integrations: nodeProfilingIntegration ? [nodeProfilingIntegration()] : [],
   tracesSampleRate: 1.0, // Capture 100% of transactions for tracing
-  profilesSampleRate: 1.0, // Capture 100% of transactions for profiling
+  profilesSampleRate: nodeProfilingIntegration ? 1.0 : 0.0, // Enable profiling only when integration available
 });
 
 // SSE
@@ -53,7 +65,7 @@ import Charges from "./routes/ChargesSection/ChargesSection.js";
 
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
-import reminderRoutes from './routes/accounts/remiderRoutes.js';
+import reminderRoutes, { initReminderSystem } from './routes/accounts/remiderRoutes.js';
 import accountLedger from './routes/accounts/Ledger/accountLedger.mjs'
 
 
@@ -179,8 +191,8 @@ const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
     : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_MONGODB_URI
-    : process.env.DEV_MONGODB_URI;
+      ? process.env.SERVER_MONGODB_URI
+      : process.env.DEV_MONGODB_URI;
 
 // const CLIENT_URI =
 //   process.env.NODE_ENV === "production"
@@ -232,7 +244,7 @@ if (cluster.isPrimary) {
       // Allow custom headers for audit trail
       exposedHeaders: ['Content-Type', 'Authorization'],
       allowedHeaders: [
-        'Content-Type', 
+        'Content-Type',
         'Authorization',
         'user-id',
         'username',
@@ -281,7 +293,7 @@ if (cluster.isPrimary) {
       // app.use(updateJobCount);
       app.use(getAllUsers);
       app.use(getImporterList);
-      app.use(getSupplierExporterList);      
+      app.use(getSupplierExporterList);
       app.use(getJobById);
       app.use(updateDutyFromCth);
       app.use(getUser);
@@ -297,7 +309,7 @@ if (cluster.isPrimary) {
 
       // Accounts
 
-      app.use("/api",Accounts);
+      app.use("/api", Accounts);
       app.use('/api', reminderRoutes);
       app.use('/api', accountLedger);
 
@@ -395,11 +407,11 @@ if (cluster.isPrimary) {
 
       // Submission
       app.use(updateSubmissionJob);
-      app.use(getSubmissionJobs);      
+      app.use(getSubmissionJobs);
       // Report
       app.use(getPenaltyReport);
       app.use(getBillingPendingReport);
-      app.use( monthlyContainersRouter);
+      app.use(monthlyContainersRouter);
       app.use(monthlyClearanceRouter);
 
 
@@ -419,17 +431,23 @@ if (cluster.isPrimary) {
       //scrapper
       app.use(currencyRateRoutes);
 
-      cron.schedule('1 0 * * *', async () => {
-  console.log('🕐 Running scheduled currency rate scraper at 12:01 AM...');
-  try {
-    const result = await scrapeAndSaveCurrencyRates();
-    console.log('✅ Scheduled scrape completed:', result);
-  } catch (error) {
-    console.error('❌ Scheduled scrape failed:', error);
-  }
-}, {
-  timezone: "Asia/Kolkata" // IST timezone
-});
+      // initialize cron jobs only on the first worker to avoid duplicates
+      if (cluster.worker.id === 1) {
+        cron.schedule('1 0 * * *', async () => {
+          console.log('🕐 Running scheduled currency rate scraper at 12:01 AM...');
+          try {
+            const result = await scrapeAndSaveCurrencyRates();
+            console.log('✅ Scheduled scrape completed:', result);
+          } catch (error) {
+            console.error('❌ Scheduled scrape failed:', error);
+          }
+        }, {
+          timezone: "Asia/Kolkata" // IST timezone
+        });
+
+        // Initialize reminder system cron
+        initReminderSystem();
+      }
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

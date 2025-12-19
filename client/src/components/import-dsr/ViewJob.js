@@ -2132,6 +2132,27 @@ function JobDetails() {
                   </Col>
                 </Row>
               </div>
+
+              {/* All Documents Section */}
+              <JobDetailsRowHeading heading="All General Documents" />
+              <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginTop: "15px", marginBottom: "30px" }}>
+                <Row>
+                  <Col xs={12} md={6}>
+                    <FileUpload label="Upload General Documents" bucketPath="all_documents" multiple={true}
+                      onFilesUploaded={(urls) => formik.setFieldValue("all_documents", [...(formik.values.all_documents || []), ...urls])} />
+                  </Col>
+                  <Col xs={12} md={12}>
+                    <div className="mt-3">
+                      <ImagePreview images={formik.values.all_documents || []}
+                        onDeleteImage={(idx) => {
+                          const updated = [...formik.values.all_documents];
+                          updated.splice(idx, 1);
+                          formik.setFieldValue("all_documents", updated);
+                        }} />
+                    </div>
+                  </Col>
+                </Row>
+              </div>
             </div>
           )}
 
@@ -2257,26 +2278,7 @@ function JobDetails() {
                 </Row>
               </div>
 
-              {/* All Documents Section */}
-              <JobDetailsRowHeading heading="All General Documents" />
-              <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginTop: "15px", marginBottom: "30px" }}>
-                <Row>
-                  <Col xs={12} md={6}>
-                    <FileUpload label="Upload General Documents" bucketPath="all_documents" multiple={true}
-                      onFilesUploaded={(urls) => formik.setFieldValue("all_documents", [...(formik.values.all_documents || []), ...urls])} />
-                  </Col>
-                  <Col xs={12} md={12}>
-                    <div className="mt-3">
-                      <ImagePreview images={formik.values.all_documents || []}
-                        onDeleteImage={(idx) => {
-                          const updated = [...formik.values.all_documents];
-                          updated.splice(idx, 1);
-                          formik.setFieldValue("all_documents", updated);
-                        }} />
-                    </div>
-                  </Col>
-                </Row>
-              </div>
+
             </div>
           )}
 

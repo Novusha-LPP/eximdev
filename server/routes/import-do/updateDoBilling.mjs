@@ -44,7 +44,10 @@ router.patch(
         "other_invoices_img",
         "shipping_line_invoice_imgs",
         "bill_document_sent_to_accounts",
-        "dsr_queries" // ✅ allow updating dsr_queries from billing stage too
+        "dsr_queries", // ✅ allow updating dsr_queries from billing stage too
+        "thar_invoices",
+        "hasti_invoices",
+        
       ];
 
       // Validate fields sent by client

@@ -94,6 +94,7 @@ import DocumentationDashboard from "../components/analytics/DocumentationDashboa
 import DoManagementDashboard from "../components/analytics/DoManagementDashboard";
 import BillingDashboard from "../components/analytics/BillingDashboard";
 import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
+import PendingJobs from "../components/analytics/PendingJobs";
 
 
 const drawerWidth = 60;
@@ -564,6 +565,7 @@ function HomePage() {
                 <Route path="do-management" element={<DoManagementDashboard />} />
                 <Route path="billing" element={<BillingDashboard />} />
                 <Route path="exceptions" element={<ExceptionsDashboard />} />
+                <Route path="pending-jobs" element={<PendingJobs />} />
               </Route>
 
             </Routes>

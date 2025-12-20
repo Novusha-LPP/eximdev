@@ -15,6 +15,7 @@ import DescriptionIcon from '@mui/icons-material/Description'; // Docs
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn'; // DO
 import ReceiptIcon from '@mui/icons-material/Receipt'; // Billing
 import WarningIcon from '@mui/icons-material/Warning'; // Exceptions
+import PendingActionsIcon from '@mui/icons-material/PendingActions'; // Pending Jobs
 import './AnalyticsLayout.css';
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
     { name: 'Documentation', path: 'documentation', icon: <DescriptionIcon /> },
     { name: 'DO Management', path: 'do-management', icon: <AssignmentTurnedInIcon /> },
     { name: 'Billing', path: 'billing', icon: <ReceiptIcon /> },
+    { name: 'Pending Jobs', path: 'pending-jobs', icon: <PendingActionsIcon /> },
 ];
 
 const AnalyticsLayout = () => {

@@ -116,6 +116,7 @@ const useImportJobForm = () => {
    const [HSS, setHSS] = useState("");
   const [sallerName, setSallerName] = useState("");
   const [bankName, setBankName] = useState("")
+  const [ie_code_no, setIeCodeNo] = useState("");
 
 useEffect(() => {
   if (importer) {
@@ -207,6 +208,7 @@ useEffect(() => {
     setHSS("")
     setSallerName("")
     setBankName("")
+    setIeCodeNo("");
 
     // Reset any other states if necessary
   };
@@ -224,6 +226,7 @@ useEffect(() => {
           custom_house,
           importer,
           importerURL,
+          ie_code_no,
           shipping_line_airline,
           branchSrNo,
           adCode,
@@ -258,6 +261,7 @@ useEffect(() => {
           remarks: "",
           status: "Pending",
           clearanceValue,
+          ie_code_no,
           saller_name: sallerName,
           hss: HSS,
           bank_name: bankName,
@@ -519,6 +523,9 @@ useEffect(() => {
     setSallerName,
     bankName,
     setBankName
+    ,
+    ie_code_no,
+    setIeCodeNo
   };
 };
 

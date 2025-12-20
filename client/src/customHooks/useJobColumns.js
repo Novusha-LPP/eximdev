@@ -15,9 +15,16 @@ import SeaCargoStatus from "./SeaCargoStatus.js";
 import BLTrackingCell from "./BLTrackingCell.js";
 import axios from "axios";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
 
 // Custom hook to manage job columns configuration
-function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
+function useJobColumns(
+  handleRowDataUpdate,
+  onRowUpdate,
+  setRows,
+  invalidateCache,
+  selectedYear
+) {
   const navigate = useNavigate();
   const location = useLocation();
   const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
@@ -95,30 +102,10 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
     []
   );
 
-  // const getCustomHouseLocation = useMemo(
-  //   () => (customHouse) => {
-  //     const houseMap = {
-  //       "ICD SACHANA": "SACHANA ICD (INJKA6)",
-  //       "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-  //       "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-  //     };
-  //     return houseMap[customHouse] || customHouse;
-  //   },
-  //   []
-  // );
-
-  // const formatDate = useCallback((dateStr) => {
-  //   const date = new Date(dateStr);
-  //   const year = date.getFullYear();
-  //   const month = String(date.getMonth() + 1).padStart(2, "0");
-  //   const day = String(date.getDate()).padStart(2, "0");
-  //   return `${year}/${month}/${day}`;
-  // }, []);
-
   // Optimized columns array
   const columns = useMemo(
     () => [
-  {
+      {
         accessorKey: "job_no",
         header: "Job No",
         enableSorting: false,
@@ -228,15 +215,13 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
               setRows((prev) =>
                 prev.map((r) =>
                   (r._id && updatedJob._id && r._id === updatedJob._id) ||
-                  (!r._id &&
-                    r.job_no === updatedJob.job_no &&
-                    r.year === updatedJob.year)
+                    (!r._id &&
+                      r.job_no === updatedJob.job_no &&
+                      r.year === updatedJob.year)
                     ? { ...r, ...updatedJob } // merge to keep any client-only fields
                     : r
                 )
               );
-
-          
             } catch (err) {
               console.error("Error refreshing job:", err);
             }
@@ -346,6 +331,9 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
               portOfReporting={row?.original?.port_of_reporting || ""}
               containerNos={row?.original?.container_nos || []}
               onCopy={handleCopy}
+              onUpdateSuccess={handleRowDataUpdate}
+              invalidateCache={invalidateCache}
+              selectedYear={selectedYear}
             />
 
             {/* REST OF YOUR CUSTOM CONTENT */}
@@ -488,30 +476,6 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
           );
         },
       },
-      // {
-      //   accessorKey: "arrival_date",
-      //   header: "Arrival Date",
-      //   size: 150,
-      //   Cell: ({ cell }) =>
-      //     cell.row.original.container_nos?.map((container, id) => (
-      //       <React.Fragment key={id}>
-      //         {container.arrival_date}
-      //         <br />
-      //       </React.Fragment>
-      //     )),
-      // },
-      // {
-      //   accessorKey: "detention_from",
-      //   header: "Detention From",
-      //   size: 150,
-      //   Cell: ({ cell }) =>
-      //     cell.row.original.container_nos?.map((container, id) => (
-      //       <React.Fragment key={id}>
-      //         {container.detention_from}
-      //         <br />
-      //       </React.Fragment>
-      //     )),
-      // },
 
       {
         accessorKey: "do_validity",
@@ -535,7 +499,6 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
           const formattedOblRecievedDate = formatDate(oblRecievedDate);
           const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
           const formattedOgDocRecievedDate = formatDate(ogDocRecievedDate);
-          const invoices = row.original.do_shipping_line_invoice || [];
 
           return (
             <div style={{ textAlign: "left" }}>
@@ -623,52 +586,9 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
               <div>
                 <strong>EmptyOff LOC:</strong> {do_list}
               </div>
-              <div>
-                {invoices.some(
-                  (invoice) => invoice.url && invoice.url.length > 0
-                ) ? (
-                  <div style={{ marginTop: "4px" }}>
-                    {invoices.map((invoice, index) => {
-                      if (!invoice.url || invoice.url.length === 0) return null;
-                      return (
-                        <div key={index} style={{ marginBottom: "8px" }}>
-                          <div>
-                            <a
-                              href={invoice.url[0]}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: "#007bff",
-                                textDecoration: "underline",
-                              }}
-                            >
-                              {invoice.document_name ||
-                                `Shipping Line Invoice ${index + 1}`}
-                            </a>
-                            {invoice.is_draft && (
-                              <span
-                                style={{ color: "orange", marginLeft: "8px" }}
-                              >
-                                (Draft)
-                              </span>
-                            )}
-                            {invoice.is_final && (
-                              <span
-                                style={{ color: "green", marginLeft: "8px" }}
-                              >
-                                (Final)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: "5px" }}>
-                    <span style={{ color: "gray" }}>No Invoices</span>
-                  </div>
-                )}
+
+              <div style={{ marginTop: "8px" }}>
+                <InvoiceDisplay row={row.original} showOOC={false} />
               </div>
             </div>
           );
@@ -777,8 +697,10 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
       selectedImporter,
       handleRowDataUpdate,
       formatDate,
-      setRows, 
+      setRows,
       onRowUpdate,
+      invalidateCache, // Add to dependencies
+      selectedYear, // Add to dependencies
     ]
   );
 

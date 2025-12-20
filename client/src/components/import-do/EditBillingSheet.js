@@ -80,8 +80,11 @@ function EditBillingSheet() {
       icd_cfs_invoice_img: [],
       other_invoices_img: [],
       shipping_line_invoice_imgs: [],
-      bill_document_sent_to_accounts: "",
+      bill_document_sent_to_accounts: "", // Keeping this line and the comma
       dsr_queries: [],
+      thar_invoices: [],
+      hasti_invoices: [],
+      concor_invoice_and_receipt_copy: [],
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -170,6 +173,9 @@ function EditBillingSheet() {
           bill_document_sent_to_accounts:
             jobData.bill_document_sent_to_accounts || "",
           dsr_queries: jobData.dsr_queries || [],
+          thar_invoices: jobData.thar_invoices || [],
+          hasti_invoices: jobData.hasti_invoices || [],
+          concor_invoice_and_receipt_copy: jobData.concor_invoice_and_receipt_copy || [],
         });
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -224,7 +230,7 @@ function EditBillingSheet() {
       <Charges job_no={job_no} year={year} />
 
       <div className="job-details-container">
-        <form onSubmit={formik.handleSubmit}>
+        <form id="billing-sheet-form" onSubmit={formik.handleSubmit}>
           <Row>
             <Col xs={12} md={6}>
               {data?.custom_house === "ICD Sabarmati, Ahmedabad" && (
@@ -250,7 +256,7 @@ function EditBillingSheet() {
           <Row>
             <Col xs={12} md={4}>
               <FileUpload
-                label="Upload ICD CFS Invoices"
+                label="ICD CFS Invoices"
                 bucketPath="icd_cfs_invoice_img"
                 onFilesUploaded={(newFiles) => {
                   const existingFiles = formik.values.icd_cfs_invoice_img || [];
@@ -258,6 +264,8 @@ function EditBillingSheet() {
                   formik.setFieldValue("icd_cfs_invoice_img", updatedFiles);
                 }}
                 multiple={true}
+                containerStyles={{ marginTop: "0px" }}
+                buttonSx={{ width: "50%", minHeight: "40px" }}
               />
               <ImagePreview
                 images={formik.values.icd_cfs_invoice_img || []}
@@ -267,11 +275,49 @@ function EditBillingSheet() {
                   formik.setFieldValue("icd_cfs_invoice_img", updatedFiles);
                 }}
               />
+
+              <div className="mt-3">
+                {data?.custom_house?.includes("ICD KHODIYAR") && (
+                  <>
+                    <FileUpload
+                      label="Concor Invoice & Receipt Copy"
+                      bucketPath="concor_invoice_and_receipt_copy"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.concor_invoice_and_receipt_copy || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                      multiple={true}
+                      containerStyles={{ marginTop: "0px" }}
+                      buttonSx={{ width: "50%", minHeight: "40px" }}
+                    />
+                    <ImagePreview
+                      images={
+                        formik.values.concor_invoice_and_receipt_copy || []
+                      }
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.concor_invoice_and_receipt_copy,
+                        ];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                    />
+                  </>
+                )}
+              </div>
             </Col>
 
             <Col xs={12} md={4}>
               <FileUpload
-                label="Upload Other Invoices"
+                label="Other Invoices"
                 bucketPath="other_invoices_img"
                 onFilesUploaded={(newFiles) => {
                   const existingFiles = formik.values.other_invoices_img || [];
@@ -279,6 +325,8 @@ function EditBillingSheet() {
                   formik.setFieldValue("other_invoices_img", updatedFiles);
                 }}
                 multiple={true}
+                containerStyles={{ marginTop: "0px" }}
+                buttonSx={{ width: "50%", minHeight: "40px" }}
               />
               <ImagePreview
                 images={formik.values.other_invoices_img || []}
@@ -292,7 +340,7 @@ function EditBillingSheet() {
 
             <Col xs={12} md={4}>
               <FileUpload
-                label="Upload Shipping Line Invoices"
+                label="Shipping Line Invoices"
                 bucketPath="shipping_line_invoice_imgs"
                 onFilesUploaded={(newFiles) => {
                   const existingFiles =
@@ -304,6 +352,8 @@ function EditBillingSheet() {
                   );
                 }}
                 multiple={true}
+                containerStyles={{ marginTop: "0px" }}
+                buttonSx={{ width: "50%", minHeight: "40px" }}
               />
               <ImagePreview
                 images={formik.values.shipping_line_invoice_imgs || []}
@@ -320,6 +370,56 @@ function EditBillingSheet() {
               />
             </Col>
           </Row>
+
+          {/* Conditional Invoices for ICD SANAND */}
+          {data?.custom_house === "ICD SANAND" && (
+            <Row>
+              <Col xs={12} md={4}>
+                <FileUpload
+                  label="Thar Invoices"
+                  bucketPath="thar_invoices"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.thar_invoices || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("thar_invoices", updatedFiles);
+                  }}
+                  multiple={true}
+                  containerStyles={{ marginTop: "0px" }}
+                  buttonSx={{ width: "50%", minHeight: "40px" }}
+                />
+                <ImagePreview
+                  images={formik.values.thar_invoices || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.thar_invoices];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("thar_invoices", updatedFiles);
+                  }}
+                />
+              </Col>
+              <Col xs={12} md={4}>
+                <FileUpload
+                  label="Hasti Invoices"
+                  bucketPath="hasti_invoices"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.hasti_invoices || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("hasti_invoices", updatedFiles);
+                  }}
+                  multiple={true}
+                  containerStyles={{ marginTop: "0px" }}
+                  buttonSx={{ width: "50%", minHeight: "40px" }}
+                />
+                <ImagePreview
+                  images={formik.values.hasti_invoices || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.hasti_invoices];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("hasti_invoices", updatedFiles);
+                  }}
+                />
+              </Col>
+            </Row>
+          )}
           <Row>
             <Col xs={12} md={6}>
               <div>
@@ -333,7 +433,7 @@ function EditBillingSheet() {
                           const currentDate = new Date();
                           const isoDate = new Date(
                             currentDate.getTime() -
-                              currentDate.getTimezoneOffset() * 60000
+                            currentDate.getTimezoneOffset() * 60000
                           )
                             .toISOString()
                             .slice(0, 16);
@@ -385,16 +485,18 @@ function EditBillingSheet() {
               </Col>
             )}
           </Row>
-          <button
-            className="btn sticky-btn"
-            type="submit"
-            style={{ float: "right", margin: "10px" }}
-            aria-label="submit-btn"
-          >
-            Submit
-          </button>
+          <Box sx={{ height: "60px" }} />
         </form>
       </div>
+
+      <button
+        className="btn sticky-btn"
+        type="submit"
+        form="billing-sheet-form"
+        aria-label="submit-btn"
+      >
+        Submit
+      </button>
 
       <Snackbar
         open={fileSnackbar.open}

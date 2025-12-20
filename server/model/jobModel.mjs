@@ -4,49 +4,47 @@ const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
 
-
-
 const fieldSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  type: { 
-    type: String, 
-    required: true, 
-    enum: ['text', 'number', 'date', 'select', 'boolean'] 
+  type: {
+    type: String,
+    required: true,
+    enum: ["text", "number", "date", "select", "boolean"],
   },
   required: { type: Boolean, default: false },
   options: [{ type: String }], // For select fields
-  order: { type: Number, default: 0 }
+  order: { type: Number, default: 0 },
 });
 
 const masterTypeSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   fields: [fieldSchema],
   isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 const customFieldSchema = new mongoose.Schema({
   fieldId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  value: { type: mongoose.Schema.Types.Mixed, required: true }
+  value: { type: mongoose.Schema.Types.Mixed, required: true },
 });
 
 const accountEntrySchema = new mongoose.Schema({
-  masterTypeId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'MasterType', 
-    required: true 
+  masterTypeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "MasterType",
+    required: true,
   },
   companyName: { type: String, required: true },
   address: { type: String, required: true },
   dueDate: { type: Date, required: true },
-  reminderFrequency: { 
-    type: String, 
-    required: true, 
-    enum: ['monthly', 'quarterly', 'half-yearly', 'yearly'] 
+  reminderFrequency: {
+    type: String,
+    required: true,
+    enum: ["monthly", "quarterly", "half-yearly", "yearly"],
   },
   customFields: [customFieldSchema],
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
 });
 
 const cthDocumentSchema = new mongoose.Schema({
@@ -74,8 +72,6 @@ const esanchitChargesSchema = new mongoose.Schema({
   document_charge_refrence_no: { type: String, trim: true },
   document_charge_recipt_copy: { type: String, trim: true },
 });
-
-
 
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
@@ -140,7 +136,7 @@ const jobSchema = new mongoose.Schema({
   shipping_line_airline: { type: String, trim: true },
   branchSrNo: { type: String, trim: true },
   adCode: { type: String, trim: true },
-  bank_name: {type: String, trim: true},
+  bank_name: { type: String, trim: true },
   isDraftDoc: { type: Boolean },
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },
@@ -178,16 +174,16 @@ const jobSchema = new mongoose.Schema({
       do_validity_upto_container_level: { type: String, trim: true },
       required_do_validity_upto: { type: String, trim: true },
       seal_number: { type: String, trim: true },
-      container_rail_out_date: {type: String, trim: true},
+      container_rail_out_date: { type: String, trim: true },
       by_road_movement_date: { type: String, trim: true },
       emptyContainerOffLoadDate: { type: String, trim: true },
-       net_weight_as_per_PL_document: { type: String, trim: true },
-       delivery_chalan_file: { type: String, trim: true },
+      net_weight_as_per_PL_document: { type: String, trim: true },
+      delivery_chalan_file: { type: String, trim: true },
       delivery_date: {
         type: String,
         trim: true,
       },
-        
+
       do_revalidation: [
         {
           do_revalidation_upto: { type: String },
@@ -311,7 +307,6 @@ const jobSchema = new mongoose.Schema({
   penalty_by_importer: { type: Boolean, default: false },
   zero_penalty_as_per_bill_of_entry: { type: Boolean, default: false },
 
-
   ////////////////////////////////////////////////// E-sanchit
   esanchit_completed_date_time: { type: String, trim: true },
 
@@ -355,8 +350,25 @@ const jobSchema = new mongoose.Schema({
   shipping_line_invoice: { type: String, trim: true },
   shipping_line_invoice_date: { type: String },
   shipping_line_invoice_imgs: [{ type: String, trim: true }],
-  do_queries: [{ query: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
-  dsr_queries: [{ query: { type: String }, current_module: { type: String }, select_module: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false }, resolved_by: {type: String}, send_by: {type: String}, replied_by: {type: String} }],
+  do_queries: [
+    {
+      query: { type: String },
+      reply: { type: String },
+      resolved: { type: Boolean, default: false },
+    },
+  ],
+  dsr_queries: [
+    {
+      query: { type: String },
+      current_module: { type: String },
+      select_module: { type: String },
+      reply: { type: String },
+      resolved: { type: Boolean, default: false },
+      resolved_by: { type: String },
+      send_by: { type: String },
+      replied_by: { type: String },
+    },
+  ],
   do_completed: { type: String, trim: true },
   // *******
   icd_cfs_invoice: { type: String, trim: true },
@@ -374,13 +386,13 @@ const jobSchema = new mongoose.Schema({
   obl_recieved_date: { type: String, trim: true },
   og_doc_recieved_date: { type: String, trim: true },
 
-   do_completed_updated: {
+  do_completed_updated: {
     type: Date,
   },
-  doPlanning_updated:{
+  doPlanning_updated: {
     type: Date,
   },
-  met_do_billing_conditions_date:{
+  met_do_billing_conditions_date: {
     type: Date,
   },
 
@@ -403,6 +415,8 @@ const jobSchema = new mongoose.Schema({
   completed_operation_date: { type: String, trim: true },
   custodian_gate_pass: [{ type: String, trim: true }],
   concor_invoice_and_receipt_copy: [{ type: String, trim: true }],
+  thar_invoices: [{ type: String, trim: true }],
+  hasti_invoices: [{ type: String, trim: true }],
 
   ////////////////////////////////////////////////// LR
   pr_no: { type: String, trim: true },
@@ -417,7 +431,6 @@ const jobSchema = new mongoose.Schema({
   goods_pickup: { type: String },
   goods_delivery: { type: String },
 
-  
   ////////////////////////////////////////////form data
   account_fields: [masterTypeSchema],
 
@@ -425,7 +438,13 @@ const jobSchema = new mongoose.Schema({
 
   ////////////////////////////////////////////////// CTH Documents
   cth_documents: [cthDocumentSchema],
-  eSachitQueries: [{ query: { type: String }, reply: { type: String } , resolved: { type: Boolean, default: false } }],
+  eSachitQueries: [
+    {
+      query: { type: String },
+      reply: { type: String },
+      resolved: { type: Boolean, default: false },
+    },
+  ],
 
   ////////////////////////////////////////////////////// Documents
   documents: [documentSchema],
@@ -444,55 +463,62 @@ const jobSchema = new mongoose.Schema({
   /////////////////////////////////// Charges Details
   DsrCharges: [DsrchargesSchema],
 
-
   /////////////////////////////////// esanchit Charges Details
   esanchitCharges: [esanchitChargesSchema],
 
   /////////////////////////////////// Do Charges Details
 
-// 1. Updated Schema (Backend) - Add this to your schema
-do_shipping_line_invoice: [{
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  is_draft: { type: Boolean },
-  is_final: { type: Boolean },
-  document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-  document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-  payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-  wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-  document_amount_details: { type: String, trim: true },
-  payment_request_date: { type: String, trim: true },
-  payment_made_date: { type: String, trim: true },
-  is_tds: { type: Boolean, default: false },
-  is_payment_made: { type: Boolean, default: false },
-  is_payment_requested: { type: Boolean, default: false },
-  is_non_tds: { type: Boolean, default: false },
-  payment_recipt: [{ type: String, trim: true }],
-  payment_recipt_date: { type: String, trim: true },
-}],
+  // 1. Updated Schema (Backend) - Add this to your schema
+  do_shipping_line_invoice: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
+      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
+      document_amount_details: { type: String, trim: true },
+      payment_request_date: { type: String, trim: true },
+      payment_made_date: { type: String, trim: true },
+      is_tds: { type: Boolean, default: false },
+      is_payment_made: { type: Boolean, default: false },
+      is_payment_requested: { type: Boolean, default: false },
+      is_non_tds: { type: Boolean, default: false },
+      payment_recipt: [{ type: String, trim: true }],
+      payment_recipt_date: { type: String, trim: true },
+    },
+  ],
 
-insurance_copy: [{
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-}],
+  insurance_copy: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      document_check_date: { type: String, trim: true },
+      document_amount_details: { type: String, trim: true },
+    },
+  ],
 
-other_do_documents:[ {
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-}],
+  other_do_documents: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      document_check_date: { type: String, trim: true },
+      document_amount_details: { type: String, trim: true },
+    },
+  ],
 
-security_deposit: [{
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-  utr: { type: Number, trim: true },
-  Validity_upto: { type: String, trim: true },
-}],
+  security_deposit: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      document_check_date: { type: String, trim: true },
+      document_amount_details: { type: String, trim: true },
+      utr: { type: Number, trim: true },
+      Validity_upto: { type: String, trim: true },
+    },
+  ],
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },
@@ -511,18 +537,17 @@ security_deposit: [{
   job_sticker_upload_date_and_time: { type: String },
 
   ////////////////////////////////////////////////// accounts
-  
+
   billing_completed_date: { type: String },
   bill_document_sent_to_accounts: { type: String, trim: true },
   icd_cfs_invoice_img: [{ type: String, trim: true }],
-  upload_agency_bill_img: {type: String},
-  upload_reimbursement_bill_img: { type: String },  
-  bill_amount: {type: String},
+  upload_agency_bill_img: { type: String },
+  upload_reimbursement_bill_img: { type: String },
+  bill_amount: { type: String },
   do_list: { type: String, trim: true },
 
   ////////////////////////////////////////////////// Display
 });
-
 
 // Automatically update `updatedAt` before saving
 jobSchema.pre("save", function (next) {
@@ -560,7 +585,7 @@ jobSchema.index({
   be_no: "text",
   type_of_b_e: "text",
   consignment_type: "text",
-  vessel_berthing: "text"
+  vessel_berthing: "text",
 });
 
 // NEW: Composite index for sorting by status and detention date (common operation)

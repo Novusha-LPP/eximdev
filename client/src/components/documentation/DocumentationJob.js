@@ -20,6 +20,13 @@ import ImagePreview from "../gallery/ImagePreview";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import QueriesComponent from "../../utils/QueriesComponent";
 
+const compactInputSx = {
+  "& .MuiOutlinedInput-root": { height: "32px" },
+  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.8rem" },
+  "& .MuiInputLabel-root": { fontSize: "0.8rem", top: "-4px" },
+  "& .MuiInputLabel-shrink": { top: "0px" }
+};
+
 const DocumentationJob = () => {
   const routeLocation = useLocation();
   const { job_no, year } = useParams();
@@ -208,62 +215,29 @@ const DocumentationJob = () => {
     }
 
     return (
-      <Box display="flex" flexWrap="wrap" gap={2} mt={2}>
-        {documents.map((doc, index) => (
-          <Box
-            key={index}
-            sx={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              borderRadius: "5px",
-              flex: "1 1 30%",
-              maxWidth: "30%",
-              minWidth: "250px",
-              maxHeight: "150px",
-              overflowY: "auto",
-            }}
-          >
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-            >
-              {doc.document_name || `Document ${index + 1}`} (
-              {doc.document_code})
-            </Typography>
-            <Box mt={2}>
-              {doc.url.map((url, imgIndex) => (
-                <div
-                  key={imgIndex}
-                  style={{
-                    marginBottom: "10px",
-                    paddingBottom: "5px",
-                    borderBottom: "1px solid #ccc",
-                  }}
-                >
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", color: "blue" }}
-                  >
-                    {extractFileName(url)}
-                  </a>
-                </div>
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Box>
+      <div className="table-responsive">
+        <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
+          <thead style={{ backgroundColor: "#f8f9fa" }}>
+            <tr>
+              <th style={{ width: "40%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
+              <th style={{ width: "60%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
+            </tr>
+          </thead>
+          <tbody>
+            {documents.map((doc, index) => (
+              <tr key={index}>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
+                  <div style={{ fontSize: "0.8rem", color: "#6c757d" }}>({doc.document_code})</div>
+                </td>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <ImagePreview images={doc.url || []} readOnly={true} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -273,39 +247,35 @@ const DocumentationJob = () => {
     }
 
     return (
-      <Box
-        display="flex"
-        flexWrap="wrap"
-        gap={2}
-        mt={2}
-        sx={{
-          justifyContent: "flex-start", // Center items on smaller devices
-        }}
-      >
-        {documents.map((url, index) => (
-          <Box
-            key={index}
-            sx={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              borderRadius: "5px",
-              flex: "1 1 30%", // Flex-basis for 3 columns
-              maxWidth: "30%", // Ensure proper width
-            }}
-          >
-            <Box mt={1} textAlign="center">
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ textDecoration: "none", color: "blue" }}
-              >
-                {extractFileName(url)}
-              </a>
-            </Box>
-          </Box>
-        ))}
-      </Box>
+      <div className="table-responsive">
+        <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
+          <thead style={{ backgroundColor: "#f8f9fa" }}>
+            <tr>
+              <th style={{ width: "80%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>File Name</th>
+              <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {documents.map((url, index) => (
+              <tr key={index}>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <div style={{ fontWeight: "600", color: "#212529" }}>{extractFileName(url)}</div>
+                </td>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none", color: "#1976d2", fontWeight: "600" }}
+                  >
+                    View
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   };
   return (
@@ -558,9 +528,9 @@ const DocumentationJob = () => {
                   setData((prevData) => ({
                     ...prevData,
                     checklist: updatedFiles,
-                     documentation_completed_date_time: updatedFiles.length > 0
-      ? new Date().toISOString()
-      : "",  // or null if cleared
+                    documentation_completed_date_time: updatedFiles.length > 0
+                      ? new Date().toISOString()
+                      : "",  // or null if cleared
 
                   }));
                   updateChecklist(updatedFiles); // Update the backend immediately
@@ -639,6 +609,7 @@ const DocumentationJob = () => {
                         shrink: true,
                       }}
                       helperText={!hasChecklist ? "Checklist is required" : ""}
+                      sx={{ ...compactInputSx, maxWidth: "300px" }}
                     />
                   </Col>
                 )}

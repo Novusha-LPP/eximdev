@@ -28,11 +28,11 @@ const sendReminderEmail = async (userEmail, userName, entries) => {
   // Group entries by urgency
   const urgentEntries = entries.filter(e => e.daysUntilDue <= 2);
   const importantEntries = entries.filter(e => e.daysUntilDue > 2 && e.daysUntilDue <= 5);
-  
+
   // Generate email content
   const generateEntryTable = (entriesList, title, color) => {
     if (entriesList.length === 0) return '';
-    
+
     return `
       <div style="margin: 20px 0;">
         <h3 style="color: ${color}; margin-bottom: 15px; border-bottom: 2px solid ${color}; padding-bottom: 5px;">
@@ -54,18 +54,18 @@ const sendReminderEmail = async (userEmail, userName, entries) => {
                 <td style="padding: 10px; border: 1px solid #ddd;">${entry.masterTypeName}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">${entry.defaultFields.companyName}</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">${new Date(entry.defaultFields.dueDate).toLocaleDateString('en-IN', {
-                  weekday: 'short',
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric'
-                })}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${entry.defaultFields.billingDate ? 
-                  new Date(entry.defaultFields.billingDate).toLocaleDateString('en-IN', {
-                    weekday: 'short',
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                  }) : 'Not Set'}</td>
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${entry.defaultFields.billingDate ?
+        new Date(entry.defaultFields.billingDate).toLocaleDateString('en-IN', {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }) : 'Not Set'}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; color: ${color}; font-weight: bold;">
                   ${entry.daysUntilDue} day(s)
                 </td>
@@ -78,7 +78,7 @@ const sendReminderEmail = async (userEmail, userName, entries) => {
   };
 
   const totalEntries = entries.length;
-  const subject = urgentEntries.length > 0 
+  const subject = urgentEntries.length > 0
     ? `🚨 URGENT: ${urgentEntries.length} Due Date Reminders - Action Required`
     : `⚠️ IMPORTANT: ${totalEntries} Due Date Reminders`;
 
@@ -147,7 +147,7 @@ const sendReminderEmail = async (userEmail, userName, entries) => {
 const checkAndSendReminders = async () => {
   try {
     console.log('🔍 Starting automatic due date reminder check...');
-    
+
     // Get all users with "Accounts" module access
     const accountsUsers = await UserModel.find({
       modules: { $in: ["Accounts"] }
@@ -178,7 +178,7 @@ const checkAndSendReminders = async () => {
 
     // Filter entries that need reminders
     const entriesNeedingReminders = [];
-    
+
     for (const entry of masterEntries) {
       try {
         if (!entry.defaultFields.dueDate) {
@@ -188,7 +188,7 @@ const checkAndSendReminders = async () => {
 
         const dueDate = new Date(entry.defaultFields.dueDate);
         dueDate.setHours(0, 0, 0, 0);
-        
+
         const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
 
         console.log(`📅 ${entry.masterTypeName} - ${entry.defaultFields.companyName}: ${daysUntilDue} days until due`);
@@ -201,8 +201,8 @@ const checkAndSendReminders = async () => {
           if (entry.defaultFields.billingDate) {
             const billingDate = new Date(entry.defaultFields.billingDate);
             billingDate.setHours(0, 0, 0, 0);
-            
-            const daysBetweenBillingAndDue = Math.floor((dueDate - billingDate) / (1000 * 60 * 60 * 24));            
+
+            const daysBetweenBillingAndDue = Math.floor((dueDate - billingDate) / (1000 * 60 * 60 * 24));
             if (daysBetweenBillingAndDue <= 5) {
               shouldSendReminder = false;
               console.log(`⏭️  Skipping ${entry.masterTypeName} - ${entry.defaultFields.companyName}: billing date within 5 days of due date`);
@@ -237,13 +237,13 @@ const checkAndSendReminders = async () => {
 
     // Send emails to all accounts users
     const emailResults = [];
-    
+
     for (const user of accountsUsers) {
       try {
         const userName = `${user.first_name} ${user.last_name}`.trim();
         const result = await sendReminderEmail(user.email, userName, entriesNeedingReminders);
         emailResults.push(result);
-        
+
         // Add delay between emails to avoid overwhelming the email service
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
@@ -261,7 +261,7 @@ const checkAndSendReminders = async () => {
     const failureCount = emailResults.filter(r => !r.success).length;
 
     console.log(`✅ Reminder check completed: ${successCount} emails sent successfully, ${failureCount} failed`);
-    
+
     return {
       success: true,
       entriesChecked: masterEntries.length,
@@ -308,7 +308,7 @@ router.get('/test-email-now', async (req, res) => {
     };
 
     const info = await transporter.sendMail(testMailOptions);
-    
+
     res.status(200).json({
       success: true,
       message: "Test email sent successfully using working transporter",
@@ -339,11 +339,11 @@ router.get('/reminder-status', async (req, res) => {
 
     const upcomingEntries = masterEntries.filter(entry => {
       if (!entry.defaultFields.dueDate) return false;
-      
+
       const dueDate = new Date(entry.defaultFields.dueDate);
       dueDate.setHours(0, 0, 0, 0);
       const daysUntilDue = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
-      
+
       if (daysUntilDue >= 0 && daysUntilDue <= 5) {
         if (entry.defaultFields.billingDate) {
           const billingDate = new Date(entry.defaultFields.billingDate);
@@ -374,24 +374,18 @@ router.get('/reminder-status', async (req, res) => {
   }
 });
 
-// Automatic daily reminder system using cron
-// Runs every day at 9:00 AM IST
-cron.schedule('0 9 * * *', async () => {
-  console.log('⏰ Scheduled reminder check triggered at:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
-  await checkAndSendReminders();
-}, {
-  timezone: "Asia/Kolkata"
-});
+// function to initialize the scheduled tasks
+export const initReminderSystem = () => {
+  // Automatic daily reminder system using cron
+  // Runs every day at 9:00 AM IST
+  cron.schedule('0 9 * * *', async () => {
+    console.log('⏰ Scheduled reminder check triggered at:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
+    await checkAndSendReminders();
+  }, {
+    timezone: "Asia/Kolkata"
+  });
 
-
-// Optional: Test cron that runs every minute (for testing only - remove in production)
-// cron.schedule('* * * * *', async () => {
-//   console.log('🧪 Test reminder check at:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
-//   await checkAndSendReminders();
-// }, {
-//   timezone: "Asia/Kolkata"
-// });
-
-console.log('📧 Due Date Reminder System initialized - Daily checks at 9:00 AM IST');
+  console.log('📧 Due Date Reminder System initialized - Daily checks at 9:00 AM IST');
+};
 
 export default router;

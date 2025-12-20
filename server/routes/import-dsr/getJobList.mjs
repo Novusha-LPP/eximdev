@@ -147,6 +147,8 @@ const criticalFields = `
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount
   gross_weight job_net_weight payment_method
+  shipping_line_invoice_imgs
+  concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img
 `;
 
 const additionalFieldsByStatus = {
@@ -499,11 +501,7 @@ router.get(
                         },
                         {
                           case: {
-                            $and: [
-                              "$$bePresent",
-                              "$$anyArrival",
-                              "$$validPcv",
-                            ],
+                            $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
                           },
                           then: "PCV Done, Duty Payment Pending",
                         },
@@ -658,6 +656,68 @@ router.get(
       const jobs = aggResult[0]?.data || [];
       const totalCount = (metadata[0] && metadata[0].total) || 0;
 
+      // Background lazy-sync: if any of the jobs returned on this page
+      // have a stored `detailed_status` that differs from the
+      // computed/effective one, persist the effective value in DB
+      // asynchronously. This avoids a full migration while keeping
+      // counts accurate over time. Do not block the response on this.
+      try {
+        (async () => {
+          try {
+            if (!jobs || jobs.length === 0) return;
+            const ids = jobs.map((j) => j._id).filter(Boolean);
+            if (ids.length === 0) return;
+
+            const storedDocs = await JobModel.find({ _id: { $in: ids } })
+              .select("detailed_status year _id")
+              .lean();
+
+            const storedMap = new Map();
+            storedDocs.forEach((d) => storedMap.set(String(d._id), d));
+
+            const bulkOps = [];
+            for (const j of jobs) {
+              const idStr = String(j._id);
+              const stored = storedMap.get(idStr);
+              const effective =
+                j.detailed_status || j.__effective_detailed_status;
+              const storedVal =
+                stored && stored.detailed_status
+                  ? String(stored.detailed_status)
+                  : null;
+              if (storedVal !== effective) {
+                bulkOps.push({
+                  updateOne: {
+                    filter: { _id: j._id },
+                    update: {
+                      $set: {
+                        detailed_status: effective,
+                        row_color: getRowColorFromStatus(effective),
+                      },
+                    },
+                  },
+                });
+              }
+            }
+
+            if (bulkOps.length > 0) {
+              try {
+                await JobModel.bulkWrite(bulkOps, { ordered: false });
+                // Invalidate cache for the year(s) touched so subsequent reads see updated values
+                // Use a simple invalidate to be safe.
+                invalidateCache();
+              } catch (err) {
+                console.error("Lazy-sync bulkWrite error:", err);
+              }
+            }
+          } catch (err) {
+            console.error("Lazy-sync error:", err);
+          }
+        })();
+      } catch (err) {
+        console.error("Error scheduling lazy-sync:", err);
+      }
+
       const responsePayload = {
         data: jobs,
         total: totalCount,
@@ -733,9 +793,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     const existing = await JobModel.findById(id).lean();
     if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Job not found" });
+      return res.status(404).json({ success: false, message: "Job not found" });
     }
 
     let merged = { ...existing };

@@ -14,6 +14,16 @@ import { Checkbox } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
+import FileUpload from "../../components/gallery/FileUpload.js";
+import { Delete, Edit, Add as AddIcon } from "@mui/icons-material";
+import { IconButton, MenuItem, Select, InputLabel, FormControl } from "@mui/material";
+
+const compactInputSx = {
+  "& .MuiOutlinedInput-root": { height: "32px" },
+  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.8rem" },
+  "& .MuiInputLabel-root": { fontSize: "0.8rem", top: "-4px" },
+  "& .MuiInputLabel-shrink": { top: "0px" }
+};
 
 const OperationListJob = () => {
   const { job_no, year } = useParams();
@@ -22,20 +32,30 @@ const OperationListJob = () => {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
+  const [newDocumentName, setNewDocumentName] = useState("");
+  const [newDocumentCode, setNewDocumentCode] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState("");
+
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
+
+  const preventFormSubmitOnEnter = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+    }
+  };
 
   // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        selectedICD, 
-        selectedYearState, 
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedICD,
+        selectedYearState,
         currentTab,
-        currentPage 
+        currentPage
       } = location.state;
       setStoredSearchParams({
         searchQuery,
@@ -129,17 +149,19 @@ const OperationListJob = () => {
         {
           documentation_completed_date_time:
             data.documentation_completed_date_time,
+          cth_documents: data.cth_documents,
+          all_documents: data.all_documents
         }
       );
-      
+
       // Navigate back with preserved search parameters
       const tabIndex = storedSearchParams?.currentTab ?? 0;
-     // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
-      
+
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation date:", error);
@@ -147,125 +169,183 @@ const OperationListJob = () => {
     }
   };
 
-  const renderDocuments = (documents, type) => {
-    if (!documents || documents.length === 0) {
-      return <p>No {type} uploaded yet.</p>;
-    }
-
+  const renderDocuments = (documents) => {
     return (
-      <Box display="flex" flexWrap="wrap" gap={2} mt={2}>
-        {documents.map((doc, index) => (
-          <Box
-            key={index}
-            sx={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              borderRadius: "5px",
-              flex: "1 1 30%",
-              maxWidth: "30%",
-              minWidth: "250px",
-              maxHeight: "150px",
-              overflowY: "auto",
-            }}
-          >
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-            >
-              {doc.document_name || `Document ${index + 1}`} (
-              {doc.document_code})
-            </Typography>
-            <Box mt={2}>
-              {doc.url.map((url, imgIndex) => (
-                <div
-                  key={imgIndex}
-                  style={{
-                    marginBottom: "10px",
-                    paddingBottom: "5px",
-                    borderBottom: "1px solid #ccc",
-                  }}
-                >
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", color: "blue" }}
-                  >
-                    {extractFileName(url)}
-                  </a>
-                </div>
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Box>
+      <div className="table-responsive">
+        <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
+          <thead style={{ backgroundColor: "#f8f9fa" }}>
+            <tr>
+              <th style={{ width: "30%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
+              <th style={{ width: "15%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Completed Date</th>
+              <th style={{ width: "10%", fontWeight: "600", color: "#495057", textAlign: "center", padding: "4px 8px" }}>E-Sanchit</th>
+              <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
+              <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(documents || []).map((doc, index) => (
+              <tr key={`cth-${index}`}>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
+                      <div style={{ fontSize: "0.8rem", color: "#6c757d" }}>{doc.document_code}</div>
+                    </div>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        const updated = [...documents];
+                        updated.splice(index, 1);
+                        setData(prev => ({ ...prev, cth_documents: updated }));
+                      }}
+                      style={{ padding: "4px" }}
+                    >
+                      <Delete style={{ fontSize: "1rem" }} color="error" />
+                    </IconButton>
+                  </div>
+                </td>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <span style={{ fontSize: "0.85rem", color: doc.document_check_date ? "#28a745" : "#6c757d", fontWeight: doc.document_check_date ? "600" : "normal" }}>
+                    {doc.document_check_date ? new Date(doc.document_check_date).toLocaleString("en-IN", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true }) : "-"}
+                  </span>
+                </td>
+                <td style={{ verticalAlign: "middle", textAlign: "center", padding: "4px 8px" }}>
+                  <Checkbox
+                    size="small"
+                    checked={doc.is_sent_to_esanchit || false}
+                    style={{ padding: "4px" }}
+                    onChange={(e) => {
+                      const updated = [...documents];
+                      updated[index].is_sent_to_esanchit = e.target.checked;
+                      setData(prev => ({ ...prev, cth_documents: updated }));
+                    }}
+                  />
+                </td>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
+                  <FileUpload
+                    label="Upload"
+                    bucketPath={`cth-documents/${doc.document_name}`}
+                    multiple={true}
+                    containerStyles={{ marginTop: 0 }}
+                    buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
+                    onFilesUploaded={(urls) => {
+                      const updated = [...documents];
+                      updated[index].url = [...(updated[index].url || []), ...urls];
+                      // Also update check date if not set?
+                      if (!updated[index].document_check_date) {
+                        const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString();
+                        updated[index].document_check_date = dt;
+                      }
+                      setData(prev => ({ ...prev, cth_documents: updated }));
+                    }}
+                  />
+                </td>
+                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                  <ImagePreview
+                    images={doc.url || []}
+                    isDsr={true}
+                    readOnly={false}
+                    onDeleteImage={(deleteIndex) => {
+                      const updated = [...documents];
+                      updated[index].url = updated[index].url.filter((_, i) => i !== deleteIndex);
+                      setData(prev => ({ ...prev, cth_documents: updated }));
+                    }}
+                  />
+                </td>
+              </tr>
+            ))}
+            {(documents || []).length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center">No documents found.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Add New Document Section - Simplified Manual Entry */}
+        <div style={{ background: "#f8f9fa", borderRadius: "8px", border: "1px dashed #ced4da", padding: "20px", marginTop: "20px" }}>
+          <h6 style={{ fontSize: "0.9rem", fontWeight: "700", color: "#495057", marginBottom: "15px" }}>Add New Document</h6>
+          <Row className="align-items-center">
+            <Col xs={12} lg={4} className="mb-2">
+              <TextField
+                fullWidth
+                size="small"
+                label="Document Name"
+                variant="outlined"
+                value={newDocumentName}
+                onChange={(e) => setNewDocumentName(e.target.value)}
+                onKeyDown={preventFormSubmitOnEnter}
+                sx={compactInputSx}
+              />
+            </Col>
+            <Col xs={12} lg={4} className="mb-2">
+              <TextField
+                fullWidth
+                size="small"
+                label="Document Code"
+                variant="outlined"
+                value={newDocumentCode}
+                onChange={(e) => setNewDocumentCode(e.target.value)}
+                onKeyDown={preventFormSubmitOnEnter}
+                sx={compactInputSx}
+              />
+            </Col>
+            <Col xs={12} lg={2} className="mb-2">
+              <Button variant="contained" color="primary" startIcon={<AddIcon />}
+                disabled={!newDocumentName.trim() || !newDocumentCode.trim()}
+                onClick={() => {
+                  const newDoc = {
+                    document_name: newDocumentName.trim(),
+                    document_code: newDocumentCode.trim(),
+                    url: [],
+                    document_check_date: "",
+                    is_sent_to_esanchit: false
+                  };
+                  setData(prev => ({ ...prev, cth_documents: [...(prev.cth_documents || []), newDoc] }));
+                  setNewDocumentName("");
+                  setNewDocumentCode("");
+                }}>
+                Add
+              </Button>
+            </Col>
+          </Row>
+        </div>
+      </div>
     );
   };
-  const renderAllDocuments = (documents) => {
-    if (!documents || documents.length === 0) {
-      return <p>No documents uploaded yet.</p>;
-    }
 
+  const renderAllDocuments = (documents) => {
     return (
-      <Box
-        display="flex"
-        flexWrap="wrap"
-        gap={2}
-        mt={2}
-        sx={{
-          justifyContent: "flex-start", // Center items on smaller devices
-        }}
-      >
-        {documents.map((url, index) => (
-          <Box
-            key={index}
-            sx={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              borderRadius: "5px",
-              flex: "1 1 30%", // Flex-basis for 3 columns
-              maxWidth: "30%", // Ensure proper width
-              minWidth: "250px", // Minimum width for smaller devices
-            }}
-          >
-            {/* <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-              }}
-            >
-              Document {index + 1}
-            </Typography> */}
-            <Box mt={1} textAlign="center">
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ textDecoration: "none", color: "blue" }}
-              >
-                {extractFileName(url)}
-              </a>
-            </Box>
-          </Box>
-        ))}
+      <Box mt={2}>
+        <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginTop: "15px", marginBottom: "30px" }}>
+          <Row>
+            <Col xs={12} md={6}>
+              <FileUpload
+                label="Upload General Documents"
+                bucketPath="all_documents"
+                multiple={true}
+                onFilesUploaded={(urls) => {
+                  setData(prev => ({ ...prev, all_documents: [...(prev.all_documents || []), ...urls] }));
+                }}
+              />
+            </Col>
+            <Col xs={12} md={12}>
+              <div className="mt-3">
+                <ImagePreview
+                  images={documents || []}
+                  onDeleteImage={(idx) => {
+                    const updated = [...(documents || [])];
+                    updated.splice(idx, 1);
+                    setData(prev => ({ ...prev, all_documents: updated }));
+                  }}
+                />
+              </div>
+            </Col>
+          </Row>
+        </div>
       </Box>
     );
-  };  return (
+  }; return (
     <div>
       {/* Back to Job List Button */}
       <Box sx={{ mb: 2 }}>
@@ -294,14 +374,14 @@ const OperationListJob = () => {
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />
-            {renderDocuments(data.cth_documents, "CTH Documents")}
+            {renderDocuments(data.cth_documents)}
           </div>
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />
             {renderAllDocuments(data.all_documents)}
           </div>
-               {/* ********************** submission ********************** */}
-               <div className="job-details-container">
+          {/* ********************** submission ********************** */}
+          <div className="job-details-container">
             <Row>
               <Col xs={12} md={4}>
                 <div className="mb-3">
@@ -330,7 +410,7 @@ const OperationListJob = () => {
             </Row>
           </div>
 
-          
+
         </>
       ) : (
         <p>Loading job details...</p>

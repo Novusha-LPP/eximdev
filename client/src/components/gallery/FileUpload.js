@@ -3,7 +3,6 @@ import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import { Button, CircularProgress, Tooltip } from "@mui/material";
 import { UserContext } from "../../contexts/UserContext";
 
-
 const FileUpload = ({
   label,
   onFilesUploaded,
@@ -13,25 +12,24 @@ const FileUpload = ({
   readOnly = false,
   replaceMode = false, // New prop: when true, replaces existing files; when false, appends
   singleFileOnly = false, // New prop: when true, only allows one file to be selected
+  containerStyles = {}, // New prop: custom styles for the container div
+  buttonSx = {}, // New prop: custom sx styles for the MUI Button
 }) => {
   const [uploading, setUploading] = useState(false);
   const { user } = useContext(UserContext);
 
-
   const handleFileUpload = async (event) => {
     if (readOnly) return;
-
 
     const files = event.target.files;
     const uploadedFiles = [];
 
-
     setUploading(true);
-    
+
     try {
       // If singleFileOnly is true, only upload the first file
       const filesToUpload = singleFileOnly ? [files[0]] : Array.from(files);
-      
+
       for (const file of filesToUpload) {
         try {
           const result = await uploadFileToS3(file, bucketPath);
@@ -43,22 +41,26 @@ const FileUpload = ({
     } finally {
       setUploading(false);
     }
-    
+
     // Pass the upload mode to the callback
     onFilesUploaded(uploadedFiles, replaceMode);
   };
 
-
   return (
-    <div style={{ marginTop: "10px" }}>
-      <Tooltip 
-        title={readOnly ? "Upload is disabled" : `Select file to upload${singleFileOnly ? " (single file)" : ""}`}
+    <div style={{ marginTop: "10px", ...containerStyles }}>
+      <Tooltip
+        title={
+          readOnly
+            ? "Upload is disabled"
+            : `Select file to upload${singleFileOnly ? " (single file)" : ""}`
+        }
         arrow
       >
         <span>
           <Button
             variant="contained"
             component="label"
+            sx={{ ...buttonSx }}
             style={{
               backgroundColor: readOnly ? "#ccc" : "#1c1e22",
               color: "#fff",
@@ -71,7 +73,9 @@ const FileUpload = ({
               type="file"
               hidden
               multiple={!singleFileOnly && multiple} // Disable multiple when singleFileOnly is true
-              accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
+              accept={
+                acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""
+              }
               onChange={handleFileUpload}
               disabled={readOnly || uploading}
             />
@@ -84,6 +88,5 @@ const FileUpload = ({
     </div>
   );
 };
-
 
 export default FileUpload;

@@ -19,7 +19,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
-import DocsCell from "../gallery/DocsCell.js";
+import InvoiceDisplay from "../import-do/InvoiceDisplay.js";
 import { TabContext } from "../import-do/ImportDO.js";
 
 function ImportCompletedBilling() {
@@ -239,7 +239,7 @@ function ImportCompletedBilling() {
   // Define table columns
   const columns = React.useMemo(
     () => [
-       {
+      {
         accessorKey: "job_no",
         header: "Job No",
         enableSorting: false,
@@ -254,78 +254,82 @@ function ImportCompletedBilling() {
             custom_house,
             detailed_status,
             vessel_berthing,
-                colorPriority,      // ✅ USE THIS FROM BACKEND
+            colorPriority, // ✅ USE THIS FROM BACKEND
             container_nos,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
           // Color-coding logic - NOW USES BACKEND DATA
-  let bgColor = "";
-  let textColor = "blue";
+          let bgColor = "";
+          let textColor = "blue";
 
-  const currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
+          const currentDate = new Date();
+          currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
 
-  // Function to calculate the days difference (MUST MATCH BACKEND)
-  const calculateDaysDifference = (targetDate) => {
-    if (!targetDate) return null;
-    
-    const date = new Date(targetDate);
-    date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
-    
-    const timeDifference = date.getTime() - currentDate.getTime();
-    return Math.floor(timeDifference / (1000 * 3600 * 24));
-  };
+          // Function to calculate the days difference (MUST MATCH BACKEND)
+          const calculateDaysDifference = (targetDate) => {
+            if (!targetDate) return null;
 
-  // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
-  if (colorPriority) {
-    if (colorPriority === 1) {
-      bgColor = "red";
-      textColor = "white";
-    } else if (colorPriority === 2) {
-      bgColor = "orange";
-      textColor = "black";
-    } else if (colorPriority === 3) {
-      bgColor = "white";
-      textColor = "blue";
-    }
-  } 
-  // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
-  else if (detailed_status === "Billing Pending" && container_nos) {
-    let mostCriticalDays = null;
+            const date = new Date(targetDate);
+            date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
 
-    container_nos.forEach((container) => {
-      const targetDate = consignment_type === "LCL"
-        ? container.delivery_date
-        : container.emptyContainerOffLoadDate;
+            const timeDifference = date.getTime() - currentDate.getTime();
+            return Math.floor(timeDifference / (1000 * 3600 * 24));
+          };
 
-      if (targetDate) {
-        const daysDifference = calculateDaysDifference(targetDate);
-        
-        if (mostCriticalDays === null || daysDifference < mostCriticalDays) {
-          mostCriticalDays = daysDifference;
-        }
-      }
-    });
+          // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
+          if (colorPriority) {
+            if (colorPriority === 1) {
+              bgColor = "red";
+              textColor = "white";
+            } else if (colorPriority === 2) {
+              bgColor = "orange";
+              textColor = "black";
+            } else if (colorPriority === 3) {
+              bgColor = "white";
+              textColor = "blue";
+            }
+          }
+          // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
+          else if (detailed_status === "Billing Pending" && container_nos) {
+            let mostCriticalDays = null;
 
-    // Apply colors based on the most critical container
-    if (mostCriticalDays !== null && mostCriticalDays < 0) {
-      if (mostCriticalDays <= -10) {
-        bgColor = "red";
-        textColor = "white";
-      } else if (mostCriticalDays <= -6) {
-        bgColor = "orange";
-        textColor = "black";
-      } else if (mostCriticalDays <= -1) {
-        bgColor = "white";
-        textColor = "blue";
-      }
-    }
-  }
+            container_nos.forEach((container) => {
+              const targetDate =
+                consignment_type === "LCL"
+                  ? container.delivery_date
+                  : container.emptyContainerOffLoadDate;
 
-  const queryParams = new URLSearchParams({
-    selectedJobId: _id,
-  }).toString();
+              if (targetDate) {
+                const daysDifference = calculateDaysDifference(targetDate);
+
+                if (
+                  mostCriticalDays === null ||
+                  daysDifference < mostCriticalDays
+                ) {
+                  mostCriticalDays = daysDifference;
+                }
+              }
+            });
+
+            // Apply colors based on the most critical container
+            if (mostCriticalDays !== null && mostCriticalDays < 0) {
+              if (mostCriticalDays <= -10) {
+                bgColor = "red";
+                textColor = "white";
+              } else if (mostCriticalDays <= -6) {
+                bgColor = "orange";
+                textColor = "black";
+              } else if (mostCriticalDays <= -1) {
+                bgColor = "white";
+                textColor = "blue";
+              }
+            }
+          }
+
+          const queryParams = new URLSearchParams({
+            selectedJobId: _id,
+          }).toString();
 
           return currentTab === 0 ? (
             <a
@@ -438,7 +442,7 @@ function ImportCompletedBilling() {
         header: "Documents",
         enableSorting: false,
         size: 200,
-        Cell: DocsCell,
+        Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
       },
     ],
     [navigate, handleCopy]

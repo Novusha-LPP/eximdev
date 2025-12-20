@@ -3,9 +3,9 @@ import JobModel from "../model/jobModel.mjs";
 
 const router = express.Router();
 
-// GET importers by year + status + detailedStatus
-// Example: /api/get-importer-list/25-26?status=Completed&detailedStatus=Discharged
-router.get("/api/get-importer-list/:year", async (req, res) => {
+// GET suppliers/exporters by year + status + detailedStatus
+// Example: /api/get-supplier-exporter-list/25-26?status=Completed&detailedStatus=Discharged
+router.get("/api/get-supplier-exporter-list/:year", async (req, res) => {
   try {
     const selectedYear = req.params.year;
     const { status, detailedStatus } = req.query;
@@ -23,31 +23,28 @@ router.get("/api/get-importer-list/:year", async (req, res) => {
       matchStage.detailed_status = detailedStatus;
     }
 
-    const uniqueImporters = await JobModel.aggregate([
+    const uniqueSuppliers = await JobModel.aggregate([
       { $match: matchStage },
       {
         $group: {
-          _id: { importer: "$importer", importerURL: "$importerURL" },
-          ie_code_no: { $first: "$ie_code_no" },
+          _id: "$supplier_exporter",
         },
       },
       {
         $project: {
           _id: 0,
-          importer: "$_id.importer",
-          importerURL: "$_id.importerURL",
-          ie_code_no: "$ie_code_no",
+          supplier_exporter: "$_id",
         },
       },
-      { $sort: { importer: 1 } },
+      { $sort: { supplier_exporter: 1 } },
     ]);
 
-    res.status(200).json(uniqueImporters);
+    res.status(200).json(uniqueSuppliers);
   } catch (error) {
     console.error(error);
     res
       .status(500)
-      .send("An error occurred while fetching importers.");
+      .send("An error occurred while fetching suppliers/exporters.");
   }
 });
 

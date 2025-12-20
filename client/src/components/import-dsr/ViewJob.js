@@ -168,6 +168,10 @@ function JobDetails() {
     }
   }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
   const handleBackClick = () => {
+    if (location.state && location.state.fromAnalytics) {
+      navigate('/analytics');
+      return;
+    }
     const tabIndex = storedSearchParams?.currentTab ?? 0; // Use the actual current tab
     navigate("/import-dsr", {
       state: {

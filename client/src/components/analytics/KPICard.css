@@ -1,0 +1,60 @@
+.kpi-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+}
+
+.kpi-content h3 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1a1a1a;
+}
+
+.kpi-content p {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 5px 0 0 0;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Colors */
+.kpi-card.blue { border-left: 5px solid #3b82f6; }
+.kpi-card.purple { border-left: 5px solid #8b5cf6; }
+.kpi-card.teal { border-left: 5px solid #14b8a6; }
+.kpi-card.orange { border-left: 5px solid #f97316; }
+.kpi-card.green { border-left: 5px solid #22c55e; }
+.kpi-card.red { border-left: 5px solid #ef4444; }
+
+/* Shine Effect */
+.kpi-shine {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-20deg);
+    transition: 0.5s;
+}
+
+.kpi-card:hover .kpi-shine {
+    left: 150%;
+    transition: 0.5s;
+}

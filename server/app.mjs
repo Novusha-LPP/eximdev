@@ -185,7 +185,9 @@ import feedback from "./routes/feedbackRoutes.js";
 //scrapper
 import cron from 'node-cron';
 import { scrapeAndSaveCurrencyRates } from './services/currencyRateScraper.js';
+
 import currencyRateRoutes from './routes/currencyRate.js';
+import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -430,6 +432,9 @@ if (cluster.isPrimary) {
 
       //scrapper
       app.use(currencyRateRoutes);
+
+      // Analytics
+      app.use(analyticsRoutes);
 
       // initialize cron jobs only on the first worker to avoid duplicates
       if (cluster.worker.id === 1) {

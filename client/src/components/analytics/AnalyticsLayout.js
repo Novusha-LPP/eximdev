@@ -1,37 +1,91 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useLocation, Navigate } from 'react-router-dom';
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAnalytics } from './AnalyticsContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import IconButton from '@mui/material/IconButton';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import MenuIcon from '@mui/icons-material/Menu';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+
+// Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping'; // Movement
-import GavelIcon from '@mui/icons-material/Gavel'; // Customs
-import DescriptionIcon from '@mui/icons-material/Description'; // Docs
-import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn'; // DO
-import ReceiptIcon from '@mui/icons-material/Receipt'; // Billing
-import WarningIcon from '@mui/icons-material/Warning'; // Exceptions
-import PendingActionsIcon from '@mui/icons-material/PendingActions'; // Pending Jobs
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import GavelIcon from '@mui/icons-material/Gavel';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import WarningIcon from '@mui/icons-material/Warning';
+
 import './AnalyticsLayout.css';
 
 const navItems = [
-    { name: 'Overview', path: 'overview', icon: <DashboardIcon /> },
-    { name: 'Movement', path: 'movement', icon: <LocalShippingIcon /> },
-    { name: 'Customs', path: 'customs', icon: <GavelIcon /> },
-    { name: 'Documentation', path: 'documentation', icon: <DescriptionIcon /> },
-    { name: 'DO Management', path: 'do-management', icon: <AssignmentTurnedInIcon /> },
-    { name: 'Billing', path: 'billing', icon: <ReceiptIcon /> },
-    { name: 'Pending Jobs', path: 'pending-jobs', icon: <PendingActionsIcon /> },
+    { name: 'Overview', path: 'overview', icon: <DashboardIcon fontSize="small" /> },
+    { name: 'Pending Jobs', path: 'pending-jobs', icon: <PendingActionsIcon fontSize="small" /> },
+    { name: 'Movement', path: 'movement', icon: <LocalShippingIcon fontSize="small" /> },
+    { name: 'Customs', path: 'customs', icon: <GavelIcon fontSize="small" /> },
+    { name: 'Documentation', path: 'documentation', icon: <DescriptionIcon fontSize="small" /> },
+    { name: 'DO Management', path: 'do-management', icon: <AssignmentTurnedInIcon fontSize="small" /> },
+    { name: 'Billing', path: 'billing', icon: <ReceiptIcon fontSize="small" /> },
 ];
 
 const AnalyticsLayout = () => {
-    const { startDate, endDate, setRange } = useAnalytics();
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
+    const { startDate, endDate, setRange, importer, setImporter } = useAnalytics();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [dateAnchorEl, setDateAnchorEl] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [importersList, setImportersList] = useState([]);
+
+    const currentModule = navItems.find(item => location.pathname.includes(item.path)) || navItems[0];
+    const [selectedPreset, setSelectedPreset] = useState('Today');
+
+    useEffect(() => {
+        const fetchImporters = async () => {
+            try {
+                // Calculate current financial year or use a default compatible with the API
+                // For now, hardcoding '24-25' as seen in other files or logic derived
+                // Or better, fetch 'all' years if possible? The API seems to require a year.
+                // Let's use '24-25' as a safe default based on recent files
+                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/get-importer-list/24-25`);
+                setImportersList(response.data);
+            } catch (error) {
+                console.error("Error fetching importers", error);
+            }
+        };
+        fetchImporters();
+    }, []);
+
+    const handleMenuOpen = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleDateMenuOpen = (event) => {
+        setDateAnchorEl(event.currentTarget);
+    };
+
+    const handleDateMenuClose = () => {
+        setDateAnchorEl(null);
+    };
+
+    const handleNavigate = (path) => {
+        navigate(path);
+        handleMenuClose();
+    };
 
     const handleDatePreset = (preset) => {
         const today = new Date();
@@ -46,85 +100,153 @@ const AnalyticsLayout = () => {
         } else if (preset === 'This Month') {
             start.setDate(1);
         }
-
         setRange(preset, start, end);
+        setSelectedPreset(preset);
+        handleDateMenuClose();
     };
 
     const handleRefresh = () => {
         setRefreshKey(prev => prev + 1);
-        // This key can be passed to children to trigger refetch
-        // Or simply context update
     };
 
     return (
         <LocalizationProvider dateAdapter={AdapterDateFns}>
             <div className="analytics-container">
-                <aside className={`analytics-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
-                    <div className="sidebar-header">
-                        <h2>Analytics</h2>
-                        <button className="toggle-btn" onClick={() => setSidebarOpen(!isSidebarOpen)}>
-                            {isSidebarOpen ? '«' : '»'}
-                        </button>
+                {/* Modern Header Navigation */}
+                <header className="analytics-header-nav">
+                    <div className="brand-section">
+                        <h1>Analytics Platform</h1>
+                        <Button
+                            variant="text"
+                            onClick={handleMenuOpen}
+                            endIcon={<KeyboardArrowDownIcon />}
+                            sx={{ color: '#1e293b', textTransform: 'none', fontSize: '1rem', fontWeight: 500 }}
+                        >
+                            {currentModule.name}
+                        </Button>
+                        <Menu
+                            anchorEl={anchorEl}
+                            open={Boolean(anchorEl)}
+                            onClose={handleMenuClose}
+                            PaperProps={{
+                                sx: {
+                                    bgcolor: 'white',
+                                    color: '#1e293b',
+                                    border: '1px solid #e2e8f0',
+                                    mt: 1,
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                }
+                            }}
+                        >
+                            {navItems.map((item) => (
+                                <MenuItem
+                                    key={item.path}
+                                    onClick={() => handleNavigate(item.path)}
+                                    selected={location.pathname.includes(item.path)}
+                                    sx={{ gap: 2, '&.Mui-selected': { bgcolor: '#eff6ff', color: '#3b82f6' } }}
+                                >
+                                    {item.icon} {item.name}
+                                </MenuItem>
+                            ))}
+                        </Menu>
                     </div>
-                    <nav>
-                        {navItems.map(item => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+
+                    <div className="header-controls">
+                        <Autocomplete
+                            options={importersList}
+                            getOptionLabel={(option) => option.importer || ''}
+                            value={importersList.find(i => i.importer === importer) || null}
+                            onChange={(event, newValue) => {
+                                setImporter(newValue ? newValue.importer : '');
+                            }}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="Select Importer"
+                                    size="small"
+                                    sx={{ width: 200, bgcolor: 'white', borderRadius: 1 }}
+                                />
+                            )}
+                            sx={{ mr: 2 }}
+                        />
+                        <div className="control-group" style={{ background: 'transparent', border: 'none' }}>
+                            <Button
+                                variant="outlined"
+                                onClick={handleDateMenuOpen}
+                                endIcon={<KeyboardArrowDownIcon />}
+                                sx={{
+                                    color: '#0f172a',
+                                    borderColor: '#cbd5e1',
+                                    textTransform: 'none',
+                                    fontWeight: 500
+                                }}
                             >
-                                <span className="icon">{item.icon}</span>
-                                {isSidebarOpen && <span className="label">{item.name}</span>}
-                            </NavLink>
-                        ))}
-                    </nav>
-                </aside>
+                                {selectedPreset}
+                            </Button>
+                            <Menu
+                                anchorEl={dateAnchorEl}
+                                open={Boolean(dateAnchorEl)}
+                                onClose={handleDateMenuClose}
+                                PaperProps={{
+                                    sx: {
+                                        bgcolor: 'white',
+                                        color: '#1e293b',
+                                        border: '1px solid #e2e8f0',
+                                        mt: 1,
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }
+                                }}
+                            >
+                                <MenuItem onClick={() => handleDatePreset('Today')}>Today</MenuItem>
+                                <MenuItem onClick={() => handleDatePreset('Yesterday')}>Yesterday</MenuItem>
+                                <MenuItem onClick={() => handleDatePreset('This Month')}>This Month</MenuItem>
+                            </Menu>
+                        </div>
+
+                        <div className="date-picker-group">
+                            <DatePicker
+                                value={startDate}
+                                onChange={(newValue) => setRange('Custom', newValue, endDate)}
+                                slotProps={{
+                                    textField: {
+                                        size: 'small',
+                                        sx: { width: 130 }
+                                    }
+                                }}
+                            />
+                            <span style={{ color: '#0f172a', margin: '0 8px' }}>—</span>
+                            <DatePicker
+                                value={endDate}
+                                onChange={(newValue) => setRange('Custom', startDate, newValue)}
+                                slotProps={{
+                                    textField: {
+                                        size: 'small',
+                                        sx: { width: 130 }
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        <IconButton
+                            onClick={handleRefresh}
+                            sx={{
+                                bgcolor: 'rgba(59, 130, 246, 0.2)',
+                                color: '#60a5fa',
+                                '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.4)' }
+                            }}
+                        >
+                            <RefreshIcon />
+                        </IconButton>
+                    </div>
+                </header>
 
                 <main className="analytics-main">
-                    <header className="analytics-header">
-                        <div className="header-left">
-                            <h1>Import Operations</h1>
-                        </div>
-                        <div className="header-controls">
-                            <div className="date-presets">
-                                <Button variant="outlined" size="small" onClick={() => handleDatePreset('Today')}>Today</Button>
-                                <Button variant="outlined" size="small" onClick={() => handleDatePreset('Yesterday')}>Yesterday</Button>
-                                <Button variant="outlined" size="small" onClick={() => handleDatePreset('This Month')}>This Month</Button>
-                            </div>
-
-                            <div className="date-picker-group">
-                                <DatePicker
-                                    label="Start Date"
-                                    value={startDate}
-                                    onChange={(newValue) => setRange('Custom', newValue, endDate)}
-                                    slotProps={{ textField: { size: 'small', sx: { width: 140 } } }}
-                                />
-                                <span className="sep">-</span>
-                                <DatePicker
-                                    label="End Date"
-                                    value={endDate}
-                                    onChange={(newValue) => setRange('Custom', startDate, newValue)}
-                                    slotProps={{ textField: { size: 'small', sx: { width: 140 } } }}
-                                />
-                            </div>
-
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                startIcon={<RefreshIcon />}
-                                onClick={handleRefresh}
-                            >
-                                Refresh
-                            </Button>
-                        </div>
-                    </header>
-
-                    <div className="analytics-content" key={refreshKey}>
+                    <div key={refreshKey} style={{ height: '100%' }}>
                         <Outlet />
                     </div>
                 </main>
             </div>
-        </LocalizationProvider>
+        </LocalizationProvider >
     );
 };
 

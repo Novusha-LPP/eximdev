@@ -7,7 +7,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useNavigate } from 'react-router-dom';
 import './ModalTable.css';
 
-const ModalTable = ({ open, onClose, title, data, dateLabel }) => {
+const ModalTable = ({ open, onClose, title, data, dateLabel, type }) => {
     const navigate = useNavigate();
 
     const handleRowClick = (job_no) => {
@@ -47,7 +47,9 @@ const ModalTable = ({ open, onClose, title, data, dateLabel }) => {
                                 <th>Importer</th>
                                 <th>Shipping Line</th>
                                 <th>{dateLabel || 'Relevant Date'}</th>
-                                <th>Container</th>
+                                {type === 'be_filed' ? <th>BoE File</th> :
+                                    type === 'ooc' ? <th>OOC File</th> :
+                                        <th>Container</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -58,7 +60,35 @@ const ModalTable = ({ open, onClose, title, data, dateLabel }) => {
                                         <td>{row.importer}</td>
                                         <td>{row.shipping_line_airline}</td>
                                         <td>{new Date(row.relevant_date).toLocaleDateString()}</td>
-                                        <td>{row.container_number || '-'}</td>
+                                        <td>
+                                            {type === 'be_filed' ? (
+                                                row.processed_be_attachment ? (
+                                                    <a
+                                                        href={row.processed_be_attachment}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        style={{ color: '#3b82f6', textDecoration: 'underline' }}
+                                                    >
+                                                        View BoE
+                                                    </a>
+                                                ) : '-'
+                                            ) : type === 'ooc' ? (
+                                                row.ooc_copies && row.ooc_copies.length > 0 ? (
+                                                    <a
+                                                        href={Array.isArray(row.ooc_copies) ? row.ooc_copies[0] : row.ooc_copies}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        style={{ color: '#3b82f6', textDecoration: 'underline' }}
+                                                    >
+                                                        View OOC
+                                                    </a>
+                                                ) : '-'
+                                            ) : (
+                                                row.container_number || '-'
+                                            )}
+                                        </td>
                                     </tr>
                                 ))
                             ) : (

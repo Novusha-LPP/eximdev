@@ -15,17 +15,18 @@ import {
 } from 'recharts';
 
 const CustomsDashboard = () => {
-    const { startDate, endDate } = useAnalytics();
+    const { startDate, endDate, importer } = useAnalytics();
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalData, setModalData] = useState([]);
+    const [dateLabel, setDateLabel] = useState('Relevant Date');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/customs`, {
-                    params: { startDate, endDate }
+                    params: { startDate, endDate, importer }
                 });
                 setData(response.data);
             } catch (error) {
@@ -33,7 +34,7 @@ const CustomsDashboard = () => {
             }
         };
         fetchData();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, importer]);
 
     const handleCardClick = (key, title) => {
         setModalTitle(title);

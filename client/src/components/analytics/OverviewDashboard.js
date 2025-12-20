@@ -1,9 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
-import './AnalyticsLayout.css';
 import {
     LineChart,
     Line,
@@ -15,20 +15,22 @@ import {
     AreaChart,
     Area
 } from 'recharts';
+import './AnalyticsLayout.css'; // Inherits the theme
 
 const OverviewDashboard = () => {
-    const { startDate, endDate } = useAnalytics();
+    const { startDate, endDate, importer } = useAnalytics();
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalData, setModalData] = useState([]);
+    const [modalType, setModalType] = useState('');
     const [dateLabel, setDateLabel] = useState('Relevant Date');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/overview`, {
-                    params: { startDate, endDate }
+                    params: { startDate, endDate, importer }
                 });
                 setData(response.data);
             } catch (error) {
@@ -36,108 +38,72 @@ const OverviewDashboard = () => {
             }
         };
         fetchData();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, importer]);
 
     const handleCardClick = (key, title, label = 'Relevant Date') => {
         setModalTitle(title);
         setDateLabel(label);
+        setModalType(key);
         setModalData(data.details[key] || []);
         setModalOpen(true);
     };
 
+    const { summary, details } = data;
+
     // Trend graph configuration (label, backend key, color)
     const trendOptions = [
-        { label: 'Jobs Created', value: 'jobs_trend', color: '#8884d8' },
-        { label: 'Operations Completed', value: 'ops_trend', color: '#10b981' },
-        { label: 'Exam Planning', value: 'exam_trend', color: '#8b5cf6' },
-        { label: 'Arrivals', value: 'arrival_trend', color: '#3b82f6' },
-        { label: 'Rail Out', value: 'rail_out_trend', color: '#6366f1' },
-        { label: 'BE Filed', value: 'be_trend', color: '#a855f7' },
-        { label: 'OOC', value: 'ooc_trend', color: '#d946ef' },
-        { label: 'DO Completed', value: 'do_trend', color: '#f97316' },
-        { label: 'Billing Sent', value: 'billing_trend', color: '#14b8a6' },
-        { label: 'ETA', value: 'eta_trend', color: '#06b6d4' }
+        { label: 'Jobs Created', value: 'jobs_trend', color: '#60a5fa' },
+        { label: 'ETA', value: 'eta_trend', color: '#f472b6' },
+        { label: 'Gateway IGM', value: 'gateway_igm_trend', color: '#6366f1' },
+        { label: 'Discharge', value: 'discharge_trend', color: '#14b8a6' },
+        { label: 'Arrivals', value: 'arrival_trend', color: '#34d399' },
+        { label: 'Rail Out', value: 'rail_out_trend', color: '#818cf8' },
+        { label: 'BE Filed', value: 'be_trend', color: '#a78bfa' },
+        { label: 'OOC', value: 'ooc_trend', color: '#e879f9' },
+        { label: 'DO Completed', value: 'do_trend', color: '#fb923c' },
+        { label: 'Billing Sent', value: 'billing_trend', color: '#2dd4bf' }
     ];
 
     const [selectedTrend, setSelectedTrend] = useState(trendOptions[0]);
-
-    const { summary, details } = data;
-
-    // Transform trend data for chart based on selection
     const currentTrendRaw = details?.[selectedTrend.value] || [];
     const chartData = currentTrendRaw.map(item => ({
         date: item._id,
         count: item.count
     }));
 
+    // Defined Order as per user request
+    const cards = [
+        { key: 'jobs_created_today', title: 'Jobs Created', label: 'Creation Date', color: 'blue' },
+        { key: 'eta', title: 'ETA', label: 'ETA Date', color: 'pink' },
+        { key: 'gateway_igm_date', title: 'Gateway IGM', label: 'IGM Date', color: 'indigo' },
+        { key: 'discharge_date', title: 'Discharge', label: 'Discharge Date', color: 'teal' },
+        { key: 'arrivals_today', title: 'Arrivals', label: 'Arrival Date', color: 'cyan' },
+        { key: 'rail_out_today', title: 'Rail Out', label: 'Rail Out Date', color: 'blue' },
+        { key: 'be_filed', title: 'BE Filed', label: 'BE Date', color: 'purple' },
+        { key: 'ooc', title: 'OOC', label: 'OOC Date', color: 'fuchsia' },
+        { key: 'empty_offload', title: 'Empty Offload', label: 'Offload Date', color: 'rose' },
+        { key: 'billing_sent', title: 'Billing Sent', label: 'Bill Sent Date', color: 'green' },
+        { key: 'do_completed', title: 'DO Completed', label: 'DO Date', color: 'orange' },
+        { key: 'operations_completed', title: 'Ops Completed', label: 'Completion Date', color: 'emerald' },
+    ];
+
     return (
         <div className="overview-container">
             <div className="section-header">
                 <h2>Operations Overview</h2>
-                <p>Real-time insights into your import/export operations</p>
+                <p>Real-time insights on your shipments</p>
             </div>
 
             <div className="dashboard-grid">
-                <KPICard
-                    title="Operations Completed"
-                    count={summary.operations_completed || 0}
-                    color="green"
-                    onClick={() => handleCardClick('operations_completed', 'Operations Completed', 'Completion Date')}
-                />
-                <KPICard
-                    title="Jobs Created Today"
-                    count={summary.jobs_created_today || 0}
-                    color="teal"
-                    onClick={() => handleCardClick('jobs_created_today', 'Jobs Created Today', 'Creation Date')}
-                />
-                <KPICard
-                    title="Exam Planning"
-                    count={summary.examination_planning || 0}
-                    color="purple"
-                    onClick={() => handleCardClick('examination_planning', 'Examination Planning', 'Exam Plan Date')}
-                />
-                <KPICard
-                    title="Arrivals Today"
-                    count={summary.arrivals_today || 0}
-                    color="blue"
-                    onClick={() => handleCardClick('arrivals_today', 'Arrivals Today', 'Arrival Date')}
-                />
-                <KPICard
-                    title="Rail Out Today"
-                    count={summary.rail_out_today || 0}
-                    color="blue"
-                    onClick={() => handleCardClick('rail_out_today', 'Rail Out Today', 'Rail Out Date')}
-                />
-                <KPICard
-                    title="BE Filed"
-                    count={summary.be_filed || 0}
-                    color="purple"
-                    onClick={() => handleCardClick('be_filed', 'BE Filed', 'BE Date')}
-                />
-                <KPICard
-                    title="OOC"
-                    count={summary.ooc || 0}
-                    color="purple"
-                    onClick={() => handleCardClick('ooc', 'Out Of Charge', 'OOC Date')}
-                />
-                <KPICard
-                    title="DO Completed"
-                    count={summary.do_completed || 0}
-                    color="orange"
-                    onClick={() => handleCardClick('do_completed', 'DO Completed', 'DO Date')}
-                />
-                <KPICard
-                    title="Billing Sent"
-                    count={summary.billing_sent || 0}
-                    color="green"
-                    onClick={() => handleCardClick('billing_sent', 'Billing Sent', 'Bill Sent Date')}
-                />
-                <KPICard
-                    title="Estimated Arrival (ETA)"
-                    count={summary.eta || 0}
-                    color="teal"
-                    onClick={() => handleCardClick('eta', 'Estimated Arrivals', 'ETA Date')}
-                />
+                {cards.map(card => (
+                    <KPICard
+                        key={card.key}
+                        title={card.title}
+                        count={summary[card.key] || 0}
+                        color={card.color}
+                        onClick={() => handleCardClick(card.key, card.title, card.label)}
+                    />
+                ))}
             </div>
 
             <div className="charts-section">
@@ -147,7 +113,14 @@ const OverviewDashboard = () => {
                         <select
                             value={selectedTrend.value}
                             onChange={(e) => setSelectedTrend(trendOptions.find(opt => opt.value === e.target.value))}
-                            style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', cursor: 'pointer' }}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                background: '#ffffff',
+                                border: '1px solid #cbd5e1',
+                                color: '#1e293b',
+                                outline: 'none'
+                            }}
                         >
                             {trendOptions.map(option => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -155,28 +128,34 @@ const OverviewDashboard = () => {
                         </select>
                     </div>
 
-                    <div style={{ width: '100%', height: 400 }}>
+                    <div style={{ width: '100%', height: 350 }}>
                         <ResponsiveContainer>
                             <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={selectedTrend.color} stopOpacity={0.8} />
+                                        <stop offset="5%" stopColor={selectedTrend.color} stopOpacity={0.6} />
                                         <stop offset="95%" stopColor={selectedTrend.color} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" />
-                                <YAxis />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                <XAxis dataKey="date" stroke="#64748b" />
+                                <YAxis stroke="#64748b" />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    contentStyle={{
+                                        backgroundColor: '#ffffff',
+                                        borderRadius: '8px',
+                                        border: '1px solid #e2e8f0',
+                                        color: '#1e293b',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="count"
                                     stroke={selectedTrend.color}
+                                    strokeWidth={3}
                                     fillOpacity={1}
                                     fill="url(#colorTrend)"
-                                    key={selectedTrend.value} // Force animation re-render
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -184,17 +163,15 @@ const OverviewDashboard = () => {
                 </div>
             </div>
 
-
-
-
             <ModalTable
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
                 title={modalTitle}
                 dateLabel={dateLabel}
+                type={modalType}
                 data={modalData}
             />
-        </div >
+        </div>
     );
 };
 

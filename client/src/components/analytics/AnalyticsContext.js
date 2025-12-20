@@ -9,6 +9,8 @@ export const AnalyticsProvider = ({ children }) => {
     const [endDate, setEndDate] = useState(new Date());
     const [dateRangeLabel, setDateRangeLabel] = useState('Today');
 
+    const [importer, setImporter] = useState('');
+
     const setRange = (label, start, end) => {
         setDateRangeLabel(label);
         setStartDate(start);
@@ -16,7 +18,7 @@ export const AnalyticsProvider = ({ children }) => {
     };
 
     return (
-        <AnalyticsContext.Provider value={{ startDate, endDate, dateRangeLabel, setRange }}>
+        <AnalyticsContext.Provider value={{ startDate, endDate, dateRangeLabel, setRange, importer, setImporter }}>
             {children}
         </AnalyticsContext.Provider>
     );

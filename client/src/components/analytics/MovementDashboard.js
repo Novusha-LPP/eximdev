@@ -16,7 +16,7 @@ import {
 } from 'recharts';
 
 const MovementDashboard = () => {
-    const { startDate, endDate } = useAnalytics();
+    const { startDate, endDate, importer } = useAnalytics();
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -27,7 +27,7 @@ const MovementDashboard = () => {
         const fetchData = async () => {
             try {
                 const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/movement`, {
-                    params: { startDate, endDate }
+                    params: { startDate, endDate, importer }
                 });
                 setData(response.data);
             } catch (error) {
@@ -35,7 +35,7 @@ const MovementDashboard = () => {
             }
         };
         fetchData();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, importer]);
 
     const handleCardClick = (key, title, label = 'Relevant Date') => {
         setModalTitle(title);

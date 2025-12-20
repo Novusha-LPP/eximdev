@@ -63,9 +63,45 @@ router.get("/api/analytics/:module", async (req, res) => {
 
 // 🔹 Overview Pipeline
 const getOverviewPipeline = (start, end) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = toYMD(new Date());
+
     return [
         {
             $facet: {
+                jobs_created_today: [
+                    {
+                        $match: {
+                            job_date: { $gte: toYMD(start), $lte: toYMD(end) }
+                        }
+                    },
+                    {
+                        $project: {
+                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            relevant_date: "$job_date"
+                        }
+                    }
+                ],
+                jobs_trend: [
+                    {
+                        $match: {
+                            job_date: { $gte: sevenDaysAgoStr, $lte: todayStr }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: "$job_date",
+                            count: { $sum: 1 }
+                        }
+                    },
+                    { $sort: { _id: 1 } }
+                ],
                 arrivals_today: [
                     { $unwind: "$container_nos" },
                     {
@@ -151,6 +187,7 @@ const getOverviewPipeline = (start, end) => {
         {
             $project: {
                 summary: {
+                    jobs_created_today: { $size: "$jobs_created_today" },
                     arrivals_today: { $size: "$arrivals_today" },
                     rail_out_today: { $size: "$rail_out_today" },
                     be_filed: { $size: "$be_filed" },
@@ -160,6 +197,8 @@ const getOverviewPipeline = (start, end) => {
                     eta: { $size: "$eta" }
                 },
                 details: {
+                    jobs_created_today: "$jobs_created_today",
+                    jobs_trend: "$jobs_trend",
                     arrivals_today: "$arrivals_today",
                     rail_out_today: "$rail_out_today",
                     be_filed: "$be_filed",

@@ -103,22 +103,55 @@ const getOverviewPipeline = (start, end) => {
                     { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
                 ],
                 jobs_trend: [
-                    {
-                        $match: {
-                            job_date: { $gte: sevenDaysAgoStr, $lte: todayStr }
-                        }
-                    },
-                    {
-                        $group: {
-                            _id: "$job_date",
-                            count: { $sum: 1 }
-                        }
-                    },
+                    { $match: { job_date: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$job_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 ops_trend: [
                     { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
                     { $group: { _id: { $substr: ["$completed_operation_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                exam_trend: [
+                    { $match: { examination_planning_date: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$examination_planning_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                arrival_trend: [
+                    { $unwind: "$container_nos" },
+                    { $match: { "container_nos.arrival_date": { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$container_nos.arrival_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                rail_out_trend: [
+                    { $unwind: "$container_nos" },
+                    { $match: { "container_nos.container_rail_out_date": { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$container_nos.container_rail_out_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                be_trend: [
+                    { $match: { be_date: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$be_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                ooc_trend: [
+                    { $match: { out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$out_of_charge", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                do_trend: [
+                    { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$do_completed", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                billing_trend: [
+                    { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$bill_document_sent_to_accounts", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                eta_trend: [
+                    { $match: { vessel_berthing: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$vessel_berthing", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 arrivals_today: [
@@ -221,6 +254,14 @@ const getOverviewPipeline = (start, end) => {
                     jobs_created_today: "$jobs_created_today",
                     jobs_trend: "$jobs_trend",
                     ops_trend: "$ops_trend",
+                    exam_trend: "$exam_trend",
+                    arrival_trend: "$arrival_trend",
+                    rail_out_trend: "$rail_out_trend",
+                    be_trend: "$be_trend",
+                    ooc_trend: "$ooc_trend",
+                    do_trend: "$do_trend",
+                    billing_trend: "$billing_trend",
+                    eta_trend: "$eta_trend",
                     operations_completed: "$operations_completed",
                     examination_planning: "$examination_planning",
                     arrivals_today: "$arrivals_today",

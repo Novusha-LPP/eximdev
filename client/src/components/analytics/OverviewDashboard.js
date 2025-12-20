@@ -45,19 +45,29 @@ const OverviewDashboard = () => {
         setModalOpen(true);
     };
 
+    // Trend graph configuration (label, backend key, color)
+    const trendOptions = [
+        { label: 'Jobs Created', value: 'jobs_trend', color: '#8884d8' },
+        { label: 'Operations Completed', value: 'ops_trend', color: '#10b981' },
+        { label: 'Exam Planning', value: 'exam_trend', color: '#8b5cf6' },
+        { label: 'Arrivals', value: 'arrival_trend', color: '#3b82f6' },
+        { label: 'Rail Out', value: 'rail_out_trend', color: '#6366f1' },
+        { label: 'BE Filed', value: 'be_trend', color: '#a855f7' },
+        { label: 'OOC', value: 'ooc_trend', color: '#d946ef' },
+        { label: 'DO Completed', value: 'do_trend', color: '#f97316' },
+        { label: 'Billing Sent', value: 'billing_trend', color: '#14b8a6' },
+        { label: 'ETA', value: 'eta_trend', color: '#06b6d4' }
+    ];
+
+    const [selectedTrend, setSelectedTrend] = useState(trendOptions[0]);
+
     const { summary, details } = data;
-    const trendData = details?.jobs_trend || [];
-    const opsTrendData = details?.ops_trend || [];
 
-    // Transform trend data for chart
-    const chartData = trendData.map(item => ({
+    // Transform trend data for chart based on selection
+    const currentTrendRaw = details?.[selectedTrend.value] || [];
+    const chartData = currentTrendRaw.map(item => ({
         date: item._id,
-        jobs: item.count
-    }));
-
-    const opsChartData = opsTrendData.map(item => ({
-        date: item._id,
-        ops: item.count
+        count: item.count
     }));
 
     return (
@@ -131,15 +141,27 @@ const OverviewDashboard = () => {
             </div>
 
             <div className="charts-section">
-                <div className="chart-card">
-                    <h3>Job Creation Trend (Last 7 Days)</h3>
-                    <div style={{ width: '100%', height: 300 }}>
+                <div className="chart-card" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3>Trend Analysis (Last 7 Days)</h3>
+                        <select
+                            value={selectedTrend.value}
+                            onChange={(e) => setSelectedTrend(trendOptions.find(opt => opt.value === e.target.value))}
+                            style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', cursor: 'pointer' }}
+                        >
+                            {trendOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ width: '100%', height: 400 }}>
                         <ResponsiveContainer>
                             <AreaChart data={chartData}>
                                 <defs>
-                                    <linearGradient id="colorJobs" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                    <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={selectedTrend.color} stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor={selectedTrend.color} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -148,35 +170,18 @@ const OverviewDashboard = () => {
                                 <Tooltip
                                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                 />
-                                <Area type="monotone" dataKey="jobs" stroke="#8884d8" fillOpacity={1} fill="url(#colorJobs)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="chart-card">
-                    <h3>Operations Completed Trend (Last 7 Days)</h3>
-                    <div style={{ width: '100%', height: 300 }}>
-                        <ResponsiveContainer>
-                            <AreaChart data={opsChartData}>
-                                <defs>
-                                    <linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                <Area
+                                    type="monotone"
+                                    dataKey="count"
+                                    stroke={selectedTrend.color}
+                                    fillOpacity={1}
+                                    fill="url(#colorTrend)"
+                                    key={selectedTrend.value} // Force animation re-render
                                 />
-                                <Area type="monotone" dataKey="ops" stroke="#10b981" fillOpacity={1} fill="url(#colorOps)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
-
             </div>
 
 

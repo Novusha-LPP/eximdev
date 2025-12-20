@@ -40,18 +40,6 @@ function Sidebar() {
         </IconButton>
       </Tooltip>
 
-      <Tooltip title="Analytics" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/analytics")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <InsightsIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
       <Tooltip title="Home" enterDelay={0} placement="right">
         <ListItemButton
           className="appbar-links"
@@ -88,6 +76,18 @@ function Sidebar() {
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <CurrencyExchangeIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
+
+      <Tooltip title="Analytics" enterDelay={0} placement="right">
+        <ListItemButton
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/analytics")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <InsightsIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

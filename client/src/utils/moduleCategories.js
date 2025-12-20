@@ -10,6 +10,7 @@ export const moduleCategories = {
   Documentation: "DSR Module",
   Submission: "DSR Module",
   "Import - Operations": "DSR Module",
+  "Import - Boands": "DSR Module",
   "Import - Add": "DSR Module",
   "Import - DO": "DSR Module",
   "e-Sanchit": "DSR Module",

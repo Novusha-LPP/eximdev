@@ -9,7 +9,6 @@ import DoCompleted from "./DoCompleted.js";
 import BillingSheet from "./BillingSheet";
 import ImportBilling from "../Import-billing/ImportBilling.js";
 import useTabs from "../../customHooks/useTabs";
-import KycDetails from "./KycDetails";
 import FreeDaysConf from "./FreeDaysConf";
 import { useLocation, useNavigate } from "react-router-dom";
 // Create a context to share tab state between components

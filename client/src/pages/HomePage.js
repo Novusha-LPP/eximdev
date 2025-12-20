@@ -43,6 +43,7 @@ import ImportOperations from "../components/import-operations/ImportOperations.j
 import DocumentationTab from "../components/documentation/DocumentationTab.js";
 import ViewOperationsJob from "../components/import-operations/ViewOperationsJob.js";
 import OperationListJob from "../components/import-operations/OperationListJob.js";
+import ImportBoands from "../components/import-boands/ImportBoands.js";
 
 // Import add
 import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
@@ -130,32 +131,32 @@ function HomePage() {
               <Route path="/change-password" element={<ChangePassword />} />
 
               {/* Protected Routes */}
-              <Route 
-                path="/assign" 
+              <Route
+                path="/assign"
                 element={
-                  
-                    <Assign />
-                } 
+
+                  <Assign />
+                }
               />
 
               {/* Accounts */}
-              <Route 
-                path="/accounts" 
+              <Route
+                path="/accounts"
                 element={
                   <ProtectedRoute requiredModule="Accounts">
                     <Accounts />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Documentation */}
-              <Route 
-                path="/documentation" 
+              <Route
+                path="/documentation"
                 element={
                   <ProtectedRoute requiredModule="Documentation">
                     <DocumentationTab />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route
                 path="/documentationJob/view-job/:job_no/:year"
@@ -167,13 +168,13 @@ function HomePage() {
               />
 
               {/* Submission */}
-              <Route 
-                path="/submission" 
+              <Route
+                path="/submission"
                 element={
                   <ProtectedRoute requiredModule="Submission">
                     <SubmissionTabs />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route
                 path="/submission-job/:job_no/:year"
@@ -185,21 +186,21 @@ function HomePage() {
               />
 
               {/* Employee KYC */}
-              <Route 
-                path="/employee-kyc" 
+              <Route
+                path="/employee-kyc"
                 element={
                   <ProtectedRoute requiredModule="Employee KYC">
                     <EmployeeKYC />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/view-kyc/:username" 
+              <Route
+                path="/view-kyc/:username"
                 element={
                   <ProtectedRoute requiredModule="Employee KYC">
                     <ViewIndividualKyc />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Employee Onboarding */}
@@ -213,13 +214,13 @@ function HomePage() {
               />
 
               {/* ESanchit */}
-              <Route 
-                path="/e-sanchit" 
+              <Route
+                path="/e-sanchit"
                 element={
                   <ProtectedRoute requiredModule="e-Sanchit">
                     <ESanchitTab />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route
                 path="/esanchit-job/:job_no/:year"
@@ -231,47 +232,47 @@ function HomePage() {
               />
 
               {/* Exit Feedback */}
-              <Route 
-                path="/exit-feedback" 
+              <Route
+                path="/exit-feedback"
                 element={
                   <ProtectedRoute requiredModule="Exit Feedback">
                     <ExitInterview />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Import DO */}
-              <Route 
-                path="/import-do" 
+              <Route
+                path="/import-do"
                 element={
                   <ProtectedRoute requiredModule="Import - DO">
                     <ImportDO />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/edit-do-list/:job_no/:year" 
+              <Route
+                path="/edit-do-list/:job_no/:year"
                 element={
                   <ProtectedRoute requiredModule="Import - DO">
                     <EditDoList />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/edit-do-planning/:job_no/:year" 
+              <Route
+                path="/edit-do-planning/:job_no/:year"
                 element={
                   <ProtectedRoute requiredModule="Import - DO">
                     <EditDoPlanning />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/edit-do-completed/:job_no/:year" 
+              <Route
+                path="/edit-do-completed/:job_no/:year"
                 element={
                   <ProtectedRoute requiredModule="Import - DO">
                     <EditDoCompleted />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route
                 path="/edit-billing-sheet/:job_no/:year"
@@ -283,48 +284,48 @@ function HomePage() {
               />
 
               {/* Import DSR */}
-              <Route 
-                path="/import-dsr" 
+              <Route
+                path="/import-dsr"
                 element={
                   <ProtectedRoute requiredModule="Import - DSR">
                     <ImportDSR />
                   </ProtectedRoute>
-                } 
+                }
               />
               {/* Import DSR */}
-              <Route 
-                path="/logs" 
+              <Route
+                path="/logs"
                 element={
                   <ProtectedRoute requiredModule="Import - DSR">
                     <LogsPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/import-dsr/job/:job_no/:selected_year" 
+              <Route
+                path="/import-dsr/job/:job_no/:selected_year"
                 element={
                   <ProtectedRoute requiredModule="Import - DSR">
                     <ViewJob />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/job/:job_no/:selected_year" 
+              <Route
+                path="/job/:job_no/:selected_year"
                 element={
                   <ProtectedRoute requiredModule="Import - DSR">
                     <ViewJob />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Import Operations */}
-              <Route 
-                path="/import-operations" 
+              <Route
+                path="/import-operations"
                 element={
                   <ProtectedRoute requiredModule="Import - Operations">
                     <ImportOperations />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route
                 path="/import-operations/view-job/:job_no/:year"
@@ -343,14 +344,23 @@ function HomePage() {
                 }
               />
 
+              <Route
+                path="/import-boands"
+                element={
+                  <ProtectedRoute requiredModule="Import - Boands">
+                    <ImportBoands />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* ImportersInfo */}
-              <Route 
-                path="/ImportersInfo" 
+              <Route
+                path="/ImportersInfo"
                 element={
                   <ProtectedRoute requiredModule="Import - Add">
                     <ImportersInfo />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               <Route
@@ -403,117 +413,117 @@ function HomePage() {
                   </ProtectedRoute>
                 }
               />
-              <Route 
-                path="/duty-calculator" 
+              <Route
+                path="/duty-calculator"
                 element={
                   <ProtectedRoute requiredModule="Import Utility Tool">
                     <DutyCalculator />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/utilities" 
+              <Route
+                path="/utilities"
                 element={
                   <ProtectedRoute requiredModule="Import Utility Tool">
                     <UtilityParent />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* import billing */}
-              <Route 
-                path="/import-billing" 
+              <Route
+                path="/import-billing"
                 element={
                   <ProtectedRoute requiredModule="Import - Billing">
                     <ImportBillingTab />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/view-billing-job/:job_no/:year" 
+              <Route
+                path="/view-billing-job/:job_no/:year"
                 element={
                   <ProtectedRoute requiredModule="Import - Billing">
                     <ViewBillingJob />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/view-payment-request-job/:job_no/:year" 
+              <Route
+                path="/view-payment-request-job/:job_no/:year"
                 element={
                   <ProtectedRoute requiredModule="Import - Billing">
                     <EditPaymentRequest />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Screens */}
-              <Route 
-                path="/screen1" 
+              <Route
+                path="/screen1"
                 element={
                   <ProtectedRoute requiredModule="Screen1">
                     <Screen1 />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/screen2" 
+              <Route
+                path="/screen2"
                 element={
                   <ProtectedRoute requiredModule="Screen2">
                     <Screen2 />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/screen3" 
+              <Route
+                path="/screen3"
                 element={
                   <ProtectedRoute requiredModule="Screen3">
                     <Screen3 />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/screen4" 
+              <Route
+                path="/screen4"
                 element={
                   <ProtectedRoute requiredModule="Screen4">
                     <Screen4 />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/screen5" 
+              <Route
+                path="/screen5"
                 element={
                   <ProtectedRoute requiredModule="Screen5">
                     <Screen5 />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/screen6" 
+              <Route
+                path="/screen6"
                 element={
                   <ProtectedRoute requiredModule="Screen6">
                     <Screen6 />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Inward Register */}
-              <Route 
-                path="/inward-register" 
+              <Route
+                path="/inward-register"
                 element={
                   <ProtectedRoute requiredModule="Inward Register">
                     <InwardRegister />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Outward Register */}
-              <Route 
-                path="/outward-register" 
+              <Route
+                path="/outward-register"
                 element={
                   <ProtectedRoute requiredModule="Outward Register">
                     <OutwardRegister />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route
                 path="/outward-register-details/:_id"
@@ -527,16 +537,16 @@ function HomePage() {
               <Route
                 path="/release-notes"
                 element={
-                    <ReleaseNotes />
+                  <ReleaseNotes />
                 }
               />
               <Route
                 path="/feedback"
                 element={
-                    <Feedback />
+                  <Feedback />
                 }
               />
-              
+
             </Routes>
           </Box>
         </Box>

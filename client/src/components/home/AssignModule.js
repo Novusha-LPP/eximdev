@@ -15,6 +15,7 @@ const allModules = [
   "Import - DSR",
   "Import - DO",
   "Import - Operations",
+  "Import - Boands",
   "Import - Add",
   "Import - Billing",
   "Import Utility Tool",

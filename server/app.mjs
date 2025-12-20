@@ -133,6 +133,8 @@ import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
 import updateJob from "./routes/import-dsr/updateJob.mjs";
 import viewDSR from "./routes/import-dsr/viewDSR.mjs";
+import getUniqueShippingLines from "./routes/import-dsr/getUniqueShippingLines.mjs";
+import bondRoutes from "./routes/import-dsr/bondRoutes.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -374,6 +376,8 @@ if (cluster.isPrimary) {
       app.use(importerListToAssignJobs);
       app.use(updateJob);
       app.use(viewDSR);
+      app.use(getUniqueShippingLines);
+      app.use(bondRoutes);
       // app.use(ImportCreateJob);
 
       // Import Operations

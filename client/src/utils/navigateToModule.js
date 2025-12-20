@@ -12,6 +12,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/audit-trail");
     case "Import - Operations":
       return navigate("/import-operations");
+    case "Import - Boands":
+      return navigate("/import-boands");
     case "Import - Add":
       return navigate("/ImportersInfo");
     case "Import - Billing":

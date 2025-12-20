@@ -50,6 +50,8 @@ function DoPlanning() {
   // ✅ State for status filter counts
   const [statusFilterCounts, setStatusFilterCounts] = useState({});
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [showDoPlanningTodayOnly, setShowDoPlanningTodayOnly] = useState(false);
+  const [doPlanningTodayCount, setDoPlanningTodayCount] = useState(0);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
@@ -331,9 +333,8 @@ function DoPlanning() {
 
   // ✅ Simple WebSocket implementation - like your working Screen1
   useEffect(() => {
-    const SOCKET_URL = `ws://${
-      process.env.REACT_APP_SOCKET_URL || "localhost:9000"
-    }`;
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9000"
+      }`;
     console.log("🔗 Connecting to DO Billing WebSocket:", SOCKET_URL);
 
     let socket = null;
@@ -492,8 +493,10 @@ function DoPlanning() {
       currentYear,
       currentICD,
       selectedImporter,
+
       statusFilter = "",
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      doPlanningDateToday = false
     ) => {
       setLoading(true);
       try {
@@ -511,7 +514,9 @@ function DoPlanning() {
             importer: selectedImporter?.trim() || "",
             username: user?.username || "",
             statusFilter: statusFilter || "",
+
             unresolvedOnly: unresolvedOnly.toString(),
+            doPlanningDateToday: doPlanningDateToday.toString(),
           },
         });
 
@@ -529,6 +534,7 @@ function DoPlanning() {
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
         setUnresolvedCount(unresolvedCount || 0);
+        setDoPlanningTodayCount(res.data.doPlanningTodayCount || 0);
 
         if (doDocCounts) {
           setDoDocCounts(doDocCounts);
@@ -670,7 +676,8 @@ function DoPlanning() {
         selectedICD,
         selectedImporter,
         selectedStatusFilter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        showDoPlanningTodayOnly
       );
     }
   }, [
@@ -682,6 +689,7 @@ function DoPlanning() {
     selectedStatusFilter,
     user?.username,
     showUnresolvedOnly,
+    showDoPlanningTodayOnly,
     showTodayJobs,
     fetchJobs,
   ]);
@@ -722,57 +730,58 @@ function DoPlanning() {
     >
       <div
         style={{
-          padding: "8px 16px",
+          padding: "4px 12px",
           backgroundColor: "#e3f2fd",
           borderRadius: "8px",
           textAlign: "center",
           border: "2px solid #1976d2",
-          minWidth: "80px",
+          minWidth: "60px",
         }}
       >
-        <div style={{ fontSize: "20px", fontWeight: "bold", color: "#1976d2" }}>
+        <div style={{ fontSize: "18px", fontWeight: "bold", color: "#1976d2" }}>
           {doDocCounts.totalJobs}
         </div>
-        <div style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+        <div style={{ fontSize: "11px", color: "#666", fontWeight: "500" }}>
           Total Jobs
         </div>
       </div>
 
       <div
         style={{
-          padding: "8px 16px",
+          padding: "4px 12px",
           backgroundColor: "#e8f5e8",
           borderRadius: "8px",
           textAlign: "center",
           border: "2px solid #2e7d32",
-          minWidth: "80px",
+          minWidth: "60px",
         }}
       >
-        <div style={{ fontSize: "20px", fontWeight: "bold", color: "#2e7d32" }}>
+        <div style={{ fontSize: "18px", fontWeight: "bold", color: "#2e7d32" }}>
           {doDocCounts.prepared}
         </div>
-        <div style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+        <div style={{ fontSize: "11px", color: "#666", fontWeight: "500" }}>
           DO Doc Prepared
         </div>
       </div>
 
       <div
         style={{
-          padding: "8px 16px",
+          padding: "4px 12px",
           backgroundColor: "#ffebee",
           borderRadius: "8px",
           textAlign: "center",
           border: "2px solid #d32f2f",
-          minWidth: "80px",
+          minWidth: "60px",
         }}
       >
-        <div style={{ fontSize: "20px", fontWeight: "bold", color: "#d32f2f" }}>
+        <div style={{ fontSize: "18px", fontWeight: "bold", color: "#d32f2f" }}>
           {doDocCounts.notPrepared}
         </div>
-        <div style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+        <div style={{ fontSize: "11px", color: "#666", fontWeight: "500" }}>
           DO Doc Not Prepared
         </div>
       </div>
+
     </div>
   );
 
@@ -1290,53 +1299,53 @@ function DoPlanning() {
             />
 
             {/* REST OF YOUR CUSTOM CONTENT */}
-<div>
-  {shipping_line_airline}
-  <Tooltip title="Copy Shipping Line" arrow>
-    <IconButton
-      size="small"
-      onClick={(event) => handleCopy(event, shipping_line_airline)}
-    >
-      <ContentCopyIcon fontSize="inherit" />
-    </IconButton>
-  </Tooltip>
-</div>
+            <div>
+              {shipping_line_airline}
+              <Tooltip title="Copy Shipping Line" arrow>
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, shipping_line_airline)}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            </div>
 
-<div>
-  {vesselFlight}
-  <Tooltip title="Copy Vessel" arrow>
-    <IconButton
-      size="small"
-      onClick={(event) => handleCopy(event, vesselFlight)}
-    >
-      <ContentCopyIcon fontSize="inherit" />
-    </IconButton>
-  </Tooltip>
-</div>
+            <div>
+              {vesselFlight}
+              <Tooltip title="Copy Vessel" arrow>
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, vesselFlight)}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            </div>
 
-<div>
-  {`Vessel Voyage: ${voyageNo}`}
-  <Tooltip title="Copy Voyage Number" arrow>
-    <IconButton
-      size="small"
-      onClick={(event) => handleCopy(event, voyageNo)}
-    >
-      <ContentCopyIcon fontSize="inherit" />
-    </IconButton>
-  </Tooltip>
-</div>
+            <div>
+              {`Vessel Voyage: ${voyageNo}`}
+              <Tooltip title="Copy Voyage Number" arrow>
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, voyageNo)}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            </div>
 
-<div>
-  {`Line No: ${line_no}`}
-  <Tooltip title="Copy Line Number" arrow>
-    <IconButton
-      size="small"
-      onClick={(event) => handleCopy(event, line_no)}
-    >
-      <ContentCopyIcon fontSize="inherit" />
-    </IconButton>
-  </Tooltip>
-</div>
+            <div>
+              {`Line No: ${line_no}`}
+              <Tooltip title="Copy Line Number" arrow>
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, line_no)}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            </div>
 
             <div>
               <label
@@ -1600,13 +1609,13 @@ function DoPlanning() {
             )}
 
             {cth_documents &&
-            cth_documents.some(
-              (doc) =>
-                doc.url &&
-                doc.url.length > 0 &&
-                (doc.document_name === "Pre-Shipment Inspection Certificate" ||
-                  doc.document_name === "Bill of Lading")
-            ) ? (
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                    doc.document_name === "Bill of Lading")
+              ) ? (
               cth_documents
                 .filter(
                   (doc) =>
@@ -1700,6 +1709,22 @@ function DoPlanning() {
           }}
         >
           <DoDocCountsDisplay />
+
+          <Tooltip title="Show Today's Planning Jobs">
+            <IconButton
+              onClick={() => setShowDoPlanningTodayOnly((prev) => !prev)}
+              sx={{
+                backgroundColor: showDoPlanningTodayOnly ? '#e3f2fd' : 'transparent',
+                border: showDoPlanningTodayOnly ? '1px solid #1976d2' : '1px solid transparent',
+                borderRadius: '50%',
+                padding: '8px'
+              }}
+            >
+              <Badge badgeContent={doPlanningTodayCount} color="error">
+                <NotificationsIcon color={showDoPlanningTodayOnly ? "primary" : "action"} />
+              </Badge>
+            </IconButton>
+          </Tooltip>
         </div>
 
         {/* Second Row - Filters */}
@@ -1855,6 +1880,10 @@ function DoPlanning() {
               }}
             />
           </div>
+
+
+
+
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box sx={{ position: "relative" }}>

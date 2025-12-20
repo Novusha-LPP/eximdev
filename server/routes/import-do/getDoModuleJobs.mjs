@@ -48,7 +48,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
           $or: [
             {
               $and: [
-                { 
+                {
                   $or: [{ do_completed: true }, { do_completed: "Yes" }, { do_completed: { $exists: true } }]
                 },
                 {
@@ -80,14 +80,14 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       ],
     };
 
-     if (unresolvedOnly === "true") {
+    if (unresolvedOnly === "true") {
       baseQuery.$and.push({
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
       });
     }
-    
 
-    if(selectedYear){
+
+    if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
 
@@ -109,14 +109,28 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // ✅ Apply user-based ICD filter from middleware
     if (req.userIcdFilter) {
       baseQuery.$and.push(req.userIcdFilter);
-    } 
+    }
+
+    if (req.query.doPlanningDateToday === "true") {
+      // Robust date formatting for Asia/Kolkata (IST)
+      const now = new Date();
+      const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+      const formatter = new Intl.DateTimeFormat('en-CA', options);
+      const today = formatter.format(now); // en-CA always outputs YYYY-MM-DD
+
+      console.log(`Applying doPlanningDateToday filter. Today (IST): ${today}. Searching for ^${today}`);
+
+      baseQuery.$and.push({
+        do_planning_date: { $regex: new RegExp(`^${today}`) }
+      });
+    }
 
     // Note: Status filter will be applied after fetching to ensure accuracy with complex nested arrays 
 
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year port_of_reporting do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved"
+        "job_no year port_of_reporting do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved do_planning_date"
       )
       .lean();
 
@@ -139,78 +153,78 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 
     // **Step 3.5: Apply status filter to the final combined jobs**
     let finalFilteredJobs = uniqueJobs;
-    
+
     if (statusFilter) {
       const decodedStatusFilter = decodeURIComponent(statusFilter).trim();
       console.log(`Applying status filter: ${decodedStatusFilter} to ${uniqueJobs.length} jobs`);
-      
+
       finalFilteredJobs = uniqueJobs.filter((job) => {
         switch (decodedStatusFilter) {
           case "do_doc_prepared":
             return job.is_do_doc_prepared === true;
-          
+
           case "do_doc_not_prepared":
             return job.is_do_doc_prepared !== true;
-          
+
           case "payment_request_sent":
-            return job.do_shipping_line_invoice && 
-                   Array.isArray(job.do_shipping_line_invoice) && 
-                   job.do_shipping_line_invoice.length > 0 && 
-                   job.do_shipping_line_invoice.some(invoice => 
-                     invoice.payment_request_date && 
-                     invoice.payment_request_date !== "" && 
-                     invoice.payment_request_date !== null
-                   );
-          
+            return job.do_shipping_line_invoice &&
+              Array.isArray(job.do_shipping_line_invoice) &&
+              job.do_shipping_line_invoice.length > 0 &&
+              job.do_shipping_line_invoice.some(invoice =>
+                invoice.payment_request_date &&
+                invoice.payment_request_date !== "" &&
+                invoice.payment_request_date !== null
+              );
+
           case "payment_request_not_sent":
-            return !job.do_shipping_line_invoice || 
-                   !Array.isArray(job.do_shipping_line_invoice) || 
-                   job.do_shipping_line_invoice.length === 0 || 
-                   !job.do_shipping_line_invoice.some(invoice => 
-                     invoice.payment_request_date && 
-                     invoice.payment_request_date !== "" && 
-                     invoice.payment_request_date !== null
-                   );
-          
+            return !job.do_shipping_line_invoice ||
+              !Array.isArray(job.do_shipping_line_invoice) ||
+              job.do_shipping_line_invoice.length === 0 ||
+              !job.do_shipping_line_invoice.some(invoice =>
+                invoice.payment_request_date &&
+                invoice.payment_request_date !== "" &&
+                invoice.payment_request_date !== null
+              );
+
           case "payment_made":
-            return job.do_shipping_line_invoice && 
-                   Array.isArray(job.do_shipping_line_invoice) && 
-                   job.do_shipping_line_invoice.length > 0 && 
-                   job.do_shipping_line_invoice.some(invoice => 
-                     invoice.is_payment_made === true || 
-                     (invoice.payment_made_date && 
-                      invoice.payment_made_date !== "" && 
-                      invoice.payment_made_date !== null)
-                   );
-          
+            return job.do_shipping_line_invoice &&
+              Array.isArray(job.do_shipping_line_invoice) &&
+              job.do_shipping_line_invoice.length > 0 &&
+              job.do_shipping_line_invoice.some(invoice =>
+                invoice.is_payment_made === true ||
+                (invoice.payment_made_date &&
+                  invoice.payment_made_date !== "" &&
+                  invoice.payment_made_date !== null)
+              );
+
           case "payment_not_made":
-            return !job.do_shipping_line_invoice || 
-                   !Array.isArray(job.do_shipping_line_invoice) || 
-                   job.do_shipping_line_invoice.length === 0 || 
-                   !job.do_shipping_line_invoice.some(invoice => 
-                     invoice.is_payment_made === true || 
-                     (invoice.payment_made_date && 
-                      invoice.payment_made_date !== "" && 
-                      invoice.payment_made_date !== null)
-                   );
-          
+            return !job.do_shipping_line_invoice ||
+              !Array.isArray(job.do_shipping_line_invoice) ||
+              job.do_shipping_line_invoice.length === 0 ||
+              !job.do_shipping_line_invoice.some(invoice =>
+                invoice.is_payment_made === true ||
+                (invoice.payment_made_date &&
+                  invoice.payment_made_date !== "" &&
+                  invoice.payment_made_date !== null)
+              );
+
           case "obl_received":
             return job.is_obl_recieved === true;
-          
+
           case "obl_not_received":
             return job.is_obl_recieved !== true;
-          
+
           case "doc_sent_to_shipping_line":
             return job.is_do_doc_recieved === true;
-          
+
           case "doc_not_sent_to_shipping_line":
             return job.is_do_doc_recieved !== true;
-          
+
           default:
             return true; // No filter for "All Status" or unknown values
         }
       });
-      
+
       console.log(`After status filter: ${finalFilteredJobs.length} jobs remaining`);
     }
 
@@ -224,46 +238,46 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       all: finalFilteredJobs.length,
       do_doc_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length,
       do_doc_not_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length,
-      payment_request_sent: finalFilteredJobs.filter(job => 
-        job.do_shipping_line_invoice && 
-        Array.isArray(job.do_shipping_line_invoice) && 
-        job.do_shipping_line_invoice.length > 0 && 
-        job.do_shipping_line_invoice.some(invoice => 
-          invoice.payment_request_date && 
-          invoice.payment_request_date !== "" && 
+      payment_request_sent: finalFilteredJobs.filter(job =>
+        job.do_shipping_line_invoice &&
+        Array.isArray(job.do_shipping_line_invoice) &&
+        job.do_shipping_line_invoice.length > 0 &&
+        job.do_shipping_line_invoice.some(invoice =>
+          invoice.payment_request_date &&
+          invoice.payment_request_date !== "" &&
           invoice.payment_request_date !== null
         )
       ).length,
-      payment_request_not_sent: finalFilteredJobs.filter(job => 
-        !job.do_shipping_line_invoice || 
-        !Array.isArray(job.do_shipping_line_invoice) || 
-        job.do_shipping_line_invoice.length === 0 || 
-        !job.do_shipping_line_invoice.some(invoice => 
-          invoice.payment_request_date && 
-          invoice.payment_request_date !== "" && 
+      payment_request_not_sent: finalFilteredJobs.filter(job =>
+        !job.do_shipping_line_invoice ||
+        !Array.isArray(job.do_shipping_line_invoice) ||
+        job.do_shipping_line_invoice.length === 0 ||
+        !job.do_shipping_line_invoice.some(invoice =>
+          invoice.payment_request_date &&
+          invoice.payment_request_date !== "" &&
           invoice.payment_request_date !== null
         )
       ).length,
-      payment_made: finalFilteredJobs.filter(job => 
-        job.do_shipping_line_invoice && 
-        Array.isArray(job.do_shipping_line_invoice) && 
-        job.do_shipping_line_invoice.length > 0 && 
-        job.do_shipping_line_invoice.some(invoice => 
-          invoice.is_payment_made === true || 
-          (invoice.payment_made_date && 
-           invoice.payment_made_date !== "" && 
-           invoice.payment_made_date !== null)
+      payment_made: finalFilteredJobs.filter(job =>
+        job.do_shipping_line_invoice &&
+        Array.isArray(job.do_shipping_line_invoice) &&
+        job.do_shipping_line_invoice.length > 0 &&
+        job.do_shipping_line_invoice.some(invoice =>
+          invoice.is_payment_made === true ||
+          (invoice.payment_made_date &&
+            invoice.payment_made_date !== "" &&
+            invoice.payment_made_date !== null)
         )
       ).length,
-      payment_not_made: finalFilteredJobs.filter(job => 
-        !job.do_shipping_line_invoice || 
-        !Array.isArray(job.do_shipping_line_invoice) || 
-        job.do_shipping_line_invoice.length === 0 || 
-        !job.do_shipping_line_invoice.some(invoice => 
-          invoice.is_payment_made === true || 
-          (invoice.payment_made_date && 
-           invoice.payment_made_date !== "" && 
-           invoice.payment_made_date !== null)
+      payment_not_made: finalFilteredJobs.filter(job =>
+        !job.do_shipping_line_invoice ||
+        !Array.isArray(job.do_shipping_line_invoice) ||
+        job.do_shipping_line_invoice.length === 0 ||
+        !job.do_shipping_line_invoice.some(invoice =>
+          invoice.is_payment_made === true ||
+          (invoice.payment_made_date &&
+            invoice.payment_made_date !== "" &&
+            invoice.payment_made_date !== null)
         )
       ).length,
       obl_received: finalFilteredJobs.filter(job => job.is_obl_recieved === true).length,
@@ -289,17 +303,17 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       const displayDate = isContainerDateHigher
         ? containerLevelDate.toISOString().split("T")[0]
         : isJobLevelDateValid
-        ? jobLevelDate.toISOString().split("T")[0]
-        : "";
+          ? jobLevelDate.toISOString().split("T")[0]
+          : "";
 
       const dayDifference = isContainerDateHigher
         ? Math.ceil((containerLevelDate - jobLevelDate) / (1000 * 60 * 60 * 24))
         : 0;
 
       return {
-        ...job, 
-        displayDate, 
-        dayDifference, 
+        ...job,
+        displayDate,
+        dayDifference,
       };
     });
 
@@ -314,18 +328,43 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     });
 
     const unresolvedQueryBase = { ...baseQuery };
-        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-        );
-        unresolvedQueryBase.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-        });
-        
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
 
     // **Step 7: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
+
+    // Calculate doPlanningTodayCount (Active Count)
+    const now = new Date();
+    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-CA', options);
+    const today = formatter.format(now);
+
+    // Create a new count query based on current global filters (year, icd, etc) but REPLACING any existing date filter with Today
+    const doPlanningCountQuery = { ...baseQuery };
+    // Careful: baseQuery might already have the date filter if doPlanningDateToday=true
+    // If it does, we can just use totalJobs (if no pagination? No, totalJobs is filtered count).
+    // Actually, we want the count of "Today's Planning Jobs" regardless of whether we are viewing them or not.
+    // So we should construct a fresh query for accuracy.
+
+    const countQuery = {
+      $and: [
+        { do_planning_date: { $regex: new RegExp(`^${today}`) } }
+      ]
+    };
+    if (selectedYear) countQuery.$and.push({ year: selectedYear });
+    if (req.userIcdFilter) countQuery.$and.push(req.userIcdFilter);
+    // Apply other current context filters if needed, but usually this badge is "How many jobs TODAY in this YEAR"
+
+    const doPlanningTodayCount = await JobModel.countDocuments(countQuery);
+
 
     // ✅ Return paginated response with counts
     res.status(200).json({
@@ -341,7 +380,8 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       },
       // Add status filter counts
       statusFilterCounts,
-      unresolvedCount
+      unresolvedCount,
+      doPlanningTodayCount
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);
@@ -396,15 +436,15 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
         },
       ],
     };
-    
-        // ✅ Apply unresolved queries filter if requested
+
+    // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {
       baseQuery.$and.push({
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
       });
-    }  
-    
-    if(selectedYear){
+    }
+
+    if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
 
@@ -427,7 +467,7 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } 
+    }
 
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
@@ -470,17 +510,17 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       const displayDate = isContainerDateHigher
         ? containerLevelDate.toISOString().split("T")[0]
         : isJobLevelDateValid
-        ? jobLevelDate.toISOString().split("T")[0]
-        : "";
+          ? jobLevelDate.toISOString().split("T")[0]
+          : "";
 
       const dayDifference = isContainerDateHigher
         ? Math.ceil((containerLevelDate - jobLevelDate) / (1000 * 60 * 60 * 24))
         : 0;
 
       return {
-        ...job, 
-        displayDate, 
-        dayDifference, 
+        ...job,
+        displayDate,
+        dayDifference,
       };
     });
 
@@ -494,16 +534,16 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       return new Date(a.displayDate) - new Date(b.displayDate); // Ascending by displayDate
     });
 
-     const unresolvedQueryBase = { ...baseQuery };
-        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-        );
-        unresolvedQueryBase.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-        });
-        
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-    
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
     // **Step 6: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
@@ -527,8 +567,8 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
 
 router.get("/api/get-today-do-billing", applyUserIcdFilter, getTodayJob);
 
-export async function getTodayJob (req, res) {
-      try {
+export async function getTodayJob(req, res) {
+  try {
     // Extract and validate query parameters
     const {
       page = 1,
@@ -572,11 +612,11 @@ export async function getTodayJob (req, res) {
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
-        { 
-          met_do_billing_conditions_date: { 
-            $gte: startOfDay, 
-            $lte: endOfDay 
-          } 
+        {
+          met_do_billing_conditions_date: {
+            $gte: startOfDay,
+            $lte: endOfDay
+          }
         }
       ],
     };
@@ -609,7 +649,7 @@ export async function getTodayJob (req, res) {
         custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
       });
     }
-    
+
     if (decodedOBL && decodedOBL !== "Select OBL") {
       baseQuery.$and.push({
         obl_telex_bl: { $regex: new RegExp(`^${decodedOBL}$`, "i") },
@@ -722,23 +762,23 @@ export async function getTodayJob (req, res) {
 router.get('/get-new-do-billing-jobs', async (req, res) => {
   try {
     const { since, username } = req.query;
-    
+
     // Find jobs that met DO billing conditions since the given timestamp
     const newJobs = await Job.find({
       met_do_billing_conditions_date: {
         $gte: new Date(since)
       }
     })
-    .select('job_no importer be_no met_do_billing_conditions_date')
-    .sort({ met_do_billing_conditions_date: -1 })
-    .limit(50);
-    
+      .select('job_no importer be_no met_do_billing_conditions_date')
+      .sort({ met_do_billing_conditions_date: -1 })
+      .limit(50);
+
     res.json({
       newJobs,
       latestCheck: new Date().toISOString(),
       count: newJobs.length
     });
-    
+
   } catch (error) {
     console.error('Error fetching new DO billing jobs:', error);
     res.status(500).json({ error: 'Failed to fetch new jobs' });

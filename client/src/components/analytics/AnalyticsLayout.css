@@ -149,9 +149,10 @@
 .charts-section {
     margin-top: 40px;
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
     gap: 24px;
 }
+
 
 .chart-card {
     background: white;

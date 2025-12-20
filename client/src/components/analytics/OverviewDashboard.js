@@ -47,11 +47,17 @@ const OverviewDashboard = () => {
 
     const { summary, details } = data;
     const trendData = details?.jobs_trend || [];
+    const opsTrendData = details?.ops_trend || [];
 
-    // Transform trend data for chart if needed (already in { _id: date, count: N } format)
+    // Transform trend data for chart
     const chartData = trendData.map(item => ({
         date: item._id,
         jobs: item.count
+    }));
+
+    const opsChartData = opsTrendData.map(item => ({
+        date: item._id,
+        ops: item.count
     }));
 
     return (
@@ -63,10 +69,22 @@ const OverviewDashboard = () => {
 
             <div className="dashboard-grid">
                 <KPICard
+                    title="Operations Completed"
+                    count={summary.operations_completed || 0}
+                    color="green"
+                    onClick={() => handleCardClick('operations_completed', 'Operations Completed', 'Completion Date')}
+                />
+                <KPICard
                     title="Jobs Created Today"
                     count={summary.jobs_created_today || 0}
                     color="teal"
                     onClick={() => handleCardClick('jobs_created_today', 'Jobs Created Today', 'Creation Date')}
+                />
+                <KPICard
+                    title="Exam Planning"
+                    count={summary.examination_planning || 0}
+                    color="purple"
+                    onClick={() => handleCardClick('examination_planning', 'Examination Planning', 'Exam Plan Date')}
                 />
                 <KPICard
                     title="Arrivals Today"
@@ -135,7 +153,34 @@ const OverviewDashboard = () => {
                         </ResponsiveContainer>
                     </div>
                 </div>
+
+                <div className="chart-card">
+                    <h3>Operations Completed Trend (Last 7 Days)</h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={opsChartData}>
+                                <defs>
+                                    <linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="date" />
+                                <YAxis />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                />
+                                <Area type="monotone" dataKey="ops" stroke="#10b981" fillOpacity={1} fill="url(#colorOps)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
             </div>
+
+
+
 
             <ModalTable
                 open={modalOpen}
@@ -144,7 +189,7 @@ const OverviewDashboard = () => {
                 dateLabel={dateLabel}
                 data={modalData}
             />
-        </div>
+        </div >
     );
 };
 

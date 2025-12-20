@@ -70,7 +70,7 @@ const getOverviewPipeline = (start, end) => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const sevenDaysAgoStr = toYMD(sevenDaysAgo);
-    const todayStr = toYMD(new Date());
+    const todayStr = new Date().toISOString();
 
     return [
         {
@@ -78,7 +78,7 @@ const getOverviewPipeline = (start, end) => {
                 jobs_created_today: [
                     {
                         $match: {
-                            job_date: { $gte: toYMD(start), $lte: toYMD(end) }
+                            job_date: { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -87,6 +87,20 @@ const getOverviewPipeline = (start, end) => {
                             relevant_date: "$job_date"
                         }
                     }
+                ],
+                operations_completed: [
+                    {
+                        $match: {
+                            completed_operation_date: { $gte: toYMD(start), $lte: end.toISOString() }
+                        }
+                    },
+                    {
+                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$completed_operation_date" }
+                    }
+                ],
+                examination_planning: [
+                    { $match: { examination_planning_date: { $gte: toYMD(start), $lte: end.toISOString() } } },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
                 ],
                 jobs_trend: [
                     {
@@ -102,11 +116,16 @@ const getOverviewPipeline = (start, end) => {
                     },
                     { $sort: { _id: 1 } }
                 ],
+                ops_trend: [
+                    { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$completed_operation_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
                 arrivals_today: [
                     { $unwind: "$container_nos" },
                     {
                         $match: {
-                            "container_nos.arrival_date": { $gte: start.toISOString(), $lte: end.toISOString() } // String comparison for ISO dates
+                            "container_nos.arrival_date": { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -121,7 +140,7 @@ const getOverviewPipeline = (start, end) => {
                     { $unwind: "$container_nos" },
                     {
                         $match: {
-                            "container_nos.container_rail_out_date": { $gte: start.toISOString(), $lte: end.toISOString() }
+                            "container_nos.container_rail_out_date": { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -135,7 +154,7 @@ const getOverviewPipeline = (start, end) => {
                 be_filed: [
                     {
                         $match: {
-                            be_date: { $gte: start.toISOString(), $lte: end.toISOString() }
+                            be_date: { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -145,7 +164,7 @@ const getOverviewPipeline = (start, end) => {
                 ooc: [
                     {
                         $match: {
-                            out_of_charge: { $gte: start.toISOString(), $lte: end.toISOString() }
+                            out_of_charge: { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -155,7 +174,7 @@ const getOverviewPipeline = (start, end) => {
                 do_completed: [
                     {
                         $match: {
-                            do_completed: { $gte: start.toISOString(), $lte: end.toISOString() }
+                            do_completed: { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -165,7 +184,7 @@ const getOverviewPipeline = (start, end) => {
                 billing_sent: [
                     {
                         $match: {
-                            bill_document_sent_to_accounts: { $gte: start.toISOString(), $lte: end.toISOString() }
+                            bill_document_sent_to_accounts: { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -175,7 +194,7 @@ const getOverviewPipeline = (start, end) => {
                 eta: [
                     {
                         $match: {
-                            vessel_berthing: { $gte: start.toISOString(), $lte: end.toISOString() }
+                            vessel_berthing: { $gte: toYMD(start), $lte: end.toISOString() }
                         }
                     },
                     {
@@ -188,6 +207,8 @@ const getOverviewPipeline = (start, end) => {
             $project: {
                 summary: {
                     jobs_created_today: { $size: "$jobs_created_today" },
+                    operations_completed: { $size: "$operations_completed" },
+                    examination_planning: { $size: "$examination_planning" },
                     arrivals_today: { $size: "$arrivals_today" },
                     rail_out_today: { $size: "$rail_out_today" },
                     be_filed: { $size: "$be_filed" },
@@ -199,6 +220,9 @@ const getOverviewPipeline = (start, end) => {
                 details: {
                     jobs_created_today: "$jobs_created_today",
                     jobs_trend: "$jobs_trend",
+                    ops_trend: "$ops_trend",
+                    operations_completed: "$operations_completed",
+                    examination_planning: "$examination_planning",
                     arrivals_today: "$arrivals_today",
                     rail_out_today: "$rail_out_today",
                     be_filed: "$be_filed",
@@ -214,10 +238,19 @@ const getOverviewPipeline = (start, end) => {
 
 // 🚢 Movement Pipeline
 const getMovementPipeline = (start, end) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = new Date().toISOString();
+
     // All metrics count containers
     const makeContainerFacet = (field) => [
         { $unwind: "$container_nos" },
-        { $match: { [`container_nos.${field}`]: { $gte: start.toISOString(), $lte: end.toISOString() } } },
+        { $match: { [`container_nos.${field}`]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         {
             $project: {
                 job_no: 1, importer: 1, shipping_line_airline: 1,
@@ -236,6 +269,13 @@ const getMovementPipeline = (start, end) => {
                 empty_offload: makeContainerFacet("emptyContainerOffLoadDate"),
                 by_road: makeContainerFacet("by_road_movement_date"),
                 detention_start: makeContainerFacet("detention_from"),
+                // Trends
+                arrival_trend: [
+                    { $unwind: "$container_nos" },
+                    { $match: { "container_nos.arrival_date": { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$container_nos.arrival_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
             }
         },
         {
@@ -256,8 +296,17 @@ const getMovementPipeline = (start, end) => {
 
 // 🏛 Customs Pipeline
 const getCustomsPipeline = (start, end) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = new Date().toISOString();
+
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: start.toISOString(), $lte: end.toISOString() } } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
@@ -271,7 +320,18 @@ const getCustomsPipeline = (start, end) => {
                 duty_paid: makeJobFacet("duty_paid_date"),
                 pcv: makeJobFacet("pcv_date"),
                 ooc: makeJobFacet("out_of_charge"),
-                discharge: makeJobFacet("discharge_date")
+                discharge: makeJobFacet("discharge_date"),
+                // Add trend data for BE and OOC
+                be_trend: [
+                    { $match: { be_date: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: "$be_date", count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                ooc_trend: [
+                    { $match: { out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$out_of_charge", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
             }
         },
         {
@@ -286,7 +346,11 @@ const getCustomsPipeline = (start, end) => {
                     ooc: { $size: "$ooc" },
                     discharge: { $size: "$discharge" }
                 },
-                details: "$$ROOT"
+                details: {
+                    igm: "$igm", gateway_igm: "$gateway_igm", be_filed: "$be_filed", assessment: "$assessment",
+                    duty_paid: "$duty_paid", pcv: "$pcv", ooc: "$ooc", discharge: "$discharge",
+                    be_trend: "$be_trend", ooc_trend: "$ooc_trend"
+                }
             }
         }
     ];
@@ -294,8 +358,27 @@ const getCustomsPipeline = (start, end) => {
 
 // 📄 Documentation Pipeline
 const getDocumentationPipeline = (start, end) => {
+    // Calculate 7 days ago for trend
+    // Note: Documentation fields are ISO-like timestamps (YYYY-MM-DDTHH:mm), so we use ISO strings for range.
+    // However, for trends grouping, we need to extract YYYY-MM-DD.
+
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo); // YYYY-MM-DD
+    // But since we match against timestamp fields, we might need full ISO for trend match?
+    // Actually, simple string match works: "2025-12-13T..." >= "2025-12-13" (True).
+    // And "2025-12-20T..." <= "2025-12-20" (False).
+    // So for trend range (which covers last 7 days including today), we should use a broad range.
+    // "2025-12-13" to "2025-12-21" (tomorrow)? Or today's end?
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: start.toISOString(), $lte: end.toISOString() } } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
@@ -306,7 +389,13 @@ const getDocumentationPipeline = (start, end) => {
                 docs_received: makeJobFacet("document_received_date"),
                 documentation_completed: makeJobFacet("documentation_completed_date_time"),
                 esanchit_completed: makeJobFacet("esanchit_completed_date_time"),
-                submission_completed: makeJobFacet("submission_completed_date_time")
+                submission_completed: makeJobFacet("submission_completed_date_time"),
+                // Trend
+                docs_trend: [
+                    { $match: { documentation_completed_date_time: { $gte: sevenDaysAgo.toISOString(), $lte: todayEnd.toISOString() } } },
+                    { $group: { _id: { $substr: ["$documentation_completed_date_time", 0, 10] }, count: { $sum: 1 } } }, // Extract YYYY-MM-DD
+                    { $sort: { _id: 1 } }
+                ]
             }
         },
         {
@@ -326,15 +415,24 @@ const getDocumentationPipeline = (start, end) => {
 
 // 📦 DoManagement Pipeline
 const getDoManagementPipeline = (start, end) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = new Date().toISOString();
+
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: start.toISOString(), $lte: end.toISOString() } } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // special handling for container do expiry
     const containerExpiryFacet = [
         { $unwind: "$container_nos" },
-        { $match: { "container_nos.do_validity_upto_container_level": { $gte: start.toISOString(), $lte: end.toISOString() } } },
+        { $match: { "container_nos.do_validity_upto_container_level": { $gte: toYMD(start), $lte: end.toISOString() } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$container_nos.do_validity_upto_container_level", container_number: "$container_nos.container_number" } }
     ];
 
@@ -347,7 +445,13 @@ const getDoManagementPipeline = (start, end) => {
                 do_completed: makeJobFacet("do_completed"),
                 do_revalidated: makeJobFacet("do_revalidation_date"),
                 do_expiring_job: makeJobFacet("do_validity_upto_job_level"),
-                container_do_expiry: containerExpiryFacet
+                container_do_expiry: containerExpiryFacet,
+                // Trend
+                do_trend: [
+                    { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$do_completed", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
             }
         },
         {
@@ -369,23 +473,17 @@ const getDoManagementPipeline = (start, end) => {
 
 // 💰 Billing Pipeline
 const getBillingPipeline = (start, end) => {
-    // Bill date can be comma separated
-    // "For comma-separated dates like bill_date, split and match any."
-    // This is hard in aggregation without $reduce or regex.
-    // If we assume string matching works for ISO, but comma separated requires splitting.
-    // We'll simplisticly use regex for now or skip complex parsing for MVP velocity if schema is messy.
-    // User constraint: "use $match on date range".
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
 
-    // If bill_date is "2023-01-01, 2023-01-02", a string comparison won't work easily.
-    // I will try to use $regex if dates are strings, or $expr with conversion.
-    // Given the difficulty, I'll assume standard singular dates for major fields, but for comma separated:
-    // We can use Javascript in $where (slow) or advanced aggregation.
-    // Let's stick to standard match for single dates and come back if it fails.
-    // Actually, user explicitly said: "For comma-separated dates like bill_date, split and match any."
-    // I should attempt to handle it.
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = toYMD(new Date());
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: start.toISOString(), $lte: end.toISOString() } } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: toYMD(end) } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
@@ -395,7 +493,13 @@ const getBillingPipeline = (start, end) => {
                 billing_sheet_sent: makeJobFacet("bill_document_sent_to_accounts"),
                 bill_generated: makeJobFacet("bill_date"), // If comma separated, this might miss.
                 operation_completed: makeJobFacet("completed_operation_date"),
-                payment_made: makeJobFacet("payment_made_date")
+                payment_made: makeJobFacet("payment_made_date"),
+                // Trend
+                billing_trend: [
+                    { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr } } },
+                    { $group: { _id: { $substr: ["$bill_document_sent_to_accounts", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
             }
         },
         {

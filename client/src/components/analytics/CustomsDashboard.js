@@ -3,6 +3,16 @@ import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
+import './AnalyticsLayout.css';
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer
+} from 'recharts';
 
 const CustomsDashboard = () => {
     const { startDate, endDate } = useAnalytics();
@@ -31,10 +41,12 @@ const CustomsDashboard = () => {
         setModalOpen(true);
     };
 
-    const { summary } = data;
+    const { summary, details } = data;
+    const beTrend = (details?.be_trend || []).map(item => ({ date: item._id, count: item.count }));
+    const oocTrend = (details?.ooc_trend || []).map(item => ({ date: item._id, count: item.count }));
 
     return (
-        <div>
+        <div className="overview-container">
             <h2>Customs Clearance</h2>
             <div className="dashboard-grid">
                 <KPICard title="IGM" count={summary.igm || 0} color="purple" onClick={() => handleCardClick('igm', 'IGM')} />
@@ -46,6 +58,50 @@ const CustomsDashboard = () => {
                 <KPICard title="OOC" count={summary.ooc || 0} color="purple" onClick={() => handleCardClick('ooc', 'OOC')} />
                 <KPICard title="Discharge" count={summary.discharge || 0} color="purple" onClick={() => handleCardClick('discharge', 'Discharge')} />
             </div>
+
+            <div className="charts-section">
+                <div className="chart-card">
+                    <h3>BE Filing Trend (Last 7 Days)</h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={beTrend}>
+                                <defs>
+                                    <linearGradient id="colorBe" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="date" />
+                                <YAxis />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                <Area type="monotone" dataKey="count" stroke="#8884d8" fillOpacity={1} fill="url(#colorBe)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+                <div className="chart-card">
+                    <h3>OOC Trend (Last 7 Days)</h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={oocTrend}>
+                                <defs>
+                                    <linearGradient id="colorOoc" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="date" />
+                                <YAxis />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                <Area type="monotone" dataKey="count" stroke="#82ca9d" fillOpacity={1} fill="url(#colorOoc)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
             <ModalTable open={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle} data={modalData} />
         </div>
     );

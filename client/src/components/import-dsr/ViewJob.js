@@ -1129,14 +1129,14 @@ function JobDetails() {
                           <span
                             style={{
                               fontWeight: "700",
-                              color: data?.bill_document_sent_to_accounts
+                              color: formik.values.bill_document_sent_to_accounts
                                 ? "#28a745"
                                 : "#212529",
                             }}
                           >
-                            {data?.bill_document_sent_to_accounts
+                            {formik.values.bill_document_sent_to_accounts
                               ? new Date(
-                                data.bill_document_sent_to_accounts
+                                formik.values.bill_document_sent_to_accounts
                               ).toLocaleString("en-US", {
                                 timeZone: "Asia/Kolkata",
                                 month: "short",
@@ -1158,9 +1158,9 @@ function JobDetails() {
                               id="bill_document_sent_to_accounts"
                               name="bill_document_sent_to_accounts"
                               value={
-                                data?.bill_document_sent_to_accounts
+                                formik.values.bill_document_sent_to_accounts
                                   ? formatDateForInput(
-                                    data.bill_document_sent_to_accounts
+                                    formik.values.bill_document_sent_to_accounts
                                   )
                                   : ""
                               }

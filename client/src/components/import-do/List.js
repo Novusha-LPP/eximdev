@@ -48,6 +48,8 @@ function List() {
   );
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showEmergencyOnly, setShowEmergencyOnly] = useState(false);
+  const [emergencyCount, setEmergencyCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -164,7 +166,8 @@ function List() {
       currentYear,
       currentICD,
       selectedImporter,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      emergencyOnly = false
     ) => {
       setLoading(true);
       try {
@@ -180,6 +183,7 @@ function List() {
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              emergency: emergencyOnly.toString(), // ✅ Add emergency parameter
             },
           }
         );
@@ -190,16 +194,19 @@ function List() {
           currentPage: returnedPage,
           jobs,
           unresolvedCount, // ✅ Get unresolved count from response
+          emergencyCount, // ✅ Get emergency count from response
         } = res.data;
         setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
         setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+        setEmergencyCount(emergencyCount || 0); // ✅ Update emergency count
       } catch (error) {
         console.error("Error fetching data:", error);
         setRows([]);
         setTotalPages(1);
         setUnresolvedCount(0);
+        setEmergencyCount(0);
       } finally {
         setLoading(false);
       }
@@ -217,7 +224,8 @@ function List() {
         selectedYearState, // ✅ Now using the persistent state
         selectedICD,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        showEmergencyOnly
       );
     }
   }, [
@@ -228,6 +236,7 @@ function List() {
     selectedImporter,
     user?.username,
     showUnresolvedOnly,
+    showEmergencyOnly,
     fetchJobs,
   ]);
 
@@ -299,65 +308,65 @@ function List() {
         );
       },
     },
-{
-  accessorKey: "importer",
-  header: "Importer",
-  enableSorting: false,
-  size: 270,
-  Cell: ({ cell }) => {
-    const importer = cell?.getValue()?.toString() || "";
-    const shipping_line_airline =
-      cell.row.original.shipping_line_airline || "";
+    {
+      accessorKey: "importer",
+      header: "Importer",
+      enableSorting: false,
+      size: 270,
+      Cell: ({ cell }) => {
+        const importer = cell?.getValue()?.toString() || "";
+        const shipping_line_airline =
+          cell.row.original.shipping_line_airline || "";
 
-    return (
-      <>
-        {/* Importer row */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <span>{importer}</span>
-          <IconButton
-            size="small"
-            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-            onClick={(event) => handleCopy(event, importer)}
-          >
-            <abbr title="Copy Party Name">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-
-        {/* Shipping line / airline row */}
-        {shipping_line_airline && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              marginTop: 2,
-            }}
-          >
-            <span>{shipping_line_airline}</span>
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => handleCopy(event, shipping_line_airline)}
+        return (
+          <>
+            {/* Importer row */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
             >
-              <abbr title="Copy Shipping Line/Airline">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-          </div>
-        )}
-      </>
-    );
-  },
-}
-,
+              <span>{importer}</span>
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, importer)}
+              >
+                <abbr title="Copy Party Name">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+
+            {/* Shipping line / airline row */}
+            {shipping_line_airline && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 2,
+                }}
+              >
+                <span>{shipping_line_airline}</span>
+                <IconButton
+                  size="small"
+                  onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                  onClick={(event) => handleCopy(event, shipping_line_airline)}
+                >
+                  <abbr title="Copy Shipping Line/Airline">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
+          </>
+        );
+      },
+    }
+    ,
 
     {
       accessorKey: "be_no_igm_details",
@@ -670,13 +679,13 @@ function List() {
 
             {/* Render CTH Documents (showing actual URL) */}
             {cth_documents &&
-            cth_documents.some(
-              (doc) =>
-                doc.url &&
-                doc.url.length > 0 &&
-                (doc.document_name === "Pre-Shipment Inspection Certificate" ||
-                  doc.document_name === "Bill of Lading")
-            ) ? (
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                    doc.document_name === "Bill of Lading")
+              ) ? (
               cth_documents
                 .filter(
                   (doc) =>
@@ -877,6 +886,57 @@ function List() {
                   minWidth: "18px",
                   height: "18px",
                   boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowEmergencyOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #d32f2f 0%, #ff5252 100%)", // Red gradient
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(211, 47, 47, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #c62828 0%, #d32f2f 100%)",
+                  boxShadow: "0 6px 16px rgba(211, 47, 47, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showEmergencyOnly ? "Show All Jobs" : "Emergency"}
+            </Button>
+            <Badge
+              badgeContent={emergencyCount}
+              color="error" // Or primary/warning to contrast with button? White might be better on red? 
+              // Wait, badge is outside button. 
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  backgroundColor: "#warning.main", // Maybe yellow/white? Default error is red.
+                  color: "white"
                 },
               }}
             />

@@ -546,6 +546,10 @@ const jobSchema = new mongoose.Schema({
   bill_amount: { type: String },
   do_list: { type: String, trim: true },
 
+  advanced_payment_done: { type: Boolean, default: false },
+  advanced_payment_date: { type: Date },
+  advanced_payment_by: { type: String },
+
   ////////////////////////////////////////////////// Display
 });
 

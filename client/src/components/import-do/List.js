@@ -18,6 +18,7 @@ import {
   Button,
   Box,
   Badge,
+  Checkbox,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
@@ -270,7 +271,46 @@ function List() {
   //   },
   //   []
   // );
+  // Handle Advanced Payment Update
+  const handleAdvancedPaymentUpdate = async (jobId, currentValue) => {
+    const newValue = !currentValue;
+    try {
+      // Optimistic update: Update local state immediately
+      setRows((prevRows) => {
+        // If we are in Emergency mode and we just marked it as done (true),
+        // it should disappear from the list.
+        if (showEmergencyOnly && newValue) {
+          return prevRows.filter((row) => row._id !== jobId);
+        }
+        // Otherwise, update the row with new value
+        return prevRows.map((row) =>
+          row._id === jobId
+            ? {
+              ...row,
+              advanced_payment_done: newValue,
+              advanced_payment_date: newValue ? new Date().toISOString() : null,
+            }
+            : row
+        );
+      });
+
+      // Also update emergency count locally if we removed an item
+      if (showEmergencyOnly && newValue) {
+        setEmergencyCount((prev) => Math.max(0, prev - 1));
+      }
+
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-advanced-payment/${jobId}`,
+        { advanced_payment_done: newValue, username: user?.username }
+      );
+    } catch (error) {
+      console.error("Error updating advanced payment:", error);
+      // Ideally show error toast and revert state
+    }
+  };
+
   const columns = [
+
     {
       accessorKey: "job_no",
       header: "Job No ",
@@ -722,6 +762,29 @@ function List() {
         );
       },
     },
+    ...(showEmergencyOnly
+      ? [
+        {
+          accessorKey: "advanced_payment_done",
+          header: "Adv. Payment",
+          size: 200,
+          Cell: ({ row }) => {
+            const { advanced_payment_done, _id } = row.original;
+            return (
+              <div style={{ textAlign: "center" }}>
+                <Checkbox
+                  checked={!!advanced_payment_done}
+                  onChange={() =>
+                    handleAdvancedPaymentUpdate(_id, advanced_payment_done)
+                  }
+                  color="primary"
+                />
+              </div>
+            );
+          },
+        },
+      ]
+      : []),
   ];
 
   const table = useMaterialReactTable({

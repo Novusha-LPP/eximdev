@@ -119,6 +119,7 @@ import getKycDocsByImporter from "./routes/import-do/getKycDocsByImporter.mjs";
 import getKycDocsByShippingLine from "./routes/import-do/getKycDocsByShippingLine.mjs";
 import getKycAndBondStatus from "./routes/import-do/getKycAndBondStatus.mjs";
 import updateDoContainer from "./routes/import-do/updateDoContainer.mjs";
+import updateAdvancedPayment from "./routes/import-do/updateAdvancedPayment.mjs";
 
 // Import DSR
 import addJobsFromExcel from "./routes/import-dsr/addJobsFromExcel.mjs";
@@ -362,6 +363,7 @@ if (cluster.isPrimary) {
       app.use(getKycDocsByShippingLine);
       app.use(getKycAndBondStatus);
       app.use(updateDoContainer);
+      app.use(updateAdvancedPayment);
 
       // Import DSR
       app.use(addJobsFromExcel);

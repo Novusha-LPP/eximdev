@@ -40,158 +40,160 @@ const formatDateToIST = () => {
 const currentTimeIST = formatDateToIST();
 
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
-router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
-  try {
-    const jobs = await JobModel.find(
-      { type_of_b_e: "In-Bond" },
-      { job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
-    );
-    res.status(200).json(jobs);
-  } catch (error) {
-    console.error("Error fetching In-Bond jobs:", error);
-    res.status(500).json({ message: "Error fetching In-Bond jobs." });
-  }
-});
+router.post("/api/jobs/add-job-all-In-bond",
+  auditMiddleware('Job'),
+  async (req, res) => {
+    try {
+      const jobs = await JobModel.find(
+        { type_of_b_e: "In-Bond" },
+        { job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
+      );
+      res.status(200).json(jobs);
+    } catch (error) {
+      console.error("Error fetching In-Bond jobs:", error);
+      res.status(500).json({ message: "Error fetching In-Bond jobs." });
+    }
+  });
 
 // Route to add a new job
-router.post("/api/jobs/add-job-imp-man", 
+router.post("/api/jobs/add-job-imp-man",
   auditMiddleware('Job'),
   async (req, res) => {
-  try {
-    const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
+    try {
+      const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
 
-    // ✅ Validate required fields
-    if (!importer || !custom_house) {
-      return res.status(400).json({ message: "Missing required fields." });
-    }
+      // ✅ Validate required fields
+      if (!importer || !custom_house) {
+        return res.status(400).json({ message: "Missing required fields." });
+      }
 
-    // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
-    if (container_nos && container_nos.length > 1) {
-      const existingContainer = await JobModel.findOne({
-        "container_nos.container_number": {
-          $in: container_nos.map((c) => c.container_number),
-        },
+      // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
+      if (container_nos && container_nos.length > 1) {
+        const existingContainer = await JobModel.findOne({
+          "container_nos.container_number": {
+            $in: container_nos.map((c) => c.container_number),
+          },
+        });
+
+        if (existingContainer) {
+          return res.status(400).json({
+            message: `Duplicate container number found: ${container_nos
+              .map((c) => c.container_number)
+              .join(", ")}`,
+          });
+        }
+      }
+
+      // ✅ Check for duplicate BL Number **only if awb_bl_no is provided**
+      if (awb_bl_no && awb_bl_no.length > 0) {
+        const existingBl = await JobModel.findOne({ awb_bl_no });
+
+        if (existingBl) {
+          return res.status(400).json({
+            message: `Duplicate BL number found: ${awb_bl_no}`,
+          });
+        }
+      }
+
+      // ✅ Generate new job_no
+      const lastJob = await JobModel.findOne({ year }, { job_no: 1 })
+        .sort({ job_no: -1 })
+        .exec();
+      const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
+      const totalDigits = lastJob?.job_no?.length || 5;
+      const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
+      const getTodayDate = () => {
+        const today = new Date();
+        const day = String(today.getDate()).padStart(2, "0");
+        const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+        const year = today.getFullYear();
+        return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
+      };
+
+      const todayDate = getTodayDate();
+
+      // ✅ Create new job entry
+      const newJob = new JobModel({
+        job_no: newJobNo,
+        ...req.body,
+        job_date: todayDate // ← This line sets job_date to "now" if not provided
       });
 
-      if (existingContainer) {
-        return res.status(400).json({
-          message: `Duplicate container number found: ${container_nos
-            .map((c) => c.container_number)
-            .join(", ")}`,
-        });
-      }
+
+      // ✅ Save to database
+      await newJob.save();
+
+      // ✅ Update last job update date
+      await LastJobsDate.findOneAndUpdate(
+        {},
+        { lastUpdatedOn: new Date() },
+        { upsert: true, new: true }
+      );
+
+      res.status(201).json({
+        message: "Job successfully created.",
+        job: {
+          job_no: newJob.job_no,
+          custom_house: newJob.custom_house,
+          importer: newJob.importer,
+        },
+      });
+    } catch (error) {
+      console.error("Error adding job:", error);
+
+      // ✅ Return proper error messages
+      res
+        .status(500)
+        .json({ message: error.message || "Internal server error." });
     }
+  });
 
-    // ✅ Check for duplicate BL Number **only if awb_bl_no is provided**
-    if (awb_bl_no && awb_bl_no.length > 0) {
-      const existingBl = await JobModel.findOne({ awb_bl_no });
-
-      if (existingBl) {
-        return res.status(400).json({
-          message: `Duplicate BL number found: ${awb_bl_no}`,
-        });
-      }
-    }
-
-    // ✅ Generate new job_no
-    const lastJob = await JobModel.findOne({ year }, { job_no: 1 })
-      .sort({ job_no: -1 })
-      .exec();
-    const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
-    const totalDigits = lastJob?.job_no?.length || 5;
-    const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
-    const getTodayDate = () => {
-      const today = new Date();
-      const day = String(today.getDate()).padStart(2, "0");
-      const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
-      const year = today.getFullYear();
-      return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
-    };
-    
-    const todayDate = getTodayDate();
-
-// ✅ Create new job entry
-const newJob = new JobModel({ 
-  job_no: newJobNo,
-  ...req.body,
-  job_date: todayDate // ← This line sets job_date to "now" if not provided
-});
-
-
-    // ✅ Save to database
-    await newJob.save();
-
-    // ✅ Update last job update date
-    await LastJobsDate.findOneAndUpdate(
-      {},
-      { lastUpdatedOn: new Date() },
-      { upsert: true, new: true }
-    );
-
-    res.status(201).json({
-      message: "Job successfully created.",
-      job: {
-        job_no: newJob.job_no,
-        custom_house: newJob.custom_house,
-        importer: newJob.importer,
-      },
-    });
-  } catch (error) {
-    console.error("Error adding job:", error);
-
-    // ✅ Return proper error messages
-    res
-      .status(500)
-      .json({ message: error.message || "Internal server error." });
-  }
-});
-
-router.post("/api/jobs/add-job", 
+router.post("/api/jobs/add-job",
   auditMiddleware('Job'),
   async (req, res) => {
-  const jsonData = req.body;
+    const jsonData = req.body;
 
-  try {
-    const bulkOperations = [];
+    try {
+      const bulkOperations = [];
 
-    for (const data of jsonData) {
-      const {
-        year,
-        job_no,
-        be_no,
-        be_date,
-        invoice_number,
-        invoice_date,
-        awb_bl_no,
-        awb_bl_date,
-        bill_no,
-        bill_date,
-        no_of_pkgs,
-        gross_weight,
-        exrate,
-        cif_amount,
-        unit_price,
-        vessel_berthing, // New value from Excel
-        gateway_igm_date,
-        line_no,
-        ie_code_no,
-        container_nos, // Assume container data is part of the incoming job data
-        hss_name,
-        total_inv_value,
-      } = data;
+      for (const data of jsonData) {
+        const {
+          year,
+          job_no,
+          be_no,
+          be_date,
+          invoice_number,
+          invoice_date,
+          awb_bl_no,
+          awb_bl_date,
+          bill_no,
+          bill_date,
+          no_of_pkgs,
+          gross_weight,
+          exrate,
+          cif_amount,
+          unit_price,
+          vessel_berthing, // New value from Excel
+          gateway_igm_date,
+          line_no,
+          ie_code_no,
+          container_nos, // Assume container data is part of the incoming job data
+          hss_name,
+          total_inv_value,
+        } = data;
 
-      // Sanitize bill_date before using it
-      const sanitizedBillDate =
-        typeof bill_date === "string"
-          ? bill_date
-          : bill_date != null
-          ? String(bill_date)
-          : "";
+        // Sanitize bill_date before using it
+        const sanitizedBillDate =
+          typeof bill_date === "string"
+            ? bill_date
+            : bill_date != null
+              ? String(bill_date)
+              : "";
 
-      // Define the filter to find existing jobs
-      const filter = { year, job_no };
+        // Define the filter to find existing jobs
+        const filter = { year, job_no };
 
-      // Check if the job already exists in the database
+        // Check if the job already exists in the database
         const existingJob = await JobModel.findOne(filter);
         let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
         let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
@@ -219,112 +221,112 @@ router.post("/api/jobs/add-job",
           lineNoUpdate = line_no;
         }
         // Only update iceCodeUpdate if it's empty in the database
-     if (ie_code_no) {
-  iceCodeUpdate = ie_code_no;
-}
+        if (ie_code_no) {
+          iceCodeUpdate = ie_code_no;
+        }
 
-      if (existingJob) {
-        // Logic to merge or update container sizes
-        const updatedContainers = existingJob.container_nos.map(
-          (existingContainer) => {
-            const newContainerData = container_nos.find(
-              (c) => c.container_number === existingContainer.container_number
-            );
+        if (existingJob) {
+          // Logic to merge or update container sizes
+          const updatedContainers = existingJob.container_nos.map(
+            (existingContainer) => {
+              const newContainerData = container_nos.find(
+                (c) => c.container_number === existingContainer.container_number
+              );
 
-            return newContainerData
-              ? { ...existingContainer.toObject(), size: newContainerData.size }
-              : existingContainer;
-          }
-        );
+              return newContainerData
+                ? { ...existingContainer.toObject(), size: newContainerData.size }
+                : existingContainer;
+            }
+          );
 
-        // Define the update to set new data, including "container_nos"
-        const update = {
-          $set: {
-            ...data,
+          // Define the update to set new data, including "container_nos"
+          const update = {
+            $set: {
+              ...data,
 
-            vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
-            gateway_igm_date: gateway_igm_dateUpdate, // Ensure correct update logic
-            line_no: lineNoUpdate, // Ensure correct update logic
-            ie_code_no: iceCodeUpdate, // Ensure correct update logic
-            container_nos: updatedContainers,
-            status:
-              existingJob.status === "Completed"
-                ? existingJob.status
-                : computeStatus(sanitizedBillDate),
-            be_no,
-            be_date,
-            invoice_number,
-            invoice_date,
-            awb_bl_no,
-            awb_bl_date,
-            bill_no,
-            bill_date,
-            no_of_pkgs,
-            gross_weight,
-            exrate,
-            cif_amount,
-            unit_price,
-          },
-        };
+              vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
+              gateway_igm_date: gateway_igm_dateUpdate, // Ensure correct update logic
+              line_no: lineNoUpdate, // Ensure correct update logic
+              ie_code_no: iceCodeUpdate, // Ensure correct update logic
+              container_nos: updatedContainers,
+              status:
+                existingJob.status === "Completed"
+                  ? existingJob.status
+                  : computeStatus(sanitizedBillDate),
+              be_no,
+              be_date,
+              invoice_number,
+              invoice_date,
+              awb_bl_no,
+              awb_bl_date,
+              bill_no,
+              bill_date,
+              no_of_pkgs,
+              gross_weight,
+              exrate,
+              cif_amount,
+              unit_price,
+            },
+          };
 
-        // Create the bulk update operation for upsert or update
-        const bulkOperation = {
-          updateOne: {
-            filter,
-            update,
-            upsert: true,
-          },
-        };
+          // Create the bulk update operation for upsert or update
+          const bulkOperation = {
+            updateOne: {
+              filter,
+              update,
+              upsert: true,
+            },
+          };
 
-        bulkOperations.push(bulkOperation);
-      } else {
-        // If job does not exist, add job with new data
-        const update = {
-          $set: {
-            ...data,
-            vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
-            gateway_igm_date: gateway_igm_dateUpdate, // Ensure new jobs respect the logic
-            status: computeStatus(sanitizedBillDate),
-          },
-        };
+          bulkOperations.push(bulkOperation);
+        } else {
+          // If job does not exist, add job with new data
+          const update = {
+            $set: {
+              ...data,
+              vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
+              gateway_igm_date: gateway_igm_dateUpdate, // Ensure new jobs respect the logic
+              status: computeStatus(sanitizedBillDate),
+            },
+          };
 
-        const bulkOperation = {
-          updateOne: {
-            filter,
-            update,
-            upsert: true,
-          },
-        };
+          const bulkOperation = {
+            updateOne: {
+              filter,
+              update,
+              upsert: true,
+            },
+          };
 
-        bulkOperations.push(bulkOperation);
+          bulkOperations.push(bulkOperation);
+        }
       }
-    }
 
-    // Execute the bulkWrite operation to update or insert multiple jobs
-    await JobModel.bulkWrite(bulkOperations);
+      // Execute the bulkWrite operation to update or insert multiple jobs
+      await JobModel.bulkWrite(bulkOperations);
 
-    // Update the last jobs update date
-    try {
-      const existingDateDocument = await LastJobsDate.findOne();
-      const date = new Date().toISOString(); // Changed to ISO string for consistency
-      if (existingDateDocument) {
-        existingDateDocument.date = date;
-        await existingDateDocument.save();
-      } else {
-        const jobsLastUpdatedOn = new LastJobsDate({ date });
-        await jobsLastUpdatedOn.save();
+      // Update the last jobs update date
+      try {
+        const existingDateDocument = await LastJobsDate.findOne();
+        const date = new Date().toISOString(); // Changed to ISO string for consistency
+        if (existingDateDocument) {
+          existingDateDocument.date = date;
+          await existingDateDocument.save();
+        } else {
+          const jobsLastUpdatedOn = new LastJobsDate({ date });
+          await jobsLastUpdatedOn.save();
+        }
+      } catch (error) {
+        console.error("Error updating the last jobs date:", error);
+        return res.status(500).send("An error occurred while updating the date.");
       }
+
+      res.status(200).json({ message: "Jobs added/updated successfully" });
     } catch (error) {
-      console.error("Error updating the last jobs date:", error);
-      return res.status(500).send("An error occurred while updating the date.");
+      console.error("Error handling job data:", error);
+      return res.status(500).json({ error: "Internal server error." });
     }
-
-    res.status(200).json({ message: "Jobs added/updated successfully" });
-  } catch (error) {
-    console.error("Error handling job data:", error);
-    return res.status(500).json({ error: "Internal server error." });
-  }
-});
+  });
 
 // Route to update detailed_status for all pending jobs
 router.get("/api/jobs/update-pending-status", async (req, res) => {
@@ -403,12 +405,12 @@ function determineDetailedStatus(job) {
 
   const emptyContainerOffLoadDate = container_nos?.
     every((container) =>
-    isValidDate(container.emptyContainerOffLoadDate)
-  );
-  const delivery_date = container_nos ?.
+      isValidDate(container.emptyContainerOffLoadDate)
+    );
+  const delivery_date = container_nos?.
     every((container) =>
-    isValidDate(container.delivery_date)
-  );
+      isValidDate(container.delivery_date)
+    );
 
   const validOutOfChargeDate = isValidDate(out_of_charge);
   const validPcvDate = isValidDate(pcv_date);

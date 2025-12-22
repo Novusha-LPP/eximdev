@@ -301,7 +301,14 @@ function List() {
 
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-advanced-payment/${jobId}`,
-        { advanced_payment_done: newValue, username: user?.username }
+        { advanced_payment_done: newValue, username: user?.username },
+        {
+          headers: {
+            "user-role": user?.role || "unknown",
+            username: user?.username || "unknown",
+            "user-id": user?._id || "unknown",
+          },
+        }
       );
     } catch (error) {
       console.error("Error updating advanced payment:", error);

@@ -5,11 +5,11 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 const router = express.Router();
 
 router.patch(
-    "/api/update-advanced-payment/:jobId",
+    "/api/update-advanced-payment/:id",
     auditMiddleware("Job"),
     async (req, res) => {
         try {
-            const { jobId } = req.params;
+            const { id } = req.params;
             const { advanced_payment_done, username } = req.body;
 
             if (typeof advanced_payment_done !== "boolean") {
@@ -25,7 +25,7 @@ router.patch(
             };
 
             const updatedJob = await JobModel.findByIdAndUpdate(
-                jobId,
+                id,
                 { $set: updateFields },
                 { new: true }
             );

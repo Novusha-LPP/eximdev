@@ -281,7 +281,7 @@ function EditDoCompleted() {
         security_deposit: values.security_deposit ? "Yes" : "No",
         do_completed:
           typeof values.do_completed === "string" &&
-          values.do_completed.trim() !== ""
+            values.do_completed.trim() !== ""
             ? new Date(values.do_completed).toISOString()
             : "",
         do_shipping_line_invoice: values.do_shipping_line_invoice.map(
@@ -319,9 +319,9 @@ function EditDoCompleted() {
         const tabIndex = storedSearchParams?.currentTab ?? 3;
 
         // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
+        // setTimeout(() => {
+        //   window.close();
+        // }, 500);
 
         setCurrentTab(tabIndex);
       } catch (error) {
@@ -448,37 +448,37 @@ function EditDoCompleted() {
     if (data) {
       const doShippingLineInvoice =
         Array.isArray(data.do_shipping_line_invoice) &&
-        data.do_shipping_line_invoice.length > 0
+          data.do_shipping_line_invoice.length > 0
           ? data.do_shipping_line_invoice
           : [
-              {
-                document_name: "Shipping Line Invoice",
-                url: [],
-                is_draft: false,
-                is_final: false,
-                document_check_date: "",
-                payment_mode: [],
-                document_amount_details: "",
-                payment_request_date: "",
-                payment_made_date: "",
-                is_tds: false,
-                is_non_tds: false,
-              },
-            ];
+            {
+              document_name: "Shipping Line Invoice",
+              url: [],
+              is_draft: false,
+              is_final: false,
+              document_check_date: "",
+              payment_mode: [],
+              document_amount_details: "",
+              payment_request_date: "",
+              payment_made_date: "",
+              is_tds: false,
+              is_non_tds: false,
+            },
+          ];
 
       const securityDeposit =
         Array.isArray(data.security_deposit) && data.security_deposit.length > 0
           ? data.security_deposit
           : [
-              {
-                document_name: "Security Deposit",
-                url: [],
-                document_check_date: "",
-                document_amount_details: "",
-                utr: "",
-                Validity_upto: "",
-              },
-            ];
+            {
+              document_name: "Security Deposit",
+              url: [],
+              document_check_date: "",
+              document_amount_details: "",
+              utr: "",
+              Validity_upto: "",
+            },
+          ];
 
       const wireTransferState = {};
       doShippingLineInvoice.forEach((doc, index) => {
@@ -490,13 +490,13 @@ function EditDoCompleted() {
         Array.isArray(data.insurance_copy) && data.insurance_copy.length > 0
           ? data.insurance_copy
           : [
-              {
-                document_name: "Insurance",
-                url: [],
-                document_check_date: "",
-                document_amount_details: "",
-              },
-            ];
+            {
+              document_name: "Insurance",
+              url: [],
+              document_check_date: "",
+              document_amount_details: "",
+            },
+          ];
 
       const otherDoDocuments = Array.isArray(data.other_do_documents)
         ? data.other_do_documents
@@ -664,10 +664,10 @@ function EditDoCompleted() {
       docType === "do_shipping_line_invoice"
         ? "do_shipping_line_invoice"
         : docType === "insurance_copy"
-        ? "insurance_copy"
-        : docType === "security_deposit"
-        ? "security_deposit"
-        : "other_do_documents";
+          ? "insurance_copy"
+          : docType === "security_deposit"
+            ? "security_deposit"
+            : "other_do_documents";
     // Draft/Final radio button handler
     const handleDraftFinalChange = (type) => (e) => {
       if (type === "draft") {
@@ -1134,8 +1134,8 @@ function EditDoCompleted() {
                   label={
                     doc.payment_request_date
                       ? `Payment Requested: ${new Date(
-                          doc.payment_request_date
-                        ).toLocaleString("en-IN", { hour12: true })}`
+                        doc.payment_request_date
+                      ).toLocaleString("en-IN", { hour12: true })}`
                       : "Payment Requested"
                   }
                   sx={{ mb: 2 }}
@@ -1178,8 +1178,8 @@ function EditDoCompleted() {
                   label={
                     doc.payment_made_date
                       ? `Payment Made: ${new Date(
-                          doc.payment_made_date
-                        ).toLocaleString("en-IN", { hour12: true })}`
+                        doc.payment_made_date
+                      ).toLocaleString("en-IN", { hour12: true })}`
                       : "Payment Made"
                   }
                   sx={{ mb: 2 }}

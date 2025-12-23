@@ -50,11 +50,8 @@ const DocumentationDashboard = () => {
         <div className="overview-container">
             <h2>Documentation Pipeline</h2>
             <div className="dashboard-grid">
-                <KPICard title="Checklist Approved" count={summary.checklist_approved || 0} color="teal" onClick={() => handleCardClick('checklist_approved', 'Checklist Approved')} />
-                <KPICard title="Docs Received" count={summary.docs_received || 0} color="teal" onClick={() => handleCardClick('docs_received', 'Docs Received')} />
-                <KPICard title="Docs Completed" count={summary.documentation_completed || 0} color="teal" onClick={() => handleCardClick('documentation_completed', 'Docs Completed')} />
-                <KPICard title="eSanchit Completed" count={summary.esanchit_completed || 0} color="teal" onClick={() => handleCardClick('esanchit_completed', 'eSanchit Completed')} />
-                <KPICard title="Submission Completed" count={summary.submission_completed || 0} color="teal" onClick={() => handleCardClick('submission_completed', 'Submission Completed')} />
+                <KPICard title="Pending Docs" count={summary.documentation_pending || 0} color="red" onClick={() => handleCardClick('documentation_pending', 'Pending Docs')} />
+                <KPICard title="Docs Completed" count={summary.documentation_completed || 0} color="green" onClick={() => handleCardClick('documentation_completed', 'Docs Completed')} />
             </div>
 
             <div className="charts-section">

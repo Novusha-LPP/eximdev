@@ -15,23 +15,22 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
-const BillingDashboard = () => {
+const ESanchitDashboard = () => {
     const { startDate, endDate, importer } = useAnalytics();
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalData, setModalData] = useState([]);
-    const [dateLabel, setDateLabel] = useState('Relevant Date');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/billing`, {
+                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/esanchit`, {
                     params: { startDate, endDate, importer }
                 });
                 setData(response.data);
             } catch (error) {
-                console.error("Error fetching billing data", error);
+                console.error("Error fetching E-Sanchit data", error);
             }
         };
         fetchData();
@@ -44,34 +43,33 @@ const BillingDashboard = () => {
     };
 
     const { summary, details } = data;
-    const billingTrend = (details?.billing_trend || []).map(item => ({ date: item._id, count: item.count }));
+    const esanchitTrend = (details?.esanchit_trend || []).map(item => ({ date: item._id, count: item.count }));
 
     return (
         <div className="overview-container">
-            <h2>Billing & Accounts</h2>
+            <h2>E-Sanchit Management</h2>
             <div className="dashboard-grid">
-                <KPICard title="Billing Sheet Sent" count={summary.billing_sheet_sent || 0} color="green" onClick={() => handleCardClick('billing_sheet_sent', 'Billing Sheet Sent')} />
-                <KPICard title="Payment Requested" count={summary.payment_requested || 0} color="orange" onClick={() => handleCardClick('payment_requested', 'Payment Requested')} />
-                <KPICard title="Payment Made" count={summary.payment_made || 0} color="green" onClick={() => handleCardClick('payment_made', 'Payment Made')} />
+                <KPICard title="Pending E-Sanchit" count={summary.esanchit_pending || 0} color="red" onClick={() => handleCardClick('esanchit_pending', 'Pending E-Sanchit')} />
+                <KPICard title="Completed E-Sanchit" count={summary.esanchit_completed || 0} color="green" onClick={() => handleCardClick('esanchit_completed', 'Completed E-Sanchit')} />
             </div>
 
             <div className="charts-section">
                 <div className="chart-card">
-                    <h3>Billing Activity Trend (Last 7 Days)</h3>
+                    <h3>E-Sanchit Completion Trend (Last 7 Days)</h3>
                     <div style={{ width: '100%', height: 300 }}>
                         <ResponsiveContainer>
-                            <AreaChart data={billingTrend}>
+                            <AreaChart data={esanchitTrend}>
                                 <defs>
-                                    <linearGradient id="colorBilling" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    <linearGradient id="colorEsanchit" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="date" />
                                 <YAxis />
                                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                                <Area type="monotone" dataKey="count" stroke="#10b981" fillOpacity={1} fill="url(#colorBilling)" />
+                                <Area type="monotone" dataKey="count" stroke="#8884d8" fillOpacity={1} fill="url(#colorEsanchit)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -83,4 +81,4 @@ const BillingDashboard = () => {
     );
 };
 
-export default BillingDashboard;
+export default ESanchitDashboard;

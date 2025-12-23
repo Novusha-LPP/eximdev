@@ -43,6 +43,15 @@ router.get("/api/analytics/:module", async (req, res) => {
             case "do-management":
                 pipeline = getDoManagementPipeline(start, end, importer);
                 break;
+            case "esanchit":
+                pipeline = getESanchitPipeline(start, end, importer);
+                break;
+            case "operations":
+                pipeline = getOperationsPipeline(start, end, importer);
+                break;
+            case "submission":
+                pipeline = getSubmissionPipeline(start, end, importer);
+                break;
             case "billing":
                 pipeline = getBillingPipeline(start, end, importer);
                 break;
@@ -363,7 +372,27 @@ const getMovementPipeline = (start, end, importer) => {
                 delivered: makeContainerFacet("delivery_date"),
                 empty_offload: makeContainerFacet("emptyContainerOffLoadDate"),
                 by_road: makeContainerFacet("by_road_movement_date"),
-                detention_start: makeContainerFacet("detention_from"),
+                detention_start: [
+                    { $match: { ...importerMatch } },
+                    { $unwind: "$container_nos" },
+                    {
+                        $match: {
+                            "container_nos.detention_from": { $gte: toYMD(start), $lte: end.toISOString() },
+                            $or: [
+                                { "container_nos.emptyContainerOffLoadDate": { $exists: false } },
+                                { "container_nos.emptyContainerOffLoadDate": "" },
+                                { "container_nos.emptyContainerOffLoadDate": null }
+                            ]
+                        }
+                    },
+                    {
+                        $project: {
+                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            relevant_date: `$container_nos.detention_from`,
+                            container_number: "$container_nos.container_number"
+                        }
+                    }
+                ],
                 // Trends
                 arrival_trend: [
                     { $match: { ...importerMatch } },
@@ -482,14 +511,31 @@ const getDocumentationPipeline = (start, end, importer) => {
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
+    // Pending Documentation Logic (Snapshot)
+    const pendingDocsMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { job_no: { $ne: null } },
+            { be_no: { $exists: true, $ne: "", $not: { $regex: "^cancelled$", $options: "i" } } },
+            {
+                $or: [
+                    { documentation_completed_date_time: { $exists: false } },
+                    { documentation_completed_date_time: "" },
+                    { documentation_completed_date_time: null }
+                ]
+            }
+        ]
+    };
+
     return [
         {
             $facet: {
-                checklist_approved: makeJobFacet("is_checklist_aprroved_date"),
-                docs_received: makeJobFacet("document_received_date"),
+                documentation_pending: [
+                    { $match: pendingDocsMatch },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                ],
                 documentation_completed: makeJobFacet("documentation_completed_date_time"),
-                esanchit_completed: makeJobFacet("esanchit_completed_date_time"),
-                submission_completed: makeJobFacet("submission_completed_date_time"),
                 // Trend
                 docs_trend: [
                     { $match: { documentation_completed_date_time: { $gte: sevenDaysAgo.toISOString(), $lte: todayEnd.toISOString() }, ...importerMatch } },
@@ -501,13 +547,14 @@ const getDocumentationPipeline = (start, end, importer) => {
         {
             $project: {
                 summary: {
-                    checklist_approved: { $size: "$checklist_approved" },
-                    docs_received: { $size: "$docs_received" },
-                    documentation_completed: { $size: "$documentation_completed" },
-                    esanchit_completed: { $size: "$esanchit_completed" },
-                    submission_completed: { $size: "$submission_completed" }
+                    documentation_pending: { $size: "$documentation_pending" },
+                    documentation_completed: { $size: "$documentation_completed" }
                 },
-                details: "$$ROOT"
+                details: {
+                    documentation_pending: "$documentation_pending",
+                    documentation_completed: "$documentation_completed",
+                    docs_trend: "$docs_trend"
+                }
             }
         }
     ];
@@ -539,16 +586,71 @@ const getDoManagementPipeline = (start, end, importer) => {
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$container_nos.do_validity_upto_container_level", container_number: "$container_nos.container_number" } }
     ];
 
+    // Invoice Criteria (Same as DO List)
+    const invoiceCriteria = {
+        $or: [
+            { shipping_line_invoice_imgs: { $exists: true, $not: { $size: 0 } } },
+            { icd_cfs_invoice_img: { $exists: true, $not: { $size: 0 } } },
+            { concor_invoice_and_receipt_copy: { $exists: true, $not: { $size: 0 } } },
+            { thar_invoices: { $exists: true, $not: { $size: 0 } } },
+            { hasti_invoices: { $exists: true, $not: { $size: 0 } } },
+            { other_invoices_img: { $exists: true, $not: { $size: 0 } } }
+        ]
+    };
+
+    // "In List" logic (Pending DO Planning)
+    // Matches logic in `doTeamListOfjobs.mjs` - NO DATE FILTER applied to these metrics
+    const pendingDoMatch = {
+        $and: [
+            importerMatch,
+            { job_no: { $ne: null } },
+            { be_no: { $exists: true, $ne: "" } },
+            { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+            {
+                $or: [
+                    { do_planning_date: { $exists: false } },
+                    { do_planning_date: "" },
+                    { do_planning_date: null }
+                ]
+            },
+            // Logic to ensure it's strictly "in list" (not moved to next stages)
+            { $or: [{ shipping_line_bond_completed_date: { $exists: false } }, { shipping_line_bond_completed_date: "" }] },
+            { $or: [{ shipping_line_kyc_completed_date: { $exists: false } }, { shipping_line_kyc_completed_date: "" }] },
+            { $or: [{ shipping_line_invoice_received_date: { $exists: false } }, { shipping_line_invoice_received_date: "" }] },
+            { $or: [{ bill_date: { $exists: false } }, { bill_date: "" }] }
+        ]
+    };
+
     return [
         {
             $facet: {
                 do_planned: makeJobFacet("do_planning_date"),
-                do_prepared: makeJobFacet("do_doc_prepared_date"),
                 do_received: makeJobFacet("do_doc_recieved_date"),
                 do_completed: makeJobFacet("do_completed"),
                 do_revalidated: makeJobFacet("do_revalidation_date"),
-                do_expiring_job: makeJobFacet("do_validity_upto_job_level"),
-                container_do_expiry: containerExpiryFacet,
+                do_expiring_job: [
+                    {
+                        $match: {
+                            do_validity_upto_job_level: { $gte: toYMD(start), $lte: end.toISOString() },
+                            ...importerMatch,
+                            $or: [
+                                { do_completed: { $exists: false } },
+                                { do_completed: "" },
+                                { do_completed: null }
+                            ]
+                        }
+                    },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_validity_upto_job_level" } }
+                ],
+                // New Facets - using strict "In List" logic without date range
+                jobs_with_invoices: [
+                    { $match: { $and: [...pendingDoMatch.$and, invoiceCriteria] } },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                ],
+                jobs_without_invoices: [
+                    { $match: { $and: [...pendingDoMatch.$and, { $nor: invoiceCriteria.$or }] } },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                ],
                 // Trend
                 do_trend: [
                     { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
@@ -561,12 +663,12 @@ const getDoManagementPipeline = (start, end, importer) => {
             $project: {
                 summary: {
                     do_planned: { $size: "$do_planned" },
-                    do_prepared: { $size: "$do_prepared" },
                     do_received: { $size: "$do_received" },
                     do_completed: { $size: "$do_completed" },
                     do_revalidated: { $size: "$do_revalidated" },
                     do_expiring_job: { $size: "$do_expiring_job" },
-                    container_do_expiry: { $size: "$container_do_expiry" },
+                    jobs_with_invoices: { $size: "$jobs_with_invoices" },
+                    jobs_without_invoices: { $size: "$jobs_without_invoices" },
                 },
                 details: "$$ROOT"
             }
@@ -583,22 +685,29 @@ const getBillingPipeline = (start, end, importer) => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const sevenDaysAgoStr = toYMD(sevenDaysAgo);
-    const todayStr = toYMD(new Date());
+    const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: toYMD(end) }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+    ];
+
+    // Facet for nested invoice dates
+    const makeInvoiceFacet = (field) => [
+        { $match: { ...importerMatch } },
+        { $unwind: "$do_shipping_line_invoice" },
+        { $match: { [`do_shipping_line_invoice.${field}`]: { $gte: toYMD(start), $lte: end.toISOString() } } },
+        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$do_shipping_line_invoice.${field}` } }
     ];
 
     return [
         {
             $facet: {
                 billing_sheet_sent: makeJobFacet("bill_document_sent_to_accounts"),
-                bill_generated: makeJobFacet("bill_date"), // If comma separated, this might miss.
-                operation_completed: makeJobFacet("completed_operation_date"),
-                payment_made: makeJobFacet("payment_made_date"),
+                payment_requested: makeInvoiceFacet("payment_request_date"),
+                payment_made: makeInvoiceFacet("payment_made_date"),
                 // Trend
                 billing_trend: [
                     { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
@@ -611,8 +720,7 @@ const getBillingPipeline = (start, end, importer) => {
             $project: {
                 summary: {
                     billing_sheet_sent: { $size: "$billing_sheet_sent" },
-                    bill_generated: { $size: "$bill_generated" },
-                    operation_completed: { $size: "$operation_completed" },
+                    payment_requested: { $size: "$payment_requested" },
                     payment_made: { $size: "$payment_made" }
                 },
                 details: "$$ROOT"
@@ -687,6 +795,253 @@ const getExceptionsPipeline = (start, end, importer) => {
                     incomplete_jobs: { $size: "$incomplete_jobs" }
                 },
                 details: "$$ROOT"
+            }
+        }
+    ];
+};
+
+// ⚡ E-Sanchit Pipeline
+const getESanchitPipeline = (start, end, importer) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = new Date().toISOString();
+
+    const importerMatch = importer ? { importer: importer } : {};
+
+    const makeJobFacet = (field) => [
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+    ];
+
+    // Pending Logic: Matches getESanchitJobs.mjs "current pending" state
+    const pendingEsanchitMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+            { job_no: { $ne: null } },
+            { out_of_charge: { $eq: "" } },
+            { cth_documents: { $elemMatch: { is_sent_to_esanchit: true } } },
+            {
+                $or: [
+                    { esanchit_completed_date_time: { $exists: false } },
+                    { esanchit_completed_date_time: "" },
+                    { esanchit_completed_date_time: null },
+                ]
+            }
+        ]
+    };
+
+    return [
+        {
+            $facet: {
+                esanchit_pending: [
+                    { $match: pendingEsanchitMatch },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } } // Use job_date as ref
+                ],
+                esanchit_completed: makeJobFacet("esanchit_completed_date_time"),
+                // Trend
+                esanchit_trend: [
+                    { $match: { esanchit_completed_date_time: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $group: { _id: { $substr: ["$esanchit_completed_date_time", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
+            }
+        },
+        {
+            $project: {
+                summary: {
+                    esanchit_pending: { $size: "$esanchit_pending" },
+                    esanchit_completed: { $size: "$esanchit_completed" }
+                },
+                details: {
+                    esanchit_pending: "$esanchit_pending",
+                    esanchit_completed: "$esanchit_completed",
+                    esanchit_trend: "$esanchit_trend"
+                }
+            }
+        }
+    ];
+};
+
+// ⚙️ Operations Pipeline
+const getOperationsPipeline = (start, end, importer) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = new Date().toISOString();
+
+    const importerMatch = importer ? { importer: importer } : {};
+
+    const makeJobFacet = (field) => [
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+    ];
+
+    // Pending "Examination Planning" Logic
+    // Based on getOperationPlanningJobs.mjs logic for "Pending" status + specific stage?
+    // User said "all the jobs are in examination planning".
+    // I will interpret this as: Jobs that are PENDING operations and match the "Ex. Planning" criteria?
+    // Or simpler: Jobs where `examination_planning_date` is SET but `completed_operation_date` is NOT?
+    // In getOperationPlanningJobs.mjs, "Ex. Planning" tab means: `examination_planning_date` exists, `pcv_date` empty, `OOC` empty.
+
+    // Arrival condition logic from getOperationPlanningJobs.mjs is complex to replicate fully in aggregation if it involves array elemMatch.
+    // Simplified Pending Ops:
+    const pendingOpsBase = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^Pending$/i } },
+            { be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i } },
+            {
+                $or: [
+                    { completed_operation_date: { $exists: false } },
+                    { completed_operation_date: "" }
+                ]
+            }
+        ]
+    };
+
+    // "In Examination Planning" specifically
+    const inExamPlanningMatch = {
+        $and: [
+            ...pendingOpsBase.$and,
+            { examination_planning_date: { $exists: true, $nin: ["", null] } },
+            // not moved to PCV or OOC yet
+            { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+            { $or: [{ out_of_charge: { $exists: false } }, { out_of_charge: "" }, { out_of_charge: false }] }
+        ]
+    };
+
+    return [
+        {
+            $facet: {
+                in_examination_planning: [
+                    { $match: inExamPlanningMatch },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
+                ],
+                operations_completed: makeJobFacet("completed_operation_date"),
+                // Trend
+                ops_trend: [
+                    { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $group: { _id: { $substr: ["$completed_operation_date", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
+            }
+        },
+        {
+            $project: {
+                summary: {
+                    in_examination_planning: { $size: "$in_examination_planning" },
+                    operations_completed: { $size: "$operations_completed" }
+                },
+                details: {
+                    in_examination_planning: "$in_examination_planning",
+                    operations_completed: "$operations_completed",
+                    ops_trend: "$ops_trend"
+                }
+            }
+        }
+    ];
+};
+
+// 📤 Submission Pipeline
+const getSubmissionPipeline = (start, end, importer) => {
+    // Helper to format Date to YYYY-MM-DD string safely
+    const toYMD = (date) => date.toISOString().split('T')[0];
+
+    // Calculate 7 days ago for trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+    const todayStr = new Date().toISOString();
+
+    const importerMatch = importer ? { importer: importer } : {};
+
+    const makeJobFacet = (field) => [
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+    ];
+
+    // Pending Submission Logic (Snapshot)
+    // Matches logic in getSubmissionJobs.mjs
+    const pendingSubmissionMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { job_no: { $ne: null } },
+            {
+                $or: [
+                    { submission_completed_date_time: { $exists: false } },
+                    { submission_completed_date_time: "" },
+                    { submission_completed_date_time: null }
+                ]
+            },
+            {
+                $or: [
+                    // FCL Prerequisites
+                    {
+                        $and: [
+                            { consignment_type: "FCL" },
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { discharge_date: { $exists: true, $ne: "" } },
+                            { gateway_igm_date: { $exists: true, $ne: "" } },
+                            { gateway_igm: { $exists: true, $ne: "" } },
+                            { igm_no: { $exists: true, $ne: "" } },
+                            { igm_date: { $exists: true, $ne: "" } },
+                            { is_checklist_aprroved: { $exists: true, $ne: false } }
+                        ]
+                    },
+                    // LCL Prerequisites
+                    {
+                        $and: [
+                            { consignment_type: "LCL" },
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { is_checklist_aprroved: { $exists: true, $ne: false } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    return [
+        {
+            $facet: {
+                submission_pending: [
+                    { $match: pendingSubmissionMatch },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                ],
+                submission_completed: makeJobFacet("submission_completed_date_time"),
+                // Trend
+                submission_trend: [
+                    { $match: { submission_completed_date_time: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $group: { _id: { $substr: ["$submission_completed_date_time", 0, 10] }, count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ]
+            }
+        },
+        {
+            $project: {
+                summary: {
+                    submission_pending: { $size: "$submission_pending" },
+                    submission_completed: { $size: "$submission_completed" }
+                },
+                details: {
+                    submission_pending: "$submission_pending",
+                    submission_completed: "$submission_completed",
+                    submission_trend: "$submission_trend"
+                }
             }
         }
     ];

@@ -51,12 +51,12 @@ const DoManagementDashboard = () => {
             <h2>DO Management</h2>
             <div className="dashboard-grid">
                 <KPICard title="DO Planned" count={summary.do_planned || 0} color="orange" onClick={() => handleCardClick('do_planned', 'DO Planned')} />
-                <KPICard title="DO Prepared" count={summary.do_prepared || 0} color="orange" onClick={() => handleCardClick('do_prepared', 'DO Prepared')} />
                 <KPICard title="DO Received" count={summary.do_received || 0} color="orange" onClick={() => handleCardClick('do_received', 'DO Received')} />
                 <KPICard title="DO Completed" count={summary.do_completed || 0} color="orange" onClick={() => handleCardClick('do_completed', 'DO Completed')} />
                 <KPICard title="DO Revalidated" count={summary.do_revalidated || 0} color="orange" onClick={() => handleCardClick('do_revalidated', 'DO Revalidated')} />
                 <KPICard title="DO Expiring (Job)" count={summary.do_expiring_job || 0} color="red" onClick={() => handleCardClick('do_expiring_job', 'DO Expiring (Job)')} />
-                <KPICard title="Container DO Expiry" count={summary.container_do_expiry || 0} color="red" onClick={() => handleCardClick('container_do_expiry', 'Container DO Expiry')} />
+                <KPICard title="Pending DO (With Invoices)" count={summary.jobs_with_invoices || 0} color="green" onClick={() => handleCardClick('jobs_with_invoices', 'Pending DO (With Invoices)')} />
+                <KPICard title="Pending DO (No Invoices)" count={summary.jobs_without_invoices || 0} color="red" onClick={() => handleCardClick('jobs_without_invoices', 'Pending DO (No Invoices)')} />
             </div>
 
             <div className="charts-section">

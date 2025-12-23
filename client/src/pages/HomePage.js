@@ -94,7 +94,9 @@ import DocumentationDashboard from "../components/analytics/DocumentationDashboa
 import DoManagementDashboard from "../components/analytics/DoManagementDashboard";
 import BillingDashboard from "../components/analytics/BillingDashboard";
 import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
-import PendingJobs from "../components/analytics/PendingJobs";
+import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
+import OperationsDashboard from "../components/analytics/OperationsDashboard";
+import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 
 
 const drawerWidth = 60;
@@ -562,10 +564,12 @@ function HomePage() {
                 <Route path="movement" element={<MovementDashboard />} />
                 <Route path="customs" element={<CustomsDashboard />} />
                 <Route path="documentation" element={<DocumentationDashboard />} />
+                <Route path="submission" element={<SubmissionDashboard />} />
+                <Route path="esanchit" element={<ESanchitDashboard />} />
+                <Route path="operations" element={<OperationsDashboard />} />
                 <Route path="do-management" element={<DoManagementDashboard />} />
                 <Route path="billing" element={<BillingDashboard />} />
                 <Route path="exceptions" element={<ExceptionsDashboard />} />
-                <Route path="pending-jobs" element={<PendingJobs />} />
               </Route>
 
             </Routes>

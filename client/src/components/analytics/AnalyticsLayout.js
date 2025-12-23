@@ -25,15 +25,20 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import WarningIcon from '@mui/icons-material/Warning';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import TaskIcon from '@mui/icons-material/Task';
 
 import './AnalyticsLayout.css';
 
 const navItems = [
     { name: 'Overview', path: 'overview', icon: <DashboardIcon fontSize="small" /> },
-    { name: 'Pending Jobs', path: 'pending-jobs', icon: <PendingActionsIcon fontSize="small" /> },
     { name: 'Movement', path: 'movement', icon: <LocalShippingIcon fontSize="small" /> },
     { name: 'Customs', path: 'customs', icon: <GavelIcon fontSize="small" /> },
     { name: 'Documentation', path: 'documentation', icon: <DescriptionIcon fontSize="small" /> },
+    { name: 'Submission', path: 'submission', icon: <TaskIcon fontSize="small" /> },
+    { name: 'e-Sanchit', path: 'esanchit', icon: <CloudUploadIcon fontSize="small" /> },
+    { name: 'Operations', path: 'operations', icon: <EngineeringIcon fontSize="small" /> },
     { name: 'DO Management', path: 'do-management', icon: <AssignmentTurnedInIcon fontSize="small" /> },
     { name: 'Billing', path: 'billing', icon: <ReceiptIcon fontSize="small" /> },
 ];

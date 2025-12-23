@@ -14,6 +14,7 @@ import FormGroup from "@mui/material/FormGroup";
 import { useImportersContext } from "../../contexts/importersContext";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -37,17 +38,35 @@ export default function SelectImporterModal(props) {
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
   // Get importer list for MUI autocomplete
+  const { user } = useContext(UserContext);
+
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
-        );
-        setImporters(res.data);
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+          );
+
+          let fetchedImporters = res.data;
+
+          // Filter importers based on user assignment if not Admin
+          if (user && user.role !== 'Admin') {
+            const assignedImporters = user.assigned_importer_name || [];
+            fetchedImporters = fetchedImporters.filter(item =>
+              assignedImporters.includes(item.importer)
+            );
+          }
+
+          setImporters(fetchedImporters);
+        } catch (error) {
+          console.error("Error fetching importer list:", error);
+          setImporters([]);
+        }
       }
     }
     getImporterList();
-  }, [selectedYearState]);
+  }, [selectedYearState, user, setImporters]);
 
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
@@ -82,8 +101,7 @@ export default function SelectImporterModal(props) {
     if (selectedImporter !== "" && selectedApiYears.length > 0) {
       const yearString = selectedApiYears.join(",");
       const res = await axios.get(
-        `${
-          process.env.REACT_APP_API_STRING
+        `${process.env.REACT_APP_API_STRING
         }/download-report/${yearString}/${selectedImporter
           .toLowerCase()
           .replace(/\s+/g, "_")
@@ -122,9 +140,9 @@ export default function SelectImporterModal(props) {
       >
         <Box sx={style}>
           {/* Header with title and close button */}
-          <Box sx={{ 
-            display: "flex", 
-            justifyContent: "space-between", 
+          <Box sx={{
+            display: "flex",
+            justifyContent: "space-between",
             alignItems: "center",
             marginBottom: 2
           }}>
@@ -133,7 +151,7 @@ export default function SelectImporterModal(props) {
             </Typography>
             <IconButton
               onClick={props.handleClose}
-              sx={{ 
+              sx={{
                 color: "grey.500",
                 '&:hover': {
                   backgroundColor: 'rgba(0, 0, 0, 0.04)'

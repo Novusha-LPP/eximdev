@@ -103,16 +103,25 @@ function JobList(props) {
         params.append("detailedStatus", detailedStatus);
       }
       const queryString = params.toString();
-      const url = `${
-        process.env.REACT_APP_API_STRING
-      }/get-importer-list/${selectedYearState}${
-        queryString ? "?" + queryString : ""
-      }`;
+      const url = `${process.env.REACT_APP_API_STRING
+        }/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""
+        }`;
       const res = await axios.get(url);
-      setImporters(res.data);
+
+      let fetchedImporters = res.data;
+
+      // Filter based on assigned importers if not Admin
+      if (user && user.role !== 'Admin') {
+        const assignedImporters = user.assigned_importer_name || [];
+        fetchedImporters = fetchedImporters.filter(item =>
+          assignedImporters.includes(item.importer)
+        );
+      }
+
+      setImporters(fetchedImporters);
     }
     getImporterList();
-  }, [selectedYearState, detailedStatus]);
+  }, [selectedYearState, detailedStatus, user]);
 
   const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];

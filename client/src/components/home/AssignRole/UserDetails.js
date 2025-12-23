@@ -20,6 +20,7 @@ import {
 import axios from "axios";
 import PropTypes from "prop-types";
 import { YearContext } from "../../../contexts/yearContext.js";
+import { UserContext } from "../../../contexts/UserContext.js";
 
 function not(a, b) {
   return a.filter((value) => b.indexOf(value) === -1);
@@ -39,7 +40,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
   const [right, setRight] = useState([]); // Assigned importers
   const [left, setLeft] = useState([]); // Available importers
   const [allImporters, setAllImporters] = useState([]);
-  
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -52,6 +53,8 @@ function UserDetails({ selectedUser, onClose, onSave }) {
   const rightChecked = intersection(checked, right);
 
   // Get importer list
+  const { user: currentUser } = useContext(UserContext);
+
   useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -59,7 +62,14 @@ function UserDetails({ selectedUser, onClose, onSave }) {
           const res = await axios.get(
             `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
           );
-          const importerNames = res.data.map((item) => item.importer || item.name || item);
+          let importerNames = res.data.map((item) => item.importer || item.name || item);
+
+          // Filter if current user is not Admin
+          if (currentUser && currentUser.role !== 'Admin') {
+            const assigned = currentUser.assigned_importer_name || [];
+            importerNames = importerNames.filter(name => assigned.includes(name));
+          }
+
           setAllImporters(importerNames.sort());
         } catch (error) {
           setAllImporters([]);
@@ -67,7 +77,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
       }
     }
     getImporterList();
-  }, [selectedYearState]);
+  }, [selectedYearState, currentUser]);
 
   // Fetch user data and set up lists
   useEffect(() => {
@@ -78,17 +88,17 @@ function UserDetails({ selectedUser, onClose, onSave }) {
           `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
         );
         setUserData(res.data);
-        
+
         // Set assigned importers (right side)
         const assignedImporters = res.data.assigned_importer_name || [];
         setRight(assignedImporters.sort());
-        
+
         // Set available importers (left side) - exclude already assigned ones
         const availableImporters = allImporters.filter(
           (importer) => !assignedImporters.includes(importer)
         );
         setLeft(availableImporters.sort());
-        
+
       } catch (error) {
         console.error("Error fetching user data:", error);
         setSnackbar({
@@ -106,7 +116,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
     } else if (selectedUser && typeof selectedUser === "object" && allImporters.length > 0) {
       const assignedImporters = selectedUser.assigned_importer_name || [];
       setRight(assignedImporters.sort());
-      
+
       const availableImporters = allImporters.filter(
         (importer) => !assignedImporters.includes(importer)
       );

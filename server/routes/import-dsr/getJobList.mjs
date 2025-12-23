@@ -429,6 +429,14 @@ router.get(
                 "lcl",
               ],
             },
+            isTypeDoIcd: {
+              $eq: [
+                {
+                  $toLower: { $ifNull: ["$type_of_Do", ""] },
+                },
+                "icd",
+              ],
+            },
           },
           in: {
             $cond: [
@@ -469,7 +477,7 @@ router.get(
                   vars: {
                     deliveryOrOffloadSatisfied: {
                       $cond: [
-                        { $or: ["$$isExBond", "$$isLcl"] },
+                        { $or: ["$$isExBond", "$$isLcl", "$$isTypeDoIcd"] },
                         "$$allDelivery",
                         "$$allEmptyOffload",
                       ],

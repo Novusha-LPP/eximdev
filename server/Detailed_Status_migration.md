@@ -46,6 +46,7 @@
     const norm = function (s) { return String(s || "").trim().toLowerCase(); };
     const isExBond = norm(type_of_b_e) === "ex-bond";
     const isLCL = norm(consignment_type) === "lcl";
+    const isTypeDoIcd = norm(job.type_of_Do) === "icd";
 
     // Ex-Bond rules
     if (isExBond) {
@@ -56,7 +57,7 @@
     }
 
     // Non Ex-Bond
-    const billingComplete = isLCL ? allDelivered : allEmptyOffloaded;
+    const billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
 
     if (be_no && anyArrival && validOOC && billingComplete) return "Billing Pending";
     if (be_no && anyArrival && validOOC) return "Custom Clearance Completed";
@@ -92,6 +93,7 @@
       vessel_berthing: 1,
       type_of_b_e: 1,
       consignment_type: 1,
+      type_of_Do: 1,
       detailed_status: 1,
       year: 1,
     }

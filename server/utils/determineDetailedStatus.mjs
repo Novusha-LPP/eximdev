@@ -9,6 +9,7 @@ export function determineDetailedStatus(job) {
     vessel_berthing,
     type_of_b_e,
     consignment_type,
+    type_of_Do,
   } = job || {};
 
   const isValidDate = (date) => {
@@ -44,6 +45,7 @@ export function determineDetailedStatus(job) {
   const norm = (s) => String(s || "").trim().toLowerCase();
   const isExBond = norm(type_of_b_e) === "ex-bond";
   const isLCL = norm(consignment_type) === "lcl";
+  const isTypeDoIcd = norm(type_of_Do) === "icd";
 
   // Ex-Bond: return early to avoid fall-through
   if (isExBond) {
@@ -60,7 +62,8 @@ export function determineDetailedStatus(job) {
   }
 
   // Non Ex-Bond (original import flow)
-  const billingComplete = isLCL ? allDelivered : allEmptyOffloaded;
+  // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
+  const billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
 
   if (be_no && anyArrival && validOOC && billingComplete) {
     return "Billing Pending";

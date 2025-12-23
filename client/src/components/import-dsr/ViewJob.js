@@ -341,6 +341,7 @@ function JobDetails() {
       vessel_berthing,
       type_of_b_e,
       consignment_type,
+      type_of_Do,
     } = formik.values;
 
     const isValidDate = (date) => {
@@ -380,6 +381,7 @@ function JobDetails() {
         .toLowerCase();
     const isExBond = norm(type_of_b_e) === "ex-bond";
     const isLCL = norm(consignment_type) === "lcl";
+    const isTypeDoIcd = norm(type_of_Do) === "icd";
 
     // Ex-Bond: return early to avoid fall-through
     if (isExBond) {
@@ -403,7 +405,7 @@ function JobDetails() {
     }
 
     // Non Ex-Bond (original import flow)
-    const billingComplete = isLCL ? allDelivered : allEmptyOffloaded;
+    const billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");

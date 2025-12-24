@@ -101,6 +101,9 @@ import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
+import assignEximBot from "./routes/home/assignEximBot.mjs";
+
+
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -345,6 +348,7 @@ if (cluster.isPrimary) {
       app.use(unassignModule);
       app.use(changePassword);
       app.use(assignIcdCode);
+      app.use(assignEximBot);
 
       // ImportersInfo
       app.use(ImportersInfo);

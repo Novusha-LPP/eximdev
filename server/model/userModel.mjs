@@ -12,6 +12,10 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
+  can_access_exim_bot: {
+    type: Boolean,
+    default: false
+  },
   modules: [
     {
       type: String,

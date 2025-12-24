@@ -24,6 +24,7 @@ router.post("/api/login", async (req, res) => {
         const userResponse = {
           username: user.username,
           role: user.role,
+          can_access_exim_bot: user.can_access_exim_bot,
           modules: user.modules,
           first_name: user.first_name,
           middle_name: user.middle_name,

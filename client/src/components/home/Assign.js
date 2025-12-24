@@ -7,6 +7,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignImporters from "./AssignImporters";
+import AssignEximBot from "./AssignEximBot/AssignEximBot";
 
 function Assign() {
   const [userList, setUserList] = useState([]);
@@ -45,6 +46,8 @@ function Assign() {
         return <SelectIcdCode selectedUser={selectedUser} />;
       case "Assign Importers":
         return <AssignImporters selectedUser={selectedUser} />;
+      case "Assign Exim Bot":
+        return <AssignEximBot selectedUser={selectedUser} />;
       default:
         return null;
     }
@@ -81,6 +84,7 @@ function Assign() {
           <MenuItem value="Change Password">Change Password</MenuItem>
           <MenuItem value="Assign ICD Code">Assign ICD Code</MenuItem>
           <MenuItem value="Assign Importers">Assign Importers</MenuItem>
+          <MenuItem value="Assign Exim Bot">Assign Exim Bot</MenuItem>
         </TextField>
       </div>
 

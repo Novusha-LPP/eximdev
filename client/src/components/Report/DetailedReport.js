@@ -83,7 +83,8 @@ const DetailedReport = () => {
    const gradeOptions = [
     { value: "", label: "All Grades" },
     { value: "Grade 316", label: "Grade 316" },
-    { value: "Nickel", label: "Nickel" }
+    { value: "Nickel", label: "Nickel" },
+    { value: "Grade 304", label: "Grade 304" },
   ];
 
   const { user } = useContext(UserContext);

@@ -319,9 +319,9 @@ function EditDoCompleted() {
         const tabIndex = storedSearchParams?.currentTab ?? 3;
 
         // Close the tab after successful submit
-        // setTimeout(() => {
-        //   window.close();
-        // }, 500);
+        setTimeout(() => {
+          window.close();
+        }, 500);
 
         setCurrentTab(tabIndex);
       } catch (error) {

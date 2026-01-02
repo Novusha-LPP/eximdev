@@ -383,7 +383,7 @@ function OperationsList() {
       },
     },
 
-        {
+    {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,
@@ -490,7 +490,7 @@ function OperationsList() {
         );
       },
     },
-    
+
     {
       id: "js",
       header: "Job Sticker",

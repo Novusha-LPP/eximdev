@@ -144,7 +144,7 @@ const jobSchema = new mongoose.Schema({
   clearanceValue: { type: String, trim: true },
   line_no: { type: String, trim: true },
   ie_code_no: { type: String, trim: true },
-
+  gst_no: { type: String, trim: true },
   container_nos: [
     {
       container_number: { type: String, trim: true },

@@ -31,21 +31,21 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     unresolvedOnly
   } = req.query;
 
-// Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
-// otherwise require at least one container with a non-empty arrival_date.
-const arrivalCondition = {
-  $or: [
-    // match Ex-Bond, Ex Bond, ex-bond, etc.
-    { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
-    {
-      container_nos: {
-        $elemMatch: {
-          arrival_date: { $exists: true, $nin: [null, ""] },
+  // Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
+  // otherwise require at least one container with a arrival_date.
+  const arrivalCondition = {
+    $or: [
+      // match Ex-Bond, Ex Bond, ex-bond, etc.
+      { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
+      {
+        container_nos: {
+          $elemMatch: {
+            arrival_date: { $exists: true, $nin: [null, ""] },
+          },
         },
       },
-    },
-  ],
-};
+    ],
+  };
 
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
@@ -77,20 +77,25 @@ const arrivalCondition = {
     }
     // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
-    
+
     const skip = (page - 1) * limit;
     const searchQuery = search ? buildSearchQuery(search) : {};
 
     // **Base conditions for job filtering**
-let baseConditions = {
-  status: "Pending",
-  be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-  ...arrivalCondition,
-  $or: [
-    { completed_operation_date: { $exists: false } },
-    { completed_operation_date: "" },
-  ],
-};
+    // **Base conditions for job filtering**
+    let baseConditions = {
+      status: "Pending",
+      be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+      $and: [
+        arrivalCondition,
+        {
+          $or: [
+            { completed_operation_date: { $exists: false } },
+            { completed_operation_date: "" },
+          ],
+        },
+      ],
+    };
 
 
     // **Importer filter (NEW)**
@@ -162,16 +167,16 @@ let baseConditions = {
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
-             if (unresolvedOnly === "true") {
+    if (unresolvedOnly === "true") {
       baseQuery.$and.push({
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
       });
     }
-    
-       // ✅ Apply Year Filter if Provided
-       if (selectedYear) {
-        baseQuery.$and.push({ year: selectedYear });
-      }
+
+    // ✅ Apply Year Filter if Provided
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
     // **Fetch Jobs**
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,
@@ -185,7 +190,7 @@ let baseConditions = {
     const yellowJobs = [];
     const otherJobs = [];
 
-    
+
     jobs.forEach((job) => {
       const { out_of_charge, examination_planning_date, be_no, container_nos } =
         job;
@@ -212,16 +217,16 @@ let baseConditions = {
     ];
 
 
-     const unresolvedQueryBase = { ...baseQuery };
-            unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-              !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-            );
-            unresolvedQueryBase.$and.push({
-              dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-            });
-            
-            const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-    
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
 
     // **Paginate grouped jobs**
     const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
@@ -231,7 +236,7 @@ let baseConditions = {
       totalPages: Math.ceil(totalJobs / limit),
       currentPage: parseInt(page),
       jobs: paginatedJobs,
-            unresolvedCount
+      unresolvedCount
 
     });
   } catch (error) {

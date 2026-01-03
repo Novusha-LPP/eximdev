@@ -99,7 +99,15 @@ import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 
 
+
+// Open Points
+
+import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
+import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
+import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
+
 const drawerWidth = 60;
+
 
 
 function HomePage() {
@@ -552,6 +560,7 @@ function HomePage() {
               />
 
               {/* Analytics */}
+
               <Route path="/analytics" element={
                 <ProtectedRoute requiredModule="Report">
                   <AnalyticsProvider>
@@ -571,6 +580,28 @@ function HomePage() {
                 <Route path="billing" element={<BillingDashboard />} />
                 <Route path="exceptions" element={<ExceptionsDashboard />} />
               </Route>
+
+              {/* Open Points - New Module */}
+              <Route
+                path="/open-points"
+                element={
+                  <OpenPointsHome />
+                }
+              />
+
+              <Route
+                path="/open-points/analytics"
+                element={
+                  <AnalyticsDashboard />
+                }
+              />
+              <Route
+                path="/open-points/project/:projectId"
+                element={
+                  <ProjectWorkspace />
+                }
+              />
+
 
             </Routes>
           </Box>

@@ -32,9 +32,11 @@ const allModules = [
   "Documentation",
   "Submission",
   "Screen1",
+
   "Screen2",
   "Screen3",
   "Screen4",
+  "Open Points",
 ];
 
 function not(a, b) {

@@ -1,0 +1,13 @@
+Starting Debug
+Connected to MongoDB
+--- Testing User Fetch ---
+Found 5 users.
+Sample User: arpit_singhal (6672a2501aa931b68b091fa9)
+
+--- Testing Project Populate ---
+Found 3 projects.
+
+Attempting to add user arpit_singhal to project hello...
+Save function returned.
+Updated Team Members Count: 3
+Updated Team Members: ["arpit_singhal","arpit_singhal","arpit_singhal"]

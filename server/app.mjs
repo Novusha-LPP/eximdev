@@ -191,7 +191,12 @@ import cron from 'node-cron';
 import { scrapeAndSaveCurrencyRates } from './services/currencyRateScraper.js';
 
 import currencyRateRoutes from './routes/currencyRate.js';
+
+// Open Points Module
+import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
+
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
+
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -442,7 +447,12 @@ if (cluster.isPrimary) {
       // Analytics
       app.use(analyticsRoutes);
 
+
+      // Open Points
+      app.use(openPointsRoutes);
+
       // initialize cron jobs only on the first worker to avoid duplicates
+
       if (cluster.worker.id === 1) {
         cron.schedule('1 0 * * *', async () => {
           console.log('🕐 Running scheduled currency rate scraper at 12:01 AM...');

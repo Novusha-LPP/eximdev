@@ -168,7 +168,7 @@ const OpenPointsHome = () => {
                                 <div style={{ height: '180px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
-                                            <Pie data={myTasksData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
+                                            <Pie data={myTasksData} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={40} outerRadius={60} paddingAngle={5}>
                                                 {myTasksData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
@@ -185,12 +185,12 @@ const OpenPointsHome = () => {
 
                         {/* Project Health Chart */}
                         <div className="glass-card" style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: '1px solid #e2e8f0' }}>
-                            <h3 style={{ fontSize: '1.2rem', color: '#334155', marginBottom: '20px' }}>All Projects Health</h3>
+                            <h3 style={{ fontSize: '1.2rem', color: '#334155', marginBottom: '20px' }}>Projects Health</h3>
                             {projectHealthData.length > 0 ? (
                                 <div style={{ height: '180px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
-                                            <Pie data={projectHealthData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
+                                            <Pie data={projectHealthData} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={40} outerRadius={60} paddingAngle={5}>
                                                 {projectHealthData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}

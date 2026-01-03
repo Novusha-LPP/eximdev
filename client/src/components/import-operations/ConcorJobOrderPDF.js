@@ -281,7 +281,7 @@ const ConcorJobOrderPDF = forwardRef(({ jobData }, ref) => {
 
                 <Typography variant="subtitle2" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700, color: 'primary.dark' }}>
                     <AssignmentIcon fontSize="small" />
-                    CONTAINER REMARKS
+                    CONTAINER REMARKS AND VALIDITY
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
 
@@ -304,7 +304,7 @@ const ConcorJobOrderPDF = forwardRef(({ jobData }, ref) => {
                                     <TextField
                                         fullWidth
                                         size="small"
-                                        label="Specific Remarks"
+                                        label="Remarks and Validity"
                                         variant="outlined"
                                         placeholder="Enter validity or specific instructions..."
                                         value={containerRemarks[container.container_number] || ""}

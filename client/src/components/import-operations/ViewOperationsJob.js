@@ -28,6 +28,7 @@ import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
+import { compressFile } from "../../utils/fileCompression";
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
@@ -143,10 +144,11 @@ function ViewOperationsJob() {
 
             for (let i = 0; i < e.target.files.length; i++) {
               const file = e.target.files[i];
+              const compressedFile = await compressFile(file, 900);
               const params = {
                 Bucket: process.env.REACT_APP_S3_BUCKET,
                 Key: `${fileType}/${container_number}/${file.name}`,
-                Body: file,
+                Body: compressedFile,
               };
 
               // Upload the file to S3 and wait for the promise to resolve

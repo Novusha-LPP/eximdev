@@ -14,6 +14,7 @@ import RadioGroup from "@mui/material/RadioGroup";
 import FormLabel from "@mui/material/FormLabel";
 import AWS from "aws-sdk";
 import Snackbar from "@mui/material/Snackbar";
+import { compressFile } from "../../utils/fileCompression";
 import { validationSchema } from "../../schemas/employeeKyc/completeKyc";
 
 function CompleteKYC() {
@@ -154,6 +155,7 @@ function CompleteKYC() {
 
     try {
       const file = e.target.files[0];
+      const compressedFile = await compressFile(file, 900);
       const key = `kyc/${file.name}`;
 
       const s3 = new AWS.S3({
@@ -165,7 +167,7 @@ function CompleteKYC() {
       const params = {
         Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: key,
-        Body: file,
+        Body: compressedFile,
       };
 
       const data = await s3.upload(params).promise();
@@ -918,7 +920,7 @@ function CompleteKYC() {
             ""
           )}
           {formik.touched.aadhar_photo_front &&
-          formik.errors.aadhar_photo_front ? (
+            formik.errors.aadhar_photo_front ? (
             <div style={{ color: "red" }}>
               {formik.errors.aadhar_photo_front}
             </div>
@@ -949,7 +951,7 @@ function CompleteKYC() {
             ""
           )}
           {formik.touched.aadhar_photo_back &&
-          formik.errors.aadhar_photo_back ? (
+            formik.errors.aadhar_photo_back ? (
             <div style={{ color: "red" }}>
               {formik.errors.aadhar_photo_back}
             </div>

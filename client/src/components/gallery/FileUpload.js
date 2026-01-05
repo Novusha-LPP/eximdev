@@ -1,5 +1,6 @@
 import React, { useState, useContext } from "react";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
+import { compressFile } from "../../utils/fileCompression";
 import { Button, CircularProgress, Tooltip } from "@mui/material";
 import { UserContext } from "../../contexts/UserContext";
 
@@ -32,7 +33,8 @@ const FileUpload = ({
 
       for (const file of filesToUpload) {
         try {
-          const result = await uploadFileToS3(file, bucketPath);
+          const compressedFile = await compressFile(file, 900);
+          const result = await uploadFileToS3(compressedFile, bucketPath);
           uploadedFiles.push(result.Location);
         } catch (error) {
           console.error(`Failed to upload ${file.name}:`, error);

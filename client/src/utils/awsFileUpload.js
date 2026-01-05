@@ -1,4 +1,5 @@
 import AWS from "aws-sdk";
+import { compressFile } from "./fileCompression";
 
 export const handleFileUpload = async (
   e,
@@ -23,10 +24,11 @@ export const handleFileUpload = async (
 
     for (let i = 0; i < e.target.files.length; i++) {
       const file = e.target.files[i];
+      const compressedFile = await compressFile(file, 900);
       const params = {
         Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: `${folderName}/${file.name}`,
-        Body: file,
+        Body: compressedFile,
       };
 
       // Upload the file to S3 and wait for the promise to resolve
@@ -52,7 +54,8 @@ export const handleFileUpload = async (
   }
 };
 
-export const uploadFileToS3 = (file, folderName) => {
+export const uploadFileToS3 = async (file, folderName) => {
+  const compressedFile = await compressFile(file, 900);
   AWS.config.update({
     region: "ap-south-1",
     accessKeyId: process.env.REACT_APP_ACCESS_KEY,
@@ -70,7 +73,7 @@ export const uploadFileToS3 = (file, folderName) => {
   const params = {
     Bucket: process.env.REACT_APP_S3_BUCKET,
     Key: `${folderName}/${uniqueFileName}`,
-    Body: file,
+    Body: compressedFile,
     ContentType: file.type,
   };
 

@@ -4,10 +4,12 @@ import { useFormik } from "formik";
 import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
 import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
+import { compressFile } from "../utils/fileCompression";
 // import { Dropdown } from "react-bootstrap";
 
 const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
   try {
+    const compressedFile = await compressFile(file, 900);
     const key = `${folderName}/${file.name}`;
 
     const s3 = new AWS.S3({
@@ -19,7 +21,7 @@ const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
     const params = {
       Bucket: process.env.REACT_APP_S3_BUCKET,
       Key: key,
-      Body: file,
+      Body: compressedFile,
     };
 
     const data = await s3.upload(params).promise();

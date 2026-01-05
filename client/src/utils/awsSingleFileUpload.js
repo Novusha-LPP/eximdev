@@ -1,4 +1,5 @@
 import AWS from "aws-sdk";
+import { compressFile } from "./fileCompression";
 
 export const handleSingleFileUpload = async (
   e,
@@ -14,6 +15,7 @@ export const handleSingleFileUpload = async (
 
   try {
     const file = e.target.files[0];
+    const compressedFile = await compressFile(file, 900);
     const key = `${folderName}/${file.name}`;
 
     const s3 = new AWS.S3({
@@ -25,7 +27,7 @@ export const handleSingleFileUpload = async (
     const params = {
       Bucket: process.env.REACT_APP_S3_BUCKET,
       Key: key,
-      Body: file,
+      Body: compressedFile,
     };
 
     const data = await s3.upload(params).promise();

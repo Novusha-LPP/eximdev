@@ -7,9 +7,9 @@ import AWS from "aws-sdk";
 import { compressFile } from "../utils/fileCompression";
 // import { Dropdown } from "react-bootstrap";
 
-const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
+const handleSingleFileUpload = async (file, folderName, setFileSnackbar, shouldCompress = false) => {
   try {
-    const compressedFile = await compressFile(file, 900);
+    const fileToUpload = shouldCompress ? await compressFile(file, 900) : file;
     const key = `${folderName}/${file.name}`;
 
     const s3 = new AWS.S3({
@@ -21,7 +21,7 @@ const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
     const params = {
       Bucket: process.env.REACT_APP_S3_BUCKET,
       Key: key,
-      Body: compressedFile,
+      Body: fileToUpload,
     };
 
     const data = await s3.upload(params).promise();
@@ -1001,7 +1001,8 @@ function useFetchJobDetails(
     const photoUrl = await handleSingleFileUpload(
       file,
       formattedDocumentName,
-      setFileSnackbar
+      setFileSnackbar,
+      isCth
     );
 
     if (isCth) {

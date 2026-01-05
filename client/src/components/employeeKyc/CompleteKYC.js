@@ -155,7 +155,6 @@ function CompleteKYC() {
 
     try {
       const file = e.target.files[0];
-      const compressedFile = await compressFile(file, 900);
       const key = `kyc/${file.name}`;
 
       const s3 = new AWS.S3({
@@ -167,7 +166,7 @@ function CompleteKYC() {
       const params = {
         Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: key,
-        Body: compressedFile,
+        Body: file,
       };
 
       const data = await s3.upload(params).promise();

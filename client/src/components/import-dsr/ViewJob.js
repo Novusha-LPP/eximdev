@@ -564,11 +564,10 @@ function JobDetails() {
 
             for (let i = 0; i < e.target.files.length; i++) {
               const file = e.target.files[i];
-              const compressedFile = await compressFile(file, 900);
               const params = {
                 Bucket: process.env.REACT_APP_S3_BUCKET,
                 Key: `${fileType}/${container_number}/${file.name}`,
-                Body: compressedFile,
+                Body: file,
               };
 
               // Upload the file to S3 and wait for the promise to resolve
@@ -2090,6 +2089,7 @@ function JobDetails() {
                             label="Upload"
                             bucketPath={`cth-documents/${doc.document_name}`}
                             multiple={true}
+                            shouldCompress={true}
                             containerStyles={{ marginTop: 0 }}
                             buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
                             onFilesUploaded={(urls) => {

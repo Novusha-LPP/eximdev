@@ -652,12 +652,14 @@ function ViewESanchitJob() {
                               <FileUpload
                                 label="Upload"
                                 bucketPath={`cth-documents/${document.document_name}`}
+                                shouldCompress={true}
                                 onFilesUploaded={(urls) => {
                                   const updatedDocuments = [...formik.values.cth_documents];
                                   updatedDocuments[originalIndex].url = [...(updatedDocuments[originalIndex].url || []), ...urls];
                                   formik.setFieldValue("cth_documents", updatedDocuments);
                                   setFileSnackbar(true);
                                 }}
+
                                 multiple={true}
                                 readOnly={isDisabled}
                                 containerStyles={{ marginTop: 0 }}

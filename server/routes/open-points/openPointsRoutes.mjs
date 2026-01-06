@@ -73,6 +73,36 @@ router.post("/api/open-points/projects", async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// Delete Project (Owner Only)
+router.delete("/api/open-points/projects/:projectId", async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const userId = req.headers['user-id'];
+
+        if (!userId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const project = await OpenPointProject.findById(projectId);
+        if (!project) return res.status(404).json({ error: "Project not found" });
+
+        // Check ownership
+        if (project.owner.toString() !== userId) {
+            return res.status(403).json({ error: "Access Denied: Only the project owner can delete this project" });
+        }
+
+        // Delete associated points first
+        await OpenPoint.deleteMany({ project_id: projectId });
+
+        // Delete the project
+        await OpenPointProject.findByIdAndDelete(projectId);
+
+        res.json({ message: "Project and all associated points deleted successfully" });
+    } catch (error) {
+        console.error("Delete Project Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Add Member to Project (and auto-assign Open Points module)
 router.post("/api/open-points/project/:projectId/add-member", async (req, res) => {

@@ -15,7 +15,7 @@ export const handlePhysicalWeightChange = (e, index, formik) => {
     `container_nos[${index}].actual_weight`,
     newActualWeight
   );
- 
+
 
   // Pass newActualWeight to the function
   calculateWeightExcessShortage(index, formik, newActualWeight);
@@ -77,7 +77,7 @@ export const handleActualWeightChange = (e, index, formik) => {
     `container_nos[${index}].actual_weight`,
     newActualWeight
   );
- 
+
   // Pass newActualWeight to the function
   calculateWeightExcessShortage(index, formik, newActualWeight);
 };

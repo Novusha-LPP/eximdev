@@ -28,7 +28,6 @@ import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
-import { compressFile } from "../../utils/fileCompression";
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();

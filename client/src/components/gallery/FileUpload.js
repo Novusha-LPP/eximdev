@@ -1,6 +1,5 @@
 import React, { useState, useContext } from "react";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
-import { compressFile } from "../../utils/fileCompression";
 import { Button, CircularProgress, Tooltip } from "@mui/material";
 import { UserContext } from "../../contexts/UserContext";
 
@@ -34,9 +33,13 @@ const FileUpload = ({
 
       for (const file of filesToUpload) {
         try {
+<<<<<<< HEAD
           console.log("shouldCompress", shouldCompress);
           const fileToUpload = shouldCompress ? await compressFile(file, 900) : file;
           const result = await uploadFileToS3(fileToUpload, bucketPath);
+=======
+          const result = await uploadFileToS3(file, bucketPath);
+>>>>>>> parent of 9561443 (feat: Implement AWS S3 file upload with client-side compression for images, PDFs, and Office documents.)
           uploadedFiles.push(result.Location);
         } catch (error) {
           console.error(`Failed to upload ${file.name}:`, error);

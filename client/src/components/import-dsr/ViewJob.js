@@ -58,7 +58,6 @@ import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 import QueriesComponent from "../../utils/QueriesComponent.js";
-import { compressFile } from "../../utils/fileCompression.js";
 
 const compactInputSx = {
   "& .MuiOutlinedInput-root": { height: "32px" },

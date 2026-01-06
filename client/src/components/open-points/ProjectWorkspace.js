@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { fetchProjectPoints, updatePointStatus, createOpenPoint, fetchProjectDetails, addProjectMember, fetchAllUsers, deleteOpenPoint, removeProjectMember } from '../../services/openPointsService';
-import { useParams } from 'react-router-dom';
+import { fetchProjectPoints, updatePointStatus, createOpenPoint, fetchProjectDetails, addProjectMember, fetchAllUsers, deleteOpenPoint, removeProjectMember, deleteProject } from '../../services/openPointsService';
+import { useParams, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import '../../styles/openPoints.scss';
 
 const ProjectWorkspace = () => {
     const { projectId } = useParams();
+    const navigate = useNavigate();
     const { user } = useContext(UserContext);
     const [points, setPoints] = useState([]);
     const [projectTeam, setProjectTeam] = useState([]); // Array of {user: {_id, username}, role}
@@ -339,6 +340,20 @@ const ProjectWorkspace = () => {
         }
     }
 
+    const handleDeleteProject = () => {
+        showDialog("Confirm Delete", "Are you sure you want to delete this ENTIRE project? This cannot be undone.", "confirm", async () => {
+            try {
+                await deleteProject(projectId);
+                showDialog("Success", "Project deleted successfully", "alert", () => {
+                    navigate('/open-points');
+                });
+            } catch (error) {
+                console.error("Delete Project Failed", error);
+                showDialog("Error", error.response?.data?.error || "Failed to delete project", "alert");
+            }
+        });
+    };
+
     if (loading) return <div>Loading Workspace...</div>;
 
     return (
@@ -384,6 +399,9 @@ const ProjectWorkspace = () => {
                         </button>
                         <button className="btn btn-sm btn-primary" onClick={() => setShowAddMember(true)} style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}>
                             + Add Member
+                        </button>
+                        <button className="btn btn-sm btn-danger" onClick={handleDeleteProject} style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}>
+                            🗑️ Delete Project
                         </button>
                     </div>
                 </div>
@@ -760,58 +778,58 @@ const ProjectWorkspace = () => {
                 <div style={{ padding: '10px', border: '1px solid #ccc', background: 'white' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                         {projectTeam.map((member, index) => (
-                                    <div key={index} style={{
-                                        padding: '5px 10px',
-                                        background: member.role === 'Owner' ? '#e0f2fe' : '#f3f4f6',
-                                        borderRadius: '15px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '13px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                    }}>
-                                        <div>
-                                            <span
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => {
-                                                    // If current user is project owner (or first team entry is owner), allow removal prompt
-                                                    const isOwner = user && (user._id === (projectTeam[0] && projectTeam[0]._id) || (projectTeam[0] && projectTeam[0].role === 'Owner'));
-                                                    if (!isOwner) {
-                                                        showDialog('Permission Denied', 'Only the project owner can remove members.', 'alert');
-                                                        return;
-                                                    }
+                            <div key={index} style={{
+                                padding: '5px 10px',
+                                background: member.role === 'Owner' ? '#e0f2fe' : '#f3f4f6',
+                                borderRadius: '15px',
+                                border: '1px solid #ddd',
+                                fontSize: '13px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div>
+                                    <span
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => {
+                                            // If current user is project owner (or first team entry is owner), allow removal prompt
+                                            const isOwner = user && (user._id === (projectTeam[0] && projectTeam[0]._id) || (projectTeam[0] && projectTeam[0].role === 'Owner'));
+                                            if (!isOwner) {
+                                                showDialog('Permission Denied', 'Only the project owner can remove members.', 'alert');
+                                                return;
+                                            }
 
-                                                    if (member.role === 'Owner') {
-                                                        showDialog('Not Allowed', 'Cannot remove the project owner.', 'alert');
-                                                        return;
-                                                    }
+                                            if (member.role === 'Owner') {
+                                                showDialog('Not Allowed', 'Cannot remove the project owner.', 'alert');
+                                                return;
+                                            }
 
-                                                    showDialog(
-                                                        'Remove Member',
-                                                        `Are you sure you want to remove ${member.username} from the project?`,
-                                                        'confirm',
-                                                        async () => {
-                                                            try {
-                                                                await removeProjectMember(projectId, member.username, member._id);
-                                                                showDialog('Success', 'Member removed', 'alert');
-                                                                // remove locally
-                                                                setProjectTeam(prev => prev.filter(p => p._id !== member._id));
-                                                            } catch (err) {
-                                                                console.error('Remove member failed', err);
-                                                                showDialog('Error', err.response?.data?.error || 'Failed to remove member', 'alert');
-                                                            }
-                                                        }
-                                                    );
-                                                }}
-                                                onKeyPress={(e) => { if (e.key === 'Enter') e.currentTarget.click(); }}
-                                                style={{ cursor: 'pointer', textDecoration: 'underline', color: '#1e40af' }}
-                                            >
-                                                <strong>{member.username}</strong>
-                                            </span>
-                                            <span style={{ color: '#666', marginLeft: 6 }}>({member.role || 'Member'})</span>
-                                        </div>
-                                    </div>
+                                            showDialog(
+                                                'Remove Member',
+                                                `Are you sure you want to remove ${member.username} from the project?`,
+                                                'confirm',
+                                                async () => {
+                                                    try {
+                                                        await removeProjectMember(projectId, member.username, member._id);
+                                                        showDialog('Success', 'Member removed', 'alert');
+                                                        // remove locally
+                                                        setProjectTeam(prev => prev.filter(p => p._id !== member._id));
+                                                    } catch (err) {
+                                                        console.error('Remove member failed', err);
+                                                        showDialog('Error', err.response?.data?.error || 'Failed to remove member', 'alert');
+                                                    }
+                                                }
+                                            );
+                                        }}
+                                        onKeyPress={(e) => { if (e.key === 'Enter') e.currentTarget.click(); }}
+                                        style={{ cursor: 'pointer', textDecoration: 'underline', color: '#1e40af' }}
+                                    >
+                                        <strong>{member.username}</strong>
+                                    </span>
+                                    <span style={{ color: '#666', marginLeft: 6 }}>({member.role || 'Member'})</span>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 </div>

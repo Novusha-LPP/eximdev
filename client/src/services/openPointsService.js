@@ -76,3 +76,8 @@ export const deleteOpenPoint = async (pointId) => {
     const response = await axios.delete(`${API_URL}/open-points/points/${pointId}`, getHeaders());
     return response.data;
 };
+
+export const deleteProject = async (projectId) => {
+    const response = await axios.delete(`${API_URL}/open-points/projects/${projectId}`, getHeaders());
+    return response.data;
+};

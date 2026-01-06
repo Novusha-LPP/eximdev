@@ -130,6 +130,7 @@ import downloadReport from "./routes/import-dsr/downloadReport.mjs";
 import downloadAllReport from "./routes/import-dsr/downloadAllReport.mjs";
 import getAssignedImporter from "./routes/import-dsr/getAssignedImporter.mjs";
 import getImporterJobs from "./routes/import-dsr/getImporterJobs.mjs";
+import getImporterUsers from "./routes/import-dsr/getImporterUsers.mjs";
 import getJob from "./routes/import-dsr/getJob.mjs";
 import getJobList from "./routes/import-dsr/getJobList.mjs";
 import getJobsOverview from "./routes/import-dsr/getJobsOverview.mjs";
@@ -380,6 +381,7 @@ if (cluster.isPrimary) {
       app.use(downloadAllReport);
       app.use(getAssignedImporter);
       app.use(getImporterJobs);
+      app.use(getImporterUsers);
       app.use(getJob);
       app.use(getJobList);
       app.use(getJobsOverview);

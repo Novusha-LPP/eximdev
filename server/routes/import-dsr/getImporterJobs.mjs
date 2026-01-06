@@ -47,11 +47,11 @@ router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
     const responseArray =
       jobCounts.length > 0
         ? [
-            jobCounts[0].totalCount,
-            jobCounts[0].pendingCount,
-            jobCounts[0].completedCount,
-            jobCounts[0].cancelledCount,
-          ]
+          jobCounts[0].totalCount,
+          jobCounts[0].pendingCount,
+          jobCounts[0].completedCount,
+          jobCounts[0].cancelledCount,
+        ]
         : [0, 0, 0, 0];
 
     res.json(responseArray);

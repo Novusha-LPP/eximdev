@@ -9,6 +9,7 @@ function ImporterWiseDetails() {
   const { selectedYear } = useContext(SelectedYearContext);
   const [importerData, setImporterData] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState(null);
+  const [assignedUsers, setAssignedUsers] = useState([]);
 
   const [data, setData] = useState([]);
 
@@ -59,8 +60,7 @@ function ImporterWiseDetails() {
     async function getImporterData() {
       if (selectedImporter) {
         const res = await axios.get(
-          `${
-            process.env.REACT_APP_API_STRING
+          `${process.env.REACT_APP_API_STRING
           }/get-importer-jobs/${selectedImporter
             .toLowerCase()
             .replace(/ /g, "_")
@@ -80,6 +80,31 @@ function ImporterWiseDetails() {
     }
     getImporterData();
   }, [selectedImporter, selectedYear]);
+
+  // Fetch assigned users for the selected importer
+  useEffect(() => {
+    async function getAssignedUsers() {
+      if (selectedImporter) {
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-users`,
+            {
+              params: {
+                importerName: selectedImporter,
+              },
+            }
+          );
+          setAssignedUsers(res.data);
+        } catch (error) {
+          console.error("Error fetching assigned users:", error);
+          setAssignedUsers([]);
+        }
+      } else {
+        setAssignedUsers([]);
+      }
+    }
+    getAssignedUsers();
+  }, [selectedImporter]);
 
   const donutState = {
     series: data,
@@ -153,6 +178,11 @@ function ImporterWiseDetails() {
           <TextField {...params} size="small" label="Select importer" />
         )}
       />
+      {assignedUsers.length > 0 && (
+        <div style={{ marginTop: "10px", fontWeight: "bold" }}>
+          Handling By: {assignedUsers.join(", ")}
+        </div>
+      )}
       <ReactApexChart
         options={donutState.options}
         series={donutState.series}

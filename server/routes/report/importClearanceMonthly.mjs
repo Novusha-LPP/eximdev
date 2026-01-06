@@ -157,12 +157,26 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           be_no: 1,
           be_date: 1,
           containerNumbers: 1,
-          totalContainers: { $size: "$container_nos" },
+          totalContainers: {
+            $cond: [
+              { $eq: ["$consignment_type", "LCL"] },
+              1,
+              { $size: "$container_nos" }
+            ]
+          },
           noOfContrSize: 1,
-          teus: 1,
+          teus: {
+            $cond: [
+              { $eq: ["$consignment_type", "LCL"] },
+              1,
+              "$teus"
+            ]
+          },
           out_of_charge: 1,
           remarks: 1,
           consignment_type: 1,
+          be_filing_type: 1,
+          type_of_b_e: 1,
         },
       },
     ];

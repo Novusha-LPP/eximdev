@@ -31,11 +31,11 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-   CircularProgress,
-   Dialog,
-   DialogTitle,
-   DialogContent,
-   DialogActions
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@mui/material";
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -73,14 +73,14 @@ const DetailedReport = () => {
   const [error, setError] = useState("");
   const [year, setYear] = useState("25-26");
   const [gradeFilter, setGradeFilter] = useState(""); // ✅ New Grade Filter
- const [month, setMonth] = useState(new Date().getMonth() + 1); 
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportType, setExportType] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
-   const gradeOptions = [
+  const gradeOptions = [
     { value: "", label: "All Grades" },
     { value: "Grade 316", label: "Grade 316" },
     { value: "Nickel", label: "Nickel" },
@@ -163,7 +163,7 @@ const DetailedReport = () => {
   // Generate summary data
   const generateSummaryData = () => {
     const locationGroups = {};
-    
+
     data.forEach(row => {
       const location = row.location || 'Unknown';
       if (!locationGroups[location]) {
@@ -173,29 +173,31 @@ const DetailedReport = () => {
           total: { count20: 0, count40: 0, teus: 0, containers: 0 }
         };
       }
-      
+
+      if (row.be_filing_type === "Ex-Bond" || row.type_of_b_e === "Ex-Bond") return;
+
       const teus = parseInt(row.teus) || 0;
       const containers = parseInt(row.totalContainers) || 0;
       const commodity = (row.commodity || '').toLowerCase();
-      
+
       // Determine container sizes from noOfContrSize
       const sizeInfo = row.noOfContrSize || '';
       const count20 = (sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1];
       const count40 = (sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1];
-      
+
       const category = commodity.includes('scrap') ? 'scrap' : 'others';
-      
+
       locationGroups[location][category].count20 += parseInt(count20) || 0;
       locationGroups[location][category].count40 += parseInt(count40) || 0;
       locationGroups[location][category].teus += teus;
       locationGroups[location][category].containers += containers;
-      
+
       locationGroups[location].total.count20 += parseInt(count20) || 0;
       locationGroups[location].total.count40 += parseInt(count40) || 0;
       locationGroups[location].total.teus += teus;
       locationGroups[location].total.containers += containers;
     });
-    
+
     return locationGroups;
   };
 
@@ -204,6 +206,7 @@ const DetailedReport = () => {
     const summaryData = {};
     let lclContainers = 0, lcl20 = 0, lcl40 = 0, lclTeus = 0;
     let lclTeusSubtract = 0;
+    let exBondContainers = 0, exBond20 = 0, exBond40 = 0, exBondTeus = 0;
     let total20 = 0, total40 = 0, totalTeus = 0, totalContainers = 0;
     let scrapTotal20 = 0, scrapTotal40 = 0, scrapTotalTeus = 0, scrapTotalContainers = 0;
     let othersTotal20 = 0, othersTotal40 = 0, othersTotalTeus = 0, othersTotalContainers = 0;
@@ -216,12 +219,20 @@ const DetailedReport = () => {
       const count40 = parseInt((sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1]) || 0;
       const teus = parseInt(row.teus) || 0;
       const containers = parseInt(row.totalContainers) || 0;
+
+      if (row.be_filing_type === "Ex-Bond" || row.type_of_b_e === "Ex-Bond") {
+        exBondContainers += containers;
+        exBond20 += count20;
+        exBond40 += count40;
+        exBondTeus += teus;
+        return;
+      }
+
       if (consignmentType === 'LCL' || remarks.includes('lcl')) {
-        lclContainers += containers;
-        lcl20 += count20;
-        lcl40 += count40;
-        lclTeus += teus;
-        lclTeusSubtract += (count20 * 1) + (count40 * 2);
+        lclContainers += 1;
+        lcl20 += 1;
+        lcl40 += 0;
+        lclTeus += 1;
         return;
       }
       if (!summaryData[location]) {
@@ -285,6 +296,8 @@ const DetailedReport = () => {
     // ...removed SCRAP TOTAL and OTHERS TOTAL rows...
     // LCL row
     rows.push({ location: 'LCL', details: '', count20: lcl20, count40: lcl40, teus: lclTeus, containers: lclContainers });
+    // Ex-Bond row
+    rows.push({ location: 'Ex-Bond', details: '', count20: exBond20, count40: exBond40, teus: exBondTeus, containers: exBondContainers });
     // Calculate summary TOTAL TEUS as sum of all ICD-wise total TEUS
     const summaryTotalTeus = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
     const summaryTotal20 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count20) || 0), 0);
@@ -310,7 +323,7 @@ const DetailedReport = () => {
     setExportLoading(true);
     setExportType(format);
     setAnchorEl(null);
-    
+
     try {
       if (format === 'excel') {
         await exportToExcel();
@@ -326,133 +339,133 @@ const DetailedReport = () => {
     }
   };
 
-const exportToExcel = async () => {
-  const workbook = XLSX.utils.book_new();
-  
-  // Prepare main data
-  const excelData = data.map((row, index) => {
-    const excelRow = {};
-    
-    // Calculate invoice value for display
-    const invValue = row.cif_amount &&  row.inv_currency
-      ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
-      : '';
-    
-    const visibleCols = columns.filter((col) => !(col.key === 'cif_amount' && !isSrManager));
-    visibleCols.forEach(col => {
-      switch (col.key) {
-        case 'srlNo':
-          excelRow[col.label] = String(index + 1).padStart(3, "0");
-          break;
-        case 'cif_amount':  // Custom PRICE column handling
-          excelRow[col.label] = invValue;
-          break;
-        case 'size':
-          excelRow[col.label] = deriveSize(row.noOfContrSize);
-          break;
-        case 'containerNumbers':
-          excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
-          break;
-        case 'be_date':
-          excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
-          break;
-        case 'out_of_charge':
-          excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
-          break;
-        case 'remarks':
-          excelRow[col.label] = row[col.key] || '';
-          break;
-        default:
-          excelRow[col.label] = row[col.key] || '';
-      }
-    });
-    return excelRow;
-  });
+  const exportToExcel = async () => {
+    const workbook = XLSX.utils.book_new();
 
-  // Create main worksheet
-  const worksheet = XLSX.utils.json_to_sheet(excelData);
-  
-  // Auto-fit columns
-  const range = XLSX.utils.decode_range(worksheet['!ref']);
-  const colWidths = [];
-  let remarksColIndex = -1;
-  
-  for (let col = range.s.c; col <= range.e.c; col++) {
-    let maxWidth = 0;
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-      const cell = worksheet[cellAddress];
-      if (cell && cell.v) {
-        const cellValue = String(cell.v);
-        maxWidth = Math.max(maxWidth, cellValue.length);
-      }
-    }
-    colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
-    
-    // Find remarks column index
-    if (worksheet[XLSX.utils.encode_cell({ r: 0, c: col })]?.v === 'REMARKS') {
-      remarksColIndex = col;
-    }
-  }
-  worksheet['!cols'] = colWidths;
+    // Prepare main data
+    const excelData = data.map((row, index) => {
+      const excelRow = {};
 
-  // Apply text wrapping to remarks column cells
-  for (let row = range.s.r; row <= range.e.r; row++) {
-    if (remarksColIndex !== -1) {
-      const cellAddress = XLSX.utils.encode_cell({ r: row, c: remarksColIndex });
-      if (worksheet[cellAddress]) {
-        worksheet[cellAddress].z = '@'; // Text format
-        if (!worksheet[cellAddress].s) {
-          worksheet[cellAddress].s = {};
+      // Calculate invoice value for display
+      const invValue = row.cif_amount && row.inv_currency
+        ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+        : '';
+
+      const visibleCols = columns.filter((col) => !(col.key === 'cif_amount' && !isSrManager));
+      visibleCols.forEach(col => {
+        switch (col.key) {
+          case 'srlNo':
+            excelRow[col.label] = String(index + 1).padStart(3, "0");
+            break;
+          case 'cif_amount':  // Custom PRICE column handling
+            excelRow[col.label] = invValue;
+            break;
+          case 'size':
+            excelRow[col.label] = deriveSize(row.noOfContrSize);
+            break;
+          case 'containerNumbers':
+            excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
+            break;
+          case 'be_date':
+            excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
+            break;
+          case 'out_of_charge':
+            excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
+            break;
+          case 'remarks':
+            excelRow[col.label] = row[col.key] || '';
+            break;
+          default:
+            excelRow[col.label] = row[col.key] || '';
         }
-        worksheet[cellAddress].s.alignment = {
-          wrapText: true,
-          vertical: 'top',
-          horizontal: 'center'
-        };
+      });
+      return excelRow;
+    });
+
+    // Create main worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Auto-fit columns
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    const colWidths = [];
+    let remarksColIndex = -1;
+
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      let maxWidth = 0;
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        const cell = worksheet[cellAddress];
+        if (cell && cell.v) {
+          const cellValue = String(cell.v);
+          maxWidth = Math.max(maxWidth, cellValue.length);
+        }
+      }
+      colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
+
+      // Find remarks column index
+      if (worksheet[XLSX.utils.encode_cell({ r: 0, c: col })]?.v === 'REMARKS') {
+        remarksColIndex = col;
       }
     }
-  }
+    worksheet['!cols'] = colWidths;
 
-  // Add main worksheet
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
+    // Apply text wrapping to remarks column cells
+    for (let row = range.s.r; row <= range.e.r; row++) {
+      if (remarksColIndex !== -1) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: remarksColIndex });
+        if (worksheet[cellAddress]) {
+          worksheet[cellAddress].z = '@'; // Text format
+          if (!worksheet[cellAddress].s) {
+            worksheet[cellAddress].s = {};
+          }
+          worksheet[cellAddress].s.alignment = {
+            wrapText: true,
+            vertical: 'top',
+            horizontal: 'center'
+          };
+        }
+      }
+    }
 
-  // Create summary worksheet using generateSummaryRows
-  const monthName = months.find(m => m.value === month)?.label || 'Unknown';
-  const summarySheet = [];
-  summarySheet.push([`Summary -- ${monthName} --${year}`]);
-  summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
-  const summaryRows = generateSummaryRows();
-  summaryRows.forEach(row => {
-    summarySheet.push([
-      row.location,
-      row.details,
-      row.count20,
-      row.count40,
-      row.teus,
-      row.containers
-    ]);
-  });
+    // Add main worksheet
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
 
-  const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
-  // Auto-fit summary columns
-  const summaryColWidths = [
-    { wch: 20 }, // Particulars
-    { wch: 12 }, // Details
-    { wch: 8 },  // 20
-    { wch: 8 },  // 40
-    { wch: 10 }, // TEUS
-    { wch: 10 }  // Containers
-  ];
-  summaryWorksheet['!cols'] = summaryColWidths;
+    // Create summary worksheet using generateSummaryRows
+    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const summarySheet = [];
+    summarySheet.push([`Summary -- ${monthName} --${year}`]);
+    summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
+    const summaryRows = generateSummaryRows();
+    summaryRows.forEach(row => {
+      summarySheet.push([
+        row.location,
+        row.details,
+        row.count20,
+        row.count40,
+        row.teus,
+        row.containers
+      ]);
+    });
 
-  XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
+    // Auto-fit summary columns
+    const summaryColWidths = [
+      { wch: 20 }, // Particulars
+      { wch: 12 }, // Details
+      { wch: 8 },  // 20
+      { wch: 8 },  // 40
+      { wch: 10 }, // TEUS
+      { wch: 10 }  // Containers
+    ];
+    summaryWorksheet['!cols'] = summaryColWidths;
 
-  // Generate filename and save
-  const timestamp = new Date().toISOString().slice(0, 10);
-  const filename = `clearance_report_${monthName}_${year}_${timestamp}.xlsx`;
-  XLSX.writeFile(workbook, filename);
-};
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+
+    // Generate filename and save
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `clearance_report_${monthName}_${year}_${timestamp}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+  };
 
 
   const exportToPDF = async () => {
@@ -757,13 +770,13 @@ const exportToExcel = async () => {
               <ListItemIcon>
                 <TableViewIcon fontSize="small" sx={{ color: '#1976d2' }} />
               </ListItemIcon>
-              <ListItemText 
-                primary="Export as Excel" 
+              <ListItemText
+                primary="Export as Excel"
                 secondary="With summary sheet"
-                sx={{ 
-                  '& .MuiListItemText-secondary': { 
-                    fontSize: '0.75rem', 
-                    color: '#666' 
+                sx={{
+                  '& .MuiListItemText-secondary': {
+                    fontSize: '0.75rem',
+                    color: '#666'
                   }
                 }}
               />
@@ -773,61 +786,61 @@ const exportToExcel = async () => {
               <ListItemIcon>
                 <PictureAsPdfIcon fontSize="small" sx={{ color: '#d32f2f' }} />
               </ListItemIcon>
-              <ListItemText 
-                primary="Export as PDF" 
+              <ListItemText
+                primary="Export as PDF"
                 secondary="With summary table"
-                sx={{ 
-                  '& .MuiListItemText-secondary': { 
-                    fontSize: '0.75rem', 
-                    color: '#666' 
+                sx={{
+                  '& .MuiListItemText-secondary': {
+                    fontSize: '0.75rem',
+                    color: '#666'
                   }
                 }}
               />
             </MenuItem>
           </Menu>
         </Box>
-    {/* Summary Dialog */}
-    <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 'bold', background: 'linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)' }}>
-        Summary - {months.find(m => m.value === month)?.label} {year}
-      </DialogTitle>
-      <DialogContent sx={{ background: '#fff' }}>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {generateSummaryRows().map((row, idx) => (
-                <TableRow key={idx} sx={{ background: row.location === 'LCL' ? '#e3f2fd' : (row.details === 'Scrap' ? '#fffde7' : row.details === 'Others' ? '#f7faff' : undefined) }}>
-                  <TableCell align="center" sx={{ fontWeight: row.location === 'LCL' ? 'bold' : 'normal' }}>{row.location}</TableCell>
-                  <TableCell align="center">{row.details}</TableCell>
-                  <TableCell align="center">{row.count20}</TableCell>
-                  <TableCell align="center">{row.count40}</TableCell>
-                  <TableCell align="center">{row.teus}</TableCell>
-                  <TableCell align="center">{row.containers}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setSummaryOpen(false)} color="primary" variant="contained">Close</Button>
-      </DialogActions>
-    </Dialog>
-        
-        <Typography 
-          variant="h6" 
-          align="center" 
-          sx={{ 
+        {/* Summary Dialog */}
+        <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ fontWeight: 'bold', background: 'linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)' }}>
+            Summary - {months.find(m => m.value === month)?.label} {year}
+          </DialogTitle>
+          <DialogContent sx={{ background: '#fff' }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {generateSummaryRows().map((row, idx) => (
+                    <TableRow key={idx} sx={{ background: row.location === 'LCL' ? '#e3f2fd' : (row.details === 'Scrap' ? '#fffde7' : row.details === 'Others' ? '#f7faff' : undefined) }}>
+                      <TableCell align="center" sx={{ fontWeight: row.location === 'LCL' ? 'bold' : 'normal' }}>{row.location}</TableCell>
+                      <TableCell align="center">{row.details}</TableCell>
+                      <TableCell align="center">{row.count20}</TableCell>
+                      <TableCell align="center">{row.count40}</TableCell>
+                      <TableCell align="center">{row.teus}</TableCell>
+                      <TableCell align="center">{row.containers}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSummaryOpen(false)} color="primary" variant="contained">Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Typography
+          variant="h6"
+          align="center"
+          sx={{
             fontWeight: 'bold',
             color: 'white',
             textShadow: '0 1px 4px rgba(25, 118, 210, 0.15)',
@@ -837,8 +850,8 @@ const exportToExcel = async () => {
           Import Clearance Report
         </Typography>
 
-        
-        
+
+
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
 
           {isSrManager && (
@@ -857,7 +870,7 @@ const exportToExcel = async () => {
               </Select>
             </FormControl>
           )}
-          
+
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <InputLabel>Year</InputLabel>
             <Select
@@ -872,17 +885,17 @@ const exportToExcel = async () => {
           </FormControl>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={handlePreviousMonth}
-              sx={{ 
+              sx={{
                 bgcolor: '#f5f5f5',
                 '&:hover': { bgcolor: '#e0e0e0' }
               }}
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
-            
+
             <FormControl size="small" sx={{ minWidth: 100 }}>
               <InputLabel>Month</InputLabel>
               <Select
@@ -895,11 +908,11 @@ const exportToExcel = async () => {
                 ))}
               </Select>
             </FormControl>
-            
-            <IconButton 
-              size="small" 
+
+            <IconButton
+              size="small"
               onClick={handleNextMonth}
-              sx={{ 
+              sx={{
                 bgcolor: '#f5f5f5',
                 '&:hover': { bgcolor: '#e0e0e0' }
               }}
@@ -926,13 +939,16 @@ const exportToExcel = async () => {
             <Typography variant="body2" sx={{ color: '#666' }}>
               Total TEUs: {
                 (() => {
-                  const totalTeus = data.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
-                  const lclTeus = data.reduce((sum, row) => {
+                  const filteredData = data.filter(row => row.be_filing_type !== "Ex-Bond" && row.type_of_b_e !== "Ex-Bond");
+                  const totalTeus = filteredData.reduce((sum, row) => {
                     const consType = (row.consignment_type || '').toUpperCase();
                     const remarks = (row.remarks || '').toLowerCase();
-                    return (consType === 'LCL' || remarks.includes('lcl')) ? sum + (parseInt(row.teus) || 0) : sum;
+                    const isLCL = consType === 'LCL' || remarks.includes('lcl');
+                    if (isLCL) return sum + 1;
+                    return sum + (parseInt(row.teus) || 0);
                   }, 0);
-                  return totalTeus - lclTeus;
+
+                  return totalTeus;
                 })()
               }
             </Typography>
@@ -950,11 +966,11 @@ const exportToExcel = async () => {
                   {columns
                     .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
                     .map((col) => (
-                      <TableCell 
-                        key={col.key} 
-                        align="center" 
-                        sx={{ 
-                          fontWeight: "bold", 
+                      <TableCell
+                        key={col.key}
+                        align="center"
+                        sx={{
+                          fontWeight: "bold",
                           fontSize: "0.75rem",
                           padding: "8px 6px",
                           backgroundColor: '#f5f5f5',
@@ -969,142 +985,142 @@ const exportToExcel = async () => {
                     ))}
                 </TableRow>
               </TableHead>
- <TableBody>
-  {loading
-    ? Array.from({ length: 8 }).map((_, idx) => (
-        <TableRow key={idx}>
-          {columns
-            .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
-            .map((col) => (
-              <TableCell 
-                key={col.key} 
-                align="center" 
-                sx={{ 
-                  fontSize: "0.75rem", 
-                  padding: "6px 8px",
-                  borderBottom: '1px solid #e0e0e0'
-                }}
-              >
-                <Skeleton variant="text" height={20} />
-              </TableCell>
-            ))}
-        </TableRow>
-      ))
-    : data.map((row, idx) => (
-        <TableRow 
-          key={idx}
-          sx={{ 
-            '&:hover': { 
-              backgroundColor: '#f9f9f9'
-            },
-            '&:nth-of-type(even)': {
-              backgroundColor: '#fafafa'
-            }
-          }}
-        >
-          {/* Srl No. */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#666' }}>
-            {String(idx + 1).padStart(3, "0")}
-          </TableCell>
-          
-          {/* JOB No */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: '500' }}>
-            {row.job_no}
-          </TableCell>
-          
-          {/* LOCATION */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {row.location}
-          </TableCell>
-          
-          {/* IMPORTERS NAME */}
-          <TableCell align="left" sx={{ fontSize: "0.75rem", padding: "6px 8px", maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            <Tooltip title={row.importer}>
-              <span>{row.importer}</span>
-            </Tooltip>
-          </TableCell>
-          
-          {/* COMMODITY */}
-          <TableCell align="left" sx={{ fontSize: "0.75rem", padding: "6px 8px", maxWidth: 120, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            <Tooltip title={row.commodity}>
-              <span>{row.commodity}</span>
-            </Tooltip>
-          </TableCell>
-          
-          {/* PRICE (cif_amount) - NEW COLUMN (only for Sr. Manager) */}
-          {isSrManager && (
-            <TableCell align="right" sx={{ 
-              fontSize: "0.8rem", 
-              padding: "6px 8px", 
-              fontWeight: '500', 
-              color: '#1976d2',
-              fontFamily: 'monospace',
-              whiteSpace: 'nowrap'
-            }}>
-              {row?.cif_amount && row?.inv_currency
-                ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
-                : '—'
-              }
-            </TableCell>
-          )}
+              <TableBody>
+                {loading
+                  ? Array.from({ length: 8 }).map((_, idx) => (
+                    <TableRow key={idx}>
+                      {columns
+                        .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
+                        .map((col) => (
+                          <TableCell
+                            key={col.key}
+                            align="center"
+                            sx={{
+                              fontSize: "0.75rem",
+                              padding: "6px 8px",
+                              borderBottom: '1px solid #e0e0e0'
+                            }}
+                          >
+                            <Skeleton variant="text" height={20} />
+                          </TableCell>
+                        ))}
+                    </TableRow>
+                  ))
+                  : data.map((row, idx) => (
+                    <TableRow
+                      key={idx}
+                      sx={{
+                        '&:hover': {
+                          backgroundColor: '#f9f9f9'
+                        },
+                        '&:nth-of-type(even)': {
+                          backgroundColor: '#fafafa'
+                        }
+                      }}
+                    >
+                      {/* Srl No. */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#666' }}>
+                        {String(idx + 1).padStart(3, "0")}
+                      </TableCell>
+
+                      {/* JOB No */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: '500' }}>
+                        {row.job_no}
+                      </TableCell>
+
+                      {/* LOCATION */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        {row.location}
+                      </TableCell>
+
+                      {/* IMPORTERS NAME */}
+                      <TableCell align="left" sx={{ fontSize: "0.75rem", padding: "6px 8px", maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <Tooltip title={row.importer}>
+                          <span>{row.importer}</span>
+                        </Tooltip>
+                      </TableCell>
+
+                      {/* COMMODITY */}
+                      <TableCell align="left" sx={{ fontSize: "0.75rem", padding: "6px 8px", maxWidth: 120, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <Tooltip title={row.commodity}>
+                          <span>{row.commodity}</span>
+                        </Tooltip>
+                      </TableCell>
+
+                      {/* PRICE (cif_amount) - NEW COLUMN (only for Sr. Manager) */}
+                      {isSrManager && (
+                        <TableCell align="right" sx={{
+                          fontSize: "0.8rem",
+                          padding: "6px 8px",
+                          fontWeight: '500',
+                          color: '#1976d2',
+                          fontFamily: 'monospace',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {row?.cif_amount && row?.inv_currency
+                            ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+                            : '—'
+                          }
+                        </TableCell>
+                      )}
 
 
-          
-          {/* B/E. NO. */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {row.be_no}
-          </TableCell>
-          
-          {/* DATE */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
-          </TableCell>
-          
-          {/* CONTAINER NO. */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-              {row.containerNumbers && row.containerNumbers.map((num, i) => (
-                <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
-                  {num}
-                </Typography>
-              ))}
-            </Box>
-          </TableCell>
-          
-          {/* NO. OF CNTR */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}>
-            {row.totalContainers}
-          </TableCell>
-          
-          {/* SIZE (separate column) */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {deriveSize(row.noOfContrSize)}
-          </TableCell>
 
-          {/* Teus */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}>
-            {row.teus}
-          </TableCell>
-          
-          {/* CLRG DATE */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
-          </TableCell>
-          
-          {/* REMARKS */}
-          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {row.remarks
-              ? row.remarks.split('\n').map((line, idx) => (
-                  <React.Fragment key={idx}>
-                    {line}
-                    {idx < row.remarks.split('\n').length - 1 && <br />}
-                  </React.Fragment>
-                ))
-              : ""}
-          </TableCell>
-        </TableRow>
-      ))}
-</TableBody>
+                      {/* B/E. NO. */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        {row.be_no}
+                      </TableCell>
+
+                      {/* DATE */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
+                      </TableCell>
+
+                      {/* CONTAINER NO. */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                          {row.containerNumbers && row.containerNumbers.map((num, i) => (
+                            <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
+                              {num}
+                            </Typography>
+                          ))}
+                        </Box>
+                      </TableCell>
+
+                      {/* NO. OF CNTR */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}>
+                        {row.totalContainers}
+                      </TableCell>
+
+                      {/* SIZE (separate column) */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        {deriveSize(row.noOfContrSize)}
+                      </TableCell>
+
+                      {/* Teus */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}>
+                        {row.teus}
+                      </TableCell>
+
+                      {/* CLRG DATE */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
+                      </TableCell>
+
+                      {/* REMARKS */}
+                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                        {row.remarks
+                          ? row.remarks.split('\n').map((line, idx) => (
+                            <React.Fragment key={idx}>
+                              {line}
+                              {idx < row.remarks.split('\n').length - 1 && <br />}
+                            </React.Fragment>
+                          ))
+                          : ""}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
 
             </Table>
           </TableContainer>

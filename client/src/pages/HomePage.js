@@ -10,6 +10,7 @@ import ProtectedRoute from "./ProtectedRoute.js";
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
 import ChangePassword from "../components/home/ChangePassword.js";
+import UserProfile from "../components/userProfile/UserProfile.js";
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
 // Documentation
@@ -150,6 +151,7 @@ function HomePage() {
               {/* Public Routes - No protection needed */}
               <Route path="/" element={<Home />} />
               <Route path="/change-password" element={<ChangePassword />} />
+              <Route path="/profile/:username" element={<UserProfile />} />
 
               {/* Protected Routes */}
               <Route

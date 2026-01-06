@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../../styles/sidebar.scss";
 import { Avatar, IconButton, ListItemButton, Tooltip } from "@mui/material";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
@@ -35,7 +36,7 @@ function Sidebar() {
         enterDelay={0}
         placement="right"
       >
-        <IconButton>
+        <IconButton onClick={() => navigate(`/profile/${user.username}`)}>
           <Avatar src={user.employee_photo} alt="Employee Photo" />
         </IconButton>
       </Tooltip>

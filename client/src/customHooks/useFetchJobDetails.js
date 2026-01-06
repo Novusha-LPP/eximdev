@@ -8,13 +8,7 @@ import AWS from "aws-sdk";
 
 const handleSingleFileUpload = async (file, folderName, setFileSnackbar, shouldCompress = false) => {
   try {
-<<<<<<< HEAD
-<<<<<<< HEAD
-    const fileToUpload = shouldCompress ? await compressFile(file, 900) : file;
-=======
->>>>>>> parent of 9561443 (feat: Implement AWS S3 file upload with client-side compression for images, PDFs, and Office documents.)
-=======
->>>>>>> parent of 9561443 (feat: Implement AWS S3 file upload with client-side compression for images, PDFs, and Office documents.)
+
     const key = `${folderName}/${file.name}`;
 
     const s3 = new AWS.S3({
@@ -26,15 +20,7 @@ const handleSingleFileUpload = async (file, folderName, setFileSnackbar, shouldC
     const params = {
       Bucket: process.env.REACT_APP_S3_BUCKET,
       Key: key,
-<<<<<<< HEAD
-<<<<<<< HEAD
-      Body: fileToUpload,
-=======
       Body: file,
->>>>>>> parent of 9561443 (feat: Implement AWS S3 file upload with client-side compression for images, PDFs, and Office documents.)
-=======
-      Body: file,
->>>>>>> parent of 9561443 (feat: Implement AWS S3 file upload with client-side compression for images, PDFs, and Office documents.)
     };
 
     const data = await s3.upload(params).promise();

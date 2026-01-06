@@ -2088,7 +2088,6 @@ function JobDetails() {
                             label="Upload"
                             bucketPath={`cth-documents/${doc.document_name}`}
                             multiple={true}
-                            shouldCompress={true}
                             containerStyles={{ marginTop: 0 }}
                             buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
                             onFilesUploaded={(urls) => {

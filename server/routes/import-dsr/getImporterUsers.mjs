@@ -17,9 +17,18 @@ router.get("/api/get-importer-users", async (req, res) => {
         // assigned_importer_name is an array of strings.
         const users = await User.find({
             assigned_importer_name: importerName,
-        }).select("username");
+        }).select("username first_name last_name");
 
-        const userNames = users.map((u) => u.username);
+        const userNames = users.map((u) => {
+            const nameParts = [];
+            if (u.first_name) nameParts.push(u.first_name);
+            if (u.last_name) nameParts.push(u.last_name);
+
+            if (nameParts.length > 0) {
+                return nameParts.join(" ");
+            }
+            return u.username;
+        });
 
         // Sort for consistent display
         userNames.sort();

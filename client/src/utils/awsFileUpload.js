@@ -1,4 +1,4 @@
-import AWS from "aws-sdk";
+import axios from "axios";
 
 export const handleFileUpload = async (
   e,
@@ -13,28 +13,24 @@ export const handleFileUpload = async (
   }
 
   try {
-    const s3 = new AWS.S3({
-      accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-      secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-      region: "ap-south-1",
-    });
-
-    const uploadedFiles = [];
-
+    const formData = new FormData();
+    // Append all files
     for (let i = 0; i < e.target.files.length; i++) {
-      const file = e.target.files[i];
-      const params = {
-        Bucket: process.env.REACT_APP_S3_BUCKET,
-        Key: `${folderName}/${file.name}`,
-        Body: file,
-      };
-
-      // Upload the file to S3 and wait for the promise to resolve
-      const data = await s3.upload(params).promise();
-
-      // Store the S3 URL in the uploadedFiles array
-      uploadedFiles.push(data.Location);
+      formData.append("files", e.target.files[i]);
     }
+    formData.append("bucketPath", folderName);
+
+    const response = await axios.post(
+      `${process.env.REACT_APP_API_STRING}/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    const uploadedFiles = response.data.urls;
 
     // Update formik values with the uploaded file URLs
     formik.setValues((values) => ({
@@ -52,28 +48,21 @@ export const handleFileUpload = async (
   }
 };
 
-export const uploadFileToS3 = (file, folderName) => {
-  AWS.config.update({
-    region: "ap-south-1",
-    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-  });
+export const uploadFileToS3 = async (file, folderName) => {
+  const formData = new FormData();
+  formData.append("files", file);
+  formData.append("bucketPath", folderName);
 
-  const s3 = new AWS.S3();
+  const response = await axios.post(
+    `${process.env.REACT_APP_API_STRING}/upload`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
 
-  const timestamp = Date.now(); // Unix timestamp in milliseconds
-  const fileExtension = file.name.substring(file.name.lastIndexOf('.')); // Get the file extension
-  const baseFileName = file.name.substring(0, file.name.lastIndexOf('.')); // Get base name without extension
-
-  const uniqueFileName = `${baseFileName}-${timestamp}${fileExtension}`;
-
-  const params = {
-    Bucket: process.env.REACT_APP_S3_BUCKET,
-    Key: `${folderName}/${uniqueFileName}`,
-    Body: file,
-    ContentType: file.type,
-  };
-
-  return s3.upload(params).promise();
+  // Return object with Location to match previous interface
+  return { Location: response.data.urls[0] };
 };
-

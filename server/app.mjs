@@ -14,9 +14,11 @@ try {
     nodeProfilingIntegration = profilingMod.nodeProfilingIntegration;
   }
 } catch (e) {
-  console.warn("Sentry profiling integration not available:", e && e.message ? e.message : e);
+  console.warn(
+    "Sentry profiling integration not available:",
+    e && e.message ? e.message : e
+  );
 }
-
 
 process.on("uncaughtException", (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, { stack: error.stack });
@@ -61,14 +63,15 @@ import login from "./routes/login.mjs";
 import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 
-// charges 
+// charges
 import Charges from "./routes/ChargesSection/ChargesSection.js";
 
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
-import reminderRoutes, { initReminderSystem } from './routes/accounts/remiderRoutes.js';
-import accountLedger from './routes/accounts/Ledger/accountLedger.mjs'
-
+import reminderRoutes, {
+  initReminderSystem,
+} from "./routes/accounts/remiderRoutes.js";
+import accountLedger from "./routes/accounts/Ledger/accountLedger.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -104,8 +107,6 @@ import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
 
-
-
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
 
@@ -115,7 +116,7 @@ import getDoBilling from "./routes/import-do/getDoBilling.mjs";
 import freeDaysConf from "./routes/import-do/freeDaysConf.mjs";
 import getDoModuleJobs from "./routes/import-do/getDoModuleJobs.mjs";
 import updateDoBilling from "./routes/import-do/updateDoBilling.mjs";
-import updateDoListRouter from './routes/import-do/updateDoList.mjs';
+import updateDoListRouter from "./routes/import-do/updateDoList.mjs";
 import updateDoPlanning from "./routes/import-do/updateDoPlanning.mjs";
 import getKycDocuments from "./routes/import-do/getKycDocuments.mjs";
 import getShippingLines from "./routes/getShippingLines.mjs";
@@ -187,25 +188,24 @@ import releaseNoteRoutes from "./routes/releaseNoteRoutes.js";
 // feedback
 import feedback from "./routes/feedbackRoutes.js";
 
-
 //scrapper
-import cron from 'node-cron';
-import { scrapeAndSaveCurrencyRates } from './services/currencyRateScraper.js';
+import cron from "node-cron";
+import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 
-import currencyRateRoutes from './routes/currencyRate.js';
+import currencyRateRoutes from "./routes/currencyRate.js";
 
 // Open Points Module
 import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
 
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
-
+import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
     : process.env.NODE_ENV === "server"
-      ? process.env.SERVER_MONGODB_URI
-      : process.env.DEV_MONGODB_URI;
+    ? process.env.SERVER_MONGODB_URI
+    : process.env.DEV_MONGODB_URI;
 
 // const CLIENT_URI =
 //   process.env.NODE_ENV === "production"
@@ -255,14 +255,14 @@ if (cluster.isPrimary) {
       ],
       credentials: true,
       // Allow custom headers for audit trail
-      exposedHeaders: ['Content-Type', 'Authorization'],
+      exposedHeaders: ["Content-Type", "Authorization"],
       allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'user-id',
-        'username',
-        'user-role',
-        'x-username'
+        "Content-Type",
+        "Authorization",
+        "user-id",
+        "username",
+        "user-role",
+        "x-username",
       ],
     })
   );
@@ -324,8 +324,8 @@ if (cluster.isPrimary) {
       // Accounts
 
       app.use("/api", Accounts);
-      app.use('/api', reminderRoutes);
-      app.use('/api', accountLedger);
+      app.use("/api", reminderRoutes);
+      app.use("/api", accountLedger);
 
       // Documentation
       app.use(updateDocumentationJob);
@@ -431,19 +431,17 @@ if (cluster.isPrimary) {
       app.use(monthlyContainersRouter);
       app.use(monthlyClearanceRouter);
 
-
       //auditrail
       app.use(auditTrail);
 
       // proxy apis
       app.use(icegateProxy);
 
+      // release notes
+      app.use("/api", releaseNoteRoutes);
 
-      // release notes 
-      app.use('/api', releaseNoteRoutes);
-
-      // feedback 
-      app.use('/api', feedback);
+      // feedback
+      app.use("/api", feedback);
 
       //scrapper
       app.use(currencyRateRoutes);
@@ -451,24 +449,32 @@ if (cluster.isPrimary) {
       // Analytics
       app.use(analyticsRoutes);
 
-
       // Open Points
       app.use(openPointsRoutes);
+
+      // Upload
+      app.use(uploadFileRoutes);
 
       // initialize cron jobs only on the first worker to avoid duplicates
 
       if (cluster.worker.id === 1) {
-        cron.schedule('1 0 * * *', async () => {
-          console.log('🕐 Running scheduled currency rate scraper at 12:01 AM...');
-          try {
-            const result = await scrapeAndSaveCurrencyRates();
-            console.log('✅ Scheduled scrape completed:', result);
-          } catch (error) {
-            console.error('❌ Scheduled scrape failed:', error);
+        cron.schedule(
+          "1 0 * * *",
+          async () => {
+            console.log(
+              "🕐 Running scheduled currency rate scraper at 12:01 AM..."
+            );
+            try {
+              const result = await scrapeAndSaveCurrencyRates();
+              console.log("✅ Scheduled scrape completed:", result);
+            } catch (error) {
+              console.error("❌ Scheduled scrape failed:", error);
+            }
+          },
+          {
+            timezone: "Asia/Kolkata", // IST timezone
           }
-        }, {
-          timezone: "Asia/Kolkata" // IST timezone
-        });
+        );
 
         // Initialize reminder system cron
         initReminderSystem();

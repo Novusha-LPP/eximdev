@@ -27,7 +27,7 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // Get all data including headers for validation
       const allData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
-      
+
       // Check if second row exists
       if (allData.length < 2) {
         setError("Invalid Excel format: File must contain at least 2 rows");
@@ -38,8 +38,10 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // Check for AHMEDABAD in the second row
       const secondRow = allData[1];
-      const containsAhmedabad = secondRow.some(cell => 
-        String(cell || '').toUpperCase().includes("AHMEDABAD")
+      const containsAhmedabad = secondRow.some((cell) =>
+        String(cell || "")
+          .toUpperCase()
+          .includes("AHMEDABAD")
       );
 
       if (!containsAhmedabad) {
@@ -51,7 +53,6 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // If validation passes, continue with existing processing
       handleFileRead(event);
-      
     } catch (err) {
       console.error("Error validating file:", err);
       setError("Error processing file. Please check the format.");
@@ -82,6 +83,10 @@ function useFileUpload(inputRef, alt, setAlt) {
     const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], {
       range: 2,
     });
+
+    console.log(
+      `📊 Starting to process ${jsonData.length} rows from Excel file...`
+    );
 
     const modifiedData = jsonData?.map((item) => {
       const modifiedItem = {};
@@ -201,6 +206,17 @@ function useFileUpload(inputRef, alt, setAlt) {
           }
         }
       }
+
+      // Log progress every 100 rows
+      const rowIndex = jsonData.indexOf(item) + 1;
+      if (rowIndex % 100 === 0) {
+        console.log(
+          `✅ Processed ${rowIndex} / ${jsonData.length} rows (${Math.round(
+            (rowIndex / jsonData.length) * 100
+          )}%)`
+        );
+      }
+
       return modifiedItem;
     });
 
@@ -244,12 +260,25 @@ function useFileUpload(inputRef, alt, setAlt) {
       } else {
         item.container_nos = [];
       }
+
+      // Log container processing progress every 100 rows
+      const containerRowIndex = modifiedData.indexOf(item) + 1;
+      if (containerRowIndex % 100 === 0) {
+        console.log(
+          `📦 Container processing: ${containerRowIndex} / ${modifiedData.length} rows`
+        );
+      }
     });
 
     // Set file to null so that the same file can be selected again
     if (inputRef.current) {
       inputRef.current.value = null;
     }
+
+    console.log(
+      `🎉 Excel processing complete! Total rows processed: ${modifiedData.length}`
+    );
+    console.log(`📤 Starting upload to server...`);
 
     // Upload the Excel data and check the status
     await uploadAndCheckStatus(modifiedData);
@@ -265,15 +294,16 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       const existingVesselBerthing =
         lastJobsDateRes.data?.vessel_berthing || "";
-        
-      const existingGatewayIGM =
-        lastJobsDateRes.data?.gateway_igm_date || "";
+
+      const existingGatewayIGM = lastJobsDateRes.data?.gateway_igm_date || "";
 
       // Modify the data before sending it to the backend
       const finalData = modifiedData.map((item) => {
         if (
-          item.vessel_berthing && item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
-          ((!existingVesselBerthing || existingVesselBerthing.trim() === "") && (!existingGatewayIGM || existingGatewayIGM.trim() === "")) // And the existing value is empty or null
+          item.vessel_berthing &&
+          item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
+          (!existingVesselBerthing || existingVesselBerthing.trim() === "") &&
+          (!existingGatewayIGM || existingGatewayIGM.trim() === "") // And the existing value is empty or null
         ) {
           return item; // Use the Excel sheet's vessel_berthing date
         } else {
@@ -286,10 +316,10 @@ function useFileUpload(inputRef, alt, setAlt) {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
       // First, upload the data
@@ -327,7 +357,7 @@ function useFileUpload(inputRef, alt, setAlt) {
     setSnackbar(false);
   }, 2000);
 
-  return { handleFileUpload, snackbar, loading, error };
+  return { handleFileUpload, snackbar, loading, error, setError };
 }
 
 export default useFileUpload;

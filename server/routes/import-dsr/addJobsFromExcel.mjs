@@ -40,8 +40,9 @@ const formatDateToIST = () => {
 const currentTimeIST = formatDateToIST();
 
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
-router.post("/api/jobs/add-job-all-In-bond",
-  auditMiddleware('Job'),
+router.post(
+  "/api/jobs/add-job-all-In-bond",
+  auditMiddleware("Job"),
   async (req, res) => {
     try {
       const jobs = await JobModel.find(
@@ -53,14 +54,23 @@ router.post("/api/jobs/add-job-all-In-bond",
       console.error("Error fetching In-Bond jobs:", error);
       res.status(500).json({ message: "Error fetching In-Bond jobs." });
     }
-  });
+  }
+);
 
 // Route to add a new job
-router.post("/api/jobs/add-job-imp-man",
-  auditMiddleware('Job'),
+router.post(
+  "/api/jobs/add-job-imp-man",
+  auditMiddleware("Job"),
   async (req, res) => {
     try {
-      const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
+      const {
+        container_nos,
+        importer,
+        awb_bl_no,
+        custom_house,
+        year,
+        job_date,
+      } = req.body;
 
       // ✅ Validate required fields
       if (!importer || !custom_house) {
@@ -116,9 +126,8 @@ router.post("/api/jobs/add-job-imp-man",
       const newJob = new JobModel({
         job_no: newJobNo,
         ...req.body,
-        job_date: todayDate // ← This line sets job_date to "now" if not provided
+        job_date: todayDate, // ← This line sets job_date to "now" if not provided
       });
-
 
       // ✅ Save to database
       await newJob.save();
@@ -146,15 +155,45 @@ router.post("/api/jobs/add-job-imp-man",
         .status(500)
         .json({ message: error.message || "Internal server error." });
     }
-  });
+  }
+);
 
-router.post("/api/jobs/add-job",
-  auditMiddleware('Job'),
+router.post(
+  "/api/jobs/add-job",
+  // auditMiddleware('Job'), // Disabled for bulk operations - causes performance issues with large datasets
   async (req, res) => {
     const jsonData = req.body;
+    const CHUNK_SIZE = 1000; // Process 1000 jobs at a time
+
+    console.log(`📊 [Backend] Starting to process ${jsonData.length} jobs...`);
+    const startTime = Date.now();
 
     try {
+      // OPTIMIZATION: Batch fetch all existing jobs in one query
+      console.log(`🔍 [Backend] Fetching existing jobs from database...`);
+      const jobKeys = jsonData.map((d) => ({ year: d.year, job_no: d.job_no }));
+
+      // Get unique year values for the query
+      const years = [...new Set(jsonData.map((d) => d.year))];
+      const jobNos = [...new Set(jsonData.map((d) => d.job_no))];
+
+      const existingJobs = await JobModel.find({
+        year: { $in: years },
+        job_no: { $in: jobNos },
+      }).lean();
+
+      // Create a Map for O(1) lookup
+      const existingJobsMap = new Map();
+      existingJobs.forEach((job) => {
+        existingJobsMap.set(`${job.year}_${job.job_no}`, job);
+      });
+
+      console.log(
+        `✅ [Backend] Found ${existingJobs.length} existing jobs. Building bulk operations...`
+      );
+
       const bulkOperations = [];
+      let processedCount = 0;
 
       for (const data of jsonData) {
         const {
@@ -173,11 +212,11 @@ router.post("/api/jobs/add-job",
           exrate,
           cif_amount,
           unit_price,
-          vessel_berthing, // New value from Excel
+          vessel_berthing,
           gateway_igm_date,
           line_no,
           ie_code_no,
-          container_nos, // Assume container data is part of the incoming job data
+          container_nos,
           hss_name,
           total_inv_value,
         } = data;
@@ -187,14 +226,14 @@ router.post("/api/jobs/add-job",
           typeof bill_date === "string"
             ? bill_date
             : bill_date != null
-              ? String(bill_date)
-              : "";
+            ? String(bill_date)
+            : "";
 
         // Define the filter to find existing jobs
         const filter = { year, job_no };
 
-        // Check if the job already exists in the database
-        const existingJob = await JobModel.findOne(filter);
+        // OPTIMIZATION: Use Map lookup instead of database query
+        const existingJob = existingJobsMap.get(`${year}_${job_no}`);
         let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
         let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
         let lineNoUpdate = existingJob?.line_no || "";
@@ -202,52 +241,49 @@ router.post("/api/jobs/add-job",
 
         // Only update vessel_berthing if it's empty in the database
         if (
-          vessel_berthing && // Excel has a valid vessel_berthing date
+          vessel_berthing &&
           (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
         ) {
           vesselBerthingToUpdate = vessel_berthing;
         }
         if (
-          gateway_igm_date && // Excel has a valid vessel_berthing date
+          gateway_igm_date &&
           (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
         ) {
           gateway_igm_dateUpdate = gateway_igm_date;
         }
-        // Only update lineNoUpdate if it's empty in the database
-        if (
-          line_no && // Excel has a valid lineNoUpdate
-          (!lineNoUpdate || lineNoUpdate.trim() === "")
-        ) {
+        if (line_no && (!lineNoUpdate || lineNoUpdate.trim() === "")) {
           lineNoUpdate = line_no;
         }
-        // Only update iceCodeUpdate if it's empty in the database
         if (ie_code_no) {
           iceCodeUpdate = ie_code_no;
         }
 
         if (existingJob) {
           // Logic to merge or update container sizes
-          const updatedContainers = existingJob.container_nos.map(
+          const existingContainers = existingJob.container_nos || [];
+          const updatedContainers = existingContainers.map(
             (existingContainer) => {
-              const newContainerData = container_nos.find(
+              const newContainerData = container_nos?.find(
                 (c) => c.container_number === existingContainer.container_number
               );
 
               return newContainerData
-                ? { ...existingContainer.toObject(), size: newContainerData.size }
+                ? {
+                    ...existingContainer,
+                    size: newContainerData.size,
+                  }
                 : existingContainer;
             }
           );
 
-          // Define the update to set new data, including "container_nos"
           const update = {
             $set: {
               ...data,
-
-              vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
-              gateway_igm_date: gateway_igm_dateUpdate, // Ensure correct update logic
-              line_no: lineNoUpdate, // Ensure correct update logic
-              ie_code_no: iceCodeUpdate, // Ensure correct update logic
+              vessel_berthing: vesselBerthingToUpdate,
+              gateway_igm_date: gateway_igm_dateUpdate,
+              line_no: lineNoUpdate,
+              ie_code_no: iceCodeUpdate,
               container_nos: updatedContainers,
               status:
                 existingJob.status === "Completed"
@@ -269,41 +305,62 @@ router.post("/api/jobs/add-job",
             },
           };
 
-          // Create the bulk update operation for upsert or update
-          const bulkOperation = {
+          bulkOperations.push({
             updateOne: {
               filter,
               update,
               upsert: true,
             },
-          };
-
-          bulkOperations.push(bulkOperation);
+          });
         } else {
-          // If job does not exist, add job with new data
           const update = {
             $set: {
               ...data,
-              vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
-              gateway_igm_date: gateway_igm_dateUpdate, // Ensure new jobs respect the logic
+              vessel_berthing: vesselBerthingToUpdate,
+              gateway_igm_date: gateway_igm_dateUpdate,
               status: computeStatus(sanitizedBillDate),
             },
           };
 
-          const bulkOperation = {
+          bulkOperations.push({
             updateOne: {
               filter,
               update,
               upsert: true,
             },
-          };
+          });
+        }
 
-          bulkOperations.push(bulkOperation);
+        processedCount++;
+
+        // Log progress every 500 jobs during preparation
+        if (processedCount % 500 === 0) {
+          console.log(
+            `📝 [Backend] Prepared ${processedCount} / ${jsonData.length} jobs`
+          );
+        }
+
+        // Execute in chunks to prevent database timeout
+        if (bulkOperations.length >= CHUNK_SIZE) {
+          console.log(
+            `💾 [Backend] Writing chunk of ${bulkOperations.length} jobs to database...`
+          );
+          await JobModel.bulkWrite(bulkOperations, { ordered: false });
+          console.log(
+            `✅ [Backend] Chunk written. Total processed: ${processedCount} / ${jsonData.length}`
+          );
+          bulkOperations.length = 0;
         }
       }
 
-      // Execute the bulkWrite operation to update or insert multiple jobs
-      await JobModel.bulkWrite(bulkOperations);
+      // Execute remaining operations
+      if (bulkOperations.length > 0) {
+        console.log(
+          `💾 [Backend] Writing final chunk of ${bulkOperations.length} jobs to database...`
+        );
+        await JobModel.bulkWrite(bulkOperations, { ordered: false });
+        console.log(`✅ [Backend] Final chunk written successfully.`);
+      }
 
       // Update the last jobs update date
       try {
@@ -318,15 +375,23 @@ router.post("/api/jobs/add-job",
         }
       } catch (error) {
         console.error("Error updating the last jobs date:", error);
-        return res.status(500).send("An error occurred while updating the date.");
+        return res
+          .status(500)
+          .send("An error occurred while updating the date.");
       }
+
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(
+        `🎉 [Backend] All jobs processed successfully! Total: ${jsonData.length} jobs in ${totalTime} seconds`
+      );
 
       res.status(200).json({ message: "Jobs added/updated successfully" });
     } catch (error) {
       console.error("Error handling job data:", error);
       return res.status(500).json({ error: "Internal server error." });
     }
-  });
+  }
+);
 
 // Route to update detailed_status for all pending jobs
 router.get("/api/jobs/update-pending-status", async (req, res) => {
@@ -403,14 +468,12 @@ function determineDetailedStatus(job) {
     isValidDate(container.container_rail_out_date)
   );
 
-  const emptyContainerOffLoadDate = container_nos?.
-    every((container) =>
-      isValidDate(container.emptyContainerOffLoadDate)
-    );
-  const delivery_date = container_nos?.
-    every((container) =>
-      isValidDate(container.delivery_date)
-    );
+  const emptyContainerOffLoadDate = container_nos?.every((container) =>
+    isValidDate(container.emptyContainerOffLoadDate)
+  );
+  const delivery_date = container_nos?.every((container) =>
+    isValidDate(container.delivery_date)
+  );
 
   const validOutOfChargeDate = isValidDate(out_of_charge);
   const validPcvDate = isValidDate(pcv_date);

@@ -17,7 +17,7 @@ const fieldSchema = new mongoose.Schema({
 });
 
 const masterTypeSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
   fields: [fieldSchema],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },

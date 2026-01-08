@@ -128,8 +128,8 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
             jobData?.container_nos?.length > 0
               ? jobData.container_nos
               : data?.container_nos?.length > 0
-              ? data.container_nos
-              : null;
+                ? data.container_nos
+                : null;
           // Row: Importer (1 column)
           addSingleColumnRow("Importer", data.importer || "N/A");
 
@@ -218,17 +218,17 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
           // If no containers, return a "No containers" row
           const containerData = containerList
             ? containerList.map((container) => ({
-                container_number: container?.container_number || "N/A",
-                size: container?.size || "N/A",
-                seal_number: container?.seal_number || "N/A",
-              }))
+              container_number: container?.container_number || "N/A",
+              size: container?.size || "N/A",
+              seal_number: container?.seal_number || "N/A",
+            }))
             : [
-                {
-                  container_number: "No containers available.",
-                  size: "",
-                  seal_number: "",
-                },
-              ];
+              {
+                container_number: "No containers available.",
+                size: "",
+                seal_number: "",
+              },
+            ];
 
           doc.autoTable({
             startY: currentY,

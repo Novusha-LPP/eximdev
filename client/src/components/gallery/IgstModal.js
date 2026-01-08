@@ -1061,10 +1061,10 @@ const IgstModal = ({
                   igstValues.penalty_by_us
                     ? "company"
                     : igstValues.penalty_by_importer
-                    ? "importer"
-                    : igstValues.zero_penalty_as_per_bill_of_entry
-                    ? "zero"
-                    : ""
+                      ? "importer"
+                      : igstValues.zero_penalty_as_per_bill_of_entry
+                        ? "zero"
+                        : ""
                 }
                 onChange={(e) => {
                   const value = e.target.value;

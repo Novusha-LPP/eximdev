@@ -204,8 +204,8 @@ const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
     : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_MONGODB_URI
-    : process.env.DEV_MONGODB_URI;
+      ? process.env.SERVER_MONGODB_URI
+      : process.env.DEV_MONGODB_URI;
 
 // const CLIENT_URI =
 //   process.env.NODE_ENV === "production"
@@ -252,6 +252,7 @@ if (cluster.isPrimary) {
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://localhost:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
+        "https://import.alvision.in"
       ],
       credentials: true,
       // Allow custom headers for audit trail

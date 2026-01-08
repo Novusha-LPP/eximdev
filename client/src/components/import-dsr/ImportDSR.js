@@ -4,7 +4,7 @@ import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import Dashboard from "./Dashboard";
 import "../../styles/import-dsr.scss";
-import { Alert, MenuItem, TextField } from "@mui/material";
+import { Alert, MenuItem, TextField, LinearProgress } from "@mui/material";
 import axios from "axios";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
 import JobTabs from "./JobTabs";
@@ -28,7 +28,7 @@ function ImportDSR() {
   const [selectedYear, setSelectedYear] = React.useState("");
   const [alt, setAlt] = React.useState(false);
   const [lastJobsDate, setLastJobsDate] = React.useState("");
-  
+
   const inputRef = React.useRef();
 
   const handleChange = (event, newValue) => {
@@ -45,7 +45,7 @@ function ImportDSR() {
     getLastJobsDate();
   }, [alt]);
 
-  const { handleFileUpload, snackbar, loading, error , setError } = useFileUpload(
+  const { handleFileUpload, snackbar, loading, error, setError, progress, uploadStats } = useFileUpload(
     inputRef,
     alt,
     setAlt
@@ -73,7 +73,29 @@ function ImportDSR() {
           {user.role === "Admin" && tabValue === 0 && (
             <>
               {loading ? (
-                <CircularProgress />
+                <Box sx={{ width: '300px', mr: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                      Uploading Data...
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                      {progress.total > 0 ? `${Math.round((progress.current / progress.total) * 100)}%` : "0%"}
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant={progress.total > 0 ? "determinate" : "indeterminate"}
+                    value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: (theme) => theme.palette.grey[200],
+                      '& .MuiLinearProgress-bar': {
+                        borderRadius: 5,
+                        backgroundImage: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', // Beautiful gradient
+                      }
+                    }}
+                  />
+                </Box>
               ) : (
                 <label
                   htmlFor="uploadBtn"
@@ -109,7 +131,7 @@ function ImportDSR() {
           )}
         </div>
         {error && (
-          <Alert 
+          <Alert
             severity="error"
             sx={{ marginTop: "10px", marginBottom: "10px" }}
             onClose={() => setError(null)}
@@ -133,7 +155,10 @@ function ImportDSR() {
       </Box>
       <Snackbar
         open={snackbar}
-        message="Jobs added successfully!"
+        message={uploadStats
+          ? `${uploadStats.count} jobs added successfully in ${uploadStats.timeTaken}s!`
+          : "Jobs added successfully!"
+        }
         sx={{ left: "auto !important", right: "24px !important" }}
       />
     </SelectedYearContext.Provider>

@@ -35,6 +35,7 @@ import compression from "compression";
 import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
+import cookieParser from "cookie-parser";
 import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
@@ -60,6 +61,7 @@ import getUserData from "./routes/getUserData.mjs";
 import updateProfilePhoto from "./routes/user/updateProfilePhoto.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import me from "./routes/me.mjs";
 import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 
@@ -228,6 +230,7 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
 
   app.use((req, res, next) => {
     const isBrowserRequest =
@@ -315,6 +318,7 @@ if (cluster.isPrimary) {
       app.use(updateProfilePhoto);
       app.use(getYears);
       app.use(login);
+      app.use(me);
 
       // handle delete
       app.use(handleS3Deletation);

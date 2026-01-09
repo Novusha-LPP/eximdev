@@ -1,5 +1,6 @@
 import express from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import UserModel from "../model/userModel.mjs";
 
 const router = express.Router();
@@ -40,6 +41,23 @@ router.post("/api/login", async (req, res) => {
           assigned_importer_name: user.assigned_importer_name,
           selected_icd_codes: user.selected_icd_codes,
         };
+
+        const token = jwt.sign(
+          {
+            _id: user._id,
+            username: user.username,
+            role: user.role
+          },
+          process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod",
+          { expiresIn: "10h" }
+        );
+
+        res.cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 10 * 60 * 60 * 1000 // 10 hours
+        });
 
         return res.status(200).json(userResponse);
       } else {

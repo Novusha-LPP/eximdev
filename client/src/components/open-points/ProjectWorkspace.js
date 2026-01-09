@@ -23,6 +23,7 @@ const ProjectWorkspace = () => {
     const [summary, setSummary] = useState([]);
     const [modifiedPoints, setModifiedPoints] = useState(new Set());
     const [projectName, setProjectName] = useState('');
+    const [projectOwnerId, setProjectOwnerId] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
     const [filters, setFilters] = useState({ status: '', priority: '', responsibility: '' });
 
@@ -53,6 +54,13 @@ const ProjectWorkspace = () => {
     useEffect(() => {
         loadData();
     }, [projectId]);
+
+    // Re-calculate summary when team or points change to ensure names are up to date
+    useEffect(() => {
+        if (points.length > 0) {
+            calculateSummary(points);
+        }
+    }, [projectTeam]);
 
     // Auto-resize textarea
     const autoResize = (e) => {
@@ -86,8 +94,16 @@ const ProjectWorkspace = () => {
 
             // Handle Points
             if (pointsResult.status === 'fulfilled') {
-                setPoints(pointsResult.value);
-                calculateSummary(pointsResult.value);
+                // Sync responsibility from responsible_person object if available
+                const processedPoints = pointsResult.value.map(p => {
+                    const mapped = { ...p };
+                    if (mapped.responsible_person && mapped.responsible_person.username) {
+                        mapped.responsibility = mapped.responsible_person.username;
+                    }
+                    return mapped;
+                });
+                setPoints(processedPoints);
+                calculateSummary(processedPoints);
             } else {
                 console.error('Failed to fetch points', pointsResult.reason);
                 if (pointsResult.reason?.response?.status === 403) {
@@ -100,14 +116,21 @@ const ProjectWorkspace = () => {
             if (projectResult.status === 'fulfilled') {
                 const projectData = projectResult.value;
                 setProjectName(projectData.name || '');
+                setProjectOwnerId(projectData.owner._id || projectData.owner);
 
                 // Build Team List
                 const teamList = [];
                 if (projectData.owner) {
                     const ownerName = projectData.owner.username || `User_${projectData.owner.toString().substring(0, 6)}`;
+                    const ownerObj = projectData.owner;
+                    const fName = ownerObj.first_name || '';
+                    const lName = ownerObj.last_name || '';
+                    const dName = (fName || lName) ? `${fName} ${lName}`.trim() : ownerName;
+
                     teamList.push({
                         _id: projectData.owner._id || projectData.owner,
                         username: ownerName,
+                        displayName: dName,
                         role: 'Owner'
                     });
                 }
@@ -138,9 +161,15 @@ const ProjectWorkspace = () => {
                                 userName = userObj.username || userId;
                             }
 
+                            // Construct Display Name
+                            const fName = userObj.first_name || '';
+                            const lName = userObj.last_name || '';
+                            const dName = (fName || lName) ? `${fName} ${lName}`.trim() : userName;
+
                             return {
                                 _id: userId,
                                 username: userName,
+                                displayName: dName,
                                 role: tm.role || 'L2'
                             };
                         })
@@ -173,7 +202,11 @@ const ProjectWorkspace = () => {
     const calculateSummary = (data) => {
         const stats = {};
         data.forEach(p => {
-            const person = p.responsibility || 'Unassigned';
+            const rawPerson = p.responsibility || 'Unassigned';
+            // lookup display name
+            const member = projectTeam.find(m => m.username === rawPerson);
+            const person = member ? (member.displayName || member.username) : rawPerson;
+
             if (!stats[person]) stats[person] = { total: 0, green: 0, yellow: 0, red: 0, orange: 0 };
 
             stats[person].total++;
@@ -235,8 +268,12 @@ const ProjectWorkspace = () => {
         // Sync responsible_person ID if needed
         let responsibleId = point.responsible_person?._id || point.responsible_person;
         if (projectTeam) {
-            const found = projectTeam.find(m => m.username === point.responsibility);
-            if (found && found._id) responsibleId = found._id;
+            if (!point.responsibility) {
+                responsibleId = null;
+            } else {
+                const found = projectTeam.find(m => m.username === point.responsibility);
+                if (found && found._id) responsibleId = found._id;
+            }
         }
 
         const payload = {
@@ -298,14 +335,16 @@ const ProjectWorkspace = () => {
 
             // Map responsibility username to member id if available
             if (newPoint.responsibility) {
+                // ALWAYS send the text responsibility for immediate UI consistency
+                payload.responsibility = newPoint.responsibility;
+
                 const found = projectTeam.find(m => m.username === newPoint.responsibility);
                 if (found && found._id) {
                     payload.responsible_person = found._id;
-                } else {
-                    // keep text responsibility for legacy compatibility
-                    payload.responsibility = newPoint.responsibility;
                 }
             }
+
+            console.log("Create Point Payload:", payload);
 
             // set reviewer to current user id when available
             if (user && (user._id || user.id || user.username)) {
@@ -320,8 +359,16 @@ const ProjectWorkspace = () => {
             });
             // Reload specific data to keep UI snappy
             const data = await fetchProjectPoints(projectId);
-            setPoints(data);
-            calculateSummary(data);
+            // Sync responsibility from responsible_person object immediately
+            const processedPoints = data.map(p => {
+                const mapped = { ...p };
+                if (mapped.responsible_person && mapped.responsible_person.username) {
+                    mapped.responsibility = mapped.responsible_person.username;
+                }
+                return mapped;
+            });
+            setPoints(processedPoints);
+            calculateSummary(processedPoints);
         } catch (error) {
             console.error(error);
             showDialog("Error", error.response?.data?.error || error.message || "Error creating point", "alert");
@@ -387,7 +434,7 @@ const ProjectWorkspace = () => {
                         <select className="form-control" style={{ width: '140px', height: '32px', fontSize: '12px', padding: '0 8px' }} value={filters.responsibility} onChange={e => setFilters({ ...filters, responsibility: e.target.value })}>
                             <option value="">Members</option>
                             {projectTeam.map(m => (
-                                <option key={m._id} value={m.username}>{m.username}</option>
+                                <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
                             ))}
                         </select>
                     </div>
@@ -548,7 +595,7 @@ const ProjectWorkspace = () => {
                                     >
                                         <option value="">Select</option>
                                         {projectTeam.map(m => (
-                                            <option key={m._id} value={m.username}>{m.username}</option>
+                                            <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
                                         ))}
                                     </select>
                                 </td>
@@ -577,6 +624,8 @@ const ProjectWorkspace = () => {
                                         type="date"
                                         value={point.target_date ? point.target_date.split('T')[0] : ''}
                                         onChange={(e) => handleUpdate(point._id, 'target_date', e.target.value)}
+                                        disabled={!user || !projectOwnerId || (user._id !== projectOwnerId && user._id !== projectOwnerId.toString())}
+                                        title={(!user || !projectOwnerId || (user._id !== projectOwnerId && user._id !== projectOwnerId.toString())) ? "Only Project Owner can set Target Date" : ""}
                                     />
                                 </td>
 
@@ -665,7 +714,7 @@ const ProjectWorkspace = () => {
                                 >
                                     <option value="">Select</option>
                                     {projectTeam.map(m => (
-                                        <option key={m._id} value={m.username}>{m.username}</option>
+                                        <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
                                     ))}
                                 </select>
                             </td>

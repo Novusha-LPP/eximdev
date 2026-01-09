@@ -17,11 +17,12 @@ function LoginPage() {
       try {
         const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/login`,
-          values
+          values,
+          { withCredentials: true }
         );
 
         if (res.status === 200) {
-          localStorage.setItem("exim_user", JSON.stringify(res.data));
+          // localStorage.setItem("exim_user", JSON.stringify(res.data)); // Removed
           setUser(res.data);
           resetForm();
         }

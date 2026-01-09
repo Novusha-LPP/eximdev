@@ -107,6 +107,9 @@ import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
 import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 
+// Project Nucleus
+import NucleusHome from "../components/project-nucleus/NucleusHome.js";
+
 const drawerWidth = 60;
 
 
@@ -601,6 +604,14 @@ function HomePage() {
                 path="/open-points/project/:projectId"
                 element={
                   <ProjectWorkspace />
+                }
+              />
+
+              {/* Project Nucleus */}
+              <Route
+                path="/project-nucleus"
+                element={
+                  <NucleusHome />
                 }
               />
 

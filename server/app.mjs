@@ -202,6 +202,9 @@ import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
 import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 
+// Project Nucleus
+import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -459,6 +462,9 @@ if (cluster.isPrimary) {
 
       // Upload
       app.use(uploadFileRoutes);
+
+      // Project Nucleus
+      app.use("/api/project-nucleus", nucleusReports);
 
       // initialize cron jobs only on the first worker to avoid duplicates
 

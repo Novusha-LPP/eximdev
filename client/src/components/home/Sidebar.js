@@ -11,6 +11,7 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import DescriptionIcon from '@mui/icons-material/Description';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import InsightsIcon from '@mui/icons-material/Insights';
+import HubIcon from '@mui/icons-material/Hub';
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -89,6 +90,18 @@ function Sidebar() {
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <InsightsIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
+
+      <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
+        <ListItemButton
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/project-nucleus")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <HubIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

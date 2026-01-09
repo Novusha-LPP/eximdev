@@ -51,14 +51,14 @@ import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 // Import Utility Tool
 import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
 
-//import Report 
+//import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
 import MonthlyContainers from "../components/Report/monthlyContainers.js";
 import DetailedReport from "../components/Report/DetailedReport.js";
 
 // import auditrail
 import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
-// import billing 
+// import billing
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
 
 import EditPaymentRequest from "../components/Import-billing/EditPaymentRequest.js";
@@ -84,7 +84,6 @@ import DutyCalculator from "../components/import-utility-tool/duty-calculator/Du
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 
-
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
 import { AnalyticsProvider } from "../components/analytics/AnalyticsContext";
@@ -99,8 +98,6 @@ import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 
-
-
 // Open Points
 
 import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
@@ -111,8 +108,6 @@ import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js"
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
 
 const drawerWidth = 60;
-
-
 
 function HomePage() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -157,13 +152,7 @@ function HomePage() {
               <Route path="/profile/:username" element={<UserProfile />} />
 
               {/* Protected Routes */}
-              <Route
-                path="/assign"
-                element={
-
-                  <Assign />
-                }
-              />
+              <Route path="/assign" element={<Assign />} />
 
               {/* Accounts */}
               <Route
@@ -551,71 +540,54 @@ function HomePage() {
                 }
               />
 
-              <Route
-                path="/release-notes"
-                element={
-                  <ReleaseNotes />
-                }
-              />
-              <Route
-                path="/feedback"
-                element={
-                  <Feedback />
-                }
-              />
+              <Route path="/release-notes" element={<ReleaseNotes />} />
+              <Route path="/feedback" element={<Feedback />} />
 
               {/* Analytics */}
 
-              <Route path="/analytics" element={
-                <ProtectedRoute requiredModule="Report">
-                  <AnalyticsProvider>
-                    <AnalyticsLayout />
-                  </AnalyticsProvider>
-                </ProtectedRoute>
-              }>
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <AnalyticsProvider>
+                      <AnalyticsLayout />
+                    </AnalyticsProvider>
+                  </ProtectedRoute>
+                }
+              >
                 <Route index element={<Navigate to="overview" replace />} />
                 <Route path="overview" element={<OverviewDashboard />} />
                 <Route path="movement" element={<MovementDashboard />} />
                 <Route path="customs" element={<CustomsDashboard />} />
-                <Route path="documentation" element={<DocumentationDashboard />} />
+                <Route
+                  path="documentation"
+                  element={<DocumentationDashboard />}
+                />
                 <Route path="submission" element={<SubmissionDashboard />} />
                 <Route path="esanchit" element={<ESanchitDashboard />} />
                 <Route path="operations" element={<OperationsDashboard />} />
-                <Route path="do-management" element={<DoManagementDashboard />} />
+                <Route
+                  path="do-management"
+                  element={<DoManagementDashboard />}
+                />
                 <Route path="billing" element={<BillingDashboard />} />
                 <Route path="exceptions" element={<ExceptionsDashboard />} />
               </Route>
 
               {/* Open Points - New Module */}
-              <Route
-                path="/open-points"
-                element={
-                  <OpenPointsHome />
-                }
-              />
+              <Route path="/open-points" element={<OpenPointsHome />} />
 
               <Route
                 path="/open-points/analytics"
-                element={
-                  <AnalyticsDashboard />
-                }
+                element={<AnalyticsDashboard />}
               />
               <Route
                 path="/open-points/project/:projectId"
-                element={
-                  <ProjectWorkspace />
-                }
+                element={<ProjectWorkspace />}
               />
 
               {/* Project Nucleus */}
-              <Route
-                path="/project-nucleus"
-                element={
-                  <NucleusHome />
-                }
-              />
-
-
+              <Route path="/project-nucleus" element={<NucleusHome />} />
             </Routes>
           </Box>
         </Box>

@@ -134,6 +134,22 @@ function AssignModule(props) {
     // eslint-disable-next-line
   }, [props.selectedUser]);
 
+  const [moduleCounts, setModuleCounts] = useState({});
+
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-module-user-counts`
+        );
+        setModuleCounts(res.data);
+      } catch (error) {
+        console.error("Error fetching module counts:", error);
+      }
+    }
+    fetchCounts();
+  }, []);
+
   const customList = (title, items) => (
     <Card>
       <CardHeader
@@ -171,6 +187,7 @@ function AssignModule(props) {
       >
         {items?.map((value) => {
           const labelId = `transfer-list-all-item-${value}-label`;
+          const count = moduleCounts[value] || 0;
 
           return (
             <ListItemButton
@@ -188,7 +205,19 @@ function AssignModule(props) {
                   }}
                 />
               </ListItemIcon>
-              <ListItemText id={labelId} primary={value} />
+              <ListItemText
+                id={labelId}
+                primary={
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span>{value}</span>
+                    <span style={{ color: "#888", fontSize: "0.9em" }}>
+                      {count} user{count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                }
+              />
             </ListItemButton>
           );
         })}

@@ -27,10 +27,18 @@ function LoginPage() {
           resetForm();
         }
       } catch (error) {
-        if (error.response && error.response.status === 400) {
-          alert(error.response.data.message);
+        if (error.response) {
+          if (error.response.status === 400) {
+            alert(error.response.data.message);
+          } else if (error.response.status === 403) {
+            alert(
+              "Your account has been deactivated. Please contact the administrator."
+            );
+          } else {
+            alert("An unexpected error occurred. Please try again later.");
+          }
         } else {
-          alert("An unexpected error occurred. Please try again later.");
+          alert("Network error. Please check your connection.");
         }
       }
     },

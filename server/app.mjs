@@ -108,6 +108,9 @@ import unassignModule from "./routes/home/unassignModules.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
+import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
+import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
+import toggleUserStatus from "./routes/toggleUserStatus.mjs";
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -209,8 +212,8 @@ const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
     : process.env.NODE_ENV === "server"
-      ? process.env.SERVER_MONGODB_URI
-      : process.env.DEV_MONGODB_URI;
+    ? process.env.SERVER_MONGODB_URI
+    : process.env.DEV_MONGODB_URI;
 
 // const CLIENT_URI =
 //   process.env.NODE_ENV === "production"
@@ -258,7 +261,7 @@ if (cluster.isPrimary) {
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://localhost:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
-        "https://import.alvision.in"
+        "https://import.alvision.in",
       ],
       credentials: true,
       // Allow custom headers for audit trail
@@ -365,6 +368,9 @@ if (cluster.isPrimary) {
       app.use(changePassword);
       app.use(assignIcdCode);
       app.use(assignEximBot);
+      app.use(getModuleUserCounts);
+      app.use(toggleUserStatus);
+      app.use(unassignUsersFromModule);
 
       // ImportersInfo
       app.use(ImportersInfo);

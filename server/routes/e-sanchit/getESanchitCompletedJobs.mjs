@@ -46,20 +46,30 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
     const searchQuery = search ? buildSearchQuery(search) : {};
 
     // Construct base query
-   const baseQuery = {
-     $and: [
-       { status: { $regex: /^pending$/i } }, // ✅ Status must be "pending"
-       { be_no: { $in: [null, ""] } },  // ✅ Exclude documents with `be_no` as "cancelled"
-       { job_no: { $ne: null } }, // ✅ Ensure `job_no` is not null
-       {
-         out_of_charge: { $in: [null, ""] }, // ✅ Exclude if `out_of_charge_date` has any value
-       },
-       {
-         esanchit_completed_date_time: { $exists: true, $ne: "" }, // ✅ `esanchit_completed_date_time` must exist and not be empty
-       },
-       searchQuery, // ✅ Apply search filters
-     ],
-   };
+    const baseQuery = {
+      $and: [
+        { status: { $regex: /^pending$/i } }, // ✅ Status must be "pending"
+        { be_no: { $in: [null, ""] } },  // ✅ Exclude documents with `be_no` as "cancelled"
+        { job_no: { $ne: null } }, // ✅ Ensure `job_no` is not null
+        {
+          out_of_charge: { $in: [null, ""] }, // ✅ Exclude if `out_of_charge_date` has any value
+        },
+        {
+          esanchit_completed_date_time: { $exists: true, $ne: "" }, // ✅ `esanchit_completed_date_time` must exist and not be empty
+        },
+        {
+          dsr_queries: {
+            $not: {
+              $elemMatch: {
+                select_module: "E-Sanchit",
+                resolved: { $ne: true }
+              }
+            }
+          }
+        },
+        searchQuery, // ✅ Apply search filters
+      ],
+    };
 
     // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {
@@ -67,7 +77,7 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
       });
     }
-    
+
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
@@ -84,7 +94,7 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } 
+    }
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
@@ -105,15 +115,15 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
     });
 
     const unresolvedQueryBase = { ...baseQuery };
-        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-        );
-        unresolvedQueryBase.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-        });
-        
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-    
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
     // Pagination
     const totalJobs = rankedJobs.length;
     const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);

@@ -43,13 +43,13 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
     // Build the search query
     const searchQuery = search
       ? {
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-            { awb_bl_no: { $regex: search, $options: "i" } },
-            { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
-          ],
-        }
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+          { awb_bl_no: { $regex: search, $options: "i" } },
+          { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
+        ],
+      }
       : {};
 
     // Base conditions that apply to all consignment types
@@ -61,6 +61,13 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
           { be_no: { $exists: false } }, // be_no does not exist
           { be_no: "" }, // be_no is an empty string
           { submission_completed_date_time: "" }, // be_no is an empty string
+          { submission_completed_date_time: null },
+          {
+            $and: [
+              { submission_completed_date_time: { $exists: true, $ne: "" } },
+              { dsr_queries: { $elemMatch: { select_module: "Submission", resolved: { $ne: true } } } }
+            ]
+          }
         ],
       },
       searchQuery, // Apply search filters
@@ -100,7 +107,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       ],
     };
 
-        // ✅ Apply unresolved queries filter if requested
+    // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {
       baseQuery.$and.push({
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
@@ -146,25 +153,25 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       // First, sort by do_revalidation (true first)
       const aRevalidation = a.do_revalidation === true ? 0 : 1;
       const bRevalidation = b.do_revalidation === true ? 0 : 1;
-      
+
       if (aRevalidation !== bRevalidation) {
         return aRevalidation - bRevalidation;
       }
-      
+
       // If both have the same revalidation status, sort by priority
       return priorityRank(a) - priorityRank(b);
     });
 
-       const unresolvedQueryBase = { ...baseQuery };
-        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-        );
-        unresolvedQueryBase.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-        });
-        
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-    
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
 
     // Apply pagination after sorting
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
@@ -213,129 +220,139 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
     // Build the search query
     const searchQuery = search
       ? {
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-            { awb_bl_no: { $regex: search, $options: "i" } },
-            { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
-            { be_no: { $regex: search, $options: "i" } }, // 🔍 BE number search
-          ],
-        }
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+          { awb_bl_no: { $regex: search, $options: "i" } },
+          { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
+          { be_no: { $regex: search, $options: "i" } }, // 🔍 BE number search
+        ],
+      }
       : {};
 
-// Base conditions that apply to all submission completed jobs
-const baseConditions = [
-  { job_no: { $ne: null } }, // job_no is not null
-  { 
-    submission_completed_date_time: { 
-      $exists: true, 
-      $ne: "", 
-      $ne: null,
-      $not: { $regex: /^\s*$/ } // Also exclude strings with only whitespace
-    } 
-  }, // submission_completed_date_time exists and is not empty/null/whitespace
-  { 
-    be_date: { 
-      $exists: true, 
-      $ne: "", 
-      $ne: null 
-    } 
-  }, // be_date exists and is not empty/null
-  { 
-    be_no: { 
-      $exists: true, 
-      $ne: "", 
-      $ne: null 
-    } 
-  }, // be_no exists and is not empty/null
-  searchQuery, // Apply search filters
-];
+    // Base conditions that apply to all submission completed jobs
+    const baseConditions = [
+      { job_no: { $ne: null } }, // job_no is not null
+      {
+        submission_completed_date_time: {
+          $exists: true,
+          $ne: "",
+          $ne: null,
+          $not: { $regex: /^\s*$/ } // Also exclude strings with only whitespace
+        }
+      }, // submission_completed_date_time exists and is not empty/null/whitespace
+      {
+        be_date: {
+          $exists: true,
+          $ne: "",
+          $ne: null
+        }
+      }, // be_date exists and is not empty/null
+      {
+        be_no: {
+          $exists: true,
+          $ne: "",
+          $ne: null
+        }
+      }, // be_no exists and is not empty/null
+      searchQuery, // Apply search filters
+    ];
 
-// Alternative approach - more explicit and cleaner
-const baseConditionsAlternative = [
-  { job_no: { $ne: null } },
-  { 
-    $and: [
-      { submission_completed_date_time: { $exists: true } },
-      { submission_completed_date_time: { $ne: null } },
-      { submission_completed_date_time: { $ne: "" } },
-      { submission_completed_date_time: { $not: { $regex: /^\s*$/ } } }
-    ]
-  },
-  { 
-    $and: [
-      { be_date: { $exists: true } },
-      { be_date: { $ne: null } },
-      { be_date: { $ne: "" } }
-    ]
-  },
-  { 
-    $and: [
-      { be_no: { $exists: true } },
-      { be_no: { $ne: null } },
-      { be_no: { $ne: "" } }
-    ]
-  },
-  searchQuery,
-];
+    // Alternative approach - more explicit and cleaner
+    const baseConditionsAlternative = [
+      { job_no: { $ne: null } },
+      {
+        $and: [
+          { submission_completed_date_time: { $exists: true } },
+          { submission_completed_date_time: { $ne: null } },
+          { submission_completed_date_time: { $ne: "" } },
+          { submission_completed_date_time: { $not: { $regex: /^\s*$/ } } }
+        ]
+      },
+      {
+        $and: [
+          { be_date: { $exists: true } },
+          { be_date: { $ne: null } },
+          { be_date: { $ne: "" } }
+        ]
+      },
+      {
+        $and: [
+          { be_no: { $exists: true } },
+          { be_no: { $ne: null } },
+          { be_no: { $ne: "" } }
+        ]
+      },
+      searchQuery,
+    ];
 
-// Most robust approach - using $and array for each field
-const baseConditionsRobust = [
-  { job_no: { $ne: null } },
-  { 
-    submission_completed_date_time: {
-      $exists: true,
-      $nin: [null, "", undefined]  // Not in array of null, empty string, or undefined
-    }
-  },
-  { 
-    be_date: {
-      $exists: true,
-      $nin: [null, "", undefined]
-    }
-  },
-  { 
-    be_no: {
-      $exists: true,
-      $nin: [null, "", undefined]
-    }
-  },
-  searchQuery,
-];
+    // Most robust approach - using $and array for each field
+    const baseConditionsRobust = [
+      { job_no: { $ne: null } },
+      {
+        submission_completed_date_time: {
+          $exists: true,
+          $nin: [null, "", undefined]  // Not in array of null, empty string, or undefined
+        }
+      },
+      {
+        be_date: {
+          $exists: true,
+          $nin: [null, "", undefined]
+        }
+      },
+      {
+        be_no: {
+          $exists: true,
+          $nin: [null, "", undefined]
+        }
+      },
+      {
+        dsr_queries: {
+          $not: {
+            $elemMatch: {
+              select_module: "Submission",
+              resolved: { $ne: true }
+            }
+          }
+        }
+      },
+      searchQuery,
+    ];
 
-// Construct the main query with consignment type specific conditions
-const baseQuery = {
-  $and: [
-    ...baseConditionsRobust, // Use the most robust version
-    {
-      $or: [
-        // LCL conditions
+    // Construct the main query with consignment type specific conditions
+    const baseQuery = {
+      $and: [
+        ...baseConditionsRobust, // Use the most robust version
         {
-          $and: [
-            { consignment_type: "FCL" },
-            { documentation_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
-            { esanchit_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
-            { discharge_date: { $exists: true, $nin: [null, "", undefined] } },
-            { gateway_igm_date: { $exists: true, $nin: [null, "", undefined] } },
-            { gateway_igm: { $exists: true, $nin: [null, "", undefined] } },
-            { igm_no: { $exists: true, $nin: [null, "", undefined] } },
-            { igm_date: { $exists: true, $nin: [null, "", undefined] } },
-            { is_checklist_aprroved: { $exists: true, $ne: false } },
-          ],
-        },
-        // FCL conditions
-        {
-          $and: [
-            { consignment_type: "LCL" },
-            { documentation_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
-            { esanchit_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
-            { is_checklist_aprroved: { $exists: true, $ne: false } },
+          $or: [
+            // LCL conditions
+            {
+              $and: [
+                { consignment_type: "FCL" },
+                { documentation_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
+                { esanchit_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
+                { discharge_date: { $exists: true, $nin: [null, "", undefined] } },
+                { gateway_igm_date: { $exists: true, $nin: [null, "", undefined] } },
+                { gateway_igm: { $exists: true, $nin: [null, "", undefined] } },
+                { igm_no: { $exists: true, $nin: [null, "", undefined] } },
+                { igm_date: { $exists: true, $nin: [null, "", undefined] } },
+                { is_checklist_aprroved: { $exists: true, $ne: false } },
+              ],
+            },
+            // FCL conditions
+            {
+              $and: [
+                { consignment_type: "LCL" },
+                { documentation_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
+                { esanchit_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
+                { is_checklist_aprroved: { $exists: true, $ne: false } },
+              ],
+            },
           ],
         },
       ],
-    },
-  ],
-};
+    };
 
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
@@ -376,17 +393,17 @@ const baseQuery = {
       // First, sort by do_revalidation (true first)
       const aRevalidation = a.do_revalidation === true ? 0 : 1;
       const bRevalidation = b.do_revalidation === true ? 0 : 1;
-      
+
       if (aRevalidation !== bRevalidation) {
         return aRevalidation - bRevalidation;
       }
-      
+
       // If both have the same revalidation status, sort by priority
       const priorityComparison = priorityRank(a) - priorityRank(b);
       if (priorityComparison !== 0) {
         return priorityComparison;
       }
-      
+
       // If priority is the same, sort by submission completed date (most recent first)
       const aDate = new Date(a.submission_completed_date_time);
       const bDate = new Date(b.submission_completed_date_time);

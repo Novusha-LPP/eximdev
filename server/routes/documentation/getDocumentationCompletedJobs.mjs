@@ -1,4 +1,4 @@
-    import express from "express";
+import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
@@ -20,7 +20,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer, year , unresolvedOnly} = req.query;
+    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -54,14 +54,24 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
         { job_no: { $ne: null } }, // Ensure job_no is not null
         {
           $or: [
-            {documentation_completed_date_time: { $exists: true, $ne: "" } },
+            { documentation_completed_date_time: { $exists: true, $ne: "" } },
           ],
+        },
+        {
+          dsr_queries: {
+            $not: {
+              $elemMatch: {
+                select_module: "Documentation",
+                resolved: { $ne: true }
+              }
+            }
+          }
         },
         searchQuery,
       ],
     };
 
-        // ✅ Apply unresolved queries filter if requested
+    // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {
       baseQuery.$and.push({
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
@@ -119,16 +129,16 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     });
 
     // Get count of jobs with unresolved queries (for badge)
-        const unresolvedQueryBase = { ...baseQuery };
-        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-        );
-        unresolvedQueryBase.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-        });
-        
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-    
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
 
     // Apply pagination after sorting
     const totalJobs = sortedJobs.length;

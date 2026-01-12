@@ -51,59 +51,65 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
 
     // Build the base query
     // Build the base query
-const baseQuery = {
-  $and: [
-    { status: { $regex: /^pending$/i } },
-    { be_no: { $in: [null, ""] } },
-    { awb_bl_no: { $ne: null, $ne: "" } },
-    { job_no: { $ne: null } },
-    { out_of_charge: { $eq: "" } },
-    {
-      detailed_status: {
-        $in: statusOrder,
-      },
-    },
-    {
-      $or: [
-        { documentation_completed_date_time: { $exists: false } },
-        { documentation_completed_date_time: "" },
-      ],
-    },
-    // All three required documents with valid URLs
-    {
+    const baseQuery = {
       $and: [
+        { status: { $regex: /^pending$/i } },
+        { be_no: { $in: [null, ""] } },
+        { awb_bl_no: { $ne: null, $ne: "" } },
+        { job_no: { $ne: null } },
+        { out_of_charge: { $eq: "" } },
         {
-          "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] }
+          detailed_status: {
+            $in: statusOrder,
+          },
         },
         {
-          "cth_documents": {
-            $elemMatch: {
-              document_name: "Bill of Lading",
-              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+          $or: [
+            { documentation_completed_date_time: { $exists: false } },
+            { documentation_completed_date_time: "" },
+            {
+              $and: [
+                { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
+              ]
             }
-          }
+          ],
         },
+        // All three required documents with valid URLs
         {
-          "cth_documents": {
-            $elemMatch: {
-              document_name: "Packing List",
-              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+          $and: [
+            {
+              "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] }
+            },
+            {
+              "cth_documents": {
+                $elemMatch: {
+                  document_name: "Bill of Lading",
+                  url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+                }
+              }
+            },
+            {
+              "cth_documents": {
+                $elemMatch: {
+                  document_name: "Packing List",
+                  url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+                }
+              }
+            },
+            {
+              "cth_documents": {
+                $elemMatch: {
+                  document_name: "Commercial Invoice",
+                  url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+                }
+              }
             }
-          }
+          ]
         },
-        {
-          "cth_documents": {
-            $elemMatch: {
-              document_name: "Commercial Invoice",
-              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
-            }
-          }
-        }
-      ]
-    },
-    searchQuery,
-  ],
-};
+        searchQuery,
+      ],
+    };
 
     // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {
@@ -111,7 +117,7 @@ const baseQuery = {
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
       });
     }
-    
+
 
     // ✅ Add Year Filter if provided
     // ✅ Ensure year is correctly formatted before applying the filter
@@ -162,15 +168,15 @@ const baseQuery = {
     });
 
     const unresolvedQueryBase = { ...baseQuery };
-        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-        );
-        unresolvedQueryBase.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-        });
-        
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-    
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
     // Apply pagination after sorting
     const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);

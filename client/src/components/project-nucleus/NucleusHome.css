@@ -2,6 +2,7 @@
 .nucleus-layout {
   display: flex;
   min-height: 100vh;
+  /* overflow: hidden; Removed to allow window scroll */
   background: #f9fafb;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -18,17 +19,49 @@
   height: 100vh;
   overflow-y: auto;
   flex-shrink: 0;
+  transition: width 0.3s ease;
+  z-index: 10;
+}
+
+.nucleus-sidebar.collapsed {
+  width: 60px;
 }
 
 .nucleus-brand {
-  padding: 24px;
+  padding: 16px;
   font-size: 18px;
   font-weight: 700;
   color: #111827;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   border-bottom: 1px solid #f3f4f6;
+  min-height: 60px;
+}
+
+.nucleus-sidebar.collapsed .nucleus-brand {
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.sidebar-toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: #9ca3af;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .brand-dot {
@@ -80,11 +113,16 @@
 .category-header {
   display: flex;
   align-items: center;
-  padding: 12px 8px;
+  padding: 12px 16px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 0;
   transition: background 0.1s;
   user-select: none;
+}
+
+.nucleus-sidebar.collapsed .category-header {
+  justify-content: center;
+  padding: 16px 0;
 }
 
 .category-header:hover {
@@ -93,7 +131,12 @@
 
 .cat-icon {
   margin-right: 10px;
-  font-size: 16px;
+  font-size: 18px;
+}
+
+.nucleus-sidebar.collapsed .cat-icon {
+  margin-right: 0;
+  font-size: 20px;
 }
 
 .cat-label {
@@ -162,8 +205,8 @@
 .nucleus-main-content {
   flex: 1;
   padding: 32px 40px;
-  overflow-y: auto;
-  height: 100vh;
+  height: auto;
+  overflow: visible;
 }
 
 .nucleus-header {

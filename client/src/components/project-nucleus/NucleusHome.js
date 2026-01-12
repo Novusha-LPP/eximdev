@@ -30,6 +30,7 @@ const NucleusHome = () => {
     const [activeReport, setActiveReport] = useState('fine');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedCategory, setExpandedCategory] = useState('import');
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     const activeReportDetails = reportCategories
         .flatMap(c => c.reports)
@@ -206,21 +207,34 @@ const NucleusHome = () => {
     return (
         <div className="nucleus-layout">
             {/* Left Sidebar Navigation */}
-            <div className="nucleus-sidebar">
+            <div className={`nucleus-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
                 <div className="nucleus-brand">
-                    <span className="brand-dot"></span>
-                    Project Nucleus
+                    {!isSidebarCollapsed && (
+                        <>
+                            <span className="brand-dot"></span>
+                            <span>Project Nucleus</span>
+                        </>
+                    )}
+                    <button
+                        className="sidebar-toggle-btn"
+                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                    >
+                        {isSidebarCollapsed ? '»' : '«'}
+                    </button>
                 </div>
 
-                <div className="report-search-container">
-                    <input
-                        type="text"
-                        placeholder="Search reports..."
-                        className="report-search"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
+                {!isSidebarCollapsed && (
+                    <div className="report-search-container">
+                        <input
+                            type="text"
+                            placeholder="Search reports..."
+                            className="report-search"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                )}
 
                 <div className="report-categories">
                     {reportCategories.map(cat => {
@@ -237,14 +251,15 @@ const NucleusHome = () => {
                             <div key={cat.id} className="category-group">
                                 <div
                                     className="category-header"
-                                    onClick={() => setExpandedCategory(isExpanded ? null : cat.id)}
+                                    onClick={() => !isSidebarCollapsed && setExpandedCategory(isExpanded ? null : cat.id)}
+                                    title={isSidebarCollapsed ? cat.label : ''}
                                 >
                                     <span className="cat-icon">{cat.icon}</span>
-                                    <span className="cat-label">{cat.label}</span>
-                                    <span className="cat-arrow">{isExpanded ? '▾' : '▸'}</span>
+                                    {!isSidebarCollapsed && <span className="cat-label">{cat.label}</span>}
+                                    {!isSidebarCollapsed && <span className="cat-arrow">{isExpanded ? '▾' : '▸'}</span>}
                                 </div>
 
-                                {isExpanded && (
+                                {isExpanded && !isSidebarCollapsed && (
                                     <div className="category-reports">
                                         {(searchTerm ? filteredReports : cat.reports).map(report => (
                                             <div

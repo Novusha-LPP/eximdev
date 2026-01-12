@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { fetchProjectPoints, updatePointStatus, createOpenPoint, fetchProjectDetails, addProjectMember, fetchAllUsers, deleteOpenPoint, removeProjectMember, deleteProject } from '../../services/openPointsService';
+import { fetchProjectPoints, updatePointStatus, createOpenPoint, fetchProjectDetails, addProjectMember, fetchAllUsers, deleteOpenPoint, removeProjectMember, deleteProject, changeProjectOwner } from '../../services/openPointsService';
 import { useParams, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import '../../styles/openPoints.scss';
@@ -16,8 +16,10 @@ const ProjectWorkspace = () => {
     const [showAddMember, setShowAddMember] = useState(false);
     const [newMemberName, setNewMemberName] = useState('');
     const [allUsers, setAllUsers] = useState([]); // For autocomplete
-    const [newMemberRole, setNewMemberRole] = useState('L2');
+    const [newMemberRole, setNewMemberRole] = useState('L1');
     const [accessDenied, setAccessDenied] = useState(false);
+    const [memberSearchQuery, setMemberSearchQuery] = useState('');
+    const [showMemberSuggestions, setShowMemberSuggestions] = useState(false);
 
     // Summary Stats
     const [summary, setSummary] = useState([]);
@@ -39,6 +41,9 @@ const ProjectWorkspace = () => {
         remarks: '',
         priority: 'Low'
     });
+
+    // Member Context Menu State
+    const [memberMenu, setMemberMenu] = useState({ open: false, member: null, position: { x: 0, y: 0 } });
 
     // Custom Dialog State
     const [dialogConfig, setDialogConfig] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
@@ -379,13 +384,55 @@ const ProjectWorkspace = () => {
         try {
             await addProjectMember(projectId, newMemberName, newMemberRole);
             showDialog("Success", "Member added successfully!", "alert");
+            showDialog("Success", "Member added successfully!", "alert");
             setNewMemberName('');
+            setMemberSearchQuery('');
+            setNewMemberRole('L1');
             setShowAddMember(false);
             loadData(); // Reload to update team list
         } catch (error) {
             showDialog("Error", error.response?.data?.error || "Failed to add member", "alert");
         }
     }
+
+    const handleChangeOwner = () => {
+        const { member } = memberMenu;
+        if (!member) return;
+
+        showDialog("Confirm Change Owner", `Are you sure you want to transfer ownership of this project to ${member.username}? You will become a regular team member.`, "confirm", async () => {
+            try {
+                await changeProjectOwner(projectId, member._id);
+                showDialog("Success", "Project ownership transferred successfully", "alert");
+                setMemberMenu({ ...memberMenu, open: false });
+                loadData(); // reload to reflect changes
+            } catch (error) {
+                console.error("Change Owner Failed", error);
+                showDialog("Error", error.response?.data?.error || "Failed to transfer ownership", "alert");
+            }
+        });
+    };
+
+    const handleRemoveMember = () => {
+        const { member } = memberMenu;
+        if (!member) return;
+
+        showDialog(
+            'Remove Member',
+            `Are you sure you want to remove ${member.username} from the project?`,
+            'confirm',
+            async () => {
+                try {
+                    await removeProjectMember(projectId, member.username, member._id);
+                    showDialog('Success', 'Member removed', 'alert');
+                    setMemberMenu({ ...memberMenu, open: false });
+                    setProjectTeam(prev => prev.filter(p => p._id !== member._id));
+                } catch (err) {
+                    console.error('Remove member failed', err);
+                    showDialog('Error', err.response?.data?.error || 'Failed to remove member', 'alert');
+                }
+            }
+        );
+    };
 
     const handleDeleteProject = () => {
         showDialog("Confirm Delete", "Are you sure you want to delete this ENTIRE project? This cannot be undone.", "confirm", async () => {
@@ -472,7 +519,7 @@ const ProjectWorkspace = () => {
                                 <h5 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Levels</h5>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <div style={{ width: '40px', height: '24px', background: '#bef264', borderRadius: '4px', border: '1px solid #ddd' }}></div>
-                                    <span><strong>L1</strong> - Development Team</span>
+                                    <span><strong>L1</strong> - Employee</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <div style={{ width: '40px', height: '24px', background: '#22c55e', borderRadius: '4px', border: '1px solid #ddd' }}></div>
@@ -513,23 +560,65 @@ const ProjectWorkspace = () => {
 
             {
                 showAddMember && (
-                    <div style={{ marginBottom: '10px', padding: '10px', background: '#e0f2fe', borderRadius: '4px', display: 'flex', gap: '10px' }}>
-                        <select
-                            className="form-control"
-                            style={{ maxWidth: '220px' }}
-                            value={newMemberName}
-                            onChange={e => setNewMemberName(e.target.value)}
-                        >
-                            <option value="">Select user</option>
-                            {allUsers.map((u, i) => (
-                                <option key={i} value={u.username}>{u.username}{u.email ? ` (${u.email})` : ''}</option>
-                            ))}
-                        </select>
+                    <div style={{ marginBottom: '10px', padding: '10px', background: '#e0f2fe', borderRadius: '4px', display: 'flex', gap: '10px', alignItems: 'center', overflow: 'visible' }}>
+                        <div style={{ position: 'relative', width: '250px' }}>
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search user..."
+                                value={memberSearchQuery}
+                                onChange={(e) => {
+                                    setMemberSearchQuery(e.target.value);
+                                    setShowMemberSuggestions(true);
+                                    setNewMemberName(''); // Reset selected if typing
+                                }}
+                                onFocus={() => setShowMemberSuggestions(true)}
+                                style={{ width: '100%' }}
+                            />
+                            {showMemberSuggestions && memberSearchQuery && (
+                                <div style={{
+                                    position: 'absolute', top: '100%', left: 0, right: 0,
+                                    background: 'white', border: '1px solid #ddd', borderRadius: '4px',
+                                    maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                                }}>
+                                    {allUsers.filter(u => {
+                                        const search = memberSearchQuery.toLowerCase();
+                                        const name = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+                                        const username = (u.username || '').toLowerCase();
+                                        return name.includes(search) || username.includes(search);
+                                    }).map((u, i) => {
+                                        const displayName = (u.first_name || u.last_name) ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : u.username;
+                                        return (
+                                            <div
+                                                key={i}
+                                                style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}
+                                                className="hover:bg-gray-100"
+                                                onClick={() => {
+                                                    setNewMemberName(u.username);
+                                                    setMemberSearchQuery(displayName);
+                                                    setShowMemberSuggestions(false);
+                                                }}
+                                            >
+                                                {displayName} <small style={{ color: '#666' }}>({u.username})</small>
+                                            </div>
+                                        );
+                                    })}
+                                    {allUsers.filter(u => {
+                                        const search = memberSearchQuery.toLowerCase();
+                                        const name = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+                                        const username = (u.username || '').toLowerCase();
+                                        return name.includes(search) || username.includes(search);
+                                    }).length === 0 && (
+                                            <div style={{ padding: '8px', color: '#666', fontStyle: 'italic' }}>No users found</div>
+                                        )}
+                                </div>
+                            )}
+                        </div>
                         <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)} className="form-control" style={{ maxWidth: '140px' }}>
+                            <option value="L1">L1</option>
                             <option value="L2">L2</option>
                             <option value="L3">L3</option>
                             <option value="L4">L4</option>
-                            <option value="L1">L1</option>
                         </select>
                         <button className="btn btn-sm btn-primary" onClick={handleAddMember}>Add to Project</button>
                         <button className="btn btn-sm btn-secondary" onClick={() => setShowAddMember(false)}>Cancel</button>
@@ -841,40 +930,19 @@ const ProjectWorkspace = () => {
                                     <span
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => {
-                                            // If current user is project owner (or first team entry is owner), allow removal prompt
-                                            const isOwner = user && (user._id === (projectTeam[0] && projectTeam[0]._id) || (projectTeam[0] && projectTeam[0].role === 'Owner'));
-                                            if (!isOwner) {
-                                                showDialog('Permission Denied', 'Only the project owner can remove members.', 'alert');
-                                                return;
-                                            }
-
-                                            if (member.role === 'Owner') {
-                                                showDialog('Not Allowed', 'Cannot remove the project owner.', 'alert');
-                                                return;
-                                            }
-
-                                            showDialog(
-                                                'Remove Member',
-                                                `Are you sure you want to remove ${member.username} from the project?`,
-                                                'confirm',
-                                                async () => {
-                                                    try {
-                                                        await removeProjectMember(projectId, member.username, member._id);
-                                                        showDialog('Success', 'Member removed', 'alert');
-                                                        // remove locally
-                                                        setProjectTeam(prev => prev.filter(p => p._id !== member._id));
-                                                    } catch (err) {
-                                                        console.error('Remove member failed', err);
-                                                        showDialog('Error', err.response?.data?.error || 'Failed to remove member', 'alert');
-                                                    }
-                                                }
-                                            );
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Open Context Menu
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setMemberMenu({
+                                                open: true,
+                                                member: member,
+                                                position: { x: rect.left, y: rect.bottom + 5 }
+                                            });
                                         }}
-                                        onKeyPress={(e) => { if (e.key === 'Enter') e.currentTarget.click(); }}
                                         style={{ cursor: 'pointer', textDecoration: 'underline', color: '#1e40af' }}
                                     >
-                                        <strong>{member.username}</strong>
+                                        <strong>{member.displayName || member.username}</strong>
                                     </span>
                                     <span style={{ color: '#666', marginLeft: 6 }}>({member.role || 'Member'})</span>
                                 </div>
@@ -901,6 +969,56 @@ const ProjectWorkspace = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Member Action Menu */}
+            {memberMenu.open && memberMenu.member && (
+                <>
+                    <div
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1100 }}
+                        onClick={() => setMemberMenu({ ...memberMenu, open: false })}
+                    />
+                    <div style={{
+                        position: 'fixed',
+                        top: memberMenu.position.y,
+                        left: memberMenu.position.x,
+                        background: 'white',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                        zIndex: 1200,
+                        minWidth: '150px',
+                        padding: '5px 0'
+                    }}>
+                        <div style={{ padding: '8px 12px', fontSize: '12px', borderBottom: '1px solid #eee', color: '#666' }}>
+                            Action for <strong>{memberMenu.member.username}</strong>
+                        </div>
+
+                        {(projectTeam.find(m => m.username === memberMenu.member.username)?.role !== 'Owner') && (
+                            <button
+                                className="menu-item"
+                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc2626' }}
+                                onClick={() => {
+                                    handleRemoveMember();
+                                    setMemberMenu({ ...memberMenu, open: false });
+                                }}
+                            >
+                                🗑️ Remove Member
+                            </button>
+                        )}
+
+                        <button
+                            className="menu-item"
+                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#2563eb' }}
+                            onClick={() => {
+                                handleChangeOwner();
+                                setMemberMenu({ ...memberMenu, open: false });
+                            }}
+                        >
+                            👑 Make Owner
+                        </button>
+                    </div>
+                </>
             )}
         </div >
     );

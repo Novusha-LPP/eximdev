@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const auditTrailSchema = new mongoose.Schema(
   {
@@ -82,5 +83,6 @@ auditTrailSchema.index({ job_no: 1, year: 1, timestamp: -1 });
 auditTrailSchema.index({ username: 1, timestamp: -1 });
 auditTrailSchema.index({ action: 1, timestamp: -1 });
 
-const AuditTrailModel = mongoose.model("AuditTrail", auditTrailSchema);
+const AuditTrailModel = createDynamicModel("AuditTrail", auditTrailSchema);
+
 export default AuditTrailModel;

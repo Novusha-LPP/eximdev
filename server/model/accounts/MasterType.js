@@ -1,5 +1,6 @@
 // model/accounts/MasterType.js
 import mongoose from 'mongoose';
+import { createDynamicModel } from "../../utils/modelHelper.mjs";
 
 const masterTypeSchema = new mongoose.Schema({
   name: {
@@ -38,4 +39,5 @@ const masterTypeSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('MasterType', masterTypeSchema);
+const MasterTypeModel = createDynamicModel('MasterType', masterTypeSchema);
+export default MasterTypeModel;

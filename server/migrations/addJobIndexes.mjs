@@ -21,8 +21,14 @@ async function createIndexes() {
   try {
     console.log("🔧 Starting MongoDB Index Creation...\n");
 
+    const mongodbUri = process.env.NODE_ENV === "production"
+      ? process.env.PROD_MONGODB_URI
+      : process.env.NODE_ENV === "server"
+        ? process.env.SERVER_MONGODB_URI
+        : process.env.DEV_MONGODB_URI;
+
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/eximdev");
+    await mongoose.connect(mongodbUri || "mongodb://localhost:27017/eximdev");
     console.log("✅ Connected to MongoDB\n");
 
     // Index 1: job_no (most searched field)

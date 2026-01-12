@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const documentListSchema = new mongoose.Schema({
   document_code: {
@@ -9,5 +10,5 @@ const documentListSchema = new mongoose.Schema({
   },
 });
 
-const DocumentListModel = new mongoose.model("documents", documentListSchema);
+const DocumentListModel = createDynamicModel("documents", documentListSchema);
 export default DocumentListModel;

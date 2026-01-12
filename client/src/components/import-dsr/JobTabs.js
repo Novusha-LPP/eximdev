@@ -20,6 +20,7 @@ import { useState } from "react";
 import Badge from "@mui/material/Badge";
 import { UserContext } from "../../contexts/UserContext";
 import { useContext } from "react";
+import { BranchContext } from "../../contexts/BranchContext";
 import {
   TextField,
   List,
@@ -150,6 +151,20 @@ function JobTabs() {
   const location = useLocation();
   const { setSearchQuery, setDetailedStatus, setSelectedICD, setSelectedImporter } = useSearchQuery();
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
+
+  const filteredCategories = React.useMemo(() => {
+    return API_CATEGORIES.map(cat => ({
+      ...cat,
+      apis: cat.apis.filter(api => {
+        if (selectedBranch === "GANDHIDHAM") {
+          if (api.name === "Container Rail Out") return false;
+        }
+        return true;
+      })
+    }));
+  }, [selectedBranch]);
+
 
   // --- Effects ---
   React.useEffect(() => {
@@ -390,7 +405,7 @@ function JobTabs() {
             <Box sx={{ width: 240, borderRight: 1, borderColor: "divider", bgcolor: "#f8f9fa", display: "flex", flexDirection: "column" }}>
               <Typography variant="overline" sx={{ p: 2, pb: 1, color: "text.secondary", fontWeight: "bold" }}>Categories</Typography>
               <List sx={{ p: 1 }}>
-                {API_CATEGORIES.map((cat) => (
+                {filteredCategories.map((cat) => (
                   <ListItem key={cat.id} disablePadding sx={{ mb: 1 }}>
                     <Button
                       fullWidth
@@ -521,11 +536,11 @@ function JobTabs() {
 
                 {/* API Grid */}
                 <Typography variant="h6" sx={{ fontWeight: 600, color: "text.primary" }}>
-                  {API_CATEGORIES.find(c => c.id === activeCategory)?.title} Actions
+                  {filteredCategories.find(c => c.id === activeCategory)?.title} Actions
                 </Typography>
 
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 2 }}>
-                  {API_CATEGORIES.find(c => c.id === activeCategory)?.apis.map((api, idx) => (
+                  {filteredCategories.find(c => c.id === activeCategory)?.apis.map((api, idx) => (
                     <Paper
                       key={idx}
                       elevation={0}

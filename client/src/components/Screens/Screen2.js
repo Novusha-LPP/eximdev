@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import "../../styles/Screens.scss";
+import { BranchContext } from "../../contexts/BranchContext";
+import { useContext } from "react";
 
 const Screen2 = () => {
+  const { selectedBranch } = useContext(BranchContext);
   const [jobCounts, setJobCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -71,9 +74,9 @@ const Screen2 = () => {
     { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
     { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
     { key: "discharged", title: "Discharged" },
-    { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
+    { key: "gatewayIGMFiled", title: "Gateway IGM Filed", hideForGandhidham: true },
     { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
-  ];
+  ].filter(field => selectedBranch !== "GANDHIDHAM" || !field.hideForGandhidham);
 
   return (
     <div className="screen">

@@ -1,40 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
 
-    <!-- '%PUBLIC_URL%/serviceworker.js' -->
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Web site created using create-react-app" />
 
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  <!-- '%PUBLIC_URL%/serviceworker.js' -->
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
 
-    <title>Suraj Forwarders</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-    <script
-      src="https://kit.fontawesome.com/c3c0452e9a.js"
-      crossorigin="anonymous"
-    ></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            // .register("%PUBLIC_URL%/serviceWorker.js")
-            .register("./serviceWorker.js")
-            .then((reg) => {})
-            .catch((err) => {});
-        });
-      }
-    </script>
-  </body>
+  <title>Suraj Forwarders</title>
+</head>
+
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+
+  <script src="https://kit.fontawesome.com/c3c0452e9a.js" crossorigin="anonymous"></script>
+  <script>
+    // Aggressively unregister all service workers to fix the 'Loading...' hang
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+          console.log("Service Worker unregistered");
+        }
+      });
+    }
+    // Also clear any legacy caches
+    if (window.caches) {
+      caches.keys().then(function (names) {
+        for (let name of names) caches.delete(name);
+      });
+    }
+  </script>
+</body>
+
 </html>

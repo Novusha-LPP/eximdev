@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { getConnection } from "../utils/connectionManager.mjs";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const Schema = mongoose.Schema;
 
@@ -203,7 +205,11 @@ const userSchema = new Schema({
     type: String,
     trim: true,
   }],
+  assignedBranch: {
+    type: String,
+    default: "AHMEDABAD HO",
+  },
 });
 
-const UserModel = mongoose.model("User", userSchema);
+const UserModel = createDynamicModel("User", userSchema, "AHMEDABAD HO");
 export default UserModel;

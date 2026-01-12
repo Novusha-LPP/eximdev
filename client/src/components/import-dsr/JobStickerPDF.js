@@ -1,10 +1,12 @@
 // JobStickerPDF.js
-import React, { forwardRef, useImperativeHandle } from "react";
+import React, { forwardRef, useImperativeHandle, useContext } from "react";
+import { BranchContext } from "../../contexts/BranchContext";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import logo from "../../assets/images/srcc.png"; // Ensure this path is correct
 
 const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
+  const { selectedBranch } = useContext(BranchContext);
   useImperativeHandle(ref, () => ({
     /**
      * Generates the PDF and opens it in a new browser tab.
@@ -170,12 +172,14 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
           );
 
           // Row: Gateway IGM & Date
-          addTwoColumnRow(
-            "Gateway IGM",
-            data.gateway_igm || "N/A",
-            "Gateway IGM Date",
-            data.gateway_igm_date || "N/A"
-          );
+          if (selectedBranch !== "GANDHIDHAM") {
+            addTwoColumnRow(
+              "Gateway IGM",
+              data.gateway_igm || "N/A",
+              "Gateway IGM Date",
+              data.gateway_igm_date || "N/A"
+            );
+          }
 
           // Row: Local IGM No & Local IGM Date
           addTwoColumnRow(

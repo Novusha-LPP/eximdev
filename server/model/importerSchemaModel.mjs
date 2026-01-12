@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const Schema = mongoose.Schema;
 
-const importerSchema = new Schema({
+export const importerSchema = new Schema({
   name: {
     type: String,
     required: true,
@@ -19,5 +20,5 @@ const importerSchema = new Schema({
   },
 });
 
-const ImporterModel = mongoose.model("Importer", importerSchema);
+const ImporterModel = createDynamicModel("Importer", importerSchema);
 export default ImporterModel;

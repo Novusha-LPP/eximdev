@@ -4,6 +4,8 @@ import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
+import { BranchContext } from '../../contexts/BranchContext';
+import { useContext } from 'react';
 import {
     LineChart,
     Line,
@@ -19,6 +21,7 @@ import './AnalyticsLayout.css'; // Inherits the theme
 
 const OverviewDashboard = () => {
     const { startDate, endDate, importer } = useAnalytics();
+    const { selectedBranch } = useContext(BranchContext);
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -50,42 +53,46 @@ const OverviewDashboard = () => {
 
     const { summary, details } = data;
 
-    // Trend graph configuration (label, backend key, color)
     const trendOptions = [
         { label: 'Jobs Created', value: 'jobs_trend', color: '#60a5fa' },
         { label: 'ETA', value: 'eta_trend', color: '#f472b6' },
-        { label: 'Gateway IGM', value: 'gateway_igm_trend', color: '#6366f1' },
+        { label: 'Gateway IGM', value: 'gateway_igm_trend', color: '#6366f1', hideForGandhidham: true },
         { label: 'Discharge', value: 'discharge_trend', color: '#14b8a6' },
         { label: 'Arrivals', value: 'arrival_trend', color: '#34d399' },
-        { label: 'Rail Out', value: 'rail_out_trend', color: '#818cf8' },
+        { label: 'Rail Out', value: 'rail_out_trend', color: '#818cf8', hideForGandhidham: true },
         { label: 'BE Filed', value: 'be_trend', color: '#a78bfa' },
         { label: 'OOC', value: 'ooc_trend', color: '#e879f9' },
         { label: 'DO Completed', value: 'do_trend', color: '#fb923c' },
         { label: 'Billing Sent', value: 'billing_trend', color: '#2dd4bf' }
-    ];
+    ].filter(opt => selectedBranch !== "GANDHIDHAM" || !opt.hideForGandhidham);
 
     const [selectedTrend, setSelectedTrend] = useState(trendOptions[0]);
+
+    useEffect(() => {
+        if (!trendOptions.find(opt => opt.value === selectedTrend.value)) {
+            setSelectedTrend(trendOptions[0]);
+        }
+    }, [selectedBranch, trendOptions, selectedTrend.value]);
     const currentTrendRaw = details?.[selectedTrend.value] || [];
     const chartData = currentTrendRaw.map(item => ({
         date: item._id,
         count: item.count
     }));
 
-    // Defined Order as per user request
     const cards = [
         { key: 'jobs_created_today', title: 'Jobs Created', label: 'Creation Date', color: 'blue' },
         { key: 'eta', title: 'ETA', label: 'ETA Date', color: 'pink' },
-        { key: 'gateway_igm_date', title: 'Gateway IGM', label: 'IGM Date', color: 'indigo' },
+        { key: 'gateway_igm_date', title: 'Gateway IGM', label: 'IGM Date', color: 'indigo', hideForGandhidham: true },
         { key: 'discharge_date', title: 'Discharge', label: 'Discharge Date', color: 'teal' },
         { key: 'arrivals_today', title: 'Arrivals', label: 'Arrival Date', color: 'cyan' },
-        { key: 'rail_out_today', title: 'Rail Out', label: 'Rail Out Date', color: 'blue' },
+        { key: 'rail_out_today', title: 'Rail Out', label: 'Rail Out Date', color: 'blue', hideForGandhidham: true },
         { key: 'be_filed', title: 'BE Filed', label: 'BE Date', color: 'purple' },
         { key: 'ooc', title: 'OOC', label: 'OOC Date', color: 'fuchsia' },
         { key: 'empty_offload', title: 'Empty Offload', label: 'Offload Date', color: 'rose' },
         { key: 'billing_sent', title: 'Billing Sent', label: 'Bill Sent Date', color: 'green' },
         { key: 'do_completed', title: 'DO Completed', label: 'DO Date', color: 'orange' },
         { key: 'operations_completed', title: 'Ops Completed', label: 'Completion Date', color: 'emerald' },
-    ];
+    ].filter(card => selectedBranch !== "GANDHIDHAM" || !card.hideForGandhidham);
 
     return (
         <div className="overview-container">

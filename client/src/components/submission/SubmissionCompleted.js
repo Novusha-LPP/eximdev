@@ -26,6 +26,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 
 function SubmissionCompleted() {
@@ -35,6 +36,7 @@ function SubmissionCompleted() {
   const { user } = useContext(UserContext);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const { selectedBranch } = useContext(BranchContext);
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
@@ -364,26 +366,30 @@ function SubmissionCompleted() {
 
         return (
           <div>
-            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm)}
-            >
-              <abbr title="Copy Gateway IGM">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm_date)}
-            >
-              <abbr title="Copy Gateway Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
+            {selectedBranch !== "GANDHIDHAM" && (
+              <>
+                <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                >
+                  <abbr title="Copy Gateway IGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+                <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                >
+                  <abbr title="Copy Gateway Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+              </>
+            )}
             <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
             <IconButton
               size="small"

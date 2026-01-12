@@ -1,4 +1,5 @@
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState, useContext } from "react";
+import { BranchContext } from "../../contexts/BranchContext";
 import { Row, Col } from "react-bootstrap";
 import { IconButton, Tooltip, Collapse, Box, Typography } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -9,6 +10,7 @@ import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
+  const { selectedBranch } = useContext(BranchContext);
   if (props.data) {
     const inv_value = (props.data.cif_amount / props.data.exrate).toFixed(2);
     var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
@@ -319,7 +321,11 @@ function JobDetailsStaticData(props) {
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>BE Filing Type: </span>
-              <span style={valueStyle}>{props.data.be_filing_type}</span>
+              <span style={valueStyle}>
+                {selectedBranch === "GANDHIDHAM" && props.data.be_filing_type === "Railout"
+                  ? ""
+                  : props.data.be_filing_type}
+              </span>
             </Col>
           </Row>
 
@@ -466,25 +472,37 @@ function JobDetailsStaticData(props) {
             </Col>
           </Row>
 
-          {/* Row 8: G-IGM No, G-IGM Date, Line No, Bank Name */}
-          <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM No: </span>
-              <span style={valueStyle}>{props.data.gateway_igm}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM Date: </span>
-              <span style={valueStyle}>{props.data.gateway_igm_date}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Line No: </span>
-              <span style={valueStyle}>{props.data.line_no}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Bank Name: </span>
-              <span style={valueStyle}>{props.data.bank_name}</span>
-            </Col>
-          </Row>
+          {selectedBranch !== "GANDHIDHAM" ? (
+            <Row style={compactRowStyle}>
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>G-IGM No: </span>
+                <span style={valueStyle}>{props.data.gateway_igm}</span>
+              </Col>
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>G-IGM Date: </span>
+                <span style={valueStyle}>{props.data.gateway_igm_date}</span>
+              </Col>
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>Line No: </span>
+                <span style={valueStyle}>{props.data.line_no}</span>
+              </Col>
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>Bank Name: </span>
+                <span style={valueStyle}>{props.data.bank_name}</span>
+              </Col>
+            </Row>
+          ) : (
+            <Row style={compactRowStyle}>
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>Line No: </span>
+                <span style={valueStyle}>{props.data.line_no}</span>
+              </Col>
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>Bank Name: </span>
+                <span style={valueStyle}>{props.data.bank_name}</span>
+              </Col>
+            </Row>
+          )}
 
           {/* Row 9: IGM No, IGM Date, HSS, Seller Name */}
           <Row style={compactRowStyle}>

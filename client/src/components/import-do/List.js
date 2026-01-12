@@ -32,6 +32,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function List() {
   const { job_no, year } = useParams();
@@ -55,6 +56,7 @@ function List() {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -470,43 +472,47 @@ function List() {
               </IconButton>
             </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
-              >
-                <abbr title="Copy GIGM">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+            {selectedBranch !== "GANDHIDHAM" && (
+              <>
+                <div
+                  style={{
+                    marginBottom: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+                  <IconButton
+                    size="small"
+                    onClick={(event) => handleCopy(event, gateway_igm)}
+                    sx={{ padding: "2px", marginLeft: "4px" }}
+                  >
+                    <abbr title="Copy GIGM">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
+                </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm_date)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
-              >
-                <abbr title="Copy GIGM Date">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <div
+                  style={{
+                    marginBottom: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                  <IconButton
+                    size="small"
+                    onClick={(event) => handleCopy(event, gateway_igm_date)}
+                    sx={{ padding: "2px", marginLeft: "4px" }}
+                  >
+                    <abbr title="Copy GIGM Date">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
+                </div>
+              </>
+            )}
 
             <div
               style={{

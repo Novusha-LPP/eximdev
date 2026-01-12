@@ -17,6 +17,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
+import { BranchContext } from "../../contexts/BranchContext";
 
 const style = {
   position: "absolute",
@@ -31,6 +32,7 @@ const style = {
 
 export default function SelectImporterModal(props) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedBranch } = useContext(BranchContext);
   const { importers, setImporters } = useImportersContext();
   const [importerData, setImporterData] = React.useState([]);
   const [selectedImporter, setSelectedImporter] = React.useState("");
@@ -114,7 +116,8 @@ export default function SelectImporterModal(props) {
         res.data,
         selectedImporter,
         props.status,
-        props.detailedStatus
+        props.detailedStatus,
+        selectedBranch
       );
     }
   };
@@ -126,7 +129,7 @@ export default function SelectImporterModal(props) {
         `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}`
       );
 
-      downloadAllReport(res.data, props.status, props.detailedStatus);
+      downloadAllReport(res.data, props.status, props.detailedStatus, selectedBranch);
     }
   };
 

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const inwardRegisterSchema = new mongoose.Schema({
   time: { type: String },
@@ -12,8 +13,5 @@ const inwardRegisterSchema = new mongoose.Schema({
   courier_received: { type: String },
 });
 
-const InwardRegisterModel = mongoose.model(
-  "inwardRegister",
-  inwardRegisterSchema
-);
+const InwardRegisterModel = createDynamicModel("inwardRegister", inwardRegisterSchema);
 export default InwardRegisterModel;

@@ -7,6 +7,15 @@ import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 
+// Add axios interceptor for branch context
+axios.interceptors.request.use((config) => {
+  let selectedBranch = localStorage.getItem("selected_branch") || "AHMEDABAD HO";
+  if (selectedBranch === "Main Branch") selectedBranch = "AHMEDABAD HO";
+  if (selectedBranch === "Gandhidham" || selectedBranch === "Gandhidham Branch") selectedBranch = "GANDHIDHAM";
+  config.headers["x-branch"] = selectedBranch;
+  return config;
+});
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

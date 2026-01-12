@@ -1,5 +1,6 @@
 // models/releaseNoteModel.js
 import mongoose from 'mongoose';
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const releaseNoteSchema = new mongoose.Schema({
   version: {
@@ -56,9 +57,10 @@ const releaseNoteSchema = new mongoose.Schema({
   }
 });
 
-releaseNoteSchema.pre('save', function(next) {
+releaseNoteSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-export default mongoose.model('ReleaseNote', releaseNoteSchema);
+const ReleaseNoteModel = createDynamicModel('ReleaseNote', releaseNoteSchema, "AHMEDABAD HO");
+export default ReleaseNoteModel;

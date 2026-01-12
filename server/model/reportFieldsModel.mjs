@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const reportFieldsSchema = new mongoose.Schema(
   {
@@ -20,8 +21,5 @@ const reportFieldsSchema = new mongoose.Schema(
   { collection: "reportFields" }
 );
 
-const ReportFieldsModel = new mongoose.model(
-  "ReportFields",
-  reportFieldsSchema
-);
+const ReportFieldsModel = createDynamicModel("ReportFields", reportFieldsSchema);
 export default ReportFieldsModel;

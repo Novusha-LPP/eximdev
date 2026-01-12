@@ -35,6 +35,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 const extractJobNo = (input) => {
   if (!input) return "";
@@ -54,6 +55,7 @@ function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   const {
     searchQuery,
@@ -382,6 +384,15 @@ function JobList(props) {
     (e) => setSelectedICD(e.target.value),
     [setSelectedICD]
   );
+
+  useEffect(() => {
+    if (selectedBranch === "GANDHIDHAM") {
+      setSelectedICD("MUNDRA PORT");
+    } else {
+      setSelectedICD("all");
+    }
+  }, [selectedBranch, setSelectedICD]);
+
   const handleImporterChange = useCallback(
     (e, v) => setSelectedImporter(v),
     [setSelectedImporter]
@@ -420,20 +431,27 @@ function JobList(props) {
         >
           {props.status} Jobs: {total}
         </Typography>
-
         <TextField
           select
           size="small"
           variant="outlined"
           label="ICD Code"
           value={selectedICD}
-          onChange={handleICDChange}
+          onChange={(e) => {
+            setSelectedICD(e.target.value); // Update the selected ICD code
+          }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
-          <MenuItem value="all">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {selectedBranch === "GANDHIDHAM" ? (
+            <MenuItem value="MUNDRA PORT">MUNDRA PORT</MenuItem>
+          ) : (
+            <>
+              <MenuItem value="all">All ICDs</MenuItem>
+              <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+              <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+              <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+            </>
+          )}
         </TextField>
 
         <Autocomplete
@@ -476,11 +494,20 @@ function JobList(props) {
           onChange={handleDetailedStatusChange}
           sx={{ width: "250px", marginRight: "20px" }}
         >
-          {detailedStatusOptions.map((o, i) => (
-            <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-              {o.name}
-            </MenuItem>
-          ))}
+          {detailedStatusOptions
+            .filter((o) => {
+              if (selectedBranch === "GANDHIDHAM") {
+                return (
+                  o.value !== "Rail Out" && o.value !== "Gateway IGM Filed"
+                );
+              }
+              return true;
+            })
+            .map((o, i) => (
+              <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
+                {o.name}
+              </MenuItem>
+            ))}
         </TextField>
 
         {/* Simple search input (no typeahead/suggestions) */}

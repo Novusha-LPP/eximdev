@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const kycDocumentsSchema = new mongoose.Schema({
   importer: {
@@ -20,8 +21,5 @@ const kycDocumentsSchema = new mongoose.Schema({
   shipping_line_bond_charges: { type: String },
 });
 
-const KycDocumentsModel = new mongoose.model(
-  "kycDocuments",
-  kycDocumentsSchema
-);
+const KycDocumentsModel = createDynamicModel("kycDocuments", kycDocumentsSchema);
 export default KycDocumentsModel;

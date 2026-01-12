@@ -40,6 +40,7 @@ router.post("/api/login", async (req, res) => {
           assigned_importer: user.assigned_importer,
           assigned_importer_name: user.assigned_importer_name,
           selected_icd_codes: user.selected_icd_codes,
+          assignedBranch: user.assignedBranch,
         };
 
         const token = jwt.sign(

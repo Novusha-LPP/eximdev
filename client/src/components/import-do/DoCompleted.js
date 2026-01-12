@@ -27,6 +27,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function DoCompleted() {
   const [selectedICD, setSelectedICD] = useState("");
@@ -58,6 +59,7 @@ function DoCompleted() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -298,8 +300,8 @@ function DoCompleted() {
           cell.row.original.priorityJob === "High Priority"
             ? "orange"
             : cell.row.original.priorityJob === "Priority"
-            ? "yellow"
-            : "transparent";
+              ? "yellow"
+              : "transparent";
         const isSelected = selectedJobId === _id;
         // Get selectedImporter, currentPage, searchQuery from context
         // ...existing code...
@@ -519,43 +521,47 @@ function DoCompleted() {
               </IconButton>
             </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
-              >
-                <abbr title="Copy GIGM">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+            {selectedBranch !== "GANDHIDHAM" && (
+              <>
+                <div
+                  style={{
+                    marginBottom: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+                  <IconButton
+                    size="small"
+                    onClick={(event) => handleCopy(event, gateway_igm)}
+                    sx={{ padding: "2px", marginLeft: "4px" }}
+                  >
+                    <abbr title="Copy GIGM">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
+                </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm_date)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
-              >
-                <abbr title="Copy GIGM Date">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <div
+                  style={{
+                    marginBottom: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                  <IconButton
+                    size="small"
+                    onClick={(event) => handleCopy(event, gateway_igm_date)}
+                    sx={{ padding: "2px", marginLeft: "4px" }}
+                  >
+                    <abbr title="Copy GIGM Date">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
+                </div>
+              </>
+            )}
 
             <div
               style={{
@@ -825,12 +831,12 @@ function DoCompleted() {
           <div style={{ textAlign: "left" }}>
             {/* Render the "Checklist" link or fallback text */}
             {cth_documents &&
-            cth_documents.some(
-              (doc) =>
-                doc.url &&
-                doc.url.length > 0 &&
-                doc.document_name === "Bill of Lading"
-            ) ? (
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  doc.document_name === "Bill of Lading"
+              ) ? (
               cth_documents
                 .filter(
                   (doc) =>

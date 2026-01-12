@@ -22,7 +22,7 @@ function LoginPage() {
         );
 
         if (res.status === 200) {
-          // localStorage.setItem("exim_user", JSON.stringify(res.data)); // Removed
+          localStorage.setItem("selected_branch", res.data.assignedBranch || "AHMEDABAD HO");
           setUser(res.data);
           resetForm();
         }

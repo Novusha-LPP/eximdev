@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const ExitInterviewSchema = new mongoose.Schema({
   employee_name: String,
@@ -24,8 +25,5 @@ const ExitInterviewSchema = new mongoose.Schema({
   suggestions: String,
 });
 
-const ExitInterviewModel = new mongoose.model(
-  "ExitInterview",
-  ExitInterviewSchema
-);
+const ExitInterviewModel = createDynamicModel("ExitInterview", ExitInterviewSchema);
 export default ExitInterviewModel;

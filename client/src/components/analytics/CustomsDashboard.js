@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
+import { BranchContext } from '../../contexts/BranchContext';
+import { useContext } from 'react';
 import './AnalyticsLayout.css';
 import {
     AreaChart,
@@ -16,6 +18,7 @@ import {
 
 const CustomsDashboard = () => {
     const { startDate, endDate, importer } = useAnalytics();
+    const { selectedBranch } = useContext(BranchContext);
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -51,7 +54,9 @@ const CustomsDashboard = () => {
             <h2>Customs Clearance</h2>
             <div className="dashboard-grid">
                 <KPICard title="IGM" count={summary.igm || 0} color="purple" onClick={() => handleCardClick('igm', 'IGM')} />
-                <KPICard title="Gateway IGM" count={summary.gateway_igm || 0} color="purple" onClick={() => handleCardClick('gateway_igm', 'Gateway IGM')} />
+                {selectedBranch !== "GANDHIDHAM" && (
+                    <KPICard title="Gateway IGM" count={summary.gateway_igm || 0} color="purple" onClick={() => handleCardClick('gateway_igm', 'Gateway IGM')} />
+                )}
                 <KPICard title="BE Filed" count={summary.be_filed || 0} color="purple" onClick={() => handleCardClick('be_filed', 'BE Filed')} />
                 <KPICard title="Assessment" count={summary.assessment || 0} color="purple" onClick={() => handleCardClick('assessment', 'Assessment')} />
                 <KPICard title="Duty Paid" count={summary.duty_paid || 0} color="purple" onClick={() => handleCardClick('duty_paid', 'Duty Paid')} />

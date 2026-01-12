@@ -32,6 +32,7 @@ import JobDetailsRowHeading from "./JobDetailsRowHeading";
 import FormGroup from "@mui/material/FormGroup";
 import { TabValueContext } from "../../contexts/TabValueContext";
 import { handleGrossWeightChange } from "../../utils/handleNetWeightChange";
+import { BranchContext } from "../../contexts/BranchContext";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
@@ -79,6 +80,7 @@ function JobDetails() {
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { selectedBranch } = useContext(BranchContext);
   const { user } = useContext(UserContext);
   const { setTabValue } = React.useContext(TabValueContext);
   const { setSearchQuery, setSelectedImporter } = useSearchQuery();
@@ -419,11 +421,11 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
     } else if (be_no && !anyArrival) {
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-    } else if (anyRailOut) {
+    } else if (anyRailOut && selectedBranch !== "GANDHIDHAM") {
       formik.setFieldValue("detailed_status", "Rail Out");
     } else if (validDischarge) {
       formik.setFieldValue("detailed_status", "Discharged");
-    } else if (validIGM) {
+    } else if (validIGM && selectedBranch !== "GANDHIDHAM") {
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
     } else if (validETA) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
@@ -1233,11 +1235,15 @@ function JobDetails() {
                         >
                           <MenuItem value="ETA Date Pending">ETA Date Pending</MenuItem>
                           <MenuItem value="Estimated Time of Arrival">ETA</MenuItem>
-                          <MenuItem value="Gateway IGM Filed">
-                            Gateway IGM Filed
-                          </MenuItem>
+                          {selectedBranch !== "GANDHIDHAM" && (
+                            <MenuItem value="Gateway IGM Filed">
+                              Gateway IGM Filed
+                            </MenuItem>
+                          )}
                           <MenuItem value="Discharged">Discharged</MenuItem>
-                          <MenuItem value="Rail Out">Rail Out</MenuItem>
+                          {selectedBranch !== "GANDHIDHAM" && (
+                            <MenuItem value="Rail Out">Rail Out</MenuItem>
+                          )}
                           <MenuItem value="BE Noted, Arrival Pending">
                             BE Noted, Arrival Pending
                           </MenuItem>
@@ -1431,17 +1437,21 @@ function JobDetails() {
                         value={formik.values.vessel_berthing ? (formik.values.vessel_berthing.length === 10 ? `${formik.values.vessel_berthing}T00:00` : formik.values.vessel_berthing) : ""}
                         disabled={!(user?.role === "Admin") && (ExBondflag || isSubmissionDate)} onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM No</label>
-                      <TextField fullWidth size="small" variant="outlined" id="gateway_igm" name="gateway_igm" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.gateway_igm || ""} onChange={formik.handleChange} placeholder="Enter Gateway IGM" sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM Date</label>
-                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="gateway_igm_date" name="gateway_igm_date" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.gateway_igm_date ? (formik.values.gateway_igm_date.length === 10 ? `${formik.values.gateway_igm_date}T00:00` : formik.values.gateway_igm_date) : ""}
-                        onChange={formik.handleChange} sx={compactInputSx} />
-                    </Col>
+                    {selectedBranch !== "GANDHIDHAM" && (
+                      <>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM No</label>
+                          <TextField fullWidth size="small" variant="outlined" id="gateway_igm" name="gateway_igm" disabled={user?.role !== "Admin" && isSubmissionDate}
+                            value={formik.values.gateway_igm || ""} onChange={formik.handleChange} placeholder="Enter Gateway IGM" sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM Date</label>
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="gateway_igm_date" name="gateway_igm_date" disabled={user?.role !== "Admin" && isSubmissionDate}
+                            value={formik.values.gateway_igm_date ? (formik.values.gateway_igm_date.length === 10 ? `${formik.values.gateway_igm_date}T00:00` : formik.values.gateway_igm_date) : ""}
+                            onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                      </>
+                    )}
                     <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>IGM Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="igm_no" name="igm_no" value={formik.values.igm_no || ""}
@@ -2560,24 +2570,26 @@ function JobDetails() {
 
                           {/* Row 2: Dates */}
                           <Row className="mb-3">
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Railout Date</label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="datetime-local"
-                                variant="outlined"
-                                name={`container_nos[${index}].container_rail_out_date`}
-                                value={container.container_rail_out_date}
-                                disabled={
-                                  !(user?.role === "Admin") &&
-                                  (LCLFlag || ExBondflag)
-                                }
-                                onChange={formik.handleChange}
-                                InputLabelProps={{ shrink: true }}
-                                sx={compactInputSx}
-                              />
-                            </Col>
+                            {selectedBranch !== "GANDHIDHAM" && (
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Railout Date</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].container_rail_out_date`}
+                                  value={container.container_rail_out_date}
+                                  disabled={
+                                    !(user?.role === "Admin") &&
+                                    (LCLFlag || ExBondflag)
+                                  }
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                            )}
                             <Col xs={12} md={3} lg={2} className="mb-3">
                               <label style={labelStyle}>Arrival Date</label>
                               {formik.values.checked ? (

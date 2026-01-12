@@ -1,5 +1,6 @@
 // model/accounts/AccountEntry.js
 import mongoose from 'mongoose';
+import { createDynamicModel } from "../../utils/modelHelper.mjs";
 
 const accountEntrySchema = new mongoose.Schema({
   masterTypeId: {
@@ -69,4 +70,5 @@ const accountEntrySchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('AccountEntry', accountEntrySchema);
+const AccountEntryModel = createDynamicModel('AccountEntry', accountEntrySchema);
+export default AccountEntryModel;

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const outwardRegisterSchema = new mongoose.Schema({
   bill_given_date: { type: String },
@@ -13,8 +14,5 @@ const outwardRegisterSchema = new mongoose.Schema({
   kind_attention: { type: String },
 });
 
-const OutwardRegisterModel = mongoose.model(
-  "outwardRegister",
-  outwardRegisterSchema
-);
+const OutwardRegisterModel = createDynamicModel("outwardRegister", outwardRegisterSchema);
 export default OutwardRegisterModel;

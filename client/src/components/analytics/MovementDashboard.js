@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
+import { BranchContext } from '../../contexts/BranchContext';
+import { useContext } from 'react';
 
 import './AnalyticsLayout.css';
 import {
@@ -17,6 +19,7 @@ import {
 
 const MovementDashboard = () => {
     const { startDate, endDate, importer } = useAnalytics();
+    const { selectedBranch } = useContext(BranchContext);
     const [data, setData] = useState({ summary: {}, details: {} });
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -52,7 +55,9 @@ const MovementDashboard = () => {
             <h2>Container Movement</h2>
             <div className="dashboard-grid">
                 <KPICard title="Arrived" count={summary.arrived || 0} color="blue" onClick={() => handleCardClick('arrived', 'Arrived', 'Arrival Date')} />
-                <KPICard title="Rail Out" count={summary.rail_out || 0} color="blue" onClick={() => handleCardClick('rail_out', 'Rail Out', 'Rail Out Date')} />
+                {selectedBranch !== "GANDHIDHAM" && (
+                    <KPICard title="Rail Out" count={summary.rail_out || 0} color="blue" onClick={() => handleCardClick('rail_out', 'Rail Out', 'Rail Out Date')} />
+                )}
                 <KPICard title="Delivered" count={summary.delivered || 0} color="blue" onClick={() => handleCardClick('delivered', 'Delivered', 'Delivery Date')} />
                 <KPICard title="Empty Offload" count={summary.empty_offload || 0} color="blue" onClick={() => handleCardClick('empty_offload', 'Empty Offload', 'Offload Date')} />
                 <KPICard title="By Road" count={summary.by_road || 0} color="blue" onClick={() => handleCardClick('by_road', 'By Road', 'Movement Date')} />

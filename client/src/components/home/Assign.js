@@ -10,6 +10,7 @@ import AssignImporters from "./AssignImporters";
 
 
 import AssignEximBot from "./AssignEximBot/AssignEximBot";
+import AssignBranch from "./AssignBranch";
 // import AssignProjects from "./AssignProjects";
 
 function Assign() {
@@ -52,8 +53,8 @@ function Assign() {
         return <AssignImporters selectedUser={selectedUser} />;
       case "Assign Exim Bot":
         return <AssignEximBot selectedUser={selectedUser} />;
-      // case "Assign Projects":
-      //   return <AssignProjects selectedUser={selectedUser} />;
+      case "Assign Branch":
+        return <AssignBranch selectedUser={selectedUser} />;
       default:
         return null;
     }
@@ -92,6 +93,7 @@ function Assign() {
           <MenuItem value="Assign ICD Code">Assign ICD Code</MenuItem>
           <MenuItem value="Assign Importers">Assign Importers</MenuItem>
           <MenuItem value="Assign Exim Bot">Assign Exim Bot</MenuItem>
+          <MenuItem value="Assign Branch">Assign Branch</MenuItem>
           {/* <MenuItem value="Assign Projects">Assign Projects</MenuItem> */}
         </TextField>
       </div>

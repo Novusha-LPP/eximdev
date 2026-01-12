@@ -1,5 +1,6 @@
 
 import mongoose from "mongoose";
+import { createDynamicModel } from "../../utils/modelHelper.mjs";
 const Schema = mongoose.Schema;
 
 const projectSchema = new Schema({
@@ -15,4 +16,5 @@ const projectSchema = new Schema({
     created_at: { type: Date, default: Date.now },
 });
 
-export default mongoose.model("OpenPointProject", projectSchema);
+const OpenPointProjectModel = createDynamicModel("OpenPointProject", projectSchema, "AHMEDABAD HO");
+export default OpenPointProjectModel;

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { type } from "os";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
+
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
@@ -81,27 +82,23 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
-const jobSchema = new mongoose.Schema({
+export const jobSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
-    default: Date.now, // Automatically sets the current date and time
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
     default: Date.now,
   },
-
   job_date: {
     type: String,
     trim: true,
-    default: () => new Date().toISOString(), // Optional for specific fields like `job_date`
+    default: () => new Date().toISOString(),
   },
-
-  ////////////////////////////////////////////////// Excel sheet
   year: { type: String, trim: true },
   job_no: { type: String, trim: true },
   custom_house: { type: String, trim: true },
-  job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
   supplier_exporter: { type: String, trim: true },
   invoice_number: { type: String, trim: true },
@@ -183,7 +180,6 @@ const jobSchema = new mongoose.Schema({
         type: String,
         trim: true,
       },
-
       do_revalidation: [
         {
           do_revalidation_upto: { type: String },
@@ -221,15 +217,11 @@ const jobSchema = new mongoose.Schema({
   job_owner: { type: String },
   hss_name: { type: String },
   total_inv_value: { type: String },
-
-  ////////////////////////////////////////////////// DSR
   importerURL: { type: String, trim: true },
   checklist: [{ type: String }],
   checkedDocs: [{ type: String }],
-  // *******
   status: { type: String, trim: true },
   detailed_status: { type: String, trim: true },
-  // *******
   obl_telex_bl: { type: String },
   document_received_date: { type: String, trim: true },
   doPlanning: { type: Boolean },
@@ -239,60 +231,24 @@ const jobSchema = new mongoose.Schema({
   do_revalidation_upto_job_level: { type: String, trim: true },
   do_revalidation: { type: Boolean },
   do_revalidation_date: { type: String },
-  // rail_out_date: { type: String },
   examinationPlanning: { type: Boolean },
   examination_planning_date: { type: String, trim: true },
   processed_be_attachment: [{ type: String }],
   ooc_copies: [{ type: String }],
   in_bond_ooc_copies: [{ type: String }],
   gate_pass_copies: [{ type: String }],
-  // *******
-  sims_reg_no: {
-    type: String,
-    trim: true,
-  },
-  pims_reg_no: {
-    type: String,
-    trim: true,
-  },
-  nfmims_reg_no: {
-    type: String,
-    trim: true,
-  },
-  sims_date: {
-    type: String,
-    trim: true,
-  },
-  pims_date: {
-    type: String,
-    trim: true,
-  },
-  nfmims_date: {
-    type: String,
-    trim: true,
-  },
-  // *******
-  discharge_date: {
-    type: String,
-    trim: true,
-  },
-  assessment_date: {
-    type: String,
-    trim: true,
-  },
-  duty_paid_date: {
-    type: String,
-    trim: true,
-  },
+  sims_reg_no: { type: String, trim: true },
+  pims_reg_no: { type: String, trim: true },
+  nfmims_reg_no: { type: String, trim: true },
+  sims_date: { type: String, trim: true },
+  pims_date: { type: String, trim: true },
+  nfmims_date: { type: String, trim: true },
+  discharge_date: { type: String, trim: true },
+  assessment_date: { type: String, trim: true },
+  duty_paid_date: { type: String, trim: true },
   do_validity: { type: String, trim: true },
-  // delivery_date: {
-  //   type: String,
-  //   trim: true,
-  // },
   containers_arrived_on_same_date: Boolean,
-  // *******
   remarks: { type: String, trim: true },
-  // *******
   free_time: { type: Number, trim: true, default: 0 },
   is_free_time_updated: { type: Boolean, default: false },
   factory_weighment_slip: { type: String, trim: true },
@@ -306,37 +262,19 @@ const jobSchema = new mongoose.Schema({
   penalty_by_us: { type: Boolean, default: false },
   penalty_by_importer: { type: Boolean, default: false },
   zero_penalty_as_per_bill_of_entry: { type: Boolean, default: false },
-
-  ////////////////////////////////////////////////// E-sanchit
   esanchit_completed_date_time: { type: String, trim: true },
-
-  ////////////////////////////////////////////////// DO
   shipping_line_bond_completed: { type: String, trim: true },
-  shipping_line_bond_charges: {
-    type: String,
-    trim: true,
-  },
+  shipping_line_bond_charges: { type: String, trim: true },
   shipping_line_bond_completed_date: { type: String, trim: true },
   shipping_line_kyc_completed: { type: String, trim: true },
   shipping_line_kyc_completed_date: { type: String, trim: true },
   shipping_line_invoice_received: { type: String, trim: true },
   shipping_line_invoice_received_date: { type: String, trim: true },
   shipping_line_insurance: [{ type: String, trim: true }],
-  // *******
   security_deposit: { type: String },
   security_amount: { type: String },
-  utr: [
-    {
-      type: String,
-      trim: true,
-    },
-  ],
-  shipping_line_attachment: [
-    {
-      type: String,
-      trim: true,
-    },
-  ],
+  utr: [{ type: String, trim: true }],
+  shipping_line_attachment: [{ type: String, trim: true }],
   other_invoices: { type: String, trim: true },
   other_invoices_img: [{ type: String, trim: true }],
   other_invoices_date: { type: String, trim: true },
@@ -370,46 +308,28 @@ const jobSchema = new mongoose.Schema({
     },
   ],
   do_completed: { type: String, trim: true },
-  // *******
   icd_cfs_invoice: { type: String, trim: true },
-
   icd_cfs_invoice_date: { type: String, trim: true },
-
   import_terms: { type: String, trim: true },
   cifValue: { type: String, trim: true },
   freight: { type: String, trim: true },
   insurance: { type: String, trim: true },
-
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },
   is_obl_recieved: { type: Boolean, default: false },
   obl_recieved_date: { type: String, trim: true },
   og_doc_recieved_date: { type: String, trim: true },
-
-  do_completed_updated: {
-    type: Date,
-  },
-  doPlanning_updated: {
-    type: Date,
-  },
-  met_do_billing_conditions_date: {
-    type: Date,
-  },
-
+  do_completed_updated: { type: Date },
+  doPlanning_updated: { type: Date },
+  met_do_billing_conditions_date: { type: Date },
   is_do_doc_recieved: { type: Boolean, default: false },
   do_doc_recieved_date: { type: String, trim: true },
   is_do_doc_prepared: { type: Boolean, default: false },
   is_og_doc_recieved: { type: Boolean, default: false },
   do_doc_prepared_date: { type: String, trim: true },
-  ////////////////////////////////////////////////// documentation
   documentation_completed_date_time: { type: String, trim: true },
-
-  ////////////////////////////////////////////////// Operations
   pcv_date: { type: String },
-  examination_date: {
-    type: String,
-    trim: true,
-  },
+  examination_date: { type: String, trim: true },
   concor_gate_pass_date: { type: String, trim: true },
   concor_gate_pass_validate_up_to: { type: String, trim: true },
   completed_operation_date: { type: String, trim: true },
@@ -417,8 +337,6 @@ const jobSchema = new mongoose.Schema({
   concor_invoice_and_receipt_copy: [{ type: String, trim: true }],
   thar_invoices: [{ type: String, trim: true }],
   hasti_invoices: [{ type: String, trim: true }],
-
-  ////////////////////////////////////////////////// LR
   pr_no: { type: String, trim: true },
   pr_date: { type: String, trim: true },
   consignor: { type: String },
@@ -430,13 +348,8 @@ const jobSchema = new mongoose.Schema({
   instructions: { type: String },
   goods_pickup: { type: String },
   goods_delivery: { type: String },
-
-  ////////////////////////////////////////////form data
   account_fields: [masterTypeSchema],
-
   account_types: [accountEntrySchema],
-
-  ////////////////////////////////////////////////// CTH Documents
   cth_documents: [cthDocumentSchema],
   eSachitQueries: [
     {
@@ -445,12 +358,8 @@ const jobSchema = new mongoose.Schema({
       resolved: { type: Boolean, default: false },
     },
   ],
-
-  ////////////////////////////////////////////////////// Documents
   documents: [documentSchema],
   all_documents: [{ type: String, trim: true }],
-
-  ////////////////////////////////////////////////////// Documentation
   document_entry_completed: { type: Boolean },
   documentationQueries: [
     {
@@ -459,26 +368,18 @@ const jobSchema = new mongoose.Schema({
       resolved: { type: Boolean, default: false },
     },
   ],
-
-  /////////////////////////////////// Charges Details
   DsrCharges: [DsrchargesSchema],
-
-  /////////////////////////////////// esanchit Charges Details
   esanchitCharges: [esanchitChargesSchema],
-
-  /////////////////////////////////// Do Charges Details
-
-  // 1. Updated Schema (Backend) - Add this to your schema
   do_shipping_line_invoice: [
     {
       document_name: { type: String, trim: true },
       url: [{ type: String, trim: true }],
       is_draft: { type: Boolean },
       is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
+      document_check_date: { type: String, trim: true },
+      document_check_status: { type: Boolean, default: false },
+      payment_mode: { type: String, trim: true },
+      wire_transfer_method: { type: String, trim: true },
       document_amount_details: { type: String, trim: true },
       payment_request_date: { type: String, trim: true },
       payment_made_date: { type: String, trim: true },
@@ -490,7 +391,6 @@ const jobSchema = new mongoose.Schema({
       payment_recipt_date: { type: String, trim: true },
     },
   ],
-
   insurance_copy: [
     {
       document_name: { type: String, trim: true },
@@ -499,7 +399,6 @@ const jobSchema = new mongoose.Schema({
       document_amount_details: { type: String, trim: true },
     },
   ],
-
   other_do_documents: [
     {
       document_name: { type: String, trim: true },
@@ -508,7 +407,6 @@ const jobSchema = new mongoose.Schema({
       document_amount_details: { type: String, trim: true },
     },
   ],
-
   security_deposit: [
     {
       document_name: { type: String, trim: true },
@@ -519,8 +417,6 @@ const jobSchema = new mongoose.Schema({
       Validity_upto: { type: String, trim: true },
     },
   ],
-
-  ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },
   submission_date: { type: String },
   submissionQueries: [
@@ -535,9 +431,6 @@ const jobSchema = new mongoose.Schema({
   submission_completed_date_time: { type: String },
   job_sticker_upload: [{ type: String, trim: true }],
   job_sticker_upload_date_and_time: { type: String },
-
-  ////////////////////////////////////////////////// accounts
-
   billing_completed_date: { type: String },
   bill_document_sent_to_accounts: { type: String, trim: true },
   icd_cfs_invoice_img: [{ type: String, trim: true }],
@@ -545,41 +438,26 @@ const jobSchema = new mongoose.Schema({
   upload_reimbursement_bill_img: { type: String },
   bill_amount: { type: String },
   do_list: { type: String, trim: true },
-
   advanced_payment_done: { type: Boolean, default: false },
   advanced_payment_date: { type: Date },
   advanced_payment_by: { type: String },
-
-  ////////////////////////////////////////////////// Display
 });
 
-// Automatically update `updatedAt` before saving
 jobSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-// ==================== PERFORMANCE OPTIMIZATION INDEXES ====================
-// These indexes dramatically improve search performance for the most common queries
-
-// Existing indexes - keep for compatibility
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });
 jobSchema.index({ year: 1, job_no: 1 }, { unique: true });
-
-// NEW: Indexes for primary search filters
 jobSchema.index({ year: 1, status: 1, detailed_status: 1 });
 jobSchema.index({ year: 1, importer: 1, status: 1 });
 jobSchema.index({ year: 1, custom_house: 1, status: 1 });
-
-// NEW: Indexes for searchable fields (50-100x faster than collection scan)
 jobSchema.index({ job_no: 1, year: 1 });
 jobSchema.index({ awb_bl_no: 1, year: 1 });
 jobSchema.index({ be_no: 1, year: 1 });
 jobSchema.index({ supplier_exporter: 1, year: 1 });
 jobSchema.index({ importer: 1, year: 1 });
-
-// NEW: Full-text search index (100-500x faster than regex for text searches)
-// Supports searching across multiple fields simultaneously
 jobSchema.index({
   job_no: "text",
   importer: "text",
@@ -591,9 +469,7 @@ jobSchema.index({
   consignment_type: "text",
   vessel_berthing: "text",
 });
-
-// NEW: Composite index for sorting by status and detention date (common operation)
 jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 
-const JobModel = new mongoose.model("Job", jobSchema);
+const JobModel = createDynamicModel("Job", jobSchema);
 export default JobModel;

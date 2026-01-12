@@ -26,25 +26,27 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function Submission() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-      const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
   const [importers, setImporters] = useState("");
-const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-    const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const { selectedBranch } = useContext(BranchContext);
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
-  
-// Use context for search functionality and pagination like E-Sanchit
-const { 
-  searchQuery, setSearchQuery, 
-  selectedImporter, setSelectedImporter, 
-  currentPageSubmission: page, 
-  setCurrentPageSubmission: setPage 
-} = useSearchQuery();
+
+  // Use context for search functionality and pagination like E-Sanchit
+  const {
+    searchQuery, setSearchQuery,
+    selectedImporter, setSelectedImporter,
+    currentPageSubmission: page,
+    setCurrentPageSubmission: setPage
+  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] =
     React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
@@ -56,27 +58,27 @@ const {
 
   const limit = 10; // Number of items per page
 
-React.useEffect(() => {
-  if (location.state?.fromJobDetails) {
-    if (location.state?.searchQuery !== undefined) {
-      setSearchQuery(location.state.searchQuery);
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+      if (location.state?.currentPage !== undefined) {
+        setPage(location.state.currentPage);
+      }
+    } else {
+      setSearchQuery("");
+      setSelectedImporter("");
+      setSelectedJobId("");
+      setPage(1);
     }
-    if (location.state?.selectedImporter !== undefined) {
-      setSelectedImporter(location.state.selectedImporter);
-    }
-    if (location.state?.selectedJobId !== undefined) {
-      setSelectedJobId(location.state.selectedJobId);
-    }
-    if (location.state?.currentPage !== undefined) {
-      setPage(location.state.currentPage);
-    }
-  } else {
-    setSearchQuery("");
-    setSelectedImporter("");
-    setSelectedJobId("");
-    setPage(1);
-  }
-}, [setSearchQuery, setSelectedImporter, setPage, location.state]);
+  }, [setSearchQuery, setSelectedImporter, setPage, location.state]);
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -175,10 +177,10 @@ React.useEffect(() => {
   }, [selectedYearState, setSelectedYearState]);
 
   // Handle search input change
-const handleSearchInputChange = (event) => {
-  setSearchQuery(event.target.value);
-  setPage(1); // Reset to first page when user types
-};
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+    setPage(1); // Reset to first page when user types
+  };
 
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
@@ -209,7 +211,7 @@ const handleSearchInputChange = (event) => {
               year: selectedYearState || "", // ✅ Ensure year is sent
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
-               username: user?.username || "", // ✅ Send username for ICD filtering
+              username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
@@ -244,7 +246,7 @@ const handleSearchInputChange = (event) => {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs( page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
     }
   }, [
     page,
@@ -263,9 +265,9 @@ const handleSearchInputChange = (event) => {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
-const handlePageChange = (event, newPage) => {
-  setPage(newPage);
-};
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
 
   const columns = [
     {
@@ -286,8 +288,8 @@ const handlePageChange = (event, newPage) => {
         const bgColor = cell.row.original.priorityJob === "High Priority"
           ? "orange"
           : cell.row.original.priorityJob === "Priority"
-          ? "yellow"
-          : "transparent";
+            ? "yellow"
+            : "transparent";
         return (
           <a
             href={`/submission-job/${job_no}/${year}`}
@@ -364,26 +366,30 @@ const handlePageChange = (event, newPage) => {
 
         return (
           <div>
-            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm)}
-            >
-              <abbr title="Copy Gateway IGM">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm_date)}
-            >
-              <abbr title="Copy Gateway Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
+            {selectedBranch !== "GANDHIDHAM" && (
+              <>
+                <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                >
+                  <abbr title="Copy Gateway IGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+                <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                >
+                  <abbr title="Copy Gateway Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+              </>
+            )}
             <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
             <IconButton
               size="small"
@@ -462,7 +468,7 @@ const handlePageChange = (event, newPage) => {
         );
       },
     },
-      {
+    {
       accessorKey: "be_filing_info",
       header: "BE Filling Type",
       enableSorting: false,
@@ -599,9 +605,8 @@ const handlePageChange = (event, newPage) => {
                       display: "block",
                     }}
                   >
-                    {`${doc.document_code} - ${doc.document_name}${
-                      doc.irn ? ` - ${doc.irn}` : ""
-                    }`}
+                    {`${doc.document_code} - ${doc.document_name}${doc.irn ? ` - ${doc.irn}` : ""
+                      }`}
                   </a>
                   {/* Uncomment the following if you want to display the date */}
                   {/* <div style={{ fontSize: "12px", color: "#555" }}>
@@ -617,7 +622,7 @@ const handlePageChange = (event, newPage) => {
         );
       },
     },
-  
+
   ];
 
   const tableConfig = {
@@ -645,21 +650,21 @@ const handlePageChange = (event, newPage) => {
       sx: {
         textAlign: "left", // Ensures all cells in the table body align to the left
       },
-    },    muiTableBodyRowProps: ({ row }) => {
+    }, muiTableBodyRowProps: ({ row }) => {
       const { be_filing_type, container_nos } = row.original;
-      
+
       let backgroundColor = '';
       let hoverColor = '';
-      
+
       if (be_filing_type === 'Discharge') {
         backgroundColor = '#ffebee'; // Light red background
         hoverColor = '#ffcdd2'; // Darker red on hover
       } else if (be_filing_type === 'Railout') {
         // Check if any container has container_rail_out_date
-        const hasRailOutDate = container_nos?.some(container => 
+        const hasRailOutDate = container_nos?.some(container =>
           container.container_rail_out_date && container.container_rail_out_date.trim() !== ''
         );
-        
+
         if (hasRailOutDate) {
           backgroundColor = '#ffebee'; // Light red background (same as discharge)
           hoverColor = '#ffcdd2'; // Darker red on hover
@@ -668,10 +673,10 @@ const handlePageChange = (event, newPage) => {
           hoverColor = '#fff3c4'; // Darker yellow on hover
         }
       }
-      
+
       return {
-  className: getTableRowsClassname(row),
-  style: getTableRowInlineStyle(row),
+        className: getTableRowsClassname(row),
+        style: getTableRowInlineStyle(row),
         sx: {
           backgroundColor: backgroundColor,
           '&:hover': {
@@ -757,56 +762,56 @@ const handlePageChange = (event, newPage) => {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
-        
+
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Box sx={{ position: 'relative' }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                      sx={{
-                         borderRadius: 3,
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      padding: '8px 20px',
-                      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                        transform: 'translateY(-1px)',
-                      },
-                      '&:active': {
-                        transform: 'translateY(0px)',
-                      },
-                      }}
-                    >
-                      {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                    </Button>
-                    <Badge 
-                      badgeContent={unresolvedCount} 
-                      color="error" 
-                      overlap="circular" 
-                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                      sx={{ 
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        '& .MuiBadge-badge': {
-                          fontSize: '0.75rem',
-                          minWidth: '18px',
-                          height: '18px',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        }
-                      }}
-                    />
-                  </Box>
-                </Box>
-                
+          <Box sx={{ position: 'relative' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                padding: '8px 20px',
+                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                '& .MuiBadge-badge': {
+                  fontSize: '0.75rem',
+                  minWidth: '18px',
+                  height: '18px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }
+              }}
+            />
+          </Box>
+        </Box>
+
       </div>
     ),
   };
@@ -815,14 +820,14 @@ const handlePageChange = (event, newPage) => {
     <div style={{ height: "80%" }}>
       <MaterialReactTable {...tableConfig} />
       <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
-       <Pagination
-  count={totalPages}
-  page={page}
-  onChange={handlePageChange}
-  color="primary"
-  showFirstButton
-  showLastButton
-/>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={handlePageChange}
+          color="primary"
+          showFirstButton
+          showLastButton
+        />
       </Box>
     </div>
   );

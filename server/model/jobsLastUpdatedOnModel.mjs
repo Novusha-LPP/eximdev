@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const jobsLastUpdatedOnSchema = new mongoose.Schema({
   date: {
@@ -8,9 +9,6 @@ const jobsLastUpdatedOnSchema = new mongoose.Schema({
   },
 });
 
-const LastJobsDate = new mongoose.model(
-  "JobsLastUpdated",
-  jobsLastUpdatedOnSchema
-);
+const LastJobsDate = createDynamicModel("JobsLastUpdated", jobsLastUpdatedOnSchema);
 
 export default LastJobsDate;

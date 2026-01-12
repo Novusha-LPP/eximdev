@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { createDynamicModel } from "../utils/modelHelper.mjs";
 
 const exchangeRateSchema = new mongoose.Schema({
   currency_code: {
@@ -55,6 +56,6 @@ const currencyRateSchema = new mongoose.Schema({
 // Index for faster queries
 currencyRateSchema.index({ notification_number: 1, effective_date: 1 });
 
-const CurrencyRate = mongoose.model('CurrencyRate', currencyRateSchema);
+const CurrencyRate = createDynamicModel('CurrencyRate', currencyRateSchema, "AHMEDABAD HO");
 
 export default CurrencyRate;

@@ -1,7 +1,8 @@
 // src/pages/job-details/tabs/TrackingTab.jsx
 import React from "react";
-import FileUpload from "../../gallery/FileUpload";
 import ImagePreview from "../../gallery/ImagePreview";
+import { BranchContext } from "../../../contexts/BranchContext";
+import { useContext } from "react";
 
 export default function TrackingTab({
   user,
@@ -31,6 +32,7 @@ export default function TrackingTab({
   handleOpenDutyModal,
   isDutyPaidDateDisabled,
 }) {
+  const { selectedBranch } = useContext(BranchContext);
   const containerStyle = {
     padding: "10px 12px",
     backgroundColor: "#f9f9f9",
@@ -203,28 +205,32 @@ export default function TrackingTab({
             }
           />
         </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>G-IGM No:</label>
-          <input
-            type="text"
-            style={inputStyle}
-            value={formik.values.gateway_igm || ""}
-            onChange={(e) =>
-              formik.setFieldValue("gateway_igm", e.target.value)
-            }
-          />
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>G-IGM Date:</label>
-          <input
-            type="datetime-local"
-            style={inputStyle}
-            value={formatDateForInput(formik.values.gateway_igm_date || "")}
-            onChange={(e) =>
-              formik.setFieldValue("gateway_igm_date", e.target.value)
-            }
-          />
-        </div>
+        {selectedBranch !== "GANDHIDHAM" && (
+          <>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>G-IGM No:</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={formik.values.gateway_igm || ""}
+                onChange={(e) =>
+                  formik.setFieldValue("gateway_igm", e.target.value)
+                }
+              />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>G-IGM Date:</label>
+              <input
+                type="datetime-local"
+                style={inputStyle}
+                value={formatDateForInput(formik.values.gateway_igm_date || "")}
+                onChange={(e) =>
+                  formik.setFieldValue("gateway_igm_date", e.target.value)
+                }
+              />
+            </div>
+          </>
+        )}
         <div style={fieldStyle}>
           <label style={labelStyle}>IGM No:</label>
           <input
@@ -414,38 +420,38 @@ export default function TrackingTab({
           {["FOB", "C&I"].includes(
             formik.values.import_terms || importTerms
           ) && (
-            <div style={fieldStyle}>
-              <label style={{ ...labelStyle, fontSize: "11px" }}>Freight:</label>
-              <input
-                type="number"
-                style={inputStyle}
-                value={formik.values.freight || ""}
-                onChange={(e) =>
-                  formik.setFieldValue("freight", e.target.value)
-                }
-                placeholder="₹"
-              />
-            </div>
-          )}
+              <div style={fieldStyle}>
+                <label style={{ ...labelStyle, fontSize: "11px" }}>Freight:</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={formik.values.freight || ""}
+                  onChange={(e) =>
+                    formik.setFieldValue("freight", e.target.value)
+                  }
+                  placeholder="₹"
+                />
+              </div>
+            )}
 
           {["FOB", "C&F"].includes(
             formik.values.import_terms || importTerms
           ) && (
-            <div style={fieldStyle}>
-              <label style={{ ...labelStyle, fontSize: "11px" }}>
-                Insurance:
-              </label>
-              <input
-                type="number"
-                style={inputStyle}
-                value={formik.values.insurance || ""}
-                onChange={(e) =>
-                  formik.setFieldValue("insurance", e.target.value)
-                }
-                placeholder="₹"
-              />
-            </div>
-          )}
+              <div style={fieldStyle}>
+                <label style={{ ...labelStyle, fontSize: "11px" }}>
+                  Insurance:
+                </label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={formik.values.insurance || ""}
+                  onChange={(e) =>
+                    formik.setFieldValue("insurance", e.target.value)
+                  }
+                  placeholder="₹"
+                />
+              </div>
+            )}
         </div>
       </div>
 
@@ -724,19 +730,21 @@ export default function TrackingTab({
       >
         <label style={labelStyle}>BOE Filing:</label>
         <div style={{ display: "flex", gap: "10px" }}>
-          {["Discharge", "Railout", "Advanced", "Prior"].map((f) => (
-            <label key={f} style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="be_filing_type"
-                value={f}
-                checked={formik.values.be_filing_type === f}
-                onChange={() => formik.setFieldValue("be_filing_type", f)}
-                style={radioInputStyle}
-              />
-              {f}
-            </label>
-          ))}
+          {["Discharge", "Railout", "Advanced", "Prior"]
+            .filter((f) => selectedBranch !== "GANDHIDHAM" || f !== "Railout")
+            .map((f) => (
+              <label key={f} style={radioLabelStyle}>
+                <input
+                  type="radio"
+                  name="be_filing_type"
+                  value={f}
+                  checked={formik.values.be_filing_type === f}
+                  onChange={() => formik.setFieldValue("be_filing_type", f)}
+                  style={radioInputStyle}
+                />
+                {f}
+              </label>
+            ))}
         </div>
       </div>
 

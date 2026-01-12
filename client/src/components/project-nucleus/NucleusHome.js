@@ -267,7 +267,7 @@ const NucleusHome = () => {
                                 return (
                                     <>
                                         In <span className="highlight-text">{periodText}</span>, we filed <span className="highlight-val">{totalFiled}</span> Bills of Entry, out of which <span className="highlight-val">{affectedCount}</span> had {activeReport === 'fine' ? 'fines' : 'penalties'} (<span className="highlight-val">{percentage}%</span>).
-                
+
                                         Total {activeReport === 'fine' ? 'Fine' : 'Penalty'} Amount: <span className="highlight-val" style={{ color: activeReport === 'fine' ? '#d97706' : '#dc2626' }}>{formattedAmount}</span>
                                     </>
                                 );

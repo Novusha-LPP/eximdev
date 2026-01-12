@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
     parse, isToday, isThisWeek, isThisMonth, isThisQuarter, isThisYear, isValid,
@@ -16,7 +16,8 @@ const NucleusHome = () => {
             icon: '🚢',
             reports: [
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
-                { id: 'penalty', label: 'Bill of Entry – Penalty Report' }
+                { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
+                { id: 'top10', label: 'Top 10 Importers' }
             ]
         },
         { id: 'export', label: 'Export', icon: '🛫', reports: [] },
@@ -46,6 +47,9 @@ const NucleusHome = () => {
 
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [top10Data, setTop10Data] = useState([]);
+    const [top10Loading, setTop10Loading] = useState(false);
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'desc' });
 
     // Generate years for dropdown (Current year - 5 to Current year + 1)
     const currentYear = new Date().getFullYear();
@@ -81,6 +85,59 @@ const NucleusHome = () => {
 
         fetchReports();
     }, []);
+
+    useEffect(() => {
+        if (activeReport === 'top10') {
+            const fetchTop10 = async () => {
+                setTop10Loading(true);
+                try {
+                    let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9000';
+                    if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
+                    const endpoint = apiUrl.endsWith('/api')
+                        ? `${apiUrl}/project-nucleus/top-importers`
+                        : `${apiUrl}/api/project-nucleus/top-importers`;
+
+                    const params = {
+                        filterType,
+                        month: selectedMonth,
+                        year: selectedYear,
+                        quarter: selectedQuarter,
+                        startDate: dateRange.start,
+                        endDate: dateRange.end
+                    };
+
+                    const res = await axios.get(endpoint, { params, withCredentials: true });
+                    setTop10Data(res.data);
+                } catch (error) {
+                    console.error("Error fetching top 10 importers:", error);
+                } finally {
+                    setTop10Loading(false);
+                }
+            };
+            fetchTop10();
+        }
+    }, [activeReport, filterType, selectedMonth, selectedYear, selectedQuarter, dateRange]);
+
+    const handleSort = (key) => {
+        let direction = 'desc';
+        if (sortConfig.key === key && sortConfig.direction === 'desc') {
+            direction = 'asc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedTop10Data = useMemo(() => {
+        if (!sortConfig.key) return top10Data;
+
+        return [...top10Data].sort((a, b) => {
+            let valA = a[sortConfig.key];
+            let valB = b[sortConfig.key];
+
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [top10Data, sortConfig]);
 
     const filterByTime = (items) => {
         return items.filter(item => {
@@ -217,7 +274,7 @@ const NucleusHome = () => {
                 </div>
 
                 {/* Statistics Summary Section */}
-                {!loading && (
+                {!loading && activeReport !== 'top10' && (
                     <div className="nucleus-stats-card">
                         <div className="stats-text">
                             {(() => {
@@ -375,49 +432,105 @@ const NucleusHome = () => {
                     </div>
                 </div>
 
-                {loading ? (
+                {loading || (activeReport === 'top10' && top10Loading) ? (
                     <div style={{ color: '#6b7280', padding: '20px' }}>Loading reports data...</div>
                 ) : (
                     <div className="nucleus-table-wrapper">
                         <table className="nucleus-table">
                             <thead>
                                 <tr>
-                                    <th>Job No</th>
-                                    <th>BE No</th>
-                                    <th>BE Date</th>
-                                    <th>{activeReport === 'fine' ? 'Fine Amount (INR)' : 'Penalty Amount (INR)'}</th>
-                                    <th>Importer</th>
-                                    <th>Handler Name(s)</th>
+                                    {activeReport === 'top10' ? (
+                                        <>
+                                            <th>S.No</th>
+                                            <th>Importer Name</th>
+                                            <th onClick={() => handleSort('total20')} style={{ cursor: 'pointer' }}>
+                                                20 FT Containers {sortConfig.key === 'total20' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th onClick={() => handleSort('total40')} style={{ cursor: 'pointer' }}>
+                                                40 FT Containers {sortConfig.key === 'total40' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th onClick={() => handleSort('fclTeus')} style={{ cursor: 'pointer' }}>
+                                                FCL {sortConfig.key === 'fclTeus' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th onClick={() => handleSort('lclTeus')} style={{ cursor: 'pointer' }}>
+                                                LCL {sortConfig.key === 'lclTeus' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th onClick={() => handleSort('totalTeus')} style={{ cursor: 'pointer' }}>
+                                                Total TEU {sortConfig.key === 'totalTeus' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                                            </th>
+                                            <th>Handled By</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th>Job No</th>
+                                            <th>BE No</th>
+                                            <th>BE Date</th>
+                                            <th>{activeReport === 'fine' ? 'Fine Amount (INR)' : 'Penalty Amount (INR)'}</th>
+                                            <th>Importer</th>
+                                            <th>Handler Name(s)</th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentData.length > 0 ? (
-                                    currentData.map((item) => (
-                                        <tr key={item._id}>
-                                            <td style={{ fontWeight: 500 }}>{item.job_no}</td>
-                                            <td>{item.be_no}</td>
-                                            <td>{item.be_date}</td>
-                                            <td className={`amount-cell ${activeReport === 'fine' ? 'fine-amount' : 'penalty-amount'}`}>
-                                                {activeReport === 'fine' ? item.fine_amount : item.penalty_amount}
-                                            </td>
-                                            <td>{item.importer}</td>
-                                            <td>
-                                                {item.handlers && item.handlers.length > 0 ? (
-                                                    item.handlers.map((h, i) => (
-                                                        <span key={i} className="handler-tag">{h}</span>
-                                                    ))
-                                                ) : (
-                                                    <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>Unassigned</span>
-                                                )}
+                                {activeReport === 'top10' ? (
+                                    sortedTop10Data.length > 0 ? (
+                                        sortedTop10Data.map((item, index) => (
+                                            <tr key={item.importer}>
+                                                <td style={{ fontWeight: 500 }}>{index + 1}</td>
+                                                <td>{item.importer}</td>
+                                                <td>{item.total20}</td>
+                                                <td>{item.total40}</td>
+                                                <td>{item.fclTeus}</td>
+                                                <td>{item.lclTeus}</td>
+                                                <td style={{ fontWeight: 'bold' }}>{item.totalTeus}</td>
+                                                <td>
+                                                    {item.handlers && item.handlers.length > 0 ? (
+                                                        item.handlers.map((h, i) => (
+                                                            <span key={i} className="handler-tag">{h}</span>
+                                                        ))
+                                                    ) : (
+                                                        <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>Unassigned</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="8" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
+                                                No data found for the selected period.
                                             </td>
                                         </tr>
-                                    ))
+                                    )
                                 ) : (
-                                    <tr>
-                                        <td colSpan="6" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
-                                            No records found for the selected period.
-                                        </td>
-                                    </tr>
+                                    currentData.length > 0 ? (
+                                        currentData.map((item) => (
+                                            <tr key={item._id}>
+                                                <td style={{ fontWeight: 500 }}>{item.job_no}</td>
+                                                <td>{item.be_no}</td>
+                                                <td>{item.be_date}</td>
+                                                <td className={`amount-cell ${activeReport === 'fine' ? 'fine-amount' : 'penalty-amount'}`}>
+                                                    {activeReport === 'fine' ? item.fine_amount : item.penalty_amount}
+                                                </td>
+                                                <td>{item.importer}</td>
+                                                <td>
+                                                    {item.handlers && item.handlers.length > 0 ? (
+                                                        item.handlers.map((h, i) => (
+                                                            <span key={i} className="handler-tag">{h}</span>
+                                                        ))
+                                                    ) : (
+                                                        <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>Unassigned</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="6" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
+                                                No records found for the selected period.
+                                            </td>
+                                        </tr>
+                                    )
                                 )}
                             </tbody>
                         </table>

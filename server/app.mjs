@@ -221,6 +221,7 @@ const MONGODB_URI =
 
 const numOfCPU = os.availableParallelism();
 if (cluster.isPrimary) {
+  console.log(`🚀 Primary Process running. Detected ${numOfCPU} CPUs. Forking ${numOfCPU} workers...`);
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
   }
@@ -229,6 +230,7 @@ if (cluster.isPrimary) {
   });
 } else {
   const app = express();
+  let server;
 
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
@@ -280,10 +282,14 @@ if (cluster.isPrimary) {
 
   mongoose
     .connect(MONGODB_URI, {
+      appName: "EximServer", // Identifies this app in Atlas logs
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      minPoolSize: 10,
-      maxPoolSize: 1000,
+      minPoolSize: 0,
+      maxPoolSize: 30, // Reduced from 30 to 5 to prevent connection spikes in clustered mode
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     })
     .then(async () => {
       Sentry.setupExpressErrorHandler(app);
@@ -491,28 +497,43 @@ if (cluster.isPrimary) {
         initReminderSystem();
       }
       // Initialize WebSocket logic
-      const server = http.createServer(app);
+      server = http.createServer(app);
       setupJobOverviewWebSocket(server);
 
-      server.listen(9000, () => {
-        console.log(`🟢 Server listening on http://localhost:${9000}`);
+      server.listen(9006, () => {
+        console.log(`🟢 Server listening on http://localhost:${9006}`);
       });
     })
     .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
 
-  // server.listen(9000, () => {
-  //   console.log(`🟢 Server listening on http://localhost:${9000}`);
+  // server.listen(9006, () => {
+  //   console.log(`🟢 Server listening on http://localhost:${9006}`);
   // }) .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
 
+  const closeMongo = async () => {
+    try {
+      if (server) {
+        console.log("Closing Http Server...");
+        await new Promise((resolve) => server.close(resolve));
+        console.log("Http Server Closed");
+      }
+      console.log("Closing MongoDB Connection...");
+      await mongoose.connection.close();
+      console.log("MongoDB Connection Closed");
+    } catch (error) {
+      console.error("Error during graceful shutdown:", error);
+    }
+  };
+
   process.on("SIGINT", async () => {
-    await mongoose.connection.close();
-    console.log("Mongoose connection closed due to app termination");
+    console.log("SIGINT received, closing Mongo");
+    await closeMongo();
     process.exit(0);
   });
 
   process.on("SIGTERM", async () => {
-    await mongoose.connection.close();
-    console.log("Mongoose connection closed due to app termination");
+    console.log("SIGTERM received, closing Mongo");
+    await closeMongo();
     process.exit(0);
   });
 }

@@ -937,7 +937,7 @@ const ProjectWorkspace = () => {
                                             setMemberMenu({
                                                 open: true,
                                                 member: member,
-                                                position: { x: rect.left, y: rect.bottom + 5 }
+                                                position: { x: rect.left, bottom: window.innerHeight - rect.top + 5 }
                                             });
                                         }}
                                         style={{ cursor: 'pointer', textDecoration: 'underline', color: '#1e40af' }}
@@ -980,7 +980,7 @@ const ProjectWorkspace = () => {
                     />
                     <div style={{
                         position: 'fixed',
-                        top: memberMenu.position.y,
+                        bottom: memberMenu.position.bottom,
                         left: memberMenu.position.x,
                         background: 'white',
                         border: '1px solid #ddd',

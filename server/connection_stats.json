@@ -1,0 +1,1934 @@
+{
+  "connectionStats": {
+    "current": 1206,
+    "available": 1794,
+    "totalCreated": 349497,
+    "rejected": 1315,
+    "active": 72,
+    "queuedForEstablishment": 0,
+    "establishmentRateLimit": {
+      "rejected": 1315,
+      "exempted": 315213,
+      "interruptedDueToClientDisconnect": 38
+    },
+    "threaded": 1206,
+    "limitExempt": 71,
+    "exhaustIsMaster": 0,
+    "exhaustHello": 68,
+    "awaitingTopologyChanges": 68,
+    "loadBalanced": 0
+  },
+  "activeApplicationOps": [
+    {
+      "opid": 784831060,
+      "client": "103.11.119.220:42094",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785532735913985"
+          },
+          "signature": {
+            "hash": "Jc4trzoUb+O/Hz5/xaOajwno3SA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791792827,
+      "appName": "OplogFetcher",
+      "client": "192.168.248.235:41954",
+      "secs_running": 0,
+      "ns": "local.oplog.rs",
+      "command": {
+        "getMore": {
+          "low": -321012921,
+          "high": 2142509153,
+          "unsigned": false
+        },
+        "collection": "oplog.rs",
+        "batchSize": 13981010,
+        "maxTimeMS": 2500,
+        "term": 48,
+        "lastKnownCommittedOpTime": {
+          "ts": {
+            "$timestamp": "7594758182384173250"
+          },
+          "t": 48
+        },
+        "$replData": 1,
+        "$oplogQueryData": 1,
+        "$readPreference": {
+          "mode": "secondaryPreferred"
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594758186679140363"
+          }
+        },
+        "$db": "local"
+      }
+    },
+    {
+      "opid": 784856659,
+      "client": "103.11.119.220:42406",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785554210750466"
+          },
+          "signature": {
+            "hash": "HVV1/rR9qR341PPnDWYZjEP4An4=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784854611,
+      "client": "103.11.119.220:44390",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785567095652407"
+          },
+          "signature": {
+            "hash": "0BeGw4nCDi0XgxFB58FCRY4TVdw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784857683,
+      "client": "103.11.119.220:44484",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785579980554274"
+          },
+          "signature": {
+            "hash": "mXpMkx2vGWK/aj6Q2o7RGkY2JCQ=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791775635,
+      "appName": "OplogFetcher",
+      "client": "192.168.254.153:44708",
+      "secs_running": 0,
+      "ns": "local.oplog.rs",
+      "command": {
+        "getMore": {
+          "low": 37606708,
+          "high": 1591528586,
+          "unsigned": false
+        },
+        "collection": "oplog.rs",
+        "batchSize": 13981010,
+        "maxTimeMS": 2500,
+        "term": 48,
+        "lastKnownCommittedOpTime": {
+          "ts": {
+            "$timestamp": "7594835551925043371"
+          },
+          "t": 48
+        },
+        "$replData": 1,
+        "$oplogQueryData": 1,
+        "$readPreference": {
+          "mode": "secondaryPreferred"
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594835556220010523"
+          }
+        },
+        "$db": "local"
+      }
+    },
+    {
+      "opid": 785797614,
+      "client": "103.11.119.220:32976",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594789913602556054"
+          },
+          "signature": {
+            "hash": "4IKEJtLwgBYFblbt5p67OnZSe2w=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784866898,
+      "client": "103.11.119.220:44496",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785597160423469"
+          },
+          "signature": {
+            "hash": "9Q28RDQiMoOkO78A4YBA5lc27DI=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791799813,
+      "appName": "mongo-diagnostics",
+      "client": "122.177.90.63:50064",
+      "secs_running": 0,
+      "ns": "admin.$cmd.aggregate",
+      "command": {
+        "currentOp": 1,
+        "active": true,
+        "lsid": {
+          "id": "72753e7b-7664-4e40-bb56-b02696561a0d"
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594855381789048848"
+          },
+          "signature": {
+            "hash": "ghZyhqxtdMTB6YAE40vBJ4SZ2HI=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784418446,
+      "appName": "MongoDB Compass--1ba2f488-bc40-44c4-a904-442ce038ca98--d5940c09-b087-454a-84ab-ab156b99cf4f",
+      "client": "122.177.90.63:61248",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594827271228096516"
+          },
+          "signature": {
+            "hash": "Kwiv3T38Dc6EqNbNyKBYTUgRwEE=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791287830,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.253.32:59196",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 784863827,
+      "client": "103.11.119.220:44376",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785567095652430"
+          },
+          "signature": {
+            "hash": "0BeGw4nCDi0XgxFB58FCRY4TVdw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784862803,
+      "client": "103.11.119.220:44282",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785558505717875"
+          },
+          "signature": {
+            "hash": "xsS0nJ3gaPEJ5iR2/ELrm5T1RGE=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 787015022,
+      "client": "103.11.119.220:59808",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594795505649975312"
+          },
+          "signature": {
+            "hash": "4fpG0VhvRIdIfqqHLf8cDFzdPVk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784852563,
+      "client": "103.11.119.220:44470",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785575685587019"
+          },
+          "signature": {
+            "hash": "FXKg/UA5Zc5Q/3Y8sdzfs3Jhxg4=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786304435,
+      "client": "103.11.119.220:56048",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786326961,
+      "client": "103.11.119.220:56086",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784859731,
+      "client": "103.11.119.220:44614",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785584275521613"
+          },
+          "signature": {
+            "hash": "O5yOioBQ5Uifr63TAalQVWRTarw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786305459,
+      "client": "103.11.119.220:56024",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784842324,
+      "client": "103.11.119.220:42122",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785532735913991"
+          },
+          "signature": {
+            "hash": "Jc4trzoUb+O/Hz5/xaOajwno3SA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 783293194,
+      "client": "125.21.194.166:51886",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594512952636473345"
+          },
+          "signature": {
+            "hash": "MhJnItqjgILoEoCpbPaRW2iHQ0Y=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 790719534,
+      "appName": "MongoDB Compass--1ba2f488-bc40-44c4-a904-442ce038ca98--24c3ad09-a9aa-4e52-9408-98c69c57ef44",
+      "client": "122.177.90.63:61409",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594853453348733264"
+          },
+          "signature": {
+            "hash": "I5eU374/IDqHCe427pWZuR4bBxI=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786301364,
+      "client": "103.11.119.220:55978",
+      "secs_running": 2,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786246073,
+      "client": "125.21.194.166:59064",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527469625934006"
+          },
+          "signature": {
+            "hash": "6wtO8Xx0bHXAMf/iaStwIK9uHGs=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784849492,
+      "client": "103.11.119.220:44388",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785575685587033"
+          },
+          "signature": {
+            "hash": "FXKg/UA5Zc5Q/3Y8sdzfs3Jhxg4=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 783301384,
+      "client": "125.21.194.166:52058",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594512952636473345"
+          },
+          "signature": {
+            "hash": "MhJnItqjgILoEoCpbPaRW2iHQ0Y=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791241752,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.254.153:47292",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 784835156,
+      "client": "103.11.119.220:41928",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785524145979394"
+          },
+          "signature": {
+            "hash": "jzlSmO7IVLECEV7LdQKugTiagOw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784836180,
+      "client": "103.11.119.220:41934",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785524145979394"
+          },
+          "signature": {
+            "hash": "jzlSmO7IVLECEV7LdQKugTiagOw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784861779,
+      "client": "103.11.119.220:44466",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785584275521540"
+          },
+          "signature": {
+            "hash": "O5yOioBQ5Uifr63TAalQVWRTarw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784851539,
+      "client": "103.11.119.220:44628",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785584275521539"
+          },
+          "signature": {
+            "hash": "O5yOioBQ5Uifr63TAalQVWRTarw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786256312,
+      "client": "125.21.194.166:59372",
+      "secs_running": 1,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527546935345199"
+          },
+          "signature": {
+            "hash": "8bEfUifUDtI8K5e7tIubhJHk6Vg=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784855635,
+      "client": "103.11.119.220:44380",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785567095652461"
+          },
+          "signature": {
+            "hash": "0BeGw4nCDi0XgxFB58FCRY4TVdw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784834132,
+      "client": "103.11.119.220:42108",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785532735913990"
+          },
+          "signature": {
+            "hash": "Jc4trzoUb+O/Hz5/xaOajwno3SA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791245848,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.248.235:47038",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 786126279,
+      "appName": "MongoDB Monitoring Module v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.254.153:52666",
+      "secs_running": 6,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 784847444,
+      "client": "103.11.119.220:44340",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785567095652388"
+          },
+          "signature": {
+            "hash": "0BeGw4nCDi0XgxFB58FCRY4TVdw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786046417,
+      "appName": "MongoDB Monitoring Module v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.248.235:44966",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 786245049,
+      "client": "125.21.194.166:59620",
+      "secs_running": 2,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527499690705167"
+          },
+          "signature": {
+            "hash": "FqGsutHkT1c2oVZwJnpab6g8zOs=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786293172,
+      "client": "103.11.119.220:54500",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527723029004424"
+          },
+          "signature": {
+            "hash": "HC8YPz+M7clSKnbG7CiTpot2Gb0=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786258360,
+      "client": "125.21.194.166:59474",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527551230312670"
+          },
+          "signature": {
+            "hash": "TFMA7tGO4m/tn20KPFYgGM8VRXY=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786324913,
+      "client": "103.11.119.220:56034",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791288854,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.253.32:59208",
+      "secs_running": 4,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 786269622,
+      "client": "125.21.194.166:59438",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527546935345199"
+          },
+          "signature": {
+            "hash": "8bEfUifUDtI8K5e7tIubhJHk6Vg=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786303411,
+      "client": "103.11.119.220:56094",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791262231,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.248.235:47080",
+      "secs_running": 2,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 781224927,
+      "client": "125.21.194.166:36572",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594503675507113985"
+          },
+          "signature": {
+            "hash": "v2bo+hiIfgUYQnz2zIbx6kek6mk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786034130,
+      "appName": "MongoDB Monitoring Module v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.248.235:54732",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 786308532,
+      "client": "103.11.119.220:55980",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 781206497,
+      "client": "125.21.194.166:36586",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594503675507113985"
+          },
+          "signature": {
+            "hash": "v2bo+hiIfgUYQnz2zIbx6kek6mk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786270646,
+      "client": "125.21.194.166:59342",
+      "secs_running": 9,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527546935345197"
+          },
+          "signature": {
+            "hash": "8bEfUifUDtI8K5e7tIubhJHk6Vg=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 781213664,
+      "client": "125.21.194.166:36496",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594503675507113985"
+          },
+          "signature": {
+            "hash": "v2bo+hiIfgUYQnz2zIbx6kek6mk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 781218783,
+      "client": "125.21.194.166:36632",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594503675507113985"
+          },
+          "signature": {
+            "hash": "v2bo+hiIfgUYQnz2zIbx6kek6mk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784838228,
+      "client": "103.11.119.220:42084",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785532735913987"
+          },
+          "signature": {
+            "hash": "Jc4trzoUb+O/Hz5/xaOajwno3SA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 781208544,
+      "client": "125.21.194.166:36536",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594503675507113985"
+          },
+          "signature": {
+            "hash": "v2bo+hiIfgUYQnz2zIbx6kek6mk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 781217760,
+      "client": "125.21.194.166:36510",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594503675507113985"
+          },
+          "signature": {
+            "hash": "v2bo+hiIfgUYQnz2zIbx6kek6mk=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791720789,
+      "appName": "MongoDB CPS Module v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.254.153:55230",
+      "secs_running": 0,
+      "ns": "local.oplog.rs",
+      "command": {
+        "getMore": {
+          "low": 1643399712,
+          "high": 1295052883,
+          "unsigned": false
+        },
+        "collection": "oplog.rs",
+        "maxTimeMS": 2000,
+        "lsid": {
+          "id": "776b69c7-5e68-444c-b24b-ba379a360918"
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594855381789048848"
+          },
+          "signature": {
+            "hash": "ghZyhqxtdMTB6YAE40vBJ4SZ2HI=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "local",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 787559737,
+      "appName": "mongotune",
+      "client": "192.168.253.32:60018",
+      "secs_running": 7,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786315698,
+      "client": "103.11.119.220:56062",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784252577,
+      "appName": "MongoDB CPS Module v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.254.153:55224",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 790695983,
+      "appName": "MongoDB Compass--1ba2f488-bc40-44c4-a904-442ce038ca98--24c3ad09-a9aa-4e52-9408-98c69c57ef44",
+      "client": "122.177.90.63:61393",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594853423283962042"
+          },
+          "signature": {
+            "hash": "SIw0lUR1J6ee09O4tc2JbLuluWg=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786039249,
+      "appName": "MongoDB Monitoring Module v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.248.235:54716",
+      "secs_running": 4,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 786098635,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.253.32:60954",
+      "secs_running": 5,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 786302387,
+      "client": "103.11.119.220:56068",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594527650014560302"
+          },
+          "signature": {
+            "hash": "noqYWOcQYf+sDQW2AQ4Fx/nT6hA=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 789049531,
+      "client": "103.11.119.220:57360",
+      "secs_running": 1,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594847410329747497"
+          },
+          "signature": {
+            "hash": "inUZITo2ZdtI7Mk6j6ScHjwyRkI=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786739596,
+      "client": "192.168.254.153:36120",
+      "secs_running": 6,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "internalClient": {
+          "minWireVersion": 25,
+          "maxWireVersion": 25
+        },
+        "maxTimeMSOpOnly": 20000,
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 791269399,
+      "appName": "MongoDB Automation Agent v13.44.1.10055 (git: 45dfcb465618cf08dffaa852d4b66e52bc95d242)",
+      "client": "192.168.254.153:53972",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "helloOk": true,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "maxAwaitTimeMS": 10000,
+        "$db": "admin",
+        "$readPreference": {
+          "mode": "primaryPreferred"
+        }
+      }
+    },
+    {
+      "opid": 784858707,
+      "client": "103.11.119.220:44302",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785567095652382"
+          },
+          "signature": {
+            "hash": "0BeGw4nCDi0XgxFB58FCRY4TVdw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784853588,
+      "client": "103.11.119.220:44326",
+      "secs_running": 2,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785562800685118"
+          },
+          "signature": {
+            "hash": "/d6FREg7e2AHnEX8C2OHopOf8ZQ=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 784850515,
+      "client": "103.11.119.220:44478",
+      "secs_running": 8,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "$clusterTime": {
+          "clusterTime": {
+            "$timestamp": "7594785584275521540"
+          },
+          "signature": {
+            "hash": "O5yOioBQ5Uifr63TAalQVWRTarw=",
+            "keyId": {
+              "low": 2,
+              "high": 1757704948,
+              "unsigned": false
+            }
+          }
+        },
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786946422,
+      "client": "192.168.248.235:53284",
+      "secs_running": 0,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "internalClient": {
+          "minWireVersion": 25,
+          "maxWireVersion": 25
+        },
+        "maxTimeMSOpOnly": 20000,
+        "$db": "admin"
+      }
+    },
+    {
+      "opid": 786506142,
+      "client": "192.168.253.32:48928",
+      "secs_running": 4,
+      "ns": "admin.$cmd",
+      "command": {
+        "hello": 1,
+        "maxAwaitTimeMS": 10000,
+        "topologyVersion": {
+          "processId": "694908acaa20b5eb34d2c638",
+          "counter": 17
+        },
+        "internalClient": {
+          "minWireVersion": 25,
+          "maxWireVersion": 25
+        },
+        "maxTimeMSOpOnly": 20000,
+        "$db": "admin"
+      }
+    }
+  ],
+  "changeStreams": [],
+  "longRunningOps": []
+}

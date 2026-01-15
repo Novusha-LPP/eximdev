@@ -64,7 +64,7 @@ const NucleusHome = () => {
         const fetchReports = async () => {
             try {
                 // Determine API URL based on environment or existing convention
-                let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9000';
+                let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
                 // Remove trailing slash if present
                 if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
 
@@ -92,7 +92,7 @@ const NucleusHome = () => {
             const fetchTop10 = async () => {
                 setTop10Loading(true);
                 try {
-                    let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9000';
+                    let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
                     if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
                     const endpoint = apiUrl.endsWith('/api')
                         ? `${apiUrl}/project-nucleus/top-importers`

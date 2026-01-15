@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import '../../styles/openPoints.scss';
 
-const API_URL = process.env.REACT_APP_API_STRING || 'http://localhost:9000';
+const API_URL = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
 
 const AnalyticsDashboard = () => {
     const [stats, setStats] = useState(null);

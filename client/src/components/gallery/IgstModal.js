@@ -273,7 +273,7 @@ const IgstModal = ({
     if (rowData?.cth_no && rowData?.job_no) {
       try {
         const apiUrl =
-          process.env.REACT_APP_API_STRING || "http://localhost:9000";
+          process.env.REACT_APP_API_STRING || "http://localhost:9006";
         const response = await fetch(
           `${apiUrl}/jobs/${rowData.job_no}/update-duty-from-cth`,
           {

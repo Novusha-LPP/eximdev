@@ -187,7 +187,69 @@ try {
 } catch (e) {
   console.warn(
     "Sentry profiling integration not available:",
-    e && e.message ? e.message : e
+    e && e.message ? e.message : e )
+// const CLIENT_URI =
+//   process.env.NODE_ENV === "production"
+//     ? process.env.PROD_CLIENT_URI
+//     : process.env.NODE_ENV === "server"
+//     ? process.env.SERVER_CLIENT_URI
+//     : process.env.DEV_CLIENT_URI;
+
+const numOfCPU = os.availableParallelism();
+if (cluster.isPrimary) {
+  console.log(`🚀 Primary Process running. Detected ${numOfCPU} CPUs. Forking ${numOfCPU} workers...`);
+  for (let i = 0; i < numOfCPU; i++) {
+    cluster.fork();
+  }
+  cluster.on("exit", (worker) => {
+    cluster.fork();
+  });
+} else {
+  const app = express();
+  let server;
+
+  app.use(bodyParser.json({ limit: "100mb" }));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
+
+  app.use((req, res, next) => {
+    const isBrowserRequest =
+      req.headers["user-agent"] &&
+      req.headers["user-agent"].includes("Mozilla");
+
+    // For sensitive routes, block direct browser access
+    if (
+      req.path.startsWith("/api/") &&
+      isBrowserRequest &&
+      !req.xhr &&
+      req.headers.accept.indexOf("html") > -1
+    ) {
+      return res.status(404).send("Not found");
+    }
+
+    next();
+  });
+  app.use(
+    cors({
+      origin: [
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://localhost:3000",
+        "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
+        "https://import.alvision.in"
+      ],
+      credentials: true,
+      // Allow custom headers for audit trail
+      exposedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "user-id",
+        "username",
+        "user-role",
+        "x-username",
+      ],
+    })
   );
 }
 
@@ -205,6 +267,19 @@ Sentry.init({
   tracesSampleRate: 1.0, // Capture 100% of transactions for tracing
   profilesSampleRate: nodeProfilingIntegration ? 1.0 : 0.0, // Enable profiling only when integration available
 });
+  mongoose
+    .connect(MONGODB_URI, {
+      appName: "EximServer", // Identifies this app in Atlas logs
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      minPoolSize: 0,
+      maxPoolSize: 30, // Reduced from 30 to 5 to prevent connection spikes in clustered mode
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    })
+    .then(async () => {
+      Sentry.setupExpressErrorHandler(app);
 
 // SSE
 // import updateJobCount from "./routes/updateJobCount.mjs";
@@ -467,3 +542,208 @@ initConnections()
     logger.error(`Database connection error:`, err);
   });
 // }
+      // charges
+      app.use(Charges);
+
+      // Accounts
+
+      app.use("/api", Accounts);
+      app.use("/api", reminderRoutes);
+      app.use("/api", accountLedger);
+
+      // Documentation
+      app.use(updateDocumentationJob);
+      app.use(getDocumentationjobs);
+      app.use(getDocumentationCompletedJobs);
+
+      // Employee KYC
+      app.use(completeKyc);
+      app.use(kycApproval);
+      app.use(viewAllKycs);
+
+      // Employee Onboarding
+      app.use(onboardEmployee);
+      app.use(completeOnboarding);
+      app.use(viewOnboardings);
+
+      // E-Sanchit
+      app.use(getCthDocs);
+      app.use(getDocs);
+      app.use(getESanchitJobs);
+      app.use(getESanchitCompletedJobs);
+      app.use(getJobDetail);
+      app.use(updateESanchitJob);
+
+      // Home
+      app.use(assignModules);
+      app.use(assignRole);
+      app.use(unassignModule);
+      app.use(changePassword);
+      app.use(assignIcdCode);
+      app.use(assignEximBot);
+
+      // ImportersInfo
+      app.use(ImportersInfo);
+
+      // Import DO
+      app.use(doTeamListOfjobs);
+      app.use(getDoBilling);
+      app.use(freeDaysConf);
+      app.use(getDoModuleJobs);
+      app.use(updateDoBilling);
+      app.use(updateDoListRouter);
+      app.use(updateDoPlanning);
+      app.use(getKycDocuments);
+      app.use(getShippingLines);
+      app.use(getKycDocsByImporter);
+      app.use(getKycDocsByShippingLine);
+      app.use(getKycAndBondStatus);
+      app.use(updateDoContainer);
+      app.use(updateAdvancedPayment);
+
+      // Import DSR
+      app.use(addJobsFromExcel);
+      app.use(downloadReport);
+      app.use(downloadAllReport);
+      app.use(getAssignedImporter);
+      app.use(getImporterJobs);
+      app.use(getImporterUsers);
+      app.use(getJob);
+      app.use(getJobList);
+      app.use(getJobsOverview);
+      app.use(getLastJobsDate);
+      app.use(importerListToAssignJobs);
+      app.use(updateJob);
+      app.use(viewDSR);
+      // app.use(ImportCreateJob);
+
+      // Import Operations
+      app.use(getOperationPlanningJobs);
+      app.use(completedOperation);
+      app.use(updateOperationsJob);
+      app.use(getOperationPlanningList);
+
+      // import billing
+      app.use(getImportBilling);
+
+      // import cth search
+      app.use(getCthSearch);
+      app.use(dutyCalculator);
+
+      // Inward Register
+      app.use(addInwardRegister);
+      app.use(getContactPersonNames);
+      app.use(getInwardRegisters);
+      app.use(handleStatus);
+
+      // Outward Register
+      app.use(addOutwardRegister);
+      app.use(getOutwardRegisters);
+      app.use(getOutwardRegisterDetails);
+      app.use(updateOutwardRegister);
+
+      // Exit Feedback
+      app.use(addExitInterview);
+      app.use(ViewExitInterviews);
+
+      // Submission
+      app.use(updateSubmissionJob);
+      app.use(getSubmissionJobs);
+      // Report
+      app.use(getPenaltyReport);
+      app.use(getBillingPendingReport);
+      app.use(monthlyContainersRouter);
+      app.use(monthlyClearanceRouter);
+
+      //auditrail
+      app.use(auditTrail);
+
+      // proxy apis
+      app.use(icegateProxy);
+
+      // release notes
+      app.use("/api", releaseNoteRoutes);
+
+      // feedback
+      app.use("/api", feedback);
+
+      //scrapper
+      app.use(currencyRateRoutes);
+
+      // Analytics
+      app.use(analyticsRoutes);
+
+      // Open Points
+      app.use(openPointsRoutes);
+
+      // Upload
+      app.use(uploadFileRoutes);
+
+      // Project Nucleus
+      app.use("/api/project-nucleus", nucleusReports);
+
+      // initialize cron jobs only on the first worker to avoid duplicates
+
+      if (cluster.worker.id === 1) {
+        cron.schedule(
+          "1 0 * * *",
+          async () => {
+            console.log(
+              "🕐 Running scheduled currency rate scraper at 12:01 AM..."
+            );
+            try {
+              const result = await scrapeAndSaveCurrencyRates();
+              console.log("✅ Scheduled scrape completed:", result);
+            } catch (error) {
+              console.error("❌ Scheduled scrape failed:", error);
+            }
+          },
+          {
+            timezone: "Asia/Kolkata", // IST timezone
+          }
+        );
+
+        // Initialize reminder system cron
+        initReminderSystem();
+      }
+      // Initialize WebSocket logic
+      server = http.createServer(app);
+      setupJobOverviewWebSocket(server);
+
+      server.listen(9006, () => {
+        console.log(`🟢 Server listening on http://localhost:${9006}`);
+      });
+    })
+    .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
+
+  // server.listen(9006, () => {
+  //   console.log(`🟢 Server listening on http://localhost:${9006}`);
+  // }) .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
+
+  const closeMongo = async () => {
+    try {
+      if (server) {
+        console.log("Closing Http Server...");
+        await new Promise((resolve) => server.close(resolve));
+        console.log("Http Server Closed");
+      }
+      console.log("Closing MongoDB Connection...");
+      await mongoose.connection.close();
+      console.log("MongoDB Connection Closed");
+    } catch (error) {
+      console.error("Error during graceful shutdown:", error);
+    }
+  };
+
+  process.on("SIGINT", async () => {
+    console.log("SIGINT received, closing Mongo");
+    await closeMongo();
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", async () => {
+    console.log("SIGTERM received, closing Mongo");
+    await closeMongo();
+    process.exit(0);
+  });
+}

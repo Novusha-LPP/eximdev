@@ -78,4 +78,188 @@ function parseAmount(amountStr) {
     return parseFloat(cleaned) || 0;
 }
 
+
+// Top 10 Importers Report
+router.get("/top-importers", async (req, res) => {
+    try {
+        const { filterType, month, year, quarter, startDate, endDate } = req.query;
+
+        // Base Match Condition: Must have out_of_charge date and NOT be Ex-Bond
+        const matchStage = {
+            out_of_charge: { $ne: null, $ne: "" },
+            importer: { $ne: null, $ne: "" },
+            be_filing_type: { $ne: "Ex-Bond" },
+            type_of_b_e: { $ne: "Ex-Bond" }
+        };
+
+        const pipeline = [
+            { $match: matchStage },
+            // Robust Date Parsing
+            {
+                $addFields: {
+                    oocDate: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $ne: ["$out_of_charge", null] },
+                                    { $ne: ["$out_of_charge", ""] },
+                                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } },
+                                ],
+                            },
+                            then: { $toDate: "$out_of_charge" },
+                            else: null,
+                        },
+                    },
+                }
+            },
+            { $match: { oocDate: { $ne: null } } }
+        ];
+
+        let dateMatch = {};
+
+        if (filterType === 'month' && month !== undefined && year) {
+            const m = parseInt(month) + 1;
+            const y = parseInt(year);
+            dateMatch = {
+                $expr: {
+                    $and: [
+                        { $eq: [{ $month: "$oocDate" }, m] },
+                        { $eq: [{ $year: "$oocDate" }, y] }
+                    ]
+                }
+            };
+        } else if (filterType === 'quarter' && quarter && year) {
+            const q = parseInt(quarter);
+            const y = parseInt(year);
+            const startMonth = (q - 1) * 3 + 1;
+            const endMonth = startMonth + 2;
+            dateMatch = {
+                $expr: {
+                    $and: [
+                        { $gte: [{ $month: "$oocDate" }, startMonth] },
+                        { $lte: [{ $month: "$oocDate" }, endMonth] },
+                        { $eq: [{ $year: "$oocDate" }, y] }
+                    ]
+                }
+            };
+        } else if (filterType === 'year' && year) {
+            const y = parseInt(year);
+            dateMatch = {
+                $expr: { $eq: [{ $year: "$oocDate" }, y] }
+            };
+        } else if (filterType === 'date-range' && startDate && endDate) {
+            dateMatch = {
+                oocDate: {
+                    $gte: new Date(startDate),
+                    $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+                }
+            };
+        }
+
+        if (Object.keys(dateMatch).length > 0) {
+            pipeline.push({ $match: dateMatch });
+        }
+
+        // Grouping & Aggregation
+        pipeline.push(
+            {
+                $addFields: {
+                    isLCL: { $eq: ["$consignment_type", "LCL"] },
+                    // Calculate container counts for this job
+                    fcl20: {
+                        $size: {
+                            $filter: {
+                                input: { $ifNull: ["$container_nos", []] },
+                                as: "c",
+                                cond: { $eq: ["$$c.size", "20"] }
+                            }
+                        }
+                    },
+                    fcl40: {
+                        $size: {
+                            $filter: {
+                                input: { $ifNull: ["$container_nos", []] },
+                                as: "c",
+                                cond: { $eq: ["$$c.size", "40"] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    // Calculate TEUs for this job
+                    jobFclTeus: {
+                        $add: [
+                            "$fcl20",
+                            { $multiply: ["$fcl40", 2] }
+                        ]
+                    },
+                    jobLclTeus: {
+                        $cond: [
+                            { $eq: ["$isLCL", true] },
+                            1, // 1 TEU for LCL job
+                            0
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$importer",
+                    fclTeus: {
+                        $sum: { $cond: [{ $eq: ["$isLCL", false] }, "$jobFclTeus", 0] }
+                    },
+                    lclTeus: { $sum: "$jobLclTeus" },
+                    total20: {
+                        $sum: { $cond: [{ $eq: ["$isLCL", false] }, "$fcl20", 0] }
+                    },
+                    total40: {
+                        $sum: { $cond: [{ $eq: ["$isLCL", false] }, "$fcl40", 0] }
+                    },
+                    jobCount: { $sum: 1 }
+                }
+            },
+            {
+                $addFields: {
+                    totalTeus: { $add: ["$fclTeus", "$lclTeus"] }
+                }
+            },
+            { $sort: { totalTeus: -1 } },
+            { $limit: 10 }
+        );
+
+        const topImporters = await JobModel.aggregate(pipeline);
+
+        const relevantImporterNames = topImporters.map(i => i._id);
+        const users = await UserModel.find({
+            assigned_importer_name: { $in: relevantImporterNames }
+        }).select("first_name last_name username assigned_importer_name role");
+
+        const result = topImporters.map(imp => {
+            const handlers = users.filter(u =>
+                u.assigned_importer_name &&
+                u.assigned_importer_name.includes(imp._id) &&
+                (u.role && u.role.toLowerCase() === 'user')
+            ).map(u => `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username);
+
+            return {
+                importer: imp._id,
+                handlers: handlers,
+                totalTeus: imp.totalTeus,
+                fclTeus: imp.fclTeus,
+                lclTeus: imp.lclTeus,
+                total20: imp.total20,
+                total40: imp.total40
+            };
+        });
+
+        res.json(result);
+
+    } catch (error) {
+        console.error("Error fetching top importers:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 export default router;

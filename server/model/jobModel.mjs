@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { createDynamicModel } from "../utils/modelHelper.mjs";
 
+import { type } from "os";
+import { determineDetailedStatus } from "../utils/determineDetailedStatus.mjs";
+import { getRowColorFromStatus } from "../utils/statusColorMapper.mjs";
+import { getJobStatusRank, getJobSortDate } from "../utils/jobRanking.mjs";
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
@@ -222,6 +226,13 @@ export const jobSchema = new mongoose.Schema({
   checkedDocs: [{ type: String }],
   status: { type: String, trim: true },
   detailed_status: { type: String, trim: true },
+  row_color: { type: String, trim: true },
+  status_rank: { type: Number, default: 999 },
+  status_sort_date: {
+    type: Date,
+    default: () => new Date("9999-12-31T23:59:59.999Z"),
+  },
+  // *******
   obl_telex_bl: { type: String },
   document_received_date: { type: String, trim: true },
   doPlanning: { type: Boolean },
@@ -445,6 +456,22 @@ export const jobSchema = new mongoose.Schema({
 
 jobSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
+
+  try {
+    const jobObj = this.toObject();
+    const detStatus = determineDetailedStatus(jobObj);
+
+    // Only update if not explicitly set (or always update? usually computed overrides manual)
+    // We'll update it to ensure consistency.
+    this.detailed_status = detStatus;
+    this.row_color = getRowColorFromStatus(detStatus);
+    this.status_rank = getJobStatusRank(detStatus);
+    this.status_sort_date = getJobSortDate(jobObj, detStatus);
+  } catch (err) {
+    console.error("Error computing derived job fields:", err);
+    // Don't block save, but maybe log?
+  }
+
   next();
 });
 
@@ -472,4 +499,8 @@ jobSchema.index({
 jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 
 const JobModel = createDynamicModel("Job", jobSchema);
+// NEW: Optimized indexes for Status Ranking and Sorting
+jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
+jobSchema.index({ year: 1, detailed_status: 1 });
+
 export default JobModel;

@@ -20,10 +20,13 @@ const upload = multer({
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
       "application/vnd.ms-excel", // xls
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
+      "application/msword", // doc
+      "application/zip", // zip
     ];
 
     // Also check extension as a fallback/additional check
-    const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|pdf|xlsx|xls)$/i;
+    const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|pdf|xlsx|xls|docx|doc|zip)$/i;
 
     if (
       allowedMimeTypes.includes(file.mimetype) ||

@@ -474,4 +474,56 @@ router.post("/api/open-points/user/:username/assign-projects", async (req, res) 
     }
 });
 
+
+// Change Project Owner
+router.put("/api/open-points/projects/:projectId/change-owner", async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { newOwnerId } = req.body;
+        const requesterId = req.headers['user-id'];
+
+        if (!requesterId) return res.status(401).json({ error: "Unauthorized" });
+
+        const project = await OpenPointProject.findById(projectId);
+        if (!project) return res.status(404).json({ error: "Project not found" });
+
+        // Only current owner can transfer ownership
+        if (project.owner.toString() !== requesterId) {
+            return res.status(403).json({ error: "Access Denied: Only the current project owner can transfer ownership" });
+        }
+
+        const newOwner = await UserModel.findById(newOwnerId);
+        if (!newOwner) return res.status(404).json({ error: "New owner not found" });
+
+        if (project.owner.toString() === newOwnerId.toString()) {
+            return res.status(400).json({ error: "User is already the owner" });
+        }
+
+        const oldOwnerId = project.owner;
+
+        // Add old owner to team members if not present
+        if (!project.team_members.some(m => m.user.toString() === oldOwnerId.toString())) {
+            project.team_members.push({
+                user: oldOwnerId,
+                role: 'L4', // Previous owner likely has high privileges
+                added_at: new Date()
+            });
+        }
+
+        // Remove new owner from team members if present
+        project.team_members = project.team_members.filter(m => m.user.toString() !== newOwnerId.toString());
+
+        // Set New Owner
+        project.owner = newOwner._id;
+
+        await project.save();
+
+        res.json({ message: "Project ownership transferred successfully", project });
+
+    } catch (error) {
+        console.error("Change Owner Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;

@@ -10,8 +10,8 @@ const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
     : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_MONGODB_URI
-    : process.env.DEV_MONGODB_URI;
+      ? process.env.SERVER_MONGODB_URI
+      : process.env.DEV_MONGODB_URI;
 
 // Convert the URL to a file path
 const __filename = fileURLToPath(import.meta.url);
@@ -24,9 +24,8 @@ fs.existsSync(logDirectory) || fs.mkdirSync(logDirectory);
 // Custom formatting function including numbering
 let logCounter = 0; // Initialize the counter
 const customFormat = format.printf(({ level, message, stack, timestamp }) => {
-  return `${timestamp} [${level}] ${++logCounter}: ${message}${
-    stack ? "\nStack Trace:\n" + stack : ""
-  }`;
+  return `${timestamp} [${level}] ${++logCounter}: ${message}${stack ? "\nStack Trace:\n" + stack : ""
+    }`;
 });
 
 // Define base format
@@ -54,18 +53,22 @@ const logger = createLogger({
     }),
     ...(process.env.NODE_ENV !== "production"
       ? [
-          new transports.Console({
-            format: format.combine(format.colorize(), baseFormat),
-          }),
-        ]
+        new transports.Console({
+          format: format.combine(format.colorize(), baseFormat),
+        }),
+      ]
       : []),
-    new transports.MongoDB({
-      level: "error",
-      db: MONGODB_URI,
-      collection: "serverlogs",
-      tryReconnect: true,
-      format: format.combine(format.timestamp(), customFormat),
-    }),
+    ...(MONGODB_URI
+      ? [
+        new transports.MongoDB({
+          level: "error",
+          db: MONGODB_URI,
+          collection: "serverlogs",
+          tryReconnect: true,
+          format: format.combine(format.timestamp(), customFormat),
+        }),
+      ]
+      : []),
   ],
 });
 

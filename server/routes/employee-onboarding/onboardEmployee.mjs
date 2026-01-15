@@ -1,7 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
-import aws from "aws-sdk";
+import * as SES from "@aws-sdk/client-ses";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -10,23 +10,25 @@ dotenv.config();
 
 const router = express.Router();
 
-// Configure AWS SDK
-aws.config.update({
-  accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-  secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+// Configure AWS SDK v3 SES Client
+const ses = new SES.SESClient({
   region: "ap-south-1",
+  credentials: {
+    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+  },
 });
 
 const CLIENT_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_CLIENT_URI
     : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_CLIENT_URI
-    : process.env.DEV_CLIENT_URI;
+      ? process.env.SERVER_CLIENT_URI
+      : process.env.DEV_CLIENT_URI;
 
-// Create Nodemailer SES transporter
+// Create Nodemailer SES transporter (v3 compatibility)
 let transporter = nodemailer.createTransport({
-  SES: new aws.SES({ apiVersion: "2010-12-01" }),
+  SES: { ses, aws: SES },
 });
 
 router.post("/api/onboard-employee", async (req, res) => {

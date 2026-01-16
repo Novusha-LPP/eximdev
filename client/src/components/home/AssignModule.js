@@ -107,7 +107,7 @@ function AssignModule({ selectedUser }) {
           onChange={onChange}
           render={(item) => item.title}
           listStyle={{
-            width: 300,
+            width: '45%',
             height: 400,
           }}
           showSearch

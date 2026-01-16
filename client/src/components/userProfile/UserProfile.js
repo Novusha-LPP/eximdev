@@ -17,8 +17,8 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import WorkIcon from '@mui/icons-material/Work';
 import AWS from "aws-sdk";
 
-const UserProfile = () => {
-    const { username } = useParams();
+const UserProfile = ({ username: propUsername }) => {
+    const { username: paramUsername } = useParams();
     const { user: loggedInUser, setUser } = useContext(UserContext);
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -27,7 +27,7 @@ const UserProfile = () => {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const fileInputRef = useRef(null);
 
-    const targetUsername = username || loggedInUser?.username;
+    const targetUsername = propUsername || paramUsername || loggedInUser?.username;
     const isOwnProfile = targetUsername === loggedInUser?.username;
 
     useEffect(() => {

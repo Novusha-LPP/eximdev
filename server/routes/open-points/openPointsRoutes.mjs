@@ -258,7 +258,7 @@ router.get("/api/open-points/project/:projectId/points", verifyProjectAccess, as
         const today = new Date();
         await OpenPoint.updateMany({
             project_id: req.params.projectId,
-            status: { $ne: 'Green' },
+            status: { $nin: ['Green', 'Yellow', 'Orange'] },
             target_date: { $lt: today }
         }, {
             $set: { status: 'Red' }

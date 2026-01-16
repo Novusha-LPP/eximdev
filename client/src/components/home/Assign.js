@@ -13,7 +13,8 @@ import {
   Button,
   Segmented,
   Switch,
-  message
+  message,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -24,7 +25,8 @@ import {
   ProjectOutlined,
   RobotOutlined,
   SearchOutlined,
-  GroupOutlined
+  GroupOutlined,
+  InfoCircleOutlined
 } from "@ant-design/icons";
 
 import AssignModule from "./AssignModule";
@@ -33,7 +35,8 @@ import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignImporters from "./AssignImporters";
 import AssignEximBot from "./AssignEximBot/AssignEximBot";
-import ModuleUserList from "./ModuleUserList"; // Added import
+import ModuleUserList from "./ModuleUserList";
+import UserProfile from "../userProfile/UserProfile";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -46,8 +49,10 @@ function Assign() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("Users"); // 'Users' or 'Bulk Manage'
   const [updatingStatus, setUpdatingStatus] = useState(false);
-
   const [statusFilter, setStatusFilter] = useState("Active");
+
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileUser, setProfileUser] = useState(null);
 
   useEffect(() => {
     async function getUsers() {
@@ -117,68 +122,48 @@ function Assign() {
     }
   };
 
+  const handleViewProfile = (e, username) => {
+    e.stopPropagation();
+    setProfileUser(username);
+    setProfileModalVisible(true);
+  };
+
+  const closeProfileModal = () => {
+    setProfileModalVisible(false);
+    setProfileUser(null);
+  };
+
   const userData = getSelectedUserData();
 
-  // ... (items definition remains same) ...
   const items = [
     {
       key: "Assign Module",
-      label: (
-        <span>
-          <AppstoreOutlined />
-          Assign Module
-        </span>
-      ),
+      label: "Admin Module",
       children: <AssignModule selectedUser={selectedUser} />,
     },
     {
       key: "Assign Role",
-      label: (
-        <span>
-          <SafetyCertificateOutlined />
-          Assign Role
-        </span>
-      ),
+      label: "Assign Role",
       children: <AssignRole selectedUser={selectedUser} />,
     },
     {
       key: "Change Password",
-      label: (
-        <span>
-          <KeyOutlined />
-          Change Password
-        </span>
-      ),
+      label: "Change Password",
       children: <ChangePasswordByAdmin selectedUser={selectedUser} />,
     },
     {
       key: "Assign ICD Code",
-      label: (
-        <span>
-          <EnvironmentOutlined />
-          Assign ICD Code
-        </span>
-      ),
+      label: "Assign ICD Code",
       children: <SelectIcdCode selectedUser={selectedUser} />,
     },
     {
       key: "Assign Importers",
-      label: (
-        <span>
-          <ProjectOutlined />
-          Assign Importers
-        </span>
-      ),
+      label: "Assign Importers",
       children: <AssignImporters selectedUser={selectedUser} />,
     },
     {
       key: "Assign Exim Bot",
-      label: (
-        <span>
-          <RobotOutlined />
-          Assign Exim Bot
-        </span>
-      ),
+      label: "Assign Exim Bot",
       children: <AssignEximBot selectedUser={selectedUser} />,
     },
   ];
@@ -226,38 +211,52 @@ function Assign() {
           {viewMode === 'Users' ? (
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {filteredUsers.length > 0 ? (
-                filteredUsers.map(user => (
-                  <div
-                    key={user.username}
-                    onClick={() => setSelectedUser(user.username)}
-                    style={{
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      background: selectedUser === user.username ? '#e6f7ff' : 'transparent',
-                      borderRight: selectedUser === user.username ? '3px solid #1890ff' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      opacity: user.isActive === false ? 0.6 : 1,
-                      borderBottom: '1px solid #f0f0f0'
-                    }}
-                  >
-                    <Avatar
-                      icon={<UserOutlined />}
+                filteredUsers.map(user => {
+                  const displayName = (user.firstName && user.lastName)
+                    ? `${user.firstName} ${user.lastName}`
+                    : (user.username || "Unknown User");
+
+                  return (
+                    <div
+                      key={user.username}
+                      onClick={() => setSelectedUser(user.username)}
                       style={{
-                        backgroundColor: user.isActive === false ? '#ccc' : (selectedUser === user.username ? '#1890ff' : undefined),
-                        flexShrink: 0
+                        padding: '12px 16px',
+                        cursor: 'pointer',
+                        background: selectedUser === user.username ? '#e6f7ff' : 'transparent',
+                        borderRight: selectedUser === user.username ? '3px solid #1890ff' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        opacity: user.isActive === false ? 0.6 : 1,
+                        borderBottom: '1px solid #f0f0f0'
                       }}
-                    />
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text strong style={{ display: 'block' }} ellipsis>{user.username}</Text>
-                        {user.isActive === false && <Text type="secondary" style={{ fontSize: 10 }}>Inactive</Text>}
+                    >
+                      <Avatar
+                        icon={<UserOutlined />}
+                        style={{
+                          backgroundColor: user.isActive === false ? '#ccc' : (selectedUser === user.username ? '#1890ff' : undefined),
+                          flexShrink: 0
+                        }}
+                      />
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text strong style={{ display: 'block' }} ellipsis>
+                            {displayName ? displayName.toUpperCase() : ''}
+                          </Text>
+                          <InfoCircleOutlined
+                            style={{ color: '#1890ff', fontSize: '16px' }}
+                            onClick={(e) => handleViewProfile(e, user.username)}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Text type="secondary" style={{ fontSize: 12 }} ellipsis>{user.role || 'User'}</Text>
+                          {user.isActive === false && <Text type="secondary" style={{ fontSize: 10 }}>Inactive</Text>}
+                        </div>
                       </div>
-                      <Text type="secondary" style={{ fontSize: 12 }} ellipsis>{user.role || 'User'}</Text>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <Empty description="No users found" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '20px 0' }} />
               )}
@@ -288,6 +287,7 @@ function Assign() {
                     <Space split={<div style={{ width: 1, height: 12, background: '#d9d9d9' }} />}>
                       <Text type="secondary">{userData.username}</Text>
                       <Text type="secondary">{userData.role || 'User'}</Text>
+                      <Button type="link" size="small" onClick={(e) => handleViewProfile(e, userData.username)}>View Profile</Button>
                       <Text type={userData.isActive !== false ? "success" : "secondary"}>
                         {userData.isActive !== false ? 'Active' : 'Deactivated'}
                       </Text>
@@ -327,7 +327,7 @@ function Assign() {
                 tabBarStyle={{ margin: 0, padding: '16px 16px 0 16px', background: '#fafafa', borderBottom: '1px solid #e8e8e8' }}
               />
               <div style={{ padding: 24 }}>
-                {/* Render active tab content just to be sure if tabs behavior needs custom render */}
+                {/* Content handled by Tabs items */}
               </div>
             </Card>
           </Space>
@@ -339,6 +339,18 @@ function Assign() {
             />
           </div>
         )}
+
+        <Modal
+          title="User Profile"
+          open={profileModalVisible}
+          onCancel={closeProfileModal}
+          footer={null}
+          width={1000}
+          style={{ top: 20 }}
+          destroyOnClose
+        >
+          {profileUser && <UserProfile username={profileUser} />}
+        </Modal>
       </Content>
     </Layout>
   );

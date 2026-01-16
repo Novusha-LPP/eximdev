@@ -55,7 +55,7 @@ function Sidebar() {
       </Tooltip>
 
       {user.role === "Admin" && (
-        <Tooltip title="Assign Module" enterDelay={0} placement="right">
+        <Tooltip title="Admin" enterDelay={0} placement="right">
           <ListItemButton
             className="appbar-links"
             aria-label="list-item"

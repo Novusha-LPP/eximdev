@@ -14,7 +14,6 @@ const FileUpload = ({
   singleFileOnly = false, // New prop: when true, only allows one file to be selected
   containerStyles = {}, // New prop: custom styles for the container div
   buttonSx = {}, // New prop: custom sx styles for the MUI Button
-  shouldCompress = false, // New prop: only compress if true
 }) => {
   const [uploading, setUploading] = useState(false);
   const { user } = useContext(UserContext);

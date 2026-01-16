@@ -92,6 +92,12 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
           $or: [
             { completed_operation_date: { $exists: false } },
             { completed_operation_date: "" },
+            {
+              $and: [
+                { completed_operation_date: { $exists: true, $ne: "" } },
+                { dsr_queries: { $elemMatch: { select_module: "Operations", resolved: { $ne: true } } } }
+              ]
+            }
           ],
         },
       ],

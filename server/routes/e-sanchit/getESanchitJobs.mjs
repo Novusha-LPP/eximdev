@@ -24,14 +24,14 @@ const getMostRecentSendDate = (job) => {
   if (!job.cth_documents || job.cth_documents.length === 0) {
     return null;
   }
-  
+
   const validDates = job.cth_documents
     .map(doc => doc.send_date)
     .filter(date => date && date !== "")
     .map(date => new Date(date));
-  
+
   if (validDates.length === 0) return null;
-  
+
   return new Date(Math.max(...validDates));
 };
 
@@ -69,6 +69,13 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
             { esanchit_completed_date_time: { $exists: false } },
             { esanchit_completed_date_time: "" },
             { esanchit_completed_date_time: null },
+            // Include if has completed date but ALSO has unresolved queries for E-Sanchit
+            {
+              $and: [
+                { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                { dsr_queries: { $elemMatch: { select_module: "E-Sanchit", resolved: { $ne: true } } } }
+              ]
+            }
           ],
         },
         searchQuery,
@@ -80,7 +87,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
       });
     }
-    
+
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
@@ -100,13 +107,13 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
         "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries"
       )
       .sort({ gateway_igm_date: 1 });
-    
+
     // Enhanced sorting: First by send_date (most recent first), then by priority
     const rankedJobs = allJobs.sort((a, b) => {
       // Get most recent send_date for both jobs
       const dateA = getMostRecentSendDate(a);
       const dateB = getMostRecentSendDate(b);
-      
+
       // Sort by most recent send_date first (descending - most recent at top)
       if (dateA && dateB) {
         const dateDiff = dateB - dateA; // Most recent first
@@ -116,7 +123,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
       } else if (dateB) {
         return 1;
       }
-      
+
       // If dates are equal or both missing, fall back to priority ranking
       const rank = (job) => {
         if (job.priorityJob === "High Priority") return 1;
@@ -130,13 +137,13 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 
     // Get count of jobs with unresolved queries
     const unresolvedQueryBase = { ...baseQuery };
-    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition =>
       !condition.hasOwnProperty('dsr_queries')
     );
     unresolvedQueryBase.$and.push({
       dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
     });
-    
+
     const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
 
     const totalJobs = rankedJobs.length;
@@ -151,7 +158,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
         unresolvedCount,
       });
     }
-    
+
     return res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
@@ -166,46 +173,46 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year", 
+router.patch("/api/update-esanchit-job/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
-  const { job_no, year } = req.params;
-  const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
+    const { job_no, year } = req.params;
+    const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
 
-  try {
-    const job = await JobModel.findOne({ job_no, year });
+    try {
+      const job = await JobModel.findOne({ job_no, year });
 
-    if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (cth_documents) {
+        job.cth_documents = cth_documents;
+      }
+
+      if (esanchitCharges) {
+        job.esanchitCharges = esanchitCharges;
+      }
+
+      if (queries) {
+        job.eSachitQueries = queries;
+      }
+
+      if (dsr_queries) {
+        job.dsr_queries = dsr_queries;
+      }
+
+      if (esanchit_completed_date_time !== undefined) {
+        job.esanchit_completed_date_time = esanchit_completed_date_time || "";
+      }
+
+      await job.save();
+
+      res.status(200).json({ message: "Job updated successfully", job });
+    } catch (err) {
+      console.error("Error updating job:", err);
+      res.status(500).json({ message: "Internal server error" });
     }
-
-    if (cth_documents) {
-      job.cth_documents = cth_documents;
-    }
-
-    if (esanchitCharges) {
-      job.esanchitCharges = esanchitCharges;
-    }
-
-    if (queries) {
-      job.eSachitQueries = queries;
-    }
-
-    if (dsr_queries) {
-      job.dsr_queries = dsr_queries;
-    }
-
-    if (esanchit_completed_date_time !== undefined) {
-      job.esanchit_completed_date_time = esanchit_completed_date_time || "";
-    }
-
-    await job.save();
-
-    res.status(200).json({ message: "Job updated successfully", job });
-  } catch (err) {
-    console.error("Error updating job:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
+  });
 
 export default router;

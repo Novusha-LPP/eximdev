@@ -333,7 +333,7 @@ function DoPlanning() {
 
   // ✅ Simple WebSocket implementation - like your working Screen1
   useEffect(() => {
-    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9000"
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9006"
       }`;
     console.log("🔗 Connecting to DO Billing WebSocket:", SOCKET_URL);
 

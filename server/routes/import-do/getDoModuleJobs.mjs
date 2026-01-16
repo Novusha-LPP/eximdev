@@ -75,6 +75,17 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
                 },
               ],
             },
+            // Include if has DO completed flag but ALSO has unresolved queries for DO
+            {
+              $and: [
+                {
+                  $or: [{ do_completed: true }, { do_completed: "Yes" }, { do_completed: { $exists: true, $ne: "" } }]
+                },
+                {
+                  dsr_queries: { $elemMatch: { select_module: "DO", resolved: { $ne: true } } }
+                }
+              ]
+            }
           ],
         },
       ],
@@ -433,6 +444,16 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
               },
             },
           },
+        },
+        {
+          dsr_queries: {
+            $not: {
+              $elemMatch: {
+                select_module: "DO",
+                resolved: { $ne: true }
+              }
+            }
+          }
         },
       ],
     };

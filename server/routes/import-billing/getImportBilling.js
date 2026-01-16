@@ -177,6 +177,13 @@ router.get(
               { billing_completed_date: { $exists: false } },
               { billing_completed_date: "" },
               { billing_completed_date: null },
+              // Include if has billing completed date but ALSO has unresolved queries for Accounts
+              {
+                $and: [
+                  { billing_completed_date: { $exists: true, $ne: "" } },
+                  { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                ]
+              }
             ],
           },
         ],
@@ -293,6 +300,16 @@ router.get(
           },
           {
             billing_completed_date: { $exists: true, $nin: [null, ""] },
+          },
+          {
+            dsr_queries: {
+              $not: {
+                $elemMatch: {
+                  select_module: "Accounts",
+                  resolved: { $ne: true }
+                }
+              }
+            }
           },
         ],
       };
@@ -567,9 +584,28 @@ router.get(
                 0,
               ],
             },
+            has_unresolved_accounts_queries: {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ["$dsr_queries", []] },
+                      as: "q",
+                      cond: {
+                        $and: [
+                          { $eq: ["$$q.select_module", "Accounts"] },
+                          { $ne: ["$$q.resolved", true] }
+                        ]
+                      }
+                    }
+                  }
+                },
+                0
+              ]
+            }
           },
         },
-        { $match: { has_pending_payments: true } },
+        { $match: { $or: [{ has_pending_payments: true }, { has_unresolved_accounts_queries: true }] } },
         {
           $project: {
             priorityJob: 1,
@@ -764,7 +800,7 @@ router.get(
 
       const allJobsFromDB = await JobModel.find(baseQuery)
         .select(
-          "priorityJob eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice vessel_berthing"
+          "priorityJob eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries dsr_queries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice vessel_berthing"
         )
         .lean();
 
@@ -784,7 +820,11 @@ router.get(
             invoice.payment_made_date !== null
         );
 
-        return allPaymentsMade;
+        const hasUnresolvedAccountsQueries = job.dsr_queries?.some(
+          (q) => q.select_module === "Accounts" && q.resolved !== true
+        );
+
+        return allPaymentsMade && !hasUnresolvedAccountsQueries;
       });
 
       // Apply color-based sorting

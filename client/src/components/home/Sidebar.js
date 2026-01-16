@@ -94,17 +94,21 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/project-nucleus")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <HubIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
+      {
+        ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (
+          <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/project-nucleus")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <HubIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+        )
+      }
 
       <Tooltip title="Release Notes" enterDelay={0} placement="right">
         <ListItemButton

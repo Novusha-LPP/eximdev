@@ -38,7 +38,7 @@ function LoginPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                <span>AIVision | EXIM&nbsp;</span>
+                <span>AlVision &nbsp;</span>
               </a>
             </p>
           </div>

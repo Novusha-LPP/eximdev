@@ -22,6 +22,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/import-do");
     case "Inward Register":
       return navigate("/inward-register");
+    case "Export":
+      return navigate("https://export.alvision.in");
     case "Outward Register":
       return navigate("/outward-register");
     case "Accounts":

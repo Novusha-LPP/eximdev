@@ -1,62 +1,53 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
-  TextField,
-  Typography,
-  Switch,
-  FormControlLabel,
-  Grid,
-  Box,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Paper,
-  Tab,
+  Select,
   Tabs,
-  InputAdornment,
+  Card,
+  Typography,
+  Space,
+  Layout,
   Avatar,
-  Divider,
-} from "@mui/material";
+  Empty,
+  Input,
+  Button,
+  Segmented,
+  Switch,
+  message
+} from "antd";
 import {
-  ViewModule as ViewModuleIcon,
-  Security as SecurityIcon,
-  LockReset as LockResetIcon,
-  LocationCity as LocationCityIcon,
-  Business as BusinessIcon,
-  SmartToy as SmartToyIcon,
-  Person as PersonIcon,
-  Search as SearchIcon,
-  Circle as CircleIcon,
-} from "@mui/icons-material";
+  UserOutlined,
+  AppstoreOutlined,
+  SafetyCertificateOutlined,
+  KeyOutlined,
+  EnvironmentOutlined,
+  ProjectOutlined,
+  RobotOutlined,
+  SearchOutlined,
+  GroupOutlined
+} from "@ant-design/icons";
 
-// Sub-components
 import AssignModule from "./AssignModule";
 import AssignRole from "./AssignRole/AssignRole";
 import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignImporters from "./AssignImporters";
 import AssignEximBot from "./AssignEximBot/AssignEximBot";
-import ModuleUserList from "./ModuleUserList";
-import { Group as GroupIcon } from "@mui/icons-material";
+import ModuleUserList from "./ModuleUserList"; // Added import
 
-// Theme constants
-const THEME = {
-  bg: "#f8f9fa", // Very light grey background
-  cardBg: "#ffffff",
-  border: "1px solid #e9ecef",
-  activeColor: "#00796b", // Teal accent
-  activeBg: "#e0f2f1", // Light teal background for active states
-  textPrimary: "#212529",
-  textSecondary: "#6c757d",
-};
+const { Option } = Select;
+const { Title, Text } = Typography;
+const { Sider, Content } = Layout;
 
 function Assign() {
   const [userList, setUserList] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [activeTab, setActiveTab] = useState("Assign Module");
-  const [userListTab, setUserListTab] = useState(0); // 0: Active, 1: Deactivated
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState("Users"); // 'Users' or 'Bulk Manage'
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const [statusFilter, setStatusFilter] = useState("Active");
 
   useEffect(() => {
     async function getUsers() {
@@ -64,589 +55,292 @@ function Assign() {
         const res = await axios(
           `${process.env.REACT_APP_API_STRING}/get-all-users`
         );
-        setUserList(res.data);
+        setUserList(res.data.map((user) => ({
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role,
+          isActive: user.isActive,
+          deactivatedAt: user.deactivatedAt
+        })));
       } catch (error) {
         console.error("Error fetching user list:", error);
       }
     }
+
     getUsers();
   }, []);
 
-  const handleToggleStatus = async () => {
+  const filteredUsers = userList.filter(user => {
+    const term = searchTerm.toLowerCase();
+    const username = user.username ? user.username.toLowerCase() : "";
+    const firstName = user.firstName ? user.firstName.toLowerCase() : "";
+    const lastName = user.lastName ? user.lastName.toLowerCase() : "";
+
+    // Status Filter
+    const isActive = user.isActive !== false; // undefined or true means active
+    if (statusFilter === "Active" && !isActive) return false;
+    if (statusFilter === "Inactive" && isActive) return false;
+
+    return (
+      username.includes(term) ||
+      firstName.includes(term) ||
+      lastName.includes(term)
+    );
+  });
+
+  const getSelectedUserData = () => {
+    return userList.find(u => u.username === selectedUser);
+  };
+
+  const handleToggleStatus = async (checked) => {
     if (!selectedUser) return;
-
+    setUpdatingStatus(true);
     try {
-      const newStatus = !selectedUser.isActive;
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/toggle-user-status`,
-        {
-          username: selectedUser.username,
-          isActive: newStatus,
-        }
-      );
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/toggle-user-status`, {
+        username: selectedUser,
+        isActive: checked
+      });
 
-      // Update local state using the fresh data from server
-      const updatedUser = res.data.user;
-      setSelectedUser(updatedUser);
-      setUserList((prev) =>
-        prev.map((u) =>
-          u.username === selectedUser.username ? updatedUser : u
-        )
-      );
+      message.success(res.data.message || "Status updated successfully");
+
+      // Update local state
+      setUserList(prev => prev.map(u =>
+        u.username === selectedUser ? { ...u, isActive: checked, deactivatedAt: checked ? null : new Date() } : u
+      ));
+
     } catch (error) {
-      console.error("Error updating user status:", error);
-      alert("Failed to update user status");
+      console.error("Error updating status:", error);
+      message.error("Failed to update user status");
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
-  const menuItems = [
+  const userData = getSelectedUserData();
+
+  // ... (items definition remains same) ...
+  const items = [
     {
-      label: "Assign Module",
-      icon: <ViewModuleIcon />,
-      component: <AssignModule selectedUser={selectedUser?.username} />,
-    },
-    {
-      label: "Assign Role",
-      icon: <SecurityIcon />,
-      component: <AssignRole selectedUser={selectedUser?.username} />,
-    },
-    {
-      label: "Change Password",
-      icon: <LockResetIcon />,
-      component: (
-        <ChangePasswordByAdmin selectedUser={selectedUser?.username} />
+      key: "Assign Module",
+      label: (
+        <span>
+          <AppstoreOutlined />
+          Assign Module
+        </span>
       ),
+      children: <AssignModule selectedUser={selectedUser} />,
     },
     {
-      label: "Assign ICD Code",
-      icon: <LocationCityIcon />,
-      component: <SelectIcdCode selectedUser={selectedUser?.username} />,
+      key: "Assign Role",
+      label: (
+        <span>
+          <SafetyCertificateOutlined />
+          Assign Role
+        </span>
+      ),
+      children: <AssignRole selectedUser={selectedUser} />,
     },
     {
-      label: "Assign Importers",
-      icon: <BusinessIcon />,
-      component: <AssignImporters selectedUser={selectedUser?.username} />,
+      key: "Change Password",
+      label: (
+        <span>
+          <KeyOutlined />
+          Change Password
+        </span>
+      ),
+      children: <ChangePasswordByAdmin selectedUser={selectedUser} />,
     },
     {
-      label: "Assign Exim Bot",
-      icon: <SmartToyIcon />,
-      component: <AssignEximBot selectedUser={selectedUser?.username} />,
+      key: "Assign ICD Code",
+      label: (
+        <span>
+          <EnvironmentOutlined />
+          Assign ICD Code
+        </span>
+      ),
+      children: <SelectIcdCode selectedUser={selectedUser} />,
     },
     {
-      label: "Review Module Users",
-      icon: <GroupIcon />, // You'll need to import this icon
-      component: <ModuleUserList />,
+      key: "Assign Importers",
+      label: (
+        <span>
+          <ProjectOutlined />
+          Assign Importers
+        </span>
+      ),
+      children: <AssignImporters selectedUser={selectedUser} />,
+    },
+    {
+      key: "Assign Exim Bot",
+      label: (
+        <span>
+          <RobotOutlined />
+          Assign Exim Bot
+        </span>
+      ),
+      children: <AssignEximBot selectedUser={selectedUser} />,
     },
   ];
 
-  const activeComponent = menuItems.find(
-    (item) => item.label === activeTab
-  )?.component;
-
-  // Filter users based on tab and search
-  const filteredUsers = useMemo(() => {
-    let users = userList;
-
-    // Filter by Active/Inactive status
-    if (userListTab === 0) {
-      users = users.filter((u) => u.isActive !== false);
-    } else {
-      users = users.filter((u) => u.isActive === false);
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      users = users.filter(
-        (u) =>
-          (u.first_name && u.first_name.toLowerCase().includes(term)) ||
-          (u.last_name && u.last_name.toLowerCase().includes(term)) ||
-          u.username.toLowerCase().includes(term)
-      );
-    }
-
-    return users;
-  }, [userList, userListTab, searchTerm]);
-
   return (
-    <Box
-      sx={{
-        display: "flex",
-        height: "calc(100vh - 64px)",
-        bgcolor: THEME.bg,
-        overflow: "hidden",
-        fontFamily: "'Inter', 'Roboto', sans-serif",
-      }}
-    >
-      {/* Left Sidebar: User List */}
-      <Paper
-        elevation={0}
-        sx={{
-          width: 320,
-          display: "flex",
-          flexDirection: "column",
-          borderRight: THEME.border,
-          borderRadius: 0,
-          zIndex: 1,
-          bgcolor: "#fff",
-        }}
-      >
-        {userListTab !== 2 && (
-          <Box sx={{ p: 2, borderBottom: THEME.border }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search Users"
-              variant="outlined"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon
-                      sx={{ color: THEME.textSecondary }}
-                      fontSize="small"
-                    />
-                  </InputAdornment>
-                ),
-                sx: {
-                  borderRadius: 1,
-                  bgcolor: THEME.bg,
-                  fontSize: "0.9rem",
-                  "& fieldset": { borderColor: "transparent" },
-                  "&:hover fieldset": { borderColor: "#ced4da" },
-                  "&.Mui-focused fieldset": { borderColor: THEME.activeColor },
-                },
+    <Layout style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5" }}>
+      <Sider width={320} theme="light" style={{ borderRight: "1px solid #e8e8e8", height: 'calc(100vh - 64px)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ padding: 16, borderBottom: "1px solid #e8e8e8", flexShrink: 0 }}>
+            <Title level={4} style={{ margin: "0 0 12px 0" }}>Users</Title>
+            <Segmented
+              block
+              options={[
+                { label: 'User List', value: 'Users', icon: <UserOutlined /> },
+                { label: 'Bulk Manage', value: 'Bulk Manage', icon: <GroupOutlined /> },
+              ]}
+              value={viewMode}
+              onChange={(val) => {
+                setViewMode(val);
+                if (val === 'Bulk Manage') {
+                  setSelectedUser(null);
+                }
               }}
+              style={{ marginBottom: 16 }}
             />
-          </Box>
-        )}
-        <Tabs
-          value={userListTab}
-          onChange={(e, v) => {
-            setUserListTab(v);
-            if (v === 2) setSelectedUser(null);
-          }}
-          TabIndicatorProps={{ sx: { bgcolor: THEME.activeColor } }}
-          textColor="inherit"
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            borderBottom: THEME.border,
-            "& .MuiTab-root": {
-              textTransform: "none",
-              fontWeight: 600,
-              color: THEME.textSecondary,
-              minHeight: 48,
-              fontSize: "0.85rem",
-              px: 2,
-            },
-            "& .Mui-selected": {
-              color: THEME.activeColor,
-            },
-          }}
-        >
-          <Tab
-            label={`Active (${
-              userList.filter((u) => u.isActive !== false).length
-            })`}
-          />
-          <Tab
-            label={`Inactive (${
-              userList.filter((u) => u.isActive === false).length
-            })`}
-          />
-          <Tab
-            label="Bulk Manage"
-            icon={<GroupIcon fontSize="small" />}
-            iconPosition="start"
-            sx={{ minHeight: 48 }}
-          />
-        </Tabs>
-
-        {userListTab !== 2 ? (
-          <List sx={{ flex: 1, overflowY: "auto", p: 1 }}>
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map((user) => {
-                const fullName =
-                  [user.first_name, user.last_name].filter(Boolean).join(" ") ||
-                  user.username ||
-                  "?";
-                return (
-                  <ListItemButton
-                    key={user._id || user.username}
-                    selected={selectedUser?.username === user.username}
-                    onClick={() => setSelectedUser(user)}
-                    sx={{
-                      borderRadius: 1,
-                      mb: 0.5,
-                      color: THEME.textPrimary,
-                      "&.Mui-selected": {
-                        bgcolor: THEME.activeBg,
-                        color: THEME.activeColor,
-                        "&:hover": { bgcolor: "#b2dfdb" },
-                        borderLeft: `3px solid ${THEME.activeColor}`,
-                      },
-                      "&:hover": { bgcolor: "#f1f3f5" },
-                      py: 1,
-                      px: 1.5,
-                      borderLeft: "3px solid transparent",
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <Avatar
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          fontSize: "0.75rem",
-                          bgcolor:
-                            selectedUser?.username === user.username
-                              ? THEME.activeColor
-                              : "#eceff1",
-                          color:
-                            selectedUser?.username === user.username
-                              ? "#fff"
-                              : THEME.textSecondary,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {fullName.charAt(0).toUpperCase()}
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={fullName}
-                      secondary={user.username}
-                      primaryTypographyProps={{
-                        variant: "body2",
-                        fontWeight:
-                          selectedUser?.username === user.username ? 600 : 500,
-                        color: "inherit",
-                      }}
-                      secondaryTypographyProps={{
-                        variant: "caption",
-                        color: THEME.textSecondary,
-                      }}
-                    />
-                    <CircleIcon
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        color: user.isActive !== false ? "#4caf50" : "#bdbdbd",
-                        ml: 1,
-                        opacity: 0.7,
-                      }}
-                    />
-                  </ListItemButton>
-                );
-              })
-            ) : (
-              <Box sx={{ p: 4, textAlign: "center" }}>
-                <Typography variant="body2" color="text.secondary">
-                  No users found.
-                </Typography>
-              </Box>
+            {viewMode === 'Users' && (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Segmented
+                  block
+                  size="small"
+                  options={['Active', 'Inactive']}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                />
+                <Input
+                  prefix={<SearchOutlined />}
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </Space>
             )}
-          </List>
-        ) : (
-          <Box sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>
-            <Typography variant="body2">
-              Manage users by module. Select a module on the right to view and
-              remove users in bulk.
-            </Typography>
-          </Box>
-        )}
-      </Paper>
+          </div>
 
-      {/* Main Content Area */}
-      <Box sx={{ flex: 1, overflowY: "auto", p: 4 }}>
-        {userListTab === 2 ? (
-          <Paper
-            elevation={0}
-            sx={{ p: 4, borderRadius: 2, border: THEME.border }}
-          >
-            <ModuleUserList />
-          </Paper>
-        ) : selectedUser ? (
-          <Grid container spacing={3}>
-            {/* Header Card */}
-            <Grid item xs={12}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 3,
-                  mb: 1,
-                  borderRadius: 2,
-                  border: THEME.border,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  bgcolor: "#fff",
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
-                  <Avatar
-                    sx={{
-                      width: 56,
-                      height: 56,
-                      bgcolor: THEME.activeColor,
-                      fontSize: "1.5rem",
+          {viewMode === 'Users' ? (
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map(user => (
+                  <div
+                    key={user.username}
+                    onClick={() => setSelectedUser(user.username)}
+                    style={{
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      background: selectedUser === user.username ? '#e6f7ff' : 'transparent',
+                      borderRight: selectedUser === user.username ? '3px solid #1890ff' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      opacity: user.isActive === false ? 0.6 : 1,
+                      borderBottom: '1px solid #f0f0f0'
                     }}
                   >
-                    {(selectedUser.first_name || selectedUser.username || "?")
-                      .charAt(0)
-                      .toUpperCase()}
-                  </Avatar>
-                  <Box>
-                    <Typography
-                      variant="h6"
-                      fontWeight={700}
-                      color={THEME.textPrimary}
-                    >
-                      {[selectedUser.first_name, selectedUser.last_name]
-                        .filter(Boolean)
-                        .join(" ") || selectedUser.username}
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        mt: 0.5,
+                    <Avatar
+                      icon={<UserOutlined />}
+                      style={{
+                        backgroundColor: user.isActive === false ? '#ccc' : (selectedUser === user.username ? '#1890ff' : undefined),
+                        flexShrink: 0
                       }}
-                    >
-                      <Typography variant="body2" color={THEME.textSecondary}>
-                        {selectedUser.username}
-                      </Typography>
-                      <Divider
-                        orientation="vertical"
-                        flexItem
-                        sx={{ height: 16 }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 600,
-                          color: THEME.textPrimary,
-                          border: `1px solid ${THEME.border}`,
-                          px: 0.5,
-                          borderRadius: 0.5,
-                        }}
-                      >
-                        {selectedUser.role || "User"}
-                      </Typography>
+                    />
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text strong style={{ display: 'block' }} ellipsis>{user.username}</Text>
+                        {user.isActive === false && <Text type="secondary" style={{ fontSize: 10 }}>Inactive</Text>}
+                      </div>
+                      <Text type="secondary" style={{ fontSize: 12 }} ellipsis>{user.role || 'User'}</Text>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <Empty description="No users found" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '20px 0' }} />
+              )}
+            </div>
+          ) : (
+            <div style={{ padding: 16, textAlign: 'center' }}>
+              <Text type="secondary">
+                Select "User List" to manage individual users.
+              </Text>
+            </div>
+          )}
+        </div>
+      </Sider>
 
-                      {/* Status Badge */}
-                      <Box
-                        sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          px: 1,
-                          py: 0.25,
-                          bgcolor:
-                            selectedUser.isActive !== false
-                              ? "#e8f5e9"
-                              : "#fafafa",
-                          borderRadius: 4,
-                          border: `1px solid ${
-                            selectedUser.isActive !== false
-                              ? "#c8e6c9"
-                              : "#e0e0e0"
-                          }`,
-                        }}
-                      >
-                        <CircleIcon
-                          sx={{
-                            width: 6,
-                            height: 6,
-                            mr: 0.5,
-                            color:
-                              selectedUser.isActive !== false
-                                ? "#4caf50"
-                                : "#bdbdbd",
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          fontWeight={600}
-                          color={
-                            selectedUser.isActive !== false
-                              ? "#2e7d32"
-                              : "#757575"
-                          }
-                        >
-                          {selectedUser.isActive !== false
-                            ? "Active"
-                            : `Deactivated ${
-                                selectedUser.deactivatedAt
-                                  ? `(${new Date(
-                                      selectedUser.deactivatedAt
-                                    ).toLocaleDateString()})`
-                                  : ""
-                              }`}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
+      <Content style={{ padding: 24 }}>
+        {viewMode === 'Bulk Manage' ? (
+          <ModuleUserList />
+        ) : selectedUser && userData ? (
+          <Space direction="vertical" size="large" style={{ width: "100%" }}>
+            <Card bordered={false}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space size="middle">
+                  <Avatar size={64} icon={<UserOutlined />} style={{ backgroundColor: userData.isActive !== false ? '#1890ff' : '#ccc' }} />
+                  <div>
+                    <Title level={3} style={{ margin: 0 }}>
+                      {userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : userData.username}
+                    </Title>
+                    <Space split={<div style={{ width: 1, height: 12, background: '#d9d9d9' }} />}>
+                      <Text type="secondary">{userData.username}</Text>
+                      <Text type="secondary">{userData.role || 'User'}</Text>
+                      <Text type={userData.isActive !== false ? "success" : "secondary"}>
+                        {userData.isActive !== false ? 'Active' : 'Deactivated'}
+                      </Text>
+                    </Space>
+                  </div>
+                </Space>
 
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={selectedUser.isActive !== false}
-                        onChange={handleToggleStatus}
-                        sx={{
-                          "& .MuiSwitch-switchBase.Mui-checked": {
-                            color: THEME.activeColor,
-                          },
-                          "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
-                            {
-                              backgroundColor: THEME.activeColor,
-                            },
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedUser.isActive !== false
-                          ? "Deactivate User"
-                          : "Activate User"}
-                      </Typography>
-                    }
-                  />
-                </Box>
-              </Paper>
-            </Grid>
-
-            {/* Content Split: Navigation & Detail */}
-            <Grid item xs={12} md={3} lg={2.5}>
-              <Paper
-                sx={{
-                  borderRadius: 2,
-                  overflow: "hidden",
-                  border: THEME.border,
-                }}
-                elevation={0}
-              >
-                <Box
-                  sx={{
-                    p: 2,
-                    bgcolor: "#fafafa",
-                    borderBottom: THEME.border,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    fontWeight={700}
-                    color="text.secondary"
-                    sx={{ letterSpacing: 0.5, textTransform: "uppercase" }}
-                  >
-                    Assignments
-                  </Typography>
-                </Box>
-                <List component="nav" sx={{ p: 1 }}>
-                  {menuItems.map((item) => (
-                    <ListItemButton
-                      key={item.label}
-                      selected={activeTab === item.label}
-                      onClick={() => setActiveTab(item.label)}
-                      sx={{
-                        borderRadius: 1,
-                        mb: 0.25,
-                        px: 1.5,
-                        py: 1,
-                        color: THEME.textPrimary,
-                        "&.Mui-selected": {
-                          bgcolor: THEME.activeBg,
-                          color: THEME.activeColor,
-                          fontWeight: 600,
-                          "& .MuiListItemIcon-root": {
-                            color: THEME.activeColor,
-                          },
-                          "&:hover": { bgcolor: "#b2dfdb" },
-                        },
-                      }}
-                    >
-                      <ListItemIcon
-                        sx={{ minWidth: 32, color: "text.secondary" }}
-                      >
-                        {React.cloneElement(item.icon, { fontSize: "small" })}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{
-                          variant: "body2",
-                          fontWeight: activeTab === item.label ? 600 : 400,
-                        }}
-                      />
-                    </ListItemButton>
-                  ))}
-                </List>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} md={9} lg={9.5}>
-              <Paper
-                elevation={0}
-                sx={{
-                  borderRadius: 2,
-                  minHeight: 500,
-                  border: THEME.border,
-                }}
-              >
-                <Box
-                  sx={{
-                    px: 3,
-                    py: 2,
-                    borderBottom: THEME.border,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                  }}
-                >
-                  {React.cloneElement(
-                    menuItems.find((i) => i.label === activeTab)?.icon,
-                    { color: "action" }
+                <Space direction="vertical" align="end">
+                  <Space>
+                    <Text>User Status:</Text>
+                    <Switch
+                      checked={userData.isActive !== false}
+                      onChange={handleToggleStatus}
+                      loading={updatingStatus}
+                      checkedChildren="Active"
+                      unCheckedChildren="Inactive"
+                    />
+                  </Space>
+                  {userData.deactivatedAt && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      Since: {new Date(userData.deactivatedAt).toLocaleDateString()}
+                    </Text>
                   )}
-                  <Typography
-                    variant="h6"
-                    fontWeight={600}
-                    color={THEME.textPrimary}
-                  >
-                    {activeTab}
-                  </Typography>
-                </Box>
-                <Box sx={{ p: 0 }}>
-                  {/* The components rendered here are responsible for their own internal padding usually, 
-                        but we can wrapper them if needed. Providing a container. */}
-                  <Box sx={{ p: 3 }}>{activeComponent}</Box>
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
+                </Space>
+              </div>
+            </Card>
+
+            <Card bordered={false} bodyStyle={{ padding: 0 }}>
+              <Tabs
+                activeKey={activeTab}
+                onChange={setActiveTab}
+                items={items}
+                size="large"
+                tabPosition="top"
+                type="card"
+                style={{ padding: '0 0 24px 0' }}
+                tabBarStyle={{ margin: 0, padding: '16px 16px 0 16px', background: '#fafafa', borderBottom: '1px solid #e8e8e8' }}
+              />
+              <div style={{ padding: 24 }}>
+                {/* Render active tab content just to be sure if tabs behavior needs custom render */}
+              </div>
+            </Card>
+          </Space>
         ) : (
-          <Box
-            sx={{
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "column",
-              color: THEME.textSecondary,
-              opacity: 0.6,
-            }}
-          >
-            <PersonIcon sx={{ fontSize: 64, mb: 2, color: "#e0e0e0" }} />
-            <Typography variant="h6" fontWeight={600}>
-              No Selection
-            </Typography>
-            <Typography variant="body2">
-              Select a user from the sidebar to manage assignments.
-            </Typography>
-          </Box>
+          <div style={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="Select a user from the sidebar to manage assignments or use Bulk Manage"
+            />
+          </div>
         )}
-      </Box>
-    </Box>
+      </Content>
+    </Layout>
   );
 }
 

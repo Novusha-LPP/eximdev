@@ -45,5 +45,11 @@
     "winston-mongodb": "^5.1.1",
     "ws": "^8.18.1",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^11.0.1",
+    "supertest": "^7.2.2"
   }
 }

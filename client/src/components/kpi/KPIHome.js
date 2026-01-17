@@ -1,0 +1,415 @@
+import React, { useState, useEffect, useContext } from 'react';
+import axios from 'axios';
+import { UserContext } from "../../contexts/UserContext";
+import { useNavigate } from 'react-router-dom';
+import './kpi.scss';
+
+// Icons as simple SVG components to avoid MUI
+const Icons = {
+    Dashboard: () => (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+        </svg>
+    ),
+    Settings: () => (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+        </svg>
+    ),
+    Add: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+        </svg>
+    ),
+    Delete: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+        </svg>
+    ),
+    Document: () => (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+        </svg>
+    ),
+    Check: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        </svg>
+    ),
+    Pending: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+        </svg>
+    ),
+    Cancel: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" />
+        </svg>
+    ),
+    Edit: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+        </svg>
+    ),
+    Close: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+        </svg>
+    ),
+};
+
+const KPIHome = () => {
+    const { user } = useContext(UserContext);
+    const navigate = useNavigate();
+    const [templates, setTemplates] = useState([]);
+    const [sheets, setSheets] = useState([]);
+    const [selectedTemplate, setSelectedTemplate] = useState('');
+    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [deleteDialog, setDeleteDialog] = useState({ open: false, sheetId: null });
+    const [message, setMessage] = useState({ show: false, text: '', type: '' });
+
+    const [users, setUsers] = useState([]);
+    const [signatories, setSignatories] = useState({
+        checked_by: '',
+        verified_by: '',
+        approved_by: ''
+    });
+
+    const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
+    useEffect(() => {
+        fetchTemplates();
+        fetchSheets();
+        fetchUsers();
+    }, []);
+
+    useEffect(() => {
+        fetchSheets();
+    }, [filterYear]);
+
+    const fetchUsers = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, { withCredentials: true });
+            setUsers(res.data);
+        } catch (error) {
+            console.error("Error fetching users", error);
+        }
+    };
+
+    const fetchSheets = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/sheets?year=${filterYear}`, { withCredentials: true });
+            setSheets(res.data);
+        } catch (error) {
+            console.error("Error fetching sheets", error);
+        }
+    };
+
+    const fetchTemplates = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/templates`, { withCredentials: true });
+            setTemplates(res.data);
+            if (res.data.length > 0 && !selectedTemplate) setSelectedTemplate(res.data[0]._id);
+        } catch (error) {
+            console.error("Error fetching templates", error);
+        }
+    };
+
+    const showMessage = (text, type = 'success') => {
+        setMessage({ show: true, text, type });
+        setTimeout(() => setMessage({ show: false, text: '', type: '' }), 4000);
+    };
+
+    const handleCreateSheet = async () => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/generate`, {
+                year,
+                month,
+                templateId: selectedTemplate,
+                signatories
+            }, { withCredentials: true });
+
+            navigate(`/kpi/sheet/${res.data._id}`);
+        } catch (error) {
+            if (error.response && error.response.status === 400) {
+                showMessage("Sheet already exists for this month!", "warning");
+            } else {
+                showMessage("Failed to create sheet", "error");
+            }
+        }
+    };
+
+    const handleDeleteClick = (e, id) => {
+        e.stopPropagation();
+        setDeleteDialog({ open: true, sheetId: id });
+    };
+
+    const confirmDeleteSheet = async () => {
+        if (!deleteDialog.sheetId) return;
+        try {
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/kpi/sheet/${deleteDialog.sheetId}`, { withCredentials: true });
+            showMessage("Sheet deleted successfully");
+            fetchSheets();
+        } catch (error) {
+            showMessage("Error deleting sheet", "error");
+        } finally {
+            setDeleteDialog({ open: false, sheetId: null });
+        }
+    };
+
+    const getStatusConfig = (status) => {
+        switch (status) {
+            case 'APPROVED': return { icon: <Icons.Check />, class: 'approved', label: 'Approved' };
+            case 'REJECTED': return { icon: <Icons.Cancel />, class: 'rejected', label: 'Rejected' };
+            case 'SUBMITTED': return { icon: <Icons.Pending />, class: 'pending', label: 'Pending' };
+            default: return { icon: <Icons.Edit />, class: 'draft', label: 'Draft' };
+        }
+    };
+
+    const stats = {
+        total: sheets.length,
+        approved: sheets.filter(s => s.status === 'APPROVED').length,
+        pending: sheets.filter(s => s.status === 'SUBMITTED').length,
+        drafts: sheets.filter(s => s.status === 'DRAFT').length
+    };
+
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+
+    return (
+        <div className="kpi-page">
+            {/* Top Bar */}
+            <div className="kpi-topbar">
+                <div className="topbar-title">
+                    <Icons.Dashboard />
+                    <div>
+                        <h1>KPI Management</h1>
+                        <span className="subtitle">Employee Performance Tracking</span>
+                    </div>
+                </div>
+                <div className="topbar-actions">
+                    <button className="btn btn-secondary" onClick={() => navigate('/kpi/templates')}>
+                        <Icons.Settings />
+                        Manage Templates
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="kpi-main">
+                {/* Message Toast */}
+                {message.show && (
+                    <div style={{
+                        position: 'fixed',
+                        top: '80px',
+                        right: '20px',
+                        padding: '12px 20px',
+                        borderRadius: '4px',
+                        background: message.type === 'error' ? '#d32f2f' : message.type === 'warning' ? '#f57c00' : '#2e7d32',
+                        color: 'white',
+                        zIndex: 1001,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                    }}>
+                        {message.text}
+                    </div>
+                )}
+
+                {/* Stats Bar */}
+                <div className="stats-bar">
+                    <div className="stat-item">
+                        <div className="stat-icon orange"><Icons.Document /></div>
+                        <div className="stat-info">
+                            <h3>{stats.total}</h3>
+                            <p>Total Sheets</p>
+                        </div>
+                    </div>
+                    <div className="stat-item">
+                        <div className="stat-icon green"><Icons.Check /></div>
+                        <div className="stat-info">
+                            <h3>{stats.approved}</h3>
+                            <p>Approved</p>
+                        </div>
+                    </div>
+                    <div className="stat-item">
+                        <div className="stat-icon blue"><Icons.Pending /></div>
+                        <div className="stat-info">
+                            <h3>{stats.pending}</h3>
+                            <p>Pending Review</p>
+                        </div>
+                    </div>
+                    <div className="stat-item">
+                        <div className="stat-icon gray"><Icons.Edit /></div>
+                        <div className="stat-info">
+                            <h3>{stats.drafts}</h3>
+                            <p>Drafts</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Create New Sheet Panel */}
+                <div className="kpi-panel">
+                    <div className="panel-header">
+                        <h2><Icons.Add /> Create New KPI Sheet</h2>
+                    </div>
+                    <div className="panel-body">
+                        <div className="form-grid" style={{ marginBottom: '20px' }}>
+                            <div className="form-group">
+                                <label>Template</label>
+                                <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
+                                    {templates.map(t => (
+                                        <option key={t._id} value={t._id}>{t.name} (v{t.version})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Month</label>
+                                <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+                                    {months.map((m, i) => (
+                                        <option key={i} value={i + 1}>{m}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Year</label>
+                                <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                                    <option value={2024}>2024</option>
+                                    <option value={2025}>2025</option>
+                                    <option value={2026}>2026</option>
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+                                <button className="btn btn-primary" onClick={handleCreateSheet}>
+                                    <Icons.Add /> Generate Sheet
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Signatories */}
+                        <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '16px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#666', marginBottom: '12px', display: 'block' }}>
+                                SIGNATORIES (OPTIONAL)
+                            </label>
+                            <div className="form-grid">
+                                <div className="form-group">
+                                    <label>Checked By (HoD)</label>
+                                    <select value={signatories.checked_by} onChange={(e) => setSignatories({ ...signatories, checked_by: e.target.value })}>
+                                        <option value="">Select...</option>
+                                        {users.map(u => (
+                                            <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Verified By</label>
+                                    <select value={signatories.verified_by} onChange={(e) => setSignatories({ ...signatories, verified_by: e.target.value })}>
+                                        <option value="">Select...</option>
+                                        {users.filter(u => u.role && u.role.toLowerCase() !== 'user').map(u => (
+                                            <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Approved By</label>
+                                    <select value={signatories.approved_by} onChange={(e) => setSignatories({ ...signatories, approved_by: e.target.value })}>
+                                        <option value="">Select...</option>
+                                        {users.filter(u => u.role && u.role.toLowerCase() === 'admin').map(u => (
+                                            <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sheets List Panel */}
+                <div className="kpi-panel">
+                    <div className="panel-header">
+                        <h2><Icons.Document /> My KPI Sheets</h2>
+                        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', marginBottom: 0 }}>
+                            <label style={{ marginBottom: 0 }}>Filter:</label>
+                            <select
+                                value={filterYear}
+                                onChange={(e) => setFilterYear(Number(e.target.value))}
+                                style={{ padding: '6px 10px', minWidth: '100px' }}
+                            >
+                                <option value={2024}>2024</option>
+                                <option value={2025}>2025</option>
+                                <option value={2026}>2026</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="panel-body">
+                        {sheets.length > 0 ? (
+                            <div className="sheets-grid">
+                                {sheets.map(sheet => {
+                                    const statusConfig = getStatusConfig(sheet.status);
+                                    return (
+                                        <div
+                                            className="sheet-card"
+                                            key={sheet._id}
+                                            onClick={() => navigate(`/kpi/sheet/${sheet._id}`)}
+                                        >
+                                            <div className="card-header">
+                                                <h3>{sheet.template_version?.name || 'Unknown Template'}</h3>
+                                                <span>{months[sheet.month - 1]} {sheet.year}</span>
+                                            </div>
+                                            <div className="card-body">
+                                                <span className={`status-badge ${statusConfig.class}`}>
+                                                    {statusConfig.icon}
+                                                    {statusConfig.label}
+                                                </span>
+                                            </div>
+                                            {user?.role === 'Admin' && (
+                                                <button
+                                                    className="delete-btn"
+                                                    onClick={(e) => handleDeleteClick(e, sheet._id)}
+                                                >
+                                                    <Icons.Delete />
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="empty-state">
+                                <Icons.Document />
+                                <h3>No KPI Sheets Found</h3>
+                                <p>Create your first KPI sheet using the form above.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteDialog.open && (
+                <div className="modal-overlay" onClick={() => setDeleteDialog({ open: false, sheetId: null })}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Confirm Delete</h3>
+                            <button className="close-btn" onClick={() => setDeleteDialog({ open: false, sheetId: null })}>
+                                <Icons.Close />
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <p>Are you sure you want to delete this sheet? This action cannot be undone.</p>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-secondary" onClick={() => setDeleteDialog({ open: false, sheetId: null })}>
+                                Cancel
+                            </button>
+                            <button className="btn btn-danger" onClick={confirmDeleteSheet}>
+                                <Icons.Delete /> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default KPIHome;

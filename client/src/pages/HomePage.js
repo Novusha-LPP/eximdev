@@ -107,6 +107,11 @@ import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js"
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
 
+// KPI Module
+import KPIHome from "../components/kpi/KPIHome.js";
+import KPISheet from "../components/kpi/KPISheet.js";
+import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
+
 const drawerWidth = 60;
 
 function HomePage() {
@@ -585,6 +590,11 @@ function HomePage() {
                 path="/open-points/project/:projectId"
                 element={<ProjectWorkspace />}
               />
+
+              {/* KPI Module */}
+              <Route path="/kpi" element={<KPIHome />} />
+              <Route path="/kpi/sheet/:sheetId" element={<KPISheet />} />
+              <Route path="/kpi/templates" element={<KPITemplateManager />} />
 
               {/* Project Nucleus */}
               <Route path="/project-nucleus" element={<NucleusHome />} />

@@ -592,9 +592,30 @@ function HomePage() {
               />
 
               {/* KPI Module */}
-              <Route path="/kpi" element={<KPIHome />} />
-              <Route path="/kpi/sheet/:sheetId" element={<KPISheet />} />
-              <Route path="/kpi/templates" element={<KPITemplateManager />} />
+              <Route
+                path="/kpi"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/sheet/:sheetId"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPISheet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/templates"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPITemplateManager />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Project Nucleus */}
               <Route path="/project-nucleus" element={<NucleusHome />} />

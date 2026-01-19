@@ -259,6 +259,7 @@ app.use(
       "http://localhost:3000",
       "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       "https://import.alvision.in",
+      "https://test-frontend.alvision.in"
     ],
     credentials: true,
     // Allow custom headers for audit trail

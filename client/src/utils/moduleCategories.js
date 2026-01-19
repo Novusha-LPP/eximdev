@@ -26,5 +26,6 @@ export const moduleCategories = {
   Screen6: "Screens",
 
   "Open Points": "Project Management",
+  "KPI": "Project Management",
 };
 

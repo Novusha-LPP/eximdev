@@ -95,18 +95,6 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      <Tooltip title="KPI Management" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/kpi")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <AssessmentIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
       {
         ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (
           <Tooltip title="Project Nucleus" enterDelay={0} placement="right">

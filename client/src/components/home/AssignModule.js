@@ -27,6 +27,7 @@ const allModules = [
   "Screen3",
   "Screen4",
   "Open Points",
+  "KPI",
 ];
 
 function AssignModule({ selectedUser }) {

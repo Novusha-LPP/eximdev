@@ -34,12 +34,13 @@ $warning-amber: #f57c00;
 
 .kpi-topbar {
     width: 100%;
-    background: linear-gradient(180deg, $header-orange 0%, $header-orange-light 100%);
+    background: #ffffff;
     padding: 12px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid #e0e0e0;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -1229,7 +1230,7 @@ table.kpi-table {
 // MODAL / DIALOG STYLES
 // ===================================================
 
-.modal-overlay {
+.kpi-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1239,16 +1240,18 @@ table.kpi-table {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 9999; // Very high z-index
 }
 
-.modal {
+.kpi-custom-modal {
     background: white;
     border-radius: 8px;
     width: 100%;
     max-width: 500px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     overflow: hidden;
+    position: relative; // Ensure it stacks correctly
+    display: block; // Force display block
 
     .modal-header {
         display: flex;
@@ -1282,6 +1285,8 @@ table.kpi-table {
 
     .modal-body {
         padding: 20px;
+        max-height: 70vh; // Prevent overflow on small screens
+        overflow-y: auto;
 
         p {
             margin: 0 0 12px 0;
@@ -1309,7 +1314,7 @@ table.kpi-table {
 
                 &:focus {
                     outline: none;
-                    border-color: $primary-blue;
+                    border-color: #0078d4;
                     box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
                 }
             }

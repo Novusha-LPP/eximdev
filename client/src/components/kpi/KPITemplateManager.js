@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { UserContext } from "../../contexts/UserContext";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -474,9 +475,10 @@ const KPITemplateManager = () => {
             </div>
 
             {/* Import Modal */}
-            {openImport && (
-                <div className="modal-overlay" onClick={() => setOpenImport(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+            {/* Import Modal */}
+            {openImport && createPortal(
+                <div className="kpi-modal-overlay" onClick={() => setOpenImport(false)}>
+                    <div className="kpi-custom-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Import Template</h3>
                             <button className="close-btn" onClick={() => setOpenImport(false)}>
@@ -511,13 +513,15 @@ const KPITemplateManager = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Delete Confirmation Modal */}
-            {deleteDialog.open && (
-                <div className="modal-overlay" onClick={() => setDeleteDialog({ open: false, template: null })}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+            {/* Delete Confirmation Modal */}
+            {deleteDialog.open && createPortal(
+                <div className="kpi-modal-overlay" onClick={() => setDeleteDialog({ open: false, template: null })}>
+                    <div className="kpi-custom-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Confirm Delete</h3>
                             <button className="close-btn" onClick={() => setDeleteDialog({ open: false, template: null })}>
@@ -537,7 +541,8 @@ const KPITemplateManager = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

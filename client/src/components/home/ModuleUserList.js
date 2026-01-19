@@ -42,6 +42,7 @@ const MODULES = [
   "Documentation",
   "Submission",
   "Open Points",
+  "KPI",
   "Project Nucleus", // Keeping this as it was in the original list
 ];
 

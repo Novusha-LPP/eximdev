@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { UserContext } from "../../contexts/UserContext";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import './kpi.scss';
 
 // Icons as simple SVG components
@@ -32,11 +33,7 @@ const Icons = {
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
         </svg>
     ),
-    Download: () => (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-        </svg>
-    ),
+
     Save: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" />
@@ -59,6 +56,57 @@ const Icons = {
     ),
 };
 
+const MultiSelectDropdown = ({ options, selected, onChange, placeholder = "Select..." }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const toggleOption = (value) => {
+        const newSelected = selected.includes(value)
+            ? selected.filter(item => item !== value)
+            : [...selected, value];
+        onChange(newSelected);
+    };
+
+    return (
+        <div className="custom-multiselect" ref={dropdownRef}>
+            <div className={`multiselect-toggle ${isOpen ? 'active' : ''}`} onClick={() => setIsOpen(!isOpen)}>
+                {selected.length > 0 ? (
+                    <span className="selected-text">{selected.join(', ')}</span>
+                ) : (
+                    <span className="placeholder">{placeholder}</span>
+                )}
+                <span className={`arrow-icon ${isOpen ? 'open' : ''}`}>▼</span>
+            </div>
+            <div className={`multiselect-dropdown ${isOpen ? 'open' : ''}`}>
+                {options.map((option, index) => (
+                    <div
+                        key={index}
+                        className={`multiselect-option ${selected.includes(option.value) ? 'selected' : ''}`}
+                        onClick={() => toggleOption(option.value)}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={selected.includes(option.value)}
+                            readOnly
+                        />
+                        <span>{option.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const KPITemplateManager = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
@@ -71,9 +119,6 @@ const KPITemplateManager = () => {
         rows: []
     });
 
-    const [openImport, setOpenImport] = useState(false);
-    const [publicTemplates, setPublicTemplates] = useState([]);
-    const [selectedImportId, setSelectedImportId] = useState('');
 
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
@@ -148,33 +193,6 @@ const KPITemplateManager = () => {
         setCurrentTemplate({ ...currentTemplate, rows: newRows });
     };
 
-    const handleOpenImport = async () => {
-        console.log("handleOpenImport called");
-        try {
-            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/templates/public`, { withCredentials: true });
-            console.log("Public templates fetched:", res.data);
-            setPublicTemplates(res.data);
-            setOpenImport(true);
-            console.log("openImport set to true");
-        } catch (error) {
-            console.error("Error fetching public templates", error);
-        }
-    };
-
-    const handleImport = async () => {
-        if (!selectedImportId) return;
-        try {
-            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/template/import`, {
-                templateId: selectedImportId
-            }, { withCredentials: true });
-
-            showMessage("Template imported successfully!");
-            setOpenImport(false);
-            fetchTemplates();
-        } catch (error) {
-            showMessage("Failed to import template", "error");
-        }
-    };
 
     const handleDeleteClick = (tmpl) => {
         setDeleteDialog({ open: true, template: tmpl });
@@ -193,187 +211,35 @@ const KPITemplateManager = () => {
         }
     };
 
-    const handleDepartmentChange = (e) => {
-        const options = e.target.options;
-        const selected = [];
-        for (let i = 0; i < options.length; i++) {
-            if (options[i].selected) {
-                selected.push(options[i].value);
-            }
-        }
+    const handleDepartmentChange = (selected) => {
         setCurrentTemplate({ ...currentTemplate, department: selected });
     };
 
     // Editor View
     if (isEditing) {
         return (
-            <div className="kpi-page">
-                {/* Top Bar */}
-                <div className="kpi-topbar">
-                    <div className="topbar-title">
-                        <Icons.Edit />
-                        <div>
-                            <h1>{currentTemplate._id ? 'Edit Template' : 'Create New Template'}</h1>
-                            <span className="subtitle">Configure KPI metrics and structure</span>
-                        </div>
+            <motion.div
+                className="kpi-modern-wrapper"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+            >
+                {/* Top Action Bar */}
+                <div className="modern-header">
+                    <div className="header-title">
+                        <h1>{currentTemplate._id ? 'Edit Template' : 'Create New Template'}</h1>
+                        <p>Design your KPI Sheet structure</p>
                     </div>
-                    <div className="topbar-actions">
-                        <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>
+                    <div className="header-actions">
+                        <button className="modern-btn secondary" onClick={() => setIsEditing(false)}>
                             <Icons.Close /> Cancel
                         </button>
-                        <button className="btn btn-success" onClick={handleSave}>
+                        <button className="modern-btn primary" onClick={handleSave}>
                             <Icons.Save /> Save Template
                         </button>
                     </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="kpi-main">
-                    {/* Message Toast */}
-                    {message.show && (
-                        <div style={{
-                            position: 'fixed',
-                            top: '80px',
-                            right: '20px',
-                            padding: '12px 20px',
-                            borderRadius: '4px',
-                            background: message.type === 'error' ? '#d32f2f' : '#2e7d32',
-                            color: 'white',
-                            zIndex: 1001,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                        }}>
-                            {message.text}
-                        </div>
-                    )}
-
-                    {/* Template Details Panel */}
-                    <div className="kpi-panel">
-                        <div className="panel-header">
-                            <h2><Icons.Category /> Template Details</h2>
-                        </div>
-                        <div className="panel-body">
-                            <div className="form-grid">
-                                <div className="form-group">
-                                    <label>Template Name</label>
-                                    <input
-                                        type="text"
-                                        value={currentTemplate.name}
-                                        onChange={(e) => setCurrentTemplate({ ...currentTemplate, name: e.target.value })}
-                                        placeholder="e.g., Sales Team KPI, HR Metrics..."
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Departments (Hold Ctrl to select multiple)</label>
-                                    <select
-                                        multiple
-                                        value={currentTemplate.department}
-                                        onChange={handleDepartmentChange}
-                                        style={{ minHeight: '80px' }}
-                                    >
-                                        {user?.modules?.length > 0 ? (
-                                            user.modules.map((mod, index) => (
-                                                <option key={index} value={mod}>{mod}</option>
-                                            ))
-                                        ) : (
-                                            <option value="" disabled>No Modules Assigned</option>
-                                        )}
-                                    </select>
-                                </div>
-                            </div>
-                            {currentTemplate.department.length > 0 && (
-                                <div style={{ marginTop: '12px' }}>
-                                    <label style={{ fontSize: '0.75rem', color: '#666' }}>Selected: </label>
-                                    {currentTemplate.department.map((d, i) => (
-                                        <span key={i} className="chip">{d}</span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* KPI Rows Panel */}
-                    <div className="kpi-panel template-editor">
-                        <div className="panel-header">
-                            <h2><Icons.List /> KPI Rows ({currentTemplate.rows.length})</h2>
-                            <button className="btn btn-primary btn-sm" onClick={addRow}>
-                                <Icons.Add /> Add Row
-                            </button>
-                        </div>
-                        <div className="panel-body" style={{ padding: 0 }}>
-                            <table className="row-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '60px' }}>#</th>
-                                        <th>KPI Label</th>
-                                        <th style={{ width: '100px', textAlign: 'center' }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {currentTemplate.rows.map((row, idx) => (
-                                        <tr key={idx}>
-                                            <td style={{ fontWeight: 600, color: '#888' }}>{idx + 1}</td>
-                                            <td>
-                                                <input
-                                                    type="text"
-                                                    value={row.label}
-                                                    onChange={(e) => updateRow(idx, 'label', e.target.value)}
-                                                    placeholder="Enter KPI metric name..."
-                                                />
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <button
-                                                    className="btn-icon danger"
-                                                    onClick={() => removeRow(idx)}
-                                                    title="Delete Row"
-                                                >
-                                                    <Icons.Delete />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {currentTemplate.rows.length === 0 && (
-                                        <tr>
-                                            <td colSpan="3" style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                                                No KPI rows added yet. Click "Add Row" to get started.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // List View
-    return (
-        <div className="kpi-page">
-            {/* Top Bar */}
-            <div className="kpi-topbar">
-                <div className="topbar-title">
-                    <Icons.Settings />
-                    <div>
-                        <h1>Template Configuration</h1>
-                        <span className="subtitle">Create and manage KPI templates</span>
-                    </div>
-                </div>
-                <div className="topbar-actions">
-                    <button className="btn btn-secondary" onClick={() => navigate('/kpi')}>
-                        <Icons.Back /> Back to KPI
-                    </button>
-                    <button className="btn btn-secondary" onClick={handleOpenImport}>
-                        <Icons.Download /> Import
-                    </button>
-                    <button className="btn btn-primary" onClick={handleNew}>
-                        <Icons.Add /> Create New
-                    </button>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="kpi-main">
                 {/* Message Toast */}
                 {message.show && (
                     <div style={{
@@ -381,147 +247,370 @@ const KPITemplateManager = () => {
                         top: '80px',
                         right: '20px',
                         padding: '12px 20px',
-                        borderRadius: '4px',
-                        background: message.type === 'error' ? '#d32f2f' : '#2e7d32',
+                        borderRadius: '8px',
+                        background: message.type === 'error' ? '#ef5350' : '#66bb6a',
                         color: 'white',
                         zIndex: 1001,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
+                        fontWeight: 500
                     }}>
                         {message.text}
                     </div>
                 )}
 
-                {/* Stats */}
-                <div className="stats-bar">
-                    <div className="stat-item">
-                        <div className="stat-icon orange"><Icons.Category /></div>
-                        <div className="stat-info">
-                            <h3>{templates.length}</h3>
-                            <p>Total Templates</p>
+                {/* CONFIG SECTION */}
+                <motion.div
+                    className="modern-section"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    style={{ position: 'relative', zIndex: 10 }}
+                >
+                    <div className="section-header">
+                        <h2><Icons.Settings /> Template Configuration</h2>
+                    </div>
+                    <div className="section-body">
+                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                            <div className="modern-form-group">
+                                <label>Template Name</label>
+                                <input
+                                    type="text"
+                                    value={currentTemplate.name}
+                                    onChange={(e) => setCurrentTemplate({ ...currentTemplate, name: e.target.value })}
+                                    placeholder="e.g., Sales Team KPI"
+                                />
+                            </div>
+                            <div className="modern-form-group">
+                                <label>Departments</label>
+                                <MultiSelectDropdown
+                                    options={user?.modules?.length > 0
+                                        ? user.modules.map(mod => ({ value: mod, label: mod }))
+                                        : []}
+                                    selected={currentTemplate.department}
+                                    onChange={handleDepartmentChange}
+                                    placeholder="Select Departments..."
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div className="stat-item">
-                        <div className="stat-icon green"><Icons.List /></div>
-                        <div className="stat-info">
-                            <h3>{templates.reduce((sum, t) => sum + (t.rows?.length || 0), 0)}</h3>
-                            <p>Total KPI Metrics</p>
+                </motion.div>
+
+                {/* PREVIEW SECTION & EDITOR */}
+                <motion.div
+                    className="modern-section"
+                    style={{ marginTop: '24px' }}
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                >
+                    <div className="section-header" style={{ justifyContent: 'space-between', borderBottom: 'none', paddingBottom: 0 }}>
+                        <h2><Icons.List /> KPI Sheet Preview & Editor</h2>
+                        <button className="modern-btn secondary" onClick={addRow}>
+                            <Icons.Add /> Add New Row
+                        </button>
+                    </div>
+
+                    <div className="section-body" style={{ background: '#fff', padding: '0' }}>
+                        {/* Authentic KPI Sheet Style Wrapper */}
+                        <div className="kpi-sheet-page" style={{ margin: '20px', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                            {/* Header */}
+                            <div className="kpi-sheet-header">
+                                <div className="header-main">
+                                    KEY RESULT AREA (KRA) - {(currentTemplate.name || 'TEMPLATE NAME').toUpperCase()}
+                                </div>
+                                <div className="header-sub">
+                                    [Employee Name] KPI (Key Performance Indicator)
+                                </div>
+                                <div className="header-dept">
+                                    Department: {(Array.isArray(currentTemplate.department) ? currentTemplate.department.join(', ') : currentTemplate.department) || '[Select Department]'}
+                                </div>
+                            </div>
+
+                            {/* Action Bar Mock */}
+                            <div className="kpi-action-bar">
+                                <div className="period-info">
+                                    <strong>Period:</strong> {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: '#666' }}>Preview Mode</div>
+                            </div>
+
+                            {/* Table */}
+                            <div className="kpi-grid-container" style={{ border: 'none', borderTop: '2px solid #000' }}>
+                                <table className="kpi-table" style={{ width: '100%', minWidth: 'auto', marginBottom: 0 }}>
+                                    <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
+                                        <tr>
+                                            <th style={{ minWidth: '300px', textAlign: 'left', paddingLeft: '8px' }}>KPI Metrics / Parameters</th>
+                                            {[1, 2, 3, 4, 5].map(d => <th key={d} style={{ width: '40px' }}>{d}</th>)}
+                                            <th style={{ width: '40px' }}>...</th>
+                                            <th style={{ width: '40px' }}>30</th>
+                                            <th style={{ width: '40px' }}>31</th>
+                                            <th style={{ width: '80px' }}>Total</th>
+                                            <th style={{ width: '80px' }}>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <AnimatePresence>
+                                            {currentTemplate.rows.map((row, idx) => (
+                                                <motion.tr
+                                                    key={row.id || idx}
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={{ opacity: 0 }}
+                                                >
+                                                    <td style={{ textAlign: 'left', padding: '0', position: 'relative' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.label}
+                                                            onChange={(e) => updateRow(idx, 'label', e.target.value)}
+                                                            placeholder="Enter KPI Name..."
+                                                            style={{
+                                                                width: '100%',
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                padding: '6px',
+                                                                fontWeight: 500,
+                                                                outline: 'none',
+                                                                fontSize: '11px',
+                                                                fontFamily: 'inherit'
+                                                            }}
+                                                            autoFocus={row.label === 'New KPI' || row.label === ''}
+                                                        />
+                                                    </td>
+                                                    {/* Mock Empty Cells */}
+                                                    {[1, 2, 3, 4, 5].map(d => <td key={d}></td>)}
+                                                    <td>...</td>
+                                                    <td></td>
+                                                    <td></td>
+                                                    <td className="total-col">0</td>
+                                                    <td style={{ textAlign: 'center', padding: '0' }}>
+                                                        <button
+                                                            className="modern-btn icon-only danger"
+                                                            onClick={() => removeRow(idx)}
+                                                            style={{
+                                                                width: '24px',
+                                                                height: '24px',
+                                                                minWidth: '24px',
+                                                                padding: 0,
+                                                                margin: '2px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                            title="Remove Row"
+                                                        >
+                                                            <Icons.Delete style={{ fontSize: '14px' }} />
+                                                        </button>
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </AnimatePresence>
+                                        {currentTemplate.rows.length === 0 && (
+                                            <tr>
+                                                <td colSpan="12" style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
+                                                    No KPI rows added. Click "+ Add New Row" to begin building your template.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
+                </motion.div>
+            </motion.div>
+        );
+    }
+
+    // List View
+    return (
+        <motion.div
+            className="kpi-modern-wrapper"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
+            {/* Header */}
+            <div className="modern-header" style={{ marginBottom: '24px' }}>
+                <div className="header-title">
+                    <h1>Template Manager</h1>
+                    <p>Design and configure KPI templates.</p>
+                </div>
+                <div className="header-actions">
+                    <button className="modern-btn secondary" onClick={() => navigate('/kpi')}>
+                        <Icons.Back /> Back to Dashboard
+                    </button>
+                    <button className="modern-btn primary" onClick={handleNew}>
+                        <Icons.Add /> Create New Template
+                    </button>
+                </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px', alignItems: 'start' }}>
+
+                {/* Left: Stats & Info */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <motion.div
+                        className="modern-section"
+                        style={{ background: '#f8fcff', border: '1px solid #e0f2fe', borderTop: '4px solid #0284c7' }}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                    >
+                        <div className="section-body" style={{ padding: '20px' }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Overview</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ width: 40, height: 40, fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', background: '#e0f2fe', color: '#0284c7' }}>
+                                    <Icons.Category />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.4rem', lineHeight: 1 }}>{templates.length}</h3>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Templates</span>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: 40, height: 40, fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', background: '#dcfce7', color: '#16a34a' }}>
+                                    <Icons.List />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.4rem', lineHeight: 1 }}>{templates.reduce((sum, t) => sum + (t.rows?.length || 0), 0)}</h3>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Metrics</span>
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+                                <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
+                                    Use templates to standardize KPI sheets across different departments.
+                                </p>
+                            </div>
+                        </div>
+                    </motion.div>
                 </div>
 
-                {/* Templates List Panel */}
-                <div className="kpi-panel">
-                    <div className="panel-header">
-                        <h2><Icons.Category /> Available Templates</h2>
+                {/* Right: List */}
+                <motion.div
+                    className="modern-section"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                >
+                    <div className="section-header" style={{ justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h2>Available Templates</h2>
+                            <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', color: '#64748b' }}>
+                                {templates.length} items
+                            </span>
+                        </div>
                     </div>
-                    <div className="panel-body" style={{ padding: 0 }}>
+                    <div className="section-body" style={{ padding: 0 }}>
                         {templates.length > 0 ? (
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Template Name</th>
-                                        <th>Departments</th>
-                                        <th>KPI Rows</th>
-                                        <th>Version</th>
-                                        <th className="center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {templates.map(tmpl => (
-                                        <tr key={tmpl._id}>
-                                            <td style={{ fontWeight: 600 }}>{tmpl.name}</td>
-                                            <td>
-                                                {(Array.isArray(tmpl.department) ? tmpl.department : [tmpl.department]).map((dept, i) => (
-                                                    <span key={i} className="chip">{dept}</span>
-                                                ))}
-                                            </td>
-                                            <td>{tmpl.rows?.length || 0} rows</td>
-                                            <td><span className="version-tag">v{tmpl.version}</span></td>
-                                            <td className="center">
-                                                <button
-                                                    className="btn-icon"
-                                                    onClick={() => handleEdit(tmpl)}
-                                                    title="Edit Template"
-                                                    style={{ color: '#0078d4' }}
-                                                >
-                                                    <Icons.Edit />
-                                                </button>
-                                                {user?.role === 'Admin' && (
-                                                    <button
-                                                        className="btn-icon danger"
-                                                        onClick={() => handleDeleteClick(tmpl)}
-                                                        title="Delete Template"
-                                                    >
-                                                        <Icons.Delete />
-                                                    </button>
-                                                )}
-                                            </td>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table className="modern-table" style={{ border: 'none' }}>
+                                    <thead style={{ background: '#f8fafc' }}>
+                                        <tr>
+                                            <th style={{ paddingLeft: '24px' }}>Template Name</th>
+                                            <th>Departments</th>
+                                            <th style={{ textAlign: 'center' }}>Metrics</th>
+                                            <th style={{ textAlign: 'center' }}>Version</th>
+                                            <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <AnimatePresence>
+                                            {templates.map((tmpl, i) => (
+                                                <motion.tr
+                                                    key={tmpl._id}
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    transition={{ delay: i * 0.05 }}
+                                                    style={{ borderBottom: '1px solid #f1f5f9' }}
+                                                >
+                                                    <td style={{ paddingLeft: '24px', fontWeight: 600, color: '#334155' }}>{tmpl.name}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                            {(Array.isArray(tmpl.department) ? tmpl.department : [tmpl.department]).map((dept, di) => (
+                                                                <span key={di} style={{
+                                                                    background: '#eef2ff', color: '#4f46e5',
+                                                                    padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500
+                                                                }}>
+                                                                    {dept}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', color: '#64748b' }}>{tmpl.rows?.length || 0}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{
+                                                            background: '#f1f5f9', color: '#64748b',
+                                                            padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontFamily: 'monospace'
+                                                        }}>v{tmpl.version}</span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', paddingRight: '24px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                            <button
+                                                                className="modern-btn icon-only"
+                                                                onClick={() => handleEdit(tmpl)}
+                                                                title="Edit"
+                                                                style={{ color: '#0ea5e9' }}
+                                                            >
+                                                                <Icons.Edit />
+                                                            </button>
+                                                            {user?.role === 'Admin' && (
+                                                                <button
+                                                                    className="modern-btn icon-only danger"
+                                                                    onClick={() => handleDeleteClick(tmpl)}
+                                                                    title="Delete"
+                                                                >
+                                                                    <Icons.Delete />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </AnimatePresence>
+                                    </tbody>
+                                </table>
+                            </div>
                         ) : (
                             <div className="empty-state">
-                                <Icons.Category />
+                                <Icons.Category style={{ width: 48, height: 48, opacity: 0.2 }} />
                                 <h3>No Templates Found</h3>
                                 <p>Create your first KPI template to get started.</p>
-                                <button className="btn btn-primary" onClick={handleNew}>
+                                <button className="modern-btn primary" onClick={handleNew} style={{ marginTop: '16px' }}>
                                     <Icons.Add /> Create First Template
                                 </button>
                             </div>
                         )}
                     </div>
-                </div>
+                </motion.div>
             </div>
 
-            {/* Import Modal */}
-            {/* Import Modal */}
-            {openImport && createPortal(
-                <div className="kpi-modal-overlay" onClick={() => setOpenImport(false)}>
-                    <div className="kpi-custom-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>Import Template</h3>
-                            <button className="close-btn" onClick={() => setOpenImport(false)}>
-                                <Icons.Close />
-                            </button>
-                        </div>
-                        <div className="modal-body">
-                            <p style={{ marginBottom: '16px', color: '#666' }}>
-                                Select a template from the public library to import.
-                            </p>
-                            <div className="form-group">
-                                <label>Select Template</label>
-                                <select
-                                    value={selectedImportId}
-                                    onChange={(e) => setSelectedImportId(e.target.value)}
-                                >
-                                    <option value="">Choose a template...</option>
-                                    {publicTemplates.map(t => (
-                                        <option key={t._id} value={t._id}>
-                                            {t.name} (v{t.version}) - {Array.isArray(t.department) ? t.department.join(', ') : t.department} - by {t.owner?.first_name || t.owner?.username || 'Unknown'}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setOpenImport(false)}>
-                                Cancel
-                            </button>
-                            <button className="btn btn-primary" onClick={handleImport}>
-                                <Icons.Download /> Import
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
+            {/* Message Toast */}
+            {message.show && (
+                <div style={{
+                    position: 'fixed',
+                    top: '80px', right: '20px',
+                    padding: '12px 20px', borderRadius: '8px',
+                    background: message.type === 'error' ? '#ef5350' : '#22c55e',
+                    color: 'white', fontWeight: 500,
+                    zIndex: 2000, boxShadow: '0 8px 20px rgba(0,0,0,0.15)'
+                }}>
+                    {message.text}
+                </div>
             )}
 
-            {/* Delete Confirmation Modal */}
-            {/* Delete Confirmation Modal */}
+            {/* Delete Modal */}
             {deleteDialog.open && createPortal(
-                <div className="kpi-modal-overlay" onClick={() => setDeleteDialog({ open: false, template: null })}>
-                    <div className="kpi-custom-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-overlay" onClick={() => setDeleteDialog({ open: false, template: null })}>
+                    <motion.div
+                        className="modal"
+                        onClick={(e) => e.stopPropagation()}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                    >
                         <div className="modal-header">
                             <h3>Confirm Delete</h3>
                             <button className="close-btn" onClick={() => setDeleteDialog({ open: false, template: null })}>
@@ -529,22 +618,22 @@ const KPITemplateManager = () => {
                             </button>
                         </div>
                         <div className="modal-body">
-                            <p>Are you sure you want to delete the template "<strong>{deleteDialog.template?.name}</strong>"?</p>
+                            <p>Are you sure you want to delete template "<strong>{deleteDialog.template?.name}</strong>"?</p>
                             <p style={{ color: '#999', fontSize: '0.9rem' }}>This action cannot be undone.</p>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setDeleteDialog({ open: false, template: null })}>
+                            <button className="modern-btn secondary" onClick={() => setDeleteDialog({ open: false, template: null })}>
                                 Cancel
                             </button>
-                            <button className="btn btn-danger" onClick={confirmDelete}>
+                            <button className="modern-btn danger" style={{ backgroundColor: '#ef5350', color: 'white' }} onClick={confirmDelete}>
                                 <Icons.Delete /> Delete
                             </button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>,
                 document.body
             )}
-        </div>
+        </motion.div>
     );
 };
 

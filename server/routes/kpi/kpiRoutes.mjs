@@ -70,51 +70,6 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
     }
 });
 
-// Import Template (Fetch all users' templates to choose from)
-router.get("/api/kpi/templates/public", verifyToken, async (req, res) => {
-    try {
-        console.log("GET /api/kpi/templates/public called by user:", req.user._id);
-        // Return all active templates except the current user's own templates
-        const templates = await KPITemplate.find({
-            is_active: true,
-            owner: { $ne: req.user._id } // Exclude user's own templates
-        }).populate('owner', 'username first_name last_name');
-        console.log(`GET /api/kpi/templates/public found ${templates.length} templates from other users`);
-        res.json(templates);
-    } catch (err) {
-        console.error("GET /api/kpi/templates/public ERROR:", err);
-        res.status(500).json({ message: "Server Error" });
-    }
-});
-
-// Perform Import
-router.post("/api/kpi/template/import", verifyToken, async (req, res) => {
-    try {
-        console.log("POST /api/kpi/template/import called", req.body);
-        const { templateId } = req.body;
-        const sourceTemplate = await KPITemplate.findById(templateId);
-        if (!sourceTemplate) {
-            console.log("POST /api/kpi/template/import - Template not found");
-            return res.status(404).json({ message: "Template not found" });
-        }
-
-        const newTemplate = new KPITemplate({
-            owner: req.user._id, // Assigned to current user
-            name: `Copy of ${sourceTemplate.name}`,
-            department: sourceTemplate.department,
-            rows: sourceTemplate.rows,
-            version: 1,
-            parent_template: sourceTemplate._id
-        });
-
-        await newTemplate.save();
-        console.log("POST /api/kpi/template/import - Success, Created ID:", newTemplate._id);
-        res.json(newTemplate);
-    } catch (err) {
-        console.error("POST /api/kpi/template/import ERROR:", err);
-        res.status(500).json({ message: "Server Error" });
-    }
-});
 
 
 // ==========================================

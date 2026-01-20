@@ -16,7 +16,7 @@ const KPIRowSchema = new Schema({
     },
     type: {
         type: String,
-        enum: ["numeric", "calculated"],
+        enum: ["numeric", "calculated", "checkbox"],
         default: "numeric",
     },
     is_high_volume: {

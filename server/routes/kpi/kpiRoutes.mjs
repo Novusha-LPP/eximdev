@@ -59,10 +59,10 @@ router.post("/api/kpi/template", verifyToken, async (req, res) => {
 // Get User's Templates
 router.get("/api/kpi/templates", verifyToken, async (req, res) => {
     try {
-        console.log("GET /api/kpi/templates called for user:", req.user._id);
+        // console.log("GET /api/kpi/templates called for user:", req.user._id);
         // Get active templates for this user
         const templates = await KPITemplate.find({ owner: req.user._id, is_active: true });
-        console.log(`GET /api/kpi/templates found ${templates.length} templates`);
+        // console.log(`GET /api/kpi/templates found ${templates.length} templates`);
         res.json(templates);
     } catch (err) {
         console.error("GET /api/kpi/templates ERROR:", err);
@@ -79,7 +79,7 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
 // List User's Sheets
 router.get("/api/kpi/sheets", verifyToken, async (req, res) => {
     try {
-        console.log("GET /api/kpi/sheets called", req.query);
+        // console.log("GET /api/kpi/sheets called", req.query);
         const { year } = req.query;
         let query = { user: req.user._id };
         if (year) {
@@ -94,6 +94,71 @@ router.get("/api/kpi/sheets", verifyToken, async (req, res) => {
         res.json(sheets);
     } catch (err) {
         console.error("GET /api/kpi/sheets ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Admin: Get All Sheets with filters
+router.get("/api/kpi/admin/all-sheets", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        // console.log("GET /api/kpi/admin/all-sheets called", req.query);
+        const { year, month, department } = req.query;
+        let query = {};
+        if (year) query.year = parseInt(year);
+        if (month) query.month = parseInt(month);
+        if (department) query.department = department; // Exact match for database array or string
+
+        const sheets = await KPISheet.find(query)
+            .populate('user', 'first_name last_name email')
+            .populate('template_version', 'name')
+            .sort({ year: -1, month: -1 });
+
+        res.json(sheets);
+    } catch (err) {
+        console.error("GET /api/kpi/admin/all-sheets ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Admin: Get Stats (Submission Rates per Dept)
+router.get("/api/kpi/admin/stats", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        const { year, month } = req.query;
+        if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
+
+        const stats = await KPISheet.aggregate([
+            {
+                $match: {
+                    year: parseInt(year),
+                    month: parseInt(month)
+                }
+            },
+            {
+                $unwind: "$department" // Deconstruct array fields
+            },
+            {
+                $group: {
+                    _id: "$department",
+                    total: { $sum: 1 },
+                    submitted: { $sum: { $cond: [{ $eq: ["$status", "SUBMITTED"] }, 1, 0] } },
+                    approved: { $sum: { $cond: [{ $eq: ["$status", "APPROVED"] }, 1, 0] } },
+                    rejected: { $sum: { $cond: [{ $eq: ["$status", "REJECTED"] }, 1, 0] } },
+                    draft: { $sum: { $cond: [{ $eq: ["$status", "DRAFT"] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        res.json(stats);
+    } catch (err) {
+        // console.error("GET /api/kpi/admin/stats ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });
@@ -123,7 +188,7 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
 
 router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
     try {
-        console.log("GET /api/kpi/sheet called", req.query);
+        // console.log("GET /api/kpi/sheet called", req.query);
         const { year, month } = req.query;
         // Find existing
         const sheet = await KPISheet.findOne({
@@ -148,7 +213,7 @@ router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
 router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
     try {
         console.log("POST /api/kpi/sheet/generate called", req.body);
-        const { year, month, templateId, signatories } = req.body;
+        const { year, month, templateId, signatories, overwrite } = req.body;
 
         const existing = await KPISheet.findOne({
             user: req.user._id,
@@ -156,8 +221,15 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
             month
         });
         if (existing) {
-            console.log("POST /api/kpi/sheet/generate - Sheet already exists");
-            return res.status(400).json({ message: "Sheet already exists" });
+            if (overwrite) {
+                // Delete the old sheet to replace it
+                await KPISheet.findByIdAndDelete(existing._id);
+                console.log("POST /api/kpi/sheet/generate - Overwriting existing sheet");
+            } else {
+                console.log("POST /api/kpi/sheet/generate - Sheet already exists (No overwrite flag)");
+                // Return 409 Conflict to signal frontend to prompt user
+                return res.status(409).json({ message: "Sheet already exists" });
+            }
         }
 
         const template = await KPITemplate.findById(templateId);
@@ -170,6 +242,7 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
         const sheetRows = template.rows.map(r => ({
             row_id: r.id,
             label: r.label,
+            type: r.type || 'numeric',
             daily_values: {},
             total: 0
         }));

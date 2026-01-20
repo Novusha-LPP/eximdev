@@ -73,6 +73,7 @@ const KPIHome = () => {
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [year, setYear] = useState(new Date().getFullYear());
     const [deleteDialog, setDeleteDialog] = useState({ open: false, sheetId: null });
+    const [overwriteDialog, setOverwriteDialog] = useState({ open: false });
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
 
     const [users, setUsers] = useState([]);
@@ -138,11 +139,32 @@ const KPIHome = () => {
 
             navigate(`/kpi/sheet/${res.data._id}`);
         } catch (error) {
-            if (error.response && error.response.status === 400) {
-                showMessage("Sheet already exists for this month!", "warning");
+            if (error.response && error.response.status === 409) {
+                setOverwriteDialog({ open: true });
+            } else if (error.response && error.response.status === 400) {
+                // Fallback for generic 400 if backend fails to send 409 for some reason, though logic changed
+                showMessage(error.response.data.message || "Sheet creation failed", "warning");
             } else {
                 showMessage("Failed to create sheet", "error");
             }
+        }
+    };
+
+    const confirmOverwrite = async () => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/generate`, {
+                year,
+                month,
+                templateId: selectedTemplate,
+                signatories,
+                overwrite: true
+            }, { withCredentials: true });
+
+            setOverwriteDialog({ open: false });
+            navigate(`/kpi/sheet/${res.data._id}`);
+        } catch (error) {
+            setOverwriteDialog({ open: false });
+            showMessage("Failed to overwrite sheet", "error");
         }
     };
 
@@ -184,206 +206,247 @@ const KPIHome = () => {
         'July', 'August', 'September', 'October', 'November', 'December'];
 
     return (
-        <motion.div
-            className="kpi-modern-wrapper"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-        >
-            {/* Header */}
-            <div className="modern-header" style={{ marginBottom: '24px' }}>
-                <div className="header-title">
-                    <h1>KPI Dashboard</h1>
-                    <p>Track performance, manage sheets, and analyze results.</p>
-                </div>
-                <div className="header-actions">
-                    <button className="modern-btn secondary" onClick={() => navigate('/kpi/templates')}>
-                        <Icons.Settings /> Manage Templates
-                    </button>
-                </div>
-            </div>
-
-            {/* Content Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 350px) 1fr', gap: '24px', alignItems: 'start' }}>
-
-                {/* Left Column: Create Panel */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <motion.div
-                        className="modern-section"
-                        style={{ borderTop: '4px solid #0078d4' }}
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.1 }}
-                    >
-                        <div className="section-header">
-                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Icons.Add /> Create New Sheet
-                            </h2>
-                        </div>
-                        <div className="section-body">
-                            <div className="modern-form-group">
-                                <label>Template</label>
-                                <select
-                                    value={selectedTemplate}
-                                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                                    style={{ background: '#f8f9fa' }}
-                                >
-                                    <option value="" disabled>Select Template...</option>
-                                    {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                                </select>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div className="modern-form-group">
-                                    <label>Month</label>
-                                    <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ background: '#f8f9fa' }}>
-                                        {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                                    </select>
-                                </div>
-                                <div className="modern-form-group">
-                                    <label>Year</label>
-                                    <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ background: '#f8f9fa' }}>
-                                        {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '16px' }}>
-                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#95a5a6', marginBottom: '12px', display: 'block', textTransform: 'uppercase' }}>
-                                    Signatories (Optional)
-                                </label>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {['checked_by', 'verified_by', 'approved_by'].map((role) => (
-                                        <div key={role}>
-                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>{role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
-                                            <select
-                                                value={signatories[role]}
-                                                onChange={(e) => setSignatories({ ...signatories, [role]: e.target.value })}
-                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
-                                            >
-                                                <option value="">Select User...</option>
-                                                {users.map(u => <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>)}
-                                            </select>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <button
-                                className="modern-btn primary"
-                                onClick={handleCreateSheet}
-                                style={{ width: '100%', marginTop: '24px', justifyContent: 'center', padding: '12px' }}
-                            >
-                                <Icons.Add /> Generate Sheet
+        <>
+            <motion.div
+                className="kpi-modern-wrapper"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+            >
+                {/* Header */}
+                <div className="modern-header" style={{ marginBottom: '24px' }}>
+                    <div className="header-title">
+                        <h1>KPI Dashboard</h1>
+                        <p>Track performance, manage sheets, and analyze results.</p>
+                    </div>
+                    <div className="header-actions">
+                        {user?.role === 'Admin' && (
+                            <button className="modern-btn secondary" onClick={() => navigate('/kpi/admin')}>
+                                <Icons.Dashboard /> Admin View
                             </button>
-                        </div>
-                    </motion.div>
+                        )}
+                        <button className="modern-btn secondary" onClick={() => navigate('/kpi/templates')}>
+                            <Icons.Settings /> Manage Templates
+                        </button>
+                    </div>
                 </div>
 
-                {/* Right Column: Stats & Sheets */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Content Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 350px) 1fr', gap: '24px', alignItems: 'start' }}>
 
-                    {/* Stats */}
-                    <div className="modern-stats-grid" style={{ marginBottom: 0, gridTemplateColumns: 'repeat(4, 1fr)' }}>
-                        {[
-                            { label: 'Total Sheets', value: stats.total, color: 'blue', icon: <Icons.Document /> },
-                            { label: 'Approved', value: stats.approved, color: 'green', icon: <Icons.Check /> },
-                            { label: 'Pending', value: stats.pending, color: 'orange', icon: <Icons.Pending /> },
-                            { label: 'Drafts', value: stats.drafts, color: 'gray', icon: <Icons.Edit /> }
-                        ].map((stat, i) => (
-                            <motion.div key={i} className="modern-stat-card" whileHover={{ y: -3 }}>
-                                <div className={`icon-box ${stat.color}`}>{stat.icon}</div>
-                                <div className="stat-content">
-                                    <h3>{stat.value}</h3>
-                                    <span>{stat.label}</span>
+                    {/* Left Column: Create Panel */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <motion.div
+                            className="modern-section"
+                            style={{ borderTop: '4px solid #0078d4' }}
+                            initial={{ x: -20, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                        >
+                            <div className="section-header">
+                                <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Icons.Add /> Create New Sheet
+                                </h2>
+                            </div>
+                            <div className="section-body">
+                                <div className="modern-form-group">
+                                    <label>Template</label>
+                                    <select
+                                        value={selectedTemplate}
+                                        onChange={(e) => setSelectedTemplate(e.target.value)}
+                                        style={{ background: '#f8f9fa' }}
+                                    >
+                                        <option value="" disabled>Select Template...</option>
+                                        {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                    </select>
                                 </div>
-                            </motion.div>
-                        ))}
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div className="modern-form-group">
+                                        <label>Month</label>
+                                        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ background: '#f8f9fa' }}>
+                                            {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="modern-form-group">
+                                        <label>Year</label>
+                                        <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ background: '#f8f9fa' }}>
+                                            {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '16px' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#95a5a6', marginBottom: '12px', display: 'block', textTransform: 'uppercase' }}>
+                                        Signatories (Optional)
+                                    </label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {['checked_by', 'verified_by', 'approved_by'].map((role) => {
+                                            // Filter users based on role
+                                            const filteredUsers = users.filter(u => {
+                                                if (role === 'verified_by') {
+                                                    return u.username === 'shalini_arun';
+                                                }
+                                                // For checked_by and approved_by, exclude regular Users
+                                                return u.role !== 'User';
+                                            });
+
+                                            return (
+                                                <div key={role}>
+                                                    <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>{role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                                                    <select
+                                                        value={signatories[role]}
+                                                        onChange={(e) => setSignatories({ ...signatories, [role]: e.target.value })}
+                                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
+                                                    >
+                                                        <option value="">Select User...</option>
+                                                        {filteredUsers.map(u => <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>)}
+                                                    </select>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <button
+                                    className="modern-btn primary"
+                                    onClick={handleCreateSheet}
+                                    style={{ width: '100%', marginTop: '24px', justifyContent: 'center', padding: '12px' }}
+                                >
+                                    <Icons.Add /> Generate Sheet
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
 
-                    {/* Sheets List */}
-                    <motion.div
-                        className="modern-section"
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                    >
-                        <div className="section-header" style={{ justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <h2><Icons.List /> My KPI Sheets</h2>
-                                <span style={{ background: '#e2e8f0', padding: '2px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
-                                    {sheets.length}
-                                </span>
+                    {/* Right Column: Stats & Sheets */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                        {/* Stats */}
+                        <div className="modern-stats-grid" style={{ marginBottom: 0, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                            {[
+                                { label: 'Total Sheets', value: stats.total, color: 'blue', icon: <Icons.Document /> },
+                                { label: 'Approved', value: stats.approved, color: 'green', icon: <Icons.Check /> },
+                                { label: 'Pending', value: stats.pending, color: 'orange', icon: <Icons.Pending /> },
+                                { label: 'Drafts', value: stats.drafts, color: 'gray', icon: <Icons.Edit /> }
+                            ].map((stat, i) => (
+                                <motion.div key={i} className="modern-stat-card" whileHover={{ y: -3 }}>
+                                    <div className={`icon-box ${stat.color}`}>{stat.icon}</div>
+                                    <div className="stat-content">
+                                        <h3>{stat.value}</h3>
+                                        <span>{stat.label}</span>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+
+                        {/* Sheets List */}
+                        <motion.div
+                            className="modern-section"
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <div className="section-header" style={{ justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h2><Icons.List /> My KPI Sheets</h2>
+                                    <span style={{ background: '#e2e8f0', padding: '2px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
+                                        {sheets.length}
+                                    </span>
+                                </div>
+                                <select
+                                    value={filterYear}
+                                    onChange={(e) => setFilterYear(Number(e.target.value))}
+                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
+                                >
+                                    {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
                             </div>
-                            <select
-                                value={filterYear}
-                                onChange={(e) => setFilterYear(Number(e.target.value))}
-                                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
-                            >
-                                {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                        </div>
-                        <div className="section-body" style={{ background: '#fcfcfc', minHeight: '400px' }}>
-                            {sheets.length > 0 ? (
-                                <div className="modern-sheet-grid">
-                                    <AnimatePresence>
-                                        {sheets.map((sheet) => (
-                                            <motion.div
-                                                key={sheet._id}
-                                                layout
-                                                className="modern-sheet-card"
-                                                onClick={() => navigate(`/kpi/sheet/${sheet._id}`)}
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.95 }}
-                                                whileHover={{ y: -5, boxShadow: '0 12px 24px rgba(0,0,0,0.1)' }}
-                                            >
-                                                <button
-                                                    className="delete-btn-modern"
-                                                    onClick={(e) => handleDeleteClick(e, sheet._id)}
-                                                    title="Delete Sheet"
+                            <div className="section-body" style={{ background: '#fcfcfc', minHeight: '400px' }}>
+                                {sheets.length > 0 ? (
+                                    <div className="modern-sheet-grid">
+                                        <AnimatePresence>
+                                            {sheets.map((sheet) => (
+                                                <motion.div
+                                                    key={sheet._id}
+                                                    layout
+                                                    className="modern-sheet-card"
+                                                    onClick={() => navigate(`/kpi/sheet/${sheet._id}`)}
+                                                    initial={{ opacity: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.95 }}
+                                                    whileHover={{ y: -5, boxShadow: '0 12px 24px rgba(0,0,0,0.1)' }}
                                                 >
-                                                    <Icons.Delete />
-                                                </button>
-                                                <div className="card-top" style={{ background: sheet.status === 'APPROVED' ? '#4caf50' : sheet.status === 'SUBMITTED' ? '#ff9800' : '#e0e0e0' }} />
-                                                <div className="card-content">
-                                                    <h3>{months[sheet.month - 1]} {sheet.year}</h3>
-                                                    <p className="date">{sheet.template_name}</p>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                                                        <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
-                                                        <span style={{ fontSize: '0.8rem', color: '#95a5a6' }}>{sheet.completion_percentage || 0}% Complete</span>
+                                                    <button
+                                                        className="delete-btn-modern"
+                                                        onClick={(e) => handleDeleteClick(e, sheet._id)}
+                                                        title="Delete Sheet"
+                                                    >
+                                                        <Icons.Delete />
+                                                    </button>
+                                                    <div className="card-top" style={{ background: sheet.status === 'APPROVED' ? '#4caf50' : sheet.status === 'SUBMITTED' ? '#ff9800' : '#e0e0e0' }} />
+                                                    <div className="card-content">
+                                                        <h3>{months[sheet.month - 1]} {sheet.year}</h3>
+                                                        <p className="date">{sheet.template_name}</p>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                                                            <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
+                                                            <span style={{ fontSize: '0.8rem', color: '#95a5a6' }}>{sheet.completion_percentage || 0}% Complete</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </AnimatePresence>
-                                </div>
-                            ) : (
-                                <div className="empty-state">
-                                    <Icons.Document style={{ width: 48, height: 48, opacity: 0.2 }} />
-                                    <h3>No Sheets Found</h3>
-                                    <p>Select a different year or create a new sheet.</p>
-                                </div>
-                            )}
-                        </div>
-                    </motion.div>
+                                                </motion.div>
+                                            ))}
+                                        </AnimatePresence>
+                                    </div>
+                                ) : (
+                                    <div className="empty-state">
+                                        <Icons.Document style={{ width: 48, height: 48, opacity: 0.2 }} />
+                                        <h3>No Sheets Found</h3>
+                                        <p>Select a different year or create a new sheet.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
                 </div>
-            </div>
+
+            </motion.div>
 
             {/* Modal & Toast */}
             {deleteDialog.open && (
-                <div className="modal-overlay">
-                    <motion.div className="modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                        <div className="modal-header">
+                <div className="kpi-confirm-overlay">
+                    <motion.div className="kpi-confirm-modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                        <div className="kpi-confirm-header">
                             <h3>Confirm Delete</h3>
                             <button className="close-btn" onClick={() => setDeleteDialog({ open: false, sheetId: null })}><Icons.Close /></button>
                         </div>
-                        <div className="modal-body">
+                        <div className="kpi-confirm-body">
                             <p>Are you sure you want to delete this sheet? This action cannot be undone.</p>
                         </div>
-                        <div className="modal-footer">
+                        <div className="kpi-confirm-footer">
                             <button className="modern-btn secondary" onClick={() => setDeleteDialog({ open: false, sheetId: null })}>Cancel</button>
                             <button className="modern-btn primary" style={{ background: '#ef5350' }} onClick={confirmDeleteSheet}>Delete</button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {overwriteDialog.open && (
+                <div className="kpi-confirm-overlay">
+                    <motion.div className="kpi-confirm-modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                        <div className="kpi-confirm-header">
+                            <h3>Sheet Already Exists</h3>
+                            <button className="close-btn" onClick={() => setOverwriteDialog({ open: false })}><Icons.Close /></button>
+                        </div>
+                        <div className="kpi-confirm-body">
+                            <p>A KPI Sheet for {months[month - 1]} {year} already exists.</p>
+                            <p style={{ marginTop: '10px', fontSize: '0.9rem', color: '#666' }}>
+                                Creating a new sheet will <strong>permanently delete</strong> the existing one and replace it with a blank template.
+                            </p>
+                            <p style={{ marginTop: '10px', fontWeight: 600 }}>Are you sure you want to proceed?</p>
+                        </div>
+                        <div className="kpi-confirm-footer">
+                            <button className="modern-btn secondary" onClick={() => setOverwriteDialog({ open: false })}>Cancel</button>
+                            <button className="modern-btn primary" style={{ background: '#ef5350' }} onClick={confirmOverwrite}>Yes, Overwrite</button>
                         </div>
                     </motion.div>
                 </div>
@@ -401,7 +464,7 @@ const KPIHome = () => {
                     {message.text}
                 </div>
             )}
-        </motion.div>
+        </>
     );
 };
 

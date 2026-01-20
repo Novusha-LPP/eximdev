@@ -59,6 +59,7 @@ const Icons = {
 const MultiSelectDropdown = ({ options, selected, onChange, placeholder = "Select..." }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const [customVal, setCustomVal] = useState('');
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -77,6 +78,16 @@ const MultiSelectDropdown = ({ options, selected, onChange, placeholder = "Selec
         onChange(newSelected);
     };
 
+    const handleAddCustom = (e) => {
+        e.stopPropagation();
+        if (customVal.trim()) {
+            if (!selected.includes(customVal.trim())) {
+                onChange([...selected, customVal.trim()]);
+            }
+            setCustomVal('');
+        }
+    };
+
     return (
         <div className="custom-multiselect" ref={dropdownRef}>
             <div className={`multiselect-toggle ${isOpen ? 'active' : ''}`} onClick={() => setIsOpen(!isOpen)}>
@@ -87,22 +98,45 @@ const MultiSelectDropdown = ({ options, selected, onChange, placeholder = "Selec
                 )}
                 <span className={`arrow-icon ${isOpen ? 'open' : ''}`}>▼</span>
             </div>
-            <div className={`multiselect-dropdown ${isOpen ? 'open' : ''}`}>
-                {options.map((option, index) => (
-                    <div
-                        key={index}
-                        className={`multiselect-option ${selected.includes(option.value) ? 'selected' : ''}`}
-                        onClick={() => toggleOption(option.value)}
-                    >
+            {isOpen && (
+                <div className="multiselect-dropdown open">
+                    <div className="multiselect-custom-input" onClick={(e) => e.stopPropagation()} style={{ padding: '8px', borderBottom: '1px solid #dcdcdc', display: 'flex', gap: '6px' }}>
                         <input
-                            type="checkbox"
-                            checked={selected.includes(option.value)}
-                            readOnly
+                            type="text"
+                            value={customVal}
+                            onChange={(e) => setCustomVal(e.target.value)}
+                            placeholder="Add custom..."
+                            style={{ flex: 1, padding: '6px 8px', fontSize: '13px', border: '1px solid #c0c0c0', borderRadius: '4px', outline: 'none' }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustom(e); }}
                         />
-                        <span>{option.label}</span>
+                        <button
+                            onClick={handleAddCustom}
+                            style={{
+                                border: 'none', background: '#0078d4', color: '#fff',
+                                borderRadius: '4px', cursor: 'pointer', padding: '0 12px', fontWeight: 'bold'
+                            }}
+                        >
+                            +
+                        </button>
                     </div>
-                ))}
-            </div>
+                    <div className="multiselect-options-list" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                        {options.map((option, index) => (
+                            <div
+                                key={index}
+                                className={`multiselect-option ${selected.includes(option.value) ? 'selected' : ''}`}
+                                onClick={() => toggleOption(option.value)}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selected.includes(option.value)}
+                                    readOnly
+                                />
+                                <span>{option.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -283,9 +317,14 @@ const KPITemplateManager = () => {
                             <div className="modern-form-group">
                                 <label>Departments</label>
                                 <MultiSelectDropdown
-                                    options={user?.modules?.length > 0
-                                        ? user.modules.map(mod => ({ value: mod, label: mod }))
-                                        : []}
+                                    options={[
+                                        'Import DSR', 'Export DSR', 'Documentation', 'e-Sanchit', 'Submission', 'DO', 'Operation',
+                                        'Accounts', 'Billing', 'Admin', 'HR', 'Management',
+                                        ...currentTemplate.department.filter(d => ![
+                                            'Import DSR', 'Export DSR', 'Documentation', 'e-Sanchit', 'Submission', 'DO', 'Operation',
+                                            'Accounts', 'Billing', 'Admin', 'HR', 'Management'
+                                        ].includes(d))
+                                    ].map(d => ({ value: d, label: d }))}
                                     selected={currentTemplate.department}
                                     onChange={handleDepartmentChange}
                                     placeholder="Select Departments..."
@@ -340,7 +379,8 @@ const KPITemplateManager = () => {
                                     <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
                                         <tr>
                                             <th style={{ minWidth: '300px', textAlign: 'left', paddingLeft: '8px' }}>KPI Metrics / Parameters</th>
-                                            {[1, 2, 3, 4, 5].map(d => <th key={d} style={{ width: '40px' }}>{d}</th>)}
+                                            <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Type</th>
+                                            {[1, 2, 3, 4].map(d => <th key={d} style={{ width: '40px' }}>{d}</th>)}
                                             <th style={{ width: '40px' }}>...</th>
                                             <th style={{ width: '40px' }}>30</th>
                                             <th style={{ width: '40px' }}>31</th>
@@ -376,8 +416,27 @@ const KPITemplateManager = () => {
                                                             autoFocus={row.label === 'New KPI' || row.label === ''}
                                                         />
                                                     </td>
+                                                    <td style={{ padding: 0 }}>
+                                                        <select
+                                                            value={row.type || 'numeric'}
+                                                            onChange={(e) => updateRow(idx, 'type', e.target.value)}
+                                                            style={{
+                                                                width: '100%',
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                padding: '6px',
+                                                                fontSize: '11px',
+                                                                color: '#555',
+                                                                outline: 'none',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            <option value="numeric">Numeric (123)</option>
+                                                            <option value="checkbox">Checkbox (☑)</option>
+                                                        </select>
+                                                    </td>
                                                     {/* Mock Empty Cells */}
-                                                    {[1, 2, 3, 4, 5].map(d => <td key={d}></td>)}
+                                                    {[1, 2, 3, 4].map(d => <td key={d}></td>)}
                                                     <td>...</td>
                                                     <td></td>
                                                     <td></td>
@@ -604,24 +663,24 @@ const KPITemplateManager = () => {
 
             {/* Delete Modal */}
             {deleteDialog.open && createPortal(
-                <div className="modal-overlay" onClick={() => setDeleteDialog({ open: false, template: null })}>
+                <div className="kpi-confirm-overlay" onClick={() => setDeleteDialog({ open: false, template: null })}>
                     <motion.div
-                        className="modal"
+                        className="kpi-confirm-modal"
                         onClick={(e) => e.stopPropagation()}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                     >
-                        <div className="modal-header">
+                        <div className="kpi-confirm-header">
                             <h3>Confirm Delete</h3>
                             <button className="close-btn" onClick={() => setDeleteDialog({ open: false, template: null })}>
                                 <Icons.Close />
                             </button>
                         </div>
-                        <div className="modal-body">
+                        <div className="kpi-confirm-body">
                             <p>Are you sure you want to delete template "<strong>{deleteDialog.template?.name}</strong>"?</p>
                             <p style={{ color: '#999', fontSize: '0.9rem' }}>This action cannot be undone.</p>
                         </div>
-                        <div className="modal-footer">
+                        <div className="kpi-confirm-footer">
                             <button className="modern-btn secondary" onClick={() => setDeleteDialog({ open: false, template: null })}>
                                 Cancel
                             </button>

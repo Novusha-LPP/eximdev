@@ -27,5 +27,6 @@ export const moduleCategories = {
 
   "Open Points": "Project Management",
   "KPI": "Project Management",
+  "MRM": "Project Management",
 };
 

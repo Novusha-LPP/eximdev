@@ -28,6 +28,7 @@ const allModules = [
   "Screen4",
   "Open Points",
   "KPI",
+  "MRM",
 ];
 
 function AssignModule({ selectedUser }) {

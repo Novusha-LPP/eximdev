@@ -210,6 +210,7 @@ import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
+import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -456,6 +457,7 @@ app.use("/api/project-nucleus", nucleusReports);
 
 // KPI Module
 app.use(kpiRoutes);
+app.use(mrmRoutes);
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

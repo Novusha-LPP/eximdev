@@ -434,14 +434,24 @@ const KPISheet = () => {
                                     return (
                                         <td key={day} className={cellClass}>
                                             {!isBlocked && (
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    onKeyPress={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
-                                                    value={row.daily_values[day] || ''}
-                                                    onChange={(e) => handleCellChange(row.row_id, day, e.target.value)}
-                                                    disabled={isLocked(day)}
-                                                />
+                                                row.type === 'checkbox' ? (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Number(row.daily_values[day] || 0) === 1}
+                                                        onChange={(e) => handleCellChange(row.row_id, day, e.target.checked ? 1 : 0)}
+                                                        disabled={isLocked(day)}
+                                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        onKeyPress={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
+                                                        value={row.daily_values[day] || ''}
+                                                        onChange={(e) => handleCellChange(row.row_id, day, e.target.value)}
+                                                        disabled={isLocked(day)}
+                                                    />
+                                                )
                                             )}
                                         </td>
                                     );

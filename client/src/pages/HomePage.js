@@ -111,6 +111,9 @@ import NucleusHome from "../components/project-nucleus/NucleusHome.js";
 import KPIHome from "../components/kpi/KPIHome.js";
 import KPISheet from "../components/kpi/KPISheet.js";
 import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
+import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
+import MRMHome from "../components/mrm/MRMHome.js";
+import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
 const drawerWidth = 60;
 
@@ -579,6 +582,24 @@ function HomePage() {
                 <Route path="exceptions" element={<ExceptionsDashboard />} />
               </Route>
 
+              {/* MRM Module */}
+              <Route
+                path="/mrm"
+                element={
+                  <ProtectedRoute requiredModule="MRM">
+                    <MRMHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mrm/admin"
+                element={
+                  <ProtectedRoute requiredModule="MRM">
+                    <MRMAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Open Points - New Module */}
               <Route path="/open-points" element={<OpenPointsHome />} />
 
@@ -613,6 +634,14 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="KPI">
                     <KPITemplateManager />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/admin"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIAdminDashboard />
                   </ProtectedRoute>
                 }
               />

@@ -533,7 +533,7 @@ $warning-amber: #f57c00;
 // MODAL / DIALOG
 // ===================================================
 
-.modal-overlay {
+.kpi-confirm-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -543,17 +543,17 @@ $warning-amber: #f57c00;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 2000;
 }
 
-.modal {
+.kpi-confirm-modal {
     background: white;
     border-radius: 8px;
     width: 100%;
     max-width: 480px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 
-    .modal-header {
+    .kpi-confirm-header {
         padding: 16px 20px;
         border-bottom: 1px solid $border-color;
         display: flex;
@@ -579,11 +579,11 @@ $warning-amber: #f57c00;
         }
     }
 
-    .modal-body {
+    .kpi-confirm-body {
         padding: 20px;
     }
 
-    .modal-footer {
+    .kpi-confirm-footer {
         padding: 16px 20px;
         border-top: 1px solid $border-color;
         display: flex;

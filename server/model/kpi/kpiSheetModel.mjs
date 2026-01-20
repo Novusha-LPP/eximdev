@@ -10,6 +10,10 @@ const KPISheetRowSchema = new Schema({
     label: {
         type: String, // Copied from template to ensure immutability of display even if template changes
     },
+    type: { // "numeric" | "checkbox" - copied from template
+        type: String,
+        default: "numeric"
+    },
     daily_values: {
         type: Map,
         of: Number, // Key is day number "1", "2", ... "31"

@@ -57,6 +57,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/open-points");
     case "KPI":
       return navigate("/kpi");
+    case "MRM":
+      return navigate("/mrm");
     default:
       return navigate("/home");
   }

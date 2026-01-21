@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
@@ -15,6 +15,9 @@ function formatImporter(importer) {
 // ✅ API Endpoint to get job counts for an importer
 router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { year, importerURL } = req.params;
     const formattedImporter = formatImporter(importerURL);
 

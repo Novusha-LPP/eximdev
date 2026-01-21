@@ -1,11 +1,14 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
 router.get("/api/get-esanchit-job/:job_no/:year", async (req, res) => {
-  const { job_no, year } = req.params;
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
+    const { job_no, year } = req.params;
     const data = await JobModel.findOne({ job_no, year });
     if (!data) {
       return res.status(404).send("Data not found");

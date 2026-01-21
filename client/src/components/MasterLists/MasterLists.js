@@ -1,6 +1,14 @@
 // src/components/MasterLists.js
 
-export const customHouseOptions = ["ICD SANAND", "ICD KHODIYAR", "ICD SACHANA"];
+export const customHouseOptions = [
+  "ICD SANAND",
+  "ICD KHODIYAR",
+  "ICD SACHANA",
+  "MUNDRA PORT",
+  "AHMEDABAD AIRPORT",
+  "MUMBAI AIRPORT",
+  "DELHI AIRPORT",
+];
 export const hssOptions = ["Yes", "No"]
 export const countryOptions = [
   "AFGHANISTAN",
@@ -239,11 +247,13 @@ export const countryOptions = [
 ];
 
 export const portOptions = [
- " (INMUN1) Mundra Sea",
-"(INPAV1) Pipavav",
-"(INNSA1) Nhava Sheva Sea",
-"(INIXY1) Kandla Sea"
-]
+  "(INMUN1) Mundra Sea",
+  "(INPAV1) Pipavav",
+  "(INNSA1) Nhava Sheva Sea",
+  "(INAMD4) AHMEDABAD AIRPORT",
+  "(INBOM4) MUMBAI AIRPORT",
+  "(INDEL4) DELHI AIRPORT",
+];
 export const importerOptions = [
   "ADAPTIVE AUTOMATION SYSTEMS",
   "AIA ENGINEERING LTD",

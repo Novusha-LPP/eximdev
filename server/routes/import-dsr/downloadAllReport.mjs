@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 // Status Rank Configuration
 const statusRank = {
@@ -21,6 +21,9 @@ const parseDate = (dateStr) => {
 };
 router.get("/api/download-report/:years/:status", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     let { years, status } = req.params;
     // Convert years into an array (e.g., "24-25,25-26" to ["24-25", "25-26"])
     let yearArray = years.split(",");

@@ -1,11 +1,14 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
 router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, next) => {
+  // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+  const JobModel = req.JobModel;
+
   const {
     _id,
     shipping_line_bond_completed,
@@ -35,7 +38,7 @@ router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, nex
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-  
+
     // Create an object to hold the fields to update - INCLUDE ALL FIELDS
     const updateFields = {
       // ADD THE MISSING DOCUMENT FIELDS

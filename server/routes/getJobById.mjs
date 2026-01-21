@@ -1,10 +1,13 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
 router.get("/api/get-job-by-id/:_id", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { _id } = req.params;
     const job = await JobModel.findOne({ _id }).lean(); // Using .lean() for better performance
 

@@ -1,10 +1,13 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-kyc-and-bond-status/:_id", async (req, res) => {
+  // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+  const JobModel = req.JobModel;
+
   const { _id } = req.params;
 
   // Find the job by its _id

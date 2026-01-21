@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import CthModel from "./CthUtil.mjs";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
@@ -54,39 +54,12 @@ router.get("/api/getallcth", async (req, res) => {
   }
 });
 
-// Get a single CTH entry by ID
-// router.get("/api/:id", async (req, res) => {
-//   try {
-//     const cth = await CthModel.findById(req.params.id).populate(
-//       "job",
-//       "job_no year total_inv_value assbl_value"
-//     );
-
-//     if (!cth) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "CTH entry not found",
-//       });
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       data: cth,
-//     });
-//   } catch (error) {
-//     console.error("Error fetching CTH entry:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Failed to fetch CTH entry",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// Look up CTH by HS code
 // Look up CTH by HS code or by job number and year
 router.get("/api/lookup/:hsCode?/:jobNo/:year", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { hsCode, jobNo, year } = req.params;
     let job, cthEntry, lookupHsCode;
 
@@ -165,6 +138,5 @@ router.get("/api/lookup/:hsCode?/:jobNo/:year", async (req, res) => {
     });
   }
 });
-// Attach CTH to a job
 
 export default router;

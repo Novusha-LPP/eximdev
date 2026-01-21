@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
@@ -19,53 +19,56 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, async (req, res) => {
-  const { username } = req.params;
-  const {
-    page = 1,
-    limit = 100,
-    search = "",
-    selectedICD = "",
-    importer = "", // NEW: Capture importer from query params
-    detailedStatusExPlan = "all",
-    year,
-    unresolvedOnly
-  } = req.query;
+  try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
 
-  // Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
-  // otherwise require at least one container with a arrival_date.
-  const arrivalCondition = {
-    $or: [
-      // match Ex-Bond, Ex Bond, ex-bond, etc.
-      { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
-      {
-        container_nos: {
-          $elemMatch: {
-            arrival_date: { $exists: true, $nin: [null, ""] },
+    const { username } = req.params;
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      selectedICD = "",
+      importer = "", // NEW: Capture importer from query params
+      detailedStatusExPlan = "all",
+      year,
+      unresolvedOnly
+    } = req.query;
+
+    // Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
+    // otherwise require at least one container with a arrival_date.
+    const arrivalCondition = {
+      $or: [
+        // match Ex-Bond, Ex Bond, ex-bond, etc.
+        { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
+        {
+          container_nos: {
+            $elemMatch: {
+              arrival_date: { $exists: true, $nin: [null, ""] },
+            },
           },
         },
-      },
-    ],
-  };
+      ],
+    };
 
-  // Validate query parameters
-  const pageNumber = parseInt(page, 10);
-  const limitNumber = parseInt(limit, 10);
-  const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
+    // Validate query parameters
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
 
-  if (isNaN(pageNumber) || pageNumber < 1) {
-    return res.status(400).json({ message: "Invalid page number" });
-  }
-  if (isNaN(limitNumber) || limitNumber < 1) {
-    return res.status(400).json({ message: "Invalid limit value" });
-  }
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      return res.status(400).json({ message: "Invalid page number" });
+    }
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      return res.status(400).json({ message: "Invalid limit value" });
+    }
 
-  // ✅ Validate user
-  const user = await User.findOne({ username });
-  if (!user) {
-    return res.status(404).send({ message: "User not found" });
-  }
+    // ✅ Validate user
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
 
-  try {
     // ✅ Use middleware-based ICD filtering instead of allowing frontend override
     let icdCondition = {};
     if (req.userIcdFilter) {

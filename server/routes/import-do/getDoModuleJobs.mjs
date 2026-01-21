@@ -1,5 +1,6 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
+
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
@@ -20,7 +21,11 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Extract and validate query parameters
+
     const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -404,7 +409,11 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 });
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Extract and validate query parameters
+
     const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -590,7 +599,11 @@ router.get("/api/get-today-do-billing", applyUserIcdFilter, getTodayJob);
 
 export async function getTodayJob(req, res) {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Extract and validate query parameters
+
     const {
       page = 1,
       limit = 100,
@@ -782,14 +795,18 @@ export async function getTodayJob(req, res) {
 // Add this to your backend routes
 router.get('/get-new-do-billing-jobs', async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { since, username } = req.query;
 
     // Find jobs that met DO billing conditions since the given timestamp
-    const newJobs = await Job.find({
+    const newJobs = await JobModel.find({
       met_do_billing_conditions_date: {
         $gte: new Date(since)
       }
     })
+
       .select('job_no importer be_no met_do_billing_conditions_date')
       .sort({ met_do_billing_conditions_date: -1 })
       .limit(50);

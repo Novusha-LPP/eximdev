@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
@@ -81,17 +82,16 @@ function JobList(props) {
 
   const [localInput, setLocalInput] = useState(searchQuery);
 
-  // Clear state unless returning from details
+  // Clear state only once when the component initially mounts to ensure a clean state
+  // JobTabs will handle tab-specific resets.
   useEffect(() => {
-    if (!(location.state && location.state.fromJobDetails)) {
-      setSearchQuery("");
-      setDetailedStatus("all");
-      setSelectedICD("all");
-      setSelectedImporter("");
-      setLocalInput("");
-    }
     if (location.state && location.state.fromJobDetails) {
+      // If coming from details, we preserve the state
       window.history.replaceState({}, document.title);
+    } else {
+      // If entering fresh, we could reset here, but let's be less aggressive
+      // actually let's just clear the local search input to match the context
+      setLocalInput(searchQuery);
     }
     // eslint-disable-next-line
   }, []);
@@ -379,178 +379,135 @@ function JobList(props) {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Handlers
-  const handleICDChange = useCallback(
-    (e) => setSelectedICD(e.target.value),
-    [setSelectedICD]
-  );
+  // ICD change handler
+  const handleICDChange = (val) => setSelectedICD(val);
 
+  const icdOptions = useMemo(() => {
+    if (selectedBranch === "GANDHIDHAM") return ["MUNDRA PORT"];
+    if (selectedBranch === "AIR") return ["AHMEDABAD AIRPORT", "MUMBAI AIRPORT", "DELHI AIRPORT"];
+    return ["ICD SANAND", "ICD KHODIYAR", "ICD SACHANA"];
+  }, [selectedBranch]);
+
+  const prevBranchRef = useRef(selectedBranch);
   useEffect(() => {
-    if (selectedBranch === "GANDHIDHAM") {
-      setSelectedICD("MUNDRA PORT");
+    if (prevBranchRef.current !== selectedBranch) {
+      if (selectedBranch === "GANDHIDHAM") setSelectedICD("MUNDRA PORT");
+      else if (selectedBranch === "AIR") setSelectedICD("AHMEDABAD AIRPORT");
+      else setSelectedICD("all");
+      prevBranchRef.current = selectedBranch;
     } else {
-      setSelectedICD("all");
+      // Safety: If branch hasn't changed but selection is invalid (e.g. on mount with stale state)
+      if (selectedICD !== "all" && !icdOptions.includes(selectedICD)) {
+        setSelectedICD("all");
+      }
     }
-  }, [selectedBranch, setSelectedICD]);
+  }, [selectedBranch, selectedICD, setSelectedICD, icdOptions]);
 
-  const handleImporterChange = useCallback(
-    (e, v) => setSelectedImporter(v),
-    [setSelectedImporter]
-  );
-  const handleYearChange = useCallback(
-    (e) => setSelectedYearState(e.target.value),
-    [setSelectedYearState]
-  );
-  const handleDetailedStatusChange = useCallback(
-    (e) => setDetailedStatus(e.target.value),
-    [setDetailedStatus]
-  );
-
-  const handleLocalInputChange = useCallback((e) => {
-    setLocalInput(e.target.value);
-  }, []);
-
-  const handleClearSearch = useCallback(() => {
-    setLocalInput("");
-    setSearchQuery("");
-  }, [setSearchQuery]);
-
-  const renderTopToolbarCustomActions = useCallback(
-    () => (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
-        >
+  const ToolbarActions = useMemo(() => {
+    return (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+        <Typography variant="h5" sx={{ fontWeight: "bold" }}>
           {props.status} Jobs: {total}
         </Typography>
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-          }}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {selectedBranch === "GANDHIDHAM" ? (
-            <MenuItem value="MUNDRA PORT">MUNDRA PORT</MenuItem>
-          ) : (
-            <>
-              <MenuItem value="all">All ICDs</MenuItem>
-              <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-              <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-              <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-            </>
-          )}
-        </TextField>
 
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((o) => o.label)}
-          value={selectedImporter || ""}
-          onInputChange={handleImporterChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer"
-            />
-          )}
-        />
-
-        {years.length > 0 && (
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
           <TextField
             select
             size="small"
-            value={selectedYearState}
-            onChange={handleYearChange}
-            sx={{ width: "100px", marginRight: "20px" }}
+            variant="outlined"
+            label="ICD Code"
+            value={selectedICD}
+            onChange={(e) => handleICDChange(e.target.value)}
+            sx={{ width: "200px" }}
           >
-            {years.map((y, i) => (
-              <MenuItem key={`year-${y}-${i}`} value={y}>
-                {y}
+            <MenuItem value="all">All ICDs</MenuItem>
+            {icdOptions.map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
               </MenuItem>
             ))}
           </TextField>
-        )}
 
-        <TextField
-          select
-          size="small"
-          value={detailedStatus}
-          onChange={handleDetailedStatusChange}
-          sx={{ width: "250px", marginRight: "20px" }}
-        >
-          {detailedStatusOptions
-            .filter((o) => {
-              if (selectedBranch === "GANDHIDHAM") {
-                return (
-                  o.value !== "Rail Out" && o.value !== "Gateway IGM Filed"
-                );
-              }
-              return true;
-            })
-            .map((o, i) => (
-              <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-                {o.name}
-              </MenuItem>
-            ))}
-        </TextField>
+          <Autocomplete
+            sx={{ width: "250px" }}
+            freeSolo
+            options={importerNames.map((o) => o.label)}
+            value={selectedImporter || ""}
+            onChange={(e, v) => setSelectedImporter(v)}
+            renderInput={(params) => (
+              <TextField {...params} variant="outlined" size="small" label="Select Importer" />
+            )}
+          />
 
-        {/* Simple search input (no typeahead/suggestions) */}
-        <TextField
-          value={localInput}
-          onChange={handleLocalInputChange}
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          sx={{ width: "300px", marginRight: "20px" }}
-          InputProps={{
-            endAdornment: (
-              <IconButton size="small" onClick={handleSearchClick}>
-                <SearchIcon fontSize="small" />
-              </IconButton>
-            ),
-          }}
-        />
+          {years.length > 0 && (
+            <TextField
+              select
+              size="small"
+              value={selectedYearState}
+              onChange={(e) => setSelectedYearState(e.target.value)}
+              sx={{ width: "100px" }}
+            >
+              {years.map((y, i) => (
+                <MenuItem key={`year-${y}-${i}`} value={y}>{y}</MenuItem>
+              ))}
+            </TextField>
+          )}
 
-        <IconButton onClick={handleOpen}>
-          <DownloadIcon />
-        </IconButton>
+          <TextField
+            select
+            size="small"
+            value={detailedStatus}
+            onChange={(e) => setDetailedStatus(e.target.value)}
+            sx={{ width: "220px" }}
+          >
+            {detailedStatusOptions
+              .filter((o) => {
+                if (selectedBranch === "GANDHIDHAM") {
+                  return o.value !== "Rail Out" && o.value !== "Gateway IGM Filed";
+                }
+                return true;
+              })
+              .map((o, i) => (
+                <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
+                  {o.name}
+                </MenuItem>
+              ))}
+          </TextField>
+
+          <TextField
+            value={localInput}
+            onChange={(e) => setLocalInput(e.target.value)}
+            placeholder="Search..."
+            size="small"
+            variant="outlined"
+            sx={{ width: "200px" }}
+            InputProps={{
+              endAdornment: (
+                <IconButton size="small" onClick={handleSearchClick}>
+                  <SearchIcon fontSize="small" />
+                </IconButton>
+              ),
+            }}
+          />
+
+          <IconButton onClick={handleOpen}><DownloadIcon /></IconButton>
+        </div>
       </div>
-    ),
-    [
-      props.status,
-      total,
-      selectedICD,
-      handleICDChange,
-      importerNames,
-      selectedImporter,
-      setSelectedImporter,
-      years,
-      selectedYearState,
-      handleYearChange,
-      detailedStatus,
-      handleDetailedStatusChange,
-      localInput,
-      handleLocalInputChange,
-      handleClearSearch,
-      handleOpen,
-    ]
-  );
+    );
+  }, [
+    total,
+    selectedICD,
+    selectedBranch,
+    importerNames,
+    selectedImporter,
+    years,
+    selectedYearState,
+    detailedStatus,
+    localInput,
+    icdOptions,
+    props.status,
+  ]);
+
 
   const columns = useJobColumns(
     (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
@@ -601,7 +558,7 @@ function JobList(props) {
     muiTableContainerProps: { sx: { maxHeight: "690px", overflowY: "auto" } },
     muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 999 } },
-    renderTopToolbarCustomActions: renderTopToolbarCustomActions,
+    renderTopToolbarCustomActions: () => ToolbarActions,
   });
 
   return (

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
@@ -217,6 +217,9 @@ router.get(
   applyUserImporterFilter,
   async (req, res) => {
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const { year, status, detailedStatus, importer, selectedICD } =
         req.params;
       const {
@@ -228,6 +231,7 @@ router.get(
       } = req.query;
 
       const searchTerm = String(search || "").trim();
+
       const bypassCache = _nocache === "true" || _nocache === "1";
       const skip = (page - 1) * limit;
 
@@ -792,12 +796,16 @@ const applyDotNotationToMerged = (merged, updateData) => {
 
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { id } = req.params;
     const updateData = req.body;
 
     // guard full container_nos replacement
     if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
       const existingJob = await JobModel.findById(id).select("container_nos");
+
       if (existingJob && existingJob.container_nos) {
         const existingLength = existingJob.container_nos.length;
         const incomingLength = updateData.container_nos.length;

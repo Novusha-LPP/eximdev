@@ -12,9 +12,11 @@ axios.interceptors.request.use((config) => {
   let selectedBranch = localStorage.getItem("selected_branch") || "AHMEDABAD HO";
   if (selectedBranch === "Main Branch") selectedBranch = "AHMEDABAD HO";
   if (selectedBranch === "Gandhidham" || selectedBranch === "Gandhidham Branch") selectedBranch = "GANDHIDHAM";
+  if (selectedBranch === "Air" || selectedBranch === "AIR Branch") selectedBranch = "AIR";
   config.headers["x-branch"] = selectedBranch;
   return config;
 });
+
 
 function App() {
   const [user, setUser] = useState(null);

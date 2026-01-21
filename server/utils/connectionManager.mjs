@@ -1,25 +1,20 @@
 import mongoose from "mongoose";
 import logger from "../logger.js";
 
-const connections = {};
+let mainConnection = null;
 
 const options = {
     minPoolSize: 10,
-    maxPoolSize: 100, // Reduced from 1000 to be safer for Atlas free tier
+    maxPoolSize: 100,
 };
 
 export const initConnections = async () => {
+    // Always use the main database URI based on environment
     let mainUri = process.env.NODE_ENV === "production"
         ? process.env.PROD_MONGODB_URI
         : process.env.NODE_ENV === "server"
             ? process.env.SERVER_MONGODB_URI
             : process.env.DEV_MONGODB_URI;
-
-    let gandhidhamUri = process.env.NODE_ENV === "production"
-        ? process.env.PROD_MONGODB_URI_GANDHIDHAM
-        : process.env.NODE_ENV === "server"
-            ? process.env.SERVER_MONGODB_URI_GANDHIDHAM
-            : process.env.DEV_MONGODB_URI_GANDHIDHAM;
 
     // Helper to strip quotes and fix common Atlas URI issues
     const cleanUri = (uri) => {
@@ -48,15 +43,10 @@ export const initConnections = async () => {
     };
 
     mainUri = cleanUri(mainUri);
-    gandhidhamUri = cleanUri(gandhidhamUri);
 
     if (mainUri) {
         const masked = mainUri.replace(/\/\/.*@/, "//USER:PASS@");
         console.log("DEBUG: Main MongoDB URI:", masked);
-    }
-    if (gandhidhamUri) {
-        const masked = gandhidhamUri.replace(/\/\/.*@/, "//USER:PASS@");
-        console.log("DEBUG: Gandhidham MongoDB URI:", masked);
     }
 
     if (!mainUri) {
@@ -65,68 +55,28 @@ export const initConnections = async () => {
     }
 
     try {
-        // Main Connection
+        // Single Main Connection for all branches
         logger.info(`Connecting to Main database...`);
-        const mainConn = mongoose.createConnection(mainUri, {
+        mainConnection = mongoose.createConnection(mainUri, {
             ...options,
-            bufferCommands: false, // Useful for debugging hangs, but might break some patterns
+            bufferCommands: false,
         });
 
         // Wait for Main connection to be ready
         await new Promise((resolve, reject) => {
-            mainConn.once('open', () => {
+            mainConnection.once('open', () => {
                 console.log(`✅ [PID:${process.pid}] Successfully connected to Main database`);
                 logger.info(`Successfully connected to Main database on PID:${process.pid}`);
                 resolve();
             });
-            mainConn.on('error', (err) => {
+            mainConnection.on('error', (err) => {
                 console.error(`❌ Main database connection error on PID:${process.pid}:`, err);
                 logger.error(`Main database connection error on PID:${process.pid}:`, err);
                 reject(err);
             });
         });
 
-        connections["AHMEDABAD HO"] = mainConn;
-
-        // GANDHIDHAM Connection
-        if (gandhidhamUri) {
-            logger.info("Connecting to GANDHIDHAM database...");
-            const gandhidhamConn = mongoose.createConnection(gandhidhamUri, {
-                ...options,
-                bufferCommands: false,
-            });
-
-            // Wait for connection to be ready (with timeout)
-            try {
-                await Promise.race([
-                    new Promise((resolve, reject) => {
-                        gandhidhamConn.once('open', () => {
-                            console.log(`✅ [PID:${process.pid}] Successfully connected to GANDHIDHAM database`);
-                            logger.info(`Successfully connected to GANDHIDHAM database on PID:${process.pid}`);
-                            resolve();
-                        });
-                        gandhidhamConn.on('error', (err) => {
-                            logger.error(`GANDHIDHAM database connection error on PID:${process.pid}:`, err);
-                            reject(err);
-                        });
-                    }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("GANDHIDHAM connection timeout")), 10000))
-                ]);
-
-                // Connection successful, store it
-                connections["GANDHIDHAM"] = gandhidhamConn;
-                logger.info("GANDHIDHAM connection stored successfully");
-            } catch (err) {
-                logger.error(`GANDHIDHAM connection failed or timed out on PID:${process.pid}:`, err.message);
-                console.error(`❌ GANDHIDHAM connection failed: ${err.message}`);
-                // Don't store the failed connection, use main connection as fallback
-                connections["GANDHIDHAM"] = mainConn;
-                logger.warn("Using AHMEDABAD HO connection as fallback for GANDHIDHAM");
-            }
-        } else {
-            logger.warn("PROD_MONGODB_URI_GANDHIDHAM not provided, using main database for Gandhidham branch");
-            connections["GANDHIDHAM"] = mainConn;
-        }
+        logger.info("Database connection initialized successfully - all branches use main database");
     } catch (error) {
         console.error("❌ Database connection initialization failed!");
         logger.error("Database connection initialization failed:", error);
@@ -134,26 +84,17 @@ export const initConnections = async () => {
     }
 };
 
-export const getConnection = (branch) => {
-    console.log(`DEBUG: [getConnection] Requested branch: "${branch}"`);
-    let conn = connections[branch];
-    console.log(`DEBUG: [getConnection] Connection exists: ${!!conn}, ReadyState: ${conn?.readyState || 'N/A'}, Available connections:`, Object.keys(connections));
-
-    // If branch connection doesn't exist or isn't connected, fallback to AHMEDABAD HO
-    if (!conn || conn.readyState !== 1) {
-        if (branch !== "AHMEDABAD HO") {
-            const mainConn = connections["AHMEDABAD HO"];
-            if (mainConn && mainConn.readyState === 1) {
-                console.log(`DEBUG: Branch "${branch}" not ready, falling back to AHMEDABAD HO`);
-                return mainConn;
-            }
-        }
-    }
-
-    if (!conn) {
-        console.warn(`DEBUG: No connection found for branch: "${branch}". Available branches:`, Object.keys(connections));
+// Always return the main connection regardless of branch
+// Branch-specific collection routing is handled by the middleware
+export const getConnection = () => {
+    if (!mainConnection) {
+        console.warn("DEBUG: Main connection not initialized yet");
         return null;
     }
 
-    return conn;
+    if (mainConnection.readyState !== 1) {
+        console.warn(`DEBUG: Main connection not ready (State: ${mainConnection.readyState})`);
+    }
+
+    return mainConnection;
 };

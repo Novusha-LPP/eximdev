@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
@@ -36,22 +36,25 @@ const getMostRecentSendDate = (job) => {
 };
 
 router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
-  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
-
-  const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
-
-  const pageNumber = parseInt(page, 10);
-  const limitNumber = parseInt(limit, 10);
-  const selectedYear = year ? year.toString() : null;
-
-  if (isNaN(pageNumber) || pageNumber < 1) {
-    return res.status(400).json({ message: "Invalid page number" });
-  }
-  if (isNaN(limitNumber) || limitNumber < 1) {
-    return res.status(400).json({ message: "Invalid limit value" });
-  }
-
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
+    const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
+
+    const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.toString() : null;
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      return res.status(400).json({ message: "Invalid page number" });
+    }
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      return res.status(400).json({ message: "Invalid limit value" });
+    }
+
     const skip = (pageNumber - 1) * limitNumber;
     const searchQuery = search ? buildSearchQuery(search) : {};
 
@@ -176,10 +179,13 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 router.patch("/api/update-esanchit-job/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
-    const { job_no, year } = req.params;
-    const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
-
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
+      const { job_no, year } = req.params;
+      const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
+
       const job = await JobModel.findOne({ job_no, year });
 
       if (!job) {

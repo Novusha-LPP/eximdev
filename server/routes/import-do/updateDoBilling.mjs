@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs"; // Import your JobModel
+// JobModel is now attached to req by branchJobMiddleware
 import auditMiddleware from "../../middleware/auditTrail.mjs"; // Import audit middleware
 
 const router = express.Router();
@@ -7,6 +7,9 @@ const router = express.Router();
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     if (req.params.id) {
       // Fetch job details to get job_no and year
       const job = await JobModel.findOne({ _id: req.params.id }).lean();
@@ -34,6 +37,9 @@ router.patch(
   auditMiddleware("Job"),
   async (req, res) => {
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const jobId = req.params.id;
       const updateData = req.body;
 

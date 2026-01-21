@@ -17,6 +17,8 @@ import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 import { initConnections, getConnection } from "./utils/connectionManager.mjs";
 import { branchContext } from "./utils/branchContext.mjs";
+import branchJobMiddleware from "./middleware/branchJobMiddleware.mjs";
+
 
 // Import routes
 import getAllUsers from "./routes/getAllUsers.mjs";
@@ -288,7 +290,11 @@ if (cluster.isPrimary) {
         next();
       });
 
+      // Branch Job Middleware - attaches correct JobModel based on x-branch header
+      app.use(branchJobMiddleware);
+
       // --- ALL ROUTES ---
+
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getSupplierExporterList);

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
@@ -20,6 +20,9 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
 
     // Parse and validate query parameters
@@ -46,7 +49,6 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
       "ETA Date Pending",
     ];
 
-    // Build the base query
     // Build the base query
     const baseQuery = {
       $and: [
@@ -79,10 +81,8 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     }
 
     // ✅ Add Year Filter if provided
-    // ✅ Ensure year is correctly formatted before applying the filter
     if (year && year !== "Select Year") {
       baseQuery.$and.push({ year: { $regex: new RegExp(`^${year}$`, "i") } });
-      // Uses regex for partial match (if year is stored as a string like "24-25")
     }
 
     // ✅ Apply Importer Filter (similar to E-Sanchit API)
@@ -96,7 +96,6 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } else if (req.currentUser) {
     }
 
     // Fetch jobs from the database
@@ -144,7 +143,6 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
 
-    // If no jobs found, return 404 (similar to E-Sanchit)
     // If no jobs found, return an empty response instead of 404
     if (!paginatedJobs || paginatedJobs.length === 0) {
       return res.status(200).json({
@@ -172,53 +170,5 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     });
   }
 });
-
-// router.patch("/api/update-documentation-job/:id", async (req, res) => {
-//   try {
-//     const { id } = req.params; // Get the job ID from the URL
-//     const { documentation_completed_date_time } = req.body; // Take the custom date from the request body
-
-//     // Validate the provided date (if any)
-//     if (
-//       documentation_completed_date_time &&
-//       isNaN(Date.parse(documentation_completed_date_time))
-//     ) {
-//       return res.status(400).json({
-//         message: "Invalid date format. Please provide a valid ISO date string.",
-//       });
-//     }
-
-//     // Find the job by ID and update the documentation_completed_date_time field
-//     const updatedJob = await JobModel.findByIdAndUpdate(
-//       id,
-//       {
-//         $set: {
-//           documentation_completed_date_time:
-//             documentation_completed_date_time || "", // Use provided date or current date-time
-//         },
-//       },
-//       { new: true, lean: true } // Return the updated document
-//     );
-
-//     if (!updatedJob) {
-//       return res
-//         .status(404)
-//         .json({ message: "Job not found with the specified ID" });
-//     }
-
-//     res.status(200).json({
-//       message: "Job updated successfully",
-//       updatedJob,
-//     });
-//   } catch (err) {
-//     console.error("Error updating job:", err);
-
-//     // Return a detailed error message
-//     res.status(500).json({
-//       message: "Internal Server Error. Unable to update the job.",
-//       error: err.message,
-//     });
-//   }
-// });
 
 export default router;

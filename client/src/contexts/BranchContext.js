@@ -15,6 +15,10 @@ export const BranchProvider = ({ children }) => {
             savedBranch = 'GANDHIDHAM';
             localStorage.setItem('selected_branch', 'GANDHIDHAM');
         }
+        if (savedBranch === 'Air' || savedBranch === 'AIR Branch') {
+            savedBranch = 'AIR';
+            localStorage.setItem('selected_branch', 'AIR');
+        }
 
         if (savedBranch) return savedBranch;
 
@@ -22,9 +26,11 @@ export const BranchProvider = ({ children }) => {
         let assigned = user.assignedBranch || 'AHMEDABAD HO';
         if (assigned === 'Main Branch') assigned = 'AHMEDABAD HO';
         if (assigned === 'Gandhidham' || assigned === 'Gandhidham Branch') assigned = 'GANDHIDHAM';
+        if (assigned === 'Air' || assigned === 'AIR Branch') assigned = 'AIR';
 
         return assigned;
     });
+
 
     useEffect(() => {
         localStorage.setItem('selected_branch', selectedBranch);

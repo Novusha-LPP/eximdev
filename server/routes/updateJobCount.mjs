@@ -1,7 +1,3 @@
-import express from "express";
-import JobModel from "../model/jobModel.mjs";
-
-const router = express.Router();
 // Define the custom order for grouping
 const statusOrder = [
   "Discharged",
@@ -10,20 +6,9 @@ const statusOrder = [
   "ETA Date Pending",
 ];
 
-// // Helper function to fetch today's date in "YYYY-MM-DD" format
-// const getTodayDate = () => {
-//   const today = new Date();
-//   const day = String(today.getDate()).padStart(2, "0");
-//   const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
-//   const year = today.getFullYear();
-//   return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
-// };
-
-// const todayDate = getTodayDate(); // Current date in YYYY-MM-DD
-
-// const todayYearDate = "2024-11-14"; // Current date in YYYY-MM-DD
 // Function to fetch job overview data using MongoDB aggregation
-const fetchJobOverviewData = async (year) => {
+// JobModel is passed as an argument to handle branch-specific collections
+const fetchJobOverviewData = async (year, JobModel) => {
 
   const today = new Date();
   const todayDate = today.toISOString().split("T")[0]; // Always fresh
@@ -789,8 +774,6 @@ const fetchJobOverviewData = async (year) => {
       },
     ];
 
-    // console.log("MongoDB Pipeline:", JSON.stringify(pipeline));
-
     const result = await JobModel.aggregate(pipeline);
 
     return (
@@ -826,4 +809,3 @@ const fetchJobOverviewData = async (year) => {
   }
 };
 export default fetchJobOverviewData;
-

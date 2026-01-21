@@ -1,6 +1,7 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+
 
 const router = express.Router();
 
@@ -19,8 +20,12 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Extract query parameters
     const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly } = req.query;
+
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
@@ -196,8 +201,12 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
 
 router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Extract query parameters
     const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year } = req.query;
+
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);

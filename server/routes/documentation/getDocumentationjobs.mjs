@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
@@ -21,6 +21,9 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
 
     // Parse and validate query parameters
@@ -49,7 +52,6 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
       "Rail Out"
     ];
 
-    // Build the base query
     // Build the base query
     const baseQuery = {
       $and: [
@@ -120,10 +122,8 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
 
 
     // ✅ Add Year Filter if provided
-    // ✅ Ensure year is correctly formatted before applying the filter
     if (year && year !== "Select Year") {
       baseQuery.$and.push({ year: { $regex: new RegExp(`^${year}$`, "i") } });
-      // Uses regex for partial match (if year is stored as a string like "24-25")
     }
 
     // ✅ Apply Importer Filter (similar to E-Sanchit API)
@@ -137,7 +137,6 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } else if (req.currentUser) {
     }
 
     // Fetch jobs from the database
@@ -181,7 +180,6 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
     const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
 
-    // If no jobs found, return 404 (similar to E-Sanchit)
     // If no jobs found, return an empty response instead of 404
     if (!paginatedJobs || paginatedJobs.length === 0) {
       return res.status(200).json({
@@ -210,28 +208,36 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
   }
 });
 router.patch("/api/update-documentation-job/:job_no/:year", async (req, res) => {
-  const { job_no, year } = req.params;
-  const { documentation_completed_date_time, dsr_queries } = req.body;
+  try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
 
-  let update = {};
-  if (documentation_completed_date_time !== undefined) {
-    update.documentation_completed_date_time = documentation_completed_date_time || "";
+    const { job_no, year } = req.params;
+    const { documentation_completed_date_time, dsr_queries } = req.body;
+
+    let update = {};
+    if (documentation_completed_date_time !== undefined) {
+      update.documentation_completed_date_time = documentation_completed_date_time || "";
+    }
+    if (dsr_queries !== undefined) {
+      update.dsr_queries = dsr_queries;
+    }
+
+    const updatedJob = await JobModel.findOneAndUpdate(
+      { job_no, year },
+      { $set: update },
+      { new: true, lean: true }
+    );
+
+    if (!updatedJob) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    res.status(200).json({ message: "Job updated successfully", updatedJob });
+  } catch (error) {
+    console.error("Error updating documentation job:", error);
+    res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
-  if (dsr_queries !== undefined) {
-    update.dsr_queries = dsr_queries;
-  }
-
-  const updatedJob = await JobModel.findOneAndUpdate(
-    { job_no, year },
-    { $set: update },
-    { new: true, lean: true }
-  );
-
-  if (!updatedJob) {
-    return res.status(404).json({ message: "Job not found" });
-  }
-
-  res.status(200).json({ message: "Job updated successfully", updatedJob });
 });
 
 export default router;

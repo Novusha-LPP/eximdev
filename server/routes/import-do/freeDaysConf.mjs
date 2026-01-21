@@ -1,3 +1,9 @@
+import express from "express";
+// JobModel is now attached to req by branchJobMiddleware
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+
+const router = express.Router();
+
 // Generate search query
 const buildSearchQuery = (search) => ({
   $or: [
@@ -14,13 +20,11 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-import express from "express";
-import JobModel from "../../model/jobModel.mjs";
-import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
-
-const router = express.Router();
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Extract and validate query parameters
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 100;
@@ -38,15 +42,15 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     // Build search query
     const searchQuery = search
       ? {
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-            { awb_bl_no: { $regex: search, $options: "i" } },
-            { shipping_line_airline: { $regex: search, $options: "i" } },
-            { vessel_flight: { $regex: search, $options: "i" } },
-            { voyage_no: { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+          { awb_bl_no: { $regex: search, $options: "i" } },
+          { shipping_line_airline: { $regex: search, $options: "i" } },
+          { vessel_flight: { $regex: search, $options: "i" } },
+          { voyage_no: { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     // Define job filtering criteria
@@ -91,7 +95,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } 
+    }
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
@@ -132,6 +136,9 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 // PATCH API that updates only the free_time
 router.patch("/api/update-free-time/:id", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { id } = req.params; // Extract job ID from route parameters
     const { free_time } = req.body; // Extract free_time from request body
 

@@ -380,6 +380,13 @@ function AppbarComponent(props) {
                       <Typography sx={{ fontWeight: 600 }}>GANDHIDHAM</Typography>
                     </Box>
                   </MenuItem>
+                  <MenuItem value="AIR" sx={{ py: 1.2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ fontSize: '1.2rem' }}>✈️</Box>
+                      <Typography sx={{ fontWeight: 600 }}>AIR</Typography>
+                    </Box>
+                  </MenuItem>
+
                 </Select>
               </FormControl>
 

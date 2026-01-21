@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
@@ -9,6 +9,9 @@ router.patch(
     auditMiddleware("Job"),
     async (req, res) => {
         try {
+            // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+            const JobModel = req.JobModel;
+
             const { id } = req.params;
             const { advanced_payment_done, username } = req.body;
 

@@ -301,10 +301,10 @@ export const auditMiddleware = (documentType = "Unknown") => {
 
     const userInfo = req.currentUser ||
       req.user || {
-        _id: req.headers["user-id"] || req.body.userId || "unknown",
-        username: req.headers["username"] || req.body.username || "unknown",
-        role: req.headers["user-role"] || req.body.userRole || "unknown",
-      };
+      _id: req.headers["user-id"] || req.body.userId || "unknown",
+      username: req.headers["username"] || req.body.username || "unknown",
+      role: req.headers["user-role"] || req.body.userRole || "unknown",
+    };
 
     // Get or create unique user ID for this username
     const uniqueUserId = await getOrCreateUserId(userInfo.username);
@@ -335,8 +335,9 @@ export const auditMiddleware = (documentType = "Unknown") => {
     // For job-related operations
     if (job_no && year && documentType === "Job") {
       try {
-        const JobModel = (await import("../model/jobModel.mjs")).default;
+        const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
         originalDocument = await JobModel.findOne({ job_no, year }).lean();
+
         if (originalDocument) {
           documentId = originalDocument._id;
         } else {
@@ -351,8 +352,9 @@ export const auditMiddleware = (documentType = "Unknown") => {
     ) {
       // Handle ObjectId-based job routes
       try {
-        const JobModel = (await import("../model/jobModel.mjs")).default;
+        const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
         originalDocument = await JobModel.findById(id).lean();
+
         if (originalDocument) {
           documentId = originalDocument._id;
           // Extract job_no and year from the document itself
@@ -416,9 +418,9 @@ export const auditMiddleware = (documentType = "Unknown") => {
 
                   if (documentType === "Job") {
                     if (documentId) {
-                      const JobModel = (await import("../model/jobModel.mjs"))
-                        .default;
+                      const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
                       try {
+
                         updatedDocument = await JobModel.findById(
                           documentId
                         ).lean();
@@ -426,17 +428,17 @@ export const auditMiddleware = (documentType = "Unknown") => {
                         console.error(`❌ Error in findById:`, findError);
                       }
                     } else if (job_no && year) {
-                      const JobModel = (await import("../model/jobModel.mjs"))
-                        .default;
+                      const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
                       updatedDocument = await JobModel.findOne({
+
                         job_no,
                         year,
                       }).lean();
                     } else if (id && mongoose.Types.ObjectId.isValid(id)) {
-                      const JobModel = (await import("../model/jobModel.mjs"))
-                        .default;
+                      const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
                       updatedDocument = await JobModel.findById(id).lean();
                     }
+
                   }
 
                   if (updatedDocument) {
@@ -576,9 +578,9 @@ export const auditMiddleware = (documentType = "Unknown") => {
                 // Try to find the created document to get its _id
                 if (createdJobNo && createdYear) {
                   try {
-                    const JobModel = (await import("../model/jobModel.mjs"))
-                      .default;
+                    const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
                     createdJob = await JobModel.findOne({
+
                       job_no: createdJobNo,
                       year: createdYear,
                     }).lean();
@@ -605,9 +607,9 @@ export const auditMiddleware = (documentType = "Unknown") => {
               if (createdDocumentId && createdJobNo && createdYear) {
                 // Get the created document to log detailed changes
                 try {
-                  const JobModel = (await import("../model/jobModel.mjs"))
-                    .default;
+                  const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
                   const createdDoc = await JobModel.findById(
+
                     createdDocumentId
                   ).lean();
 
@@ -700,9 +702,9 @@ export const auditMiddleware = (documentType = "Unknown") => {
                 let updatedDocument = null;
                 if (documentType === "Job") {
                   // Use aggregation to exclude detailed_status and system fields
-                  const JobModel = (await import("../model/jobModel.mjs"))
-                    .default;
+                  const JobModel = req.JobModel || (await import("../model/jobModel.mjs")).default;
                   const pipeline = [
+
                     { $match: { _id: documentId } },
                     {
                       $project: {

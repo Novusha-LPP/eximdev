@@ -1,5 +1,5 @@
 import express from 'express';
-import JobModel from '../../model/jobModel.mjs';
+// JobModel is now attached to req by branchJobMiddleware
 import KycDocumentsModel from '../../model/kycDocumentsModel.mjs';
 
 const router = express.Router();
@@ -7,6 +7,9 @@ const router = express.Router();
 // GET /api/charges-section/job-details?year=YYYY&job_no=XXX
 router.get('/api/charges-section/job-details', async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { year, job_no } = req.query;
     if (!year || !job_no) {
       return res.status(400).json({ success: false, message: 'year and job_no are required.' });
@@ -33,10 +36,8 @@ router.get('/api/charges-section/job-details', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found.' });
     }
 
- 
-    
     // Find KYC document by matching importer and shipping line
-    const kycDocuments = await KycDocumentsModel.findOne({ 
+    const kycDocuments = await KycDocumentsModel.findOne({
       importer: job.importer,
       shipping_line_airline: job.shipping_line_airline
     })
@@ -50,16 +51,13 @@ router.get('/api/charges-section/job-details', async (req, res) => {
       })
       .lean();
 
-
-
     const responseData = {
-      ...job, 
+      ...job,
       shipping_line_bond_charges: kycDocuments?.shipping_line_bond_charges || '',
       shipping_line_bond_valid_upto: kycDocuments?.shipping_line_bond_valid_upto || '',
       shipping_line_bond_docs: kycDocuments?.shipping_line_bond_docs || []
     }
 
-   
     return res.json({ success: true, data: responseData });
   } catch (err) {
     console.error('Error fetching job charges details:', err);

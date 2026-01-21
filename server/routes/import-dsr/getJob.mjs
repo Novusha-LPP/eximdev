@@ -1,11 +1,13 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-job/:year/:jobNo", async (req, res) => {
   try {
     const { jobNo, year } = req.params;
+
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
 
     const job = await JobModel.findOne({
       year,

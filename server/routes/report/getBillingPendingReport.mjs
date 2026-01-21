@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import logger from "../../logger.js";
 
 const router = express.Router();
@@ -7,6 +7,9 @@ const router = express.Router();
 // GET /api/report/billing-pending?year=22-23
 router.get("/api/report/billing-pending", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Get year from query params, default to "25-26" if not provided
     const year = req.query.year || "25-26";
 

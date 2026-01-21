@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
@@ -7,6 +7,9 @@ const router = express.Router();
 // Example: /api/get-importer-list/25-26?status=Completed&detailedStatus=Discharged
 router.get("/api/get-importer-list/:year", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const selectedYear = req.params.year;
     const { status, detailedStatus } = req.query;
 

@@ -1,11 +1,14 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import UserModel from "../../model/userModel.mjs";
 
 const router = express.Router();
 
 router.get("/reports", async (req, res) => {
     try {
+        // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+        const JobModel = req.JobModel;
+
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
         const jobs = await JobModel.find({})
@@ -82,6 +85,9 @@ function parseAmount(amountStr) {
 // Top 10 Importers Report
 router.get("/top-importers", async (req, res) => {
     try {
+        // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+        const JobModel = req.JobModel;
+
         const { filterType, month, year, quarter, startDate, endDate } = req.query;
 
         // Base Match Condition: Must have out_of_charge date and NOT be Ex-Bond

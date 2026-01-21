@@ -1,7 +1,8 @@
 import { WebSocketServer } from 'ws';
 import fetchJobOverviewData from '../server/routes/updateJobCount.mjs'; // Update path if needed
+import { getJobModelForBranch } from './utils/modelHelper.mjs';
 
-const connections = new Map(); // key: socket, value: { year }
+const connections = new Map(); // key: socket, value: { year, branch }
 
 export function setupJobOverviewWebSocket(server) {
   const wss = new WebSocketServer({ server });
@@ -15,9 +16,12 @@ export function setupJobOverviewWebSocket(server) {
         }
 
         const year = payload.year;
-        connections.set(ws, { year });
+        const branch = payload.branch || 'AHMEDABAD HO'; // Default to HO if not provided
+        const JobModel = getJobModelForBranch(branch);
 
-        const data = await fetchJobOverviewData(year);
+        connections.set(ws, { year, branch });
+
+        const data = await fetchJobOverviewData(year, JobModel);
         ws.send(JSON.stringify({ type: 'init', data }));
       } catch (err) {
         console.error('WebSocket message error:', err);
@@ -30,7 +34,8 @@ export function setupJobOverviewWebSocket(server) {
       const meta = connections.get(ws);
       if (ws.readyState === ws.OPEN && meta?.year) {
         try {
-          const data = await fetchJobOverviewData(meta.year);
+          const JobModel = getJobModelForBranch(meta.branch || 'AHMEDABAD HO');
+          const data = await fetchJobOverviewData(meta.year, JobModel);
           ws.send(JSON.stringify({ type: 'update', data }));
         } catch (err) {
           console.error('Error sending update:', err);

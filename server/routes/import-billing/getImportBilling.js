@@ -1,5 +1,6 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
+
 import icdFilter from "../../middleware/icdFilter.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
@@ -161,7 +162,11 @@ router.get(
     }
 
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const skip = (pageNumber - 1) * limitNumber;
+
 
       const baseQuery = {
         $and: [
@@ -288,7 +293,11 @@ router.get(
     }
 
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const skip = (pageNumber - 1) * limitNumber;
+
 
       const baseQuery = {
         $and: [
@@ -410,7 +419,11 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
   }
 
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const skip = (pageNumber - 1) * limitNumber;
+
 
     const baseQuery = {
       $and: [req.icdFilterCondition],
@@ -509,7 +522,11 @@ router.get(
     }
 
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const skip = (pageNumber - 1) * limitNumber;
+
 
       const matchConditions = {
         $and: [
@@ -767,7 +784,11 @@ router.get(
     }
 
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const skip = (pageNumber - 1) * limitNumber;
+
 
       const baseQuery = {
         $and: [

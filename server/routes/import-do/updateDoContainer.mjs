@@ -1,9 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
 router.post("/api/update-do-container", async (req, res) => {
+  // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+  const JobModel = req.JobModel;
+
   const { job_no, year, container_number, do_validity_upto_container_level } =
     req.body;
 
@@ -16,8 +19,10 @@ router.post("/api/update-do-container", async (req, res) => {
     job.container_nos[index].do_validity_upto_container_level =
       do_validity_upto_container_level;
     await job.save();
+    res.status(200).json({ message: "Container DO validity updated successfully" });
   } catch (err) {
     console.log(err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 });
 

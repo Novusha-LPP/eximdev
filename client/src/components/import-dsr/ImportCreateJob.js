@@ -255,11 +255,38 @@ const ImportCreateJob = () => {
     setYear(selectedYear);
   }, [selectedYear]);
 
+  const filteredPortOptions = React.useMemo(() => {
+    if (selectedBranch === "GANDHIDHAM") {
+      return ["(INMUN1) Mundra Sea"];
+    } else if (selectedBranch === "AIR") {
+      return ["(INAMD4) AHMEDABAD AIRPORT", "(INBOM4) MUMBAI AIRPORT", "(INDEL4) DELHI AIRPORT"];
+    } else {
+      return portOptions;
+    }
+  }, [selectedBranch]);
+
+  const filteredCustomHouseOptions = React.useMemo(() => {
+    if (selectedBranch === "GANDHIDHAM") {
+      return ["MUNDRA PORT"];
+    } else if (selectedBranch === "AIR") {
+      return ["AHMEDABAD AIRPORT", "MUMBAI AIRPORT", "DELHI AIRPORT"];
+    } else {
+      return ["ICD SANAND", "ICD KHODIYAR", "ICD SACHANA"];
+    }
+  }, [selectedBranch]);
+
   useEffect(() => {
     if (selectedBranch === "GANDHIDHAM") {
+      setCustomHouse("MUNDRA PORT");
       setPortOfReporting("(INMUN1) Mundra Sea");
+    } else if (selectedBranch === "AIR") {
+      setCustomHouse("AHMEDABAD AIRPORT");
+      setPortOfReporting("(INAMD4) AHMEDABAD AIRPORT");
+    } else {
+      setCustomHouse("ICD SANAND");
+      setPortOfReporting("");
     }
-  }, [selectedBranch, setPortOfReporting]);
+  }, [selectedBranch, setCustomHouse, setPortOfReporting]);
 
   const clearanceOptionsMapping = {
     Home: [
@@ -306,9 +333,10 @@ const ImportCreateJob = () => {
           </Typography>
           <Autocomplete
             freeSolo
-            options={customHouseOptions}
+            options={filteredCustomHouseOptions}
             value={custom_house}
             onInputChange={(event, newValue) => setCustomHouse(newValue)}
+            onChange={(event, newValue) => setCustomHouse(newValue)}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -677,7 +705,7 @@ const ImportCreateJob = () => {
           </Typography>
           <Autocomplete
             freeSolo
-            options={selectedBranch === "GANDHIDHAM" ? ["(INMUN1) Mundra Sea"] : portOptions}
+            options={filteredPortOptions}
             value={port_of_reporting}
             onInputChange={(event, newValue) => setPortOfReporting(newValue)}
             renderInput={(params) => (

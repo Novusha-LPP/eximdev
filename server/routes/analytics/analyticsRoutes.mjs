@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import mongoose from "mongoose";
 
 const router = express.Router();
@@ -9,6 +9,9 @@ const parseDate = (d) => new Date(d);
 
 router.get("/api/analytics/:module", async (req, res) => {
     try {
+        // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+        const JobModel = req.JobModel;
+
         const { module } = req.params;
         let { startDate, endDate, importer } = req.query;
 
@@ -485,22 +488,11 @@ const getCustomsPipeline = (start, end, importer) => {
 
 // 📄 Documentation Pipeline
 const getDocumentationPipeline = (start, end, importer) => {
-    // Calculate 7 days ago for trend
-    // Note: Documentation fields are ISO-like timestamps (YYYY-MM-DDTHH:mm), so we use ISO strings for range.
-    // However, for trends grouping, we need to extract YYYY-MM-DD.
-
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const sevenDaysAgoStr = toYMD(sevenDaysAgo); // YYYY-MM-DD
-    // But since we match against timestamp fields, we might need full ISO for trend match?
-    // Actually, simple string match works: "2025-12-13T..." >= "2025-12-13" (True).
-    // And "2025-12-20T..." <= "2025-12-20" (False).
-    // So for trend range (which covers last 7 days including today), we should use a broad range.
-    // "2025-12-13" to "2025-12-21" (tomorrow)? Or today's end?
-
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
@@ -599,7 +591,6 @@ const getDoManagementPipeline = (start, end, importer) => {
     };
 
     // "In List" logic (Pending DO Planning)
-    // Matches logic in `doTeamListOfjobs.mjs` - NO DATE FILTER applied to these metrics
     const pendingDoMatch = {
         $and: [
             importerMatch,
@@ -648,7 +639,7 @@ const getDoManagementPipeline = (start, end, importer) => {
                     { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 jobs_without_invoices: [
-                    { $match: { $and: [...pendingDoMatch.$and, { $nor: invoiceCriteria.$or }] } },
+                    { $match: { $and: [...pendingDoMatch.$and, { $node: invoiceCriteria.$or }] } },
                     { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 // Trend
@@ -731,10 +722,6 @@ const getBillingPipeline = (start, end, importer) => {
 
 // 🚨 Exceptions Pipeline
 const getExceptionsPipeline = (start, end, importer) => {
-    // DO validity today/expired: do_validity_upto_job_level <= today (or selected range?)
-    // "Show alerts using existing fields: DO validity today/expired"
-    // I'll assume it matches the range (expired within this range).
-
     const today = new Date().toISOString().split('T')[0];
 
     const importerMatch = importer ? { importer: importer } : {};
@@ -771,9 +758,6 @@ const getExceptionsPipeline = (start, end, importer) => {
                     },
                     { $project: { job_no: 1, importer: 1 } }
                 ],
-                // Jobs with status != Completed beyond selected range?
-                // The logic "Jobs with status != Completed beyond selected range" is tricky.
-                // Maybe "Jobs created before start date but not completed"?
                 incomplete_jobs: [
                     {
                         $match: {
@@ -887,15 +871,6 @@ const getOperationsPipeline = (start, end, importer) => {
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
-    // Pending "Examination Planning" Logic
-    // Based on getOperationPlanningJobs.mjs logic for "Pending" status + specific stage?
-    // User said "all the jobs are in examination planning".
-    // I will interpret this as: Jobs that are PENDING operations and match the "Ex. Planning" criteria?
-    // Or simpler: Jobs where `examination_planning_date` is SET but `completed_operation_date` is NOT?
-    // In getOperationPlanningJobs.mjs, "Ex. Planning" tab means: `examination_planning_date` exists, `pcv_date` empty, `OOC` empty.
-
-    // Arrival condition logic from getOperationPlanningJobs.mjs is complex to replicate fully in aggregation if it involves array elemMatch.
-    // Simplified Pending Ops:
     const pendingOpsBase = {
         $and: [
             importerMatch,
@@ -972,7 +947,6 @@ const getSubmissionPipeline = (start, end, importer) => {
     ];
 
     // Pending Submission Logic (Snapshot)
-    // Matches logic in getSubmissionJobs.mjs
     const pendingSubmissionMatch = {
         $and: [
             importerMatch,

@@ -1,9 +1,10 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 // Initialize the router
 const router = express.Router();
+
 
 const formatDateToIST = () => {
   const options = {
@@ -45,10 +46,14 @@ router.post(
   auditMiddleware("Job"),
   async (req, res) => {
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const jobs = await JobModel.find(
         { type_of_b_e: "In-Bond" },
         { job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
       );
+
       res.status(200).json(jobs);
     } catch (error) {
       console.error("Error fetching In-Bond jobs:", error);
@@ -63,6 +68,9 @@ router.post(
   auditMiddleware("Job"),
   async (req, res) => {
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const {
         container_nos,
         importer,
@@ -71,6 +79,7 @@ router.post(
         year,
         job_date,
       } = req.body;
+
 
       // ✅ Validate required fields
       if (!importer || !custom_house) {
@@ -169,8 +178,12 @@ router.post(
     const startTime = Date.now();
 
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       // OPTIMIZATION: Batch fetch all existing jobs in one query
       console.log(`🔍 [Backend] Fetching existing jobs from database...`);
+
       const jobKeys = jsonData.map((d) => ({ year: d.year, job_no: d.job_no }));
 
       // Get unique year values for the query
@@ -226,8 +239,8 @@ router.post(
           typeof bill_date === "string"
             ? bill_date
             : bill_date != null
-            ? String(bill_date)
-            : "";
+              ? String(bill_date)
+              : "";
 
         // Define the filter to find existing jobs
         const filter = { year, job_no };
@@ -270,9 +283,9 @@ router.post(
 
               return newContainerData
                 ? {
-                    ...existingContainer,
-                    size: newContainerData.size,
-                  }
+                  ...existingContainer,
+                  size: newContainerData.size,
+                }
                 : existingContainer;
             }
           );
@@ -396,8 +409,12 @@ router.post(
 // Route to update detailed_status for all pending jobs
 router.get("/api/jobs/update-pending-status", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Step 1: Find all jobs where status is 'Pending'
     const pendingJobs = await JobModel.find({ status: "Pending" });
+
 
     if (!pendingJobs.length) {
       return res

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
@@ -10,8 +10,11 @@ const router = express.Router();
 // so we just need to attach them to req.jobInfo for the audit middleware
 const extractJobInfo = async (req, res, next) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { year, job_no } = req.params;
-    
+
     // Find the job to get its document ID
     const job = await JobModel.findOne({ job_no, year }).lean();
     if (job) {
@@ -31,14 +34,17 @@ const extractJobInfo = async (req, res, next) => {
 };
 
 router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
-  const { year, job_no } = req.params;
-  const updateData = req.body;
-
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
+    const { year, job_no } = req.params;
+    const updateData = req.body;
+
     // SECURITY CHECK: If container_nos is being updated, validate they belong to this job
     if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
       const existingJob = await JobModel.findOne({ year, job_no }).select('container_nos');
-      
+
       if (existingJob && existingJob.container_nos) {
         const existingContainerNumbers = new Set(
           existingJob.container_nos.map(c => c.container_number)
@@ -46,12 +52,12 @@ router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMi
         const incomingContainerNumbers = new Set(
           updateData.container_nos.map(c => c.container_number)
         );
-        
+
         // Check if incoming containers don't match existing containers
         const hasInvalidContainers = Array.from(incomingContainerNumbers).some(
           containerNum => !existingContainerNumbers.has(containerNum)
         );
-        
+
         if (hasInvalidContainers) {
           console.error('SECURITY ALERT: Cross-job container contamination detected!', {
             year,
@@ -59,7 +65,7 @@ router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMi
             existingContainers: Array.from(existingContainerNumbers),
             incomingContainers: Array.from(incomingContainerNumbers)
           });
-          
+
           return res.status(400).json({
             message: "Container validation failed: Submitted containers do not match job containers",
             error: "Data integrity violation detected"

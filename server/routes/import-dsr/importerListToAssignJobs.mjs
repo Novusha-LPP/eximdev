@@ -1,11 +1,14 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import UserModel from "../../model/userModel.mjs";
 
 const router = express.Router();
 
 router.get("/api/importer-list-to-assign-jobs", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     // Get all importers from the JobModel
     const importers = await JobModel.aggregate([
       // Group by importer to get distinct importers
@@ -22,7 +25,7 @@ router.get("/api/importer-list-to-assign-jobs", async (req, res) => {
       },
     ]);
 
-    // Fetch all assigned importers from the UserModel
+    // Fetch all assigned importers from the UserModel (UserModel is shared across branches)
     const assignedImporters = await UserModel.distinct("importers.importer");
 
     // Filter out the importers that are assigned to any user

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
@@ -10,6 +10,9 @@ router.get(
   applyUserIcdFilter,
   async (req, res) => {
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       const { username } = req.params;
       const {
         page = 1,

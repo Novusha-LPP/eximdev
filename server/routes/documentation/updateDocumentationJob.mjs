@@ -1,11 +1,14 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
 router.patch("/api/update-documentation-job/:id", auditMiddleware('Job'), async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { documentation_completed_date_time, documentationQueries } = req.body;
     const job = await JobModel.findById(req.params.id);
 

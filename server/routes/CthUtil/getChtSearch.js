@@ -3,14 +3,12 @@ import mongoose from 'mongoose';
 import CthModel from './CthUtil.mjs';
 import FavoriteModel from './FavouriteCth.mjs';
 import RecentModel from './RecentCth.mjs';
-import NodeCache from 'node-cache'; 
-import JobModel from "../../model/jobModel.mjs";
+import NodeCache from 'node-cache';
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
 const searchCache = new NodeCache({ stdTTL: 300 });
-
-
 
 async function getHsCodeWithContext(hsCode, Model) {
   try {
@@ -26,9 +24,9 @@ async function getHsCodeWithContext(hsCode, Model) {
 
     // Find index of the main document
     let i = docsArray.findIndex(doc => doc.hs_code === hsCode) + 1;
-    
+
     const result = [mainDoc];
-    const noteKeywords = ["note", "w.e.f", "clause", "finance", "inserted", "amendment","tariff"];
+    const noteKeywords = ["note", "w.e.f", "clause", "finance", "inserted", "amendment", "tariff"];
     let breakCounter = 0;
 
     // Loop through subsequent documents to find related notes
@@ -198,13 +196,13 @@ async function getCachedRecentCount() {
 async function isItemFavorite(query) {
   const cacheKey = FAVORITES_KEY_PREFIX + (query.hs_code || query.item_description);
   let isFavorite = favoritesCache.get(cacheKey);
-  
+
   if (isFavorite === undefined) {
     const favoriteExists = await FavoriteModel.exists(query);
     isFavorite = !!favoriteExists;
     favoritesCache.set(cacheKey, isFavorite);
   }
-  
+
   return isFavorite;
 }
 
@@ -213,10 +211,10 @@ async function addToRecentCollection(item) {
   try {
     // Use the most unique field for querying
     const query = item.hs_code ? { hs_code: item.hs_code } : { item_description: item.item_description };
-    
+
     // First, check if document already exists
     const existingDoc = await RecentModel.findOne(query).select('_id');
-    
+
     if (existingDoc) {
       // Document exists, just update the timestamp
       // Use updateOne which is faster than findOneAndUpdate when you don't need the result
@@ -224,20 +222,20 @@ async function addToRecentCollection(item) {
         { _id: existingDoc._id },
         { $set: { createdAt: new Date() } }
       );
-      
+
       // Update the recent count in cache if we're tracking it
       if (recentCache.has(RECENT_COUNT_KEY)) {
         // No need to change the count
       }
-      
+
       return;
     }
-    
+
     // Document doesn't exist, we need to create a new one
-    
+
     // Check if we're at the limit (with caching)
     const recentCount = await getCachedRecentCount();
-    
+
     if (recentCount >= 20) {
       // Find and delete the oldest document
       const oldest = await RecentModel.findOne().sort({ createdAt: 1 }).select('_id');
@@ -249,19 +247,19 @@ async function addToRecentCollection(item) {
       // We're adding a document, increment the count in cache
       recentCache.set(RECENT_COUNT_KEY, recentCount + 1);
     }
-    
+
     // Check if item is in favorites (with caching)
     const isFavorite = await isItemFavorite(query);
-    
+
     // Create and save the new document
     const newRecentDoc = new RecentModel({
       ...item,
       favourite: isFavorite,
       createdAt: new Date()
     });
-    
+
     await newRecentDoc.save();
-    
+
   } catch (error) {
     console.error('Error adding to Recent collection:', error);
     throw error;
@@ -322,18 +320,18 @@ router.patch('/api/toggle-favorite/:id', async (req, res) => {
     const newFavoriteStatus = !document.favourite;
     // Get HS code to sync across collections
     const hsCode = document.hs_code;
-    
+
     // Update the document in its original collection
     document.favourite = newFavoriteStatus;
     await document.save();
-    
+
     // SYNC STEP 1: Update the CTH collection regardless of which collection we started with
     const cthItem = await CthModel.findOne({ hs_code: hsCode });
     if (cthItem) {
       cthItem.favourite = newFavoriteStatus;
       await cthItem.save();
     }
-    
+
     // SYNC STEP 2: Update the Recent collection if the item exists there
     const recentItem = await RecentModel.findOne({ hs_code: hsCode });
     if (recentItem) {
@@ -345,7 +343,7 @@ router.patch('/api/toggle-favorite/:id', async (req, res) => {
     if (newFavoriteStatus) {
       // Adding to favorites
       const existingFavorite = await FavoriteModel.findOne({ hs_code: hsCode });
-      
+
       if (!existingFavorite) {
         const newFavoriteDoc = new FavoriteModel({
           hs_code: document.hs_code,
@@ -366,7 +364,7 @@ router.patch('/api/toggle-favorite/:id', async (req, res) => {
           remark: document.remark,
           favourite: true
         });
-  
+
         await newFavoriteDoc.save();
       } else if (!existingFavorite.favourite) {
         // Ensure the favorite status is correct
@@ -430,11 +428,11 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid document ID' });
     }
-    
+
     if (!['recent', 'favorite'].includes(collection)) {
       return res.status(400).json({ message: 'Valid collection name is required (recent or favorite)' });
     }
-    
+
     let Model;
     switch (collection) {
       case 'recent':
@@ -444,17 +442,17 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
         Model = FavoriteModel;
         break;
     }
-    
+
     const document = await Model.findById(id);
-    
+
     if (!document) {
       return res.status(404).json({ message: 'Document not found' });
     }
-    
+
     // Store HS code for reference before deletion
     const hsCode = document.hs_code;
     const wasFavorite = document.favourite;
-    
+
     // Delete the document from the specified collection
     await Model.findByIdAndDelete(id);
     // If deleted from favorites, update favorite status in other collections
@@ -465,7 +463,7 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
         cthItem.favourite = false;
         await cthItem.save();
       }
-      
+
       // Update in Recent collection
       const recentItem = await RecentModel.findOne({ hs_code: hsCode });
       if (recentItem) {
@@ -473,7 +471,7 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
         await recentItem.save();
       }
     }
-    
+
     return res.status(200).json({
       message: `Successfully deleted from ${collection} collection`,
       deletedId: id,
@@ -493,24 +491,24 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
 router.get('/api/context/:hsCode', async (req, res) => {
   try {
     const { hsCode } = req.params;
-    
+
     if (!hsCode) {
       return res.status(400).json({ message: 'HS Code is required' });
     }
-    
+
     // Get context from the hs_code
     const contextResults = await getHsCodeWithContext(hsCode, CthModel);
-    
+
     // Exclude the main item (first item)
     const contextItems = contextResults.length > 1 ? contextResults.slice(1) : [];
-    
+
     return res.status(200).json({ contextItems });
-    
+
   } catch (error) {
     console.error('Context API error:', error);
-    return res.status(500).json({ 
-      message: 'Server error while fetching context', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Server error while fetching context',
+      error: error.message
     });
   }
 });
@@ -540,6 +538,9 @@ router.delete('/api/recent-cth/clear', async (req, res) => {
 // PATCH API endpoint to update job duty details from CTH
 router.patch('/api/jobs/:jobId/update-duty-from-cth', async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const { jobId } = req.params;
     const { cth_no } = req.body;
 
@@ -567,7 +568,7 @@ router.patch('/api/jobs/:jobId/update-duty-from-cth', async (req, res) => {
     if (basic_duty_sch && basic_duty_ntfn) {
       const basicDutySch = parseFloat(basic_duty_sch);
       const basicDutyNtfn = parseFloat(basic_duty_ntfn);
-      
+
       if (!isNaN(basicDutySch) && !isNaN(basicDutyNtfn)) {
         cth_bcd_ammount = Math.max(basicDutySch, basicDutyNtfn).toString();
       } else if (!isNaN(basicDutySch)) {

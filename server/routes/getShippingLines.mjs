@@ -1,10 +1,13 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 const router = express.Router();
 
 router.get("/api/get-shipping-lines/:year", async (req, res) => {
   try {
+    // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+    const JobModel = req.JobModel;
+
     const selectedYear = req.params.year;
 
     // Use Mongoose aggregation to group and retrieve unique importer and importerURL values

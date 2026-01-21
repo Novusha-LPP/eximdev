@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import JobModel from "../../model/jobModel.mjs";
+// JobModel is now attached to req by branchJobMiddleware
 
 // Status Rank Configuration
 const statusRank = {
@@ -24,6 +24,9 @@ router.get(
   "/api/download-report/:years/:importerURL/:status",
   async (req, res) => {
     try {
+      // Use req.JobModel (attached by branchJobMiddleware) for branch-specific collection
+      const JobModel = req.JobModel;
+
       let { years, importerURL, status } = req.params;
 
       // Convert years into an array
@@ -31,15 +34,15 @@ router.get(
 
       // Create flexible regex patterns to handle both formats
       const escapedImporterURL = importerURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
+
       // Pattern 1: Exact match (for backward compatibility)
       const exactPattern = `^${escapedImporterURL}$`;
-      
+
       // Pattern 2: Handle periods and underscores interchangeably
       const flexiblePattern = escapedImporterURL
         .replace(/\./g, '[._]?')  // Periods become optional periods or underscores
         .replace(/_/g, '[._]?');  // Underscores become optional periods or underscores
-      
+
       // Pattern 3: Handle "pvt" variations (pvt, pvt., pvt_, etc.)
       const pvtPattern = escapedImporterURL
         .replace(/pvt/g, 'pvt[._]?')
@@ -58,7 +61,7 @@ router.get(
 
       console.log('Search patterns:', {
         exactPattern,
-        flexiblePattern, 
+        flexiblePattern,
         pvtPattern,
         receivedImporterURL: importerURL
       });

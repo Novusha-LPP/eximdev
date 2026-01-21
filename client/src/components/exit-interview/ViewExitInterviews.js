@@ -33,56 +33,88 @@ function ViewExitOnboardings() {
       accessorKey: "department",
       header: "Department",
       enableSorting: false,
-      size: 140,
+      size: 130,
     },
     {
       accessorKey: "last_date",
       header: "Last Date",
       enableSorting: false,
-      size: 120,
+      size: 110,
     },
     {
       accessorKey: "job_satisfaction",
       header: "Job Satisfaction",
       enableSorting: false,
-      size: 120,
+      size: 130,
+      Cell: ({ cell }) => {
+        const value = cell.getValue();
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            color: value >= 4 ? 'var(--hr-success)' : value >= 3 ? 'var(--hr-warning)' : 'var(--hr-error)'
+          }}>
+            {'★'.repeat(value || 0)}
+            {'☆'.repeat(5 - (value || 0))}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "support_from_manager",
-      header: "Support From Manager",
+      header: "Manager Support",
+      enableSorting: false,
+      size: 150,
+    },
+    {
+      accessorKey: "approach_of_reporting_manager",
+      header: "Manager Approach",
+      enableSorting: false,
+      size: 200,
+    },
+    {
+      accessorKey: "overall_company_culture",
+      header: "Company Culture",
       enableSorting: false,
       size: 160,
     },
     {
-      accessorKey: "approach_of_reporting_manager",
-      header: "Approach Of Reporting Manager",
-      enableSorting: false,
-      size: 230,
-    },
-    {
-      accessorKey: "overall_company_culture",
-      header: "Overall Company Culture",
-      enableSorting: false,
-      size: 180,
-    },
-    {
       accessorKey: "training_and_development",
-      header: "Training and Development",
+      header: "Training",
       enableSorting: false,
-      size: 180,
+      size: 120,
     },
     {
       accessorKey: "suggestions",
       header: "Suggestions",
       enableSorting: false,
-      size: 220,
+      size: 250,
+      Cell: ({ cell }) => {
+        const value = cell.getValue();
+        if (!value) return <span style={{ color: 'var(--hr-text-muted)' }}>—</span>;
+        return (
+          <span
+            title={value}
+            style={{
+              display: 'block',
+              maxWidth: '200px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {value}
+          </span>
+        );
+      },
     },
   ];
 
   const table = useTableConfig(data, columns);
 
   return (
-    <div>
+    <div className="hr-table-container hr-animate-in">
       <MaterialReactTable table={table} />
     </div>
   );

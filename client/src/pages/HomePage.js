@@ -52,14 +52,14 @@ import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 // Import Utility Tool
 import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
 
-//import Report 
+//import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
 import MonthlyContainers from "../components/Report/monthlyContainers.js";
 import DetailedReport from "../components/Report/DetailedReport.js";
 
 // import auditrail
 import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
-// import billing 
+// import billing
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
 
 import EditPaymentRequest from "../components/Import-billing/EditPaymentRequest.js";
@@ -85,7 +85,6 @@ import DutyCalculator from "../components/import-utility-tool/duty-calculator/Du
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 
-
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
 import { AnalyticsProvider } from "../components/analytics/AnalyticsContext";
@@ -100,8 +99,6 @@ import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 
-
-
 // Open Points
 
 import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
@@ -111,9 +108,15 @@ import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js"
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
 
+// KPI Module
+import KPIHome from "../components/kpi/KPIHome.js";
+import KPISheet from "../components/kpi/KPISheet.js";
+import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
+import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
+import MRMHome from "../components/mrm/MRMHome.js";
+import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
+
 const drawerWidth = 60;
-
-
 
 function HomePage() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -143,12 +146,12 @@ function HomePage() {
                 flexGrow: 1,
                 width: {
                   lg: `calc(100% - ${drawerWidth}px)`,
-                  backgroundColor: "#F9FAFB",
-                  height: "100vh",
-                  overflow: "scroll",
-                  padding: "20px",
-                  paddingTop: 0,
                 },
+                backgroundColor: "#F9FAFB",
+                height: "100vh",
+                overflow: "scroll",
+                padding: "20px",
+                paddingTop: 0,
               }}
             >
               <Toolbar />
@@ -159,13 +162,7 @@ function HomePage() {
                 <Route path="/profile/:username" element={<UserProfile />} />
 
                 {/* Protected Routes */}
-                <Route
-                  path="/assign"
-                  element={
-
-                    <Assign />
-                  }
-                />
+                <Route path="/assign" element={<Assign />} />
 
                 {/* Accounts */}
                 <Route
@@ -609,15 +606,184 @@ function HomePage() {
                   }
                 />
 
-                {/* Project Nucleus */}
+                {/* Screens */}
                 <Route
-                  path="/project-nucleus"
+                  path="/screen1"
                   element={
-                    <NucleusHome />
+                    <ProtectedRoute requiredModule="Screen1">
+                      <Screen1 />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/screen2"
+                  element={
+                    <ProtectedRoute requiredModule="Screen2">
+                      <Screen2 />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/screen3"
+                  element={
+                    <ProtectedRoute requiredModule="Screen3">
+                      <Screen3 />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/screen4"
+                  element={
+                    <ProtectedRoute requiredModule="Screen4">
+                      <Screen4 />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/screen5"
+                  element={
+                    <ProtectedRoute requiredModule="Screen5">
+                      <Screen5 />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/screen6"
+                  element={
+                    <ProtectedRoute requiredModule="Screen6">
+                      <Screen6 />
+                    </ProtectedRoute>
                   }
                 />
 
+                {/* Inward Register */}
+                <Route
+                  path="/inward-register"
+                  element={
+                    <ProtectedRoute requiredModule="Inward Register">
+                      <InwardRegister />
+                    </ProtectedRoute>
+                  }
+                />
 
+                {/* Outward Register */}
+                <Route
+                  path="/outward-register"
+                  element={
+                    <ProtectedRoute requiredModule="Outward Register">
+                      <OutwardRegister />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/outward-register-details/:_id"
+                  element={
+                    <ProtectedRoute requiredModule="Outward Register">
+                      <OutwardRegisterDetails />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route path="/release-notes" element={<ReleaseNotes />} />
+                <Route path="/feedback" element={<Feedback />} />
+
+                {/* Analytics */}
+
+                <Route
+                  path="/analytics"
+                  element={
+                    <ProtectedRoute requiredModule="Report">
+                      <AnalyticsProvider>
+                        <AnalyticsLayout />
+                      </AnalyticsProvider>
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Navigate to="overview" replace />} />
+                  <Route path="overview" element={<OverviewDashboard />} />
+                  <Route path="movement" element={<MovementDashboard />} />
+                  <Route path="customs" element={<CustomsDashboard />} />
+                  <Route
+                    path="documentation"
+                    element={<DocumentationDashboard />}
+                  />
+                  <Route path="submission" element={<SubmissionDashboard />} />
+                  <Route path="esanchit" element={<ESanchitDashboard />} />
+                  <Route path="operations" element={<OperationsDashboard />} />
+                  <Route
+                    path="do-management"
+                    element={<DoManagementDashboard />}
+                  />
+                  <Route path="billing" element={<BillingDashboard />} />
+                  <Route path="exceptions" element={<ExceptionsDashboard />} />
+                </Route>
+
+                {/* MRM Module */}
+                <Route
+                  path="/mrm"
+                  element={
+                    <ProtectedRoute requiredModule="MRM">
+                      <MRMHome />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/mrm/admin"
+                  element={
+                    <ProtectedRoute requiredModule="MRM">
+                      <MRMAdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Open Points - New Module */}
+                <Route path="/open-points" element={<OpenPointsHome />} />
+
+                <Route
+                  path="/open-points/analytics"
+                  element={<AnalyticsDashboard />}
+                />
+                <Route
+                  path="/open-points/project/:projectId"
+                  element={<ProjectWorkspace />}
+                />
+
+                {/* KPI Module */}
+                <Route
+                  path="/kpi"
+                  element={
+                    <ProtectedRoute requiredModule="KPI">
+                      <KPIHome />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/kpi/sheet/:sheetId"
+                  element={
+                    <ProtectedRoute requiredModule="KPI">
+                      <KPISheet />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/kpi/templates"
+                  element={
+                    <ProtectedRoute requiredModule="KPI">
+                      <KPITemplateManager />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/kpi/admin"
+                  element={
+                    <ProtectedRoute requiredModule="KPI">
+                      <KPIAdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Project Nucleus */}
+                <Route path="/project-nucleus" element={<NucleusHome />} />
               </Routes>
             </Box>
           </Box>

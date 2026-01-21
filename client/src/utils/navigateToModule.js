@@ -22,6 +22,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/import-do");
     case "Inward Register":
       return navigate("/inward-register");
+    case "Export":
+      return navigate("https://export.alvision.in");
     case "Outward Register":
       return navigate("/outward-register");
     case "Accounts":
@@ -53,6 +55,10 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/screen6");
     case "Open Points":
       return navigate("/open-points");
+    case "KPI":
+      return navigate("/kpi");
+    case "MRM":
+      return navigate("/mrm");
     default:
       return navigate("/home");
   }

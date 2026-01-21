@@ -8,10 +8,11 @@ import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import LockResetIcon from "@mui/icons-material/LockReset";
-import DescriptionIcon from '@mui/icons-material/Description';
-import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
-import InsightsIcon from '@mui/icons-material/Insights';
-import HubIcon from '@mui/icons-material/Hub';
+import DescriptionIcon from "@mui/icons-material/Description";
+import CurrencyExchangeIcon from "@mui/icons-material/CurrencyExchange";
+import InsightsIcon from "@mui/icons-material/Insights";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import HubIcon from "@mui/icons-material/Hub";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -55,7 +56,7 @@ function Sidebar() {
       </Tooltip>
 
       {user.role === "Admin" && (
-        <Tooltip title="Assign Module" enterDelay={0} placement="right">
+        <Tooltip title="Admin" enterDelay={0} placement="right">
           <ListItemButton
             className="appbar-links"
             aria-label="list-item"
@@ -109,8 +110,6 @@ function Sidebar() {
           </Tooltip>
         )
       }
-
-
 
       <Tooltip title="Release Notes" enterDelay={0} placement="right">
         <ListItemButton

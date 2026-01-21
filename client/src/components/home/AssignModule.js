@@ -1,15 +1,6 @@
 import React, { useEffect, useState } from "react";
-import Grid from "@mui/material/Grid";
-import List from "@mui/material/List";
-import Card from "@mui/material/Card";
-import CardHeader from "@mui/material/CardHeader";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import Checkbox from "@mui/material/Checkbox";
-import Button from "@mui/material/Button";
-import Divider from "@mui/material/Divider";
 import axios from "axios";
+import { Transfer, Card, message, Spin, Empty } from "antd";
 
 const allModules = [
   "Import - DSR",
@@ -32,201 +23,100 @@ const allModules = [
   "Documentation",
   "Submission",
   "Screen1",
-
   "Screen2",
   "Screen3",
   "Screen4",
   "Open Points",
+  "KPI",
+  "MRM",
 ];
 
-function not(a, b) {
-  return a.filter((value) => b.indexOf(value) === -1);
-}
+function AssignModule({ selectedUser }) {
+  const [targetKeys, setTargetKeys] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-function intersection(a, b) {
-  return a.filter((value) => b.indexOf(value) !== -1);
-}
+  // Transform modules to Transfer data source format
+  const mockData = allModules.map((module) => ({
+    key: module,
+    title: module,
+  }));
 
-function union(a, b) {
-  return [...a, ...not(b, a)];
-}
-
-function AssignModule(props) {
-  const [checked, setChecked] = useState([]);
-  const [right, setRight] = useState([]);
-
-  const unAssignedModules = allModules
-    .sort()
-    .filter((module) => right?.includes(module));
-  const [left, setLeft] = useState(unAssignedModules);
-
-  const leftChecked = intersection(checked, left);
-  const rightChecked = intersection(checked, right);
-
-  const handleToggle = (value) => () => {
-    const currentIndex = checked.indexOf(value);
-    const newChecked = [...checked];
-
-    if (currentIndex === -1) {
-      newChecked.push(value);
-    } else {
-      newChecked.splice(currentIndex, 1);
-    }
-
-    setChecked(newChecked);
-  };
-
-  const numberOfChecked = (items) => intersection(checked, items)?.length;
-
-  const handleToggleAll = (items) => () => {
-    if (numberOfChecked(items) === items.length) {
-      setChecked(not(checked, items));
-    } else {
-      setChecked(union(checked, items));
-    }
-  };
-
-  const handleAssignModule = async () => {
-    const newRight = right.concat(leftChecked).sort();
-    const newLeft = not(left, leftChecked).sort();
-    setRight(newRight);
-    setLeft(newLeft);
-    setChecked(not(checked, leftChecked));
-    await axios.post(`${process.env.REACT_APP_API_STRING}/assign-modules`, {
-      modules: leftChecked,
-      username: props.selectedUser,
-    });
-  };
-
-  const handleUnassignModule = async () => {
-    const newLeft = left.concat(rightChecked).sort();
-    const newRight = not(right, rightChecked).sort();
-    setLeft(newLeft);
-    setRight(newRight);
-    setChecked(not(checked, rightChecked));
-    await axios.post(`${process.env.REACT_APP_API_STRING}/unassign-modules`, {
-      modules: rightChecked,
-      username: props.selectedUser,
-    });
-  };
-
-  // Fetch modules of selected user
   useEffect(() => {
     async function getUserModules() {
-      if (props.selectedUser) {
-        const res = await axios(
-          `${process.env.REACT_APP_API_STRING}/get-user/${props.selectedUser}`
-        );
+      if (!selectedUser) {
+        setTargetKeys([]);
+        return;
+      }
 
-        setRight(res.data.modules?.sort());
-        setLeft(
-          allModules
-            .sort()
-            .filter((module) => !res.data.modules?.includes(module))
+      setLoading(true);
+      try {
+        const res = await axios(
+          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
         );
-      } else {
-        setLeft([]);
-        setRight([]);
+        const userModules = res.data.modules || [];
+        // Filter out any modules that might be in DB but not in our static list effectively ensures valid keys
+        setTargetKeys(userModules.filter(m => allModules.includes(m)));
+      } catch (error) {
+        console.error("Error fetching user modules:", error);
+        message.error("Failed to fetch user modules");
+      } finally {
+        setLoading(false);
       }
     }
 
     getUserModules();
-    // eslint-disable-next-line
-  }, [props.selectedUser]);
+  }, [selectedUser]);
 
-  const customList = (title, items) => (
-    <Card>
-      <CardHeader
-        sx={{ px: 2 }}
-        avatar={
-          <Checkbox
-            onClick={handleToggleAll(items)}
-            checked={
-              numberOfChecked(items) === items?.length && items?.length !== 0
-            }
-            indeterminate={
-              numberOfChecked(items) !== items?.length &&
-              numberOfChecked(items) !== 0
-            }
-            disabled={items?.length === 0}
-            inputProps={{
-              "aria-label": "all items selected",
-            }}
-          />
-        }
-        title={title}
-        subheader={`${numberOfChecked(items)}/${items?.length} selected`}
-      />
-      <Divider />
-      <List
-        sx={{
-          width: 400,
-          height: 550,
-          bgcolor: "background.paper",
-          overflow: "auto",
-        }}
-        dense
-        component="div"
-        role="list"
-      >
-        {items?.map((value) => {
-          const labelId = `transfer-list-all-item-${value}-label`;
+  const onChange = async (nextTargetKeys, direction, moveKeys) => {
+    // innovative UI: optimistic update
+    setTargetKeys(nextTargetKeys);
 
-          return (
-            <ListItemButton
-              key={value}
-              role="listitem"
-              onClick={handleToggle(value)}
-            >
-              <ListItemIcon>
-                <Checkbox
-                  checked={checked.indexOf(value) !== -1}
-                  tabIndex={-1}
-                  disableRipple
-                  inputProps={{
-                    "aria-labelledby": labelId,
-                  }}
-                />
-              </ListItemIcon>
-              <ListItemText id={labelId} primary={value} />
-            </ListItemButton>
-          );
-        })}
-      </List>
-    </Card>
-  );
+    try {
+      if (direction === "right") {
+        // Assign modules
+        await axios.post(`${process.env.REACT_APP_API_STRING}/assign-modules`, {
+          modules: moveKeys,
+          username: selectedUser,
+        });
+        message.success(`Assigned ${moveKeys.length} module(s)`);
+      } else {
+        // Unassign modules
+        await axios.post(`${process.env.REACT_APP_API_STRING}/unassign-modules`, {
+          modules: moveKeys,
+          username: selectedUser,
+        });
+        message.success(`Removed ${moveKeys.length} module(s)`);
+      }
+    } catch (error) {
+      console.error("Error updating modules:", error);
+      message.error("Failed to update modules");
+      // Revert state if API fails (optional but good practice, though simple fetch refresh works too)
+      // For now, let's keep it simple as we fetch often
+    }
+  };
+
+  if (!selectedUser) {
+    return <Empty description="Please select a user first" />;
+  }
 
   return (
-    <div>
-      <Grid container spacing={2} justifyContent="center" alignItems="center">
-        <Grid item>{customList("Available Modules", left)}</Grid>
-        <Grid item>
-          <Grid container direction="column" alignItems="center">
-            <Button
-              sx={{ my: 0.5 }}
-              variant="outlined"
-              size="small"
-              onClick={handleAssignModule}
-              disabled={leftChecked?.length === 0}
-              aria-label="move selected right"
-            >
-              &gt;
-            </Button>
-            <Button
-              sx={{ my: 0.5 }}
-              variant="outlined"
-              size="small"
-              onClick={handleUnassignModule}
-              disabled={rightChecked?.length === 0}
-              aria-label="move selected left"
-            >
-              &lt;
-            </Button>
-          </Grid>
-        </Grid>
-        <Grid item>{customList("Assigned Modules", right)}</Grid>
-      </Grid>
-    </div>
+    <Card title="Assign Modules" size="small">
+      <Spin spinning={loading}>
+        <Transfer
+          dataSource={mockData}
+          titles={["Available", "Assigned"]}
+          targetKeys={targetKeys}
+          onChange={onChange}
+          render={(item) => item.title}
+          listStyle={{
+            width: '45%',
+            height: 400,
+          }}
+          showSearch
+          pagination
+        />
+      </Spin>
+    </Card>
   );
 }
 

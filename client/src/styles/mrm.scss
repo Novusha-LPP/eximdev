@@ -1,0 +1,545 @@
+.mrm-container {
+    width: 100%;
+    min-height: 100vh;
+    background: #f5f5f5;
+    padding: 0;
+    font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    // Title Bar - Centered with User Name
+    .title-bar {
+        background: linear-gradient(135deg, #185a32 0%, #217346 50%, #2d8a56 100%);
+        padding: 20px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+        .title-center {
+            text-align: center;
+
+            h1 {
+                color: white;
+                font-size: 1.5rem;
+                font-weight: 700;
+                margin: 0;
+                letter-spacing: -0.5px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+
+            .user-name {
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 0.9rem;
+                font-weight: 400;
+                margin-top: 4px;
+                display: block;
+            }
+        }
+
+        .help-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+
+            &:hover {
+                background: rgba(255, 255, 255, 0.3);
+                transform: scale(1.02);
+            }
+        }
+
+        .title-buttons {
+            position: absolute;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 10px;
+        }
+    }
+
+    // Controls Bar
+    .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #e8f5e9;
+        padding: 12px 24px;
+        border-bottom: 1px solid #c8e6c9;
+
+        .date-controls {
+            display: flex;
+            gap: 20px;
+
+            .date-field {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+
+                label {
+                    color: #2e7d32;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                }
+
+                input[type="date"] {
+                    padding: 8px 12px;
+                    border: 1px solid #a5d6a7;
+                    border-radius: 6px;
+                    font-size: 0.85rem;
+                    background: white;
+                    color: #1b5e20;
+                    font-weight: 500;
+
+                    &:focus {
+                        outline: 2px solid #217346;
+                        border-color: #217346;
+                    }
+                }
+            }
+        }
+
+        .status-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 20px;
+            padding-left: 20px;
+            border-left: 1px solid #c8e6c9;
+
+            label {
+                color: #2e7d32;
+                font-size: 0.85rem;
+                font-weight: 600;
+            }
+
+            .filter-buttons {
+                display: flex;
+                gap: 4px;
+
+                .filter-btn {
+                    padding: 6px 12px;
+                    border: 1px solid #d1d5db;
+                    background: white;
+                    border-radius: 6px;
+                    font-size: 0.8rem;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    font-weight: 500;
+
+                    &:hover {
+                        background: #f3f4f6;
+                    }
+
+                    &.active {
+                        background: #374151;
+                        color: white;
+                        border-color: #374151;
+                    }
+
+                    &.green.active {
+                        background: #166534;
+                        border-color: #166534;
+                    }
+
+                    &.yellow.active {
+                        background: #a16207;
+                        border-color: #a16207;
+                    }
+
+                    &.red.active {
+                        background: #dc2626;
+                        border-color: #dc2626;
+                    }
+
+                    &.gray.active {
+                        background: #6b7280;
+                        border-color: #6b7280;
+                    }
+                }
+            }
+        }
+
+        .action-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+
+            select {
+                padding: 8px 12px;
+                border: 1px solid #a5d6a7;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                background: white;
+                color: #1b5e20;
+                font-weight: 500;
+                cursor: pointer;
+
+                &:focus {
+                    outline: 2px solid #217346;
+                }
+
+                // Admin user selector - highlighted
+                &.user-selector {
+                    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                    border: 2px solid #1976d2;
+                    color: #1565c0;
+                    font-weight: 600;
+                    min-width: 180px;
+
+                    &:focus {
+                        outline: 2px solid #1976d2;
+                    }
+                }
+            }
+
+            button {
+                background: #217346;
+                color: white;
+                border: none;
+                padding: 10px 18px;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 0.85rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: #1b5e20;
+                    transform: translateY(-1px);
+                }
+
+                &.secondary {
+                    background: white;
+                    color: #217346;
+                    border: 1px solid #217346;
+
+                    &:hover {
+                        background: #e8f5e9;
+                    }
+                }
+            }
+        }
+    }
+
+    // Modern Excel 2024 Grid
+    .data-grid-container {
+        background: white;
+        margin: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: auto;
+        max-height: calc(100vh - 200px);
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 1800px;
+
+            th {
+                background: #f8fafc;
+                color: #374151;
+                font-weight: 600;
+                text-align: left;
+                padding: 14px 12px;
+                font-size: 0.75rem;
+                border-bottom: 2px solid #e5e7eb;
+                white-space: nowrap;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+
+                &:first-child {
+                    border-top-left-radius: 12px;
+                }
+
+                &:last-child {
+                    position: sticky;
+                    right: 0;
+                    z-index: 11;
+                    background: #f8fafc;
+                    border-top-right-radius: 12px;
+                    border-left: 1px solid #e5e7eb;
+                }
+            }
+
+            td {
+                border-bottom: 1px solid #e5e7eb;
+                border-right: 1px solid #f1f5f9;
+                padding: 0;
+                vertical-align: middle;
+                background: white;
+                transition: background 0.15s ease;
+
+                &:last-child {
+                    position: sticky;
+                    right: 0;
+                    background: #fafbfc;
+                    border-left: 1px solid #e5e7eb;
+                    z-index: 5;
+                }
+
+                input,
+                textarea,
+                select {
+                    width: 100%;
+                    border: none;
+                    padding: 4px 8px;
+                    font-family: inherit;
+                    font-size: 0.8rem;
+                    background: transparent;
+                    resize: none;
+                    color: #1f2937;
+                    line-height: 1.3;
+                    min-height: 28px;
+                    text-align: left;
+                    vertical-align: top;
+
+                    &::placeholder {
+                        color: #9ca3af;
+                    }
+
+                    &:hover {
+                        background: #f0fdf4;
+                    }
+
+                    &:focus {
+                        background: #e6f7ff;
+                        outline: none;
+                        z-index: 2;
+                        position: relative;
+                    }
+                }
+
+                textarea {
+                    min-height: 28px;
+                    max-height: 60px;
+                    padding: 4px 8px;
+                    overflow: hidden;
+                }
+            }
+
+            tbody tr {
+                &:hover td {
+                    background: #f0fdf4;
+                }
+
+                &:last-child td:first-child {
+                    border-bottom-left-radius: 12px;
+                }
+
+                &:last-child td:last-child {
+                    border-bottom-right-radius: 12px;
+                }
+            }
+
+            tr.row-dirty {
+                td {
+                    background: #fffbeb;
+                }
+
+                td:first-child {
+                    box-shadow: inset 3px 0 0 #f59e0b;
+                }
+            }
+        }
+    }
+
+    // Modern Status Badges
+    .status-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+        display: block;
+        width: 100%;
+        padding: 4px 2px;
+        cursor: pointer;
+        border-radius: 0;
+        transition: all 0.2s ease;
+
+        &.Green {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+        }
+
+        &.Red {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+        }
+
+        &.Yellow {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+        }
+
+        &.Gray {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            color: #6b7280;
+        }
+    }
+}
+
+// Modern Modal
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+
+    .modal-content {
+        background: white;
+        padding: 28px;
+        border-radius: 16px;
+        width: 400px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+        h2 {
+            margin: 0 0 20px 0;
+            color: #217346;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        h3 {
+            color: #374151;
+            font-size: 1rem;
+            margin: 20px 0 10px 0;
+            font-weight: 600;
+        }
+
+        p {
+            color: #4b5563;
+            line-height: 1.6;
+            margin: 0 0 10px 0;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin: 0 0 15px 0;
+
+            li {
+                color: #4b5563;
+                margin-bottom: 6px;
+                line-height: 1.5;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+
+            label {
+                display: block;
+                margin-bottom: 6px;
+                color: #374151;
+                font-size: 0.875rem;
+                font-weight: 500;
+            }
+
+            select,
+            input {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 0.875rem;
+                transition: all 0.2s ease;
+
+                &:focus {
+                    outline: none;
+                    border-color: #217346;
+                    box-shadow: 0 0 0 3px rgba(33, 115, 70, 0.1);
+                }
+            }
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 24px;
+
+            button {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 0.875rem;
+                transition: all 0.2s ease;
+
+                &.cancel {
+                    background: #f3f4f6;
+                    color: #374151;
+
+                    &:hover {
+                        background: #e5e7eb;
+                    }
+                }
+
+                &.confirm {
+                    background: linear-gradient(135deg, #217346 0%, #2d8a56 100%);
+                    color: white;
+                    box-shadow: 0 2px 8px rgba(33, 115, 70, 0.3);
+
+                    &:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(33, 115, 70, 0.4);
+                    }
+                }
+            }
+        }
+
+        // Help Modal Specific
+        &.help-modal {
+            width: 750px;
+            max-width: 90vw;
+
+            .help-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+
+                td {
+                    padding: 10px 12px;
+                    border-bottom: 1px solid #e5e7eb;
+                    font-size: 0.85rem;
+                    vertical-align: top;
+
+                    &:first-child {
+                        width: 35%;
+                        background: #f9fafb;
+                        color: #374151;
+                    }
+
+                    &:last-child {
+                        color: #6b7280;
+                    }
+                }
+
+                tr:last-child td {
+                    border-bottom: none;
+                }
+            }
+        }
+    }
+}

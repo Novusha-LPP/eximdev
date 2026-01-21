@@ -14,9 +14,16 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  deactivatedAt: {
+    type: Date,
+  },
   can_access_exim_bot: {
     type: Boolean,
-    default: false
+    default: false,
   },
   modules: [
     {

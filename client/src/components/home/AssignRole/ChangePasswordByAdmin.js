@@ -1,35 +1,33 @@
 import React, { useState, useContext, useEffect } from "react";
 import axios from "axios";
 import {
-  TextField,
+  Form,
+  Input,
   Button,
-  Paper,
+  Card,
   Typography,
-  Box,
   Alert,
-  CircularProgress
-} from "@mui/material";
+  message,
+  Space
+} from "antd";
+import { LockOutlined } from "@ant-design/icons";
 import { UserContext } from "../../../contexts/UserContext";
 
 function ChangePasswordByAdmin({ selectedUser }) {
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ text: "", type: "" });
   const [userData, setUserData] = useState(null);
   const { user } = useContext(UserContext);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     // Reset form when selected user changes
-    setNewPassword("");
-    setConfirmPassword("");
-    setMessage({ text: "", type: "" });
-    
+    form.resetFields();
+
     // Fetch user data to check role
     if (selectedUser) {
       fetchUserData();
     }
-  }, [selectedUser]);
+  }, [selectedUser, form]);
 
   const fetchUserData = async () => {
     try {
@@ -39,36 +37,27 @@ function ChangePasswordByAdmin({ selectedUser }) {
       setUserData(res.data);
     } catch (error) {
       console.error("Error fetching user data:", error);
-      setMessage({ 
-        text: "Error fetching user information", 
-        type: "error" 
-      });
+      message.error("Error fetching user information");
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (!newPassword || !confirmPassword) {
-      setMessage({ text: "Please fill in all fields", type: "error" });
-      return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      setMessage({ text: "Passwords do not match", type: "error" });
-      return;
-    }
+  const onFinish = async (values) => {
+    const { newPassword, confirmPassword } = values;
 
-    // Password strength validation
-    if (newPassword.length < 8) {
-      setMessage({ text: "Password must be at least 8 characters long", type: "error" });
+    // Additional validation if needed, though Form rules handle most
+    if (newPassword !== confirmPassword) {
+      form.setFields([
+        {
+          name: 'confirmPassword',
+          errors: ['Passwords do not match'],
+        },
+      ]);
       return;
     }
 
     // Check if current user is admin and target user is also admin
     if (userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username) {
-      setMessage({ text: "Admin cannot change another admin's password", type: "error" });
+      message.error("Admin cannot change another admin's password");
       return;
     }
 
@@ -82,30 +71,18 @@ function ChangePasswordByAdmin({ selectedUser }) {
           adminUsername: user.username
         }
       );
-      
-      setMessage({ text: response.data.message, type: "success" });
-      // Reset form fields after successful password change
-      setNewPassword("");
-      setConfirmPassword("");
+
+      message.success(response.data.message || "Password changed successfully");
+      form.resetFields();
     } catch (error) {
       console.error("Error changing password:", error);
-      
-      // Handle specific error cases
+
       if (error.response?.status === 403) {
-        setMessage({ 
-          text: error.response.data.message || "Unauthorized action", 
-          type: "error" 
-        });
+        message.error(error.response.data.message || "Unauthorized action");
       } else if (error.response?.status === 404) {
-        setMessage({ 
-          text: "User not found", 
-          type: "error" 
-        });
+        message.error("User not found");
       } else {
-        setMessage({ 
-          text: error.response?.data?.message || "Error changing password", 
-          type: "error" 
-        });
+        message.error(error.response?.data?.message || "Error changing password");
       }
     } finally {
       setLoading(false);
@@ -113,55 +90,65 @@ function ChangePasswordByAdmin({ selectedUser }) {
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3, mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Change Password for {selectedUser}
-      </Typography>
-      
-      {message.text && (
-        <Alert severity={message.type === "success" ? "success" : "error"} sx={{ mb: 2 }}>
-          {message.text}
-        </Alert>
-      )}
-      
+    <Card
+      title={`Change Password for ${selectedUser || '...'}`}
+      bordered={false}
+      style={{ maxWidth: 600 }}
+    >
       {userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username ? (
-        <Alert severity="warning">
-          Admin cannot change another admin's password
-        </Alert>
+        <Alert
+          type="warning"
+          message="Restricted Action"
+          description="Admin cannot change another admin's password."
+          showIcon
+        />
       ) : (
-        <Box component="form" onSubmit={handleSubmit}>
-          <TextField
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={onFinish}
+          autoComplete="off"
+        >
+          <Form.Item
+            name="newPassword"
             label="New Password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            fullWidth
-            margin="normal"
-            size="small"
-          />
-          
-          <TextField
-            label="Confirm New Password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            fullWidth
-            margin="normal"
-            size="small"
-          />
-          
-          <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary" 
-            sx={{ mt: 2 }}
-            disabled={loading}
+            rules={[
+              { required: true, message: 'Please input the new password!' },
+              { min: 8, message: 'Password must be at least 8 characters long' }
+            ]}
+            hasFeedback
           >
-            {loading ? <CircularProgress size={24} /> : "Change Password"}
-          </Button>
-        </Box>
+            <Input.Password prefix={<LockOutlined />} placeholder="Enter new password" />
+          </Form.Item>
+
+          <Form.Item
+            name="confirmPassword"
+            label="Confirm New Password"
+            dependencies={['newPassword']}
+            hasFeedback
+            rules={[
+              { required: true, message: 'Please confirm the new password!' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('The two passwords that you entered do not match!'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password prefix={<LockOutlined />} placeholder="Confirm new password" />
+          </Form.Item>
+
+          <Form.Item>
+            <Button type="primary" htmlType="submit" loading={loading} disabled={!selectedUser}>
+              Change Password
+            </Button>
+          </Form.Item>
+        </Form>
       )}
-    </Paper>
+    </Card>
   );
 }
 

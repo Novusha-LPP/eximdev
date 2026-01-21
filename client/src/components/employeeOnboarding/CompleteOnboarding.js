@@ -1,7 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useFormik } from "formik";
 import { MenuItem, TextField } from "@mui/material";
-import { Row, Col } from "react-bootstrap";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import Snackbar from "@mui/material/Snackbar";
@@ -37,222 +36,138 @@ function CompleteOnboarding() {
     .filter(Boolean)
     .join(" ");
 
+  // Compact Field Component
+  const Field = ({ label, children }) => (
+    <div className="hr-compact-field">
+      <label className="hr-field-label">{label}</label>
+      {children}
+    </div>
+  );
+
+  // Compact File Upload
+  const FileUpload = ({ label, field, accept = "*/*" }) => (
+    <div className={`hr-compact-file-upload ${formik.values[field] ? 'uploaded' : ''}`}>
+      <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--hr-text-label)' }}>{label}</span>
+      <input
+        type="file"
+        accept={accept}
+        onChange={(e) =>
+          handleSingleFileUpload(e, field, "kyc", formik, setFileSnackbar)
+        }
+      />
+      {formik.values[field] && (
+        <span className="file-status">
+          ✓ <a href={formik.values[field]} target="_blank" rel="noopener noreferrer">View</a>
+        </span>
+      )}
+      {formik.touched[field] && formik.errors[field] && (
+        <span style={{ color: 'var(--hr-error)', fontSize: '0.7rem' }}>{formik.errors[field]}</span>
+      )}
+    </div>
+  );
+
   return (
     <form onSubmit={formik.handleSubmit}>
-      Name:&nbsp;
-      {employee_name}
-      <br />
-      Email:&nbsp;{user.email}
-      <br />
-      Company:&nbsp;{user.company}
-      <br />
-      Employment Type:&nbsp;{user.employment_type}
-      <br />
-      <Row>
-        <Col xs={4}>
-          <TextField
-            size="small"
-            margin="dense"
-            variant="filled"
-            fullWidth
-            id="skill"
-            name="skill"
-            label="Skill/Hobby"
-            value={formik.values.skill}
-            onChange={formik.handleChange}
-            error={formik.touched.skill && Boolean(formik.errors.skill)}
-            helperText={formik.touched.skill && formik.errors.skill}
-            className="login-input"
-          />
-        </Col>
+      {/* Employee Header */}
+      <div className="hr-compact-employee-header">
+        <div className="emp-avatar">{employee_name.charAt(0)}</div>
+        <div className="emp-info">
+          <span className="emp-name">{employee_name}</span>
+          <span className="emp-detail">Email: {user.email}</span>
+          <span className="emp-detail">Company: {user.company}</span>
+          <span className="emp-detail">Type: {user.employment_type}</span>
+        </div>
+      </div>
 
-        <Col xs={4}>
-          <TextField
-            select
-            size="small"
-            margin="dense"
-            variant="filled"
-            fullWidth
-            id="company_policy_visited"
-            name="company_policy_visited"
-            label="Gone through company policy?"
-            value={formik.values.company_policy_visited}
-            onChange={formik.handleChange}
-            error={
-              formik.touched.company_policy_visited &&
-              Boolean(formik.errors.company_policy_visited)
-            }
-            helperText={
-              formik.touched.company_policy_visited &&
-              formik.errors.company_policy_visited
-            }
-            className="login-input"
-          >
-            <MenuItem value="Yes">Yes</MenuItem>
-            <MenuItem value="No">No</MenuItem>
-          </TextField>
-        </Col>
+      {/* Two Column Layout */}
+      <div className="hr-compact-layout">
+        {/* LEFT COLUMN */}
+        <div>
+          {/* Skills & Compliance */}
+          <div className="hr-compact-section">
+            <div className="hr-section-header">Skills & Compliance</div>
+            <div className="hr-section-body">
+              <div className="hr-compact-grid cols-1">
+                <Field label="Skill / Hobby">
+                  <TextField
+                    size="small"
+                    variant="filled"
+                    fullWidth
+                    name="skill"
+                    value={formik.values.skill}
+                    onChange={formik.handleChange}
+                    error={formik.touched.skill && Boolean(formik.errors.skill)}
+                    className="hr-quick-input"
+                    placeholder="Enter your skill or hobby"
+                  />
+                </Field>
+              </div>
+              <div className="hr-compact-grid cols-2" style={{ marginTop: '10px' }}>
+                <Field label="Company Policy Reviewed?">
+                  <TextField
+                    select
+                    size="small"
+                    variant="filled"
+                    fullWidth
+                    name="company_policy_visited"
+                    value={formik.values.company_policy_visited}
+                    onChange={formik.handleChange}
+                    error={formik.touched.company_policy_visited && Boolean(formik.errors.company_policy_visited)}
+                    className="hr-quick-input"
+                  >
+                    <MenuItem value="">Select</MenuItem>
+                    <MenuItem value="Yes">Yes</MenuItem>
+                    <MenuItem value="No">No</MenuItem>
+                  </TextField>
+                </Field>
+                <Field label="Introduction with MD?">
+                  <TextField
+                    select
+                    size="small"
+                    variant="filled"
+                    fullWidth
+                    name="introduction_with_md"
+                    value={formik.values.introduction_with_md}
+                    onChange={formik.handleChange}
+                    error={formik.touched.introduction_with_md && Boolean(formik.errors.introduction_with_md)}
+                    className="hr-quick-input"
+                  >
+                    <MenuItem value="">Select</MenuItem>
+                    <MenuItem value="Yes">Yes</MenuItem>
+                    <MenuItem value="No">No</MenuItem>
+                  </TextField>
+                </Field>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <Col xs={4}>
-          <TextField
-            select
-            size="small"
-            margin="dense"
-            variant="filled"
-            fullWidth
-            id="introduction_with_md"
-            name="introduction_with_md"
-            label="Introduction has been done with Rajan Sir?"
-            value={formik.values.introduction_with_md}
-            onChange={formik.handleChange}
-            error={
-              formik.touched.introduction_with_md &&
-              Boolean(formik.errors.introduction_with_md)
-            }
-            helperText={
-              formik.touched.introduction_with_md &&
-              formik.errors.introduction_with_md
-            }
-            className="login-input"
-          >
-            <MenuItem value="Yes">Yes</MenuItem>
-            <MenuItem value="No">No</MenuItem>
-          </TextField>
-        </Col>
-      </Row>
-      <br />
-      <Row>
-        <Col>
-          <label htmlFor="">Employee Photo:&nbsp;</label>
-          <input
-            type="file"
-            name=""
-            id=""
-            onChange={(e) =>
-              handleSingleFileUpload(
-                e,
-                "employee_photo",
-                "kyc",
-                formik,
-                setFileSnackbar
-              )
-            }
-          />
-          {formik.touched.employee_photo && formik.errors.employee_photo ? (
-            <div style={{ color: "#D32F2F" }}>
-              {formik.errors.employee_photo}
+        {/* RIGHT COLUMN */}
+        <div>
+          {/* Document Uploads */}
+          <div className="hr-compact-section">
+            <div className="hr-section-header">Document Uploads</div>
+            <div className="hr-section-body">
+              <div className="hr-compact-grid cols-2">
+                <FileUpload label="Employee Photo" field="employee_photo" accept="image/*" />
+                <FileUpload label="Resume / CV" field="resume" accept=".pdf,.doc,.docx" />
+                <FileUpload label="Address Proof" field="address_proof" />
+                {user.company === "Alluvium IoT Solutions Private Limited" && (
+                  <FileUpload label="Signed NDA" field="nda" accept=".pdf" />
+                )}
+              </div>
             </div>
-          ) : null}
-          {formik.values.employee_photo !== "" ? (
-            <>
-              <br />
-              <a href={formik.values.employee_photo}>
-                {formik.values.employee_photo}
-              </a>
-            </>
-          ) : (
-            ""
-          )}
-        </Col>
-        <Col>
-          <label htmlFor="">Upload Resume:&nbsp;</label>
-          <input
-            type="file"
-            name=""
-            id=""
-            onChange={(e) =>
-              handleSingleFileUpload(
-                e,
-                "resume",
-                "kyc",
-                formik,
-                setFileSnackbar
-              )
-            }
-          />
-          {formik.touched.resume && formik.errors.resume ? (
-            <div style={{ color: "#D32F2F" }}>{formik.errors.resume}</div>
-          ) : null}
-          {formik.values.resume !== "" ? (
-            <>
-              <br />
-              <a href={formik.values.resume}>{formik.values.resume}</a>
-            </>
-          ) : (
-            ""
-          )}
-        </Col>
-      </Row>
-      <br />
-      <Row>
-        <Col>
-          <label htmlFor="">Upload Address Proof:&nbsp;</label>
-          <input
-            type="file"
-            name=""
-            id=""
-            onChange={(e) =>
-              handleSingleFileUpload(
-                e,
-                "address_proof",
-                "kyc",
-                formik,
-                setFileSnackbar
-              )
-            }
-          />
-          {formik.touched.address_proof && formik.errors.address_proof ? (
-            <div style={{ color: "#D32F2F" }}>
-              {formik.errors.address_proof}
-            </div>
-          ) : null}
-          {formik.values.address_proof !== "" ? (
-            <>
-              <br />
-              <a href={formik.values.address_proof}>
-                {formik.values.address_proof}
-              </a>
-            </>
-          ) : (
-            ""
-          )}
-        </Col>
-        <Col>
-          {user.company === "Alluvium IoT Solutions Private Limited" && (
-            <>
-              <label htmlFor="">Upload Signed NDA:&nbsp;</label>
-              <input
-                type="file"
-                name=""
-                id=""
-                onChange={(e) =>
-                  handleSingleFileUpload(
-                    e,
-                    "nda",
-                    "kyc",
-                    formik,
-                    setFileSnackbar
-                  )
-                }
-              />
-              {formik.touched.nda && formik.errors.nda ? (
-                <div style={{ color: "#D32F2F" }}>{formik.errors.nda}</div>
-              ) : null}
-              {formik.values.nda !== "" ? (
-                <>
-                  <br />
-                  <a href={formik.values.nda}>{formik.values.nda}</a>
-                </>
-              ) : (
-                ""
-              )}
-            </>
-          )}
-        </Col>
-      </Row>
-      <button className="btn" type="submit">
-        Submit
-      </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Submit Button */}
+      <div className="hr-btn-row">
+        <button className="hr-compact-btn hr-compact-btn-primary" type="submit">
+          Complete Onboarding
+        </button>
+      </div>
+
       <Snackbar
         open={fileSnackbar}
         message="File uploaded successfully!"

@@ -1,238 +1,220 @@
 import React, { useState } from "react";
 import axios from "axios";
 import {
-  MenuItem,
-  TextField,
+  Form,
+  Select,
   Button,
   Card,
-  CardContent,
-  Typography,
+  Table,
   Avatar,
-  Grid,
-  CircularProgress,
-  Snackbar,
-  Alert,
-} from "@mui/material";
-import { useFormik } from "formik";
-import { Row, Col } from "react-bootstrap";
-import UserDetails from "./UserDetails.js"; // Import the UserDetails component
+  Tag,
+  Modal,
+  message,
+  Space,
+  Row,
+  Col,
+  Statistic
+} from "antd";
+import { UserOutlined, TeamOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import UserDetails from "./UserDetails.js";
+
+const { Option } = Select;
 
 function AssignRole({ selectedUser }) {
-  const [selectedRole, setSelectedRole] = useState("");
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    type: "",
-  });
+  const [form] = Form.useForm();
+  const [usersByRole, setUsersByRole] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [assigningScore, setAssigningScore] = useState(false); // loading state for assign
+
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [selectedUserDetails, setSelectedUserDetails] = useState(null);
 
-  const fetchUsersByRole = async (role) => {
-    if (!role) {
-      setUsers([]);
-      setErrorMessage("Please select a role to fetch users.");
+  // Role options
+  const roles = [
+    "Admin",
+    "Sr_Manager",
+    "Manager",
+    "Asst_Manager",
+    "Sr_Executive",
+    "Executive",
+    "Asst_Executive",
+    "User",
+  ];
+
+  const onFinish = async (values) => {
+    if (!selectedUser) {
+      message.warning("Please select a user first from the main dropdown.");
       return;
     }
 
-    setLoading(true);
-    setErrorMessage("");
+    setAssigningScore(true);
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/assign-role`,
+        {
+          role: values.role,
+          username: selectedUser,
+        }
+      );
+      message.success(res.data.message || "Role assigned successfully");
+      form.resetFields();
+    } catch (error) {
+      console.error("Error assigning role:", error);
+      message.error("Failed to assign role. Please try again.");
+    } finally {
+      setAssigningScore(false);
+    }
+  };
 
+  const fetchUsersByRole = async (role) => {
+    if (!role) {
+      setUsersByRole([]);
+      return;
+    }
+    setLoadingUsers(true);
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/users-by-role?role=${role}`
       );
-
       if (res.data.success && res.data.users.length === 0) {
-        setErrorMessage(res.data.message);
+        setUsersByRole([]);
+        message.info(res.data.message);
       } else {
-        setUsers(res.data.users);
+        setUsersByRole(res.data.users);
       }
     } catch (error) {
-      setErrorMessage("Failed to fetch users. Please try again later.");
-      console.error("Error fetching users by role:", error);
+      console.error("Error fetching users:", error);
+      message.error("Failed to fetch users");
     } finally {
-      setLoading(false);
+      setLoadingUsers(false);
     }
   };
 
-  const handleRoleChange = (event) => {
-    const role = event.target.value;
-    setSelectedRole(role);
-    fetchUsersByRole(role);
-  };
+  const columns = [
+    {
+      title: 'User',
+      key: 'user',
+      render: (_, record) => (
+        <Space>
+          <Avatar src={record.employee_photo} icon={<UserOutlined />} />
+          <span>{record.username}</span>
+        </Space>
+      ),
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role) => <Tag color="blue">{role}</Tag>,
+    },
+    {
+      title: 'Importers',
+      key: 'importers',
+      render: (_, record) => (
+        <span>{record.assigned_importer_name?.length || 0} Assigned</span>
+      ),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_, record) => (
+        <Button type="link" onClick={() => handleUserClick(record)}>
+          Details
+        </Button>
+      ),
+    },
+  ];
 
-  const handleBoxClick = (user) => {
+  const handleUserClick = (user) => {
     setSelectedUserDetails(user);
     setShowUserDetails(true);
   };
 
-  const closeUserDetails = () => {
-    setShowUserDetails(false);
-    setSelectedUserDetails(null);
-  };
-
-  // Define the handleUserUpdate function
   const handleUserUpdate = (updatedImporters) => {
     if (!selectedUserDetails) return;
-
-    setUsers((prevUsers) =>
-      prevUsers.map((user) =>
-        user._id === selectedUserDetails._id
-          ? { ...user, assigned_importer_name: updatedImporters }
-          : user
+    setUsersByRole((prev) =>
+      prev.map((u) =>
+        u._id === selectedUserDetails._id
+          ? { ...u, assigned_importer_name: updatedImporters }
+          : u
       )
     );
-
-    setSnackbar({
-      open: true,
-      message: "Importers updated successfully.",
-      type: "success",
-    });
-  };
-
-  const formik = useFormik({
-    initialValues: {
-      role: "",
-    },
-    onSubmit: async (values, { resetForm }) => {
-      if (!selectedUser) {
-        setSnackbar({
-          open: true,
-          message: "Please select a user",
-          type: "warning",
-        });
-        return;
-      }
-
-      const data = {
-        ...values,
-        username: selectedUser,
-      };
-
-      try {
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_STRING}/assign-role`,
-          data
-        );
-
-        setSnackbar({
-          open: true,
-          message: res.data.message,
-          type: "success",
-        });
-
-        resetForm();
-      } catch (error) {
-        console.error("Error assigning role:", error);
-
-        setSnackbar({
-          open: true,
-          message: "Failed to assign role. Please try again.",
-          type: "error",
-        });
-      }
-    },
-  });
-
-  const handleSnackbarClose = () => {
-    setSnackbar({ open: false, message: "", type: "" });
+    // message.success("Importers updated successfully") // handled in child or here? Original handled here.
+    // Actually UserDetails handles the save API, so we just update local state here
   };
 
   return (
-    <div className="job-details-container">
-      <h4>Assign Role</h4>
-      {showUserDetails ? (
-        <UserDetails
-          selectedUser={selectedUserDetails}
-          onClose={closeUserDetails}
-          onSave={handleUserUpdate} // Pass the onSave prop here
-        />
-      ) : (
-        <form onSubmit={formik.handleSubmit}>
-          <Row style={{ marginBottom: "20px" }}>
-            <Col xs={12} lg={2}>
-              <TextField
-                select
-                size="small"
-                margin="dense"
-                variant="filled"
-                fullWidth
-                label="Role"
-                value={formik.values.role}
-                onChange={(event) => {
-                  handleRoleChange(event);
-                  formik.setFieldValue("role", event.target.value);
-                }}
-                error={formik.touched.role && Boolean(formik.errors.role)}
-                helperText={formik.touched.role && formik.errors.role}
-                className="login-input"
-              >
-                <MenuItem value="Admin">Admin</MenuItem>
-                <MenuItem value="Sr_Manager">Sr. Manager</MenuItem>
-                <MenuItem value="Manager">Manager</MenuItem>
-                <MenuItem value="Asst_Manager">Asst. Manager</MenuItem>
-                <MenuItem value="Sr_Executive">Sr. Executive</MenuItem>
-                <MenuItem value="Executive">Executive</MenuItem>
-                <MenuItem value="Asst_Executive">Asst. Executive</MenuItem>
-                <MenuItem value="User">User</MenuItem>
-                <MenuItem value="">Clear</MenuItem>
-              </TextField>
-              <button className="btn" type="submit">
-                Submit
-              </button>
-            </Col>
-            <Col xs={12} lg={10}>
-              {loading ? (
-                <CircularProgress />
-              ) : errorMessage ? (
-                <Typography>{errorMessage}</Typography>
-              ) : (
-                <Grid container spacing={2}>
-                  {users.map((user) => (
-                    <Grid item xs={12} sm={6} md={4} key={user._id}>
-                      <Card
-                        onClick={() => handleBoxClick(user)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <CardContent>
-                          <Avatar
-                            src={user.employee_photo || "/default-avatar.png"}
-                            alt={user.username}
-                            style={{ marginBottom: "10px" }}
-                          />
-                          <Typography variant="h6">{user.username}</Typography>
-                          <Typography variant="body2">
-                            Role: {user.role}
-                          </Typography>
-                          <Typography variant="body2">
-                            Importers Assigned:
-                            {user.assigned_importer_name.length > 0
-                              ? user.assigned_importer_name.length
-                              : 0}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-            </Col>
-          </Row>
-        </form>
-      )}
+    <Space direction="vertical" style={{ width: "100%" }} size="large">
+      <Card title={<span><SafetyCertificateOutlined /> Assign Role to {selectedUser || "..."}</span>}>
+        <Form form={form} layout="inline" onFinish={onFinish}>
+          <Form.Item
+            name="role"
+            rules={[{ required: true, message: "Please select a role" }]}
+            style={{ minWidth: 200 }}
+          >
+            <Select placeholder="Select Role">
+              {roles.map((r) => (
+                <Option key={r} value={r}>
+                  {r.replace("_", ". ")}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" loading={assigningScore} disabled={!selectedUser}>
+              Update Role
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      <Card title={<span><TeamOutlined /> Browse Users by Role</span>}>
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Select
+            placeholder="Filter by role to view users"
+            style={{ width: 200 }}
+            onChange={fetchUsersByRole}
+            allowClear
+          >
+            {roles.map((r) => (
+              <Option key={r} value={r}>
+                {r.replace("_", ". ")}
+              </Option>
+            ))}
+          </Select>
+
+          <Table
+            dataSource={usersByRole}
+            columns={columns}
+            rowKey="_id"
+            loading={loadingUsers}
+            pagination={{ pageSize: 5 }}
+          />
+        </Space>
+      </Card>
+
+      {/* Reusing existing UserDetails logic but wrapped differently if needed, 
+          or we assume UserDetails renders its own modal? 
+          Original code: rendered UpdateDetails INSTEAD of the form.
+          Let's make it a Modal for better UX. */}
+
+      <Modal
+        title={`Details for ${selectedUserDetails?.username}`}
+        open={showUserDetails}
+        onCancel={() => setShowUserDetails(false)}
+        footer={null}
+        width={800}
+        destroyOnClose
       >
-        <Alert severity={snackbar.type}>{snackbar.message}</Alert>
-      </Snackbar>
-    </div>
+        {selectedUserDetails && (
+          <UserDetails
+            selectedUser={selectedUserDetails}
+            onClose={() => setShowUserDetails(false)}
+            onSave={handleUserUpdate}
+          />
+        )}
+      </Modal>
+    </Space>
   );
 }
 

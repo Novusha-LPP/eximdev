@@ -12,15 +12,16 @@ import os from "os";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import http from "http";
+import cron from "node-cron";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 import { initConnections, getConnection } from "./utils/connectionManager.mjs";
 import { branchContext } from "./utils/branchContext.mjs";
 import branchJobMiddleware from "./middleware/branchJobMiddleware.mjs";
+import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 
-
-// Import routes
+// Import modules/routes
 import getAllUsers from "./routes/getAllUsers.mjs";
 import getImporterList from "./routes/getImporterList.mjs";
 import getSupplierExporterList from "./routes/getSupplierExporterList.mjs";
@@ -39,9 +40,7 @@ import Charges from "./routes/ChargesSection/ChargesSection.js";
 
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
-import reminderRoutes, {
-  initReminderSystem,
-} from "./routes/accounts/remiderRoutes.js";
+import reminderRoutes, { initReminderSystem } from "./routes/accounts/remiderRoutes.js";
 import accountLedger from "./routes/accounts/Ledger/accountLedger.mjs";
 
 // Documentation
@@ -78,6 +77,9 @@ import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
 import assignBranch from "./routes/home/assignBranch.mjs";
+import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
+import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
+import toggleUserStatus from "./routes/toggleUserStatus.mjs";
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -112,7 +114,6 @@ import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
 import updateJob from "./routes/import-dsr/updateJob.mjs";
 import viewDSR from "./routes/import-dsr/viewDSR.mjs";
-// import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
 import getOperationPlanningJobs from "./routes/import-operations/getOperationPlanningJobs.mjs";
@@ -147,50 +148,41 @@ import getBillingPendingReport from "./routes/report/getBillingPendingReport.mjs
 // Audit Trail
 import auditTrail from "./routes/audit/auditTrail.mjs";
 
-//import utility tool
+// import utility tool
 import getCthSearch from "./routes/CthUtil/getChtSearch.js";
 import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
 
-//proxy apis
+// proxy apis
 import icegateProxy from "./routes/icegateProxy.js";
 
-//release notes
+// release notes
 import releaseNoteRoutes from "./routes/releaseNoteRoutes.js";
 
 // feedback
 import feedback from "./routes/feedbackRoutes.js";
 
-//scrapper
-import cron from "node-cron";
-import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
-
+// scrapper/analytics
 import currencyRateRoutes from "./routes/currencyRate.js";
-
-// Open Points Module
 import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
-
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
 import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 
 // Project Nucleus
 import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 
-// Configuration is handled at the very top
+// KPI Module
+import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
+import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
 
+// Sentry Profiling
 let nodeProfilingIntegration;
 try {
-  if (
-    process.env.DISABLE_SENTRY_PROFILING !== "true" &&
-    process.platform === "linux"
-  ) {
+  if (process.env.DISABLE_SENTRY_PROFILING !== "true" && process.platform === "linux") {
     const profilingMod = await import("@sentry/profiling-node");
     nodeProfilingIntegration = profilingMod.nodeProfilingIntegration;
   }
 } catch (e) {
-  console.warn(
-    "Sentry profiling integration not available:",
-    e && e.message ? e.message : e
-  );
+  console.warn("Sentry profiling integration not available:", e?.message);
 }
 
 // Global process handlers
@@ -222,6 +214,7 @@ if (cluster.isPrimary) {
     cluster.fork();
   });
 } else {
+  // Worker Process
   const app = express();
 
   // Middleware setup
@@ -242,7 +235,8 @@ if (cluster.isPrimary) {
         "http://192.168.29.172:3000",
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
-        "https://import.alvision.in"
+        "https://import.alvision.in",
+        "https://test-frontend.alvision.in"
       ],
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -270,21 +264,13 @@ if (cluster.isPrimary) {
   // Database Initialization
   initConnections()
     .then(async () => {
-      // Sentry Error Handler
+      // Sentry Error Handler setup
       Sentry.setupExpressErrorHandler(app);
 
-      // Simple security middleware
+      // Security: Block direct browser access to API
       app.use((req, res, next) => {
-        const isBrowserRequest =
-          req.headers["user-agent"] &&
-          req.headers["user-agent"].includes("Mozilla");
-
-        if (
-          req.path.startsWith("/api/") &&
-          isBrowserRequest &&
-          !req.xhr &&
-          req.headers.accept?.indexOf("html") > -1
-        ) {
+        const isBrowserRequest = req.headers["user-agent"]?.includes("Mozilla");
+        if (req.path.startsWith("/api/") && isBrowserRequest && !req.xhr && req.headers.accept?.indexOf("html") > -1) {
           return res.status(404).send("Not found");
         }
         next();
@@ -293,8 +279,7 @@ if (cluster.isPrimary) {
       // Branch Job Middleware - attaches correct JobModel based on x-branch header
       app.use(branchJobMiddleware);
 
-      // --- ALL ROUTES ---
-
+      // --- REGISTER ROUTES ---
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getSupplierExporterList);
@@ -308,7 +293,7 @@ if (cluster.isPrimary) {
       app.use(handleS3Deletation);
       app.use(updateDutyFromCth);
 
-      // Modules
+      // Feature Modules
       app.use(Charges);
       app.use(Accounts);
       app.use(reminderRoutes);
@@ -329,6 +314,9 @@ if (cluster.isPrimary) {
       app.use(getJobDetail);
       app.use(updateESanchitJob);
       app.use(getImportBilling);
+      app.use(ImportersInfo);
+
+      // Admin Management
       app.use(assignModules);
       app.use(assignRole);
       app.use(unassignModule);
@@ -336,9 +324,11 @@ if (cluster.isPrimary) {
       app.use(assignIcdCode);
       app.use(assignEximBot);
       app.use(assignBranch);
-      app.use(ImportersInfo);
+      app.use(getModuleUserCounts);
+      app.use(toggleUserStatus);
+      app.use(unassignUsersFromModule);
 
-      // Import DO
+      // Import Workflow
       app.use(doTeamListOfjobs);
       app.use(getDoBilling);
       app.use(freeDaysConf);
@@ -354,7 +344,6 @@ if (cluster.isPrimary) {
       app.use(updateDoContainer);
       app.use(updateAdvancedPayment);
 
-      // Import DSR
       app.use(addJobsFromExcel);
       app.use(downloadReport);
       app.use(downloadAllReport);
@@ -369,11 +358,12 @@ if (cluster.isPrimary) {
       app.use(updateJob);
       app.use(viewDSR);
 
-      // Operations & Registers
       app.use(getOperationPlanningJobs);
       app.use(completedOperation);
       app.use(updateOperationsJob);
       app.use(getOperationPlanningList);
+
+      // Registers
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
       app.use(getInwardRegisters);
@@ -384,10 +374,11 @@ if (cluster.isPrimary) {
       app.use(updateOutwardRegister);
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
+
       app.use(getSubmissionJobs);
       app.use(updateSubmissionJob);
 
-      // Reports & Tools
+      // Reports & Utils
       app.use(getPenaltyReport);
       app.use(getBillingPendingReport);
       app.use(monthlyContainersRouter);
@@ -403,8 +394,10 @@ if (cluster.isPrimary) {
       app.use(analyticsRoutes);
       app.use(uploadFileRoutes);
       app.use(nucleusReports);
+      app.use(kpiRoutes);
+      app.use(mrmRoutes);
 
-      // Fallback error handler
+      // Global Error Handler
       app.use((err, req, res, next) => {
         logger.error(`Error: ${err.message}`, { stack: err.stack });
         res.status(500).json({ error: "Internal Server Error", detail: res.sentry });
@@ -412,55 +405,37 @@ if (cluster.isPrimary) {
 
       const server = http.createServer(app);
 
-      // Background Workers (Only on Worker 1)
-      if (!cluster.worker || cluster.worker.id === 1) {
+      // Background Tasks & WebSocket (Only on Worker 1)
+      if (cluster.worker.id === 1) {
         initReminderSystem();
 
-        // Daily currency scraper (IST 10:00 AM)
-        cron.schedule("0 10 * * *", async () => {
+        // Daily currency scraper (12:01 AM IST)
+        cron.schedule("1 0 * * *", async () => {
           logger.info("Running daily currency rate scrape task");
           try {
             await scrapeAndSaveCurrencyRates();
           } catch (error) {
-            logger.error("Error in daily currency rate scrape task", { error: error.message });
+            logger.error("Currency scrape failed:", error);
           }
         }, { timezone: "Asia/Kolkata" });
-
-        // Midnight scraper (IST 12:01 AM)
-        cron.schedule("1 0 * * *", async () => {
-          logger.info("Running midnight currency rate scraper");
-          try {
-            await scrapeAndSaveCurrencyRates();
-          } catch (error) {
-            logger.error("Midnight scrape failed:", error);
-          }
-        }, { timezone: "Asia/Kolkata" });
-
-        logger.info("Background tasks (Reminders, Cron) initialized on Worker 1");
       }
 
       setupJobOverviewWebSocket(server);
 
       const port = process.env.PORT || 9006;
       server.listen(port, () => {
-        console.log(`🟢 [PID:${process.pid}] Server listening on http://localhost:${port}`);
-        logger.info(`Server started and listening on port ${port}...`);
+        console.log(`🟢 [Worker:${cluster.worker.id}] Listening on http://localhost:${port}`);
       });
     })
     .catch((err) => {
-      console.error(`❌ Database connection error on PID:${process.pid}:`, err.message);
-      logger.error(`Database connection error:`, err);
+      console.error(`❌ DB Error on PID:${process.pid}:`, err.message);
     });
 }
 
 // Graceful Shutdown
-const closeMongo = async (server) => {
+const closeMongo = async () => {
   try {
-    if (server) {
-      console.log("Closing HTTP Server...");
-      await new Promise((resolve) => server.close(resolve));
-    }
-    console.log("Closing MongoDB Connection...");
+    console.log("Shutting down... Closing MongoDB Connection.");
     await mongoose.connection.close();
     process.exit(0);
   } catch (error) {
@@ -469,5 +444,7 @@ const closeMongo = async (server) => {
   }
 };
 
-process.on("SIGINT", () => closeMongo());
-process.on("SIGTERM", () => closeMongo());
+process.on("SIGINT", closeMongo);
+process.on("SIGTERM", closeMongo);
+
+export default express(); // Dummy export for compatibility if needed

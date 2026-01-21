@@ -1,0 +1,14 @@
+tunnel: 60c8cd22-a111-419f-bff9-29f8e51f3da8
+credentials-file: D:\eximdev\cloudflare\exim-import.json
+
+ingress:
+  # Frontend
+  - hostname: test-frontend.alvision.in
+    service: http://localhost:3000
+
+  # Backend API
+  - hostname: test-backend.alvision.in
+    service: http://localhost:9006
+
+  # Catch-all
+  - service: http_status:404

@@ -7,67 +7,58 @@ import OnboardEmployee from "./OnboardEmployee";
 import CompleteOnboarding from "./CompleteOnboarding";
 import ViewOnboardings from "./ViewOnboardings";
 import useTabs from "../../customHooks/useTabs";
+import "../../styles/hr-modules.scss";
 
 function EmployeeOnboarding() {
   const [value, setValue] = React.useState(0);
   const { user } = React.useContext(UserContext);
   const { a11yProps, CustomTabPanel } = useTabs();
+
   const handleChange = (event, newValue) => {
     setValue(newValue);
   };
 
   return (
-    <Box sx={{ width: "100%" }}>
-      {user.role === "Admin" ? (
-        <>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={value}
-              onChange={handleChange}
-              aria-label="basic tabs example"
-            >
-              <Tab label="Onboard Employee" {...a11yProps(0)} key={0} />,
-              <Tab
-                label="View Employee Onboardings"
-                {...a11yProps(1)}
-                key={1}
-              />
-              ,
-              <Tab label="Complete Onboarding" {...a11yProps(2)} key={2} />
-            </Tabs>
-          </Box>
+    <Box className="hr-page-container">
+      {/* Page Header */}
+      <div className="hr-page-header">
+        <h1 className="hr-page-title">Employee Onboarding</h1>
+      </div>
 
-          <Box>
-            <CustomTabPanel value={value} index={0}>
-              <OnboardEmployee />
-            </CustomTabPanel>
-            <CustomTabPanel value={value} index={1}>
-              <ViewOnboardings />
-            </CustomTabPanel>
-            <CustomTabPanel value={value} index={2}>
-              <CompleteOnboarding />
-            </CustomTabPanel>
-          </Box>
-        </>
-      ) : (
-        <>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={value}
-              onChange={handleChange}
-              aria-label="basic tabs example"
-            >
-              <Tab label="Complete Onboarding" {...a11yProps(1)} key={0} />
+      {/* Main Content */}
+      <div className="hr-tabs-container">
+        {user.role === "Admin" ? (
+          <>
+            <Tabs value={value} onChange={handleChange} aria-label="Employee Onboarding tabs">
+              <Tab label="Onboard Employee" {...a11yProps(0)} />
+              <Tab label="View Onboardings" {...a11yProps(1)} />
+              <Tab label="Complete Onboarding" {...a11yProps(2)} />
             </Tabs>
-          </Box>
-
-          <Box>
-            <CustomTabPanel value={value} index={0}>
-              <CompleteOnboarding />
-            </CustomTabPanel>
-          </Box>
-        </>
-      )}
+            <div className="hr-tab-content">
+              <CustomTabPanel value={value} index={0}>
+                <OnboardEmployee />
+              </CustomTabPanel>
+              <CustomTabPanel value={value} index={1}>
+                <ViewOnboardings />
+              </CustomTabPanel>
+              <CustomTabPanel value={value} index={2}>
+                <CompleteOnboarding />
+              </CustomTabPanel>
+            </div>
+          </>
+        ) : (
+          <>
+            <Tabs value={value} onChange={handleChange} aria-label="Employee Onboarding tabs">
+              <Tab label="Complete Onboarding" {...a11yProps(0)} />
+            </Tabs>
+            <div className="hr-tab-content">
+              <CustomTabPanel value={value} index={0}>
+                <CompleteOnboarding />
+              </CustomTabPanel>
+            </div>
+          </>
+        )}
+      </div>
     </Box>
   );
 }

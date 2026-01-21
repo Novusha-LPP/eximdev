@@ -4,6 +4,26 @@ import { MaterialReactTable } from "material-react-table";
 import useTableConfig from "../../customHooks/useTableConfig";
 import { Link } from "react-router-dom";
 
+// Status badge component
+const StatusBadge = ({ status }) => {
+  const getStatusClass = () => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'approved';
+      case 'rejected':
+        return 'rejected';
+      default:
+        return 'pending';
+    }
+  };
+
+  return (
+    <span className={`hr-status-badge ${getStatusClass()}`}>
+      {status || 'Pending'}
+    </span>
+  );
+};
+
 function ViewKycList() {
   const [data, setData] = useState([]);
 
@@ -22,46 +42,52 @@ function ViewKycList() {
       accessorKey: "first_name",
       header: "First Name",
       enableSorting: false,
-      size: 180,
+      size: 140,
     },
     {
       accessorKey: "middle_name",
       header: "Middle Name",
       enableSorting: false,
-      size: 180,
+      size: 140,
     },
     {
       accessorKey: "last_name",
       header: "Last Name",
       enableSorting: false,
-      size: 180,
+      size: 140,
     },
     {
       accessorKey: "email",
       header: "Email",
       enableSorting: false,
-      size: 200,
+      size: 220,
     },
     {
       accessorKey: "company",
       header: "Company",
       enableSorting: false,
-      size: 300,
+      size: 250,
     },
     {
       accessorKey: "kyc_approval",
-      header: "KYC Approval",
+      header: "Status",
       enableSorting: false,
-      size: 150,
+      size: 130,
+      Cell: ({ cell }) => <StatusBadge status={cell.getValue()} />,
     },
     {
       accessorKey: "action",
       header: "Action",
       enableSorting: false,
-      size: 120,
-
+      size: 100,
       Cell: ({ cell }) => (
-        <Link to={`/view-kyc/${cell.row.original.username}`}>View</Link>
+        <Link
+          to={`/view-kyc/${cell.row.original.username}`}
+          className="hr-btn hr-btn-secondary"
+          style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+        >
+          View
+        </Link>
       ),
     },
   ];
@@ -69,7 +95,7 @@ function ViewKycList() {
   const table = useTableConfig(data, columns);
 
   return (
-    <div>
+    <div className="hr-table-container hr-animate-in">
       <MaterialReactTable table={table} />
     </div>
   );

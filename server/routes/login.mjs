@@ -14,6 +14,14 @@ router.post("/api/login", async (req, res) => {
       return res.status(400).json({ message: "User not registered" });
     }
 
+    if (user.isActive === false) {
+      return res
+        .status(403)
+        .json({
+          message: "User is deactivated. Please contact administrator.",
+        });
+    }
+
     bcrypt.compare(password, user.password, (passwordErr, passwordResult) => {
       if (passwordErr) {
         console.error(passwordErr);
@@ -47,7 +55,7 @@ router.post("/api/login", async (req, res) => {
           {
             _id: user._id,
             username: user.username,
-            role: user.role
+            role: user.role,
           },
           process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod",
           { expiresIn: "10h" }
@@ -57,7 +65,7 @@ router.post("/api/login", async (req, res) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
-          maxAge: 10 * 60 * 60 * 1000 // 10 hours
+          maxAge: 10 * 60 * 60 * 1000, // 10 hours
         });
 
         return res.status(200).json(userResponse);

@@ -1,0 +1,776 @@
+// HR Modules Styles - Compact Corporate Design
+// Clean, minimal, white-theme with compact form layout
+
+@import './theme.scss';
+
+// ============================================
+// CSS Variables for HR Modules - Compact Version
+// ============================================
+:root {
+    --hr-bg: #f5f7fa;
+    --hr-surface: #ffffff;
+    --hr-border: #d1d9e6;
+    --hr-border-light: #e8ecf2;
+    --hr-text-primary: #1a365d;
+    --hr-text-secondary: #4a5568;
+    --hr-text-muted: #718096;
+    --hr-text-label: #2c5282;
+    --hr-primary: #2b6cb0;
+    --hr-primary-light: #ebf4ff;
+    --hr-primary-dark: #1a4971;
+    --hr-success: #38a169;
+    --hr-success-light: #f0fff4;
+    --hr-warning: #d69e2e;
+    --hr-warning-light: #fffff0;
+    --hr-error: #e53e3e;
+    --hr-error-light: #fff5f5;
+    --hr-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --hr-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --hr-radius-sm: 4px;
+    --hr-radius-md: 6px;
+}
+
+// ============================================
+// Base Container - Compact
+// ============================================
+.hr-page-container {
+    background: var(--hr-surface);
+    min-height: 100vh;
+    padding: 16px 20px;
+
+    @media (max-width: 768px) {
+        padding: 12px;
+    }
+}
+
+.hr-page-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--hr-primary);
+
+    .hr-page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--hr-text-primary);
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .hr-page-subtitle {
+        display: none;
+    }
+
+    .hr-title-icon {
+        display: none;
+    }
+}
+
+// ============================================
+// Compact Tabs Styling
+// ============================================
+.hr-tabs-container {
+    background: var(--hr-surface);
+    border: 1px solid var(--hr-border);
+    border-radius: var(--hr-radius-md);
+
+    .MuiTabs-root {
+        min-height: 40px;
+        background: var(--hr-bg);
+        border-bottom: 1px solid var(--hr-border);
+
+        .MuiTab-root {
+            text-transform: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--hr-text-secondary);
+            min-height: 40px;
+            padding: 8px 20px;
+
+            &.Mui-selected {
+                color: var(--hr-primary);
+                background: var(--hr-surface);
+            }
+        }
+
+        .MuiTabs-indicator {
+            background-color: var(--hr-primary);
+            height: 2px;
+        }
+    }
+
+    .hr-tab-content {
+        padding: 16px;
+
+        @media (max-width: 768px) {
+            padding: 12px;
+        }
+    }
+}
+
+// ============================================
+// Compact Two-Column Section Layout
+// ============================================
+.hr-compact-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+
+    @media (max-width: 1024px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+// ============================================
+// Compact Section with Title
+// ============================================
+.hr-compact-section {
+    background: var(--hr-surface);
+    border: 1px solid var(--hr-border);
+    border-radius: var(--hr-radius-md);
+    margin-bottom: 16px;
+
+    .hr-section-header {
+        background: var(--hr-bg);
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--hr-border);
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--hr-text-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .hr-section-body {
+        padding: 12px 14px;
+    }
+}
+
+// ============================================
+// Compact Form Fields Grid
+// ============================================
+.hr-compact-grid {
+    display: grid;
+    gap: 10px 16px;
+
+    &.cols-1 {
+        grid-template-columns: 1fr;
+    }
+
+    &.cols-2 {
+        grid-template-columns: 1fr 1fr;
+
+        @media (max-width: 576px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &.cols-3 {
+        grid-template-columns: 1fr 1fr 1fr;
+
+        @media (max-width: 768px) {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        @media (max-width: 576px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &.cols-4 {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+
+        @media (max-width: 992px) {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        @media (max-width: 576px) {
+            grid-template-columns: 1fr;
+        }
+    }
+}
+
+// ============================================
+// Compact Field with Label on Top
+// ============================================
+.hr-compact-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .hr-field-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--hr-text-label);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    &.full-width {
+        grid-column: 1 / -1;
+    }
+}
+
+// ============================================
+// Compact Input Styling
+// ============================================
+.hr-compact-input {
+    .MuiFilledInput-root {
+        border-radius: var(--hr-radius-sm) !important;
+        background: var(--hr-surface) !important;
+        border: 1px solid var(--hr-border);
+        font-size: 0.85rem;
+
+        &::before,
+        &::after {
+            display: none !important;
+        }
+
+        &:hover {
+            border-color: var(--hr-primary);
+        }
+
+        &.Mui-focused {
+            border-color: var(--hr-primary);
+            background: var(--hr-primary-light) !important;
+        }
+
+        &.Mui-error {
+            border-color: var(--hr-error);
+        }
+    }
+
+    .MuiFilledInput-input {
+        padding: 8px 10px !important;
+        font-size: 0.85rem;
+    }
+
+    .MuiInputLabel-filled {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--hr-text-label);
+        text-transform: uppercase;
+        transform: translate(10px, 8px) scale(1);
+
+        &.Mui-focused,
+        &.MuiInputLabel-shrink {
+            transform: translate(10px, -6px) scale(0.75);
+        }
+    }
+
+    .MuiFormHelperText-root {
+        margin: 2px 0 0 0;
+        font-size: 0.7rem;
+    }
+
+    // Size variants
+    &.input-xs {
+        max-width: 80px;
+    }
+
+    &.input-sm {
+        max-width: 120px;
+    }
+
+    &.input-md {
+        max-width: 180px;
+    }
+}
+
+// ============================================
+// Compact File Upload - Inline Style
+// ============================================
+.hr-compact-file-upload {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border: 1px solid var(--hr-border);
+    border-radius: var(--hr-radius-sm);
+    background: var(--hr-surface);
+    font-size: 0.8rem;
+
+    input[type="file"] {
+        font-size: 0.75rem;
+        max-width: 200px;
+    }
+
+    &.uploaded {
+        border-color: var(--hr-success);
+        background: var(--hr-success-light);
+    }
+
+    .file-status {
+        font-size: 0.75rem;
+        color: var(--hr-success);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        a {
+            color: var(--hr-primary);
+            text-decoration: underline;
+        }
+    }
+}
+
+// ============================================
+// Compact Checkbox & Radio
+// ============================================
+.hr-compact-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    .MuiFormControlLabel-root {
+        margin: 0;
+
+        .MuiFormControlLabel-label {
+            font-size: 0.8rem;
+        }
+
+        .MuiCheckbox-root,
+        .MuiRadio-root {
+            padding: 4px;
+        }
+    }
+}
+
+.hr-compact-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .MuiFormControlLabel-root {
+        margin: 0;
+        padding: 4px 10px;
+        border: 1px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.8rem;
+
+        &:has(.Mui-checked) {
+            border-color: var(--hr-primary);
+            background: var(--hr-primary-light);
+        }
+
+        .MuiRadio-root {
+            padding: 2px;
+        }
+
+        .MuiFormControlLabel-label {
+            font-size: 0.8rem;
+        }
+    }
+}
+
+// ============================================
+// Compact Rating
+// ============================================
+.hr-compact-rating {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+
+    .rating-label {
+        font-size: 0.8rem;
+        color: var(--hr-text-primary);
+        min-width: 180px;
+    }
+
+    .MuiRating-root {
+        font-size: 1.1rem;
+    }
+}
+
+// ============================================
+// Compact Employee Info Header
+// ============================================
+.hr-compact-employee-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--hr-bg);
+    border: 1px solid var(--hr-border);
+    border-radius: var(--hr-radius-md);
+    margin-bottom: 16px;
+
+    .emp-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--hr-primary);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .emp-info {
+        flex: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: 0.8rem;
+
+        .emp-name {
+            font-weight: 600;
+            color: var(--hr-text-primary);
+        }
+
+        .emp-detail {
+            color: var(--hr-text-secondary);
+        }
+    }
+}
+
+// ============================================
+// Compact Buttons
+// ============================================
+.hr-compact-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 8px 20px;
+    border-radius: var(--hr-radius-sm);
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.hr-compact-btn-primary {
+    background: var(--hr-primary);
+    color: white;
+
+    &:hover:not(:disabled) {
+        background: var(--hr-primary-dark);
+    }
+}
+
+.hr-compact-btn-success {
+    background: var(--hr-success);
+    color: white;
+
+    &:hover:not(:disabled) {
+        background: darken(#38a169, 10%);
+    }
+}
+
+.hr-compact-btn-danger {
+    background: var(--hr-error);
+    color: white;
+
+    &:hover:not(:disabled) {
+        background: darken(#e53e3e, 10%);
+    }
+}
+
+.hr-compact-btn-secondary {
+    background: var(--hr-surface);
+    color: var(--hr-text-primary);
+    border: 1px solid var(--hr-border);
+
+    &:hover:not(:disabled) {
+        background: var(--hr-bg);
+    }
+}
+
+.hr-btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hr-border);
+}
+
+// ============================================
+// Compact Data View (for View KYC)
+// ============================================
+.hr-compact-data-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px 16px;
+
+    @media (max-width: 768px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 576px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.hr-compact-data-item {
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--hr-border);
+
+    .data-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: var(--hr-text-label);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 2px;
+    }
+
+    .data-value {
+        font-size: 0.85rem;
+        color: var(--hr-text-primary);
+
+        a {
+            color: var(--hr-primary);
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+}
+
+// ============================================
+// Compact Table Container
+// ============================================
+.hr-compact-table {
+    border: 1px solid var(--hr-border);
+    border-radius: var(--hr-radius-md);
+    overflow: hidden;
+
+    .MuiPaper-root {
+        box-shadow: none !important;
+    }
+
+    .MuiTableHead-root .MuiTableCell-head {
+        background: var(--hr-bg);
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 10px 12px;
+        color: var(--hr-text-label);
+    }
+
+    .MuiTableBody-root .MuiTableCell-body {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--hr-border-light);
+    }
+}
+
+// ============================================
+// Status Badges - Compact
+// ============================================
+.hr-compact-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+
+    &.approved {
+        background: var(--hr-success-light);
+        color: var(--hr-success);
+    }
+
+    &.pending {
+        background: var(--hr-warning-light);
+        color: var(--hr-warning);
+    }
+
+    &.rejected {
+        background: var(--hr-error-light);
+        color: var(--hr-error);
+    }
+}
+
+// ============================================
+// Form Inline Row (Label + Input)
+// ============================================
+.hr-inline-field {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 0;
+
+    .hr-inline-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--hr-text-label);
+        text-transform: uppercase;
+    }
+
+    @media (max-width: 576px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+// ============================================
+// Quick inline input (no label, just field)
+// ============================================
+.hr-quick-input {
+    .MuiFilledInput-root {
+        background: var(--hr-surface) !important;
+        border: 1px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm) !important;
+
+        &::before,
+        &::after {
+            display: none !important;
+        }
+    }
+
+    .MuiFilledInput-input {
+        padding: 6px 8px !important;
+        font-size: 0.8rem;
+    }
+
+    .MuiInputLabel-filled {
+        font-size: 0.7rem;
+        transform: translate(8px, 6px) scale(1);
+
+        &.MuiInputLabel-shrink {
+            transform: translate(8px, -4px) scale(0.75);
+        }
+    }
+}
+
+// ============================================
+// Hide old card classes (compatibility)
+// ============================================
+.hr-card {
+    display: contents;
+}
+
+.hr-card-header {
+    display: none;
+}
+
+.hr-card-body {
+    padding: 0;
+}
+
+.hr-form-grid {
+    @extend .hr-compact-grid;
+}
+
+.hr-input {
+    @extend .hr-compact-input;
+}
+
+.hr-btn {
+    @extend .hr-compact-btn;
+}
+
+.hr-btn-primary {
+    @extend .hr-compact-btn-primary;
+}
+
+.hr-btn-secondary {
+    @extend .hr-compact-btn-secondary;
+}
+
+.hr-btn-success {
+    @extend .hr-compact-btn-success;
+}
+
+.hr-btn-danger {
+    @extend .hr-compact-btn-danger;
+}
+
+.hr-btn-group {
+    @extend .hr-btn-row;
+}
+
+.hr-animate-in {
+    /* remove animation */
+}
+
+.hr-employee-info {
+    @extend .hr-compact-employee-header;
+}
+
+.hr-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--hr-text-label);
+    text-transform: uppercase;
+    padding: 8px 0 6px;
+    margin: 10px 0 6px;
+    border-bottom: 1px solid var(--hr-border);
+
+    &::before {
+        display: none;
+    }
+}
+
+.hr-table-container {
+    @extend .hr-compact-table;
+}
+
+.hr-status-badge {
+    @extend .hr-compact-badge;
+}
+
+.hr-data-row {
+    @extend .hr-compact-data-grid;
+}
+
+.hr-data-item {
+    @extend .hr-compact-data-item;
+}
+
+.hr-checkbox-group {
+    @extend .hr-compact-checkbox-group;
+}
+
+.hr-radio-group {
+    @extend .hr-compact-radio-group;
+}
+
+.hr-rating-item {
+    @extend .hr-compact-rating;
+}
+
+.hr-file-upload {
+    @extend .hr-compact-file-upload;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px;
+
+    input[type="file"] {
+        position: static;
+        opacity: 1;
+    }
+
+    .hr-file-icon,
+    .hr-file-hint {
+        display: none;
+    }
+
+    .hr-file-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--hr-text-label);
+        margin-bottom: 4px;
+    }
+
+    .hr-file-link {
+        margin-top: 6px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+}

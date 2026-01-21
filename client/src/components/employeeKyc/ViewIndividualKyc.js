@@ -1,10 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Row, Col } from "react-bootstrap";
+import "../../styles/hr-modules.scss";
+
+// Data item component
+const DataItem = ({ label, value, isLink = false }) => (
+  <div className="hr-compact-data-item">
+    <div className="data-label">{label}</div>
+    <div className="data-value">
+      {isLink && value ? (
+        <a href={value} target="_blank" rel="noopener noreferrer">View</a>
+      ) : (
+        value || '—'
+      )}
+    </div>
+  </div>
+);
 
 function ViewIndividualKyc() {
   const { username } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState();
 
   useEffect(() => {
@@ -14,7 +29,6 @@ function ViewIndividualKyc() {
       );
       setData(res.data);
     }
-
     getUser();
   }, [username]);
 
@@ -27,233 +41,164 @@ function ViewIndividualKyc() {
     alert(res.data.message);
   };
 
+  const employeeName = [data?.first_name, data?.middle_name, data?.last_name]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      style={{
-        width: "80%",
-        margin: "auto",
-        boxShadow: "2px 2px 50px 10px rgba(0, 0, 0, 0.05)",
-        padding: "20px",
-      }}
-    >
+    <div className="hr-page-container">
+      {/* Header */}
+      <div className="hr-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <button className="hr-compact-btn hr-compact-btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: '8px' }}>
+            ← Back
+          </button>
+          <h1 className="hr-page-title">Employee KYC Details</h1>
+        </div>
+        {data && (
+          <span className={`hr-compact-badge ${data.kyc_approval?.toLowerCase() === 'approved' ? 'approved' : data.kyc_approval?.toLowerCase() === 'rejected' ? 'rejected' : 'pending'}`}>
+            {data.kyc_approval || 'Pending'}
+          </span>
+        )}
+      </div>
+
       {data && (
         <>
-          <h5>Basic Info</h5>
-          <Row>
-            <Col>
-              <strong>First Name:</strong> {data.first_name}
-            </Col>
-            <Col>
-              <strong>Middle Name:</strong> {data.middle_name}
-            </Col>
-            <Col>
-              <strong>Last Name:</strong> {data.last_name}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Designation:</strong> {data.designation}
-            </Col>
-            <Col>
-              <strong>Department:</strong> {data.department}
-            </Col>
-            <Col>
-              <strong>Joining Date:</strong> {data.joining_date}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Date of Birth:</strong> {data.dob}
-            </Col>
-          </Row>
+          {/* Employee Header */}
+          <div className="hr-compact-employee-header">
+            <div className="emp-avatar">{employeeName.charAt(0)}</div>
+            <div className="emp-info">
+              <span className="emp-name">{employeeName}</span>
+              <span className="emp-detail">Email: {data.email || data.personal_email}</span>
+              <span className="emp-detail">Company: {data.company}</span>
+            </div>
+          </div>
 
-          <br />
-          <h5>Permanent Address</h5>
-          <Row>
-            <Col>
-              <strong>Address Line 1: </strong> {data.permanent_address_line_1}
-            </Col>
-            <Col>
-              <strong>Address Line 2: </strong> {data.permanent_address_line_2}
-            </Col>
-            <Col>
-              <strong>City: </strong> {data.permanent_address_city}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Area: </strong> {data.permanent_address_area}
-            </Col>
-            <Col>
-              <strong>State: </strong> {data.permanent_address_state}
-            </Col>
-            <Col>
-              <strong>PIN Code: </strong> {data.permanent_address_pincode}
-            </Col>
-          </Row>
-          <br />
-          <h5>Communication Address</h5>
-          <Row>
-            <Col>
-              <strong>Address Line 1: </strong>
-              {data.communication_address_line_1}
-            </Col>
-            <Col>
-              <strong>Address Line 2: </strong>
-              {data.communication_address_line_2}
-            </Col>
-            <Col>
-              <strong>City: </strong> {data.communication_address_city}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Area: </strong> {data.communication_address_area}
-            </Col>
-            <Col>
-              <strong>State: </strong> {data.communication_address_state}
-            </Col>
-            <Col>
-              <strong>PIN Code: </strong> {data.communication_address_pincode}
-            </Col>
-          </Row>
+          {/* Two Column Layout */}
+          <div className="hr-compact-layout">
+            {/* LEFT COLUMN */}
+            <div>
+              {/* Basic Info */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Basic Information</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="First Name" value={data.first_name} />
+                    <DataItem label="Middle Name" value={data.middle_name} />
+                    <DataItem label="Last Name" value={data.last_name} />
+                    <DataItem label="Designation" value={data.designation} />
+                    <DataItem label="Department" value={data.department} />
+                    <DataItem label="Joining Date" value={data.joining_date} />
+                    <DataItem label="Date of Birth" value={data.dob} />
+                    <DataItem label="Blood Group" value={data.blood_group} />
+                    <DataItem label="Qualification" value={data.highest_qualification} />
+                    <DataItem label="Marital Status" value={data.marital_status} />
+                    <DataItem label="Favorite Song" value={data.favorite_song} />
+                  </div>
+                </div>
+              </div>
 
-          <br />
-          <h5>Contact Details</h5>
-          <Row>
-            <Col>
-              <strong>Personal Email: </strong> {data.personal_email}
-            </Col>
-            <Col>
-              <strong>Official Email: </strong> {data.official_email}
-            </Col>
-            <Col>
-              <strong>Personal Mobile: </strong> {data.mobile}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Emergency Contact Name: </strong>
-              {data.emergency_contact_name}
-            </Col>
-            <Col>
-              <strong>Emergency Contact Number:</strong>
-              {data.emergency_contact}
-            </Col>
-            <Col>
-              <strong>Close Friend Contact Name: </strong>
-              {data.close_friend_contact_name}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Close Friend Contact: </strong>
-              {data.close_friend_contact_no}
-            </Col>
-          </Row>
-          <br />
-          <h5>Family Members</h5>
-          <Row>
-            <Col>
-              <strong>Family Members: </strong>
-              {data.family_members?.map((item) => `${item}, `)}
-            </Col>
-          </Row>
-          <br />
-          <h5>Documents</h5>
-          <Row>
-            <Col>
-              <strong>PAN Number:</strong> {data.pan_no}
-            </Col>
-            <Col>
-              <strong>PAN Photo: </strong>
-              <a href={data.pan_photo}>View</a>
-            </Col>
-            <Col></Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>AADHAR Number: </strong> {data.aadhar_no}
-            </Col>
-            <Col>
-              <strong>AADHAR Photo Front: </strong>
-              <a href={data.aadhar_photo_front}>View</a>
-            </Col>
-            <Col>
-              <strong>AADHAR Photo Back: </strong>
-              <a href={data.aadhar_photo_back}>View</a>
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Driving License Photo Front: </strong>
-              <a href={data.license_front}>View</a>
-            </Col>
-            <Col>
-              <strong>Driving License Photo Back: </strong>
-              <a href={data.license_back}>View</a>
-            </Col>
-            <Col></Col>
-          </Row>
-          <br />
-          <h5>Bank Details</h5>
-          <Row>
-            <Col>
-              <strong>Account Number: </strong> {data.bank_account_no}
-            </Col>
-            <Col>
-              <strong>Bank Name: </strong> {data.bank_name}
-            </Col>
-            <Col>
-              <strong>IFSC: </strong> {data.ifsc_code}
-            </Col>
-          </Row>
+              {/* Permanent Address */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Permanent Address</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="Address Line 1" value={data.permanent_address_line_1} />
+                    <DataItem label="Address Line 2" value={data.permanent_address_line_2} />
+                    <DataItem label="City" value={data.permanent_address_city} />
+                    <DataItem label="Area" value={data.permanent_address_area} />
+                    <DataItem label="State" value={data.permanent_address_state} />
+                    <DataItem label="PIN Code" value={data.permanent_address_pincode} />
+                  </div>
+                </div>
+              </div>
 
-          <br />
-          <h5>Other Details</h5>
-          <Row>
-            <Col>
-              <strong>Marital Status: </strong> {data.marital_status}
-            </Col>
-            <Col>
-              <strong>Insurance Details: </strong>{" "}
-              {data.insurance_status?.map((item) => `${item}, `)}
-            </Col>
-            <Col>
-              <strong>PF Number: </strong> {data.pf_no}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>ESIC Number: </strong> {data.esic_no}
-            </Col>
-            <Col>
-              <strong>Blood Group: </strong> {data.blood_group}
-            </Col>
-            <Col>
-              <strong>Highest Qualification: </strong>
-              {data.highest_qualification}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>Favorite Song: </strong>
-              {data.favorite_song}
-            </Col>
-          </Row>
-          <br />
-          <button className="btn" onClick={() => handleKycApproval(true)}>
-            Approve
-          </button>
-          <button
-            className="btn"
-            style={{ marginLeft: "10px" }}
-            onClick={() => handleKycApproval(false)}
-          >
-            Reject
-          </button>
-          <br />
-          <br />
+              {/* Communication Address */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Communication Address</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="Address Line 1" value={data.communication_address_line_1} />
+                    <DataItem label="Address Line 2" value={data.communication_address_line_2} />
+                    <DataItem label="City" value={data.communication_address_city} />
+                    <DataItem label="Area" value={data.communication_address_area} />
+                    <DataItem label="State" value={data.communication_address_state} />
+                    <DataItem label="PIN Code" value={data.communication_address_pincode} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Details */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Bank Details</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="Account Number" value={data.bank_account_no} />
+                    <DataItem label="Bank Name" value={data.bank_name} />
+                    <DataItem label="IFSC Code" value={data.ifsc_code} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN */}
+            <div>
+              {/* Contact Details */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Contact Details</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="Personal Email" value={data.personal_email} />
+                    <DataItem label="Official Email" value={data.official_email} />
+                    <DataItem label="Mobile" value={data.mobile} />
+                    <DataItem label="Emergency Name" value={data.emergency_contact_name} />
+                    <DataItem label="Emergency No." value={data.emergency_contact} />
+                    <DataItem label="Friend Name" value={data.close_friend_contact_name} />
+                    <DataItem label="Friend No." value={data.close_friend_contact_no} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Family & Insurance */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Family & Insurance</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="Family Members" value={data.family_members?.join(", ")} />
+                    <DataItem label="Insurance Status" value={data.insurance_status?.join(", ")} />
+                    <DataItem label="PF Number" value={data.pf_no} />
+                    <DataItem label="ESIC Number" value={data.esic_no} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Identity Documents</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="PAN Number" value={data.pan_no} />
+                    <DataItem label="PAN Card" value={data.pan_photo} isLink />
+                    <DataItem label="Aadhaar No." value={data.aadhar_no} />
+                    <DataItem label="Aadhaar Front" value={data.aadhar_photo_front} isLink />
+                    <DataItem label="Aadhaar Back" value={data.aadhar_photo_back} isLink />
+                    <DataItem label="License Front" value={data.license_front} isLink />
+                    <DataItem label="License Back" value={data.license_back} isLink />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="hr-btn-row" style={{ justifyContent: 'flex-start' }}>
+            <button className="hr-compact-btn hr-compact-btn-success" onClick={() => handleKycApproval(true)}>
+              ✓ Approve KYC
+            </button>
+            <button className="hr-compact-btn hr-compact-btn-danger" onClick={() => handleKycApproval(false)}>
+              ✕ Reject KYC
+            </button>
+          </div>
         </>
       )}
     </div>

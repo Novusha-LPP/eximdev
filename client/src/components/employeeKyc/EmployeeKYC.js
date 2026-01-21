@@ -6,6 +6,7 @@ import CompleteKYC from "./CompleteKYC";
 import ViewKycList from "./ViewKycList";
 import useTabs from "../../customHooks/useTabs";
 import { UserContext } from "../../contexts/UserContext";
+import "../../styles/hr-modules.scss";
 
 function EmployeeKYC() {
   const [value, setValue] = React.useState(0);
@@ -17,44 +18,42 @@ function EmployeeKYC() {
   };
 
   return (
-    <Box sx={{ width: "100%" }}>
-      {user.role === "Admin" ? (
-        <>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={value}
-              onChange={handleChange}
-              aria-label="basic tabs example"
-            >
-              <Tab label="View Employee KYCs" {...a11yProps(1)} key={0} />
-              <Tab label="Complete KYC" {...a11yProps(0)} key={1} />
-            </Tabs>
-          </Box>
+    <Box className="hr-page-container">
+      {/* Page Header */}
+      <div className="hr-page-header">
+        <h1 className="hr-page-title">Employee KYC</h1>
+      </div>
 
-          <CustomTabPanel value={value} index={0}>
-            <ViewKycList />
-          </CustomTabPanel>
-          <CustomTabPanel value={value} index={1}>
-            <CompleteKYC />
-          </CustomTabPanel>
-        </>
-      ) : (
-        <>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={value}
-              onChange={handleChange}
-              aria-label="basic tabs example"
-            >
-              <Tab label="Complete KYC" {...a11yProps(0)} key={0} />
+      {/* Main Content */}
+      <div className="hr-tabs-container">
+        {user.role === "Admin" ? (
+          <>
+            <Tabs value={value} onChange={handleChange} aria-label="Employee KYC tabs">
+              <Tab label="View Employee KYCs" {...a11yProps(0)} />
+              <Tab label="Complete KYC" {...a11yProps(1)} />
             </Tabs>
-          </Box>
-
-          <CustomTabPanel value={value} index={0}>
-            <CompleteKYC />
-          </CustomTabPanel>
-        </>
-      )}
+            <div className="hr-tab-content">
+              <CustomTabPanel value={value} index={0}>
+                <ViewKycList />
+              </CustomTabPanel>
+              <CustomTabPanel value={value} index={1}>
+                <CompleteKYC />
+              </CustomTabPanel>
+            </div>
+          </>
+        ) : (
+          <>
+            <Tabs value={value} onChange={handleChange} aria-label="Employee KYC tabs">
+              <Tab label="Complete KYC" {...a11yProps(0)} />
+            </Tabs>
+            <div className="hr-tab-content">
+              <CustomTabPanel value={value} index={0}>
+                <CompleteKYC />
+              </CustomTabPanel>
+            </div>
+          </>
+        )}
+      </div>
     </Box>
   );
 }

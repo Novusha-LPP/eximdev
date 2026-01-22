@@ -148,7 +148,7 @@ const criticalFields = `
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount
   gross_weight job_net_weight payment_method
-  shipping_line_invoice_imgs
+  shipping_line_invoice_imgs obl_telex_bl document_received_date
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img
 `;
 

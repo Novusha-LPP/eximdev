@@ -248,6 +248,12 @@ function useJobColumns(
                   <RefreshIcon fontSize="inherit" />
                 </IconButton>
               </div>
+              {row.obl_telex_bl === "OBL" && (
+                <div style={{ marginTop: 4, color: "red", fontSize: "15px" }}>
+                  Advanced OBL is received <br />
+                  {formatDate(row.document_received_date)}
+                </div>
+              )}
             </div>
           );
         },

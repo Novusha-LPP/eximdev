@@ -9,7 +9,7 @@ router.get("/reports", async (req, res) => {
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
         const jobs = await JobModel.find({})
-            .select("job_no be_no be_date fine_amount penalty_amount importer")
+            .select("job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer")
             .lean();
 
         // 2. Fetch all users for handler mapping
@@ -58,12 +58,39 @@ router.get("/reports", async (req, res) => {
                 penalty_val: penaltyVal,
                 importer: job.importer,
                 handlers: importerHandlers[job.importer] || [],
+                penalty_by_us: job.penalty_by_us || false,
+                penalty_by_importer: job.penalty_by_importer || false
             };
         });
 
         res.json(reportData);
     } catch (error) {
         console.error("Error fetching project nucleus reports:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+router.post("/update-penalty-status", async (req, res) => {
+    try {
+        const { jobId, updates } = req.body;
+
+        if (!jobId || !updates) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        const updatedJob = await JobModel.findByIdAndUpdate(
+            jobId,
+            { $set: updates },
+            { new: true }
+        ).select("job_no penalty_by_us penalty_by_importer");
+
+        if (!updatedJob) {
+            return res.status(404).json({ error: "Job not found" });
+        }
+
+        res.json({ success: true, data: updatedJob });
+    } catch (error) {
+        console.error("Error updating penalty status:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

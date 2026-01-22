@@ -218,6 +218,14 @@ function HomePage() {
                 }
               />
               <Route
+                path="/complete-kyc/:username"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <EmployeeKYC />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/view-kyc/:username"
                 element={
                   <ProtectedRoute requiredModule="Employee KYC">

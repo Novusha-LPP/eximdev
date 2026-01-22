@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { UserContext } from "../../contexts/UserContext";
 import "../../styles/hr-modules.scss";
 
 // Data item component
@@ -21,6 +22,7 @@ function ViewIndividualKyc() {
   const { username } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState();
+  const { user } = useContext(UserContext); // Get current logged in user (admin)
 
   useEffect(() => {
     async function getUser() {
@@ -198,6 +200,14 @@ function ViewIndividualKyc() {
             <button className="hr-compact-btn hr-compact-btn-danger" onClick={() => handleKycApproval(false)}>
               ✕ Reject KYC
             </button>
+            {user?.role === 'Admin' && (
+              <button
+                className="hr-compact-btn hr-compact-btn-secondary"
+                onClick={() => navigate(`/complete-kyc/${username}`)}
+              >
+                ✎ Edit ({data.company || "No Company"})
+              </button>
+            )}
           </div>
         </>
       )}

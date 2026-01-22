@@ -76,6 +76,10 @@ function Assign() {
     getUsers();
   }, []);
 
+  // Calculate active and inactive user counts
+  const activeUserCount = userList.filter(user => user.isActive !== false).length;
+  const inactiveUserCount = userList.filter(user => user.isActive === false).length;
+
   const filteredUsers = userList.filter(user => {
     const term = searchTerm.toLowerCase();
     const username = user.username ? user.username.toLowerCase() : "";
@@ -194,7 +198,10 @@ function Assign() {
                 <Segmented
                   block
                   size="small"
-                  options={['Active', 'Inactive']}
+                  options={[
+                    { label: `Active (${activeUserCount})`, value: 'Active' },
+                    { label: `Inactive (${inactiveUserCount})`, value: 'Inactive' }
+                  ]}
                   value={statusFilter}
                   onChange={setStatusFilter}
                 />

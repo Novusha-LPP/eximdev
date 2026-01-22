@@ -64,6 +64,10 @@ const logger = createLogger({
       db: MONGODB_URI,
       collection: "serverlogs",
       tryReconnect: true,
+      options: {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+      },
       format: format.combine(format.timestamp(), customFormat),
     }),
   ],

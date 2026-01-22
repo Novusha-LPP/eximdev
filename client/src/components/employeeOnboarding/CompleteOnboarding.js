@@ -7,20 +7,60 @@ import Snackbar from "@mui/material/Snackbar";
 import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import { validationSchema } from "../../schemas/employeeOnboarding/completeOnboarding";
 
+// Compact Field Component
+const Field = ({ label, children }) => (
+  <div className="hr-compact-field">
+    <label className="hr-field-label">{label}</label>
+    {children}
+  </div>
+);
+
+// Compact File Upload
+const FileUpload = ({ label, field, accept = "*/*", formik, setFileSnackbar }) => (
+  <div className={`hr-compact-file-upload ${formik.values[field] ? 'uploaded' : ''}`}>
+    <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--hr-text-label)' }}>{label}</span>
+    <input
+      type="file"
+      accept={accept}
+      onChange={(e) =>
+        handleSingleFileUpload(e, field, "kyc", formik, setFileSnackbar)
+      }
+    />
+    {formik.values[field] && (
+      <span className="file-status">
+        ✓ <a href={formik.values[field]} target="_blank" rel="noopener noreferrer">View</a>
+      </span>
+    )}
+    {formik.touched[field] && formik.errors[field] && (
+      <span style={{ color: 'var(--hr-error)', fontSize: '0.7rem' }}>{formik.errors[field]}</span>
+    )}
+  </div>
+);
+
 function CompleteOnboarding() {
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
   const [fileSnackbar, setFileSnackbar] = useState(false);
+
+  const refreshUser = async () => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/me`, { withCredentials: true });
+      setUser(res.data);
+    } catch (e) {
+      console.error("Error refreshing user data", e);
+    }
+  };
 
   const formik = useFormik({
     initialValues: {
-      skill: "",
-      company_policy_visited: "",
-      introduction_with_md: "",
-      employee_photo: "",
-      resume: "",
-      address_proof: "",
-      nda: "",
+      skill: user?.skill || "",
+      company_policy_visited: user?.company_policy_visited || "",
+      introduction_with_md: user?.introduction_with_md || "",
+      employee_photo: user?.employee_photo || "",
+      resume: user?.resume || "",
+      address_proof: user?.address_proof || "",
+      nda: user?.nda || "",
     },
+    enableReinitialize: true,
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       const res = await axios.post(
@@ -29,6 +69,7 @@ function CompleteOnboarding() {
       );
       alert(res.data.message);
       resetForm();
+      await refreshUser();
     },
   });
 
@@ -36,35 +77,7 @@ function CompleteOnboarding() {
     .filter(Boolean)
     .join(" ");
 
-  // Compact Field Component
-  const Field = ({ label, children }) => (
-    <div className="hr-compact-field">
-      <label className="hr-field-label">{label}</label>
-      {children}
-    </div>
-  );
 
-  // Compact File Upload
-  const FileUpload = ({ label, field, accept = "*/*" }) => (
-    <div className={`hr-compact-file-upload ${formik.values[field] ? 'uploaded' : ''}`}>
-      <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--hr-text-label)' }}>{label}</span>
-      <input
-        type="file"
-        accept={accept}
-        onChange={(e) =>
-          handleSingleFileUpload(e, field, "kyc", formik, setFileSnackbar)
-        }
-      />
-      {formik.values[field] && (
-        <span className="file-status">
-          ✓ <a href={formik.values[field]} target="_blank" rel="noopener noreferrer">View</a>
-        </span>
-      )}
-      {formik.touched[field] && formik.errors[field] && (
-        <span style={{ color: 'var(--hr-error)', fontSize: '0.7rem' }}>{formik.errors[field]}</span>
-      )}
-    </div>
-  );
 
   return (
     <form onSubmit={formik.handleSubmit}>
@@ -97,6 +110,7 @@ function CompleteOnboarding() {
                     value={formik.values.skill}
                     onChange={formik.handleChange}
                     error={formik.touched.skill && Boolean(formik.errors.skill)}
+                    helperText={formik.touched.skill && formik.errors.skill}
                     className="hr-quick-input"
                     placeholder="Enter your skill or hobby"
                   />
@@ -113,6 +127,7 @@ function CompleteOnboarding() {
                     value={formik.values.company_policy_visited}
                     onChange={formik.handleChange}
                     error={formik.touched.company_policy_visited && Boolean(formik.errors.company_policy_visited)}
+                    helperText={formik.touched.company_policy_visited && formik.errors.company_policy_visited}
                     className="hr-quick-input"
                   >
                     <MenuItem value="">Select</MenuItem>
@@ -130,6 +145,7 @@ function CompleteOnboarding() {
                     value={formik.values.introduction_with_md}
                     onChange={formik.handleChange}
                     error={formik.touched.introduction_with_md && Boolean(formik.errors.introduction_with_md)}
+                    helperText={formik.touched.introduction_with_md && formik.errors.introduction_with_md}
                     className="hr-quick-input"
                   >
                     <MenuItem value="">Select</MenuItem>
@@ -149,11 +165,11 @@ function CompleteOnboarding() {
             <div className="hr-section-header">Document Uploads</div>
             <div className="hr-section-body">
               <div className="hr-compact-grid cols-2">
-                <FileUpload label="Employee Photo" field="employee_photo" accept="image/*" />
-                <FileUpload label="Resume / CV" field="resume" accept=".pdf,.doc,.docx" />
-                <FileUpload label="Address Proof" field="address_proof" />
+                <FileUpload label="Employee Photo" field="employee_photo" accept="image/*" formik={formik} setFileSnackbar={setFileSnackbar} />
+                <FileUpload label="Resume / CV" field="resume" accept=".pdf,.doc,.docx" formik={formik} setFileSnackbar={setFileSnackbar} />
+                <FileUpload label="Address Proof" field="address_proof" formik={formik} setFileSnackbar={setFileSnackbar} />
                 {user.company === "Alluvium IoT Solutions Private Limited" && (
-                  <FileUpload label="Signed NDA" field="nda" accept=".pdf" />
+                  <FileUpload label="Signed NDA" field="nda" accept=".pdf" formik={formik} setFileSnackbar={setFileSnackbar} />
                 )}
               </div>
             </div>

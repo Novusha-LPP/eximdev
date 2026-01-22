@@ -11,6 +11,8 @@ export const validationSchema = yup.object({
   designation: yup
     .string("Enter designation")
     .required("Designation is required"),
+  company: yup.string("Select company").required("Company is required"),
+  employment_type: yup.string("Select employment type").required("Employment type is required"),
   department: yup.string("Enter department").required("Department is required"),
   joining_date: yup
     .string("Enter joining date")

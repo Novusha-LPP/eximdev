@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import AWS from "aws-sdk";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import logger from "../../logger.js";
 
 const router = express.Router();
@@ -43,10 +43,12 @@ const upload = multer({
 });
 
 // Configure AWS S3
-const s3 = new AWS.S3({
-  accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-  secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+const s3Client = new S3Client({
   region: process.env.REACT_APP_AWS_REGION || "ap-south-1",
+  credentials: {
+    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+  },
 });
 
 router.post("/api/upload", upload.array("files"), async (req, res) => {
@@ -71,15 +73,15 @@ router.post("/api/upload", upload.array("files"), async (req, res) => {
       const uniqueFileName = `${baseName}-${timestamp}${extension}`;
       const key = `${bucketPath}/${uniqueFileName}`;
 
-      const params = {
+      const command = new PutObjectCommand({
         Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,
-      };
+      });
 
-      const data = await s3.upload(params).promise();
-      uploadedFiles.push(data.Location);
+      await s3Client.send(command);
+      uploadedFiles.push(`https://${process.env.REACT_APP_S3_BUCKET}.s3.${process.env.REACT_APP_AWS_REGION || "ap-south-1"}.amazonaws.com/${key}`);
     }
 
     res.status(200).json({ urls: uploadedFiles });

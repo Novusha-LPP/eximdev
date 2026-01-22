@@ -110,10 +110,9 @@ function AssignModule({ selectedUser }) {
           render={(item) => item.title}
           listStyle={{
             width: '45%',
-            height: 400,
+            height: 500,
           }}
           showSearch
-          pagination
         />
       </Spin>
     </Card>

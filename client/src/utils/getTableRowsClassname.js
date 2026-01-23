@@ -98,7 +98,7 @@ export const getTableRowInlineStyle = (params) => {
     "bg-yellow": "#f9e781",
     "bg-orange": "#fbba5f",
     "bg-green": "#b0f8b0",
-    "do-completed-delivery-pending": "#f3e8ff",
+    "do-completed-delivery-pending": "#ccffcc",
   };
 
   const bg = colorMap[colorKey] || "";

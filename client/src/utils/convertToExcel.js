@@ -424,7 +424,7 @@ export const convertToExcel = async (
       dataRow.fill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "fff3e8ff" }, // Light Purple
+        fgColor: { argb: "ffccffcc" }, // Light Green
       };
     } else if (detailedStatus === "Gateway IGM Filed") {
       dataRow.fill = {

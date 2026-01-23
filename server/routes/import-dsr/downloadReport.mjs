@@ -4,14 +4,15 @@ import JobModel from "../../model/jobModel.mjs";
 
 // Status Rank Configuration
 const statusRank = {
-  "Custom Clearance Completed": { rank: 1, field: "detention_from" },
-  "PCV Done, Duty Payment Pending": { rank: 2, field: "detention_from" },
-  "BE Noted, Clearance Pending": { rank: 3, field: "detention_from" },
-  "BE Noted, Arrival Pending": { rank: 4, field: "be_date" },
-  "Gateway IGM Filed": { rank: 5, field: "gateway_igm_date" },
-  Discharged: { rank: 6, field: "discharge_date" },
-  "Estimated Time of Arrival": { rank: 7, field: "vessel_berthing" },
-  "ETA Date Pending": { rank: 8 },
+  "Do completed and Delivery pending": { rank: 1, field: "do_completed" },
+  "Custom Clearance Completed": { rank: 2, field: "detention_from" },
+  "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
+  "Gateway IGM Filed": { rank: 6, field: "gateway_igm_date" },
+  Discharged: { rank: 7, field: "discharge_date" },
+  "Estimated Time of Arrival": { rank: 8, field: "vessel_berthing" },
+  "ETA Date Pending": { rank: 9 },
 };
 
 // Helper function to parse dates safely
@@ -31,15 +32,15 @@ router.get(
 
       // Create flexible regex patterns to handle both formats
       const escapedImporterURL = importerURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
+
       // Pattern 1: Exact match (for backward compatibility)
       const exactPattern = `^${escapedImporterURL}$`;
-      
+
       // Pattern 2: Handle periods and underscores interchangeably
       const flexiblePattern = escapedImporterURL
         .replace(/\./g, '[._]?')  // Periods become optional periods or underscores
         .replace(/_/g, '[._]?');  // Underscores become optional periods or underscores
-      
+
       // Pattern 3: Handle "pvt" variations (pvt, pvt., pvt_, etc.)
       const pvtPattern = escapedImporterURL
         .replace(/pvt/g, 'pvt[._]?')
@@ -58,7 +59,7 @@ router.get(
 
       console.log('Search patterns:', {
         exactPattern,
-        flexiblePattern, 
+        flexiblePattern,
         pvtPattern,
         receivedImporterURL: importerURL
       });

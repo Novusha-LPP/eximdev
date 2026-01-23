@@ -163,7 +163,7 @@ function AppbarComponent(props) {
                 letterSpacing: "0.3px",
               }}
             >
-              📢 Please note: Customer operations will remain closed on 26th January. Since 24th and 25th are Saturday and Sunday, kindly complete all pending work by 23rd January.
+              📢 Please note: Custom operations will remain closed on 26th January. Since 24th and 25th are Saturday and Sunday, kindly complete all pending work by 23rd January.
             </Typography>
           </Box>
         </Box>)}

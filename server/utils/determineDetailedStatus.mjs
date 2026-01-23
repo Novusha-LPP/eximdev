@@ -55,7 +55,7 @@ export function determineDetailedStatus(job) {
     if (be_no && validOOC && allDelivered) {
       return "Billing Pending";
     }
-    if (validDoCompleted && !allDelivered) {
+    if (validDoCompleted && validOOC && !allDelivered) {
       return "Do completed and Delivery pending";
     }
     if (be_no && validOOC) {
@@ -87,7 +87,7 @@ export function determineDetailedStatus(job) {
   if (be_no && anyArrival && validOOC && billingComplete) {
     return "Billing Pending";
   }
-  if (validDoCompleted && !allDelivered) {
+  if (validDoCompleted && validOOC && !allDelivered) {
     return "Do completed and Delivery pending";
   }
   if (be_no && anyArrival && validOOC) {

@@ -22,11 +22,13 @@
   box-shadow: 0 0 20px 1px rgba(0, 0, 0, 0.3);
   margin-top: 10px;
 }
+
 .sticky-btn {
   position: fixed;
   bottom: 10px;
   right: 10px;
-  z-index: 1000; /* Ensures it stays above other elements */
+  z-index: 1000;
+  /* Ensures it stays above other elements */
   margin: 0;
 }
 
@@ -88,6 +90,7 @@
 .MuiTableRow-root.custom-clearance-completed {
   background-color: #ccffff !important;
 }
+
 .MuiTableRow-root.duty-payment-pending {
   background-color: #e6ffff !important;
 }
@@ -116,6 +119,11 @@
   background-color: #ffff99 !important;
 }
 
+.MuiTableRow-root.do-completed-delivery-pending {
+  background-color: #f3e8ff !important;
+  /* Light Purple */
+}
+
 .MuiTableRow-root.custom-clearance-completed:hover {
   background-color: #ccffff !important;
 }
@@ -134,6 +142,10 @@
 
 .MuiTableRow-root.eta:hover {
   background-color: #ffff99 !important;
+}
+
+.MuiTableRow-root.do-completed-delivery-pending:hover {
+  background-color: #f3e8ff !important;
 }
 
 .MuiTableRow-root.payment_made {
@@ -157,6 +169,7 @@
 
 .MuiTableCell-root {
   flex-direction: column !important;
+
   .MuiInputBase-root {
     font-size: 0.8rem !important;
   }
@@ -170,23 +183,27 @@
 // genral css
 
 .MuiTableRow-root.bg-yellow {
-  background-color: #f9e781 !important; /* Example styling for bg-yellow */
+  background-color: #f9e781 !important;
+  /* Example styling for bg-yellow */
 }
 
 .MuiTableRow-root.bg-orange {
-  background-color: #fbba5f !important; /* Example styling for bg-orange */
+  background-color: #fbba5f !important;
+  /* Example styling for bg-orange */
 }
+
 .MuiTableRow-root.bg-green {
-  background-color: #b0f8b0 !important; /* Example styling for bg-green */
+  background-color: #b0f8b0 !important;
+  /* Example styling for bg-green */
 }
 
-.css-c8wlay{
- justify-content: center !important;
- align-items: center !important;
- text-align: center !important;
+.css-c8wlay {
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
 }
 
-.css-tmyf5d-MuiTableCell-root{
+.css-tmyf5d-MuiTableCell-root {
   align-items: flex-start !important;
   text-align: start !important;
 }

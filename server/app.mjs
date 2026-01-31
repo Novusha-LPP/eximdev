@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/node";
-import logger from "./logger.js";
+import logger, { addMongoDBTransport } from "./logger.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -495,6 +495,9 @@ if (cluster.isPrimary) {
         socketTimeoutMS: 45000,
       })
       .then(async () => {
+        // Add MongoDB transport to logger using the existing connection
+        addMongoDBTransport(mongoose.connection.getClient());
+
         // initialize cron jobs only on the first worker to avoid duplicates
         if (cluster.worker.id === 1) {
           cron.schedule(

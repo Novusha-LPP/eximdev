@@ -186,6 +186,38 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
     }
 });
 
+// Delete a KPI Sheet (Owner or Admin only)
+router.delete("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
+    try {
+        console.log(`DELETE /api/kpi/sheet/${req.params.id} called by ${req.user.username}`);
+        const sheet = await KPISheet.findById(req.params.id);
+
+        if (!sheet) {
+            return res.status(404).json({ message: "Sheet not found" });
+        }
+
+        // Check ownership or admin
+        const isOwner = sheet.user.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ message: "Not authorized to delete this sheet" });
+        }
+
+        // Prevent deleting approved sheets unless admin
+        if (sheet.status === 'APPROVED' && !isAdmin) {
+            return res.status(400).json({ message: "Cannot delete an approved sheet" });
+        }
+
+        await KPISheet.findByIdAndDelete(req.params.id);
+        console.log(`DELETE /api/kpi/sheet/${req.params.id} - Success`);
+        res.json({ message: "Sheet deleted successfully" });
+    } catch (err) {
+        console.error(`DELETE /api/kpi/sheet ERROR:`, err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
     try {
         // console.log("GET /api/kpi/sheet called", req.query);
@@ -249,6 +281,13 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
 
         const user = await UserModel.findById(req.user._id);
 
+        // FETCH MANDATORY USERS
+        const verifier = await UserModel.findOne({ username: 'shalini_arun' });
+        const approver = await UserModel.findOne({ username: 'suraj_rajan' });
+
+        if (!verifier) console.warn("Standard Verifier 'shalini_arun' not found!");
+        if (!approver) console.warn("Standard Approver 'suraj_rajan' not found!");
+
         const newSheet = new KPISheet({
             user: req.user._id,
             department: template.department, // Strictly bind to template dept
@@ -261,9 +300,9 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
                 prepared_by: `${user.first_name} ${user.last_name || ''}`
             },
             assigned_signatories: {
-                checked_by: signatories?.checked_by || undefined,
-                verified_by: signatories?.verified_by || undefined,
-                approved_by: signatories?.approved_by || undefined
+                checked_by: (signatories?.checked_by && signatories.checked_by !== '') ? signatories.checked_by : undefined,
+                verified_by: verifier ? verifier._id : undefined,
+                approved_by: approver ? approver._id : undefined
             }
         });
 
@@ -552,34 +591,172 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
     }
 });
 
+// ==========================================
+// REVIEWER DASHBOARD - Get sheets pending review for current user
+// ==========================================
+router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const username = req.user.username;
+
+        // Special users have elevated permissions
+        const isShalini = username === 'shalini_arun';
+        const isSuraj = username === 'suraj_rajan';
+        const isAdmin = req.user.role === 'Admin';
+
+        let pendingCheck = [];
+        let pendingVerify = [];
+        let pendingApprove = [];
+
+        // Pending CHECK - SUBMITTED sheets
+        // Normal users: only if assigned as checked_by
+        // Shalini: can check any sheet
+        // Suraj: can check any sheet
+        // Admin: can check any sheet
+        if (isShalini || isSuraj || isAdmin) {
+            pendingCheck = await KPISheet.find({ status: 'SUBMITTED' })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        } else {
+            pendingCheck = await KPISheet.find({
+                'assigned_signatories.checked_by': userId,
+                status: 'SUBMITTED'
+            })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        }
+
+        // Pending VERIFY - CHECKED sheets
+        // Shalini: can verify any sheet
+        // Suraj: can verify any sheet
+        // Admin: can verify any sheet
+        if (isShalini || isSuraj || isAdmin) {
+            pendingVerify = await KPISheet.find({ status: 'CHECKED' })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        } else {
+            pendingVerify = await KPISheet.find({
+                'assigned_signatories.verified_by': userId,
+                status: 'CHECKED'
+            })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        }
+
+        // Pending APPROVE - VERIFIED sheets
+        // Suraj: can approve any sheet
+        // Admin: can approve any sheet
+        if (isSuraj || isAdmin) {
+            pendingApprove = await KPISheet.find({ status: 'VERIFIED' })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        } else {
+            pendingApprove = await KPISheet.find({
+                'assigned_signatories.approved_by': userId,
+                status: 'VERIFIED'
+            })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        }
+
+        // Also get recently processed by this user (for history)
+        const recentlyProcessed = await KPISheet.find({
+            'approval_history.by': userId
+        })
+            .populate('user', 'first_name last_name email')
+            .populate('template_version', 'name')
+            .sort({ updatedAt: -1 })
+            .limit(20);
+
+        res.json({
+            pending_check: pendingCheck,
+            pending_verify: pendingVerify,
+            pending_approve: pendingApprove,
+            recently_processed: recentlyProcessed,
+            counts: {
+                check: pendingCheck.length,
+                verify: pendingVerify.length,
+                approve: pendingApprove.length
+            }
+        });
+    } catch (err) {
+        console.error("GET /api/kpi/reviewer/pending ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 // Approve/Reject KPI (HoD)
+// Approve/Review KPI Flow
 router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
     try {
-        const { sheetId, action, comments } = req.body; // action: APPROVE or REJECT
+        console.log("POST /api/kpi/sheet/review called", req.body);
+        const { sheetId, action, comments } = req.body; // action: CHECK, VERIFY, APPROVE, REJECT
         const sheet = await KPISheet.findById(sheetId);
         if (!sheet) return res.status(404).json({ message: "Sheet not found" });
 
-        // TODO: distinct HoD permission check. For now, assuming Admin or specific role.
-        // User context might have role?
-        // if (req.user.role !== 'Admin' && req.user.role !== 'HoD') ... 
+        console.log(`Reviewing Sheet: ID=${sheetId}, Current Status=${sheet.status}, Requested Action=${action}, User=${req.user.username}(${req.user.role})`);
 
-        if (sheet.status !== "SUBMITTED") {
-            return res.status(400).json({ message: "Sheet is not pending approval" });
+        // Prevent Self-Approval (Generic rule, though distinct roles usually prevent this naturally)
+        if (sheet.user.toString() === req.user._id.toString() && req.user.role !== 'Admin') {
+            console.log("Self-review blocked");
+            return res.status(403).json({ message: "Cannot review your own KPI sheet" });
         }
 
-        // Prevent Self-Approval
-        if (sheet.user.toString() === req.user._id.toString()) {
-            return res.status(403).json({ message: "Cannot approve your own KPI sheet" });
-        }
+        const oldStatus = sheet.status;
+        const currentUserId = req.user._id.toString();
+        const username = req.user.username;
+        const isAdmin = req.user.role === 'Admin';
+        const isShalini = username === 'shalini_arun';
+        const isSuraj = username === 'suraj_rajan';
 
-        if (action === "APPROVE") {
+        if (action === "REJECT") {
+            sheet.status = "REJECTED";
+            sheet.is_fully_locked = false; // Unlock
+        }
+        else if (action === "CHECK") {
+            if (sheet.status !== "SUBMITTED") return res.status(400).json({ message: "Sheet is not in Submitted state" });
+
+            // Validate User - Admin, Shalini, Suraj, or assigned checker can check
+            const isAssignedChecker = sheet.assigned_signatories?.checked_by?.toString() === currentUserId;
+            if (!isAdmin && !isShalini && !isSuraj && !isAssignedChecker) {
+                return res.status(403).json({ message: "You are not authorized to Check this sheet" });
+            }
+
+            sheet.status = "CHECKED";
+            sheet.signatures.checked_by = `${req.user.first_name} ${req.user.last_name || ''}`;
+        }
+        else if (action === "VERIFY") {
+            if (sheet.status !== "CHECKED") return res.status(400).json({ message: "Sheet is not in Checked state" });
+
+            // Validate User - Admin, Shalini, Suraj, or assigned verifier can verify
+            const isAssignedVerifier = sheet.assigned_signatories?.verified_by?.toString() === currentUserId;
+            if (!isAdmin && !isShalini && !isSuraj && !isAssignedVerifier) {
+                return res.status(403).json({ message: "You are not authorized to Verify this sheet" });
+            }
+
+            sheet.status = "VERIFIED";
+            sheet.signatures.verified_by = `${req.user.first_name} ${req.user.last_name || ''}`;
+        }
+        else if (action === "APPROVE") {
+            if (sheet.status !== "VERIFIED") return res.status(400).json({ message: "Sheet is not in Verified state" });
+
+            // Validate User - Admin, Suraj, or assigned approver can approve (NOT Shalini)
+            const isAssignedApprover = sheet.assigned_signatories?.approved_by?.toString() === currentUserId;
+            if (!isAdmin && !isSuraj && !isAssignedApprover) {
+                return res.status(403).json({ message: "You are not authorized to Approve this sheet" });
+            }
+
             sheet.status = "APPROVED";
             sheet.is_fully_locked = true;
             sheet.signatures.approved_by = `${req.user.first_name} ${req.user.last_name || ''}`;
-        } else if (action === "REJECT") {
-            sheet.status = "REJECTED";
-            sheet.is_fully_locked = false; // Unlock for edits
-        } else {
+        }
+        else {
             return res.status(400).json({ message: "Invalid action" });
         }
 
@@ -592,8 +769,8 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         // Audit
         sheet.audit_log.push({
             field: "status",
-            old_value: "SUBMITTED",
-            new_value: sheet.status, // APPROVED or REJECTED
+            old_value: oldStatus,
+            new_value: sheet.status,
             changed_by: req.user._id,
             action: "UPDATE"
         });

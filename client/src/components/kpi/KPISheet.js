@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
+import { UserContext } from "../../contexts/UserContext";
 import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert } from '@mui/material';
 import './kpi.scss';
 
 const KPISheet = () => {
+    const { user } = React.useContext(UserContext);
     const { sheetId } = useParams();
     const [sheet, setSheet] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -317,9 +319,15 @@ const KPISheet = () => {
                 action: reviewDialog.action,
                 comments: reviewDialog.comments
             }, { withCredentials: true });
-            fetchSheet();
-            showMessage(`Sheet ${reviewDialog.action === 'APPROVE' ? 'Approved' : 'Rejected'} Successfully!`);
+
+            const actionText = reviewDialog.action === 'CHECK' ? 'Checked' :
+                reviewDialog.action === 'VERIFY' ? 'Verified' :
+                    reviewDialog.action === 'APPROVE' ? 'Approved' : 'Rejected';
+            showMessage(`Sheet ${actionText} Successfully!`);
             setReviewDialog({ ...reviewDialog, open: false });
+
+            // Refresh sheet data to update UI and hide action buttons
+            await fetchSheet();
         } catch (error) {
             console.error("Error reviewing KPI", error);
             showMessage("Error updating status: " + (error.response?.data?.message || error.message), 'error');
@@ -332,7 +340,7 @@ const KPISheet = () => {
     return (
         <div className="kpi-sheet-page">
             {/* Centered Header - Excel Style */}
-            <div className="kpi-sheet-header">
+            <div className="kpi-sheet-header" style={{ position: 'relative' }}>
                 <div className="header-main">
                     KEY RESULT AREA (KRA) - {(sheet.template_version?.name || sheet.template_name || 'KPI TEMPLATE').toUpperCase()}
                 </div>
@@ -344,10 +352,46 @@ const KPISheet = () => {
                         Department: {sheet.user_info.department}
                     </div>
                 )}
+
+                {/* Status Info Box - Top Right */}
+                <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: '2px',
+                    background: 'rgba(255,255,255,0.9)',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: 600, color: '#333' }}>Status:</span>
+                        <span className={`status-badge ${sheet.status.toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
+                            {sheet.status}
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: '#555', textAlign: 'right' }}>
+                        {sheet.summary?.submission_date && (
+                            <div>📤 Submitted: {new Date(sheet.summary.submission_date).toLocaleDateString()}</div>
+                        )}
+                        {sheet.approval_history?.find(h => h.action === 'CHECK') && (
+                            <div>✓ Checked: {new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}</div>
+                        )}
+                        {sheet.approval_history?.find(h => h.action === 'VERIFY') && (
+                            <div>✓ Verified: {new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}</div>
+                        )}
+                        {sheet.approval_history?.find(h => h.action === 'APPROVE') && (
+                            <div>✅ Approved: {new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}</div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Action Bar */}
-            <div className="kpi-action-bar">
+            <div className="kpi-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="period-info">
                     <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </div>
@@ -634,14 +678,40 @@ const KPISheet = () => {
                     Submit for Approval
                 </button>
             )}
-            {sheet.status === 'SUBMITTED' && (
+            {/* Review Actions */}
+            {/* Review Actions */}
+            {(sheet.status === 'SUBMITTED' || sheet.status === 'CHECKED' || sheet.status === 'VERIFIED') && (
                 <div className="floating-action-group">
-                    <button className="btn btn-success" onClick={() => handleReviewClick('APPROVE')}>
-                        Approve
-                    </button>
-                    <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
-                        Reject
-                    </button>
+                    {sheet.status === 'SUBMITTED' && (user?.role === 'Admin' || sheet.assigned_signatories?.checked_by?._id === user?._id) && (
+                        <>
+                            <button className="btn btn-warning" onClick={() => handleReviewClick('CHECK')}>
+                                Check & Proceed
+                            </button>
+                            <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
+                                Reject
+                            </button>
+                        </>
+                    )}
+                    {sheet.status === 'CHECKED' && (user?.role === 'Admin' || sheet.assigned_signatories?.verified_by?._id === user?._id) && (
+                        <>
+                            <button className="btn btn-info" onClick={() => handleReviewClick('VERIFY')}>
+                                Verify & Proceed
+                            </button>
+                            <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
+                                Reject
+                            </button>
+                        </>
+                    )}
+                    {sheet.status === 'VERIFIED' && (user?.role === 'Admin' || sheet.assigned_signatories?.approved_by?._id === user?._id) && (
+                        <>
+                            <button className="btn btn-success" onClick={() => handleReviewClick('APPROVE')}>
+                                Final Approve
+                            </button>
+                            <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
+                                Reject
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -672,7 +742,11 @@ const KPISheet = () => {
 
             {/* Review Dialog */}
             <Dialog open={reviewDialog.open} onClose={() => setReviewDialog({ ...reviewDialog, open: false })} fullWidth maxWidth="sm">
-                <DialogTitle>{reviewDialog.action === 'APPROVE' ? 'Approve Sheet' : 'Reject Sheet'}</DialogTitle>
+                <DialogTitle>
+                    {reviewDialog.action === 'CHECK' ? 'Check Sheet' :
+                        reviewDialog.action === 'VERIFY' ? 'Verify Sheet' :
+                            reviewDialog.action === 'APPROVE' ? 'Approve Sheet' : 'Reject Sheet'}
+                </DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
@@ -683,13 +757,23 @@ const KPISheet = () => {
                         rows={4}
                         value={reviewDialog.comments}
                         onChange={(e) => setReviewDialog({ ...reviewDialog, comments: e.target.value })}
-                        placeholder={reviewDialog.action === 'APPROVE' ? "Optional approval comments..." : "Reason for rejection..."}
+                        placeholder={reviewDialog.action === 'REJECT' ? "Reason for rejection..." : "Optional comments..."}
                     />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setReviewDialog({ ...reviewDialog, open: false })}>Cancel</Button>
-                    <Button onClick={confirmReview} variant="contained" color={reviewDialog.action === 'APPROVE' ? "success" : "error"}>
-                        {reviewDialog.action === 'APPROVE' ? 'Approve' : 'Reject'}
+                    <Button
+                        onClick={confirmReview}
+                        variant="contained"
+                        color={
+                            reviewDialog.action === 'CHECK' ? "warning" :
+                                reviewDialog.action === 'VERIFY' ? "info" :
+                                    reviewDialog.action === 'APPROVE' ? "success" : "error"
+                        }
+                    >
+                        {reviewDialog.action === 'CHECK' ? 'Check' :
+                            reviewDialog.action === 'VERIFY' ? 'Verify' :
+                                reviewDialog.action === 'APPROVE' ? 'Approve' : 'Reject'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -715,12 +799,12 @@ const KPISheet = () => {
                                     (sheet.assigned_signatories?.checked_by ? `${sheet.assigned_signatories.checked_by.first_name} ${sheet.assigned_signatories.checked_by.last_name || ''}` : '-')}
                             </td>
                             <td>
-                                {sheet.signatures?.verified_by ||
-                                    (sheet.assigned_signatories?.verified_by ? `${sheet.assigned_signatories.verified_by.first_name} ${sheet.assigned_signatories.verified_by.last_name || ''}` : '-')}
+                                {/* Verified By is always Shalini Arun */}
+                                {sheet.signatures?.verified_by || 'SHALINI ARUN'}
                             </td>
                             <td>
-                                {sheet.signatures?.approved_by ||
-                                    (sheet.assigned_signatories?.approved_by ? `${sheet.assigned_signatories.approved_by.first_name} ${sheet.assigned_signatories.approved_by.last_name || ''}` : '-')}
+                                {/* Approved By is always Suraj Rajan */}
+                                {sheet.signatures?.approved_by || 'SURAJ RAJAN'}
                             </td>
                         </tr>
                     </tbody>

@@ -56,90 +56,7 @@ const Icons = {
     ),
 };
 
-const MultiSelectDropdown = ({ options, selected, onChange, placeholder = "Select..." }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef(null);
-    const [customVal, setCustomVal] = useState('');
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const toggleOption = (value) => {
-        const newSelected = selected.includes(value)
-            ? selected.filter(item => item !== value)
-            : [...selected, value];
-        onChange(newSelected);
-    };
-
-    const handleAddCustom = (e) => {
-        e.stopPropagation();
-        if (customVal.trim()) {
-            if (!selected.includes(customVal.trim())) {
-                onChange([...selected, customVal.trim()]);
-            }
-            setCustomVal('');
-        }
-    };
-
-    return (
-        <div className="custom-multiselect" ref={dropdownRef}>
-            <div className={`multiselect-toggle ${isOpen ? 'active' : ''}`} onClick={() => setIsOpen(!isOpen)}>
-                {selected.length > 0 ? (
-                    <span className="selected-text">{selected.join(', ')}</span>
-                ) : (
-                    <span className="placeholder">{placeholder}</span>
-                )}
-                <span className={`arrow-icon ${isOpen ? 'open' : ''}`}>▼</span>
-            </div>
-            {isOpen && (
-                <div className="multiselect-dropdown open">
-                    <div className="multiselect-custom-input" onClick={(e) => e.stopPropagation()} style={{ padding: '8px', borderBottom: '1px solid #dcdcdc', display: 'flex', gap: '6px' }}>
-                        <input
-                            type="text"
-                            value={customVal}
-                            onChange={(e) => setCustomVal(e.target.value)}
-                            placeholder="Add custom..."
-                            style={{ flex: 1, padding: '6px 8px', fontSize: '13px', border: '1px solid #c0c0c0', borderRadius: '4px', outline: 'none' }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustom(e); }}
-                        />
-                        <button
-                            onClick={handleAddCustom}
-                            style={{
-                                border: 'none', background: '#0078d4', color: '#fff',
-                                borderRadius: '4px', cursor: 'pointer', padding: '0 12px', fontWeight: 'bold'
-                            }}
-                        >
-                            +
-                        </button>
-                    </div>
-                    <div className="multiselect-options-list" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                        {options.map((option, index) => (
-                            <div
-                                key={index}
-                                className={`multiselect-option ${selected.includes(option.value) ? 'selected' : ''}`}
-                                onClick={() => toggleOption(option.value)}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={selected.includes(option.value)}
-                                    readOnly
-                                />
-                                <span>{option.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 const KPITemplateManager = () => {
     const { user } = useContext(UserContext);
@@ -149,7 +66,7 @@ const KPITemplateManager = () => {
 
     const [currentTemplate, setCurrentTemplate] = useState({
         name: '',
-        department: [],
+        department: '',
         rows: []
     });
 
@@ -176,15 +93,16 @@ const KPITemplateManager = () => {
     };
 
     const handleEdit = (tmpl) => {
-        const depts = Array.isArray(tmpl.department) ? tmpl.department : (tmpl.department ? [tmpl.department] : []);
-        setCurrentTemplate({ ...tmpl, department: depts });
+        // Handle legacy array if present, take first or empty
+        const dept = Array.isArray(tmpl.department) ? (tmpl.department[0] || '') : (tmpl.department || '');
+        setCurrentTemplate({ ...tmpl, department: dept });
         setIsEditing(true);
     };
 
     const handleNew = () => {
         setCurrentTemplate({
             name: '',
-            department: [],
+            department: '',
             rows: [{ id: Date.now().toString(), label: 'New KPI', type: 'numeric' }]
         });
         setIsEditing(true);
@@ -316,19 +234,27 @@ const KPITemplateManager = () => {
                             </div>
                             <div className="modern-form-group">
                                 <label>Departments</label>
-                                <MultiSelectDropdown
-                                    options={[
-                                        'Import DSR', 'Export DSR', 'Documentation', 'e-Sanchit', 'Submission', 'DO', 'Operation',
-                                        'Accounts', 'Billing', 'Admin', 'HR', 'Management',
-                                        ...currentTemplate.department.filter(d => ![
-                                            'Import DSR', 'Export DSR', 'Documentation', 'e-Sanchit', 'Submission', 'DO', 'Operation',
-                                            'Accounts', 'Billing', 'Admin', 'HR', 'Management'
-                                        ].includes(d))
-                                    ].map(d => ({ value: d, label: d }))}
-                                    selected={currentTemplate.department}
-                                    onChange={handleDepartmentChange}
-                                    placeholder="Select Departments..."
-                                />
+                                <select
+                                    value={currentTemplate.department || ''}
+                                    onChange={(e) => handleDepartmentChange(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        fontSize: '0.9rem',
+                                        outline: 'none',
+                                        background: 'white'
+                                    }}
+                                >
+                                    <option value="" disabled>Select Department...</option>
+                                    {[
+                                        'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
+                                        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs'
+                                    ].map(d => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -361,7 +287,7 @@ const KPITemplateManager = () => {
                                     [Employee Name] KPI (Key Performance Indicator)
                                 </div>
                                 <div className="header-dept">
-                                    Department: {(Array.isArray(currentTemplate.department) ? currentTemplate.department.join(', ') : currentTemplate.department) || '[Select Department]'}
+                                    Department: {currentTemplate.department || '[Select Department]'}
                                 </div>
                             </div>
 
@@ -588,16 +514,12 @@ const KPITemplateManager = () => {
                                                 >
                                                     <td style={{ paddingLeft: '24px', fontWeight: 600, color: '#334155' }}>{tmpl.name}</td>
                                                     <td>
-                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                                            {(Array.isArray(tmpl.department) ? tmpl.department : [tmpl.department]).map((dept, di) => (
-                                                                <span key={di} style={{
-                                                                    background: '#eef2ff', color: '#4f46e5',
-                                                                    padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500
-                                                                }}>
-                                                                    {dept}
-                                                                </span>
-                                                            ))}
-                                                        </div>
+                                                        <span style={{
+                                                            background: '#eef2ff', color: '#4f46e5',
+                                                            padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500
+                                                        }}>
+                                                            {Array.isArray(tmpl.department) ? (tmpl.department[0] || '-') : (tmpl.department || '-')}
+                                                        </span>
                                                     </td>
                                                     <td style={{ textAlign: 'center', color: '#64748b' }}>{tmpl.rows?.length || 0}</td>
                                                     <td style={{ textAlign: 'center' }}>
@@ -616,15 +538,13 @@ const KPITemplateManager = () => {
                                                             >
                                                                 <Icons.Edit />
                                                             </button>
-                                                            {user?.role === 'Admin' && (
-                                                                <button
-                                                                    className="modern-btn icon-only danger"
-                                                                    onClick={() => handleDeleteClick(tmpl)}
-                                                                    title="Delete"
-                                                                >
-                                                                    <Icons.Delete />
-                                                                </button>
-                                                            )}
+                                                            <button
+                                                                className="modern-btn icon-only danger"
+                                                                onClick={() => handleDeleteClick(tmpl)}
+                                                                title="Delete"
+                                                            >
+                                                                <Icons.Delete />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </motion.tr>

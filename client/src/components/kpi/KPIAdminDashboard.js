@@ -32,8 +32,8 @@ const KPIAdminDashboard = () => {
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
 
     const departments = [
-        'Import DSR', 'Export DSR', 'Documentation', 'e-Sanchit', 'Submission', 'DO', 'Operation',
-        'Accounts', 'Billing', 'Admin', 'HR', 'Management'
+        'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
+        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs'
     ];
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -215,6 +215,9 @@ const KPIAdminDashboard = () => {
                                         <th>Department</th>
                                         <th>Template</th>
                                         <th style={{ textAlign: 'center' }}>Status</th>
+                                        <th>Check Date</th>
+                                        <th>Verify Date</th>
+                                        <th>Approve Date</th>
                                         <th style={{ textAlign: 'center' }}>Score</th>
                                         <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                     </tr>
@@ -239,12 +242,27 @@ const KPIAdminDashboard = () => {
                                                 </td>
                                                 <td>
                                                     <span style={{ background: '#eef2ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                                                        {(sheet.department || []).join(', ')}
+                                                        {sheet.department || '-'}
                                                     </span>
                                                 </td>
                                                 <td style={{ color: '#64748b' }}>{sheet.template_version?.name || 'Unknown'}</td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
+                                                </td>
+                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                    {sheet.approval_history?.find(h => h.action === 'CHECK')?.date
+                                                        ? new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        : '-'}
+                                                </td>
+                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                    {sheet.approval_history?.find(h => h.action === 'VERIFY')?.date
+                                                        ? new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        : '-'}
+                                                </td>
+                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                    {sheet.approval_history?.find(h => h.action === 'APPROVE')?.date
+                                                        ? new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        : '-'}
                                                 </td>
                                                 <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
                                                     {sheet.summary?.overall_percentage || 0}%

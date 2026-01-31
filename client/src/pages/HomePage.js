@@ -117,6 +117,9 @@ import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
+// HOD Management
+import HodManagement from "../components/home/HodManagement.js";
+
 const drawerWidth = 60;
 
 function HomePage() {
@@ -163,6 +166,9 @@ function HomePage() {
 
               {/* Protected Routes */}
               <Route path="/assign" element={<Assign />} />
+
+              {/* HOD Management - For Head of Department users */}
+              <Route path="/hod-management" element={<HodManagement />} />
 
               {/* Accounts */}
               <Route

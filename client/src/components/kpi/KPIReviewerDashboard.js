@@ -29,6 +29,13 @@ const KPIReviewerDashboard = () => {
     const [activeTab, setActiveTab] = useState('check');
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
 
+    // Filter state
+    const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
+    const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+
     // Review Dialog State
     const [reviewDialog, setReviewDialog] = useState({
         open: false,
@@ -93,13 +100,18 @@ const KPIReviewerDashboard = () => {
     };
 
     const getActiveSheets = () => {
+        let sheets = [];
         switch (activeTab) {
-            case 'check': return data.pending_check;
-            case 'verify': return data.pending_verify;
-            case 'approve': return data.pending_approve;
-            case 'history': return data.recently_processed;
-            default: return [];
+            case 'check': sheets = data.pending_check; break;
+            case 'verify': sheets = data.pending_verify; break;
+            case 'approve': sheets = data.pending_approve; break;
+            case 'history': sheets = data.recently_processed; break;
+            default: sheets = [];
         }
+
+        // Filter by month and year
+        return sheets.filter(s => s.month === filterMonth && s.year === filterYear)
+            .sort((a, b) => a.month - b.month); // Sort by month
     };
 
     const getActionLabel = () => {
@@ -206,13 +218,29 @@ const KPIReviewerDashboard = () => {
 
             {/* Sheets List */}
             <motion.div className="modern-section">
-                <div className="section-header">
+                <div className="section-header" style={{ justifyContent: 'space-between' }}>
                     <h2>
                         {activeTab === 'check' && 'Sheets Pending Check'}
                         {activeTab === 'verify' && 'Sheets Pending Verification'}
                         {activeTab === 'approve' && 'Sheets Pending Approval'}
                         {activeTab === 'history' && 'Recently Reviewed'}
                     </h2>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <select
+                            value={filterMonth}
+                            onChange={(e) => setFilterMonth(Number(e.target.value))}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
+                        >
+                            {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                        </select>
+                        <select
+                            value={filterYear}
+                            onChange={(e) => setFilterYear(Number(e.target.value))}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
+                        >
+                            {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </div>
                 </div>
                 <div className="section-body" style={{ padding: 0 }}>
                     {loading ? (
@@ -225,6 +253,9 @@ const KPIReviewerDashboard = () => {
                                         <th style={{ paddingLeft: '24px' }}>Employee</th>
                                         <th>Department</th>
                                         <th>Period</th>
+                                        <th>Check Date</th>
+                                        <th>Verify Date</th>
+                                        <th>Approve Date</th>
                                         <th style={{ textAlign: 'center' }}>Status</th>
                                         <th style={{ textAlign: 'center' }}>Score</th>
                                         {activeTab === 'history' && <th>Last Action</th>}
@@ -253,11 +284,26 @@ const KPIReviewerDashboard = () => {
                                                     </td>
                                                     <td>
                                                         <span style={{ background: '#eef2ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                                                            {(sheet.department || []).join(', ')}
+                                                            {sheet.department || '-'}
                                                         </span>
                                                     </td>
                                                     <td style={{ color: '#64748b' }}>
                                                         {new Date(sheet.year, sheet.month - 1).toLocaleDateString('default', { month: 'short', year: 'numeric' })}
+                                                    </td>
+                                                    <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                        {sheet.approval_history?.find(h => h.action === 'CHECK')?.date
+                                                            ? new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                            : '-'}
+                                                    </td>
+                                                    <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                        {sheet.approval_history?.find(h => h.action === 'VERIFY')?.date
+                                                            ? new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                            : '-'}
+                                                    </td>
+                                                    <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                        {sheet.approval_history?.find(h => h.action === 'APPROVE')?.date
+                                                            ? new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                            : '-'}
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>

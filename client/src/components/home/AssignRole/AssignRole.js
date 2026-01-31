@@ -32,6 +32,7 @@ function AssignRole({ selectedUser }) {
   // Role options
   const roles = [
     "Admin",
+    "Head_of_Department",
     "Sr_Manager",
     "Manager",
     "Asst_Manager",

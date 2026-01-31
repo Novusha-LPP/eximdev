@@ -3,6 +3,7 @@ import verifyToken from "../../middleware/authMiddleware.mjs";
 import KPITemplate from "../../model/kpi/kpiTemplateModel.mjs";
 import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
 import UserModel from "../../model/userModel.mjs";
+import TeamModel from "../../model/teamModel.mjs";
 
 const router = express.Router();
 
@@ -66,6 +67,31 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
         res.json(templates);
     } catch (err) {
         console.error("GET /api/kpi/templates ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get HODs for current user (based on team membership)
+router.get("/api/kpi/my-hods", verifyToken, async (req, res) => {
+    try {
+        // Find all teams where the current user is a member
+        const teams = await TeamModel.find({ "members.userId": req.user._id });
+
+        if (!teams || teams.length === 0) {
+            // User is not part of any team - return empty array
+            return res.json([]);
+        }
+
+        // Get unique HOD IDs from all teams
+        const hodIds = [...new Set(teams.map(t => t.hodId.toString()))];
+
+        // Fetch HOD user details
+        const hods = await UserModel.find({ _id: { $in: hodIds } })
+            .select('_id first_name last_name username');
+
+        res.json(hods);
+    } catch (err) {
+        console.error("GET /api/kpi/my-hods ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });
@@ -288,6 +314,27 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
         if (!verifier) console.warn("Standard Verifier 'shalini_arun' not found!");
         if (!approver) console.warn("Standard Approver 'suraj_rajan' not found!");
 
+        // Find HOD for the user
+        // We look for a team where this user is a member
+        let hodUser = null;
+        try {
+            const userTeam = await TeamModel.findOne({ "members.userId": req.user._id });
+            if (userTeam) {
+                hodUser = await UserModel.findById(userTeam.hodId);
+                console.log(`Found HOD for user ${req.user.username}: ${hodUser?.username}`);
+            }
+        } catch (e) {
+            console.error("Error finding HOD:", e);
+        }
+
+        // Determine checked_by: HOD priority > Manual input > undefined
+        let checkedById = undefined;
+        if (hodUser) {
+            checkedById = hodUser._id;
+        } else if (signatories?.checked_by && signatories.checked_by !== '') {
+            checkedById = signatories.checked_by;
+        }
+
         const newSheet = new KPISheet({
             user: req.user._id,
             department: template.department, // Strictly bind to template dept
@@ -300,7 +347,7 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
                 prepared_by: `${user.first_name} ${user.last_name || ''}`
             },
             assigned_signatories: {
-                checked_by: (signatories?.checked_by && signatories.checked_by !== '') ? signatories.checked_by : undefined,
+                checked_by: checkedById,
                 verified_by: verifier ? verifier._id : undefined,
                 approved_by: approver ? approver._id : undefined
             }
@@ -782,19 +829,7 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
     }
 });
 
-// DELETE Sheet (Admin Only)
-router.delete("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
-    try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: "Admin access required" });
-        }
-        await KPISheet.findByIdAndDelete(req.params.id);
-        res.json({ message: "Sheet deleted" });
-    } catch (err) {
-        console.error("DELETE /api/kpi/sheet ERROR:", err);
-        res.status(500).json({ message: "Server Error" });
-    }
-});
+
 
 // Add Custom Row to Sheet
 router.post("/api/kpi/sheet/row", verifyToken, async (req, res) => {
@@ -896,17 +931,26 @@ router.delete("/api/kpi/sheet/row/:sheetId/:rowId", verifyToken, async (req, res
 });
 
 // DELETE Template (Admin Only)
+// DELETE Template (Admin or Owner)
 router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: "Admin access required" });
+        const template = await KPITemplate.findById(req.params.id);
+        if (!template) {
+            return res.status(404).json({ message: "Template not found" });
         }
-        // Soft delete or hard delete? User said "delete". Safe to soft delete usually but for "Delete option", hard delete might be expected or `is_active=false`.
-        // I will do soft delete for safety if it's referenced, but template manager usually hides inactive.
-        // Existing "Create/Update" sets `is_active=false` for OLD versions.
-        // If I delete a template, I should probably set `is_active=false`.
 
-        await KPITemplate.findByIdAndUpdate(req.params.id, { is_active: false });
+        // Allow Admin or Owner
+        const isOwner = template.owner.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+        const isHOD = req.user.role === 'Head_of_Department'; // Optional: allow any HOD to delete? Maybe stick to owner/admin for safety.
+
+        // Let's stick to Owner or Admin. If HOD created it, they are owner.
+        if (!isAdmin && !isOwner) {
+            return res.status(403).json({ message: "Not authorized to delete this template" });
+        }
+
+        template.is_active = false;
+        await template.save();
         res.json({ message: "Template deleted" });
     } catch (err) {
         console.error("DELETE /api/kpi/template ERROR:", err);

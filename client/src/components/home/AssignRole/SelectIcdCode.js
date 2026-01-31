@@ -66,8 +66,8 @@ function SelectIcdCode({ selectedUser }) {
     const codes = values.icdCodes;
 
     // Check if current user has admin privileges
-    if (user.role !== "Admin") {
-      message.error("Only admins can assign ICD codes");
+    if (user.role !== "Admin" && user.role !== "Head_of_Department") {
+      message.error("Only admins or HODs can assign ICD codes");
       return;
     }
 
@@ -175,8 +175,8 @@ function SelectIcdCode({ selectedUser }) {
             />
           )}
 
-          {user.role !== "Admin" ? (
-            <Alert message="Only administrators can assign ICD codes to users" type="error" showIcon />
+          {user.role !== "Admin" && user.role !== "Head_of_Department" ? (
+            <Alert message="Only administrators or HODs can assign ICD codes to users" type="error" showIcon />
           ) : (
             <Form
               form={form}

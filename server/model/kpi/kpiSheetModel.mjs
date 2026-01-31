@@ -37,7 +37,7 @@ const KPISheetSchema = new Schema(
             required: true, // "User First Name + Last Name"
         },
         department: {
-            type: [String],
+            type: String,
             required: true,
         },
         year: {

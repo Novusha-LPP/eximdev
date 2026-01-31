@@ -37,7 +37,7 @@ const KPITemplateSchema = new Schema(
             required: true,
         },
         department: {
-            type: [String],
+            type: String,
             required: true,
         },
         rows: [KPIRowSchema],

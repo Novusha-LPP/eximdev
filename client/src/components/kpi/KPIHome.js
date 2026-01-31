@@ -76,7 +76,7 @@ const KPIHome = () => {
     const [overwriteDialog, setOverwriteDialog] = useState({ open: false });
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
 
-    const [users, setUsers] = useState([]);
+    const [hods, setHods] = useState([]);
     const [signatories, setSignatories] = useState({
         checked_by: '',
         verified_by: '',
@@ -89,7 +89,7 @@ const KPIHome = () => {
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
-        fetchUsers();
+        fetchHods();
         fetchPendingCount();
     }, []);
 
@@ -107,12 +107,16 @@ const KPIHome = () => {
         }
     };
 
-    const fetchUsers = async () => {
+    const fetchHods = async () => {
         try {
-            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, { withCredentials: true });
-            setUsers(res.data);
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/my-hods`, { withCredentials: true });
+            setHods(res.data);
+            // Auto-select if only one HOD
+            if (res.data.length === 1) {
+                setSignatories(prev => ({ ...prev, checked_by: res.data[0]._id }));
+            }
         } catch (error) {
-            console.error("Error fetching users", error);
+            console.error("Error fetching HODs", error);
         }
     };
 
@@ -326,12 +330,18 @@ const KPIHome = () => {
                                                 value={signatories.checked_by}
                                                 onChange={(e) => setSignatories({ ...signatories, checked_by: e.target.value })}
                                                 style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
+                                                disabled={hods.length === 0}
                                             >
-                                                <option value="">Select User...</option>
-                                                {users.filter(u => u.role !== 'User').map(u => (
+                                                <option value="">{hods.length === 0 ? 'No HOD assigned' : 'Select HOD...'}</option>
+                                                {hods.map(u => (
                                                     <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>
                                                 ))}
                                             </select>
+                                            {hods.length === 0 && (
+                                                <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '4px' }}>
+                                                    You are not part of any team. Contact your administrator.
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Verified By - Static */}

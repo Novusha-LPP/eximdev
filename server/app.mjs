@@ -107,6 +107,7 @@ import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
+import assignDepartment from "./routes/home/assignDepartment.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
 import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
 import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
@@ -211,6 +212,9 @@ import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
 import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
+
+// Team Management (HOD)
+import teamRoutes from "./routes/team/teamRoutes.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -350,6 +354,7 @@ app.use(assignRole);
 app.use(unassignModule);
 app.use(changePassword);
 app.use(assignIcdCode);
+app.use(assignDepartment);
 app.use(assignEximBot);
 app.use(getModuleUserCounts);
 app.use(toggleUserStatus);
@@ -458,6 +463,9 @@ app.use("/api/project-nucleus", nucleusReports);
 // KPI Module
 app.use(kpiRoutes);
 app.use(mrmRoutes);
+
+// Team Management (HOD)
+app.use(teamRoutes);
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

@@ -103,6 +103,7 @@ import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
 import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
+import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
 
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
@@ -112,6 +113,7 @@ import KPIHome from "../components/kpi/KPIHome.js";
 import KPISheet from "../components/kpi/KPISheet.js";
 import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
 import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
+import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
@@ -619,6 +621,14 @@ function HomePage() {
                 path="/open-points/project/:projectId"
                 element={<ProjectWorkspace />}
               />
+              <Route
+                path="/open-points/my-points"
+                element={<MyOpenPoints />}
+              />
+              <Route
+                path="/open-points/user/:username"
+                element={<MyOpenPoints />}
+              />
 
               {/* KPI Module */}
               <Route
@@ -650,6 +660,14 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="KPI">
                     <KPIAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/reviews"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIReviewerDashboard />
                   </ProtectedRoute>
                 }
               />

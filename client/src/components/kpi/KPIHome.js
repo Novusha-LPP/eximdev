@@ -84,16 +84,28 @@ const KPIHome = () => {
     });
 
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+    const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
         fetchUsers();
+        fetchPendingCount();
     }, []);
 
     useEffect(() => {
         fetchSheets();
     }, [filterYear]);
+
+    const fetchPendingCount = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/reviewer/pending`, { withCredentials: true });
+            const total = (res.data.counts?.check || 0) + (res.data.counts?.verify || 0) + (res.data.counts?.approve || 0);
+            setPendingReviewCount(total);
+        } catch (error) {
+            console.error("Error fetching pending counts", error);
+        }
+    };
 
     const fetchUsers = async () => {
         try {
@@ -129,6 +141,12 @@ const KPIHome = () => {
     };
 
     const handleCreateSheet = async () => {
+        // Validate checked_by is selected
+        if (!signatories.checked_by) {
+            showMessage("Please select a 'Checked By' person", "error");
+            return;
+        }
+
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/generate`, {
                 year,
@@ -225,6 +243,26 @@ const KPIHome = () => {
                                 <Icons.Dashboard /> Admin View
                             </button>
                         )}
+                        {pendingReviewCount > 0 && (
+                            <button className="modern-btn secondary" onClick={() => navigate('/kpi/reviews')} style={{ position: 'relative' }}>
+                                <Icons.Pending /> Pending Reviews
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '-6px',
+                                    right: '-6px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '10px',
+                                    minWidth: '18px',
+                                    textAlign: 'center'
+                                }}>
+                                    {pendingReviewCount}
+                                </span>
+                            </button>
+                        )}
                         <button className="modern-btn secondary" onClick={() => navigate('/kpi/templates')}>
                             <Icons.Settings /> Manage Templates
                         </button>
@@ -278,33 +316,45 @@ const KPIHome = () => {
 
                                 <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '16px' }}>
                                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#95a5a6', marginBottom: '12px', display: 'block', textTransform: 'uppercase' }}>
-                                        Signatories (Optional)
+                                        Signatories
                                     </label>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {['checked_by', 'verified_by', 'approved_by'].map((role) => {
-                                            // Filter users based on role
-                                            const filteredUsers = users.filter(u => {
-                                                if (role === 'verified_by') {
-                                                    return u.username === 'shalini_arun';
-                                                }
-                                                // For checked_by and approved_by, exclude regular Users
-                                                return u.role !== 'User';
-                                            });
+                                        {/* Checked By - Selectable (Required) */}
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>Checked By <span style={{ color: '#ef4444' }}>*</span></div>
+                                            <select
+                                                value={signatories.checked_by}
+                                                onChange={(e) => setSignatories({ ...signatories, checked_by: e.target.value })}
+                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
+                                            >
+                                                <option value="">Select User...</option>
+                                                {users.filter(u => u.role !== 'User').map(u => (
+                                                    <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
 
-                                            return (
-                                                <div key={role}>
-                                                    <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>{role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
-                                                    <select
-                                                        value={signatories[role]}
-                                                        onChange={(e) => setSignatories({ ...signatories, [role]: e.target.value })}
-                                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
-                                                    >
-                                                        <option value="">Select User...</option>
-                                                        {filteredUsers.map(u => <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>)}
-                                                    </select>
-                                                </div>
-                                            );
-                                        })}
+                                        {/* Verified By - Static */}
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>Verified By</div>
+                                            <input
+                                                type="text"
+                                                value="SHALINI ARUN"
+                                                disabled
+                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', background: '#f5f5f5', color: '#666' }}
+                                            />
+                                        </div>
+
+                                        {/* Approved By - Static */}
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>Approved By</div>
+                                            <input
+                                                type="text"
+                                                value="SURAJ RAJAN"
+                                                disabled
+                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', background: '#f5f5f5', color: '#666' }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -376,6 +426,8 @@ const KPIHome = () => {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     exit={{ opacity: 0, scale: 0.95 }}
                                                     whileHover={{ y: -5, boxShadow: '0 12px 24px rgba(0,0,0,0.1)' }}
+                                                    style={{ position: 'relative' }}
+                                                    title={`Status: ${sheet.status}\n${sheet.summary?.submission_date ? `Submitted: ${new Date(sheet.summary.submission_date).toLocaleDateString()}` : ''}${sheet.approval_history?.find(h => h.action === 'CHECK')?.date ? `\nChecked: ${new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}` : ''}${sheet.approval_history?.find(h => h.action === 'VERIFY')?.date ? `\nVerified: ${new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}` : ''}${sheet.approval_history?.find(h => h.action === 'APPROVE')?.date ? `\nApproved: ${new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}` : ''}`}
                                                 >
                                                     <button
                                                         className="delete-btn-modern"
@@ -384,13 +436,28 @@ const KPIHome = () => {
                                                     >
                                                         <Icons.Delete />
                                                     </button>
-                                                    <div className="card-top" style={{ background: sheet.status === 'APPROVED' ? '#4caf50' : sheet.status === 'SUBMITTED' ? '#ff9800' : '#e0e0e0' }} />
+                                                    <div className="card-top" style={{ background: sheet.status === 'APPROVED' ? '#4caf50' : sheet.status === 'VERIFIED' ? '#0078d4' : sheet.status === 'CHECKED' ? '#17a2b8' : sheet.status === 'SUBMITTED' ? '#ff9800' : '#e0e0e0' }} />
                                                     <div className="card-content">
                                                         <h3>{months[sheet.month - 1]} {sheet.year}</h3>
                                                         <p className="date">{sheet.template_name}</p>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
                                                             <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
                                                             <span style={{ fontSize: '0.8rem', color: '#95a5a6' }}>{sheet.completion_percentage || 0}% Complete</span>
+                                                        </div>
+                                                        {/* Mini Timeline on Card */}
+                                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee', fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                            {sheet.summary?.submission_date && (
+                                                                <div>📤 {new Date(sheet.summary.submission_date).toLocaleDateString()}</div>
+                                                            )}
+                                                            {sheet.approval_history?.find(h => h.action === 'CHECK') && (
+                                                                <div>✓ Checked {new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}</div>
+                                                            )}
+                                                            {sheet.approval_history?.find(h => h.action === 'VERIFY') && (
+                                                                <div>✓ Verified {new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}</div>
+                                                            )}
+                                                            {sheet.approval_history?.find(h => h.action === 'APPROVE') && (
+                                                                <div>✅ Approved {new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}</div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </motion.div>

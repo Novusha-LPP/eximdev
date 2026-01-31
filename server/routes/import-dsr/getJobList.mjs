@@ -490,6 +490,7 @@ router.get(
                       case: {
                         $and: [
                           "$$validDoCompleted",
+                          "$$validOutOfCharge",
                           { $eq: ["$$allDelivery", false] },
                         ],
                       },
@@ -555,6 +556,7 @@ router.get(
                           case: {
                             $and: [
                               "$$validDoCompleted",
+                              "$$validOutOfCharge",
                               { $eq: ["$$allDelivery", false] },
                             ],
                           },

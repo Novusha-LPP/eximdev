@@ -291,9 +291,9 @@ function useJobColumns(
               </Tooltip>
 
               <Tooltip title="FTA Benefit" arrow>
-                <span
-                  style={{ marginTop: "5px" }}
-                >{`FTA Benefit: ${ftaDisplay}`}</span>
+                <div
+                  style={{ marginTop: "5px", fontWeight: "bold" }}
+                >{`FTA Benefit: ${ftaDisplay}`}</div>
               </Tooltip>
               <Tooltip title="Hss" arrow>
                 <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>

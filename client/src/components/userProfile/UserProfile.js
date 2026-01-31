@@ -5,7 +5,7 @@ import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { fetchUserOpenPoints } from "../../services/openPointsService";
 import "./userProfile.css";
-import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button } from "@mui/material";
+import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button, Menu, MenuItem } from "@mui/material";
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -16,7 +16,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import WorkIcon from '@mui/icons-material/Work';
-import AWS from "aws-sdk";
+
 
 const UserProfile = ({ username: propUsername }) => {
     const { username: paramUsername } = useParams();
@@ -29,6 +29,20 @@ const UserProfile = ({ username: propUsername }) => {
     const [openPointsCount, setOpenPointsCount] = useState(0);
     const fileInputRef = useRef(null);
     const navigate = useNavigate();
+    const [anchorEl, setAnchorEl] = useState(null);
+    const openMenu = Boolean(anchorEl);
+
+    // Date formatter helper
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString; // Return original if invalid
+        
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
 
     const targetUsername = propUsername || paramUsername || loggedInUser?.username;
     const isOwnProfile = targetUsername === loggedInUser?.username;
@@ -124,9 +138,48 @@ const UserProfile = ({ username: propUsername }) => {
     };
 
 
-    const handlePhotoClick = () => {
-        if (isOwnProfile && fileInputRef.current) {
+    const handlePhotoClick = (event) => {
+        if (isOwnProfile) {
+            setAnchorEl(event.currentTarget);
+        }
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleSelectUpload = () => {
+        handleMenuClose();
+        if (fileInputRef.current) {
             fileInputRef.current.click();
+        }
+    };
+
+    const handleRemovePhoto = async () => {
+        handleMenuClose();
+        if (!window.confirm("Are you sure you want to remove your profile photo?")) return;
+
+        setUploading(true);
+        try {
+            await axios.put(`${process.env.REACT_APP_API_STRING}/update-profile-photo`, {
+                username: targetUsername,
+                employee_photo: "" // Send empty string to remove
+            });
+
+            setProfileData(prev => ({ ...prev, employee_photo: "" }));
+
+            if (isOwnProfile) {
+                const updatedUser = { ...loggedInUser, employee_photo: "" };
+                localStorage.setItem("exim_user", JSON.stringify(updatedUser));
+                setUser(updatedUser);
+            }
+
+            setSnackbar({ open: true, message: 'Profile photo removed successfully!', severity: 'success' });
+        } catch (error) {
+            console.error("Error removing photo:", error);
+            setSnackbar({ open: true, message: 'Failed to remove photo.', severity: 'error' });
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -147,22 +200,17 @@ const UserProfile = ({ username: propUsername }) => {
 
         setUploading(true);
         try {
-            const S3 = new AWS.S3({
-                accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-                secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-                region: "ap-south-1",
+            const formData = new FormData();
+            formData.append('files', file);
+            formData.append('bucketPath', 'profile-photos');
+
+            const uploadRes = await axios.post(`${process.env.REACT_APP_API_STRING}/upload`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
             });
 
-            const filename = `profile-photos/${targetUsername}_${Date.now()}.${file.type.split('/')[1]}`;
-            const params = {
-                Bucket: "alvision-exim-images",
-                Key: filename,
-                Body: file,
-                ContentType: file.type,
-            };
-
-            const uploadResult = await S3.upload(params).promise();
-            const photoUrl = uploadResult.Location;
+            const photoUrl = uploadRes.data.urls[0];
 
             await axios.put(`${process.env.REACT_APP_API_STRING}/update-profile-photo`, {
                 username: targetUsername,
@@ -239,7 +287,7 @@ const UserProfile = ({ username: propUsername }) => {
                             </div>
                             <div className="info-row">
                                 <span className="label">Date of Birth</span>
-                                <span className="value">{profileData.dob || profileData.date_of_birth || 'N/A'}</span>
+                                <span className="value">{formatDate(profileData.dob || profileData.date_of_birth)}</span>
                             </div>
                             <div className="info-row">
                                 <span className="label">Blood Group</span>
@@ -608,6 +656,14 @@ const UserProfile = ({ username: propUsername }) => {
                             </div>
                         )}
                     </div>
+                    <Menu
+                        anchorEl={anchorEl}
+                        open={openMenu}
+                        onClose={handleMenuClose}
+                    >
+                        <MenuItem onClick={handleSelectUpload}>Upload Photo</MenuItem>
+                        <MenuItem onClick={handleRemovePhoto}>Remove Photo</MenuItem>
+                    </Menu>
                     <div className="header-text">
                         <h1>{fullName}</h1>
                         <div className="sub-text">

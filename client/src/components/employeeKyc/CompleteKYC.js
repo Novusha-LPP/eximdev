@@ -15,6 +15,7 @@ import FormLabel from "@mui/material/FormLabel";
 import AWS from "aws-sdk";
 import Snackbar from "@mui/material/Snackbar";
 import { validationSchema } from "../../schemas/employeeKyc/completeKyc";
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 // Compact Field Component
 const Field = ({ label, children, fullWidth }) => (
@@ -326,10 +327,38 @@ function CompleteKYC() {
                   </TextField>
                 </Field>
                 <Field label="Joining Date">
-                  <TextField type="date" size="small" variant="filled" fullWidth name="joining_date" value={formik.values.joining_date} onChange={formik.handleChange} error={formik.touched.joining_date && Boolean(formik.errors.joining_date)} helperText={formik.touched.joining_date && formik.errors.joining_date} className="hr-quick-input" InputLabelProps={{ shrink: true }} placeholder="DD-MM-YYYY" />
+                  <DatePicker 
+                    slotProps={{ textField: { size: 'small', variant: 'filled', fullWidth: true, error: formik.touched.joining_date && Boolean(formik.errors.joining_date), helperText: formik.touched.joining_date && formik.errors.joining_date, className: "hr-quick-input" } }}
+                    format="dd-MM-yyyy"
+                    value={formik.values.joining_date ? new Date(formik.values.joining_date) : null}
+                    onChange={(val) => {
+                      if (val && !isNaN(val)) {
+                         const year = val.getFullYear();
+                         const month = String(val.getMonth() + 1).padStart(2, '0');
+                         const day = String(val.getDate()).padStart(2, '0');
+                         formik.setFieldValue("joining_date", `${year}-${month}-${day}`);
+                      } else {
+                         formik.setFieldValue("joining_date", "");
+                      }
+                    }}
+                  />
                 </Field>
                 <Field label="Date of Birth">
-                  <TextField type="date" size="small" variant="filled" fullWidth name="dob" value={formik.values.dob} onChange={formik.handleChange} error={formik.touched.dob && Boolean(formik.errors.dob)} helperText={formik.touched.dob && formik.errors.dob} className="hr-quick-input" InputLabelProps={{ shrink: true }} placeholder="DD-MM-YYYY" />
+                  <DatePicker 
+                    slotProps={{ textField: { size: 'small', variant: 'filled', fullWidth: true, error: formik.touched.dob && Boolean(formik.errors.dob), helperText: formik.touched.dob && formik.errors.dob, className: "hr-quick-input" } }}
+                    format="dd-MM-yyyy"
+                    value={formik.values.dob ? new Date(formik.values.dob) : null}
+                     onChange={(val) => {
+                      if (val && !isNaN(val)) {
+                         const year = val.getFullYear();
+                         const month = String(val.getMonth() + 1).padStart(2, '0');
+                         const day = String(val.getDate()).padStart(2, '0');
+                         formik.setFieldValue("dob", `${year}-${month}-${day}`);
+                      } else {
+                         formik.setFieldValue("dob", "");
+                      }
+                    }}
+                  />
                 </Field>
                 <Field label="Blood Group">
                   <TextField size="small" variant="filled" fullWidth name="blood_group" value={formik.values.blood_group} onChange={formik.handleChange} error={formik.touched.blood_group && Boolean(formik.errors.blood_group)} helperText={formik.touched.blood_group && formik.errors.blood_group} className="hr-quick-input" placeholder="Enter blood group" />

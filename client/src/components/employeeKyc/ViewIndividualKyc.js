@@ -43,6 +43,20 @@ function ViewIndividualKyc() {
     alert(res.data.message);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    
+    // Check if it's already in DD-MM-YYYY format
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dateString)) return dateString;
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   const employeeName = [data?.first_name, data?.middle_name, data?.last_name]
     .filter(Boolean)
     .join(" ");
@@ -90,8 +104,8 @@ function ViewIndividualKyc() {
                     <DataItem label="Last Name" value={data.last_name} />
                     <DataItem label="Designation" value={data.designation} />
                     <DataItem label="Department" value={data.department} />
-                    <DataItem label="Joining Date" value={data.joining_date} />
-                    <DataItem label="Date of Birth" value={data.dob} />
+                    <DataItem label="Joining Date" value={formatDate(data.joining_date)} />
+                    <DataItem label="Date of Birth" value={formatDate(data.dob)} />
                     <DataItem label="Blood Group" value={data.blood_group} />
                     <DataItem label="Qualification" value={data.highest_qualification} />
                     <DataItem label="Marital Status" value={data.marital_status} />

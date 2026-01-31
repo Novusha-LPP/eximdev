@@ -8,8 +8,8 @@ router.put("/api/update-profile-photo", async (req, res) => {
     try {
         const { username, employee_photo } = req.body;
 
-        if (!username || !employee_photo) {
-            return res.status(400).json({ message: "Username and photo URL are required" });
+        if (!username) {
+            return res.status(400).json({ message: "Username is required" });
         }
 
         const updatedUser = await UserModel.findOneAndUpdate(

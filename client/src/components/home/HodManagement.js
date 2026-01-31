@@ -94,9 +94,12 @@ function HodManagement() {
         if (!user?.username) return;
         setLoading(true);
         try {
-            const res = await axios.get(
-                `${process.env.REACT_APP_API_STRING}/teams/hod/${user.username}`
-            );
+            // Admin can see all teams, HOD sees only their teams
+            const url = user.role === 'Admin'
+                ? `${process.env.REACT_APP_API_STRING}/teams/all`
+                : `${process.env.REACT_APP_API_STRING}/teams/hod/${user.username}`;
+
+            const res = await axios.get(url);
             if (res.data.success) {
                 setTeams(res.data.teams);
                 if (res.data.teams.length > 0 && !selectedTeam) {
@@ -129,15 +132,33 @@ function HodManagement() {
                 // Fetch full user details for members
                 const memberUsernames = res.data.team.members.map(m => m.username);
                 if (memberUsernames.length > 0) {
-                    const usersRes = await axios.get(
-                        `${process.env.REACT_APP_API_STRING}/teams/hod/${user.username}/members`
-                    );
-                    if (usersRes.data.success) {
-                        // Filter to only show members of this team
-                        const filteredMembers = usersRes.data.members.filter(m =>
-                            memberUsernames.includes(m.username)
+                    // For admin, use enriched data if available, otherwise fetch from team's HOD endpoint
+                    if (user?.role === 'Admin' && selectedTeam.membersDetails) {
+                        // Use pre-fetched member details from all teams API
+                        setTeamMembers(selectedTeam.membersDetails);
+                    } else if (user?.role === 'Admin') {
+                        // Fetch member details directly for admin
+                        const usersRes = await axios.post(
+                            `${process.env.REACT_APP_API_STRING}/get-users-by-usernames`,
+                            { usernames: memberUsernames }
                         );
-                        setTeamMembers(filteredMembers);
+                        if (usersRes.data) {
+                            setTeamMembers(usersRes.data);
+                        } else {
+                            setTeamMembers([]);
+                        }
+                    } else {
+                        // For HOD, use the existing endpoint
+                        const usersRes = await axios.get(
+                            `${process.env.REACT_APP_API_STRING}/teams/hod/${user.username}/members`
+                        );
+                        if (usersRes.data.success) {
+                            // Filter to only show members of this team
+                            const filteredMembers = usersRes.data.members.filter(m =>
+                                memberUsernames.includes(m.username)
+                            );
+                            setTeamMembers(filteredMembers);
+                        }
                     }
                 } else {
                     setTeamMembers([]);
@@ -509,6 +530,17 @@ function HodManagement() {
                                             <Text type="secondary" style={{ fontSize: 12 }}>
                                                 {team.members?.length || 0} members
                                             </Text>
+                                            {/* Show HOD name for admin view */}
+                                            {user?.role === 'Admin' && (team.hodDetails || team.hodUsername) && (
+                                                <>
+                                                    <br />
+                                                    <Text type="secondary" style={{ fontSize: 11, color: '#1890ff' }}>
+                                                        HOD: {team.hodDetails
+                                                            ? `${team.hodDetails.first_name} ${team.hodDetails.last_name}`
+                                                            : team.hodUsername}
+                                                    </Text>
+                                                </>
+                                            )}
                                             {team.description && (
                                                 <>
                                                     <br />

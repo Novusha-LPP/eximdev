@@ -26,7 +26,8 @@ import {
   RobotOutlined,
   SearchOutlined,
   GroupOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  TeamOutlined
 } from "@ant-design/icons";
 
 import AssignModule from "./AssignModule";
@@ -37,6 +38,7 @@ import AssignImporters from "./AssignImporters";
 import AssignEximBot from "./AssignEximBot/AssignEximBot";
 import ModuleUserList from "./ModuleUserList";
 import UserProfile from "../userProfile/UserProfile";
+import HodManagement from "./HodManagement";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -183,11 +185,12 @@ function Assign() {
               options={[
                 { label: 'User List', value: 'Users', icon: <UserOutlined /> },
                 { label: 'Bulk Manage', value: 'Bulk Manage', icon: <GroupOutlined /> },
+                { label: 'All Teams', value: 'All Teams', icon: <TeamOutlined /> },
               ]}
               value={viewMode}
               onChange={(val) => {
                 setViewMode(val);
-                if (val === 'Bulk Manage') {
+                if (val !== 'Users') {
                   setSelectedUser(null);
                 }
               }}
@@ -268,6 +271,12 @@ function Assign() {
                 <Empty description="No users found" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '20px 0' }} />
               )}
             </div>
+          ) : viewMode === 'All Teams' ? (
+            <div style={{ padding: 16, textAlign: 'center' }}>
+              <Text type="secondary">
+                View all teams and their members on the right panel.
+              </Text>
+            </div>
           ) : (
             <div style={{ padding: 16, textAlign: 'center' }}>
               <Text type="secondary">
@@ -278,8 +287,10 @@ function Assign() {
         </div>
       </Sider>
 
-      <Content style={{ padding: 24 }}>
-        {viewMode === 'Bulk Manage' ? (
+      <Content style={{ padding: viewMode === 'All Teams' ? 0 : 24 }}>
+        {viewMode === 'All Teams' ? (
+          <HodManagement />
+        ) : viewMode === 'Bulk Manage' ? (
           <ModuleUserList />
         ) : selectedUser && userData ? (
           <Space direction="vertical" size="large" style={{ width: "100%" }}>

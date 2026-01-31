@@ -16,6 +16,50 @@ router.get("/api/teams/hod/:hodUsername", async (req, res) => {
     }
 });
 
+// Get all teams (for Admin)
+router.get("/api/teams/all", async (req, res) => {
+    try {
+        const teams = await TeamModel.find({ isActive: true })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Fetch HOD details for each team
+        const hodIds = [...new Set(teams.map(t => t.hodId?.toString()).filter(Boolean))];
+        const hods = await UserModel.find({ _id: { $in: hodIds } })
+            .select('_id first_name last_name username')
+            .lean();
+
+        const hodMap = {};
+        hods.forEach(h => { hodMap[h._id.toString()] = h; });
+
+        // Fetch member details
+        const allMemberUsernames = new Set();
+        teams.forEach(t => t.members.forEach(m => allMemberUsernames.add(m.username)));
+
+        const members = await UserModel.find({ username: { $in: [...allMemberUsernames] } })
+            .select('username first_name last_name department employee_photo')
+            .lean();
+
+        const memberMap = {};
+        members.forEach(m => { memberMap[m.username] = m; });
+
+        // Enrich teams with HOD and member details
+        const enrichedTeams = teams.map(team => ({
+            ...team,
+            hodDetails: hodMap[team.hodId?.toString()] || null,
+            membersDetails: team.members.map(m => ({
+                ...m,
+                ...(memberMap[m.username] || {})
+            }))
+        }));
+
+        res.json({ success: true, teams: enrichedTeams });
+    } catch (error) {
+        console.error("Error fetching all teams:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch teams" });
+    }
+});
+
 // Get a specific team by ID
 router.get("/api/teams/:teamId", async (req, res) => {
     try {

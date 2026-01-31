@@ -203,7 +203,7 @@ const KPISheet = () => {
         // Optimistic
         const newHolidays = [...(sheet.holidays || [])];
         const idx = newHolidays.indexOf(day);
-        
+
         let newFestivals = [...(sheet.festivals || [])];
         let newHalfDays = [...(sheet.half_days || [])];
 
@@ -242,9 +242,9 @@ const KPISheet = () => {
             newFestivals.splice(idx, 1);
         } else {
             newFestivals.push(day);
-             // Mutual Exclusivity
-             newHolidays = newHolidays.filter(d => d !== day);
-             newHalfDays = newHalfDays.filter(d => d !== day);
+            // Mutual Exclusivity
+            newHolidays = newHolidays.filter(d => d !== day);
+            newHalfDays = newHalfDays.filter(d => d !== day);
         }
 
         setSheet({ ...sheet, festivals: newFestivals, holidays: newHolidays, half_days: newHalfDays });
@@ -273,9 +273,9 @@ const KPISheet = () => {
             newHalfDays.splice(idx, 1);
         } else {
             newHalfDays.push(day);
-             // Mutual Exclusivity
-             newHolidays = newHolidays.filter(d => d !== day);
-             newFestivals = newFestivals.filter(d => d !== day);
+            // Mutual Exclusivity
+            newHolidays = newHolidays.filter(d => d !== day);
+            newFestivals = newFestivals.filter(d => d !== day);
         }
 
         setSheet({ ...sheet, half_days: newHalfDays, holidays: newHolidays, festivals: newFestivals });
@@ -355,9 +355,36 @@ const KPISheet = () => {
     };
 
     const handleSubmit = async () => {
-        // Validation - Check if business_loss is empty or zero
-        if (!summary.business_loss || summary.business_loss === '' || Number(summary.business_loss) === 0  || !summary.overall_percentage || summary.overall_percentage === '' || Number(summary.overall_percentage) === 0 || !summary.total_workload_percentage || summary.total_workload_percentage === '' || Number(summary.total_workload_percentage) === 0) {
-            showMessage("Please enter 'Business Loss amount in Rupees (INR)' and 'Overall Percentage' and 'Total Workload Percentage' before submitting.", 'warning');
+        // Validation - All Summary fields are required, but 0 is acceptable
+        const missingFields = [];
+
+        if (summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '') {
+            missingFields.push('Business Loss amount in Rupees (INR)');
+        }
+        if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
+            missingFields.push('Rootcause for business loss');
+        }
+        if (summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '') {
+            missingFields.push('Action plan for business loss');
+        }
+        if (summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '') {
+            missingFields.push('Overall KPI %');
+        }
+        if (summary.blockers === undefined || summary.blockers === null || summary.blockers === '') {
+            missingFields.push('Blockers');
+        }
+        if (summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '') {
+            missingFields.push('Rootcause (for blockers)');
+        }
+        if (summary.can_hod_solve === undefined || summary.can_hod_solve === null || summary.can_hod_solve === '') {
+            missingFields.push('Can HOD solve the problem');
+        }
+        if (summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') {
+            missingFields.push('Total Month Workload %');
+        }
+
+        if (missingFields.length > 0) {
+            showMessage(`Please fill in the following required fields: ${missingFields.join(', ')}`, 'warning');
             setConfirmSubmit(false);
             return;
         }
@@ -450,49 +477,49 @@ const KPISheet = () => {
                         Department: {sheet.user_info.department}
                     </div>
                 )}
+            </div>
 
-                {/* Status Info Box - Top Right */}
-                <div style={{
-                    position: 'absolute',
-                    top: '8px',
-                    right: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: '2px',
-                    background: 'rgba(255,255,255,0.9)',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    fontSize: '0.75rem'
-                }}>
+            {/* Action Bar */}
+            <div className="kpi-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div className="period-info" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </div>
+
+                {/* Approval Stages - Side by side */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 600, color: '#333' }}>Status:</span>
+                        <span style={{ fontWeight: 600, color: '#333', fontSize: '0.85rem' }}>Status:</span>
                         <span className={`status-badge ${sheet.status.toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
                             {sheet.status}
                         </span>
                     </div>
-                    <div style={{ fontSize: '0.65rem', color: '#555', textAlign: 'right' }}>
-                        {sheet.summary?.submission_date && (
-                            <div>📤 Submitted: {new Date(sheet.summary.submission_date).toLocaleDateString()}</div>
-                        )}
-                        {sheet.approval_history?.find(h => h.action === 'CHECK') && (
-                            <div>✓ Checked: {new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}</div>
-                        )}
-                        {sheet.approval_history?.find(h => h.action === 'VERIFY') && (
-                            <div>✓ Verified: {new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}</div>
-                        )}
-                        {sheet.approval_history?.find(h => h.action === 'APPROVE') && (
-                            <div>✅ Approved: {new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}</div>
-                        )}
-                    </div>
-                </div>
-            </div>
 
-            {/* Action Bar */}
-            <div className="kpi-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="period-info">
-                    <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    {sheet.summary?.submission_date && (
+                        <div style={{ fontSize: '0.8rem', color: '#555', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📤</span>
+                            <span>Submitted: {new Date(sheet.summary.submission_date).toLocaleDateString()}</span>
+                        </div>
+                    )}
+                    {sheet.approval_history?.find(h => h.action === 'CHECK') && (
+                        <div style={{ fontSize: '0.8rem', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>✓</span>
+                            <span>Checked: {new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}</span>
+                        </div>
+                    )}
+                    {sheet.approval_history?.find(h => h.action === 'VERIFY') && (
+                        <div style={{ fontSize: '0.8rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>✓</span>
+                            <span>Verified: {new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}</span>
+                        </div>
+                    )}
+                    {sheet.approval_history?.find(h => h.action === 'APPROVE') && (
+                        <div style={{ fontSize: '0.8rem', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>✅</span>
+                            <span>Approved: {new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}</span>
+                        </div>
+                    )}
                 </div>
+
                 <button className="btn btn-secondary btn-sm" onClick={() => setOpenRemarks(true)}>
                     View Remarks
                 </button>
@@ -676,7 +703,7 @@ const KPISheet = () => {
                     <table className="kpi-table" style={{ width: '100%', minWidth: 'auto' }}>
                         <tbody>
                             <tr>
-                                <td style={{ width: '25%', textAlign: 'left',  padding: '5px', backgroundColor: '#5baf62ff' }}>
+                                <td style={{ width: '25%', textAlign: 'left', padding: '5px', backgroundColor: '#5baf62ff' }}>
                                     Business Loss amount in Rupees (INR) <span style={{ color: 'red' }}>*</span>
                                 </td>
                                 <td>
@@ -688,19 +715,19 @@ const KPISheet = () => {
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         required
                                         placeholder="Required field"
-                                        style={{ 
-                                            width: '100%', 
-                                            minHeight: '30px', 
-                                            border: 'none', 
-                                            outline: 'none', 
-                                            padding: '5px', 
+                                        style={{
+                                            width: '100%',
+                                            minHeight: '30px',
+                                            border: 'none',
+                                            outline: 'none',
+                                            padding: '5px',
                                             boxSizing: 'border-box'
                                         }}
                                     />
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause for business loss</td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause for business loss <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="text"
@@ -712,7 +739,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Action plan for business loss</td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Action plan for business loss <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <textarea
                                         rows={3}
@@ -736,7 +763,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Blockers</td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Blockers <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="text"
@@ -748,7 +775,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause</td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="text"
@@ -760,7 +787,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px'  }}>Can HOD solve the problem (Yes/No)</td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Can HOD solve the problem (Yes/No) <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <select
                                         value={summary.can_hod_solve || 'No'}
@@ -774,7 +801,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' , fontSize: '14px', fontWeight: 'bold'}}>Total Month Workload % <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px', fontSize: '14px', fontWeight: 'bold' }}>Total Month Workload % <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="number"
@@ -854,11 +881,17 @@ const KPISheet = () => {
                     <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 500 }}>
                         <strong>Important:</strong> Once submitted, you will not be able to edit this sheet unless it is rejected by the approver.
                     </Typography>
-                    {(!summary.business_loss || Number(summary.business_loss) === 0) && (
-                        <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 600, backgroundColor: '#ffebee', padding: '8px', borderRadius: '4px' }}>
-                            ⚠️ Business Loss amount is required and cannot be empty or zero!
-                        </Typography>
-                    )}
+                    {(summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '' ||
+                        summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '' ||
+                        summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '' ||
+                        summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '' ||
+                        summary.blockers === undefined || summary.blockers === null || summary.blockers === '' ||
+                        summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '' ||
+                        summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') && (
+                            <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 600, backgroundColor: '#ffebee', padding: '8px', borderRadius: '4px' }}>
+                                ⚠️ All Summary & Performance fields are required! (0 values are acceptable)
+                            </Typography>
+                        )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setConfirmSubmit(false)}>Cancel</Button>
@@ -970,12 +1003,12 @@ const KPISheet = () => {
                                                 fontWeight: 600,
                                                 backgroundColor: entry.action === 'REJECT' ? '#ffebee' :
                                                     entry.action === 'APPROVE' ? '#e8f5e9' :
-                                                    entry.action === 'VERIFY' ? '#e3f2fd' :
-                                                    entry.action === 'CHECK' ? '#fff3e0' : '#f5f5f5',
+                                                        entry.action === 'VERIFY' ? '#e3f2fd' :
+                                                            entry.action === 'CHECK' ? '#fff3e0' : '#f5f5f5',
                                                 color: entry.action === 'REJECT' ? '#c62828' :
                                                     entry.action === 'APPROVE' ? '#2e7d32' :
-                                                    entry.action === 'VERIFY' ? '#1565c0' :
-                                                    entry.action === 'CHECK' ? '#ef6c00' : '#616161'
+                                                        entry.action === 'VERIFY' ? '#1565c0' :
+                                                            entry.action === 'CHECK' ? '#ef6c00' : '#616161'
                                             }}>
                                                 {entry.action}
                                             </span>

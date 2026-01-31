@@ -71,6 +71,43 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
     }
 });
 
+// Get User's Department from Team Membership
+router.get("/api/kpi/my-department", verifyToken, async (req, res) => {
+    try {
+        // First check user's own department field
+        const user = await UserModel.findById(req.user._id);
+        if (user && user.department) {
+            return res.json({ department: user.department });
+        }
+
+        // Fall back to team's department if user doesn't have one
+        // Find team where user is a member
+        const team = await TeamModel.findOne({
+            "members.userId": req.user._id,
+            isActive: true
+        });
+
+        if (team && team.department) {
+            return res.json({ department: team.department });
+        }
+
+        // If not found as member, check if user is HOD
+        const hodTeam = await TeamModel.findOne({
+            hodId: req.user._id,
+            isActive: true
+        });
+
+        if (hodTeam && hodTeam.department) {
+            return res.json({ department: hodTeam.department });
+        }
+
+        res.json({ department: null });
+    } catch (err) {
+        console.error("GET /api/kpi/my-department ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 // Get HODs for current user (based on team membership)
 router.get("/api/kpi/my-hods", verifyToken, async (req, res) => {
     try {
@@ -93,6 +130,118 @@ router.get("/api/kpi/my-hods", verifyToken, async (req, res) => {
     } catch (err) {
         console.error("GET /api/kpi/my-hods ERROR:", err);
         res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get Team Members' Templates
+router.get("/api/kpi/team-templates", verifyToken, async (req, res) => {
+    try {
+        // Find all teams where the current user is a member or HOD
+        const teams = await TeamModel.find({
+            $or: [
+                { "members.userId": req.user._id },
+                { hodId: req.user._id }
+            ]
+        });
+
+        if (!teams || teams.length === 0) {
+            return res.json([]);
+        }
+
+        // Get all team member IDs (excluding current user)
+        const memberIds = new Set();
+        teams.forEach(team => {
+            // Add HOD
+            if (team.hodId.toString() !== req.user._id.toString()) {
+                memberIds.add(team.hodId.toString());
+            }
+            // Add members
+            team.members.forEach(m => {
+                if (m.userId.toString() !== req.user._id.toString()) {
+                    memberIds.add(m.userId.toString());
+                }
+            });
+        });
+
+        if (memberIds.size === 0) {
+            return res.json([]);
+        }
+
+        // Fetch templates from these team members
+        const templates = await KPITemplate.find({
+            owner: { $in: [...memberIds] },
+            is_active: true
+        }).populate('owner', 'first_name last_name username');
+
+        res.json(templates);
+    } catch (err) {
+        console.error("GET /api/kpi/team-templates ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Import a team member's template as own template
+router.post("/api/kpi/import-template", verifyToken, async (req, res) => {
+    try {
+        const { templateId, customName } = req.body;
+
+        // Fetch the source template
+        const sourceTemplate = await KPITemplate.findById(templateId).populate('owner', 'first_name last_name');
+        if (!sourceTemplate) {
+            return res.status(404).json({ message: "Template not found" });
+        }
+
+        // Use custom name if provided, otherwise use source template name
+        const templateName = customName?.trim() || sourceTemplate.name;
+
+        // Validate template name is not empty
+        if (!templateName) {
+            return res.status(400).json({ message: "Template name is required" });
+        }
+
+        // Check if user already has a template with the same name (case-insensitive)
+        const existingTemplate = await KPITemplate.findOne({
+            owner: req.user._id,
+            is_active: true
+        });
+
+        const existingWithSameName = await KPITemplate.findOne({
+            owner: req.user._id,
+            name: { $regex: new RegExp(`^${templateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+            is_active: true
+        });
+
+        if (existingWithSameName) {
+            return res.status(409).json({
+                message: `You already have a template named "${templateName}". Please use a different name.`
+            });
+        }
+
+        // Create a copy of the template for the current user
+        const newTemplate = new KPITemplate({
+            name: templateName,
+            department: sourceTemplate.department,
+            rows: sourceTemplate.rows.map(row => ({
+                id: row.id,
+                label: row.label,
+                type: row.type || 'numeric',
+                category: row.category,
+                is_high_volume: row.is_high_volume
+            })),
+            owner: req.user._id,
+            is_active: true,
+            parent_template: sourceTemplate._id
+        });
+
+        await newTemplate.save();
+
+        res.status(201).json({
+            message: `Template "${templateName}" imported successfully`,
+            template: newTemplate
+        });
+    } catch (err) {
+        console.error("POST /api/kpi/import-template ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
     }
 });
 
@@ -532,8 +681,8 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 remove(sheet.half_days, dayNum);
                 action = "ADDED";
             }
-             // Audit
-             sheet.audit_log.push({
+            // Audit
+            sheet.audit_log.push({
                 field: `festival:${day}`,
                 old_value: action === "ADDED" ? false : true,
                 new_value: action === "ADDED" ? true : false,
@@ -541,20 +690,20 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 action: "UPDATE"
             });
         } else if (type === 'half_day') {
-             // Toggle Half Day
-             const idx = sheet.half_days.indexOf(dayNum);
-             if (idx > -1) {
-                 sheet.half_days.splice(idx, 1);
-                 action = "REMOVED";
-             } else {
-                 sheet.half_days.push(dayNum);
-                 // Mutual Exclusivity: Remove from others
-                 remove(sheet.holidays, dayNum);
-                 remove(sheet.festivals, dayNum);
-                 action = "ADDED";
-             }
-              // Audit
-              sheet.audit_log.push({
+            // Toggle Half Day
+            const idx = sheet.half_days.indexOf(dayNum);
+            if (idx > -1) {
+                sheet.half_days.splice(idx, 1);
+                action = "REMOVED";
+            } else {
+                sheet.half_days.push(dayNum);
+                // Mutual Exclusivity: Remove from others
+                remove(sheet.holidays, dayNum);
+                remove(sheet.festivals, dayNum);
+                action = "ADDED";
+            }
+            // Audit
+            sheet.audit_log.push({
                 field: `half_day:${day}`,
                 old_value: action === "ADDED" ? false : true,
                 new_value: action === "ADDED" ? true : false,
@@ -600,7 +749,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 if (sheet.holidays.includes(dNum)) continue;
                 // Skip Festivals
                 if (sheet.festivals.includes(dNum)) continue;
-                
+
                 // Half Days: We DO NOT skip. They count towards total (as they are not "Leaves")
                 // Code continues here implies adding value
                 sum += val;

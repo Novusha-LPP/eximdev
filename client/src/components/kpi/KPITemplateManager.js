@@ -73,6 +73,7 @@ const KPITemplateManager = () => {
 
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
+    const [userDepartment, setUserDepartment] = useState(null);
 
     const showMessage = (text, type = 'success') => {
         setMessage({ show: true, text, type });
@@ -81,7 +82,19 @@ const KPITemplateManager = () => {
 
     useEffect(() => {
         fetchTemplates();
+        fetchUserDepartment();
     }, []);
+
+    const fetchUserDepartment = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/my-department`, { withCredentials: true });
+            if (res.data.department) {
+                setUserDepartment(res.data.department);
+            }
+        } catch (error) {
+            console.error("Error fetching user department", error);
+        }
+    };
 
     const fetchTemplates = async () => {
         try {
@@ -102,7 +115,7 @@ const KPITemplateManager = () => {
     const handleNew = () => {
         setCurrentTemplate({
             name: '',
-            department: '',
+            department: userDepartment || '',  // Auto-populate from team if available
             rows: [{ id: Date.now().toString(), label: 'New KPI', type: 'numeric' }]
         });
         setIsEditing(true);

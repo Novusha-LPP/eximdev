@@ -86,11 +86,19 @@ const KPIHome = () => {
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
     const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
+    // Team template import feature
+    const [teamTemplates, setTeamTemplates] = useState([]);
+    const [selectedTeamTemplate, setSelectedTeamTemplate] = useState('');
+    const [showTeamImport, setShowTeamImport] = useState(false);
+    const [importTemplateName, setImportTemplateName] = useState('');
+    const [importNameError, setImportNameError] = useState('');
+
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
         fetchHods();
         fetchPendingCount();
+        fetchTeamTemplates();
     }, []);
 
     useEffect(() => {
@@ -136,6 +144,77 @@ const KPIHome = () => {
             if (res.data.length > 0 && !selectedTemplate) setSelectedTemplate(res.data[0]._id);
         } catch (error) {
             console.error("Error fetching templates", error);
+        }
+    };
+
+    const fetchTeamTemplates = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/team-templates`, { withCredentials: true });
+            setTeamTemplates(res.data);
+        } catch (error) {
+            console.error("Error fetching team templates", error);
+        }
+    };
+
+    // Handle team template selection - auto-populate name
+    const handleTeamTemplateSelect = (templateId) => {
+        setSelectedTeamTemplate(templateId);
+        setImportNameError('');
+        if (templateId) {
+            const selected = teamTemplates.find(t => t._id === templateId);
+            if (selected) {
+                setImportTemplateName(selected.name);
+                // Check for duplicate immediately
+                checkDuplicateName(selected.name);
+            }
+        } else {
+            setImportTemplateName('');
+        }
+    };
+
+    // Check if template name already exists
+    const checkDuplicateName = (name) => {
+        const trimmedName = name.trim().toLowerCase();
+        const exists = templates.some(t => t.name.trim().toLowerCase() === trimmedName);
+        if (exists) {
+            setImportNameError('A template with this name already exists. Please use a different name.');
+            return true;
+        }
+        setImportNameError('');
+        return false;
+    };
+
+    const handleImportTemplate = async () => {
+        if (!selectedTeamTemplate) {
+            showMessage("Please select a template to import", "warning");
+            return;
+        }
+        if (!importTemplateName.trim()) {
+            showMessage("Please enter a template name", "warning");
+            return;
+        }
+        // Final duplicate check
+        if (checkDuplicateName(importTemplateName)) {
+            showMessage("A template with this name already exists. Please use a different name.", "warning");
+            return;
+        }
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/import-template`,
+                { templateId: selectedTeamTemplate, customName: importTemplateName.trim() },
+                { withCredentials: true }
+            );
+            showMessage(res.data.message || "Template imported successfully!");
+            setSelectedTeamTemplate('');
+            setImportTemplateName('');
+            setShowTeamImport(false);
+            fetchTemplates(); // Refresh templates list
+        } catch (error) {
+            if (error.response?.status === 409) {
+                setImportNameError(error.response.data.message);
+                showMessage(error.response.data.message, "warning");
+            } else {
+                showMessage(error.response?.data?.message || "Failed to import template", "error");
+            }
         }
     };
 
@@ -301,6 +380,86 @@ const KPIHome = () => {
                                         <option value="" disabled>Select Template...</option>
                                         {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                     </select>
+
+                                    {/* Import from Team Member - Hyperlink */}
+                                    {teamTemplates.length > 0 && (
+                                        <div style={{ marginTop: '6px' }}>
+                                            <span
+                                                onClick={() => setShowTeamImport(!showTeamImport)}
+                                                style={{
+                                                    color: '#0078d4',
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    textDecoration: 'underline'
+                                                }}
+                                            >
+                                                📥 Import from Team Member
+                                            </span>
+
+                                            {showTeamImport && (
+                                                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <select
+                                                        value={selectedTeamTemplate}
+                                                        onChange={(e) => handleTeamTemplateSelect(e.target.value)}
+                                                        style={{
+                                                            background: '#f8f9fa',
+                                                            padding: '6px 8px',
+                                                            fontSize: '0.8rem',
+                                                            borderRadius: '4px',
+                                                            border: '1px solid #ddd'
+                                                        }}
+                                                    >
+                                                        <option value="">Select template...</option>
+                                                        {teamTemplates.map(t => (
+                                                            <option key={t._id} value={t._id}>
+                                                                {t.name} - {t.owner?.first_name} {t.owner?.last_name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {selectedTeamTemplate && (
+                                                        <>
+                                                            <div>
+                                                                <label style={{ fontSize: '0.75rem', color: '#666', marginBottom: '4px', display: 'block' }}>
+                                                                    Template Name (you can modify)
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={importTemplateName}
+                                                                    onChange={(e) => {
+                                                                        setImportTemplateName(e.target.value);
+                                                                        checkDuplicateName(e.target.value);
+                                                                    }}
+                                                                    placeholder="Enter template name"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '6px 8px',
+                                                                        fontSize: '0.8rem',
+                                                                        borderRadius: '4px',
+                                                                        border: importNameError ? '1px solid #ef4444' : '1px solid #ddd',
+                                                                        background: '#f8f9fa'
+                                                                    }}
+                                                                />
+                                                                {importNameError && (
+                                                                    <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px' }}>
+                                                                        {importNameError}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                className="modern-btn primary"
+                                                                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                                                                onClick={handleImportTemplate}
+                                                                disabled={!selectedTeamTemplate || !importTemplateName.trim() || importNameError}
+                                                            >
+                                                                Import Template
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -534,7 +693,7 @@ const KPIHome = () => {
                     position: 'fixed',
                     top: '80px', right: '20px',
                     padding: '12px 20px', borderRadius: '8px',
-                    background: message.type === 'error' ? '#ef5350' : '#66bb6a',
+                    background: message.type === 'error' ? '#ef5350' : message.type === 'warning' ? '#ffa726' : '#66bb6a',
                     color: 'white', fontWeight: 500,
                     zIndex: 2000, boxShadow: '0 8px 20px rgba(0,0,0,0.15)'
                 }}>

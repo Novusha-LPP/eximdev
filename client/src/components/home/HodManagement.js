@@ -66,6 +66,7 @@ function HodManagement() {
     const [profileUser, setProfileUser] = useState(null);
     const [editTeamModal, setEditTeamModal] = useState(false);
     const [teamToEdit, setTeamToEdit] = useState(null);
+    const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
@@ -73,7 +74,21 @@ function HodManagement() {
     // Fetch teams for HOD
     useEffect(() => {
         fetchTeams();
+        fetchHodModules();
     }, [user]);
+
+    // Fetch HOD's own modules
+    const fetchHodModules = async () => {
+        if (!user?.username) return;
+        try {
+            const res = await axios.get(
+                `${process.env.REACT_APP_API_STRING}/get-user/${user.username}`
+            );
+            setHodModules(res.data.modules || []);
+        } catch (error) {
+            console.error("Error fetching HOD modules:", error);
+        }
+    };
 
     const fetchTeams = async () => {
         if (!user?.username) return;
@@ -403,7 +418,7 @@ function HodManagement() {
             {
                 key: "Assign Module",
                 label: `Modules (${selectedMember.username})`,
-                children: <AssignModule selectedUser={selectedMember.username} />,
+                children: <AssignModule selectedUser={selectedMember.username} allowedModules={hodModules} />,
             },
             {
                 key: "Change Password",

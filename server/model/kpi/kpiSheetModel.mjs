@@ -65,6 +65,11 @@ const KPISheetSchema = new Schema(
             type: Number // Day numbers marked as festival holidays
         }],
 
+        // Half Days (separate from leaves/festivals)
+        half_days: [{
+            type: Number // Day numbers marked as half-day
+        }],
+
         status: {
             type: String,
             enum: ["DRAFT", "SUBMITTED", "CHECKED", "VERIFIED", "APPROVED", "REJECTED"],

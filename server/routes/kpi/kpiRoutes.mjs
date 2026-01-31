@@ -478,11 +478,11 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
     }
 });
 
-// Toggle Holiday/Leave/Festival
+// Toggle Holiday/Leave/Festival/HalfDay
 router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
     try {
         console.log("POST /api/kpi/sheet/holiday called", req.body);
-        const { sheetId, day, type = 'leave' } = req.body; // type: 'leave' or 'festival'
+        const { sheetId, day, type = 'leave' } = req.body; // type: 'leave', 'festival', 'half_day'
         const sheet = await KPISheet.findById(sheetId);
         if (!sheet) return res.status(404).json({ message: "Sheet not found" });
 
@@ -508,34 +508,70 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
         const dayNum = Number(day);
         let action = "";
 
+        // Initialize arrays if missing
+        if (!sheet.holidays) sheet.holidays = [];
+        if (!sheet.festivals) sheet.festivals = [];
+        if (!sheet.half_days) sheet.half_days = [];
+
+        // Helper to remove from array
+        const remove = (arr, val) => {
+            const idx = arr.indexOf(val);
+            if (idx > -1) arr.splice(idx, 1);
+        };
+
         if (type === 'festival') {
-            // Handle festival holidays
-            if (!sheet.festivals) sheet.festivals = [];
+            // Toggle Festival
             const idx = sheet.festivals.indexOf(dayNum);
             if (idx > -1) {
                 sheet.festivals.splice(idx, 1);
                 action = "REMOVED";
             } else {
                 sheet.festivals.push(dayNum);
+                // Mutual Exclusivity: Remove from others
+                remove(sheet.holidays, dayNum);
+                remove(sheet.half_days, dayNum);
                 action = "ADDED";
             }
-
-            // Audit
-            sheet.audit_log.push({
+             // Audit
+             sheet.audit_log.push({
                 field: `festival:${day}`,
                 old_value: action === "ADDED" ? false : true,
                 new_value: action === "ADDED" ? true : false,
                 changed_by: req.user._id,
                 action: "UPDATE"
             });
+        } else if (type === 'half_day') {
+             // Toggle Half Day
+             const idx = sheet.half_days.indexOf(dayNum);
+             if (idx > -1) {
+                 sheet.half_days.splice(idx, 1);
+                 action = "REMOVED";
+             } else {
+                 sheet.half_days.push(dayNum);
+                 // Mutual Exclusivity: Remove from others
+                 remove(sheet.holidays, dayNum);
+                 remove(sheet.festivals, dayNum);
+                 action = "ADDED";
+             }
+              // Audit
+              sheet.audit_log.push({
+                field: `half_day:${day}`,
+                old_value: action === "ADDED" ? false : true,
+                new_value: action === "ADDED" ? true : false,
+                changed_by: req.user._id,
+                action: "UPDATE"
+            });
         } else {
-            // Handle leaves/holidays (default)
+            // Default: Leave (Holiday)
             const idx = sheet.holidays.indexOf(dayNum);
             if (idx > -1) {
                 sheet.holidays.splice(idx, 1);
                 action = "REMOVED";
             } else {
                 sheet.holidays.push(dayNum);
+                // Mutual Exclusivity: Remove from others
+                remove(sheet.festivals, dayNum);
+                remove(sheet.half_days, dayNum);
                 action = "ADDED";
             }
 
@@ -549,7 +585,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
             });
         }
 
-        // Recalculate ALL totals because holiday/festival status changed
+        // Recalculate ALL totals because holiday/festival/half-day status changed
         const currentYear = sheet.year;
         const currentMonth = sheet.month - 1;
 
@@ -560,18 +596,20 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 const dDate = new Date(currentYear, currentMonth, dNum);
                 // Skip Sundays
                 if (dDate.getDay() === 0) continue;
-                // Skip Leaves
+                // Skip Leaves (Full Day)
                 if (sheet.holidays.includes(dNum)) continue;
                 // Skip Festivals
-                if (sheet.festivals && sheet.festivals.includes(dNum)) continue;
-
+                if (sheet.festivals.includes(dNum)) continue;
+                
+                // Half Days: We DO NOT skip. They count towards total (as they are not "Leaves")
+                // Code continues here implies adding value
                 sum += val;
             }
             row.total = sum;
         });
 
         await sheet.save();
-        console.log("POST /api/kpi/sheet/holiday - Success, Type:", type, "Holidays:", sheet.holidays, "Festivals:", sheet.festivals);
+        console.log("POST /api/kpi/sheet/holiday - Success, Type:", type);
         res.json(sheet);
     } catch (err) {
         console.error("POST /api/kpi/sheet/holiday ERROR:", err);

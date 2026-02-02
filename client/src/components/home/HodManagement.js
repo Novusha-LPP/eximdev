@@ -67,6 +67,7 @@ function HodManagement() {
     const [editTeamModal, setEditTeamModal] = useState(false);
     const [teamToEdit, setTeamToEdit] = useState(null);
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
+    const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
@@ -75,7 +76,19 @@ function HodManagement() {
     useEffect(() => {
         fetchTeams();
         fetchHodModules();
+        if (user?.role === 'Admin') {
+            fetchAllUsers();
+        }
     }, [user]);
+
+    const fetchAllUsers = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`);
+            setAllUsers(res.data);
+        } catch (error) {
+            console.error("Error fetching all users:", error);
+        }
+    };
 
     // Fetch HOD's own modules
     const fetchHodModules = async () => {
@@ -293,7 +306,8 @@ function HodManagement() {
         editForm.setFieldsValue({
             name: team.name,
             description: team.description,
-            department: team.department
+            department: team.department,
+            hodUsername: team.hodUsername
         });
         setEditTeamModal(true);
     };
@@ -767,6 +781,30 @@ function HodManagement() {
                             <Option value="Rabs">Rabs</Option>
                         </Select>
                     </Form.Item>
+                    {user?.role === 'Admin' && (
+                        <Form.Item
+                            name="hodUsername"
+                            label="Team HOD"
+                            rules={[{ required: true, message: "Please select a HOD" }]}
+                        >
+                            <Select
+                                showSearch
+                                placeholder="Select a HOD"
+                                optionFilterProp="children"
+                                filterOption={(input, option) =>
+                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                }
+                            >
+                                {allUsers
+                                    .filter(u => u.isActive !== false && (u.role === 'Admin' || u.role === 'Head_of_Department'))
+                                    .map(u => (
+                                        <Option key={u._id} value={u.username} label={`${u.first_name || ''} ${u.last_name || ''} (${u.username})`}>
+                                            {u.first_name} {u.last_name} ({u.username})
+                                        </Option>
+                                    ))}
+                            </Select>
+                        </Form.Item>
+                    )}
                     <Form.Item
                         name="description"
                         label="Description"

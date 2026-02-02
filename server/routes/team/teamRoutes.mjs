@@ -122,7 +122,7 @@ router.post("/api/teams", async (req, res) => {
 router.put("/api/teams/:teamId", async (req, res) => {
     try {
         const { teamId } = req.params;
-        const { name, description, department } = req.body;
+        const { name, description, department, hodUsername } = req.body;
 
         const team = await TeamModel.findById(teamId);
         if (!team) {
@@ -132,6 +132,22 @@ router.put("/api/teams/:teamId", async (req, res) => {
         if (name) team.name = name;
         if (description !== undefined) team.description = description;
         if (department !== undefined) team.department = department;
+
+        if (hodUsername) {
+            // Get HOD user details
+            const hodUser = await UserModel.findOne({ username: hodUsername });
+            if (!hodUser) {
+                return res.status(404).json({ success: false, message: "HOD user not found" });
+            }
+
+            // Check if HOD has the right role
+            if (hodUser.role !== "Head_of_Department" && hodUser.role !== "Admin") {
+                return res.status(403).json({ success: false, message: "User does not have HOD privileges" });
+            }
+
+            team.hodId = hodUser._id;
+            team.hodUsername = hodUsername;
+        }
 
         await team.save();
         res.json({ success: true, message: "Team updated successfully", team });

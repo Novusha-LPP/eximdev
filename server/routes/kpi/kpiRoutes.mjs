@@ -550,21 +550,26 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Cannot edit Holiday values" });
         }
 
-        // Deadline Check - Users can edit until last working day of the month
+        // Deadline Check - Users can edit until the 7th of the following month
         const today = new Date();
-        const getLastWorkingDayOfMonth = (year, month) => {
-            let d = new Date(year, month, 0);
-            while (d.getDay() === 0) {
-                d.setDate(d.getDate() - 1);
+        const getSubmissionDeadline = (year, month) => {
+            // Deadline is the 7th of the following month
+            // If sheet is for December 2025 (month=12), deadline is 7th January 2026
+            let deadlineYear = year;
+            let deadlineMonth = month; // month is 1-indexed in sheet
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = year + 1;
             }
-            return d;
+            // Return the 7th of the next month (month is 0-indexed in Date constructor)
+            return new Date(deadlineYear, deadlineMonth - 1, 7);
         };
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline passed." });
+            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
         // Note: Weekly locking is disabled - users can edit any day within the month until deadline
@@ -637,21 +642,24 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
 
         if (sheet.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: "Unauthorized" });
 
-        // Deadline Check
+        // Deadline Check - 7th of the following month
         const today = new Date();
-        const getLastWorkingDayOfMonth = (year, month) => {
-            let d = new Date(year, month, 0);
-            while (d.getDay() === 0) {
-                d.setDate(d.getDate() - 1);
+        const getSubmissionDeadline = (year, month) => {
+            // Deadline is the 7th of the following month
+            let deadlineYear = year;
+            let deadlineMonth = month; // month is 1-indexed in sheet
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = year + 1;
             }
-            return d;
+            return new Date(deadlineYear, deadlineMonth - 1, 7);
         };
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline passed." });
+            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
         const dayNum = Number(day);
@@ -779,21 +787,24 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Sheet cannot be submitted in current status" });
         }
 
-        // Deadline Check
+        // Deadline Check - 7th of the following month
         const today = new Date();
-        const getLastWorkingDayOfMonth = (year, month) => {
-            let d = new Date(year, month, 0);
-            while (d.getDay() === 0) {
-                d.setDate(d.getDate() - 1);
+        const getSubmissionDeadline = (year, month) => {
+            // Deadline is the 7th of the following month
+            let deadlineYear = year;
+            let deadlineMonth = month; // month is 1-indexed in sheet
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = year + 1;
             }
-            return d;
+            return new Date(deadlineYear, deadlineMonth - 1, 7);
         };
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline passed." });
+            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
         // Update Summary if provided

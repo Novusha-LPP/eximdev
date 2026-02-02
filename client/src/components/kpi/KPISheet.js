@@ -151,12 +151,17 @@ const KPISheet = () => {
         return sheet && sheet.half_days && sheet.half_days.includes(day);
     };
 
-    const getLastWorkingDayOfMonth = (year, month) => {
-        let d = new Date(year, month, 0);
-        while (d.getDay() === 0) { // While Sunday, go back
-            d.setDate(d.getDate() - 1);
+    const getSubmissionDeadline = (year, month) => {
+        // Deadline is the 7th of the following month
+        // If sheet is for December 2025 (month=12), deadline is 7th January 2026
+        let deadlineYear = year;
+        let deadlineMonth = month; // month is 1-indexed in sheet
+        if (deadlineMonth > 12) {
+            deadlineMonth = 1;
+            deadlineYear = year + 1;
         }
-        return d;
+        // Return the 7th of the next month (month is 0-indexed in Date constructor)
+        return new Date(deadlineYear, deadlineMonth - 1, 7);
     };
 
     const isLocked = (day = null) => {
@@ -165,9 +170,9 @@ const KPISheet = () => {
         // Status Check
         if (sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED') return true;
 
-        // Deadline Check (Last working day of the sheet's month)
+        // Deadline Check (7th of the following month)
         const today = new Date();
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
 
         // Compare dates only
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());

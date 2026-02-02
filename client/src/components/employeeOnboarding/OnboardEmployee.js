@@ -3,6 +3,7 @@ import { useFormik } from "formik";
 import { MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import { validationSchema } from "../../schemas/employeeOnboarding/onboardEmployee";
+import { Modal, message } from "antd";
 
 // Compact Field Component
 const Field = ({ label, children }) => (
@@ -24,12 +25,26 @@ function OnboardEmployee() {
     },
     validationSchema: validationSchema,
     onSubmit: async (values, { resetForm }) => {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/onboard-employee`,
-        values
-      );
-      alert(res.data.message);
-      resetForm();
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/onboard-employee`,
+          values
+        );
+
+        if (res.status === 201) {
+          message.success(res.data.message);
+          resetForm();
+        } else if (res.status === 200) {
+          // Backend returns 200 for duplicate user
+          Modal.warning({
+            title: "User Exists",
+            content: res.data.message,
+          });
+        }
+      } catch (error) {
+        console.error("Error onboarding employee:", error);
+        message.error("Failed to onboard employee");
+      }
     },
   });
 

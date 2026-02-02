@@ -7,13 +7,13 @@ import UserModel from '../../model/userModel.mjs';
 const router = express.Router();
 
 // Admin/Manager usernames who can view all users' MRM
-const MRM_ADMINS = ['suraj_rajan', 'shallini_arun'];
+const MRM_ADMINS = ['suraj_rajan', 'uday_zope'];
 
 // Get users who have MRM module assigned
 router.get('/api/mrm/users', async (req, res) => {
     try {
         const users = await UserModel.find(
-            { modules: 'MRM' },
+            { status: 'active' },
             { first_name: 1, last_name: 1, username: 1, _id: 1 }
         ).sort({ first_name: 1 });
         res.json(users);
@@ -37,10 +37,13 @@ router.get('/api/mrm/dashboard', async (req, res) => {
             return res.status(400).json({ error: "Month and Year are required" });
         }
 
-        // Get all users with MRM module
+        // Get all users with MRM module AND are either Head_of_Department or Admin
         const mrmUsers = await UserModel.find(
-            { modules: 'MRM' },
-            { first_name: 1, last_name: 1, username: 1, _id: 1 }
+            {
+                modules: 'MRM',
+                role: { $in: ['Head_of_Department', 'Admin'] }
+            },
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
         ).sort({ first_name: 1 });
 
         // Get metadata for the month (shared across users for now)

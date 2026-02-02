@@ -1,20 +1,21 @@
 
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers } from '../../services/mrmService';
-import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import '../../styles/mrm.scss';
 
 // Admins who can view all users' MRM
-const MRM_ADMINS = ['suraj_rajan', 'shallini_arun'];
+const MRM_ADMINS = ['suraj_rajan', 'uday_zope'];
 
 const MRMHome = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [items, setItems] = useState([]);
@@ -26,7 +27,8 @@ const MRMHome = () => {
     // Admin View: User Selection
     const isAdmin = MRM_ADMINS.includes(user?.username);
     const [mrmUsers, setMrmUsers] = useState([]);
-    const [selectedUserId, setSelectedUserId] = useState(''); // Empty = view all (for admin) or own (for regular user)
+    // Initialize selectedUserId from URL param if present (for admin navigation from dashboard)
+    const [selectedUserId, setSelectedUserId] = useState(searchParams.get('userId') || '');
 
     // Import Modal
     const [showImportModal, setShowImportModal] = useState(false);
@@ -35,7 +37,7 @@ const MRMHome = () => {
     const [importSourceYear, setImportSourceYear] = useState(selectedMonth === 1 ? selectedYear - 1 : selectedYear);
 
     // Status Filter
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Green', 'Yellow', 'Red', 'Gray'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Green', 'Yellow', 'Red'
 
     // Delete Confirmation Dialog
     const [deleteDialog, setDeleteDialog] = useState({
@@ -45,11 +47,10 @@ const MRMHome = () => {
     });
 
     // Load MRM users for admin dropdown
+    // Load MRM users for dropdowns
     useEffect(() => {
-        if (isAdmin) {
-            fetchMRMUsers().then(users => setMrmUsers(users)).catch(console.error);
-        }
-    }, [isAdmin]);
+        fetchMRMUsers().then(users => setMrmUsers(users)).catch(console.error);
+    }, []);
 
     useEffect(() => {
         loadData();
@@ -78,6 +79,14 @@ const MRMHome = () => {
                 reviewDate: metaData?.reviewDate ? new Date(metaData.reviewDate).toISOString().split('T')[0] : ''
             });
 
+            // Auto-resize all textareas after data loads
+            setTimeout(() => {
+                document.querySelectorAll('.data-grid-container textarea').forEach(textarea => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                });
+            }, 100);
+
         } catch (error) {
             console.error(error);
         } finally {
@@ -105,7 +114,7 @@ const MRMHome = () => {
             month: String(selectedMonth).padStart(2, '0'),
             year: selectedYear,
             processDescription: "New Item",
-            status: "Gray",
+            status: "Red",
             createdBy: user?._id
         };
         try {
@@ -117,11 +126,22 @@ const MRMHome = () => {
         }
     };
 
+    // Auto-resize textarea based on content
+    const autoResizeTextarea = (e) => {
+        const textarea = e.target;
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    };
+
     // Only updates local state
-    const handleFieldChange = (id, field, value) => {
+    const handleFieldChange = (id, field, value, e) => {
         setItems(prevItems => prevItems.map(item =>
             item._id === id ? { ...item, [field]: value, isDirty: true } : item
         ));
+        // Auto-resize if it's a textarea
+        if (e && e.target.tagName === 'TEXTAREA') {
+            autoResizeTextarea(e);
+        }
     };
 
     // Performs the API call
@@ -201,10 +221,9 @@ const MRMHome = () => {
     // Status counts for filter badges
     const statusCounts = {
         all: items.length,
-        Green: items.filter(i => i.status === 'Green').length,
+        Green: items.filter(i => i.status === 'Green' || !i.status).length,
         Yellow: items.filter(i => i.status === 'Yellow').length,
         Red: items.filter(i => i.status === 'Red').length,
-        Gray: items.filter(i => i.status === 'Gray' || !i.status).length,
     };
 
     // Help Modal State
@@ -282,12 +301,6 @@ const MRMHome = () => {
                             >
                                 🔴 {statusCounts.Red}
                             </button>
-                            <button
-                                className={`filter-btn gray ${statusFilter === 'Gray' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Gray')}
-                            >
-                                ⚪ {statusCounts.Gray}
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -353,7 +366,7 @@ const MRMHome = () => {
                                 <tr><td><strong>Action Plan</strong></td><td>Steps to be taken if target is not met</td></tr>
                                 <tr><td><strong>Resp. (Action)</strong></td><td>Person responsible for the action plan</td></tr>
                                 <tr><td><strong>Target Date</strong></td><td>Deadline for completing the action</td></tr>
-                                <tr><td><strong>Status</strong></td><td><span style={{ color: '#065f46' }}>🟢 Green</span> = On Track, <span style={{ color: '#92400e' }}>🟡 Yellow</span> = At Risk, <span style={{ color: '#991b1b' }}>🔴 Red</span> = Off Track, <span style={{ color: '#6b7280' }}>⚪ Gray</span> = Not Started</td></tr>
+                                <tr><td><strong>Status</strong></td><td><span style={{ color: '#166534' }}>🟢 Green</span> = Completed, <span style={{ color: '#ca8a04' }}>🟡 Yellow</span> = In Progress, <span style={{ color: '#dc2626' }}>🔴 Red</span> = Not Started</td></tr>
                                 <tr><td><strong>Remarks</strong></td><td>Additional notes or comments</td></tr>
                             </tbody>
                         </table>
@@ -370,19 +383,19 @@ const MRMHome = () => {
                     <table>
                         <thead>
                             <tr>
-                                <th style={{ width: '200px' }}>Process Description</th>
-                                <th style={{ width: '150px' }}>Objective</th>
-                                <th style={{ width: '100px' }}>Target</th>
-                                <th style={{ width: '100px' }}>Frequency</th>
-                                <th style={{ width: '120px' }}>Responsibility</th>
-                                <th style={{ width: '120px' }}>Actual ({prevMonthName}-{getYearShort(prevYearVal)})</th>
-                                <th style={{ width: '120px' }}>Plan ({currentMonthName}-{getYearShort(selectedYear)})</th>
-                                <th style={{ width: '200px' }}>Action Plan</th>
-                                <th style={{ width: '120px' }}>Resp. (Action)</th>
-                                <th style={{ width: '120px' }}>Target Date</th>
-                                <th style={{ width: '100px' }}>Status</th>
-                                <th style={{ width: '200px' }}>Remarks</th>
-                                <th style={{ width: '100px', textAlign: 'center' }}>Actions</th>
+                                <th style={{ width: '250px' }} title="Process Description">Process Desc.</th>
+                                <th style={{ width: '180px' }} title="Objective">Objective</th>
+                                <th style={{ width: '70px' }} title="Target">Target</th>
+                                <th style={{ width: '80px' }} title="Monitoring Frequency">Freq.</th>
+                                <th style={{ width: '90px' }} title="Responsibility">Resp.</th>
+                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act. ({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
+                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan ({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
+                                <th style={{ width: '220px' }} title="Action Plan">Action Plan</th>
+                                <th style={{ width: '80px' }} title="Action Responsibility">Act. Resp.</th>
+                                <th style={{ width: '95px' }} title="Target Date">Date</th>
+                                <th style={{ width: '75px' }} title="Status">Status</th>
+                                <th style={{ width: '200px' }} title="Remarks">Remarks</th>
+                                <th style={{ width: '60px', textAlign: 'center' }} title="Actions">Act.</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -397,15 +410,84 @@ const MRMHome = () => {
                             ) : (
                                 filteredItems.map(item => (
                                     <tr key={item._id} className={item.isDirty ? 'row-dirty' : ''}>
-                                        <td><textarea value={item.processDescription || ''} onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value)} /></td>
-                                        <td><textarea value={item.objective || ''} onChange={e => handleFieldChange(item._id, 'objective', e.target.value)} /></td>
+                                        <td><textarea
+                                            value={item.processDescription || ''}
+                                            onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td><textarea
+                                            value={item.objective || ''}
+                                            onChange={e => handleFieldChange(item._id, 'objective', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
                                         <td><input value={item.target || ''} onChange={e => handleFieldChange(item._id, 'target', e.target.value)} /></td>
-                                        <td><input value={item.monitoringFrequency || ''} onChange={e => handleFieldChange(item._id, 'monitoringFrequency', e.target.value)} /></td>
+                                        <td>
+                                            <select
+                                                value={item.monitoringFrequency || ''}
+                                                onChange={e => handleFieldChange(item._id, 'monitoringFrequency', e.target.value)}
+                                                style={{ width: '100%', height: '35px', border: 'none', background: 'transparent', padding: '4px 8px', fontSize: '0.8rem' }}
+                                            >
+                                                <option value="">Select...</option>
+                                                <option value="Week">Week</option>
+                                                <option value="Month">Month</option>
+                                                <option value="Quarter">Quarter</option>
+                                                <option value="Half Year">Half Year</option>
+                                                <option value="Year">Year</option>
+                                            </select>
+                                        </td>
                                         <td><input value={item.responsibility || ''} onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value)} /></td>
                                         <td><input value={item.actual || ''} onChange={e => handleFieldChange(item._id, 'actual', e.target.value)} /></td>
                                         <td><input value={item.plan || ''} onChange={e => handleFieldChange(item._id, 'plan', e.target.value)} /></td>
-                                        <td><textarea value={item.actionPlan || ''} onChange={e => handleFieldChange(item._id, 'actionPlan', e.target.value)} /></td>
-                                        <td><input value={item.responsibilityAction || ''} onChange={e => handleFieldChange(item._id, 'responsibilityAction', e.target.value)} /></td>
+                                        <td><textarea
+                                            value={item.actionPlan || ''}
+                                            onChange={e => handleFieldChange(item._id, 'actionPlan', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td>
+                                            <Autocomplete
+                                                size="small"
+                                                options={mrmUsers}
+                                                getOptionLabel={(option) => {
+                                                    if (typeof option === 'string') return option;
+                                                    return `${option.first_name || ''} ${option.last_name || ''}`.trim() || option.username;
+                                                }}
+                                                value={mrmUsers.find(u => u.username === item.responsibilityAction) || item.responsibilityAction || null}
+                                                onChange={(e, newValue) => {
+                                                    const username = newValue?.username || (typeof newValue === 'string' ? newValue : '');
+                                                    handleFieldChange(item._id, 'responsibilityAction', username);
+                                                }}
+                                                freeSolo
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        variant="standard"
+                                                        placeholder="Select..."
+                                                        InputProps={{
+                                                            ...params.InputProps,
+                                                            disableUnderline: true,
+                                                            style: { fontSize: '0.8rem', padding: '2px 4px' }
+                                                        }}
+                                                    />
+                                                )}
+                                                sx={{
+                                                    width: '100%',
+                                                    '& .MuiAutocomplete-input': { padding: '2px 4px !important', fontSize: '0.75rem' },
+                                                    '& .MuiInputBase-root': { padding: '0 !important' }
+                                                }}
+                                                ListboxProps={{
+                                                    sx: {
+                                                        '& .MuiAutocomplete-option': {
+                                                            fontSize: '0.75rem',
+                                                            padding: '4px 8px !important',
+                                                            minHeight: 'auto'
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </td>
                                         <td>
                                             <input
                                                 type="date"
@@ -415,29 +497,59 @@ const MRMHome = () => {
                                         </td>
                                         <td>
                                             <select
-                                                value={item.status || 'Gray'}
+                                                value={item.status || 'Green'}
                                                 onChange={e => handleFieldChange(item._id, 'status', e.target.value)}
                                                 className={`status-badge ${item.status}`}
-                                                style={{ width: '100%', height: '35px', border: 'none' }}
+                                                style={{ width: '100%', height: '25px', border: 'none' }}
                                             >
-                                                <option value="Green">Green</option>
-                                                <option value="Yellow">Yellow</option>
-                                                <option value="Red">Red</option>
-                                                <option value="Gray">Gray</option>
+                                                <option value="Green" style={{ background: 'white', color: '#166534' }}>Green</option>
+                                                <option value="Yellow" style={{ background: 'white', color: '#ca8a04' }}>Yellow</option>
+                                                <option value="Red" style={{ background: 'white', color: '#dc2626' }}>Red</option>
                                             </select>
                                         </td>
-                                        <td><textarea value={item.remarks || ''} onChange={e => handleFieldChange(item._id, 'remarks', e.target.value)} /></td>
-                                        <td style={{ display: 'flex', gap: '5px', justifyContent: 'center', alignItems: 'center' }}>
-                                            <IconButton
-                                                onClick={() => handleSaveItem(item)}
-                                                color={item.isDirty ? "primary" : "default"}
-                                                title="Save"
-                                            >
-                                                <SaveIcon />
-                                            </IconButton>
-                                            <IconButton onClick={() => openDeleteDialog(item)} color="error" title="Delete">
-                                                <DeleteIcon />
-                                            </IconButton>
+                                        <td><textarea
+                                            value={item.remarks || ''}
+                                            onChange={e => handleFieldChange(item._id, 'remarks', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td className="action-cell">
+                                            <div className="action-buttons">
+                                                <IconButton
+                                                    onClick={() => handleSaveItem(item)}
+                                                    size="small"
+                                                    sx={{
+                                                        backgroundColor: item.isDirty ? '#217346' : '#e5e7eb',
+                                                        color: item.isDirty ? 'white' : '#6b7280',
+                                                        '&:hover': {
+                                                            backgroundColor: item.isDirty ? '#1b5e20' : '#d1d5db'
+                                                        },
+                                                        width: 24,
+                                                        height: 24,
+                                                        padding: '4px'
+                                                    }}
+                                                    title="Save"
+                                                >
+                                                    <SaveIcon sx={{ fontSize: 14 }} />
+                                                </IconButton>
+                                                <IconButton
+                                                    onClick={() => openDeleteDialog(item)}
+                                                    size="small"
+                                                    sx={{
+                                                        backgroundColor: '#fee2e2',
+                                                        color: '#dc2626',
+                                                        '&:hover': {
+                                                            backgroundColor: '#fecaca'
+                                                        },
+                                                        width: 24,
+                                                        height: 24,
+                                                        padding: '4px'
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <DeleteIcon sx={{ fontSize: 14 }} />
+                                                </IconButton>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

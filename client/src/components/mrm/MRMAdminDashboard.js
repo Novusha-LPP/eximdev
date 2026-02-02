@@ -14,8 +14,8 @@ const MRMAdminDashboard = () => {
     const [dashboardData, setDashboardData] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Only suraj_rajan and shallini_arun can access
-    const isAuthorized = ['suraj_rajan', 'shallini_arun'].includes(user?.username);
+    // Only suraj_rajan and uday_zope can access
+    const isAuthorized = ['suraj_rajan', 'uday_zope'].includes(user?.username);
 
     useEffect(() => {
         if (isAuthorized) {

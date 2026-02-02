@@ -152,17 +152,17 @@ const KPISheet = () => {
     };
 
     const getSubmissionDeadline = (year, month) => {
-        // Deadline is the 7th of the following month
-        // If sheet is for December 2025 (month=12), deadline is 7th January 2026
+        // Deadline is the 4th of the following month
+        // If sheet is for December 2025 (month=12), deadline is 4th January 2026
         let deadlineYear = year;
         let deadlineMonth = month; // month is 1-indexed in sheet
         if (deadlineMonth > 12) {
             deadlineMonth = 1;
             deadlineYear = year + 1;
         }
-        // Start with the 7th of the next month (month is 0-indexed in Date constructor)
-        let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
-        // If the 7th is a Sunday, go back to the previous working day
+        // Start with the 4th of the next month (month is 0-indexed in Date constructor)
+        let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+        // If the 4th is a Sunday, go back to the previous working day
         while (deadline.getDay() === 0) {
             deadline.setDate(deadline.getDate() - 1);
         }

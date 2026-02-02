@@ -550,20 +550,20 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Cannot edit Holiday values" });
         }
 
-        // Deadline Check - Users can edit until the 7th of the following month (or previous working day if 7th is a holiday)
+        // Deadline Check - Users can edit until the 4th of the following month (or previous working day if 4th is a holiday)
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
-            // Deadline is the 7th of the following month
-            // If sheet is for December 2025 (month=12), deadline is 7th January 2026
+            // Deadline is the 4th of the following month
+            // If sheet is for December 2025 (month=12), deadline is 4th January 2026
             let deadlineYear = year;
             let deadlineMonth = month; // month is 1-indexed in sheet
             if (deadlineMonth > 12) {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
-            // Start with the 7th of the next month (month is 0-indexed in Date constructor)
-            let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
-            // If the 7th is a Sunday, go back to the previous working day
+            // Start with the 4th of the next month (month is 0-indexed in Date constructor)
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            // If the 4th is a Sunday, go back to the previous working day
             while (deadline.getDay() === 0) {
                 deadline.setDate(deadline.getDate() - 1);
             }
@@ -647,18 +647,18 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
 
         if (sheet.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: "Unauthorized" });
 
-        // Deadline Check - 7th of the following month (or previous working day if 7th is a holiday)
+        // Deadline Check - 4th of the following month (or previous working day if 4th is a holiday)
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
-            // Deadline is the 7th of the following month
+            // Deadline is the 4th of the following month
             let deadlineYear = year;
             let deadlineMonth = month; // month is 1-indexed in sheet
             if (deadlineMonth > 12) {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
-            let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
-            // If the 7th is a Sunday, go back to the previous working day
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            // If the 4th is a Sunday, go back to the previous working day
             while (deadline.getDay() === 0) {
                 deadline.setDate(deadline.getDate() - 1);
             }
@@ -669,7 +669,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
+            return res.status(403).json({ message: "KPI locked. Submission deadline (4th of the following month) has passed." });
         }
 
         const dayNum = Number(day);
@@ -797,18 +797,18 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Sheet cannot be submitted in current status" });
         }
 
-        // Deadline Check - 7th of the following month (or previous working day if 7th is a holiday)
+        // Deadline Check - 4th of the following month (or previous working day if 4th is a holiday)
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
-            // Deadline is the 7th of the following month
+            // Deadline is the 4th of the following month
             let deadlineYear = year;
             let deadlineMonth = month; // month is 1-indexed in sheet
             if (deadlineMonth > 12) {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
-            let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
-            // If the 7th is a Sunday, go back to the previous working day
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            // If the 4th is a Sunday, go back to the previous working day
             while (deadline.getDay() === 0) {
                 deadline.setDate(deadline.getDate() - 1);
             }

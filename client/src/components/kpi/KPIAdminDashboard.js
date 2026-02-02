@@ -33,7 +33,7 @@ const KPIAdminDashboard = () => {
 
     const departments = [
         'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
-        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs'
+        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs', 'Admin'
     ];
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June',

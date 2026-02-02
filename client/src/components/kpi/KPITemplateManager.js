@@ -263,7 +263,7 @@ const KPITemplateManager = () => {
                                     <option value="" disabled>Select Department...</option>
                                     {[
                                         'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
-                                        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs'
+                                        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs', 'Admin'
                                     ].map(d => (
                                         <option key={d} value={d}>{d}</option>
                                     ))}

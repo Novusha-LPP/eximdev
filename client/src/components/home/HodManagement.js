@@ -717,6 +717,7 @@ function HodManagement() {
                             <Option value="Marketing">Marketing</Option>
                             <Option value="Paramount">Paramount</Option>
                             <Option value="Rabs">Rabs</Option>
+                            <Option value="Admin">Admin</Option>
                         </Select>
                     </Form.Item>
                     <Form.Item
@@ -779,6 +780,7 @@ function HodManagement() {
                             <Option value="Marketing">Marketing</Option>
                             <Option value="Paramount">Paramount</Option>
                             <Option value="Rabs">Rabs</Option>
+                            <Option value="Admin">Admin</Option>
                         </Select>
                     </Form.Item>
                     {user?.role === 'Admin' && (

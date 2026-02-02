@@ -37,7 +37,8 @@ function AssignDepartment({ selectedUser }) {
         "Software",
         "Marketing",
         "Paramount",
-        "Rabs"
+        "Rabs",
+        "Admin"
     ];
 
     useEffect(() => {

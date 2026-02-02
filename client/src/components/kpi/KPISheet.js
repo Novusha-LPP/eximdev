@@ -160,8 +160,13 @@ const KPISheet = () => {
             deadlineMonth = 1;
             deadlineYear = year + 1;
         }
-        // Return the 7th of the next month (month is 0-indexed in Date constructor)
-        return new Date(deadlineYear, deadlineMonth - 1, 7);
+        // Start with the 7th of the next month (month is 0-indexed in Date constructor)
+        let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
+        // If the 7th is a Sunday, go back to the previous working day
+        while (deadline.getDay() === 0) {
+            deadline.setDate(deadline.getDate() - 1);
+        }
+        return deadline;
     };
 
     const isLocked = (day = null) => {
@@ -486,8 +491,14 @@ const KPISheet = () => {
 
             {/* Action Bar */}
             <div className="kpi-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div className="period-info" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                <div className="period-info" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f', fontSize: '0.9rem' }}>
+                        <span>📅</span>
+                        <strong>Deadline:</strong> {getSubmissionDeadline(sheet.year, sheet.month + 1).toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </div>
                 </div>
 
                 {/* Approval Stages - Side by side */}

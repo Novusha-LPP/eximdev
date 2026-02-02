@@ -550,7 +550,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Cannot edit Holiday values" });
         }
 
-        // Deadline Check - Users can edit until the 7th of the following month
+        // Deadline Check - Users can edit until the 7th of the following month (or previous working day if 7th is a holiday)
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
             // Deadline is the 7th of the following month
@@ -561,8 +561,13 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
-            // Return the 7th of the next month (month is 0-indexed in Date constructor)
-            return new Date(deadlineYear, deadlineMonth - 1, 7);
+            // Start with the 7th of the next month (month is 0-indexed in Date constructor)
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
+            // If the 7th is a Sunday, go back to the previous working day
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+            return deadline;
         };
         const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -642,7 +647,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
 
         if (sheet.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: "Unauthorized" });
 
-        // Deadline Check - 7th of the following month
+        // Deadline Check - 7th of the following month (or previous working day if 7th is a holiday)
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
             // Deadline is the 7th of the following month
@@ -652,7 +657,12 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
-            return new Date(deadlineYear, deadlineMonth - 1, 7);
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
+            // If the 7th is a Sunday, go back to the previous working day
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+            return deadline;
         };
         const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -787,7 +797,7 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Sheet cannot be submitted in current status" });
         }
 
-        // Deadline Check - 7th of the following month
+        // Deadline Check - 7th of the following month (or previous working day if 7th is a holiday)
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
             // Deadline is the 7th of the following month
@@ -797,7 +807,12 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
-            return new Date(deadlineYear, deadlineMonth - 1, 7);
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 7);
+            // If the 7th is a Sunday, go back to the previous working day
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+            return deadline;
         };
         const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());

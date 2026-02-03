@@ -206,6 +206,24 @@ const userSchema = new Schema({
   kyc_approval: {
     type: String,
   },
+  children_details: [
+    {
+      gender: String,
+      age_group: String,
+    },
+  ],
+  insurance_not_applicable: {
+    type: Boolean,
+    default: false,
+  },
+  pf_not_applicable: {
+    type: Boolean,
+    default: false,
+  },
+  esic_not_applicable: {
+    type: Boolean,
+    default: false,
+  },
   selected_icd_codes: [
     {
       type: String,

@@ -105,19 +105,47 @@ export const validationSchema = yup.object({
     .required("Pan no is required")
     .matches(panNumberRegex, "Invalid pan no"),
   pan_photo: yup.string("Enter pan photo").required("Pan photo is required"),
-  insurance_status: yup
-    .array()
-    .of(yup.string())
-    .min(1, "At least one insurance status is required")
-    .required("Insurance status is required"),
+  // Insurance not applicable flag
+  insurance_not_applicable: yup.boolean(),
+  // Insurance status - only required if insurance_not_applicable is false
+  pf_not_applicable: yup.boolean(),
+  esic_not_applicable: yup.boolean(),
+
+  // Children Details Validation
+  children_details: yup.array().of(
+    yup.object().shape({
+      gender: yup.string().required("Gender is required"),
+      age_group: yup.string().required("Age group is required"),
+    })
+  ),
+
+  // Insurance Status
+  insurance_status: yup.array().of(yup.string()).when('insurance_not_applicable', {
+    is: true,
+    then: (schema) => schema.notRequired(),
+    otherwise: (schema) => schema.min(1, "Select at least one insurance or mark as Not Applicable").required("Insurance status is required"),
+  }),
+
+  // PF Number - Optional if Not Applicable is checked
+  pf_no: yup.string().when(['insurance_not_applicable', 'pf_not_applicable'], {
+    is: (insuranceNA, pfNA) => insuranceNA || pfNA,
+    then: (schema) => schema.notRequired(),
+    otherwise: (schema) => schema.notRequired(), // Still optional as per user request ("not mandatory")
+  }),
+
+  // ESIC Number - Optional if Not Applicable is checked
+  esic_no: yup.string().when(['insurance_not_applicable', 'esic_not_applicable'], {
+    is: (insuranceNA, esicNA) => insuranceNA || esicNA,
+    then: (schema) => schema.notRequired(),
+    otherwise: (schema) => schema.notRequired(), // Still optional as per user request ("not mandatory")
+  }),
+
   bank_account_no: yup
     .string("Enter bank account no")
     .required("Bank account no is required"),
   bank_name: yup.string("Enter bank name").required("Bank name is required"),
   ifsc_code: yup.string("Enter IFSC code").required("IFSC code is required"),
-  favorite_song: yup
-    .string("Enter favorite song")
-    .required("Favorite song is required"),
+ 
   marital_status: yup
     .string("Enter marital status")
     .required("Marital status is required"),

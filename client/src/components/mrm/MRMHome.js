@@ -9,9 +9,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import '../../styles/mrm.scss';
 
-// Admins who can view all users' MRM
-const MRM_ADMINS = ['suraj_rajan', 'uday_zope'];
-
 const MRMHome = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
@@ -24,8 +21,8 @@ const MRMHome = () => {
     // Metadata State
     const [metadata, setMetadata] = useState({ meetingDate: '', reviewDate: '' });
 
-    // Admin View: User Selection
-    const isAdmin = MRM_ADMINS.includes(user?.username);
+    // Admin View: User Selection - Dynamic check based on role
+    const isAdmin = user?.role === 'Admin';
     const [mrmUsers, setMrmUsers] = useState([]);
     // Initialize selectedUserId from URL param if present (for admin navigation from dashboard)
     const [selectedUserId, setSelectedUserId] = useState(searchParams.get('userId') || '');
@@ -57,7 +54,7 @@ const MRMHome = () => {
         // Update default import source when selection changes
         setImportSourceMonth(selectedMonth === 1 ? 12 : selectedMonth - 1);
         setImportSourceYear(selectedMonth === 1 ? selectedYear - 1 : selectedYear);
-    }, [selectedMonth, selectedYear, selectedUserId]);
+    }, [selectedMonth, selectedYear, selectedUserId, user]);
 
     const loadData = async () => {
         setLoading(true);
@@ -65,12 +62,13 @@ const MRMHome = () => {
             const monthStr = String(selectedMonth).padStart(2, '0');
             // For admin: pass selectedUserId if selected, otherwise fetch all
             // For regular user: no userId param (backend will show shared data)
-            const userIdParam = isAdmin && selectedUserId ? selectedUserId : null;
+            // Determine distinct user ID for fetching/saving
+            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
 
             // Parallel fetch items and metadata
             const [itemsData, metaData] = await Promise.all([
-                fetchMRMItems(monthStr, selectedYear, userIdParam),
-                fetchMRMMetadata(monthStr, selectedYear)
+                fetchMRMItems(monthStr, selectedYear, targetUserId),
+                fetchMRMMetadata(monthStr, selectedYear, targetUserId)
             ]);
 
             setItems(itemsData.map(i => ({ ...i, isDirty: false })));
@@ -99,9 +97,12 @@ const MRMHome = () => {
         setMetadata(newMeta);
 
         try {
+            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+
             await saveMRMMetadata({
                 month: String(selectedMonth).padStart(2, '0'),
                 year: selectedYear,
+                userId: targetUserId,
                 ...newMeta
             });
         } catch (err) {
@@ -110,12 +111,13 @@ const MRMHome = () => {
     };
 
     const handleAddItem = async () => {
+        const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
         const newItem = {
             month: String(selectedMonth).padStart(2, '0'),
             year: selectedYear,
             processDescription: "New Item",
             status: "Red",
-            createdBy: user?._id
+            createdBy: targetUserId
         };
         try {
             const saved = await createMRMItem(newItem);
@@ -195,7 +197,7 @@ const MRMHome = () => {
                 sourceMonth: String(importSourceMonth).padStart(2, '0'),
                 sourceYear: importSourceYear,
                 mode: importMode,
-                userId: user?._id
+                userId: (isAdmin && selectedUserId) ? selectedUserId : user?._id
             });
             setShowImportModal(false);
             loadData();
@@ -313,12 +315,14 @@ const MRMHome = () => {
                             onChange={e => setSelectedUserId(e.target.value)}
                             className="user-selector"
                         >
-                            <option value="">-- All Users --</option>
-                            {mrmUsers.map(u => (
-                                <option key={u._id} value={u._id}>
-                                    {u.first_name} {u.last_name}
-                                </option>
-                            ))}
+                            <option value="" disabled>Select User</option>
+                            {mrmUsers
+                                .filter(u => ['Head_of_Department', 'Admin'].includes(u.role))
+                                .map(u => (
+                                    <option key={u._id} value={u._id}>
+                                        {u.first_name} {u.last_name}
+                                    </option>
+                                ))}
                         </select>
                     )}
 

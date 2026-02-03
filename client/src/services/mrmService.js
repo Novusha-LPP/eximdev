@@ -27,9 +27,11 @@ export const fetchMRMItems = async (month, year, userId = null) => {
     }
 };
 
-export const fetchMRMMetadata = async (month, year) => {
+export const fetchMRMMetadata = async (month, year, userId = null) => {
     try {
-        const response = await axios.get(`${API_URL}/metadata`, { params: { month, year }, ...getHeaders() });
+        const params = { month, year };
+        if (userId) params.userId = userId;
+        const response = await axios.get(`${API_URL}/metadata`, { params, ...getHeaders() });
         return response.data;
     } catch (error) {
         throw error;

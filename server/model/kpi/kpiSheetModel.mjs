@@ -70,6 +70,11 @@ const KPISheetSchema = new Schema(
             type: Number // Day numbers marked as half-day
         }],
 
+        // Sunday Working (explicitly marked as working)
+        working_sundays: [{
+            type: Number // Day numbers marked as working sunday
+        }],
+
         status: {
             type: String,
             enum: ["DRAFT", "SUBMITTED", "CHECKED", "VERIFIED", "APPROVED", "REJECTED"],

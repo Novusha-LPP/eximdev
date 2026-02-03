@@ -111,7 +111,7 @@ const KPISheet = () => {
         let sum = 0;
         Object.entries(row.daily_values).forEach(([d, val]) => {
             // Logic must match backend
-            if (isSunday(Number(d))) return;
+            if (isSunday(Number(d)) && !isWorkingSunday(Number(d))) return;
             if (isHoliday(Number(d))) return;
             sum += Number(val);
         });
@@ -149,6 +149,10 @@ const KPISheet = () => {
 
     const isHalfDay = (day) => {
         return sheet && sheet.half_days && sheet.half_days.includes(day);
+    };
+
+    const isWorkingSunday = (day) => {
+        return sheet && sheet.working_sundays && sheet.working_sundays.includes(day);
     };
 
     const getSubmissionDeadline = (year, month) => {
@@ -278,6 +282,7 @@ const KPISheet = () => {
 
         let newHolidays = [...(sheet.holidays || [])];
         let newFestivals = [...(sheet.festivals || [])];
+        let newWorkingSundays = [...(sheet.working_sundays || [])]; // Should not conflict usually, but good practice
 
         if (idx > -1) {
             newHalfDays.splice(idx, 1);
@@ -286,9 +291,10 @@ const KPISheet = () => {
             // Mutual Exclusivity
             newHolidays = newHolidays.filter(d => d !== day);
             newFestivals = newFestivals.filter(d => d !== day);
+            newWorkingSundays = newWorkingSundays.filter(d => d !== day);
         }
 
-        setSheet({ ...sheet, half_days: newHalfDays, holidays: newHolidays, festivals: newFestivals });
+        setSheet({ ...sheet, half_days: newHalfDays, holidays: newHolidays, festivals: newFestivals, working_sundays: newWorkingSundays });
 
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/holiday`, {
@@ -298,6 +304,37 @@ const KPISheet = () => {
             }, { withCredentials: true });
         } catch (e) {
             console.error("Error toggling half day", e);
+        }
+    };
+
+    const toggleWorkingSunday = async (day) => {
+        console.log(`KPISheet - Toggling Working Sunday: Day=${day}`);
+        const newWorkingSundays = [...(sheet.working_sundays || [])];
+        const idx = newWorkingSundays.indexOf(day);
+
+        let newHolidays = [...(sheet.holidays || [])];
+        let newFestivals = [...(sheet.festivals || [])];
+        let newHalfDays = [...(sheet.half_days || [])];
+
+        if (idx > -1) {
+            newWorkingSundays.splice(idx, 1);
+        } else {
+            newWorkingSundays.push(day);
+            // Mutual Exclusivity just in case
+            newHolidays = newHolidays.filter(d => d !== day);
+            newFestivals = newFestivals.filter(d => d !== day);
+            newHalfDays = newHalfDays.filter(d => d !== day);
+        }
+        setSheet({ ...sheet, working_sundays: newWorkingSundays, holidays: newHolidays, festivals: newFestivals, half_days: newHalfDays });
+
+        try {
+            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/holiday`, {
+                sheetId: sheet._id,
+                day,
+                type: 'working_sunday'
+            }, { withCredentials: true });
+        } catch (e) {
+            console.error("Error toggling working sunday", e);
         }
     };
 
@@ -353,7 +390,7 @@ const KPISheet = () => {
     // Column Totals
     const getColumnTotal = (day) => {
         if (!sheet) return 0;
-        if (isSunday(day) || isHoliday(day) || isFestival(day)) return 0;
+        if ((isSunday(day) && !isWorkingSunday(day)) || isHoliday(day) || isFestival(day)) return 0;
         return sheet.rows.reduce((sum, row) => {
             return sum + (Number(row.daily_values[day]) || 0);
         }, 0);
@@ -441,7 +478,7 @@ const KPISheet = () => {
     };
 
     const handleDayClick = (event, day) => {
-        if (isSunday(day)) return;
+        // if (isSunday(day)) return; // Allow clicking sunday now
         setDayMenu({ anchorEl: event.currentTarget, day });
     };
 
@@ -459,10 +496,13 @@ const KPISheet = () => {
             if (!isHalfDay(day)) toggleHalfDay(day);
         } else if (action === 'FESTIVAL') {
             if (!isFestival(day)) toggleFestival(day);
+        } else if (action === 'WORKING_SUNDAY') {
+            if (isSunday(day)) toggleWorkingSunday(day);
         } else if (action === 'CLEAR') {
             if (isHoliday(day)) toggleHoliday(day);
             if (isHalfDay(day)) toggleHalfDay(day);
             if (isFestival(day)) toggleFestival(day);
+            if (isWorkingSunday(day)) toggleWorkingSunday(day);
         }
         closeDayMenu();
     };
@@ -549,16 +589,16 @@ const KPISheet = () => {
                     Sunday
                 </span>
                 <span className="legend-item">
+                    <span className="legend-color half-day">HD</span>
+                    Half Day
+                </span>
+                <span className="legend-item">
                     <span className="legend-color leave"></span>
                     Leave
                 </span>
                 <span className="legend-item">
                     <span className="legend-color festival"></span>
                     Festival
-                </span>
-                <span className="legend-item">
-                    <span className="legend-color half-day">HD</span>
-                    Half Day
                 </span>
                 <span className="legend-item" style={{ fontStyle: 'italic', fontSize: '0.8em', marginLeft: '10px' }}>
                     * Click on a date header to manage status
@@ -572,11 +612,13 @@ const KPISheet = () => {
                             <th>{new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}</th>
                             {daysInMonth.map(d => {
                                 const isSun = isSunday(d);
+                                const isWS = isWorkingSunday(d);
                                 const isHol = isHoliday(d);
                                 const isFest = isFestival(d);
                                 const isHD = isHalfDay(d);
                                 let className = '';
-                                if (isSun) className = 'sunday';
+                                if (isSun && !isWS) className = 'sunday';
+                                else if (isSun && isWS) className = 'working-sunday';
                                 else if (isHol) className = 'leave';
                                 else if (isFest) className = 'festival';
                                 else if (isHD) className = 'half-day';
@@ -586,8 +628,8 @@ const KPISheet = () => {
                                         key={d}
                                         className={className}
                                         onClick={(e) => handleDayClick(e, d)}
-                                        title={isSun ? "Sunday" : "Click to manage status"}
-                                        style={{ cursor: isSun ? 'not-allowed' : 'pointer' }}
+                                        title={isSun && !isWS ? "Sunday" : "Click to manage status"}
+                                        style={{ cursor: 'pointer' }}
                                     >
                                         {d}
                                     </th>
@@ -613,12 +655,14 @@ const KPISheet = () => {
                                 </td>
                                 {daysInMonth.map(day => {
                                     const isSun = isSunday(day);
+                                    const isWS = isWorkingSunday(day);
                                     const isHol = isHoliday(day);
                                     const isFest = isFestival(day);
                                     const isHD = isHalfDay(day);
-                                    const isBlocked = isSun || isHol || isFest;
+                                    const isBlocked = (isSun && !isWS) || isHol || isFest;
                                     let cellClass = 'day-cell';
-                                    if (isSun) cellClass += ' sunday';
+                                    if (isSun && !isWS) cellClass += ' sunday';
+                                    else if (isSun && isWS) cellClass += ' working-sunday';
                                     else if (isHol) cellClass += ' holiday';
                                     else if (isFest) cellClass += ' festival';
                                     else if (isHD) cellClass += ' half-day';
@@ -707,9 +751,17 @@ const KPISheet = () => {
                 open={Boolean(dayMenu.anchorEl)}
                 onClose={closeDayMenu}
             >
-                <MenuItem onClick={() => handleDayAction('LEAVE')}>Mark as Leave</MenuItem>
-                <MenuItem onClick={() => handleDayAction('HALF_DAY')}>Mark as Half Day</MenuItem>
-                <MenuItem onClick={() => handleDayAction('FESTIVAL')}>Mark as Festival</MenuItem>
+                {isSunday(dayMenu.day) ? (
+                    <MenuItem onClick={() => handleDayAction('WORKING_SUNDAY')}>
+                        {isWorkingSunday(dayMenu.day) ? "Mark as Non-Working" : "Mark as Working Sunday"}
+                    </MenuItem>
+                ) : (
+                    <>
+                        <MenuItem onClick={() => handleDayAction('LEAVE')}>Mark as Leave</MenuItem>
+                        <MenuItem onClick={() => handleDayAction('HALF_DAY')}>Mark as Half Day</MenuItem>
+                        <MenuItem onClick={() => handleDayAction('FESTIVAL')}>Mark as Festival</MenuItem>
+                    </>
+                )}
                 <MenuItem onClick={() => handleDayAction('CLEAR')} style={{ color: 'red' }}>Clear Status</MenuItem>
             </Menu>
 

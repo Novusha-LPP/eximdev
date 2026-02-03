@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/node";
-import logger, { addMongoDBTransport } from "./logger.js";
+import logger from "./logger.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -107,7 +107,6 @@ import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
-import assignDepartment from "./routes/home/assignDepartment.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
 import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
 import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
@@ -212,8 +211,6 @@ import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
 import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
-
-// Team Management (HOD)
 import teamRoutes from "./routes/team/teamRoutes.mjs";
 
 const MONGODB_URI =
@@ -245,12 +242,16 @@ app.use((req, res, next) => {
     req.headers["user-agent"] &&
     req.headers["user-agent"].includes("Mozilla");
 
-  // For sensitive routes, block direct browser access
+  // For sensitive routes, block direct browser access in production only
+  // Allow accessing API endpoints directly in development (helps debugging via browser)
+  const acceptHeader = String(req.headers.accept || "");
+  const isHtmlAccept = acceptHeader.indexOf("html") > -1;
   if (
+    process.env.NODE_ENV === 'production' &&
     req.path.startsWith("/api/") &&
     isBrowserRequest &&
     !req.xhr &&
-    req.headers.accept.indexOf("html") > -1
+    isHtmlAccept
   ) {
     return res.status(404).send("Not found");
   }
@@ -354,7 +355,6 @@ app.use(assignRole);
 app.use(unassignModule);
 app.use(changePassword);
 app.use(assignIcdCode);
-app.use(assignDepartment);
 app.use(assignEximBot);
 app.use(getModuleUserCounts);
 app.use(toggleUserStatus);
@@ -463,8 +463,6 @@ app.use("/api/project-nucleus", nucleusReports);
 // KPI Module
 app.use(kpiRoutes);
 app.use(mrmRoutes);
-
-// Team Management (HOD)
 app.use(teamRoutes);
 
 // Sentry Error Handler (Must be after controllers)
@@ -503,9 +501,6 @@ if (cluster.isPrimary) {
         socketTimeoutMS: 45000,
       })
       .then(async () => {
-        // Add MongoDB transport to logger using the existing connection
-        addMongoDBTransport(mongoose.connection.getClient());
-
         // initialize cron jobs only on the first worker to avoid duplicates
         if (cluster.worker.id === 1) {
           cron.schedule(

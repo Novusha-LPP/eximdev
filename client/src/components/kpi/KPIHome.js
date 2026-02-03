@@ -96,10 +96,13 @@ const KPIHome = () => {
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
-        fetchHods();
         fetchPendingCount();
         fetchTeamTemplates();
     }, []);
+
+    useEffect(() => {
+        fetchHods();
+    }, [user]);
 
     useEffect(() => {
         fetchSheets();
@@ -118,10 +121,25 @@ const KPIHome = () => {
     const fetchHods = async () => {
         try {
             const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/my-hods`, { withCredentials: true });
-            setHods(res.data);
+            let availableHods = res.data || [];
+
+            // If user is HOD, include themselves in the dictionary
+            if (user?.role === 'Head_of_Department') {
+                const alreadyExists = availableHods.some(h => h._id === user._id);
+                if (!alreadyExists) {
+                    availableHods.push({
+                        _id: user._id,
+                        first_name: user.first_name,
+                        last_name: user.last_name,
+                        username: user.username
+                    });
+                }
+            }
+
+            setHods(availableHods);
             // Auto-select if only one HOD
-            if (res.data.length === 1) {
-                setSignatories(prev => ({ ...prev, checked_by: res.data[0]._id }));
+            if (availableHods.length === 1) {
+                setSignatories(prev => ({ ...prev, checked_by: availableHods[0]._id }));
             }
         } catch (error) {
             console.error("Error fetching HODs", error);

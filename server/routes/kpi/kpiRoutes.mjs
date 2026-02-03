@@ -476,12 +476,14 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
             console.error("Error finding HOD:", e);
         }
 
-        // Determine checked_by: HOD priority > Manual input > undefined
+        // Determine checked_by: HOD priority > Manual input > Self if HOD > undefined
         let checkedById = undefined;
         if (hodUser) {
             checkedById = hodUser._id;
         } else if (signatories?.checked_by && signatories.checked_by !== '') {
             checkedById = signatories.checked_by;
+        } else if (user.role === 'Head_of_Department') {
+            checkedById = user._id;
         }
 
         const newSheet = new KPISheet({
@@ -984,7 +986,12 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         console.log(`Reviewing Sheet: ID=${sheetId}, Current Status=${sheet.status}, Requested Action=${action}, User=${req.user.username}(${req.user.role})`);
 
         // Prevent Self-Approval (Generic rule, though distinct roles usually prevent this naturally)
-        if (sheet.user.toString() === req.user._id.toString() && req.user.role !== 'Admin') {
+        // Exception: HODs can self-check their own sheets
+        const isSelfReview = sheet.user.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+        const isHodSelfCheck = req.user.role === 'Head_of_Department' && action === 'CHECK';
+
+        if (isSelfReview && !isAdmin && !isHodSelfCheck) {
             console.log("Self-review blocked");
             return res.status(403).json({ message: "Cannot review your own KPI sheet" });
         }
@@ -992,7 +999,7 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         const oldStatus = sheet.status;
         const currentUserId = req.user._id.toString();
         const username = req.user.username;
-        const isAdmin = req.user.role === 'Admin';
+        // isAdmin already declared above
         const isShalini = username === 'shalini_arun';
         const isSuraj = username === 'suraj_rajan';
 

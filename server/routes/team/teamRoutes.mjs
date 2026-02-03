@@ -107,7 +107,11 @@ router.post("/api/teams", async (req, res) => {
             department,
             hodId: hodUser._id,
             hodUsername,
-            members: [],
+            members: [{
+                userId: hodUser._id,
+                username: hodUsername,
+                addedAt: new Date()
+            }],
         });
 
         await team.save();

@@ -85,3 +85,5 @@ pids/
 
 # Ignore Yarn Integrity file
 .yarn-integrity
+
+/server/get_data_to_local.cjs

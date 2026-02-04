@@ -9,6 +9,7 @@ function useFetchJobList(
   selectedICD,
   searchQuery,
   selectedImporter,
+  selectedBeType = "all", // NEW: filtering by Type of BE
   unresolvedOnly = false // NEW: unresolvedOnly toggle
 ) {
   const [rows, setRows] = useState([]);
@@ -19,18 +20,18 @@ function useFetchJobList(
   const [userImporters, setUserImporters] = useState([]);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
-  
+
   // PERFORMANCE: AbortController to cancel previous requests
   // Prevents wasted API calls and stale data when user rapidly changes filters
   const abortControllerRef = useRef(null);
-  
+
   // Simple client-side cache for recent queries
   const queryCacheRef = useRef(new Map());
   const CACHE_MAX = 100; // max entries
   const CACHE_TTL = 1000 * 60 * 2; // 2 minutes
 
   const makeCacheKey = (page) =>
-    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${searchQuery}|${page}`;
+    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${searchQuery}|${page}`;
 
   const getFromCache = (key) => {
     const e = queryCacheRef.current.get(key);
@@ -73,7 +74,7 @@ function useFetchJobList(
   const fetchJobs = async (page, unresolved = unresolvedOnly, bypassCache = false) => {
     setLoading(true);
     const cacheKey = makeCacheKey(page);
-    
+
     // Only use cache if not bypassing
     if (!bypassCache) {
       const cached = getFromCache(cacheKey);
@@ -87,28 +88,28 @@ function useFetchJobList(
         return;
       }
     }
-    
+
     // PERFORMANCE: Cancel previous pending request if still in progress
     // This prevents wasted network traffic when user changes filters rapidly
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    
+
     // Create new abort controller for this request
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
-    
+
     try {
       // Validate if user can access the selected importer
       if (user && user.role !== "Admin" && selectedImporter && selectedImporter.toLowerCase() !== "select importer") {
         const userAssignedImporters = user.assigned_importer_name || [];
         const hasAllAccess = userAssignedImporters.some(imp => imp.toUpperCase() === "ALL");
-        
+
         if (!hasAllAccess) {
-          const canAccessImporter = userAssignedImporters.some(imp => 
+          const canAccessImporter = userAssignedImporters.some(imp =>
             imp.toLowerCase() === selectedImporter.toLowerCase()
           );
-          
+
           if (!canAccessImporter) {
             console.warn(`User ${user.username} cannot access importer: ${selectedImporter}`);
             // Still proceed with API call - let backend handle the filtering
@@ -129,6 +130,12 @@ function useFetchJobList(
 
       // Construct API URL
       let apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=50&search=${formattedSearchQuery}`;
+
+      // Append Type of BE filter
+      if (selectedBeType && selectedBeType !== 'all') {
+        apiUrl += `&typeOfBe=${encodeURIComponent(selectedBeType)}`;
+      }
+
       if (unresolved) {
         apiUrl += `&unresolvedOnly=true`;
       }
@@ -163,12 +170,12 @@ function useFetchJobList(
           // ignore
         }
       }
-      
+
       // If this is the Pending status, update unresolved count from the total when unresolvedOnly is true
       if (status === "Pending" && unresolved) {
         setUnresolvedCount(total);
       }
-      
+
       // Store user's allowed importers from response
       if (responseUserImporters) {
         setUserImporters(responseUserImporters);
@@ -217,7 +224,7 @@ function useFetchJobList(
       }
     }
     fetchInitialUnresolvedCount();
-  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter]);
+  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType]);
 
   // Auto-trigger search when filters change (including on page change)
   useEffect(() => {
@@ -234,13 +241,14 @@ function useFetchJobList(
     selectedImporter,
     user,
     unresolvedOnly,
+    selectedBeType,
   ]);
 
   // Auto-reset to page 1 when search query or major filters change
   // This ensures user doesn't stay on page 5 when filtering changes drastically
   useEffect(() => {
     setCurrentPage(1);
-  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status]);
+  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
 
@@ -248,13 +256,13 @@ function useFetchJobList(
   const canAccessImporter = (importerName) => {
     if (!user || !importerName) return false;
     if (user.role === "Admin") return true;
-    
+
     const userAssignedImporters = user.assigned_importer_name || [];
     const hasAllAccess = userAssignedImporters.some(imp => imp.toUpperCase() === "ALL");
-    
+
     if (hasAllAccess) return true;
-    
-    return userAssignedImporters.some(imp => 
+
+    return userAssignedImporters.some(imp =>
       imp.toLowerCase() === importerName.toLowerCase()
     );
   };

@@ -32,8 +32,8 @@ const KPIAdminDashboard = () => {
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
 
     const departments = [
-        'Import DSR', 'Export DSR', 'Documentation', 'e-Sanchit', 'Submission', 'DO', 'Operation',
-        'Accounts', 'Billing', 'Admin', 'HR', 'Management'
+        'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
+        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs', 'Admin'
     ];
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -69,21 +69,42 @@ const KPIAdminDashboard = () => {
         setTimeout(() => setMessage({ show: false, text: '', type: '' }), 4000);
     };
 
-    const handleApprove = async (e, sheetId) => {
+    const handleAction = async (e, sheet) => {
         e.stopPropagation();
-        if (!window.confirm("Are you sure you want to approve this sheet?")) return;
+
+        // Determine correct action based on current status
+        let action, confirmMsg, successMsg;
+
+        if (sheet.status === 'SUBMITTED') {
+            action = 'CHECK';
+            confirmMsg = "Are you sure you want to CHECK this sheet and proceed to verification?";
+            successMsg = "Sheet checked successfully";
+        } else if (sheet.status === 'CHECKED') {
+            action = 'VERIFY';
+            confirmMsg = "Are you sure you want to VERIFY this sheet and proceed to approval?";
+            successMsg = "Sheet verified successfully";
+        } else if (sheet.status === 'VERIFIED') {
+            action = 'APPROVE';
+            confirmMsg = "Are you sure you want to APPROVE this sheet?";
+            successMsg = "Sheet approved successfully";
+        } else {
+            return; // No action for other statuses
+        }
+
+        if (!window.confirm(confirmMsg)) return;
 
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/review`, {
-                sheetId,
-                action: 'APPROVE',
-                comments: 'Approved via Admin Dashboard'
+                sheetId: sheet._id,
+                action: action,
+                comments: `${action} via Admin Dashboard`
             }, { withCredentials: true });
 
-            showMessage("Sheet approved successfully");
+            showMessage(successMsg);
             fetchData(); // Refresh
         } catch (error) {
-            showMessage("Failed to approve sheet", "error");
+            console.error("Action failed:", error.response?.data);
+            showMessage(`Failed to ${action.toLowerCase()} sheet: ${error.response?.data?.message || 'Unknown error'}`, "error");
         }
     };
 
@@ -194,6 +215,9 @@ const KPIAdminDashboard = () => {
                                         <th>Department</th>
                                         <th>Template</th>
                                         <th style={{ textAlign: 'center' }}>Status</th>
+                                        <th>Check Date</th>
+                                        <th>Verify Date</th>
+                                        <th>Approve Date</th>
                                         <th style={{ textAlign: 'center' }}>Score</th>
                                         <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                     </tr>
@@ -218,12 +242,27 @@ const KPIAdminDashboard = () => {
                                                 </td>
                                                 <td>
                                                     <span style={{ background: '#eef2ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                                                        {(sheet.department || []).join(', ')}
+                                                        {sheet.department || '-'}
                                                     </span>
                                                 </td>
                                                 <td style={{ color: '#64748b' }}>{sheet.template_version?.name || 'Unknown'}</td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
+                                                </td>
+                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                    {sheet.approval_history?.find(h => h.action === 'CHECK')?.date
+                                                        ? new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        : '-'}
+                                                </td>
+                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                    {sheet.approval_history?.find(h => h.action === 'VERIFY')?.date
+                                                        ? new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        : '-'}
+                                                </td>
+                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                    {sheet.approval_history?.find(h => h.action === 'APPROVE')?.date
+                                                        ? new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        : '-'}
                                                 </td>
                                                 <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
                                                     {sheet.summary?.overall_percentage || 0}%
@@ -237,12 +276,15 @@ const KPIAdminDashboard = () => {
                                                         >
                                                             <Icons.Eye />
                                                         </button>
-                                                        {sheet.status === 'SUBMITTED' && (
+                                                        {(sheet.status === 'SUBMITTED' || sheet.status === 'CHECKED' || sheet.status === 'VERIFIED') && (
                                                             <button
                                                                 className="modern-btn icon-only"
-                                                                style={{ color: '#22c55e', background: '#dcfce7' }}
-                                                                title="Approve Now"
-                                                                onClick={(e) => handleApprove(e, sheet._id)}
+                                                                style={{
+                                                                    color: sheet.status === 'VERIFIED' ? '#22c55e' : sheet.status === 'CHECKED' ? '#0078d4' : '#f59e0b',
+                                                                    background: sheet.status === 'VERIFIED' ? '#dcfce7' : sheet.status === 'CHECKED' ? '#e0f2fe' : '#fef3c7'
+                                                                }}
+                                                                title={sheet.status === 'SUBMITTED' ? 'Check' : sheet.status === 'CHECKED' ? 'Verify' : 'Approve'}
+                                                                onClick={(e) => handleAction(e, sheet)}
                                                             >
                                                                 <Icons.Approve />
                                                             </button>

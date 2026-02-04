@@ -141,21 +141,38 @@ const OpenPointsHome = () => {
                         </h1>
                         <p style={{ color: '#64748b', fontSize: '1.1rem', marginTop: '5px' }}>Welcome back, {user?.username}!</p>
                     </div>
-                    <button
-                        className="btn"
-                        style={{
-                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                            color: 'white',
-                            padding: '12px 24px',
-                            borderRadius: '12px',
-                            border: 'none',
-                            boxShadow: '0 4px 6px rgba(59, 130, 246, 0.3)',
-                            fontWeight: 600
-                        }}
-                        onClick={() => setShowCreateModal(true)}
-                    >
-                        + Create New Project
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            className="btn"
+                            style={{
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: 'white',
+                                padding: '12px 24px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)',
+                                fontWeight: 600
+                            }}
+                            onClick={() => navigate('/open-points/my-points')}
+                        >
+                            📋 My Assigned Points
+                        </button>
+                        <button
+                            className="btn"
+                            style={{
+                                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                color: 'white',
+                                padding: '12px 24px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                boxShadow: '0 4px 6px rgba(59, 130, 246, 0.3)',
+                                fontWeight: 600
+                            }}
+                            onClick={() => setShowCreateModal(true)}
+                        >
+                            + Create New Project
+                        </button>
+                    </div>
                 </div>
 
                 {/* Analytics Section */}

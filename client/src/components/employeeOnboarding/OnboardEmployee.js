@@ -3,6 +3,15 @@ import { useFormik } from "formik";
 import { MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import { validationSchema } from "../../schemas/employeeOnboarding/onboardEmployee";
+import { Modal, message } from "antd";
+
+// Compact Field Component
+const Field = ({ label, children }) => (
+  <div className="hr-compact-field">
+    <label className="hr-field-label">{label}</label>
+    {children}
+  </div>
+);
 
 function OnboardEmployee() {
   const formik = useFormik({
@@ -16,22 +25,30 @@ function OnboardEmployee() {
     },
     validationSchema: validationSchema,
     onSubmit: async (values, { resetForm }) => {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/onboard-employee`,
-        values
-      );
-      alert(res.data.message);
-      resetForm();
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/onboard-employee`,
+          values
+        );
+
+        if (res.status === 201) {
+          message.success(res.data.message);
+          resetForm();
+        } else if (res.status === 200) {
+          // Backend returns 200 for duplicate user
+          Modal.warning({
+            title: "User Exists",
+            content: res.data.message,
+          });
+        }
+      } catch (error) {
+        console.error("Error onboarding employee:", error);
+        message.error("Failed to onboard employee");
+      }
     },
   });
 
-  // Compact Field Component
-  const Field = ({ label, children }) => (
-    <div className="hr-compact-field">
-      <label className="hr-field-label">{label}</label>
-      {children}
-    </div>
-  );
+
 
   return (
     <form onSubmit={formik.handleSubmit}>
@@ -52,6 +69,7 @@ function OnboardEmployee() {
                     value={formik.values.first_name}
                     onChange={formik.handleChange}
                     error={formik.touched.first_name && Boolean(formik.errors.first_name)}
+                    helperText={formik.touched.first_name && formik.errors.first_name}
                     className="hr-quick-input"
                     placeholder="Enter first name"
                   />
@@ -65,6 +83,7 @@ function OnboardEmployee() {
                     value={formik.values.middle_name}
                     onChange={formik.handleChange}
                     error={formik.touched.middle_name && Boolean(formik.errors.middle_name)}
+                    helperText={formik.touched.middle_name && formik.errors.middle_name}
                     className="hr-quick-input"
                     placeholder="Enter middle name"
                   />
@@ -78,6 +97,7 @@ function OnboardEmployee() {
                     value={formik.values.last_name}
                     onChange={formik.handleChange}
                     error={formik.touched.last_name && Boolean(formik.errors.last_name)}
+                    helperText={formik.touched.last_name && formik.errors.last_name}
                     className="hr-quick-input"
                     placeholder="Enter last name"
                   />
@@ -94,6 +114,7 @@ function OnboardEmployee() {
                     value={formik.values.email}
                     onChange={formik.handleChange}
                     error={formik.touched.email && Boolean(formik.errors.email)}
+                    helperText={formik.touched.email && formik.errors.email}
                     className="hr-quick-input"
                     placeholder="Enter email address"
                   />
@@ -119,6 +140,7 @@ function OnboardEmployee() {
                     value={formik.values.company}
                     onChange={formik.handleChange}
                     error={formik.touched.company && Boolean(formik.errors.company)}
+                    helperText={formik.touched.company && formik.errors.company}
                     className="hr-quick-input"
                   >
                     <MenuItem value="">Select Company</MenuItem>
@@ -144,6 +166,7 @@ function OnboardEmployee() {
                     value={formik.values.employment_type}
                     onChange={formik.handleChange}
                     error={formik.touched.employment_type && Boolean(formik.errors.employment_type)}
+                    helperText={formik.touched.employment_type && formik.errors.employment_type}
                     className="hr-quick-input"
                   >
                     <MenuItem value="">Select Type</MenuItem>

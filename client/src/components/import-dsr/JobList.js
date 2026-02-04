@@ -67,6 +67,8 @@ function JobList(props) {
     setSelectedICD,
     selectedImporter,
     setSelectedImporter,
+    selectedBeType,
+    setSelectedBeType,
   } = useSearchQuery();
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -85,6 +87,15 @@ function JobList(props) {
   // Clear state only once when the component initially mounts to ensure a clean state
   // JobTabs will handle tab-specific resets.
   useEffect(() => {
+    if (!(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setDetailedStatus("all");
+      setSelectedICD("all");
+      setSelectedICD("all");
+      setSelectedImporter("");
+      setSelectedBeType("all");
+      setLocalInput("");
+    }
     if (location.state && location.state.fromJobDetails) {
       // If coming from details, we preserve the state
       window.history.replaceState({}, document.title);
@@ -161,6 +172,7 @@ function JobList(props) {
     selectedICD,
     debouncedSearchQuery,
     selectedImporter,
+    selectedBeType,
     showUnresolvedOnly
   );
 
@@ -387,6 +399,14 @@ function JobList(props) {
     if (selectedBranch === "AIR") return ["AHMEDABAD AIRPORT", "MUMBAI AIRPORT", "DELHI AIRPORT"];
     return ["ICD SANAND", "ICD KHODIYAR", "ICD SACHANA"];
   }, [selectedBranch]);
+  const handleBeTypeChange = useCallback(
+    (e) => setSelectedBeType(e.target.value),
+    [setSelectedBeType]
+  );
+
+  const handleLocalInputChange = useCallback((e) => {
+    setLocalInput(e.target.value);
+  }, []);
 
   const prevBranchRef = useRef(selectedBranch);
   useEffect(() => {
@@ -419,6 +439,60 @@ function JobList(props) {
             value={selectedICD}
             onChange={(e) => handleICDChange(e.target.value)}
             sx={{ width: "200px" }}
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="ICD Code"
+          value={selectedICD}
+          onChange={handleICDChange}
+          sx={{ width: "135px", marginRight: "10px" }}
+        >
+          <MenuItem value="all">All ICDs</MenuItem>
+          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="Type of BE"
+          value={selectedBeType}
+          onChange={handleBeTypeChange}
+          sx={{ width: "135px", marginRight: "10px" }}
+        >
+          <MenuItem value="all">All BE Types</MenuItem>
+          <MenuItem value="Home">Home</MenuItem>
+          <MenuItem value="In-Bond">In-Bond</MenuItem>
+          <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
+        </TextField>
+
+        <Autocomplete
+          sx={{ width: "220px", marginRight: "10px" }}
+          freeSolo
+          options={importerNames.map((o) => o.label)}
+          value={selectedImporter || ""}
+          onInputChange={handleImporterChange}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer"
+            />
+          )}
+        />
+
+        {years.length > 0 && (
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={handleYearChange}
+            sx={{ width: "90px", marginRight: "10px" }}
           >
             <MenuItem value="all">All ICDs</MenuItem>
             {icdOptions.map((opt) => (
@@ -452,6 +526,36 @@ function JobList(props) {
               ))}
             </TextField>
           )}
+        <TextField
+          select
+          size="small"
+          value={detailedStatus}
+          onChange={handleDetailedStatusChange}
+          sx={{ width: "220px", marginRight: "10px" }}
+        >
+          {detailedStatusOptions.map((o, i) => (
+            <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
+              {o.name}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        {/* Simple search input (no typeahead/suggestions) */}
+        <TextField
+          value={localInput}
+          onChange={handleLocalInputChange}
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          sx={{ width: "250px", marginRight: "10px" }}
+          InputProps={{
+            endAdornment: (
+              <IconButton size="small" onClick={handleSearchClick}>
+                <SearchIcon fontSize="small" />
+              </IconButton>
+            ),
+          }}
+        />
 
           <TextField
             select
@@ -493,21 +597,28 @@ function JobList(props) {
           <IconButton onClick={handleOpen}><DownloadIcon /></IconButton>
         </div>
       </div>
-    );
-  }, [
-    total,
-    selectedICD,
-    selectedBranch,
-    importerNames,
-    selectedImporter,
-    years,
-    selectedYearState,
-    detailedStatus,
-    localInput,
-    icdOptions,
-    props.status,
-  ]);
-
+    ),
+    [
+      props.status,
+      total,
+      selectedICD,
+      handleICDChange,
+      importerNames,
+      selectedImporter,
+      setSelectedImporter,
+      years,
+      selectedYearState,
+      handleYearChange,
+      detailedStatus,
+      handleDetailedStatusChange,
+      localInput,
+      handleLocalInputChange,
+      handleClearSearch,
+      handleOpen,
+      selectedBeType, // dependency
+      handleBeTypeChange // dependency
+    ]
+  );
 
   const columns = useJobColumns(
     (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
@@ -531,6 +642,7 @@ function JobList(props) {
           detailedStatus,
           selectedICD,
           selectedImporter,
+          selectedBeType, // persist
         },
       }),
     setRows, // <-- pass here

@@ -3,6 +3,7 @@ import verifyToken from "../../middleware/authMiddleware.mjs";
 import KPITemplate from "../../model/kpi/kpiTemplateModel.mjs";
 import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
 import UserModel from "../../model/userModel.mjs";
+import TeamModel from "../../model/teamModel.mjs";
 
 const router = express.Router();
 
@@ -67,6 +68,180 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
     } catch (err) {
         console.error("GET /api/kpi/templates ERROR:", err);
         res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get User's Department from Team Membership
+router.get("/api/kpi/my-department", verifyToken, async (req, res) => {
+    try {
+        // First check user's own department field
+        const user = await UserModel.findById(req.user._id);
+        if (user && user.department) {
+            return res.json({ department: user.department });
+        }
+
+        // Fall back to team's department if user doesn't have one
+        // Find team where user is a member
+        const team = await TeamModel.findOne({
+            "members.userId": req.user._id,
+            isActive: true
+        });
+
+        if (team && team.department) {
+            return res.json({ department: team.department });
+        }
+
+        // If not found as member, check if user is HOD
+        const hodTeam = await TeamModel.findOne({
+            hodId: req.user._id,
+            isActive: true
+        });
+
+        if (hodTeam && hodTeam.department) {
+            return res.json({ department: hodTeam.department });
+        }
+
+        res.json({ department: null });
+    } catch (err) {
+        console.error("GET /api/kpi/my-department ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get HODs for current user (based on team membership)
+router.get("/api/kpi/my-hods", verifyToken, async (req, res) => {
+    try {
+        // Find all teams where the current user is a member
+        const teams = await TeamModel.find({ "members.userId": req.user._id });
+
+        if (!teams || teams.length === 0) {
+            // User is not part of any team - return empty array
+            return res.json([]);
+        }
+
+        // Get unique HOD IDs from all teams
+        const hodIds = [...new Set(teams.map(t => t.hodId.toString()))];
+
+        // Fetch HOD user details
+        const hods = await UserModel.find({ _id: { $in: hodIds } })
+            .select('_id first_name last_name username');
+
+        res.json(hods);
+    } catch (err) {
+        console.error("GET /api/kpi/my-hods ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get Team Members' Templates
+router.get("/api/kpi/team-templates", verifyToken, async (req, res) => {
+    try {
+        // Find all teams where the current user is a member or HOD
+        const teams = await TeamModel.find({
+            $or: [
+                { "members.userId": req.user._id },
+                { hodId: req.user._id }
+            ]
+        });
+
+        if (!teams || teams.length === 0) {
+            return res.json([]);
+        }
+
+        // Get all team member IDs (excluding current user)
+        const memberIds = new Set();
+        teams.forEach(team => {
+            // Add HOD
+            if (team.hodId.toString() !== req.user._id.toString()) {
+                memberIds.add(team.hodId.toString());
+            }
+            // Add members
+            team.members.forEach(m => {
+                if (m.userId.toString() !== req.user._id.toString()) {
+                    memberIds.add(m.userId.toString());
+                }
+            });
+        });
+
+        if (memberIds.size === 0) {
+            return res.json([]);
+        }
+
+        // Fetch templates from these team members
+        const templates = await KPITemplate.find({
+            owner: { $in: [...memberIds] },
+            is_active: true
+        }).populate('owner', 'first_name last_name username');
+
+        res.json(templates);
+    } catch (err) {
+        console.error("GET /api/kpi/team-templates ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Import a team member's template as own template
+router.post("/api/kpi/import-template", verifyToken, async (req, res) => {
+    try {
+        const { templateId, customName } = req.body;
+
+        // Fetch the source template
+        const sourceTemplate = await KPITemplate.findById(templateId).populate('owner', 'first_name last_name');
+        if (!sourceTemplate) {
+            return res.status(404).json({ message: "Template not found" });
+        }
+
+        // Use custom name if provided, otherwise use source template name
+        const templateName = customName?.trim() || sourceTemplate.name;
+
+        // Validate template name is not empty
+        if (!templateName) {
+            return res.status(400).json({ message: "Template name is required" });
+        }
+
+        // Check if user already has a template with the same name (case-insensitive)
+        const existingTemplate = await KPITemplate.findOne({
+            owner: req.user._id,
+            is_active: true
+        });
+
+        const existingWithSameName = await KPITemplate.findOne({
+            owner: req.user._id,
+            name: { $regex: new RegExp(`^${templateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+            is_active: true
+        });
+
+        if (existingWithSameName) {
+            return res.status(409).json({
+                message: `You already have a template named "${templateName}". Please use a different name.`
+            });
+        }
+
+        // Create a copy of the template for the current user
+        const newTemplate = new KPITemplate({
+            name: templateName,
+            department: sourceTemplate.department,
+            rows: sourceTemplate.rows.map(row => ({
+                id: row.id,
+                label: row.label,
+                type: row.type || 'numeric',
+                category: row.category,
+                is_high_volume: row.is_high_volume
+            })),
+            owner: req.user._id,
+            is_active: true,
+            parent_template: sourceTemplate._id
+        });
+
+        await newTemplate.save();
+
+        res.status(201).json({
+            message: `Template "${templateName}" imported successfully`,
+            template: newTemplate
+        });
+    } catch (err) {
+        console.error("POST /api/kpi/import-template ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
     }
 });
 
@@ -186,6 +361,38 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
     }
 });
 
+// Delete a KPI Sheet (Owner or Admin only)
+router.delete("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
+    try {
+        console.log(`DELETE /api/kpi/sheet/${req.params.id} called by ${req.user.username}`);
+        const sheet = await KPISheet.findById(req.params.id);
+
+        if (!sheet) {
+            return res.status(404).json({ message: "Sheet not found" });
+        }
+
+        // Check ownership or admin
+        const isOwner = sheet.user.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ message: "Not authorized to delete this sheet" });
+        }
+
+        // Prevent deleting approved sheets unless admin
+        if (sheet.status === 'APPROVED' && !isAdmin) {
+            return res.status(400).json({ message: "Cannot delete an approved sheet" });
+        }
+
+        await KPISheet.findByIdAndDelete(req.params.id);
+        console.log(`DELETE /api/kpi/sheet/${req.params.id} - Success`);
+        res.json({ message: "Sheet deleted successfully" });
+    } catch (err) {
+        console.error(`DELETE /api/kpi/sheet ERROR:`, err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
     try {
         // console.log("GET /api/kpi/sheet called", req.query);
@@ -249,9 +456,39 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
 
         const user = await UserModel.findById(req.user._id);
 
+        // FETCH MANDATORY USERS
+        const verifier = await UserModel.findOne({ username: 'shalini_arun' });
+        const approver = await UserModel.findOne({ username: 'suraj_rajan' });
+
+        if (!verifier) console.warn("Standard Verifier 'shalini_arun' not found!");
+        if (!approver) console.warn("Standard Approver 'suraj_rajan' not found!");
+
+        // Find HOD for the user
+        // We look for a team where this user is a member
+        let hodUser = null;
+        try {
+            const userTeam = await TeamModel.findOne({ "members.userId": req.user._id });
+            if (userTeam) {
+                hodUser = await UserModel.findById(userTeam.hodId);
+                console.log(`Found HOD for user ${req.user.username}: ${hodUser?.username}`);
+            }
+        } catch (e) {
+            console.error("Error finding HOD:", e);
+        }
+
+        // Determine checked_by: HOD priority > Manual input > Self if HOD > undefined
+        let checkedById = undefined;
+        if (hodUser) {
+            checkedById = hodUser._id;
+        } else if (signatories?.checked_by && signatories.checked_by !== '') {
+            checkedById = signatories.checked_by;
+        } else if (user.role === 'Head_of_Department') {
+            checkedById = user._id;
+        }
+
         const newSheet = new KPISheet({
             user: req.user._id,
-            department: template.department, // Strictly bind to template dept
+            department: template.department || user.department || 'General', // Fallback to user department or General
             year,
             month,
             template_version: template._id,
@@ -261,9 +498,9 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
                 prepared_by: `${user.first_name} ${user.last_name || ''}`
             },
             assigned_signatories: {
-                checked_by: signatories?.checked_by || undefined,
-                verified_by: signatories?.verified_by || undefined,
-                approved_by: signatories?.approved_by || undefined
+                checked_by: checkedById,
+                verified_by: verifier ? verifier._id : undefined,
+                approved_by: approver ? approver._id : undefined
             }
         });
 
@@ -306,7 +543,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
 
         // 1. Check if Sunday
         const entryDate = new Date(currentYear, currentMonth, day);
-        if (entryDate.getDay() === 0) {
+        if (entryDate.getDay() === 0 && (!sheet.working_sundays || !sheet.working_sundays.includes(Number(day)))) {
             return res.status(400).json({ message: "Cannot edit Sunday values" });
         }
 
@@ -315,21 +552,31 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Cannot edit Holiday values" });
         }
 
-        // Deadline Check - Users can edit until last working day of the month
+        // Deadline Check - Users can edit until the 4th of the following month (or previous working day if 4th is a holiday)
         const today = new Date();
-        const getLastWorkingDayOfMonth = (year, month) => {
-            let d = new Date(year, month, 0);
-            while (d.getDay() === 0) {
-                d.setDate(d.getDate() - 1);
+        const getSubmissionDeadline = (year, month) => {
+            // Deadline is the 4th of the following month
+            // If sheet is for December 2025 (month=12), deadline is 4th January 2026
+            let deadlineYear = year;
+            let deadlineMonth = month; // month is 1-indexed in sheet
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = year + 1;
             }
-            return d;
+            // Start with the 4th of the next month (month is 0-indexed in Date constructor)
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            // If the 4th is a Sunday, go back to the previous working day
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+            return deadline;
         };
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
-        if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline passed." });
+        if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
+            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
         // Note: Weekly locking is disabled - users can edit any day within the month until deadline
@@ -373,8 +620,8 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
         for (let [d, val] of row.daily_values.entries()) {
             const dNum = Number(d);
             const dDate = new Date(currentYear, currentMonth, dNum);
-            // Skip Sundays
-            if (dDate.getDay() === 0) continue;
+            // Skip Sundays (unless marked as working)
+            if (dDate.getDay() === 0 && (!sheet.working_sundays || !sheet.working_sundays.includes(dNum))) continue;
             // Skip Holidays
             if (sheet.holidays.includes(dNum)) continue;
 
@@ -392,48 +639,89 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
     }
 });
 
-// Toggle Holiday/Leave/Festival
+// Toggle Holiday/Leave/Festival/HalfDay
 router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
     try {
         console.log("POST /api/kpi/sheet/holiday called", req.body);
-        const { sheetId, day, type = 'leave' } = req.body; // type: 'leave' or 'festival'
+        const { sheetId, day, type = 'leave' } = req.body; // type: 'leave', 'festival', 'half_day'
         const sheet = await KPISheet.findById(sheetId);
         if (!sheet) return res.status(404).json({ message: "Sheet not found" });
 
         if (sheet.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: "Unauthorized" });
 
-        // Deadline Check
+        // Deadline Check - 4th of the following month (or previous working day if 4th is a holiday)
         const today = new Date();
-        const getLastWorkingDayOfMonth = (year, month) => {
-            let d = new Date(year, month, 0);
-            while (d.getDay() === 0) {
-                d.setDate(d.getDate() - 1);
+        const getSubmissionDeadline = (year, month) => {
+            // Deadline is the 4th of the following month
+            let deadlineYear = year;
+            let deadlineMonth = month; // month is 1-indexed in sheet
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = year + 1;
             }
-            return d;
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            // If the 4th is a Sunday, go back to the previous working day
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+            return deadline;
         };
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
-        if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline passed." });
+        if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
+            return res.status(403).json({ message: "KPI locked. Submission deadline (4th of the following month) has passed." });
         }
 
         const dayNum = Number(day);
         let action = "";
 
-        if (type === 'festival') {
-            // Handle festival holidays
-            if (!sheet.festivals) sheet.festivals = [];
+        // Initialize arrays if missing
+        if (!sheet.holidays) sheet.holidays = [];
+        if (!sheet.festivals) sheet.festivals = [];
+        if (!sheet.half_days) sheet.half_days = [];
+        if (!sheet.working_sundays) sheet.working_sundays = [];
+
+        // Helper to remove from array
+        const remove = (arr, val) => {
+            const idx = arr.indexOf(val);
+            if (idx > -1) arr.splice(idx, 1);
+        };
+
+        if (type === 'working_sunday') {
+            const idx = sheet.working_sundays.indexOf(dayNum);
+            if (idx > -1) {
+                sheet.working_sundays.splice(idx, 1);
+                action = "REMOVED";
+            } else {
+                sheet.working_sundays.push(dayNum);
+                remove(sheet.holidays, dayNum);
+                remove(sheet.festivals, dayNum);
+                remove(sheet.half_days, dayNum);
+                action = "ADDED";
+            }
+            // Audit
+            sheet.audit_log.push({
+                field: `working_sunday:${day}`,
+                old_value: action === "ADDED" ? false : true,
+                new_value: action === "ADDED" ? true : false,
+                changed_by: req.user._id,
+                action: "UPDATE"
+            });
+        } else if (type === 'festival') {
+            // Toggle Festival
             const idx = sheet.festivals.indexOf(dayNum);
             if (idx > -1) {
                 sheet.festivals.splice(idx, 1);
                 action = "REMOVED";
             } else {
                 sheet.festivals.push(dayNum);
+                // Mutual Exclusivity: Remove from others
+                remove(sheet.holidays, dayNum);
+                remove(sheet.half_days, dayNum);
                 action = "ADDED";
             }
-
             // Audit
             sheet.audit_log.push({
                 field: `festival:${day}`,
@@ -442,14 +730,38 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 changed_by: req.user._id,
                 action: "UPDATE"
             });
+        } else if (type === 'half_day') {
+            // Toggle Half Day
+            const idx = sheet.half_days.indexOf(dayNum);
+            if (idx > -1) {
+                sheet.half_days.splice(idx, 1);
+                action = "REMOVED";
+            } else {
+                sheet.half_days.push(dayNum);
+                // Mutual Exclusivity: Remove from others
+                remove(sheet.holidays, dayNum);
+                remove(sheet.festivals, dayNum);
+                action = "ADDED";
+            }
+            // Audit
+            sheet.audit_log.push({
+                field: `half_day:${day}`,
+                old_value: action === "ADDED" ? false : true,
+                new_value: action === "ADDED" ? true : false,
+                changed_by: req.user._id,
+                action: "UPDATE"
+            });
         } else {
-            // Handle leaves/holidays (default)
+            // Default: Leave (Holiday)
             const idx = sheet.holidays.indexOf(dayNum);
             if (idx > -1) {
                 sheet.holidays.splice(idx, 1);
                 action = "REMOVED";
             } else {
                 sheet.holidays.push(dayNum);
+                // Mutual Exclusivity: Remove from others
+                remove(sheet.festivals, dayNum);
+                remove(sheet.half_days, dayNum);
                 action = "ADDED";
             }
 
@@ -463,7 +775,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
             });
         }
 
-        // Recalculate ALL totals because holiday/festival status changed
+        // Recalculate ALL totals because holiday/festival/half-day status changed
         const currentYear = sheet.year;
         const currentMonth = sheet.month - 1;
 
@@ -474,18 +786,20 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
                 const dDate = new Date(currentYear, currentMonth, dNum);
                 // Skip Sundays
                 if (dDate.getDay() === 0) continue;
-                // Skip Leaves
+                // Skip Leaves (Full Day)
                 if (sheet.holidays.includes(dNum)) continue;
                 // Skip Festivals
-                if (sheet.festivals && sheet.festivals.includes(dNum)) continue;
+                if (sheet.festivals.includes(dNum)) continue;
 
+                // Half Days: We DO NOT skip. They count towards total (as they are not "Leaves")
+                // Code continues here implies adding value
                 sum += val;
             }
             row.total = sum;
         });
 
         await sheet.save();
-        console.log("POST /api/kpi/sheet/holiday - Success, Type:", type, "Holidays:", sheet.holidays, "Festivals:", sheet.festivals);
+        console.log("POST /api/kpi/sheet/holiday - Success, Type:", type);
         res.json(sheet);
     } catch (err) {
         console.error("POST /api/kpi/sheet/holiday ERROR:", err);
@@ -506,21 +820,29 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Sheet cannot be submitted in current status" });
         }
 
-        // Deadline Check
+        // Deadline Check - 4th of the following month (or previous working day if 4th is a holiday)
         const today = new Date();
-        const getLastWorkingDayOfMonth = (year, month) => {
-            let d = new Date(year, month, 0);
-            while (d.getDay() === 0) {
-                d.setDate(d.getDate() - 1);
+        const getSubmissionDeadline = (year, month) => {
+            // Deadline is the 4th of the following month
+            let deadlineYear = year;
+            let deadlineMonth = month; // month is 1-indexed in sheet
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = year + 1;
             }
-            return d;
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            // If the 4th is a Sunday, go back to the previous working day
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+            return deadline;
         };
-        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
+        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
-        if (todayDate > deadlineDate) {
-            return res.status(403).json({ message: "KPI locked. Submission deadline passed." });
+        if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
+            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
         // Update Summary if provided
@@ -552,34 +874,177 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
     }
 });
 
+// ==========================================
+// REVIEWER DASHBOARD - Get sheets pending review for current user
+// ==========================================
+router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const username = req.user.username;
+
+        // Special users have elevated permissions
+        const isShalini = username === 'shalini_arun';
+        const isSuraj = username === 'suraj_rajan';
+        const isAdmin = req.user.role === 'Admin';
+
+        let pendingCheck = [];
+        let pendingVerify = [];
+        let pendingApprove = [];
+
+        // Pending CHECK - SUBMITTED sheets
+        // Normal users: only if assigned as checked_by
+        // Shalini: can check any sheet
+        // Suraj: can check any sheet
+        // Admin: can check any sheet
+        if (isShalini || isSuraj || isAdmin) {
+            pendingCheck = await KPISheet.find({ status: 'SUBMITTED' })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        } else {
+            pendingCheck = await KPISheet.find({
+                'assigned_signatories.checked_by': userId,
+                status: 'SUBMITTED'
+            })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        }
+
+        // Pending VERIFY - CHECKED sheets
+        // Shalini: can verify any sheet
+        // Suraj: can verify any sheet
+        // Admin: can verify any sheet
+        if (isShalini || isSuraj || isAdmin) {
+            pendingVerify = await KPISheet.find({ status: 'CHECKED' })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        } else {
+            pendingVerify = await KPISheet.find({
+                'assigned_signatories.verified_by': userId,
+                status: 'CHECKED'
+            })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        }
+
+        // Pending APPROVE - VERIFIED sheets
+        // Suraj: can approve any sheet
+        // Admin: can approve any sheet
+        if (isSuraj || isAdmin) {
+            pendingApprove = await KPISheet.find({ status: 'VERIFIED' })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        } else {
+            pendingApprove = await KPISheet.find({
+                'assigned_signatories.approved_by': userId,
+                status: 'VERIFIED'
+            })
+                .populate('user', 'first_name last_name email')
+                .populate('template_version', 'name')
+                .sort({ updatedAt: -1 });
+        }
+
+        // Also get recently processed by this user (for history)
+        const recentlyProcessed = await KPISheet.find({
+            'approval_history.by': userId
+        })
+            .populate('user', 'first_name last_name email')
+            .populate('template_version', 'name')
+            .sort({ updatedAt: -1 })
+            .limit(20);
+
+        res.json({
+            pending_check: pendingCheck,
+            pending_verify: pendingVerify,
+            pending_approve: pendingApprove,
+            recently_processed: recentlyProcessed,
+            counts: {
+                check: pendingCheck.length,
+                verify: pendingVerify.length,
+                approve: pendingApprove.length
+            }
+        });
+    } catch (err) {
+        console.error("GET /api/kpi/reviewer/pending ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 // Approve/Reject KPI (HoD)
+// Approve/Review KPI Flow
 router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
     try {
-        const { sheetId, action, comments } = req.body; // action: APPROVE or REJECT
+        console.log("POST /api/kpi/sheet/review called", req.body);
+        const { sheetId, action, comments } = req.body; // action: CHECK, VERIFY, APPROVE, REJECT
         const sheet = await KPISheet.findById(sheetId);
         if (!sheet) return res.status(404).json({ message: "Sheet not found" });
 
-        // TODO: distinct HoD permission check. For now, assuming Admin or specific role.
-        // User context might have role?
-        // if (req.user.role !== 'Admin' && req.user.role !== 'HoD') ... 
+        console.log(`Reviewing Sheet: ID=${sheetId}, Current Status=${sheet.status}, Requested Action=${action}, User=${req.user.username}(${req.user.role})`);
 
-        if (sheet.status !== "SUBMITTED") {
-            return res.status(400).json({ message: "Sheet is not pending approval" });
+        // Prevent Self-Approval (Generic rule, though distinct roles usually prevent this naturally)
+        // Exception: HODs can self-check their own sheets
+        const isSelfReview = sheet.user.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+        const isHodSelfCheck = req.user.role === 'Head_of_Department' && action === 'CHECK';
+
+        if (isSelfReview && !isAdmin && !isHodSelfCheck) {
+            console.log("Self-review blocked");
+            return res.status(403).json({ message: "Cannot review your own KPI sheet" });
         }
 
-        // Prevent Self-Approval
-        if (sheet.user.toString() === req.user._id.toString()) {
-            return res.status(403).json({ message: "Cannot approve your own KPI sheet" });
-        }
+        const oldStatus = sheet.status;
+        const currentUserId = req.user._id.toString();
+        const username = req.user.username;
+        // isAdmin already declared above
+        const isShalini = username === 'shalini_arun';
+        const isSuraj = username === 'suraj_rajan';
 
-        if (action === "APPROVE") {
+        if (action === "REJECT") {
+            sheet.status = "REJECTED";
+            sheet.is_fully_locked = false; // Unlock
+        }
+        else if (action === "CHECK") {
+            if (sheet.status !== "SUBMITTED") return res.status(400).json({ message: "Sheet is not in Submitted state" });
+
+            // Validate User - Admin, Shalini, Suraj, or assigned checker can check
+            const isAssignedChecker = sheet.assigned_signatories?.checked_by?.toString() === currentUserId;
+            if (!isAdmin && !isShalini && !isSuraj && !isAssignedChecker) {
+                return res.status(403).json({ message: "You are not authorized to Check this sheet" });
+            }
+
+            sheet.status = "CHECKED";
+            sheet.signatures.checked_by = `${req.user.first_name} ${req.user.last_name || ''}`;
+        }
+        else if (action === "VERIFY") {
+            if (sheet.status !== "CHECKED") return res.status(400).json({ message: "Sheet is not in Checked state" });
+
+            // Validate User - Admin, Shalini, Suraj, or assigned verifier can verify
+            const isAssignedVerifier = sheet.assigned_signatories?.verified_by?.toString() === currentUserId;
+            if (!isAdmin && !isShalini && !isSuraj && !isAssignedVerifier) {
+                return res.status(403).json({ message: "You are not authorized to Verify this sheet" });
+            }
+
+            sheet.status = "VERIFIED";
+            sheet.signatures.verified_by = `${req.user.first_name} ${req.user.last_name || ''}`;
+        }
+        else if (action === "APPROVE") {
+            if (sheet.status !== "VERIFIED") return res.status(400).json({ message: "Sheet is not in Verified state" });
+
+            // Validate User - Admin, Suraj, or assigned approver can approve (NOT Shalini)
+            const isAssignedApprover = sheet.assigned_signatories?.approved_by?.toString() === currentUserId;
+            if (!isAdmin && !isSuraj && !isAssignedApprover) {
+                return res.status(403).json({ message: "You are not authorized to Approve this sheet" });
+            }
+
             sheet.status = "APPROVED";
             sheet.is_fully_locked = true;
             sheet.signatures.approved_by = `${req.user.first_name} ${req.user.last_name || ''}`;
-        } else if (action === "REJECT") {
-            sheet.status = "REJECTED";
-            sheet.is_fully_locked = false; // Unlock for edits
-        } else {
+        }
+        else {
             return res.status(400).json({ message: "Invalid action" });
         }
 
@@ -592,8 +1057,8 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         // Audit
         sheet.audit_log.push({
             field: "status",
-            old_value: "SUBMITTED",
-            new_value: sheet.status, // APPROVED or REJECTED
+            old_value: oldStatus,
+            new_value: sheet.status,
             changed_by: req.user._id,
             action: "UPDATE"
         });
@@ -605,19 +1070,7 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
     }
 });
 
-// DELETE Sheet (Admin Only)
-router.delete("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
-    try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: "Admin access required" });
-        }
-        await KPISheet.findByIdAndDelete(req.params.id);
-        res.json({ message: "Sheet deleted" });
-    } catch (err) {
-        console.error("DELETE /api/kpi/sheet ERROR:", err);
-        res.status(500).json({ message: "Server Error" });
-    }
-});
+
 
 // Add Custom Row to Sheet
 router.post("/api/kpi/sheet/row", verifyToken, async (req, res) => {
@@ -719,17 +1172,26 @@ router.delete("/api/kpi/sheet/row/:sheetId/:rowId", verifyToken, async (req, res
 });
 
 // DELETE Template (Admin Only)
+// DELETE Template (Admin or Owner)
 router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: "Admin access required" });
+        const template = await KPITemplate.findById(req.params.id);
+        if (!template) {
+            return res.status(404).json({ message: "Template not found" });
         }
-        // Soft delete or hard delete? User said "delete". Safe to soft delete usually but for "Delete option", hard delete might be expected or `is_active=false`.
-        // I will do soft delete for safety if it's referenced, but template manager usually hides inactive.
-        // Existing "Create/Update" sets `is_active=false` for OLD versions.
-        // If I delete a template, I should probably set `is_active=false`.
 
-        await KPITemplate.findByIdAndUpdate(req.params.id, { is_active: false });
+        // Allow Admin or Owner
+        const isOwner = template.owner.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+        const isHOD = req.user.role === 'Head_of_Department'; // Optional: allow any HOD to delete? Maybe stick to owner/admin for safety.
+
+        // Let's stick to Owner or Admin. If HOD created it, they are owner.
+        if (!isAdmin && !isOwner) {
+            return res.status(403).json({ message: "Not authorized to delete this template" });
+        }
+
+        template.is_active = false;
+        await template.save();
         res.json({ message: "Template deleted" });
     } catch (err) {
         console.error("DELETE /api/kpi/template ERROR:", err);

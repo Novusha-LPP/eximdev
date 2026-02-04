@@ -645,7 +645,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         {renderRowDateEditor("PCV", dates.pcv_date, "pcv_date")}
         <br />
 
-        {payment_method !== "Deferred" && (
+        {payment_method !== "Deferred" && !InBondflag && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span>
               <strong>Duty Paid:</strong>{" "}
@@ -706,19 +706,17 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         {isFactory ? (
           <>
             {/* Delivery then EmptyOff */}
-            {!InBondflag && (
-              <>
-                <br />
-                {containers.map((c, i) =>
-                  renderContainerEditor(
-                    "Delivery",
-                    c.delivery_date,
-                    "delivery_date",
-                    i
-                  )
-                )}
-              </>
-            )}
+            <>
+              <br />
+              {containers.map((c, i) =>
+                renderContainerEditor(
+                  "Delivery",
+                  c.delivery_date,
+                  "delivery_date",
+                  i
+                )
+              )}
+            </>
 
             <br />
 

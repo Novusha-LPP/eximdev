@@ -192,6 +192,10 @@ const NucleusHome = () => {
     const currentBaseData = activeReport === 'fine' ? fineData : penaltyData;
     const currentData = filterByTime(currentBaseData);
 
+
+
+
+
     const PresetButton = ({ label, value }) => (
         <button
             className={`filter-btn ${filterType === 'preset' && presetFilter === value ? 'active' : ''}`}
@@ -481,6 +485,7 @@ const NucleusHome = () => {
                                             <th>BE No</th>
                                             <th>BE Date</th>
                                             <th>{activeReport === 'fine' ? 'Fine Amount (INR)' : 'Penalty Amount (INR)'}</th>
+                                            <th>Accountability</th>
                                             <th>Importer</th>
                                             <th>Handler Name(s)</th>
                                         </>
@@ -527,6 +532,15 @@ const NucleusHome = () => {
                                                 <td className={`amount-cell ${activeReport === 'fine' ? 'fine-amount' : 'penalty-amount'}`}>
                                                     {activeReport === 'fine' ? item.fine_amount : item.penalty_amount}
                                                 </td>
+                                                <td>
+                                                    {item.penalty_by_us ? (
+                                                        <span style={{ color: '#d97706', fontWeight: 600 }}>Agency</span>
+                                                    ) : item.penalty_by_importer ? (
+                                                        <span style={{ color: '#2563eb', fontWeight: 600 }}>Importer</span>
+                                                    ) : (
+                                                        <span style={{ color: '#9ca3af' }}>-</span>
+                                                    )}
+                                                </td>
                                                 <td>{item.importer}</td>
                                                 <td>
                                                     {item.handlers && item.handlers.length > 0 ? (
@@ -541,7 +555,7 @@ const NucleusHome = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="6" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
+                                            <td colSpan="7" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
                                                 No records found for the selected period.
                                             </td>
                                         </tr>

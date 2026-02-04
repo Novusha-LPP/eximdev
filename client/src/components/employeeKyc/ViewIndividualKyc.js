@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { UserContext } from "../../contexts/UserContext";
 import "../../styles/hr-modules.scss";
 
 // Data item component
@@ -21,6 +22,7 @@ function ViewIndividualKyc() {
   const { username } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState();
+  const { user } = useContext(UserContext); // Get current logged in user (admin)
 
   useEffect(() => {
     async function getUser() {
@@ -39,6 +41,20 @@ function ViewIndividualKyc() {
       { username, kyc_approval }
     );
     alert(res.data.message);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    
+    // Check if it's already in DD-MM-YYYY format
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dateString)) return dateString;
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
   };
 
   const employeeName = [data?.first_name, data?.middle_name, data?.last_name]
@@ -88,8 +104,8 @@ function ViewIndividualKyc() {
                     <DataItem label="Last Name" value={data.last_name} />
                     <DataItem label="Designation" value={data.designation} />
                     <DataItem label="Department" value={data.department} />
-                    <DataItem label="Joining Date" value={data.joining_date} />
-                    <DataItem label="Date of Birth" value={data.dob} />
+                    <DataItem label="Joining Date" value={formatDate(data.joining_date)} />
+                    <DataItem label="Date of Birth" value={formatDate(data.dob)} />
                     <DataItem label="Blood Group" value={data.blood_group} />
                     <DataItem label="Qualification" value={data.highest_qualification} />
                     <DataItem label="Marital Status" value={data.marital_status} />
@@ -198,6 +214,14 @@ function ViewIndividualKyc() {
             <button className="hr-compact-btn hr-compact-btn-danger" onClick={() => handleKycApproval(false)}>
               ✕ Reject KYC
             </button>
+            {user?.role === 'Admin' && (
+              <button
+                className="hr-compact-btn hr-compact-btn-secondary"
+                onClick={() => navigate(`/complete-kyc/${username}`)}
+              >
+                ✎ Edit ({data.company || "No Company"})
+              </button>
+            )}
           </div>
         </>
       )}

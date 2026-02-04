@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("/api/get-all-users", async (req, res) => {
   // const users = await UserModel.f  ind({});
-  const users = await UserModel.find({}).select('username role _id first_name last_name email assignedBranch');
+  const users = await UserModel.find({}).select('username isActive role _id first_name last_name email assignedBranch');
 
   res.send(users);
 });

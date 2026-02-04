@@ -60,5 +60,6 @@ teamSchema.pre("save", function (next) {
     next();
 });
 
-const TeamModel = mongoose.model("Team", teamSchema);
+import { createDynamicModel } from "../utils/modelHelper.mjs";
+const TeamModel = createDynamicModel("Team", teamSchema);
 export default TeamModel;

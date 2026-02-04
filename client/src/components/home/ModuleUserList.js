@@ -92,7 +92,6 @@ function ModuleUserList() {
   const handleRemoveUsers = async () => {
     if (selectedUsersToRemove.length === 0) return;
 
-    setLoading(true);
     try {
       await axios.post(
         `${process.env.REACT_APP_API_STRING}/unassign-users-from-module`,
@@ -109,8 +108,6 @@ function ModuleUserList() {
     } catch (error) {
       console.error("Error removing users:", error);
       message.error("Failed to remove users. Please try again.");
-    } finally {
-      setLoading(false);
     }
   };
 

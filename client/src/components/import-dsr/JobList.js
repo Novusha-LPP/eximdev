@@ -438,61 +438,7 @@ function JobList(props) {
             label="ICD Code"
             value={selectedICD}
             onChange={(e) => handleICDChange(e.target.value)}
-            sx={{ width: "200px" }}
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={handleICDChange}
-          sx={{ width: "135px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>
-
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="Type of BE"
-          value={selectedBeType}
-          onChange={handleBeTypeChange}
-          sx={{ width: "135px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All BE Types</MenuItem>
-          <MenuItem value="Home">Home</MenuItem>
-          <MenuItem value="In-Bond">In-Bond</MenuItem>
-          <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
-        </TextField>
-
-        <Autocomplete
-          sx={{ width: "220px", marginRight: "10px" }}
-          freeSolo
-          options={importerNames.map((o) => o.label)}
-          value={selectedImporter || ""}
-          onInputChange={handleImporterChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer"
-            />
-          )}
-        />
-
-        {years.length > 0 && (
-          <TextField
-            select
-            size="small"
-            value={selectedYearState}
-            onChange={handleYearChange}
-            sx={{ width: "90px", marginRight: "10px" }}
+            sx={{ width: "135px", marginRight: "10px" }}
           >
             <MenuItem value="all">All ICDs</MenuItem>
             {icdOptions.map((opt) => (
@@ -502,8 +448,23 @@ function JobList(props) {
             ))}
           </TextField>
 
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="Type of BE"
+            value={selectedBeType}
+            onChange={handleBeTypeChange}
+            sx={{ width: "135px", marginRight: "10px" }}
+          >
+            <MenuItem value="all">All BE Types</MenuItem>
+            <MenuItem value="Home">Home</MenuItem>
+            <MenuItem value="In-Bond">In-Bond</MenuItem>
+            <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
+          </TextField>
+
           <Autocomplete
-            sx={{ width: "250px" }}
+            sx={{ width: "250px", marginRight: "10px" }}
             freeSolo
             options={importerNames.map((o) => o.label)}
             value={selectedImporter || ""}
@@ -519,50 +480,20 @@ function JobList(props) {
               size="small"
               value={selectedYearState}
               onChange={(e) => setSelectedYearState(e.target.value)}
-              sx={{ width: "100px" }}
+              sx={{ width: "100px", marginRight: "10px" }}
             >
               {years.map((y, i) => (
                 <MenuItem key={`year-${y}-${i}`} value={y}>{y}</MenuItem>
               ))}
             </TextField>
           )}
-        <TextField
-          select
-          size="small"
-          value={detailedStatus}
-          onChange={handleDetailedStatusChange}
-          sx={{ width: "220px", marginRight: "10px" }}
-        >
-          {detailedStatusOptions.map((o, i) => (
-            <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-              {o.name}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        {/* Simple search input (no typeahead/suggestions) */}
-        <TextField
-          value={localInput}
-          onChange={handleLocalInputChange}
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          sx={{ width: "250px", marginRight: "10px" }}
-          InputProps={{
-            endAdornment: (
-              <IconButton size="small" onClick={handleSearchClick}>
-                <SearchIcon fontSize="small" />
-              </IconButton>
-            ),
-          }}
-        />
 
           <TextField
             select
             size="small"
             value={detailedStatus}
             onChange={(e) => setDetailedStatus(e.target.value)}
-            sx={{ width: "220px" }}
+            sx={{ width: "220px", marginRight: "10px" }}
           >
             {detailedStatusOptions
               .filter((o) => {
@@ -580,7 +511,7 @@ function JobList(props) {
 
           <TextField
             value={localInput}
-            onChange={(e) => setLocalInput(e.target.value)}
+            onChange={handleLocalInputChange}
             placeholder="Search..."
             size="small"
             variant="outlined"
@@ -597,7 +528,8 @@ function JobList(props) {
           <IconButton onClick={handleOpen}><DownloadIcon /></IconButton>
         </div>
       </div>
-    ),
+    );
+  },
     [
       props.status,
       total,
@@ -608,12 +540,11 @@ function JobList(props) {
       setSelectedImporter,
       years,
       selectedYearState,
-      handleYearChange,
+      setSelectedYearState,
       detailedStatus,
-      handleDetailedStatusChange,
+      setDetailedStatus,
       localInput,
       handleLocalInputChange,
-      handleClearSearch,
       handleOpen,
       selectedBeType, // dependency
       handleBeTypeChange // dependency

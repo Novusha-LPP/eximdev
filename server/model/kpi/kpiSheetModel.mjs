@@ -143,5 +143,6 @@ const KPISheetSchema = new Schema(
 // Ensure uniqueness: "Only one KPI sheet can exist for a given User + Department + Year + Month"
 KPISheetSchema.index({ user: 1, department: 1, year: 1, month: 1 }, { unique: true });
 
-const KPISheet = mongoose.model("KPISheet", KPISheetSchema);
+import { createDynamicModel } from "../../utils/modelHelper.mjs";
+const KPISheet = createDynamicModel("KPISheet", KPISheetSchema);
 export default KPISheet;

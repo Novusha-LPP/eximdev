@@ -643,6 +643,7 @@ if (cluster.isPrimary) {
       app.use(nucleusReports);
       app.use(kpiRoutes);
       app.use(mrmRoutes);
+      app.use(teamRoutes);
 
       // Global Error Handler
       app.use((err, req, res, next) => {

@@ -62,5 +62,6 @@ const KPITemplateSchema = new Schema(
 // Templates are reusable.
 // "Templates can be: System-provided, User-created, Imported"
 
-const KPITemplate = mongoose.model("KPITemplate", KPITemplateSchema);
+import { createDynamicModel } from "../../utils/modelHelper.mjs";
+const KPITemplate = createDynamicModel("KPITemplate", KPITemplateSchema);
 export default KPITemplate;

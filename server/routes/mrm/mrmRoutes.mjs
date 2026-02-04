@@ -6,15 +6,12 @@ import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
 
-// Admin/Manager usernames who can view all users' MRM
-const MRM_ADMINS = ['suraj_rajan', 'uday_zope'];
-
 // Get users who have MRM module assigned
 router.get('/api/mrm/users', async (req, res) => {
     try {
         const users = await UserModel.find(
             { status: 'active' },
-            { first_name: 1, last_name: 1, username: 1, _id: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
         ).sort({ first_name: 1 });
         res.json(users);
     } catch (error) {
@@ -26,10 +23,10 @@ router.get('/api/mrm/users', async (req, res) => {
 router.get('/api/mrm/dashboard', async (req, res) => {
     try {
         const { month, year } = req.query;
-        const requestingUsername = req.headers['username'];
+        const requestingRole = req.headers['user-role'];
 
         // Only admins can access dashboard
-        if (!MRM_ADMINS.includes(requestingUsername)) {
+        if (requestingRole !== 'Admin') {
             return res.status(403).json({ error: "Not authorized" });
         }
 
@@ -47,7 +44,8 @@ router.get('/api/mrm/dashboard', async (req, res) => {
         ).sort({ first_name: 1 });
 
         // Get metadata for the month (shared across users for now)
-        const metadata = await MRMMetadata.findOne({ month, year });
+        // Get metadata for all users for the month
+        const allMetadata = await MRMMetadata.find({ month, year });
 
         // Build dashboard data for each user
         const dashboardData = await Promise.all(mrmUsers.map(async (user) => {
@@ -69,13 +67,16 @@ router.get('/api/mrm/dashboard', async (req, res) => {
                 }
             });
 
+            const userMeta = allMetadata.find(m => m.userId && m.userId.toString() === user._id.toString());
+
             return {
                 userId: user._id,
                 firstName: user.first_name,
                 lastName: user.last_name,
                 username: user.username,
-                reviewDate: metadata?.reviewDate || null,
-                meetingDate: metadata?.meetingDate || null,
+                reviewDate: userMeta?.reviewDate || null,
+                meetingDate: userMeta?.meetingDate || null,
+                meetingDone: userMeta?.meetingDone || false,
                 itemsCount: items.length,
                 greenCount,
                 yellowCount,
@@ -97,10 +98,13 @@ router.get('/api/mrm/dashboard', async (req, res) => {
 // Get Metadata
 router.get('/api/mrm/metadata', async (req, res) => {
     try {
-        const { month, year } = req.query;
+        const { month, year, userId } = req.query;
         if (!month || !year) return res.status(400).json({ error: "Month/Year required" });
 
-        let metadata = await MRMMetadata.findOne({ month, year });
+        let query = { month, year };
+        if (userId) query.userId = userId;
+
+        let metadata = await MRMMetadata.findOne(query);
         if (!metadata) {
             // Return empty structure if not found
             return res.json({ meetingDate: '', reviewDate: '' });
@@ -114,11 +118,44 @@ router.get('/api/mrm/metadata', async (req, res) => {
 // Update/Create Metadata
 router.post('/api/mrm/metadata', async (req, res) => {
     try {
-        const { month, year, meetingDate, reviewDate } = req.body;
+        const { month, year, userId } = req.body;
+        let { meetingDate, reviewDate } = req.body;
+
+        if (!userId) return res.status(400).json({ error: "UserId is required" });
+
+        // Convert empty strings to null for Date fields
+        if (meetingDate === '') meetingDate = null;
+        if (reviewDate === '') reviewDate = null;
 
         const metadata = await MRMMetadata.findOneAndUpdate(
-            { month, year },
+            { month, year, userId },
             { meetingDate, reviewDate },
+            { new: true, upsert: true }
+        );
+        res.json(metadata);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Toggle Meeting Done Status (Admin only)
+router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
+    try {
+        const { month, year, userId, meetingDone } = req.body;
+        const requestingRole = req.headers['user-role'];
+
+        // Only admins can toggle meeting status
+        if (requestingRole !== 'Admin') {
+            return res.status(403).json({ error: "Not authorized" });
+        }
+
+        if (!userId || !month || !year) {
+            return res.status(400).json({ error: "UserId, month, and year are required" });
+        }
+
+        const metadata = await MRMMetadata.findOneAndUpdate(
+            { month, year, userId },
+            { meetingDone: meetingDone },
             { new: true, upsert: true }
         );
         res.json(metadata);
@@ -133,7 +170,8 @@ router.post('/api/mrm/metadata', async (req, res) => {
 router.get('/api/mrm', async (req, res) => {
     try {
         const { month, year, userId } = req.query;
-        const requestingUsername = req.headers['username'];
+        const requestingRole = req.headers['user-role'];
+        const requestingUserId = req.headers['user-id'];
 
         if (!month || !year) {
             return res.status(400).json({ error: "Month and Year are required" });
@@ -142,10 +180,13 @@ router.get('/api/mrm', async (req, res) => {
         // Build query
         let query = { month, year };
 
-        // If userId is provided (admin viewing specific user), filter by createdBy
+        // If userId is provided, filter by createdBy
         if (userId) {
-            // Only admins can view other users' data
-            if (!MRM_ADMINS.includes(requestingUsername)) {
+            // Allow if: user is viewing their own data OR user is Admin
+            const isOwnData = userId === requestingUserId;
+            const isAdmin = requestingRole === 'Admin';
+
+            if (!isOwnData && !isAdmin) {
                 return res.status(403).json({ error: "Not authorized to view other users' MRM" });
             }
             query.createdBy = userId;

@@ -476,17 +476,19 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
             console.error("Error finding HOD:", e);
         }
 
-        // Determine checked_by: HOD priority > Manual input > undefined
+        // Determine checked_by: HOD priority > Manual input > Self if HOD > undefined
         let checkedById = undefined;
         if (hodUser) {
             checkedById = hodUser._id;
         } else if (signatories?.checked_by && signatories.checked_by !== '') {
             checkedById = signatories.checked_by;
+        } else if (user.role === 'Head_of_Department') {
+            checkedById = user._id;
         }
 
         const newSheet = new KPISheet({
             user: req.user._id,
-            department: template.department, // Strictly bind to template dept
+            department: template.department || user.department || 'General', // Fallback to user department or General
             year,
             month,
             template_version: template._id,
@@ -541,7 +543,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
 
         // 1. Check if Sunday
         const entryDate = new Date(currentYear, currentMonth, day);
-        if (entryDate.getDay() === 0) {
+        if (entryDate.getDay() === 0 && (!sheet.working_sundays || !sheet.working_sundays.includes(Number(day)))) {
             return res.status(400).json({ message: "Cannot edit Sunday values" });
         }
 
@@ -573,7 +575,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
-        if (todayDate > deadlineDate) {
+        if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
             return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
@@ -618,8 +620,8 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
         for (let [d, val] of row.daily_values.entries()) {
             const dNum = Number(d);
             const dDate = new Date(currentYear, currentMonth, dNum);
-            // Skip Sundays
-            if (dDate.getDay() === 0) continue;
+            // Skip Sundays (unless marked as working)
+            if (dDate.getDay() === 0 && (!sheet.working_sundays || !sheet.working_sundays.includes(dNum))) continue;
             // Skip Holidays
             if (sheet.holidays.includes(dNum)) continue;
 
@@ -668,7 +670,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
-        if (todayDate > deadlineDate) {
+        if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
             return res.status(403).json({ message: "KPI locked. Submission deadline (4th of the following month) has passed." });
         }
 
@@ -679,6 +681,7 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
         if (!sheet.holidays) sheet.holidays = [];
         if (!sheet.festivals) sheet.festivals = [];
         if (!sheet.half_days) sheet.half_days = [];
+        if (!sheet.working_sundays) sheet.working_sundays = [];
 
         // Helper to remove from array
         const remove = (arr, val) => {
@@ -686,7 +689,27 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
             if (idx > -1) arr.splice(idx, 1);
         };
 
-        if (type === 'festival') {
+        if (type === 'working_sunday') {
+            const idx = sheet.working_sundays.indexOf(dayNum);
+            if (idx > -1) {
+                sheet.working_sundays.splice(idx, 1);
+                action = "REMOVED";
+            } else {
+                sheet.working_sundays.push(dayNum);
+                remove(sheet.holidays, dayNum);
+                remove(sheet.festivals, dayNum);
+                remove(sheet.half_days, dayNum);
+                action = "ADDED";
+            }
+            // Audit
+            sheet.audit_log.push({
+                field: `working_sunday:${day}`,
+                old_value: action === "ADDED" ? false : true,
+                new_value: action === "ADDED" ? true : false,
+                changed_by: req.user._id,
+                action: "UPDATE"
+            });
+        } else if (type === 'festival') {
             // Toggle Festival
             const idx = sheet.festivals.indexOf(dayNum);
             if (idx > -1) {
@@ -818,7 +841,7 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
-        if (todayDate > deadlineDate) {
+        if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
             return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
         }
 
@@ -963,7 +986,12 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         console.log(`Reviewing Sheet: ID=${sheetId}, Current Status=${sheet.status}, Requested Action=${action}, User=${req.user.username}(${req.user.role})`);
 
         // Prevent Self-Approval (Generic rule, though distinct roles usually prevent this naturally)
-        if (sheet.user.toString() === req.user._id.toString() && req.user.role !== 'Admin') {
+        // Exception: HODs can self-check their own sheets
+        const isSelfReview = sheet.user.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'Admin';
+        const isHodSelfCheck = req.user.role === 'Head_of_Department' && action === 'CHECK';
+
+        if (isSelfReview && !isAdmin && !isHodSelfCheck) {
             console.log("Self-review blocked");
             return res.status(403).json({ message: "Cannot review your own KPI sheet" });
         }
@@ -971,7 +999,7 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         const oldStatus = sheet.status;
         const currentUserId = req.user._id.toString();
         const username = req.user.username;
-        const isAdmin = req.user.role === 'Admin';
+        // isAdmin already declared above
         const isShalini = username === 'shalini_arun';
         const isSuraj = username === 'suraj_rajan';
 

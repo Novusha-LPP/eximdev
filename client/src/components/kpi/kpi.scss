@@ -676,6 +676,11 @@ table.kpi-table {
     pointer-events: none;
   }
 
+  td.working-sunday {
+    background-color: #ffd700 !important;
+    /* Allow interactions */
+  }
+
   td.holiday {
     background-color: #ffcccb;
     pointer-events: none;

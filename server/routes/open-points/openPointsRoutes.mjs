@@ -254,9 +254,8 @@ router.get("/api/open-points/project/:projectId", verifyProjectAccess, async (re
 // Get Points for Project
 router.get("/api/open-points/project/:projectId/points", verifyProjectAccess, async (req, res) => {
     try {
-        // Auto-update overdue points (target_date BEFORE today's date)
+        // Auto-update overdue points
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
         await OpenPoint.updateMany({
             project_id: req.params.projectId,
             status: { $nin: ['Green', 'Yellow', 'Orange'] },
@@ -475,110 +474,6 @@ router.post("/api/open-points/user/:username/assign-projects", async (req, res) 
     }
 });
 
-
-// Get All Open Points Assigned to Me (Across All Projects)
-router.get("/api/open-points/my-assigned-points", async (req, res) => {
-    try {
-        const username = req.headers['username'] || req.headers['x-username'];
-        const userId = req.headers['user-id'];
-
-        if (!username && !userId) {
-            return res.status(401).json({ error: "User identification not provided" });
-        }
-
-        // Find user
-        let user = null;
-        if (userId) {
-            user = await UserModel.findById(userId);
-        }
-        if (!user && username) {
-            user = await UserModel.findOne({ username });
-        }
-
-        if (!user) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        // Auto-update overdue points (target_date BEFORE today's date)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
-        await OpenPoint.updateMany({
-            responsible_person: user._id,
-            status: { $nin: ['Green', 'Yellow', 'Orange'] },
-            target_date: { $lt: today }
-        }, {
-            $set: { status: 'Red' }
-        });
-
-        // Find all open points assigned to this user
-        const points = await OpenPoint.find({ responsible_person: user._id })
-            .populate('project_id', 'name')
-            .populate('responsible_person', 'username first_name last_name')
-            .populate('reviewer', 'username first_name last_name')
-            .sort({ status: 1, target_date: 1 });
-
-        // Transform to include project name at root level
-        const transformedPoints = points.map(p => ({
-            ...p.toObject(),
-            project_name: p.project_id?.name || 'Unknown Project'
-        }));
-
-        res.json(transformedPoints);
-    } catch (error) {
-        console.error("Get My Assigned Points Error:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Get Open Points for a Specific User by Username (for profile/admin view)
-router.get("/api/open-points/user/:username/points", async (req, res) => {
-    try {
-        const { username } = req.params;
-
-        // Find the target user
-        const targetUser = await UserModel.findOne({ username });
-        if (!targetUser) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        // Auto-update overdue points (target_date BEFORE today's date)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
-        await OpenPoint.updateMany({
-            responsible_person: targetUser._id,
-            status: { $nin: ['Green', 'Yellow', 'Orange'] },
-            target_date: { $lt: today }
-        }, {
-            $set: { status: 'Red' }
-        });
-
-        // Find all open points assigned to this user
-        const points = await OpenPoint.find({ responsible_person: targetUser._id })
-            .populate('project_id', 'name')
-            .populate('responsible_person', 'username first_name last_name')
-            .populate('reviewer', 'username first_name last_name')
-            .sort({ status: 1, target_date: 1 });
-
-        // Transform to include project name at root level
-        const transformedPoints = points.map(p => ({
-            ...p.toObject(),
-            project_name: p.project_id?.name || 'Unknown Project'
-        }));
-
-        // Return points along with user info for proper name display
-        res.json({
-            points: transformedPoints,
-            userInfo: {
-                username: targetUser.username,
-                first_name: targetUser.first_name,
-                last_name: targetUser.last_name
-            }
-        });
-    } catch (error) {
-        console.error("Get User Open Points Error:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
 
 // Change Project Owner
 router.put("/api/open-points/projects/:projectId/change-owner", async (req, res) => {

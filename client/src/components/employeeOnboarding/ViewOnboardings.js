@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { MaterialReactTable } from "material-react-table";
+import useTableConfig from "../../customHooks/useTableConfig";
 
 // Document link component
 const DocumentLink = ({ url, label }) => {
@@ -46,46 +48,72 @@ function ViewOnboardings() {
     getData();
   }, []);
 
+  const columns = [
+    {
+      accessorKey: "username",
+      header: "Username",
+      enableSorting: false,
+      size: 140,
+    },
+    {
+      accessorKey: "first_name",
+      header: "First Name",
+      enableSorting: false,
+      size: 130,
+    },
+    {
+      accessorKey: "middle_name",
+      header: "Middle Name",
+      enableSorting: false,
+      size: 130,
+    },
+    {
+      accessorKey: "last_name",
+      header: "Last Name",
+      enableSorting: false,
+      size: 130,
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      enableSorting: false,
+      size: 200,
+    },
+    {
+      accessorKey: "employee_photo",
+      header: "Photo",
+      enableSorting: false,
+      size: 100,
+      Cell: ({ cell }) => <DocumentLink url={cell.getValue()} />,
+    },
+    {
+      accessorKey: "resume",
+      header: "Resume",
+      enableSorting: false,
+      size: 100,
+      Cell: ({ cell }) => <DocumentLink url={cell.getValue()} />,
+    },
+    {
+      accessorKey: "address_proof",
+      header: "Address Proof",
+      enableSorting: false,
+      size: 120,
+      Cell: ({ cell }) => <DocumentLink url={cell.getValue()} />,
+    },
+    {
+      accessorKey: "nda",
+      header: "NDA",
+      enableSorting: false,
+      size: 80,
+      Cell: ({ cell }) => <DocumentLink url={cell.getValue()} />,
+    },
+  ];
+
+  const table = useTableConfig(data, columns);
+
   return (
-    <div className="hr-table-container hr-animate-in" style={{ padding: '0', border: 'none' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="excel-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>First Name</th>
-              <th>Middle Name</th>
-              <th>Last Name</th>
-              <th>Email</th>
-              <th>Photo</th>
-              <th>Resume</th>
-              <th>Address Proof</th>
-              <th>NDA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
-              <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No records found</td>
-              </tr>
-            ) : (
-              data.map((row, index) => (
-                <tr key={index}>
-                  <td>{row.username || '—'}</td>
-                  <td>{row.first_name || '—'}</td>
-                  <td>{row.middle_name || '—'}</td>
-                  <td>{row.last_name || '—'}</td>
-                  <td>{row.email || '—'}</td>
-                  <td><DocumentLink url={row.employee_photo} /></td>
-                  <td><DocumentLink url={row.resume} /></td>
-                  <td><DocumentLink url={row.address_proof} /></td>
-                  <td><DocumentLink url={row.nda} /></td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="hr-table-container hr-animate-in">
+      <MaterialReactTable table={table} />
     </div>
   );
 }

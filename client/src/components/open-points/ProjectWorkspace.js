@@ -28,7 +28,6 @@ const ProjectWorkspace = () => {
     const [projectOwnerId, setProjectOwnerId] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
     const [filters, setFilters] = useState({ status: '', priority: '', responsibility: '' });
-    const [hideGreen, setHideGreen] = useState(true); // Hide completed points by default
 
     // Quick Add State (Row at bottom)
     const [newPoint, setNewPoint] = useState({
@@ -485,15 +484,6 @@ const ProjectWorkspace = () => {
                                 <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
                             ))}
                         </select>
-                        {/* Toggle for showing/hiding completed points */}
-                        <button
-                            className={`btn btn-sm ${hideGreen ? 'btn-success' : 'btn-secondary'}`}
-                            style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}
-                            onClick={() => setHideGreen(!hideGreen)}
-                            title={hideGreen ? 'Click to show completed points' : 'Click to hide completed points'}
-                        >
-                            {hideGreen ? `✅ Show Closed (${points.filter(p => p.status === 'Green').length})` : '✅ Hide Closed'}
-                        </button>
                     </div>
 
                     {/* Actions Group */}
@@ -675,8 +665,6 @@ const ProjectWorkspace = () => {
                             if (filters.status && p.status !== filters.status) return false;
                             if (filters.priority && p.priority !== filters.priority) return false;
                             if (filters.responsibility && p.responsibility !== filters.responsibility) return false;
-                            // Hide green points by default unless toggle is off or specific status is selected
-                            if (hideGreen && !filters.status && p.status === 'Green') return false;
                             return true;
                         }).map((point, index) => (
                             <tr key={point._id}>

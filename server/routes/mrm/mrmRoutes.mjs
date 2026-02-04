@@ -6,12 +6,15 @@ import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
 
+// Admin/Manager usernames who can view all users' MRM
+const MRM_ADMINS = ['suraj_rajan', 'shallini_arun'];
+
 // Get users who have MRM module assigned
 router.get('/api/mrm/users', async (req, res) => {
     try {
         const users = await UserModel.find(
-            { status: 'active' },
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
+            { modules: 'MRM' },
+            { first_name: 1, last_name: 1, username: 1, _id: 1 }
         ).sort({ first_name: 1 });
         res.json(users);
     } catch (error) {
@@ -23,10 +26,10 @@ router.get('/api/mrm/users', async (req, res) => {
 router.get('/api/mrm/dashboard', async (req, res) => {
     try {
         const { month, year } = req.query;
-        const requestingRole = req.headers['user-role'];
+        const requestingUsername = req.headers['username'];
 
         // Only admins can access dashboard
-        if (requestingRole !== 'Admin') {
+        if (!MRM_ADMINS.includes(requestingUsername)) {
             return res.status(403).json({ error: "Not authorized" });
         }
 
@@ -34,18 +37,14 @@ router.get('/api/mrm/dashboard', async (req, res) => {
             return res.status(400).json({ error: "Month and Year are required" });
         }
 
-        // Get all users with MRM module AND are either Head_of_Department or Admin
+        // Get all users with MRM module
         const mrmUsers = await UserModel.find(
-            {
-                modules: 'MRM',
-                role: { $in: ['Head_of_Department', 'Admin'] }
-            },
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
+            { modules: 'MRM' },
+            { first_name: 1, last_name: 1, username: 1, _id: 1 }
         ).sort({ first_name: 1 });
 
         // Get metadata for the month (shared across users for now)
-        // Get metadata for all users for the month
-        const allMetadata = await MRMMetadata.find({ month, year });
+        const metadata = await MRMMetadata.findOne({ month, year });
 
         // Build dashboard data for each user
         const dashboardData = await Promise.all(mrmUsers.map(async (user) => {
@@ -67,16 +66,13 @@ router.get('/api/mrm/dashboard', async (req, res) => {
                 }
             });
 
-            const userMeta = allMetadata.find(m => m.userId && m.userId.toString() === user._id.toString());
-
             return {
                 userId: user._id,
                 firstName: user.first_name,
                 lastName: user.last_name,
                 username: user.username,
-                reviewDate: userMeta?.reviewDate || null,
-                meetingDate: userMeta?.meetingDate || null,
-                meetingDone: userMeta?.meetingDone || false,
+                reviewDate: metadata?.reviewDate || null,
+                meetingDate: metadata?.meetingDate || null,
                 itemsCount: items.length,
                 greenCount,
                 yellowCount,
@@ -98,13 +94,10 @@ router.get('/api/mrm/dashboard', async (req, res) => {
 // Get Metadata
 router.get('/api/mrm/metadata', async (req, res) => {
     try {
-        const { month, year, userId } = req.query;
+        const { month, year } = req.query;
         if (!month || !year) return res.status(400).json({ error: "Month/Year required" });
 
-        let query = { month, year };
-        if (userId) query.userId = userId;
-
-        let metadata = await MRMMetadata.findOne(query);
+        let metadata = await MRMMetadata.findOne({ month, year });
         if (!metadata) {
             // Return empty structure if not found
             return res.json({ meetingDate: '', reviewDate: '' });
@@ -118,44 +111,11 @@ router.get('/api/mrm/metadata', async (req, res) => {
 // Update/Create Metadata
 router.post('/api/mrm/metadata', async (req, res) => {
     try {
-        const { month, year, userId } = req.body;
-        let { meetingDate, reviewDate } = req.body;
-
-        if (!userId) return res.status(400).json({ error: "UserId is required" });
-
-        // Convert empty strings to null for Date fields
-        if (meetingDate === '') meetingDate = null;
-        if (reviewDate === '') reviewDate = null;
+        const { month, year, meetingDate, reviewDate } = req.body;
 
         const metadata = await MRMMetadata.findOneAndUpdate(
-            { month, year, userId },
+            { month, year },
             { meetingDate, reviewDate },
-            { new: true, upsert: true }
-        );
-        res.json(metadata);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Toggle Meeting Done Status (Admin only)
-router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
-    try {
-        const { month, year, userId, meetingDone } = req.body;
-        const requestingRole = req.headers['user-role'];
-
-        // Only admins can toggle meeting status
-        if (requestingRole !== 'Admin') {
-            return res.status(403).json({ error: "Not authorized" });
-        }
-
-        if (!userId || !month || !year) {
-            return res.status(400).json({ error: "UserId, month, and year are required" });
-        }
-
-        const metadata = await MRMMetadata.findOneAndUpdate(
-            { month, year, userId },
-            { meetingDone: meetingDone },
             { new: true, upsert: true }
         );
         res.json(metadata);
@@ -170,8 +130,7 @@ router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
 router.get('/api/mrm', async (req, res) => {
     try {
         const { month, year, userId } = req.query;
-        const requestingRole = req.headers['user-role'];
-        const requestingUserId = req.headers['user-id'];
+        const requestingUsername = req.headers['username'];
 
         if (!month || !year) {
             return res.status(400).json({ error: "Month and Year are required" });
@@ -180,13 +139,10 @@ router.get('/api/mrm', async (req, res) => {
         // Build query
         let query = { month, year };
 
-        // If userId is provided, filter by createdBy
+        // If userId is provided (admin viewing specific user), filter by createdBy
         if (userId) {
-            // Allow if: user is viewing their own data OR user is Admin
-            const isOwnData = userId === requestingUserId;
-            const isAdmin = requestingRole === 'Admin';
-
-            if (!isOwnData && !isAdmin) {
+            // Only admins can view other users' data
+            if (!MRM_ADMINS.includes(requestingUsername)) {
                 return res.status(403).json({ error: "Not authorized to view other users' MRM" });
             }
             query.createdBy = userId;

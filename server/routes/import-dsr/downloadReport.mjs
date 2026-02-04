@@ -4,15 +4,14 @@ const router = express.Router();
 
 // Status Rank Configuration
 const statusRank = {
-  "Do completed and Delivery pending": { rank: 1, field: "do_completed" },
-  "Custom Clearance Completed": { rank: 2, field: "detention_from" },
-  "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
-  "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
-  "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
-  "Gateway IGM Filed": { rank: 6, field: "gateway_igm_date" },
-  Discharged: { rank: 7, field: "discharge_date" },
-  "Estimated Time of Arrival": { rank: 8, field: "vessel_berthing" },
-  "ETA Date Pending": { rank: 9 },
+  "Custom Clearance Completed": { rank: 1, field: "detention_from" },
+  "PCV Done, Duty Payment Pending": { rank: 2, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 3, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 4, field: "be_date" },
+  "Gateway IGM Filed": { rank: 5, field: "gateway_igm_date" },
+  Discharged: { rank: 6, field: "discharge_date" },
+  "Estimated Time of Arrival": { rank: 7, field: "vessel_berthing" },
+  "ETA Date Pending": { rank: 8 },
 };
 
 // Helper function to parse dates safely

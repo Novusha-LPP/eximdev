@@ -85,14 +85,3 @@ export const changeProjectOwner = async (projectId, newOwnerId) => {
     const response = await axios.put(`${API_URL}/open-points/projects/${projectId}/change-owner`, { newOwnerId }, getHeaders());
     return response.data;
 };
-
-export const fetchMyAssignedPoints = async () => {
-    const response = await axios.get(`${API_URL}/open-points/my-assigned-points`, getHeaders());
-    return response.data;
-};
-
-// Fetch open points for a specific user by username (for profile/admin viewing)
-export const fetchUserOpenPoints = async (username) => {
-    const response = await axios.get(`${API_URL}/open-points/user/${username}/points`, getHeaders());
-    return response.data;
-};

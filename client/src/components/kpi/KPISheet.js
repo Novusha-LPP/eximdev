@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { UserContext } from "../../contexts/UserContext";
-import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert } from '@mui/material';
 import './kpi.scss';
 
 const KPISheet = () => {
-    const { user } = React.useContext(UserContext);
     const { sheetId } = useParams();
     const [sheet, setSheet] = useState(null);
-    // console.log(sheet);
     const [loading, setLoading] = useState(true);
     const [daysInMonth, setDaysInMonth] = useState([]);
 
@@ -26,6 +23,8 @@ const KPISheet = () => {
         submission_date: null
     });
 
+    // Audit Dialog State
+    const [openAudit, setOpenAudit] = useState(false);
 
     // Review Dialog State
     const [reviewDialog, setReviewDialog] = useState({ open: false, action: '', comments: '' });
@@ -42,12 +41,6 @@ const KPISheet = () => {
         message: '',
         severity: 'info' // success, error, warning, info
     });
-
-    // Day Action Menu State
-    const [dayMenu, setDayMenu] = useState({ anchorEl: null, day: null });
-
-    // Remarks Dialog State
-    const [openRemarks, setOpenRemarks] = useState(false);
 
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
@@ -111,7 +104,7 @@ const KPISheet = () => {
         let sum = 0;
         Object.entries(row.daily_values).forEach(([d, val]) => {
             // Logic must match backend
-            if (isSunday(Number(d)) && !isWorkingSunday(Number(d))) return;
+            if (isSunday(Number(d))) return;
             if (isHoliday(Number(d))) return;
             sum += Number(val);
         });
@@ -147,30 +140,12 @@ const KPISheet = () => {
         return sheet && sheet.festivals && sheet.festivals.includes(day);
     };
 
-    const isHalfDay = (day) => {
-        return sheet && sheet.half_days && sheet.half_days.includes(day);
-    };
-
-    const isWorkingSunday = (day) => {
-        return sheet && sheet.working_sundays && sheet.working_sundays.includes(day);
-    };
-
-    const getSubmissionDeadline = (year, month) => {
-        // Deadline is the 4th of the following month
-        // If sheet is for December 2025 (month=12), deadline is 4th January 2026
-        let deadlineYear = year;
-        let deadlineMonth = month; // month is 1-indexed in sheet
-        if (deadlineMonth > 12) {
-            deadlineMonth = 1;
-            deadlineYear = year + 1;
+    const getLastWorkingDayOfMonth = (year, month) => {
+        let d = new Date(year, month, 0);
+        while (d.getDay() === 0) { // While Sunday, go back
+            d.setDate(d.getDate() - 1);
         }
-        // Start with the 4th of the next month (month is 0-indexed in Date constructor)
-        let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
-        // If the 4th is a Sunday, go back to the previous working day
-        while (deadline.getDay() === 0) {
-            deadline.setDate(deadline.getDate() - 1);
-        }
-        return deadline;
+        return d;
     };
 
     const isLocked = (day = null) => {
@@ -179,9 +154,9 @@ const KPISheet = () => {
         // Status Check
         if (sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED') return true;
 
-        // Deadline Check (7th of the following month)
+        // Deadline Check (Last working day of the sheet's month)
         const today = new Date();
-        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+        const deadline = getLastWorkingDayOfMonth(sheet.year, sheet.month);
 
         // Compare dates only
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -217,20 +192,10 @@ const KPISheet = () => {
         // Optimistic
         const newHolidays = [...(sheet.holidays || [])];
         const idx = newHolidays.indexOf(day);
+        if (idx > -1) newHolidays.splice(idx, 1);
+        else newHolidays.push(day);
 
-        let newFestivals = [...(sheet.festivals || [])];
-        let newHalfDays = [...(sheet.half_days || [])];
-
-        if (idx > -1) {
-            newHolidays.splice(idx, 1);
-        } else {
-            newHolidays.push(day);
-            // Mutual Exclusivity
-            newFestivals = newFestivals.filter(d => d !== day);
-            newHalfDays = newHalfDays.filter(d => d !== day);
-        }
-
-        setSheet({ ...sheet, holidays: newHolidays, festivals: newFestivals, half_days: newHalfDays });
+        setSheet({ ...sheet, holidays: newHolidays });
 
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/holiday`, {
@@ -248,20 +213,10 @@ const KPISheet = () => {
         // Optimistic
         const newFestivals = [...(sheet.festivals || [])];
         const idx = newFestivals.indexOf(day);
+        if (idx > -1) newFestivals.splice(idx, 1);
+        else newFestivals.push(day);
 
-        let newHolidays = [...(sheet.holidays || [])];
-        let newHalfDays = [...(sheet.half_days || [])];
-
-        if (idx > -1) {
-            newFestivals.splice(idx, 1);
-        } else {
-            newFestivals.push(day);
-            // Mutual Exclusivity
-            newHolidays = newHolidays.filter(d => d !== day);
-            newHalfDays = newHalfDays.filter(d => d !== day);
-        }
-
-        setSheet({ ...sheet, festivals: newFestivals, holidays: newHolidays, half_days: newHalfDays });
+        setSheet({ ...sheet, festivals: newFestivals });
 
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/holiday`, {
@@ -271,70 +226,6 @@ const KPISheet = () => {
             }, { withCredentials: true });
         } catch (e) {
             console.error("Error toggling festival", e);
-        }
-    };
-
-    const toggleHalfDay = async (day) => {
-        console.log(`KPISheet - Toggling Half Day: Day=${day}`);
-        // Optimistic
-        const newHalfDays = [...(sheet.half_days || [])];
-        const idx = newHalfDays.indexOf(day);
-
-        let newHolidays = [...(sheet.holidays || [])];
-        let newFestivals = [...(sheet.festivals || [])];
-        let newWorkingSundays = [...(sheet.working_sundays || [])]; // Should not conflict usually, but good practice
-
-        if (idx > -1) {
-            newHalfDays.splice(idx, 1);
-        } else {
-            newHalfDays.push(day);
-            // Mutual Exclusivity
-            newHolidays = newHolidays.filter(d => d !== day);
-            newFestivals = newFestivals.filter(d => d !== day);
-            newWorkingSundays = newWorkingSundays.filter(d => d !== day);
-        }
-
-        setSheet({ ...sheet, half_days: newHalfDays, holidays: newHolidays, festivals: newFestivals, working_sundays: newWorkingSundays });
-
-        try {
-            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/holiday`, {
-                sheetId: sheet._id,
-                day,
-                type: 'half_day'
-            }, { withCredentials: true });
-        } catch (e) {
-            console.error("Error toggling half day", e);
-        }
-    };
-
-    const toggleWorkingSunday = async (day) => {
-        console.log(`KPISheet - Toggling Working Sunday: Day=${day}`);
-        const newWorkingSundays = [...(sheet.working_sundays || [])];
-        const idx = newWorkingSundays.indexOf(day);
-
-        let newHolidays = [...(sheet.holidays || [])];
-        let newFestivals = [...(sheet.festivals || [])];
-        let newHalfDays = [...(sheet.half_days || [])];
-
-        if (idx > -1) {
-            newWorkingSundays.splice(idx, 1);
-        } else {
-            newWorkingSundays.push(day);
-            // Mutual Exclusivity just in case
-            newHolidays = newHolidays.filter(d => d !== day);
-            newFestivals = newFestivals.filter(d => d !== day);
-            newHalfDays = newHalfDays.filter(d => d !== day);
-        }
-        setSheet({ ...sheet, working_sundays: newWorkingSundays, holidays: newHolidays, festivals: newFestivals, half_days: newHalfDays });
-
-        try {
-            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/holiday`, {
-                sheetId: sheet._id,
-                day,
-                type: 'working_sunday'
-            }, { withCredentials: true });
-        } catch (e) {
-            console.error("Error toggling working sunday", e);
         }
     };
 
@@ -390,7 +281,7 @@ const KPISheet = () => {
     // Column Totals
     const getColumnTotal = (day) => {
         if (!sheet) return 0;
-        if ((isSunday(day) && !isWorkingSunday(day)) || isHoliday(day) || isFestival(day)) return 0;
+        if (isSunday(day) || isHoliday(day) || isFestival(day)) return 0;
         return sheet.rows.reduce((sum, row) => {
             return sum + (Number(row.daily_values[day]) || 0);
         }, 0);
@@ -402,51 +293,15 @@ const KPISheet = () => {
     };
 
     const handleSubmit = async () => {
-        // Validation - All Summary fields are required, but 0 is acceptable
-        const missingFields = [];
-
-        if (summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '') {
-            missingFields.push('Business Loss amount in Rupees (INR)');
-        }
-        if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
-            missingFields.push('Rootcause for business loss');
-        }
-        if (summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '') {
-            missingFields.push('Action plan for business loss');
-        }
-        if (summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '') {
-            missingFields.push('Overall KPI %');
-        }
-        if (summary.blockers === undefined || summary.blockers === null || summary.blockers === '') {
-            missingFields.push('Blockers');
-        }
-        if (summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '') {
-            missingFields.push('Rootcause (for blockers)');
-        }
-        if (summary.can_hod_solve === undefined || summary.can_hod_solve === null || summary.can_hod_solve === '') {
-            missingFields.push('Can HOD solve the problem');
-        }
-        if (summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') {
-            missingFields.push('Total Month Workload %');
-        }
-
-        if (missingFields.length > 0) {
-            showMessage(`Please fill in the following required fields: ${missingFields.join(', ')}`, 'warning');
-            setConfirmSubmit(false);
-            return;
-        }
-
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/submit`, {
                 sheetId: sheet._id,
                 summary
             }, { withCredentials: true });
-            setConfirmSubmit(false);
             fetchSheet();
             showMessage("KPI Sheet Submitted Successfully!");
         } catch (error) {
             console.error("Error submitting KPI", error);
-            setConfirmSubmit(false);
             showMessage("Error submitting KPI: " + (error.response?.data?.message || error.message), 'error');
         }
     };
@@ -462,60 +317,22 @@ const KPISheet = () => {
                 action: reviewDialog.action,
                 comments: reviewDialog.comments
             }, { withCredentials: true });
-
-            const actionText = reviewDialog.action === 'CHECK' ? 'Checked' :
-                reviewDialog.action === 'VERIFY' ? 'Verified' :
-                    reviewDialog.action === 'APPROVE' ? 'Approved' : 'Rejected';
-            showMessage(`Sheet ${actionText} Successfully!`);
+            fetchSheet();
+            showMessage(`Sheet ${reviewDialog.action === 'APPROVE' ? 'Approved' : 'Rejected'} Successfully!`);
             setReviewDialog({ ...reviewDialog, open: false });
-
-            // Refresh sheet data to update UI and hide action buttons
-            await fetchSheet();
         } catch (error) {
             console.error("Error reviewing KPI", error);
             showMessage("Error updating status: " + (error.response?.data?.message || error.message), 'error');
         }
     };
 
-    const handleDayClick = (event, day) => {
-        // if (isSunday(day)) return; // Allow clicking sunday now
-        setDayMenu({ anchorEl: event.currentTarget, day });
-    };
-
-    const closeDayMenu = () => {
-        setDayMenu({ anchorEl: null, day: null });
-    };
-
-    const handleDayAction = (action) => {
-        const { day } = dayMenu;
-        if (!day) return;
-
-        if (action === 'LEAVE') {
-            if (!isHoliday(day)) toggleHoliday(day);
-        } else if (action === 'HALF_DAY') {
-            if (!isHalfDay(day)) toggleHalfDay(day);
-        } else if (action === 'FESTIVAL') {
-            if (!isFestival(day)) toggleFestival(day);
-        } else if (action === 'WORKING_SUNDAY') {
-            if (isSunday(day)) toggleWorkingSunday(day);
-        } else if (action === 'CLEAR') {
-            if (isHoliday(day)) toggleHoliday(day);
-            if (isHalfDay(day)) toggleHalfDay(day);
-            if (isFestival(day)) toggleFestival(day);
-            if (isWorkingSunday(day)) toggleWorkingSunday(day);
-        }
-        closeDayMenu();
-    };
-
     if (loading) return <CircularProgress />;
     if (!sheet) return <Typography>Sheet not found</Typography>;
-
-
 
     return (
         <div className="kpi-sheet-page">
             {/* Centered Header - Excel Style */}
-            <div className="kpi-sheet-header" style={{ position: 'relative' }}>
+            <div className="kpi-sheet-header">
                 <div className="header-main">
                     KEY RESULT AREA (KRA) - {(sheet.template_version?.name || sheet.template_name || 'KPI TEMPLATE').toUpperCase()}
                 </div>
@@ -530,54 +347,12 @@ const KPISheet = () => {
             </div>
 
             {/* Action Bar */}
-            <div className="kpi-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div className="period-info" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f', fontSize: '0.9rem' }}>
-                        <span>📅</span>
-                        <strong>Deadline:</strong> {getSubmissionDeadline(sheet.year, sheet.month + 1).toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </div>
+            <div className="kpi-action-bar">
+                <div className="period-info">
+                    <strong>Period:</strong> {new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </div>
-
-                {/* Approval Stages - Side by side */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 600, color: '#333', fontSize: '0.85rem' }}>Status:</span>
-                        <span className={`status-badge ${sheet.status.toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
-                            {sheet.status}
-                        </span>
-                    </div>
-
-                    {sheet.summary?.submission_date && (
-                        <div style={{ fontSize: '0.8rem', color: '#555', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>📤</span>
-                            <span>Submitted: {new Date(sheet.summary.submission_date).toLocaleDateString()}</span>
-                        </div>
-                    )}
-                    {sheet.approval_history?.find(h => h.action === 'CHECK') && (
-                        <div style={{ fontSize: '0.8rem', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>✓</span>
-                            <span>Checked: {new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}</span>
-                        </div>
-                    )}
-                    {sheet.approval_history?.find(h => h.action === 'VERIFY') && (
-                        <div style={{ fontSize: '0.8rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>✓</span>
-                            <span>Verified: {new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}</span>
-                        </div>
-                    )}
-                    {sheet.approval_history?.find(h => h.action === 'APPROVE') && (
-                        <div style={{ fontSize: '0.8rem', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>✅</span>
-                            <span>Approved: {new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}</span>
-                        </div>
-                    )}
-                </div>
-
-                <button className="btn btn-secondary btn-sm" onClick={() => setOpenRemarks(true)}>
-                    View Remarks
+                <button className="btn btn-secondary btn-sm" onClick={() => setOpenAudit(true)}>
+                    View Audit Log
                 </button>
             </div>
 
@@ -589,19 +364,12 @@ const KPISheet = () => {
                     Sunday
                 </span>
                 <span className="legend-item">
-                    <span className="legend-color half-day">HD</span>
-                    Half Day
-                </span>
-                <span className="legend-item">
                     <span className="legend-color leave"></span>
-                    Leave
+                    Leave (Click to toggle)
                 </span>
                 <span className="legend-item">
                     <span className="legend-color festival"></span>
-                    Festival
-                </span>
-                <span className="legend-item" style={{ fontStyle: 'italic', fontSize: '0.8em', marginLeft: '10px' }}>
-                    * Click on a date header to manage status
+                    Festival Holiday (Right-click to toggle)
                 </span>
             </div>
 
@@ -612,24 +380,24 @@ const KPISheet = () => {
                             <th>{new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}</th>
                             {daysInMonth.map(d => {
                                 const isSun = isSunday(d);
-                                const isWS = isWorkingSunday(d);
                                 const isHol = isHoliday(d);
                                 const isFest = isFestival(d);
-                                const isHD = isHalfDay(d);
                                 let className = '';
-                                if (isSun && !isWS) className = 'sunday';
-                                else if (isSun && isWS) className = 'working-sunday';
+                                if (isSun) className = 'sunday';
                                 else if (isHol) className = 'leave';
                                 else if (isFest) className = 'festival';
-                                else if (isHD) className = 'half-day';
 
                                 return (
                                     <th
                                         key={d}
                                         className={className}
-                                        onClick={(e) => handleDayClick(e, d)}
-                                        title={isSun && !isWS ? "Sunday" : "Click to manage status"}
-                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => !isSun && toggleHoliday(d)}
+                                        onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            if (!isSun) toggleFestival(d);
+                                        }}
+                                        title={isSun ? "Sunday" : "Left-click: Leave | Right-click: Festival"}
+                                        style={{ cursor: isSun ? 'not-allowed' : 'pointer' }}
                                     >
                                         {d}
                                     </th>
@@ -655,17 +423,13 @@ const KPISheet = () => {
                                 </td>
                                 {daysInMonth.map(day => {
                                     const isSun = isSunday(day);
-                                    const isWS = isWorkingSunday(day);
                                     const isHol = isHoliday(day);
                                     const isFest = isFestival(day);
-                                    const isHD = isHalfDay(day);
-                                    const isBlocked = (isSun && !isWS) || isHol || isFest;
+                                    const isBlocked = isSun || isHol || isFest;
                                     let cellClass = 'day-cell';
-                                    if (isSun && !isWS) cellClass += ' sunday';
-                                    else if (isSun && isWS) cellClass += ' working-sunday';
+                                    if (isSun) cellClass += ' sunday';
                                     else if (isHol) cellClass += ' holiday';
                                     else if (isFest) cellClass += ' festival';
-                                    else if (isHD) cellClass += ' half-day';
 
                                     return (
                                         <td key={day} className={cellClass}>
@@ -697,7 +461,7 @@ const KPISheet = () => {
                         ))}
                     </tbody>
                     <tfoot>
-                        <tr >
+                        <tr style={{ fontWeight: 'bold' }}>
                             <td>TOTAL:</td>
                             {daysInMonth.map(day => (
                                 <td key={day}>{getColumnTotal(day)}</td>
@@ -745,57 +509,25 @@ const KPISheet = () => {
             </Dialog>
 
 
-            {/* Day Action Menu */}
-            <Menu
-                anchorEl={dayMenu.anchorEl}
-                open={Boolean(dayMenu.anchorEl)}
-                onClose={closeDayMenu}
-            >
-                {isSunday(dayMenu.day) ? (
-                    <MenuItem onClick={() => handleDayAction('WORKING_SUNDAY')}>
-                        {isWorkingSunday(dayMenu.day) ? "Mark as Non-Working" : "Mark as Working Sunday"}
-                    </MenuItem>
-                ) : (
-                    <>
-                        <MenuItem onClick={() => handleDayAction('LEAVE')}>Mark as Leave</MenuItem>
-                        <MenuItem onClick={() => handleDayAction('HALF_DAY')}>Mark as Half Day</MenuItem>
-                        <MenuItem onClick={() => handleDayAction('FESTIVAL')}>Mark as Festival</MenuItem>
-                    </>
-                )}
-                <MenuItem onClick={() => handleDayAction('CLEAR')} style={{ color: 'red' }}>Clear Status</MenuItem>
-            </Menu>
-
             <div className="summary-section">
                 <h6>Summary & Performance</h6>
                 <div className="kpi-grid-container">
                     <table className="kpi-table" style={{ width: '100%', minWidth: 'auto' }}>
                         <tbody>
                             <tr>
-                                <td style={{ width: '25%', textAlign: 'left', padding: '5px', backgroundColor: '#5baf62ff' }}>
-                                    Business Loss amount in Rupees (INR) <span style={{ color: 'red' }}>*</span>
-                                </td>
+                                <td style={{ width: '40%', fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Business Loss amount in Rupees (INR)</td>
                                 <td>
                                     <input
                                         type="number"
-                                        min="0"
                                         value={summary.business_loss}
                                         onChange={(e) => setSummary({ ...summary, business_loss: e.target.value })}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                        required
-                                        placeholder="Required field"
-                                        style={{
-                                            width: '100%',
-                                            minHeight: '30px',
-                                            border: 'none',
-                                            outline: 'none',
-                                            padding: '5px',
-                                            boxSizing: 'border-box'
-                                        }}
+                                        style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', boxSizing: 'border-box' }}
                                     />
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause for business loss <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause for business loss</td>
                                 <td>
                                     <input
                                         type="text"
@@ -807,19 +539,19 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Action plan for business loss <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Action plan for business loss</td>
                                 <td>
-                                    <textarea
-                                        rows={3}
+                                    <input
+                                        type="text"
                                         value={summary.action_plan}
                                         onChange={(e) => setSummary({ ...summary, action_plan: e.target.value })}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                        style={{ width: '100%', minHeight: '60px', border: 'none', outline: 'none', padding: '5px', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
+                                        style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                     />
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Overall KPI % <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Overall KPI %</td>
                                 <td>
                                     <input
                                         type="number"
@@ -831,7 +563,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Blockers <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Blockers</td>
                                 <td>
                                     <input
                                         type="text"
@@ -843,7 +575,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause</td>
                                 <td>
                                     <input
                                         type="text"
@@ -855,7 +587,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Can HOD solve the problem (Yes/No) <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Can HOD solve the problem (Yes/No)</td>
                                 <td>
                                     <select
                                         value={summary.can_hod_solve || 'No'}
@@ -869,7 +601,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px', fontSize: '14px', fontWeight: 'bold' }}>Total Month Workload % <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Total Month Workload %</td>
                                 <td>
                                     <input
                                         type="number"
@@ -881,7 +613,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>KPI Submission Date</td>
+                                <td style={{ fontWeight: 'bold', textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>KPI Submission Date</td>
                                 <td>
                                     <div style={{ padding: '5px', color: '#555', minHeight: '30px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                                         {summary.submission_date ? new Date(summary.submission_date).toLocaleDateString() : 'Pending Submission'}
@@ -894,7 +626,7 @@ const KPISheet = () => {
             </div>
 
             {/* Floating Action Button */}
-            {(sheet.status === 'DRAFT' || sheet.status === 'REJECTED') && (
+            {sheet.status === 'DRAFT' && (
                 <button
                     className="btn btn-primary floating-action-btn"
                     onClick={() => setConfirmSubmit(true)}
@@ -902,40 +634,14 @@ const KPISheet = () => {
                     Submit for Approval
                 </button>
             )}
-            {/* Review Actions */}
-            {/* Review Actions */}
-            {(sheet.status === 'SUBMITTED' || sheet.status === 'CHECKED' || sheet.status === 'VERIFIED') && (
+            {sheet.status === 'SUBMITTED' && (
                 <div className="floating-action-group">
-                    {sheet.status === 'SUBMITTED' && (user?.role === 'Admin' || sheet.assigned_signatories?.checked_by?._id === user?._id) && (
-                        <>
-                            <button className="btn btn-warning" onClick={() => handleReviewClick('CHECK')}>
-                                Check & Proceed
-                            </button>
-                            <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
-                                Reject
-                            </button>
-                        </>
-                    )}
-                    {sheet.status === 'CHECKED' && (user?.role === 'Admin' || sheet.assigned_signatories?.verified_by?._id === user?._id) && (
-                        <>
-                            <button className="btn btn-info" onClick={() => handleReviewClick('VERIFY')}>
-                                Verify & Proceed
-                            </button>
-                            <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
-                                Reject
-                            </button>
-                        </>
-                    )}
-                    {sheet.status === 'VERIFIED' && (user?.role === 'Admin' || sheet.assigned_signatories?.approved_by?._id === user?._id) && (
-                        <>
-                            <button className="btn btn-success" onClick={() => handleReviewClick('APPROVE')}>
-                                Final Approve
-                            </button>
-                            <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
-                                Reject
-                            </button>
-                        </>
-                    )}
+                    <button className="btn btn-success" onClick={() => handleReviewClick('APPROVE')}>
+                        Approve
+                    </button>
+                    <button className="btn btn-danger" onClick={() => handleReviewClick('REJECT')}>
+                        Reject
+                    </button>
                 </div>
             )}
 
@@ -949,23 +655,13 @@ const KPISheet = () => {
                     <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 500 }}>
                         <strong>Important:</strong> Once submitted, you will not be able to edit this sheet unless it is rejected by the approver.
                     </Typography>
-                    {(summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '' ||
-                        summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '' ||
-                        summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '' ||
-                        summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '' ||
-                        summary.blockers === undefined || summary.blockers === null || summary.blockers === '' ||
-                        summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '' ||
-                        summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') && (
-                            <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 600, backgroundColor: '#ffebee', padding: '8px', borderRadius: '4px' }}>
-                                ⚠️ All Summary & Performance fields are required! (0 values are acceptable)
-                            </Typography>
-                        )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setConfirmSubmit(false)}>Cancel</Button>
                     <button
                         className="btn btn-primary"
                         onClick={() => {
+                            setConfirmSubmit(false);
                             handleSubmit();
                         }}
                     >
@@ -976,11 +672,7 @@ const KPISheet = () => {
 
             {/* Review Dialog */}
             <Dialog open={reviewDialog.open} onClose={() => setReviewDialog({ ...reviewDialog, open: false })} fullWidth maxWidth="sm">
-                <DialogTitle>
-                    {reviewDialog.action === 'CHECK' ? 'Check Sheet' :
-                        reviewDialog.action === 'VERIFY' ? 'Verify Sheet' :
-                            reviewDialog.action === 'APPROVE' ? 'Approve Sheet' : 'Reject Sheet'}
-                </DialogTitle>
+                <DialogTitle>{reviewDialog.action === 'APPROVE' ? 'Approve Sheet' : 'Reject Sheet'}</DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
@@ -991,23 +683,13 @@ const KPISheet = () => {
                         rows={4}
                         value={reviewDialog.comments}
                         onChange={(e) => setReviewDialog({ ...reviewDialog, comments: e.target.value })}
-                        placeholder={reviewDialog.action === 'REJECT' ? "Reason for rejection..." : "Optional comments..."}
+                        placeholder={reviewDialog.action === 'APPROVE' ? "Optional approval comments..." : "Reason for rejection..."}
                     />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setReviewDialog({ ...reviewDialog, open: false })}>Cancel</Button>
-                    <Button
-                        onClick={confirmReview}
-                        variant="contained"
-                        color={
-                            reviewDialog.action === 'CHECK' ? "warning" :
-                                reviewDialog.action === 'VERIFY' ? "info" :
-                                    reviewDialog.action === 'APPROVE' ? "success" : "error"
-                        }
-                    >
-                        {reviewDialog.action === 'CHECK' ? 'Check' :
-                            reviewDialog.action === 'VERIFY' ? 'Verify' :
-                                reviewDialog.action === 'APPROVE' ? 'Approve' : 'Reject'}
+                    <Button onClick={confirmReview} variant="contained" color={reviewDialog.action === 'APPROVE' ? "success" : "error"}>
+                        {reviewDialog.action === 'APPROVE' ? 'Approve' : 'Reject'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1029,15 +711,16 @@ const KPISheet = () => {
                         <tr style={{ height: '60px' }}>
                             <td>{sheet.signatures?.prepared_by || '-'}</td>
                             <td>
-                                {sheet.assigned_signatories?.checked_by ? `${sheet.assigned_signatories.checked_by.first_name} ${sheet.assigned_signatories.checked_by.last_name || ''}` : '-'}
+                                {sheet.signatures?.checked_by ||
+                                    (sheet.assigned_signatories?.checked_by ? `${sheet.assigned_signatories.checked_by.first_name} ${sheet.assigned_signatories.checked_by.last_name || ''}` : '-')}
                             </td>
                             <td>
-                                {/* Verified By is always Shalini Arun */}
-                                {sheet.assigned_signatories?.verified_by ? `${sheet.assigned_signatories.verified_by.first_name} ${sheet.assigned_signatories.verified_by.last_name || ''}` : 'SHALINI ARUN'}
+                                {sheet.signatures?.verified_by ||
+                                    (sheet.assigned_signatories?.verified_by ? `${sheet.assigned_signatories.verified_by.first_name} ${sheet.assigned_signatories.verified_by.last_name || ''}` : '-')}
                             </td>
                             <td>
-                                {/* Approved By is always Suraj Rajan */}
-                                {sheet.assigned_signatories?.approved_by ? `${sheet.assigned_signatories.approved_by.first_name} ${sheet.assigned_signatories.approved_by.last_name || ''}` : 'SURAJ RAJAN'}
+                                {sheet.signatures?.approved_by ||
+                                    (sheet.assigned_signatories?.approved_by ? `${sheet.assigned_signatories.approved_by.first_name} ${sheet.assigned_signatories.approved_by.last_name || ''}` : '-')}
                             </td>
                         </tr>
                     </tbody>
@@ -1045,56 +728,41 @@ const KPISheet = () => {
             </div>
 
 
-            {/* Remarks Dialog */}
-            <Dialog open={openRemarks} onClose={() => setOpenRemarks(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Approval Remarks</DialogTitle>
+            {/* Audit Log Dialog */}
+            <Dialog open={openAudit} onClose={() => setOpenAudit(false)} maxWidth="md" fullWidth>
+                <DialogTitle>Audit Log</DialogTitle>
                 <DialogContent>
-                    {sheet.approval_history && sheet.approval_history.filter(h => h.comments).length > 0 ? (
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Date</TableCell>
-                                    <TableCell>Action</TableCell>
-                                    <TableCell>By</TableCell>
-                                    <TableCell>Comments</TableCell>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Timestamp</TableCell>
+                                <TableCell>Action</TableCell>
+                                <TableCell>Field</TableCell>
+                                <TableCell>Old Value</TableCell>
+                                <TableCell>New Value</TableCell>
+                                {/* <TableCell>User</TableCell> backend might not populate name yet */}
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {sheet.audit_log && sheet.audit_log.slice().reverse().map((log, index) => (
+                                <TableRow key={index}>
+                                    <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                                    <TableCell>{log.action}</TableCell>
+                                    <TableCell>{log.field}</TableCell>
+                                    <TableCell>{String(log.old_value)}</TableCell>
+                                    <TableCell>{String(log.new_value)}</TableCell>
                                 </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {sheet.approval_history.filter(h => h.comments).map((entry, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
-                                        <TableCell>
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 600,
-                                                backgroundColor: entry.action === 'REJECT' ? '#ffebee' :
-                                                    entry.action === 'APPROVE' ? '#e8f5e9' :
-                                                        entry.action === 'VERIFY' ? '#e3f2fd' :
-                                                            entry.action === 'CHECK' ? '#fff3e0' : '#f5f5f5',
-                                                color: entry.action === 'REJECT' ? '#c62828' :
-                                                    entry.action === 'APPROVE' ? '#2e7d32' :
-                                                        entry.action === 'VERIFY' ? '#1565c0' :
-                                                            entry.action === 'CHECK' ? '#ef6c00' : '#616161'
-                                            }}>
-                                                {entry.action}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{entry.by?.first_name} {entry.by?.last_name || ''}</TableCell>
-                                        <TableCell style={{ maxWidth: '200px', wordWrap: 'break-word' }}>{entry.comments}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    ) : (
-                        <Typography variant="body2" color="textSecondary" style={{ textAlign: 'center', padding: '20px' }}>
-                            No remarks available yet.
-                        </Typography>
-                    )}
+                            ))}
+                            {(!sheet.audit_log || sheet.audit_log.length === 0) && (
+                                <TableRow>
+                                    <TableCell colSpan={5} align="center">No changes recorded</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpenRemarks(false)}>Close</Button>
+                    <Button onClick={() => setOpenAudit(false)}>Close</Button>
                 </DialogActions>
             </Dialog>
 

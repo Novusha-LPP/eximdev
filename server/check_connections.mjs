@@ -1,14 +1,11 @@
 import { MongoClient } from "mongodb";
 import fs from "fs/promises";
 import path from "path";
-import dotenv from "dotenv";
 
-dotenv.config();
-
-const MONGO_URI = process.env.PROD_MONGODB_URI;
+const MONGO_URI = "mongodb+srv://clusterMonitor:1ajHprrMZzZ9kDyT@exim.xya3qh0.mongodb.net/exim"
 
 if (!MONGO_URI) {
-    console.error("❌ PROD_MONGODB_URI not set in .env");
+    console.error("❌ MONGO_URI not set");
     process.exit(1);
 }
 
@@ -16,7 +13,6 @@ async function run() {
     const client = new MongoClient(MONGO_URI, {
         appName: "mongo-diagnostics",
         serverSelectionTimeoutMS: 5000,
-        useUnifiedTopology: true,
     });
 
     try {

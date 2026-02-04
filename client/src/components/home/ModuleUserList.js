@@ -189,48 +189,39 @@ function ModuleUserList() {
           >
             <Spin spinning={loading}>
               {moduleUsers.length > 0 ? (
-                <>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '8px 24px',
-                    marginBottom: moduleUsers.length > 30 ? 16 : 0
-                  }}>
-                    {moduleUsers.map(user => {
-                      const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username;
-                      return (
-                        <div
-                          key={user._id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '6px 8px',
-                            borderBottom: '1px solid #f0f0f0',
-                            background: selectedUsersToRemove.includes(user._id) ? '#e6f7ff' : 'transparent'
-                          }}
+                <List
+                  itemLayout="horizontal"
+                  pagination={{ pageSize: 5 }}
+                  dataSource={moduleUsers}
+                  renderItem={user => (
+                    <List.Item
+                      actions={[
+                        <Popconfirm
+                          title="Remove this user?"
+                          onConfirm={() => handleRemoveSingleUser(user._id)}
+                          okButtonProps={{ danger: true }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                            <Checkbox
-                              checked={selectedUsersToRemove.includes(user._id)}
-                              onChange={(e) => onUserCheck(user._id, e.target.checked)}
-                            />
-                            <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {fullName}
-                            </Text>
-                          </div>
-                          <Popconfirm
-                            title="Remove this user?"
-                            onConfirm={() => handleRemoveSingleUser(user._id)}
-                            okButtonProps={{ danger: true }}
-                          >
-                            <Button type="text" danger size="small" icon={<DeleteOutlined />} style={{ flexShrink: 0 }} />
-                          </Popconfirm>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
+                          <Button type="text" danger icon={<DeleteOutlined />} />
+                        </Popconfirm>
+                      ]}
+                    >
+                      <List.Item.Meta
+                        avatar={
+                          <Checkbox
+                            checked={selectedUsersToRemove.includes(user._id)}
+                            onChange={(e) => onUserCheck(user._id, e.target.checked)}
+                          />
+                        }
+                        title={<Text strong>{user.first_name || user.username}</Text>}
+                        description={
+                          <Space>
+                            <Tag icon={<UserOutlined />}>{user.username}</Tag>
+                          </Space>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
               ) : (
                 <Empty description="No users assigned to this module" />
               )}

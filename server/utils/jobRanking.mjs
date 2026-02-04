@@ -1,16 +1,15 @@
 
 export const STATUS_RANK_MAP = {
     "Billing Pending": { rank: 1, field: "emptyContainerOffLoadDate" },
-    "Do completed and Delivery pending": { rank: 2, field: "do_completed" },
-    "Custom Clearance Completed": { rank: 3, field: "detention_from" },
-    "PCV Done, Duty Payment Pending": { rank: 4, field: "detention_from" },
-    "BE Noted, Clearance Pending": { rank: 5, field: "detention_from" },
-    "BE Noted, Arrival Pending": { rank: 6, field: "be_date" },
-    "Arrived, BE Note Pending": { rank: 7, field: "be_date" },
-    "Rail Out": { rank: 8, field: "container_rail_out_date" },
-    "Discharged": { rank: 9, field: "discharge_date" },
-    "Gateway IGM Filed": { rank: 10, field: "gateway_igm_date" },
-    "Estimated Time of Arrival": { rank: 11, field: "vessel_berthing" },
+    "Custom Clearance Completed": { rank: 2, field: "detention_from" },
+    "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
+    "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
+    "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
+    "Arrived, BE Note Pending": { rank: 6, field: "be_date" },
+    "Rail Out": { rank: 7, field: "container_rail_out_date" },
+    "Discharged": { rank: 8, field: "discharge_date" },
+    "Gateway IGM Filed": { rank: 9, field: "gateway_igm_date" },
+    "Estimated Time of Arrival": { rank: 10, field: "vessel_berthing" },
 };
 
 export const getJobStatusRank = (status) => {

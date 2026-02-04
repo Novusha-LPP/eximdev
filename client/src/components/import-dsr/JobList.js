@@ -67,8 +67,6 @@ function JobList(props) {
     setSelectedICD,
     selectedImporter,
     setSelectedImporter,
-    selectedBeType,
-    setSelectedBeType,
   } = useSearchQuery();
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -163,7 +161,6 @@ function JobList(props) {
     selectedICD,
     debouncedSearchQuery,
     selectedImporter,
-    selectedBeType,
     showUnresolvedOnly
   );
 
@@ -534,7 +531,6 @@ function JobList(props) {
           detailedStatus,
           selectedICD,
           selectedImporter,
-          selectedBeType, // persist
         },
       }),
     setRows, // <-- pass here

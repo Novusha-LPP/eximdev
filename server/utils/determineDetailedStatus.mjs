@@ -10,7 +10,6 @@ export function determineDetailedStatus(job) {
     type_of_b_e,
     consignment_type,
     type_of_Do,
-    do_completed,
   } = job || {};
 
   const isValidDate = (date) => {
@@ -42,11 +41,9 @@ export function determineDetailedStatus(job) {
   const validDischarge = isValidDate(discharge_date);
   const validIGM = isValidDate(gateway_igm_date);
   const validETA = isValidDate(vessel_berthing);
-  const validDoCompleted = isValidDate(do_completed);
 
   const norm = (s) => String(s || "").trim().toLowerCase();
   const isExBond = norm(type_of_b_e) === "ex-bond";
-  const isInBond = norm(type_of_b_e) === "in-bond";
   const isLCL = norm(consignment_type) === "lcl";
   const isTypeDoIcd = norm(type_of_Do) === "icd";
 
@@ -54,9 +51,6 @@ export function determineDetailedStatus(job) {
   if (isExBond) {
     if (be_no && validOOC && allDelivered) {
       return "Billing Pending";
-    }
-    if (validDoCompleted && validOOC && !allDelivered) {
-      return "Do completed and Delivery pending";
     }
     if (be_no && validOOC) {
       return "Custom Clearance Completed";
@@ -68,27 +62,11 @@ export function determineDetailedStatus(job) {
   }
 
   // Non Ex-Bond (original import flow)
-  let billingComplete = false;
-  if (isInBond) {
-    // In-Bond Logic
-    if (isTypeDoIcd) {
-      // In-Bond ICD: Needs Destuffing/EmptyOff
-      billingComplete = allEmptyOffloaded;
-    } else {
-      // In-Bond Factory: Needs EmptyOff AND Delivery
-      billingComplete = allEmptyOffloaded && allDelivered;
-    }
-  } else {
-    // Standard Logic (Home Consumption, etc.)
-    // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
-    billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
-  }
+  // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
+  const billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
 
   if (be_no && anyArrival && validOOC && billingComplete) {
     return "Billing Pending";
-  }
-  if (validDoCompleted && validOOC && !allDelivered) {
-    return "Do completed and Delivery pending";
   }
   if (be_no && anyArrival && validOOC) {
     return "Custom Clearance Completed";

@@ -31,18 +31,12 @@ const allModules = [
   "MRM",
 ];
 
-// allowedModules: if provided, only these modules can be assigned (for HOD restriction)
-function AssignModule({ selectedUser, allowedModules }) {
+function AssignModule({ selectedUser }) {
   const [targetKeys, setTargetKeys] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Use allowedModules if provided, otherwise show all modules
-  const availableModulesList = allowedModules && allowedModules.length > 0
-    ? allModules.filter(m => allowedModules.includes(m))
-    : allModules;
-
   // Transform modules to Transfer data source format
-  const mockData = availableModulesList.map((module) => ({
+  const mockData = allModules.map((module) => ({
     key: module,
     title: module,
   }));
@@ -116,9 +110,10 @@ function AssignModule({ selectedUser, allowedModules }) {
           render={(item) => item.title}
           listStyle={{
             width: '45%',
-            height: 500,
+            height: 400,
           }}
           showSearch
+          pagination
         />
       </Spin>
     </Card>

@@ -344,6 +344,7 @@ function JobDetails() {
       type_of_b_e,
       consignment_type,
       type_of_Do,
+      do_completed,
     } = formik.values;
 
     const isValidDate = (date) => {
@@ -376,12 +377,14 @@ function JobDetails() {
     const validDischarge = isValidDate(discharge_date);
     const validIGM = isValidDate(gateway_igm_date);
     const validETA = isValidDate(vessel_berthing);
+    const validDoCompleted = isValidDate(do_completed);
 
     const norm = (s) =>
       String(s || "")
         .trim()
         .toLowerCase();
     const isExBond = norm(type_of_b_e) === "ex-bond";
+    const isInBond = norm(type_of_b_e) === "in-bond";
     const isLCL = norm(consignment_type) === "lcl";
     const isTypeDoIcd = norm(type_of_Do) === "icd";
 
@@ -389,6 +392,10 @@ function JobDetails() {
     if (isExBond) {
       if (be_no && validOOC && allDelivered) {
         formik.setFieldValue("detailed_status", "Billing Pending");
+        return;
+      }
+      if (validDoCompleted && !allDelivered) {
+        formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
         return;
       }
       if (be_no && validOOC) {
@@ -407,10 +414,25 @@ function JobDetails() {
     }
 
     // Non Ex-Bond (original import flow)
-    const billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+    let billingComplete = false;
+    if (isInBond) {
+      // In-Bond Logic
+      if (isTypeDoIcd) {
+        // In-Bond ICD: Needs Destuffing/EmptyOff
+        billingComplete = allEmptyOffloaded;
+      } else {
+        // In-Bond Factory: Needs EmptyOff AND Delivery
+        billingComplete = allEmptyOffloaded && allDelivered;
+      }
+    } else {
+      // Standard Logic (Home Consumption, etc.)
+      billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+    }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
+    } else if (validDoCompleted && !allDelivered) {
+      formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
     } else if (be_no && anyArrival && validPCV) {
@@ -467,6 +489,7 @@ function JobDetails() {
     formik.values.out_of_charge,
     formik.values.pcv_date,
     formik.values.completed_operation_date,
+    formik.values.do_completed,
     formik.values.be_no,
     formik.values.emptyContainerOffLoadDate,
     formik.values.delivery_date,
@@ -1258,6 +1281,9 @@ function JobDetails() {
                           </MenuItem>
                           <MenuItem value="Custom Clearance Completed">
                             Cus.Clearance Completed
+                          </MenuItem>
+                          <MenuItem value="Do completed and Delivery pending">
+                            Do completed and Delivery pending
                           </MenuItem>
                           <MenuItem value="Billing Pending">Billing Pending</MenuItem>
                           <MenuItem value="Status Completed">Status Completed</MenuItem>
@@ -2636,7 +2662,7 @@ function JobDetails() {
                                 />
                               </Col>
                             )}
-                            {!InBondflag && (
+                            {(!InBondflag || formik.values.type_of_Do === "Factory") && (
                               <Col xs={12} md={3} lg={2} className="mb-3">
                                 <label style={labelStyle}>Delivery Date</label>
                                 <TextField

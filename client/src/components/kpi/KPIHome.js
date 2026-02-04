@@ -76,7 +76,7 @@ const KPIHome = () => {
     const [overwriteDialog, setOverwriteDialog] = useState({ open: false });
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
 
-    const [users, setUsers] = useState([]);
+    const [hods, setHods] = useState([]);
     const [signatories, setSignatories] = useState({
         checked_by: '',
         verified_by: '',
@@ -84,23 +84,65 @@ const KPIHome = () => {
     });
 
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+    const [pendingReviewCount, setPendingReviewCount] = useState(0);
+
+    // Team template import feature
+    const [teamTemplates, setTeamTemplates] = useState([]);
+    const [selectedTeamTemplate, setSelectedTeamTemplate] = useState('');
+    const [showTeamImport, setShowTeamImport] = useState(false);
+    const [importTemplateName, setImportTemplateName] = useState('');
+    const [importNameError, setImportNameError] = useState('');
 
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
-        fetchUsers();
+        fetchPendingCount();
+        fetchTeamTemplates();
     }, []);
+
+    useEffect(() => {
+        fetchHods();
+    }, [user]);
 
     useEffect(() => {
         fetchSheets();
     }, [filterYear]);
 
-    const fetchUsers = async () => {
+    const fetchPendingCount = async () => {
         try {
-            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, { withCredentials: true });
-            setUsers(res.data);
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/reviewer/pending`, { withCredentials: true });
+            const total = (res.data.counts?.check || 0) + (res.data.counts?.verify || 0) + (res.data.counts?.approve || 0);
+            setPendingReviewCount(total);
         } catch (error) {
-            console.error("Error fetching users", error);
+            console.error("Error fetching pending counts", error);
+        }
+    };
+
+    const fetchHods = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/my-hods`, { withCredentials: true });
+            let availableHods = res.data || [];
+
+            // If user is HOD, include themselves in the dictionary
+            if (user?.role === 'Head_of_Department') {
+                const alreadyExists = availableHods.some(h => h._id === user._id);
+                if (!alreadyExists) {
+                    availableHods.push({
+                        _id: user._id,
+                        first_name: user.first_name,
+                        last_name: user.last_name,
+                        username: user.username
+                    });
+                }
+            }
+
+            setHods(availableHods);
+            // Auto-select if only one HOD
+            if (availableHods.length === 1) {
+                setSignatories(prev => ({ ...prev, checked_by: availableHods[0]._id }));
+            }
+        } catch (error) {
+            console.error("Error fetching HODs", error);
         }
     };
 
@@ -123,12 +165,89 @@ const KPIHome = () => {
         }
     };
 
+    const fetchTeamTemplates = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/team-templates`, { withCredentials: true });
+            setTeamTemplates(res.data);
+        } catch (error) {
+            console.error("Error fetching team templates", error);
+        }
+    };
+
+    // Handle team template selection - auto-populate name
+    const handleTeamTemplateSelect = (templateId) => {
+        setSelectedTeamTemplate(templateId);
+        setImportNameError('');
+        if (templateId) {
+            const selected = teamTemplates.find(t => t._id === templateId);
+            if (selected) {
+                setImportTemplateName(selected.name);
+                // Check for duplicate immediately
+                checkDuplicateName(selected.name);
+            }
+        } else {
+            setImportTemplateName('');
+        }
+    };
+
+    // Check if template name already exists
+    const checkDuplicateName = (name) => {
+        const trimmedName = name.trim().toLowerCase();
+        const exists = templates.some(t => t.name.trim().toLowerCase() === trimmedName);
+        if (exists) {
+            setImportNameError('A template with this name already exists. Please use a different name.');
+            return true;
+        }
+        setImportNameError('');
+        return false;
+    };
+
+    const handleImportTemplate = async () => {
+        if (!selectedTeamTemplate) {
+            showMessage("Please select a template to import", "warning");
+            return;
+        }
+        if (!importTemplateName.trim()) {
+            showMessage("Please enter a template name", "warning");
+            return;
+        }
+        // Final duplicate check
+        if (checkDuplicateName(importTemplateName)) {
+            showMessage("A template with this name already exists. Please use a different name.", "warning");
+            return;
+        }
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/import-template`,
+                { templateId: selectedTeamTemplate, customName: importTemplateName.trim() },
+                { withCredentials: true }
+            );
+            showMessage(res.data.message || "Template imported successfully!");
+            setSelectedTeamTemplate('');
+            setImportTemplateName('');
+            setShowTeamImport(false);
+            fetchTemplates(); // Refresh templates list
+        } catch (error) {
+            if (error.response?.status === 409) {
+                setImportNameError(error.response.data.message);
+                showMessage(error.response.data.message, "warning");
+            } else {
+                showMessage(error.response?.data?.message || "Failed to import template", "error");
+            }
+        }
+    };
+
     const showMessage = (text, type = 'success') => {
         setMessage({ show: true, text, type });
         setTimeout(() => setMessage({ show: false, text: '', type: '' }), 4000);
     };
 
     const handleCreateSheet = async () => {
+        // Validate checked_by is selected
+        if (!signatories.checked_by) {
+            showMessage("Please select a 'Checked By' person", "error");
+            return;
+        }
+
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/generate`, {
                 year,
@@ -225,6 +344,26 @@ const KPIHome = () => {
                                 <Icons.Dashboard /> Admin View
                             </button>
                         )}
+                        {pendingReviewCount > 0 && (
+                            <button className="modern-btn secondary" onClick={() => navigate('/kpi/reviews')} style={{ position: 'relative' }}>
+                                <Icons.Pending /> Pending Reviews
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '-6px',
+                                    right: '-6px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '10px',
+                                    minWidth: '18px',
+                                    textAlign: 'center'
+                                }}>
+                                    {pendingReviewCount}
+                                </span>
+                            </button>
+                        )}
                         <button className="modern-btn secondary" onClick={() => navigate('/kpi/templates')}>
                             <Icons.Settings /> Manage Templates
                         </button>
@@ -259,6 +398,86 @@ const KPIHome = () => {
                                         <option value="" disabled>Select Template...</option>
                                         {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                     </select>
+
+                                    {/* Import from Team Member - Hyperlink */}
+                                    {teamTemplates.length > 0 && (
+                                        <div style={{ marginTop: '6px' }}>
+                                            <span
+                                                onClick={() => setShowTeamImport(!showTeamImport)}
+                                                style={{
+                                                    color: '#0078d4',
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    textDecoration: 'underline'
+                                                }}
+                                            >
+                                                📥 Import from Team Member
+                                            </span>
+
+                                            {showTeamImport && (
+                                                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <select
+                                                        value={selectedTeamTemplate}
+                                                        onChange={(e) => handleTeamTemplateSelect(e.target.value)}
+                                                        style={{
+                                                            background: '#f8f9fa',
+                                                            padding: '6px 8px',
+                                                            fontSize: '0.8rem',
+                                                            borderRadius: '4px',
+                                                            border: '1px solid #ddd'
+                                                        }}
+                                                    >
+                                                        <option value="">Select template...</option>
+                                                        {teamTemplates.map(t => (
+                                                            <option key={t._id} value={t._id}>
+                                                                {t.name} - {t.owner?.first_name} {t.owner?.last_name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {selectedTeamTemplate && (
+                                                        <>
+                                                            <div>
+                                                                <label style={{ fontSize: '0.75rem', color: '#666', marginBottom: '4px', display: 'block' }}>
+                                                                    Template Name (you can modify)
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={importTemplateName}
+                                                                    onChange={(e) => {
+                                                                        setImportTemplateName(e.target.value);
+                                                                        checkDuplicateName(e.target.value);
+                                                                    }}
+                                                                    placeholder="Enter template name"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '6px 8px',
+                                                                        fontSize: '0.8rem',
+                                                                        borderRadius: '4px',
+                                                                        border: importNameError ? '1px solid #ef4444' : '1px solid #ddd',
+                                                                        background: '#f8f9fa'
+                                                                    }}
+                                                                />
+                                                                {importNameError && (
+                                                                    <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px' }}>
+                                                                        {importNameError}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                className="modern-btn primary"
+                                                                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                                                                onClick={handleImportTemplate}
+                                                                disabled={!selectedTeamTemplate || !importTemplateName.trim() || importNameError}
+                                                            >
+                                                                Import Template
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -278,33 +497,51 @@ const KPIHome = () => {
 
                                 <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '16px' }}>
                                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#95a5a6', marginBottom: '12px', display: 'block', textTransform: 'uppercase' }}>
-                                        Signatories (Optional)
+                                        Signatories
                                     </label>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {['checked_by', 'verified_by', 'approved_by'].map((role) => {
-                                            // Filter users based on role
-                                            const filteredUsers = users.filter(u => {
-                                                if (role === 'verified_by') {
-                                                    return u.username === 'shalini_arun';
-                                                }
-                                                // For checked_by and approved_by, exclude regular Users
-                                                return u.role !== 'User';
-                                            });
-
-                                            return (
-                                                <div key={role}>
-                                                    <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>{role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
-                                                    <select
-                                                        value={signatories[role]}
-                                                        onChange={(e) => setSignatories({ ...signatories, [role]: e.target.value })}
-                                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
-                                                    >
-                                                        <option value="">Select User...</option>
-                                                        {filteredUsers.map(u => <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>)}
-                                                    </select>
+                                        {/* Checked By - Selectable (Required) */}
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>Checked By <span style={{ color: '#ef4444' }}>*</span></div>
+                                            <select
+                                                value={signatories.checked_by}
+                                                onChange={(e) => setSignatories({ ...signatories, checked_by: e.target.value })}
+                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem' }}
+                                                disabled={hods.length === 0}
+                                            >
+                                                <option value="">{hods.length === 0 ? 'No HOD assigned' : 'Select HOD...'}</option>
+                                                {hods.map(u => (
+                                                    <option key={u._id} value={u._id}>{u.first_name} {u.last_name}</option>
+                                                ))}
+                                            </select>
+                                            {hods.length === 0 && (
+                                                <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '4px' }}>
+                                                    You are not part of any team. Contact your administrator.
                                                 </div>
-                                            );
-                                        })}
+                                            )}
+                                        </div>
+
+                                        {/* Verified By - Static */}
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>Verified By</div>
+                                            <input
+                                                type="text"
+                                                value="SHALINI ARUN"
+                                                disabled
+                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', background: '#f5f5f5', color: '#666' }}
+                                            />
+                                        </div>
+
+                                        {/* Approved By - Static */}
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: '4px', color: '#666' }}>Approved By</div>
+                                            <input
+                                                type="text"
+                                                value="SURAJ RAJAN"
+                                                disabled
+                                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', background: '#f5f5f5', color: '#666' }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -376,6 +613,8 @@ const KPIHome = () => {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     exit={{ opacity: 0, scale: 0.95 }}
                                                     whileHover={{ y: -5, boxShadow: '0 12px 24px rgba(0,0,0,0.1)' }}
+                                                    style={{ position: 'relative' }}
+                                                    title={`Status: ${sheet.status}\n${sheet.summary?.submission_date ? `Submitted: ${new Date(sheet.summary.submission_date).toLocaleDateString()}` : ''}${sheet.approval_history?.find(h => h.action === 'CHECK')?.date ? `\nChecked: ${new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}` : ''}${sheet.approval_history?.find(h => h.action === 'VERIFY')?.date ? `\nVerified: ${new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}` : ''}${sheet.approval_history?.find(h => h.action === 'APPROVE')?.date ? `\nApproved: ${new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}` : ''}`}
                                                 >
                                                     <button
                                                         className="delete-btn-modern"
@@ -384,13 +623,28 @@ const KPIHome = () => {
                                                     >
                                                         <Icons.Delete />
                                                     </button>
-                                                    <div className="card-top" style={{ background: sheet.status === 'APPROVED' ? '#4caf50' : sheet.status === 'SUBMITTED' ? '#ff9800' : '#e0e0e0' }} />
+                                                    <div className="card-top" style={{ background: sheet.status === 'APPROVED' ? '#4caf50' : sheet.status === 'VERIFIED' ? '#0078d4' : sheet.status === 'CHECKED' ? '#17a2b8' : sheet.status === 'SUBMITTED' ? '#ff9800' : '#e0e0e0' }} />
                                                     <div className="card-content">
                                                         <h3>{months[sheet.month - 1]} {sheet.year}</h3>
                                                         <p className="date">{sheet.template_name}</p>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
                                                             <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
                                                             <span style={{ fontSize: '0.8rem', color: '#95a5a6' }}>{sheet.completion_percentage || 0}% Complete</span>
+                                                        </div>
+                                                        {/* Mini Timeline on Card */}
+                                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee', fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                            {sheet.summary?.submission_date && (
+                                                                <div>📤 {new Date(sheet.summary.submission_date).toLocaleDateString()}</div>
+                                                            )}
+                                                            {sheet.approval_history?.find(h => h.action === 'CHECK') && (
+                                                                <div>✓ Checked {new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString()}</div>
+                                                            )}
+                                                            {sheet.approval_history?.find(h => h.action === 'VERIFY') && (
+                                                                <div>✓ Verified {new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString()}</div>
+                                                            )}
+                                                            {sheet.approval_history?.find(h => h.action === 'APPROVE') && (
+                                                                <div>✅ Approved {new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString()}</div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </motion.div>
@@ -457,7 +711,7 @@ const KPIHome = () => {
                     position: 'fixed',
                     top: '80px', right: '20px',
                     padding: '12px 20px', borderRadius: '8px',
-                    background: message.type === 'error' ? '#ef5350' : '#66bb6a',
+                    background: message.type === 'error' ? '#ef5350' : message.type === 'warning' ? '#ffa726' : '#66bb6a',
                     color: 'white', fontWeight: 500,
                     zIndex: 2000, boxShadow: '0 8px 20px rgba(0,0,0,0.15)'
                 }}>

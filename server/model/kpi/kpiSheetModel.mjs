@@ -37,7 +37,7 @@ const KPISheetSchema = new Schema(
             required: true, // "User First Name + Last Name"
         },
         department: {
-            type: [String],
+            type: String,
             required: true,
         },
         year: {
@@ -65,9 +65,19 @@ const KPISheetSchema = new Schema(
             type: Number // Day numbers marked as festival holidays
         }],
 
+        // Half Days (separate from leaves/festivals)
+        half_days: [{
+            type: Number // Day numbers marked as half-day
+        }],
+
+        // Sunday Working (explicitly marked as working)
+        working_sundays: [{
+            type: Number // Day numbers marked as working sunday
+        }],
+
         status: {
             type: String,
-            enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"],
+            enum: ["DRAFT", "SUBMITTED", "CHECKED", "VERIFIED", "APPROVED", "REJECTED"],
             default: "DRAFT",
         },
 

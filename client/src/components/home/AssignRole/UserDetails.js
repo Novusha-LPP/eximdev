@@ -130,7 +130,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
   };
 
   const filterOption = (inputValue, option) =>
-    option.title.toLowerCase().indexOf(inputValue.toLowerCase()) > -1;
+    (option.title || "").toLowerCase().indexOf((inputValue || "").toLowerCase()) > -1;
 
   if (!userData && !loading) return <Empty description="No user details found" />;
 

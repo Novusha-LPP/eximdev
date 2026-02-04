@@ -248,6 +248,12 @@ function useJobColumns(
                   <RefreshIcon fontSize="inherit" />
                 </IconButton>
               </div>
+              {row.obl_telex_bl === "OBL" && (
+                <div style={{ marginTop: 4, color: "red", fontSize: "15px" }}>
+                  Advanced OBL is received <br />
+                  {formatDate(row.document_received_date)}
+                </div>
+              )}
             </div>
           );
         },
@@ -285,9 +291,9 @@ function useJobColumns(
               </Tooltip>
 
               <Tooltip title="FTA Benefit" arrow>
-                <span
-                  style={{ marginTop: "5px" }}
-                >{`FTA Benefit: ${ftaDisplay}`}</span>
+                <div
+                  style={{ marginTop: "5px", fontWeight: "bold" }}
+                >{`FTA Benefit: ${ftaDisplay}`}</div>
               </Tooltip>
               <Tooltip title="Hss" arrow>
                 <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>

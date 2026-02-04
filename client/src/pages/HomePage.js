@@ -104,6 +104,7 @@ import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
 import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
+import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
 
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
@@ -113,8 +114,12 @@ import KPIHome from "../components/kpi/KPIHome.js";
 import KPISheet from "../components/kpi/KPISheet.js";
 import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
 import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
+import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
+
+// HOD Management
+import HodManagement from "../components/home/HodManagement.js";
 
 const drawerWidth = 60;
 
@@ -173,6 +178,18 @@ function HomePage() {
                     </ProtectedRoute>
                   }
                 />
+              {/* HOD Management - For Head of Department users */}
+              <Route path="/hod-management" element={<HodManagement />} />
+
+              {/* Accounts */}
+              <Route
+                path="/accounts"
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <Accounts />
+                  </ProtectedRoute>
+                }
+              />
 
                 {/* Documentation */}
                 <Route
@@ -210,23 +227,31 @@ function HomePage() {
                   }
                 />
 
-                {/* Employee KYC */}
-                <Route
-                  path="/employee-kyc"
-                  element={
-                    <ProtectedRoute requiredModule="Employee KYC">
-                      <EmployeeKYC />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-kyc/:username"
-                  element={
-                    <ProtectedRoute requiredModule="Employee KYC">
-                      <ViewIndividualKyc />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Employee KYC */}
+              <Route
+                path="/employee-kyc"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <EmployeeKYC />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/complete-kyc/:username"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <EmployeeKYC />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-kyc/:username"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <ViewIndividualKyc />
+                  </ProtectedRoute>
+                }
+              />
 
                 {/* Employee Onboarding */}
                 <Route
@@ -686,6 +711,64 @@ function HomePage() {
 
                 <Route path="/release-notes" element={<ReleaseNotes />} />
                 <Route path="/feedback" element={<Feedback />} />
+              <Route
+                path="/open-points/analytics"
+                element={<AnalyticsDashboard />}
+              />
+              <Route
+                path="/open-points/project/:projectId"
+                element={<ProjectWorkspace />}
+              />
+              <Route
+                path="/open-points/my-points"
+                element={<MyOpenPoints />}
+              />
+              <Route
+                path="/open-points/user/:username"
+                element={<MyOpenPoints />}
+              />
+
+              {/* KPI Module */}
+              <Route
+                path="/kpi"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/sheet/:sheetId"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPISheet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/templates"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPITemplateManager />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/admin"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/reviews"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIReviewerDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
                 {/* Analytics */}
 

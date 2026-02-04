@@ -9,8 +9,8 @@
 :root {
     --hr-bg: #f5f7fa;
     --hr-surface: #ffffff;
-    --hr-border: #d1d9e6;
-    --hr-border-light: #e8ecf2;
+    --hr-border: #a0aec0;
+    --hr-border-light: #cbd5e0;
     --hr-text-primary: #1a365d;
     --hr-text-secondary: #4a5568;
     --hr-text-muted: #718096;
@@ -131,12 +131,12 @@
     margin-bottom: 16px;
 
     .hr-section-header {
-        background: var(--hr-bg);
+        background: var(--hr-primary);
         padding: 10px 14px;
         border-bottom: 1px solid var(--hr-border);
         font-size: 0.8rem;
         font-weight: 700;
-        color: var(--hr-text-primary);
+        color: #ffffff;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
@@ -312,6 +312,119 @@
             text-decoration: underline;
         }
     }
+}
+
+// Wrapper for FileUpload component with status display
+.hr-compact-file-upload-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--hr-border);
+    border-radius: var(--hr-radius-sm);
+    background: var(--hr-surface);
+    transition: border-color 0.2s ease;
+
+    &:has(.file-status) {
+        border-color: var(--hr-success);
+        background: var(--hr-success-light);
+    }
+
+    .file-status {
+        font-size: 0.75rem;
+        color: var(--hr-success);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        a {
+            color: var(--hr-primary);
+            text-decoration: underline;
+            font-weight: 500;
+
+            &:hover {
+                color: var(--hr-primary-dark);
+            }
+        }
+    }
+}
+
+// ============================================
+// Document Uploads Section - Clean Table-like Layout
+// ============================================
+.hr-document-uploads {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.hr-upload-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--hr-bg);
+    border: 1px solid var(--hr-border-light);
+    border-radius: var(--hr-radius-sm);
+    transition: all 0.2s ease;
+
+    &:has(.hr-upload-actions) {
+        background: var(--hr-success-light);
+        border-color: var(--hr-success);
+    }
+}
+
+.hr-upload-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--hr-text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.hr-upload-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    > div {
+        margin-top: 0 !important;
+    }
+}
+
+.hr-upload-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.hr-view-link {
+    font-size: 0.75rem;
+    color: var(--hr-primary);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 4px 8px;
+    background: var(--hr-primary-light);
+    border-radius: 3px;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: var(--hr-primary);
+        color: white;
+    }
+}
+
+.hr-upload-error {
+    font-size: 0.7rem;
+    color: var(--hr-error);
+    display: block;
 }
 
 // ============================================
@@ -694,9 +807,7 @@
     @extend .hr-btn-row;
 }
 
-.hr-animate-in {
-    /* remove animation */
-}
+
 
 .hr-employee-info {
     @extend .hr-compact-employee-header;
@@ -772,5 +883,74 @@
         margin-top: 6px;
         padding: 4px 8px;
         font-size: 0.75rem;
+    }
+}
+
+// ============================================
+// Excel-like Table Styling (2024 Look)
+// ============================================
+.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.85rem;
+    color: var(--hr-text-primary);
+
+    thead {
+        background: #f0fdf4; // Very light green tint
+        border-bottom: 2px solid #2d6a4f; // Excel Green border
+
+        tr {
+            th {
+                padding: 10px 12px;
+                text-align: left;
+                font-weight: 700;
+                color: #1b4332; // Dark green text
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+                border-right: 1px solid #e2e8f0;
+
+                &:last-child {
+                    border-right: none;
+                }
+            }
+        }
+    }
+
+    tbody {
+        tr {
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.1s ease;
+
+            &:hover {
+                background: #f7fafc;
+            }
+
+            td {
+                padding: 10px 12px;
+                vertical-align: middle;
+                border-right: 1px solid #edf2f7;
+
+                &:last-child {
+                    border-right: none;
+                }
+            }
+        }
+    }
+
+    .view-link {
+        color: var(--hr-primary);
+        font-weight: 600;
+        text-decoration: none;
+        font-size: 0.8rem;
+        padding: 4px 10px;
+        border-radius: 4px;
+        background: var(--hr-primary-light);
+
+        &:hover {
+            background: var(--hr-primary);
+            color: white;
+        }
     }
 }

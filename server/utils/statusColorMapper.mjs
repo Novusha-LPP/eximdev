@@ -27,6 +27,8 @@ export const getRowColorFromStatus = (detailed_status) => {
       return "eta";
     case "ETA Date Pending":
       return "eta-date-pending";
+    case "Do completed and Delivery pending":
+      return "do-completed-delivery-pending";
     default:
       return "";
   }

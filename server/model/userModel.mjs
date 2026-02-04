@@ -216,6 +216,30 @@ const userSchema = new Schema({
     type: String,
     default: "AHMEDABAD HO",
   },
+  children_details: [
+    {
+      gender: String,
+      age_group: String,
+    },
+  ],
+  insurance_not_applicable: {
+    type: Boolean,
+    default: false,
+  },
+  pf_not_applicable: {
+    type: Boolean,
+    default: false,
+  },
+  esic_not_applicable: {
+    type: Boolean,
+    default: false,
+  },
+  selected_icd_codes: [
+    {
+      type: String,
+      trim: true,
+    },
+  ],
 });
 
 const UserModel = createDynamicModel("User", userSchema, "AHMEDABAD HO");

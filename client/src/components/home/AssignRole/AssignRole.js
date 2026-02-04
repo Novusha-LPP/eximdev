@@ -32,6 +32,7 @@ function AssignRole({ selectedUser }) {
   // Role options
   const roles = [
     "Admin",
+    "Head_of_Department",
     "Sr_Manager",
     "Manager",
     "Asst_Manager",
@@ -155,7 +156,7 @@ function AssignRole({ selectedUser }) {
             <Select placeholder="Select Role">
               {roles.map((r) => (
                 <Option key={r} value={r}>
-                  {r.replace("_", ". ")}
+                  {/* {r.replace("_", ". ")} */}
                 </Option>
               ))}
             </Select>

@@ -52,15 +52,16 @@ const invalidateCache = (year = null) => {
 
 const statusRank = {
   "Billing Pending": { rank: 1, field: "emptyContainerOffLoadDate" },
-  "Custom Clearance Completed": { rank: 2, field: "detention_from" },
-  "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
-  "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
-  "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
-  "Arrived, BE Note Pending": { rank: 6, field: "be_date" },
-  "Rail Out": { rank: 7, field: "rail_out" },
-  Discharged: { rank: 8, field: "discharge_date" },
-  "Gateway IGM Filed": { rank: 9, field: "gateway_igm_date" },
-  "Estimated Time of Arrival": { rank: 10, field: "vessel_berthing" },
+  "Do completed and Delivery pending": { rank: 2, field: "do_completed" },
+  "Custom Clearance Completed": { rank: 3, field: "detention_from" },
+  "PCV Done, Duty Payment Pending": { rank: 4, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 5, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 6, field: "be_date" },
+  "Arrived, BE Note Pending": { rank: 7, field: "be_date" },
+  "Rail Out": { rank: 8, field: "rail_out" },
+  Discharged: { rank: 9, field: "discharge_date" },
+  "Gateway IGM Filed": { rank: 10, field: "gateway_igm_date" },
+  "Estimated Time of Arrival": { rank: 11, field: "vessel_berthing" },
 };
 
 const FAR_FUTURE_DATE = new Date("9999-12-31T23:59:59.999Z");
@@ -147,7 +148,7 @@ const criticalFields = `
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount
   gross_weight job_net_weight payment_method
-  shipping_line_invoice_imgs
+  shipping_line_invoice_imgs obl_telex_bl document_received_date
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img
 `;
 
@@ -279,6 +280,15 @@ router.get(
         };
       }
 
+      // 3.5) Type of BE
+      const { typeOfBe } = req.query;
+      if (typeOfBe && typeOfBe.toLowerCase() !== "all") {
+        query.type_of_b_e = {
+          $regex: `^${escapeRegex(typeOfBe)}$`,
+          $options: "i",
+        };
+      }
+
       // 4) status
       const statusLower = status.toLowerCase();
 
@@ -371,6 +381,7 @@ router.get(
         detailedStatus,
         selectedICD,
         importer,
+        typeOfBe,
         search: searchTerm,
         page,
         limit,
@@ -428,12 +439,21 @@ router.get(
             validDischarge: buildValidDateExpression("$discharge_date"),
             validGateway: buildValidDateExpression("$gateway_igm_date"),
             validVessel: buildValidDateExpression("$vessel_berthing"),
+            validDoCompleted: buildValidDateExpression("$do_completed"),
             isExBond: {
               $eq: [
                 {
                   $toLower: { $ifNull: ["$type_of_b_e", ""] },
                 },
                 "ex-bond",
+              ],
+            },
+            isInBond: {
+              $eq: [
+                {
+                  $toLower: { $ifNull: ["$type_of_b_e", ""] },
+                },
+                "in-bond",
               ],
             },
             isLcl: {
@@ -472,6 +492,16 @@ router.get(
                     },
                     {
                       case: {
+                        $and: [
+                          "$$validDoCompleted",
+                          "$$validOutOfCharge",
+                          { $eq: ["$$allDelivery", false] },
+                        ],
+                      },
+                      then: "Do completed and Delivery pending",
+                    },
+                    {
+                      case: {
                         $and: ["$$bePresent", "$$validOutOfCharge"],
                       },
                       then: "Custom Clearance Completed",
@@ -487,15 +517,29 @@ router.get(
                 },
               },
               {
-                // Non Ex-bond
+                // Non Ex-bond (Home + In-Bond etc)
                 $let: {
                   vars: {
-                    deliveryOrOffloadSatisfied: {
+                    billingComplete: {
                       $cond: [
-                        { $or: ["$$isExBond", "$$isLcl", "$$isTypeDoIcd"] },
-                        "$$allDelivery",
-                        "$$allEmptyOffload",
-                      ],
+                        "$$isInBond",
+                        // In-Bond Logic
+                        {
+                          $cond: [
+                            "$$isTypeDoIcd",
+                            "$$allEmptyOffload", // In-Bond ICD: wait for EmptyOff
+                            { $and: ["$$allEmptyOffload", "$$allDelivery"] } // In-Bond Factory: wait for EmptyOff AND Delivery
+                          ]
+                        },
+                        // Standard Logic (Home Consumption etc)
+                        {
+                          $cond: [
+                            { $or: ["$$isLcl", "$$isTypeDoIcd"] },
+                            "$$allDelivery", // LCL/ICD: wait for Delivery
+                            "$$allEmptyOffload" // Container: wait for EmptyOff
+                          ]
+                        }
+                      ]
                     },
                   },
                   in: {
@@ -507,10 +551,20 @@ router.get(
                               "$$bePresent",
                               "$$anyArrival",
                               "$$validOutOfCharge",
-                              "$$deliveryOrOffloadSatisfied",
+                              "$$billingComplete",
                             ],
                           },
                           then: "Billing Pending",
+                        },
+                        {
+                          case: {
+                            $and: [
+                              "$$validDoCompleted",
+                              "$$validOutOfCharge",
+                              { $eq: ["$$allDelivery", false] },
+                            ],
+                          },
+                          then: "Do completed and Delivery pending",
                         },
                         {
                           case: {

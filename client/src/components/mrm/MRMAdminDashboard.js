@@ -14,8 +14,8 @@ const MRMAdminDashboard = () => {
     const [dashboardData, setDashboardData] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Only suraj_rajan and shallini_arun can access
-    const isAuthorized = ['suraj_rajan', 'shallini_arun'].includes(user?.username);
+    // Admin access based on role
+    const isAuthorized = user?.role === 'Admin';
 
     useEffect(() => {
         if (isAuthorized) {
@@ -32,16 +32,64 @@ const MRMAdminDashboard = () => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        'username': user?.username || ''
+                        'username': user?.username || '',
+                        'user-role': user?.role || '',
+                        'user-id': user?._id || ''
                     }
                 }
             );
             const data = await response.json();
+
+            // Handle error responses
+            if (data.error || !Array.isArray(data)) {
+                console.error('Dashboard API error:', data.error);
+                setDashboardData([]);
+                return;
+            }
+
             setDashboardData(data);
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
+            setDashboardData([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleToggleMeeting = async (userId, currentStatus) => {
+        try {
+            const newStatus = !currentStatus;
+
+            // Optimistic update
+            setDashboardData(prev => prev.map(row =>
+                row.userId === userId ? { ...row, meetingDone: newStatus } : row
+            ));
+
+            const monthStr = String(selectedMonth).padStart(2, '0');
+            const response = await fetch(`${API_URL}/mrm/metadata/toggle-meeting`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'username': user?.username || '',
+                    'user-role': user?.role || '',
+                    'user-id': user?._id || ''
+                },
+                body: JSON.stringify({
+                    month: monthStr,
+                    year: selectedYear,
+                    userId: userId,
+                    meetingDone: newStatus
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update status');
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Failed to update status");
+            // Revert on error
+            loadDashboardData();
         }
     };
 
@@ -116,7 +164,7 @@ const MRMAdminDashboard = () => {
                                 <th style={{ width: '150px' }}>Meeting Date</th>
                                 <th style={{ width: '100px' }}>Items Count</th>
                                 <th style={{ width: '150px' }}>Status Summary</th>
-                                <th style={{ width: '100px' }}>Action</th>
+                                <th style={{ width: '130px' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -193,10 +241,27 @@ const MRMAdminDashboard = () => {
                                                     padding: '6px 12px',
                                                     borderRadius: '4px',
                                                     cursor: 'pointer',
-                                                    fontSize: '0.8rem'
+                                                    fontSize: '0.8rem',
+                                                    marginRight: '8px'
                                                 }}
                                             >
                                                 View
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleMeeting(row.userId, row.meetingDone)}
+                                                title={row.meetingDone ? "Mark as Not Done" : "Mark as Done"}
+                                                style={{
+                                                    background: row.meetingDone ? '#166534' : '#e2e8f0',
+                                                    color: row.meetingDone ? 'white' : '#64748b',
+                                                    border: 'none',
+                                                    padding: '6px 10px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem',
+                                                    border: row.meetingDone ? 'none' : '1px solid #cbd5e1'
+                                                }}
+                                            >
+                                                {row.meetingDone ? '✓' : '○'}
                                             </button>
                                         </td>
                                     </tr>

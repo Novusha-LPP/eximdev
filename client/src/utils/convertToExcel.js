@@ -302,6 +302,8 @@ export const convertToExcel = async (
         bgColor = "ff99ccff"; // Light Purple
       } else if (detailedStatus === "BE Noted, Clearance Pending") {
         bgColor = "ff99ccff"; // Light Purple
+      } else if (detailedStatus === "Do completed and Delivery pending") {
+        bgColor = "fff3e8ff"; // Light Purple
       } else if (detailedStatus === "Gateway IGM Filed") {
         bgColor = "ffffcc99"; // Light Orange
       }
@@ -421,6 +423,12 @@ export const convertToExcel = async (
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: "ff99ccff" },
+      };
+    } else if (detailedStatus === "Do completed and Delivery pending") {
+      dataRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "ffccffcc" }, // Light Green
       };
     } else if (detailedStatus === "Gateway IGM Filed") {
       dataRow.fill = {

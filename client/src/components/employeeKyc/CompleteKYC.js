@@ -364,7 +364,7 @@ function CompleteKYC() {
                     </TextField>
                   </Field>
                   <Field label="Employment Type">
-                    <TextField select size="small" variant="filled" fullWidth name="employment_type" value={formik.values.employment_type} onChange={formik.handleChange} error={formik.touched.employment_type && Boolean(formik.errors.employment_type)} helperText={formik.touched.employment_type && formik.errors.employment_type} className="hr-quick-input" disabled={!isEditMode || user?.role !== "Admin"}>
+                    <TextField select size="small" variant="filled" fullWidth name="employment_type" value={formik.values.employment_type} onChange={formik.handleChange} error={formik.touched.employment_type && Boolean(formik.errors.employment_type)} helperText={formik.touched.employment_type && formik.errors.employment_type} className="hr-quick-input" disabled={!isEditMode}>
                       <MenuItem value="">Select Type</MenuItem>
                       <MenuItem value="Internship">Internship</MenuItem>
                       <MenuItem value="Probation">Probation</MenuItem>

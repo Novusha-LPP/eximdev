@@ -288,8 +288,7 @@ function CompleteKYC() {
     if (isNotApplicable) {
       // Clear insurance related fields when not applicable
       formik.setFieldValue("insurance_status", []);
-      formik.setFieldValue("pf_no", "");
-      formik.setFieldValue("esic_no", "");
+      // PF and ESIC are now independent of insurance status
     }
   };
 
@@ -350,7 +349,7 @@ function CompleteKYC() {
                 </Field>
                 <div style={{ display: 'contents' }}>
                   <Field label="Company">
-                    <TextField select size="small" variant="filled" fullWidth name="company" value={formik.values.company} onChange={formik.handleChange} error={formik.touched.company && Boolean(formik.errors.company)} helperText={formik.touched.company && formik.errors.company} className="hr-quick-input" disabled={!isEditMode || user?.role !== "Admin"}>
+                    <TextField select size="small" variant="filled" fullWidth name="company" value={formik.values.company} onChange={formik.handleChange} error={formik.touched.company && Boolean(formik.errors.company)} helperText={formik.touched.company && formik.errors.company} className="hr-quick-input" disabled={!isEditMode}>
                       <MenuItem value="">Select Company</MenuItem>
                       <MenuItem value="Suraj Forwarders Private Limited">Suraj Forwarders Private Limited</MenuItem>
                       <MenuItem value="Suraj Forwarders & Shipping Agencies">Suraj Forwarders & Shipping Agencies</MenuItem>
@@ -690,7 +689,7 @@ function CompleteKYC() {
                   <div style={{ color: '#d32f2f', fontSize: '0.75rem', marginTop: '3px' }}>{formik.errors.insurance_status}</div>
                 )}
               </div>
-              <div className="hr-compact-grid cols-2" style={{ marginTop: '12px', opacity: formik.values.insurance_not_applicable ? 0.5 : 1 }}>
+              <div className="hr-compact-grid cols-2" style={{ marginTop: '12px' }}>
 
                 <Field label={
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -704,7 +703,7 @@ function CompleteKYC() {
                             formik.setFieldValue("pf_not_applicable", e.target.checked);
                             if (e.target.checked) formik.setFieldValue("pf_no", "");
                           }}
-                          disabled={!isEditMode || formik.values.insurance_not_applicable}
+                          disabled={!isEditMode}
                           style={{ padding: '0 4px' }}
                         />
                       } 
@@ -723,7 +722,7 @@ function CompleteKYC() {
                     error={formik.touched.pf_no && Boolean(formik.errors.pf_no)} 
                     helperText={formik.touched.pf_no && formik.errors.pf_no} 
                     className="hr-quick-input"
-                    disabled={!isEditMode || formik.values.insurance_not_applicable || formik.values.pf_not_applicable}
+                    disabled={!isEditMode || formik.values.pf_not_applicable}
                     placeholder={formik.values.pf_not_applicable ? "Not Applicable" : ""}
                   />
                 </Field>
@@ -739,7 +738,7 @@ function CompleteKYC() {
                             formik.setFieldValue("esic_not_applicable", e.target.checked);
                             if (e.target.checked) formik.setFieldValue("esic_no", "");
                           }}
-                          disabled={!isEditMode || formik.values.insurance_not_applicable}
+                          disabled={!isEditMode}
                           style={{ padding: '0 4px' }}
                         />
                       } 
@@ -758,7 +757,7 @@ function CompleteKYC() {
                     error={formik.touched.esic_no && Boolean(formik.errors.esic_no)} 
                     helperText={formik.touched.esic_no && formik.errors.esic_no} 
                     className="hr-quick-input"
-                    disabled={!isEditMode || formik.values.insurance_not_applicable || formik.values.esic_not_applicable}
+                    disabled={!isEditMode || formik.values.esic_not_applicable}
                     placeholder={formik.values.esic_not_applicable ? "Not Applicable" : ""}
                   />
                 </Field>

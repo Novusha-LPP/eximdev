@@ -10,24 +10,24 @@ function useFetchOperationTeamJob(params) {
   const location = useLocation();
   const { setCurrentTab, currentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
-  
+
   // Store search parameters from location state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
-  
+
   useEffect(() => {
     if (location.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        selectedJobId, 
-        currentTab, 
-        selectedICD, 
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        selectedICD,
         selectedYearState,        detailedStatusExPlan,
         currentPage,
         tab_number
       } = location.state;
-      
-       setStoredSearchParams({
+
+      setStoredSearchParams({
         searchQuery,
         selectedImporter,
         selectedJobId,
@@ -70,7 +70,7 @@ function useFetchOperationTeamJob(params) {
       out_of_charge: "",
       custodian_gate_pass: [],
       concor_invoice_and_receipt_copy: [],
-                  dsr_queries: [],
+      dsr_queries: [],
     },
 
     onSubmit: async (values) => {
@@ -83,7 +83,7 @@ function useFetchOperationTeamJob(params) {
               (dbContainer) => dbContainer.container_number === container.container_number
             )
           );
-          
+
           if (!hasValidContainers && data.container_nos?.length > 0) {
             // Data mismatch: submitted containers don't match current job's containers
             console.error('SECURITY ALERT: Container data mismatch detected!', {
@@ -102,8 +102,8 @@ function useFetchOperationTeamJob(params) {
         const username = user?.username || localStorage.getItem('username') || 'unknown';
         const userId = user?._id || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
-        
-        
+
+
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
           values,
@@ -115,21 +115,21 @@ function useFetchOperationTeamJob(params) {
             }
           }
         );
-        
-        
+
+
         // Determine which tab to navigate to
-        const tabIndex = storedSearchParams?.currentTab ?? 2  ;
-        
+        const tabIndex = storedSearchParams?.currentTab ?? 2;
+
         // Set the current tab in context
         setCurrentTab(tabIndex);
-        
+
         // Navigate back with all the stored search parameters
-            // Close the tab after successful submit
+        // Close the tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
 
-        
+
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -150,8 +150,19 @@ function useFetchOperationTeamJob(params) {
         post_weighment: container.post_weighment || "",
         physical_weight: container.physical_weight || "",
         tare_weight: container.tare_weight || "",
-        actual_weight: container.actual_weight || "",
-        weight_shortage: container.weight_shortage || "",
+        actual_weight:
+          container.physical_weight && container.tare_weight
+            ? parseFloat(container.physical_weight) -
+            parseFloat(container.tare_weight)
+            : container.actual_weight || "",
+        weight_shortage:
+          container.physical_weight && container.tare_weight
+            ? (
+              parseFloat(container.physical_weight) -
+              parseFloat(container.tare_weight) -
+              (parseFloat(container.container_gross_weight) || 0)
+            ).toFixed(2)
+            : container.weight_shortage || "",
         weight_excess: container.weight_excess || "",
         weighment_slip_images: container.weighment_slip_images || [],
         container_pre_damage_images: container.container_pre_damage_images || [],
@@ -187,14 +198,14 @@ function useFetchOperationTeamJob(params) {
         completed_operation_date: data.completed_operation_date || "",
         out_of_charge: data.out_of_charge || "",
         custodian_gate_pass: data.custodian_gate_pass || [],
-         dsr_queries: data.dsr_queries || [],
+        dsr_queries: data.dsr_queries || [],
         concor_invoice_and_receipt_copy:
           data.concor_invoice_and_receipt_copy || [],
       });
     }
   }, [data]); // When data changes, formik values are updated
 
-  return { data, formik, setData};
+  return { data, formik, setData };
 }
 
 export default useFetchOperationTeamJob;

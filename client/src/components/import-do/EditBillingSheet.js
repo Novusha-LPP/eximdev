@@ -460,7 +460,15 @@ function EditBillingSheet() {
                               formik.values.hasti_invoices &&
                               formik.values.hasti_invoices.length > 0;
 
-                            if (!hasThar || !hasHasti) {
+                            const isMSC =
+                              data?.shipping_line_airline === "Maersk Line";
+
+                            // If MSC, bypass Thar invoice condition
+                            const isConditionMet = isMSC
+                              ? hasHasti
+                              : hasThar && hasHasti;
+
+                            if (!isConditionMet) {
                               if (user?.role === "Admin") {
                                 setOpenAdminConfirm(true);
                               } else {
@@ -546,7 +554,9 @@ function EditBillingSheet() {
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            For ICD SANAND, please upload at least one Thar Invoice and one Hasti Invoice before sending to accounts.
+            {data?.shipping_line_airline === "Maersk Line"
+              ? "For ICD SANAND (Maersk Line), please upload at least one Hasti Invoice before sending to accounts."
+              : "For ICD SANAND, please upload at least one Thar Invoice and one Hasti Invoice before sending to accounts."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -568,7 +578,10 @@ function EditBillingSheet() {
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="admin-confirm-dialog-description">
-            For ICD SANAND, Thar Invoice and Hasti Invoice are missing. As an Admin, you can proceed anyway.
+            {data?.shipping_line_airline === "Maersk Line"
+              ? "For ICD SANAND (Maersk Line), Hasti Invoice is missing."
+              : "For ICD SANAND, Thar Invoice and Hasti Invoice are missing."}{" "}
+            As an Admin, you can proceed anyway.
             <br />
             <strong>Do you want to send the job to the billing team?</strong>
           </DialogContentText>

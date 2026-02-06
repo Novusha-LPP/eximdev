@@ -150,7 +150,7 @@ const ImportCreateJob = () => {
     ie_code_no,
     setIeCodeNo
   } = useImportJobForm();
-  
+
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
@@ -398,17 +398,17 @@ const ImportCreateJob = () => {
         <Grid item xs={12} md={6}></Grid>
 
         <Grid item xs={12} md={6}>
-    <Typography variant="body1" style={{ fontWeight: 600 }}>
-      Bank Name:
-    </Typography>
-    <TextField
-      value={bankName}
-      onChange={(e) => setBankName(e.target.value)}
-      variant="outlined"
-      size="small"
-      fullWidth
-    />
-  </Grid>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Bank Name:
+          </Typography>
+          <TextField
+            value={bankName}
+            onChange={(e) => setBankName(e.target.value)}
+            variant="outlined"
+            size="small"
+            fullWidth
+          />
+        </Grid>
         {/* <Grid item xs={12} md={4}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
            bank:
@@ -541,58 +541,58 @@ const ImportCreateJob = () => {
         </Grid>
         {/* BL Number */}
 
-{/* FCL/LCL Selector */}
-<Grid item xs={12} md={6}>
-  <Typography variant="body1" style={{ fontWeight: 600 }}>
-     House:
-  </Typography>
-  <FormControlLabel
-    control={
-      <Checkbox
-        checked={isCheckedHouse}
-        onChange={(e) => setIsCheckedHouse(e.target.checked)}
-        color="primary"
-      />
-    }
-    label="House"
-  />
-</Grid>
+        {/* FCL/LCL Selector */}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            House:
+          </Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isCheckedHouse}
+                onChange={(e) => setIsCheckedHouse(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="House"
+          />
+        </Grid>
 
-{/* Conditionally render HAWB/HBL fields when checkbox is true */}
-{isCheckedHouse && (
-  <>
-    <Grid item xs={12} md={6}>
-      <Typography variant="body1" style={{ fontWeight: 600 }}>
-        HAWB/HBL No:
-      </Typography>
-      <TextField
-        value={hawb_hbl_no}
-        onChange={(e) => setHawb_hbl_no(e.target.value)}
-        variant="outlined"
-        size="small"
-        fullWidth
-        placeholder="Enter HAWB/HBL Number"
-      />
-    </Grid>
+        {/* Conditionally render HAWB/HBL fields when checkbox is true */}
+        {isCheckedHouse && (
+          <>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body1" style={{ fontWeight: 600 }}>
+                HAWB/HBL No:
+              </Typography>
+              <TextField
+                value={hawb_hbl_no}
+                onChange={(e) => setHawb_hbl_no(e.target.value)}
+                variant="outlined"
+                size="small"
+                fullWidth
+                placeholder="Enter HAWB/HBL Number"
+              />
+            </Grid>
 
-    <Grid item xs={12} md={6}>
-      <Typography variant="body1" style={{ fontWeight: 600 }}>
-        HAWB/HBL Date:
-      </Typography>
-      <TextField
-        type="date"
-        value={hawb_hbl_date}
-        onChange={(e) => setHawb_hbl_date(e.target.value)}
-        variant="outlined"
-        size="small"
-        fullWidth
-        InputLabelProps={{ shrink: true }}
-      />
-    </Grid>
-  </>
-)}
+            <Grid item xs={12} md={6}>
+              <Typography variant="body1" style={{ fontWeight: 600 }}>
+                HAWB/HBL Date:
+              </Typography>
+              <TextField
+                type="date"
+                value={hawb_hbl_date}
+                onChange={(e) => setHawb_hbl_date(e.target.value)}
+                variant="outlined"
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </>
+        )}
 
-            
+
         <Grid item xs={12} md={3}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Gross Weight:
@@ -624,7 +624,7 @@ const ImportCreateJob = () => {
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Loading Port:
           </Typography>
-         <Autocomplete
+          <Autocomplete
             freeSolo
             options={portOfLoadingOptions}
             value={loading_port}
@@ -813,27 +813,27 @@ const ImportCreateJob = () => {
 
         {/* HSS */}
         <Grid item xs={12} md={6}>
-  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-    HSS:
-  </Typography>
-  <TextField
-    select // This is the key missing part!
-    variant="outlined"
-    size="small"
-    value={HSS}
-    id="hss"
-    name="hss"
-    onChange={(e) => setHSS(e.target.value)}
-    helperText="Start typing to see suggestions"
-    fullWidth
-  >
-    {hssOptions.map((option) => (
-      <MenuItem key={option} value={option}>
-        {option}
-      </MenuItem>
-    ))}
-  </TextField>
-</Grid>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            HSS:
+          </Typography>
+          <TextField
+            select // This is the key missing part!
+            variant="outlined"
+            size="small"
+            value={HSS}
+            id="hss"
+            name="hss"
+            onChange={(e) => setHSS(e.target.value)}
+            helperText="Start typing to see suggestions"
+            fullWidth
+          >
+            {hssOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
 
 
         {/* conditionallyy render this saller name */}
@@ -1110,11 +1110,11 @@ const ImportCreateJob = () => {
             <Typography variant="body2" style={{ marginTop: "8px" }}>
               {fta_Benefit_date_time
                 ? `Benefit enabled on ${new Date(
-                    fta_Benefit_date_time
-                  ).toLocaleString("en-US", {
-                    timeZone: "Asia/Kolkata",
-                    hour12: true,
-                  })}`
+                  fta_Benefit_date_time
+                ).toLocaleString("en-US", {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })}`
                 : "Benefit not enabled"}
             </Typography>
           </Grid>
@@ -1138,7 +1138,7 @@ const ImportCreateJob = () => {
                 style={{ marginTop: "10px" }}
               >
                 {/* Container Number */}
-                <Grid item xs={5}>
+                <Grid item xs={2}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1156,7 +1156,7 @@ const ImportCreateJob = () => {
                 </Grid>
 
                 {/* Container Size */}
-                <Grid item xs={5}>
+                <Grid item xs={2}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1165,6 +1165,56 @@ const ImportCreateJob = () => {
                     value={container.size}
                     onChange={(e) =>
                       handleContainerChange(index, "size", e.target.value)
+                    }
+                  />
+                </Grid>
+
+                {/* Seal No */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Seal No"
+                    value={container.seal_no}
+                    onChange={(e) =>
+                      handleContainerChange(index, "seal_no", e.target.value)
+                    }
+                  />
+                </Grid>
+
+                {/* Gross Wt */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Gross Wt"
+                    value={container.container_gross_weight}
+                    onChange={(e) =>
+                      handleContainerChange(
+                        index,
+                        "container_gross_weight",
+                        e.target.value
+                      )
+                    }
+                  />
+                </Grid>
+
+                {/* Net Wt */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Net Wt"
+                    value={container.net_weight_as_per_PL_document}
+                    onChange={(e) =>
+                      handleContainerChange(
+                        index,
+                        "net_weight_as_per_PL_document",
+                        e.target.value
+                      )
                     }
                   />
                 </Grid>

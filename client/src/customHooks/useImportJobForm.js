@@ -66,7 +66,13 @@ const useImportJobForm = () => {
   const [isDraftDoc, setIsDraftDoc] = useState(false);
 
   const [container_nos, setContainerNos] = useState([
-    { container_number: "", size: "" },
+    {
+      container_number: "",
+      size: "",
+      seal_no: "",
+      container_gross_weight: "",
+      net_weight_as_per_PL_document: "",
+    },
   ]);
 
   const [fta_Benefit_date_time, setFtaBenefitDateTime] = useState("");
@@ -113,22 +119,22 @@ const useImportJobForm = () => {
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
-   const [HSS, setHSS] = useState("");
+  const [HSS, setHSS] = useState("");
   const [sallerName, setSallerName] = useState("");
   const [bankName, setBankName] = useState("")
   const [ie_code_no, setIeCodeNo] = useState("");
 
-useEffect(() => {
-  if (importer) {
-    const formattedImporter = importer
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^\w]+/g, "")
-      .replace(/_+/g, "_")
-      .replace(/^_|_$/g, "");
-    setImporterURL(formattedImporter);
-  }
-}, [importer]);
+  useEffect(() => {
+    if (importer) {
+      const formattedImporter = importer
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^\w]+/g, "")
+        .replace(/_+/g, "_")
+        .replace(/^_|_$/g, "");
+      setImporterURL(formattedImporter);
+    }
+  }, [importer]);
 
   // Fetch job numbers dynamically
   // Fetch job details dynamically
@@ -174,7 +180,15 @@ useEffect(() => {
     setDescription("");
     setConsignmentType("");
     setIsDraftDoc(false);
-    setContainerNos([{ container_number: "", size: "" }]);
+    setContainerNos([
+      {
+        container_number: "",
+        size: "",
+        seal_no: "",
+        container_gross_weight: "",
+        net_weight_as_per_PL_document: "",
+      },
+    ]);
     setFtaBenefitDateTime("");
     setExBondValue("");
     setCthDocuments([
@@ -283,27 +297,27 @@ useEffect(() => {
           payload,
           { headers }
         );
-      
+
         // Show success alert
         alert(
           `✅ Job successfully created! \nJob No: ${response.data.job?.job_no}`
         );
-      
+
         // Reset the form after successful submission
         resetForm();
         formik.resetForm();
       } catch (error) {
         console.log("❌ Error creating job:", error);
-      
+
         let errorMessage = "Failed to create job. Please try again.";
-      
+
         if (error.response) {
           // Extract error message from API response
           errorMessage = error.response.data?.message || `Error: ${error.response.status}`;
         } else if (error.message) {
           errorMessage = error.message;
         }
-      
+
         alert(`❌ ${errorMessage}`); // Show alert with the exact error message
       }
     },
@@ -329,7 +343,16 @@ useEffect(() => {
 
   // Container handlers
   const handleAddContainer = () => {
-    setContainerNos([...container_nos, { container_number: "", size: "" }]);
+    setContainerNos([
+      ...container_nos,
+      {
+        container_number: "",
+        size: "",
+        seal_no: "",
+        container_gross_weight: "",
+        net_weight_as_per_PL_document: "",
+      },
+    ]);
   };
 
   const handleRemoveContainer = (index) => {

@@ -700,31 +700,28 @@ function useFetchJobDetails(
         do_validity_upto_container_level: safeValue(container.do_validity_upto_container_level),
         do_revalidation_upto_container_level: safeValue(container.do_revalidation_upto_container_level),
         tare_weight: safeValue(container.tare_weight),
-        actual_weight: safeValue(container.actual_weight),
+        actual_weight:
+          container.physical_weight && container.tare_weight
+            ? (parseFloat(container.physical_weight) - parseFloat(container.tare_weight)).toFixed(2)
+            : safeValue(container.actual_weight),
         net_weight: safeValue(container.net_weight),
         container_gross_weight: safeValue(container.container_gross_weight),
         weight_shortage:
-          safeValue(container.physical_weight) &&
-            safeValue(container.container_gross_weight) &&
-            safeValue(container.actual_weight) &&
-            safeValue(container.tare_weight) &&
-            container.physical_weight !== "0" &&
-            container.container_gross_weight !== "0" &&
-            container.actual_weight !== "0" &&
-            container.tare_weight !== "0"
-            ? safeValue(container.weight_shortage)
-            : "",
+          container.physical_weight && container.tare_weight
+            ? (
+              parseFloat(container.physical_weight) -
+              parseFloat(container.tare_weight) -
+              (parseFloat(container.container_gross_weight) || 0)
+            ).toFixed(2)
+            : safeValue(container.weight_shortage),
         weight_excess:
-          safeValue(container.physical_weight) &&
-            safeValue(container.container_gross_weight) &&
-            safeValue(container.actual_weight) &&
-            safeValue(container.tare_weight) &&
-            container.physical_weight !== "0" &&
-            container.container_gross_weight !== "0" &&
-            container.actual_weight !== "0" &&
-            container.tare_weight !== "0"
-            ? safeValue(container.weight_excess)
-            : "",
+          container.physical_weight && container.tare_weight
+            ? (
+              parseFloat(container.physical_weight) -
+              parseFloat(container.tare_weight) -
+              (parseFloat(container.container_gross_weight) || 0)
+            ).toFixed(2)
+            : safeValue(container.weight_excess),
         transporter: safeValue(container.transporter),
       }));
 

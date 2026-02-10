@@ -392,12 +392,12 @@ function useJobColumns(
             }
           };
 
-          // Helper function to get shortage text for tooltip
+          // Helper function to get shortage/excess text for tooltip
           const getShortageText = (shortage) => {
             if (shortage < 0) {
-              return `Shortage: -${Math.abs(shortage).toFixed(2)} kg`;
+              return `Shortage: ${Math.abs(shortage).toFixed(2)} kg`;
             } else if (shortage > 0) {
-              return `Excess: +${Math.abs(shortage).toFixed(2)} kg`;
+              return `Excess: +${shortage.toFixed(2)} kg`;
             } else {
               return "No shortage/excess";
             }
@@ -413,7 +413,11 @@ function useJobColumns(
 
                 return (
                   <div key={id} style={{ marginBottom: "4px" }}>
-                    <Tooltip title={tooltipText} arrow placement="top">
+                    <Tooltip
+                      title={tooltipText}
+                      arrow
+                      placement="top"
+                    >
                       <a
                         href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
                         target="_blank"

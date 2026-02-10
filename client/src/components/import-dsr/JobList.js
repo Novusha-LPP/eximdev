@@ -183,8 +183,10 @@ function JobList(props) {
   useEffect(() => {
     const t = setTimeout(() => {
       const s = String(searchQuery || "").trim();
-      const looksLikeJob = /^\d{2,}/.test(s);
-      setDebouncedSearchQuery(looksLikeJob ? extractJobNo(s) : s);
+      // Only extract if it looks like a formatted label with a separator (hyphen/em-dash)
+      // This prevents corruption of BL numbers that start with digits but have letters (e.g. 100GX...)
+      const looksLikeFormattedJob = /^\d+.*[-—]/.test(s);
+      setDebouncedSearchQuery(looksLikeFormattedJob ? extractJobNo(s) : s);
     }, 200);
     return () => clearTimeout(t);
   }, [searchQuery]);

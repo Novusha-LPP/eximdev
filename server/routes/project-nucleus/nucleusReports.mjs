@@ -9,7 +9,7 @@ router.get("/reports", async (req, res) => {
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
         const jobs = await JobModel.find({})
-            .select("job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer")
+            .select("job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer consignment_type container_nos.size")
             .lean();
 
         // 2. Fetch all users for handler mapping
@@ -47,6 +47,20 @@ router.get("/reports", async (req, res) => {
             const fineVal = parseAmount(job.fine_amount);
             const penaltyVal = parseAmount(job.penalty_amount);
 
+            // Calculate Container Counts
+            const isLCL = job.consignment_type === 'LCL';
+            let fcl20 = 0;
+            let fcl40 = 0;
+
+            if (Array.isArray(job.container_nos)) {
+                job.container_nos.forEach(c => {
+                    if (c && c.size) {
+                        if (c.size === '20') fcl20++;
+                        else if (c.size === '40') fcl40++;
+                    }
+                });
+            }
+
             return {
                 _id: job._id,
                 job_no: job.job_no,
@@ -59,7 +73,10 @@ router.get("/reports", async (req, res) => {
                 importer: job.importer,
                 handlers: importerHandlers[job.importer] || [],
                 penalty_by_us: job.penalty_by_us || false,
-                penalty_by_importer: job.penalty_by_importer || false
+                penalty_by_importer: job.penalty_by_importer || false,
+                fcl20,
+                fcl40,
+                isLCL
             };
         });
 

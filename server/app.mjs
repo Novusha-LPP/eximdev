@@ -263,6 +263,7 @@ app.use(
     origin: [
       "http://eximdev.s3-website.ap-south-1.amazonaws.com",
       "http://localhost:3000",
+      "http://localhost:3001",
       "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       "https://import.alvision.in",
       "https://test-frontend.alvision.in"

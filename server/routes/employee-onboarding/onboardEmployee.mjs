@@ -98,9 +98,14 @@ router.post("/api/onboard-employee", async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-
-    console.log("Message sent");
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log("Message sent");
+    } catch (emailError) {
+      console.error("Error sending onboarding email:", emailError);
+      // We continue even if email fails, as the user is already created.
+      // Optionally you could append a warning to the response message.
+    }
     res.status(201).send({ message: "User onboarded successfully" });
   } catch (error) {
     console.error("Error onboarding user:", error);

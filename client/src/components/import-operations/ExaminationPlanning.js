@@ -32,13 +32,15 @@ import { TabContext } from "./ImportOperations.js";
 import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
 import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
+import IndentForDeliveryPDF from "./ConcorJobOrderPDF.js";
+
 
 function ImportOperations() {
   const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-        const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-        const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState([]);
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
@@ -49,11 +51,11 @@ function ImportOperations() {
   // Remove local page state and use persistent pagination from context
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-  
+
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab1: currentPage, setCurrentPageOpTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
-  
+
   const location = useLocation();
   const [selectedJobId, setSelectedJobId] = useState(
     location.state?.selectedJobId || null
@@ -69,7 +71,7 @@ function ImportOperations() {
   // Initialize component and handle navigation state
   useEffect(() => {
     const fromJobDetails = location.state?.fromJobDetails;
-    isFromJobDetailsRef.current = fromJobDetails;    if (currentTab === 1) {
+    isFromJobDetailsRef.current = fromJobDetails; if (currentTab === 1) {
       if (fromJobDetails) {
         // Restore state from job details navigatio        
         if (location.state?.searchQuery !== undefined) {
@@ -87,7 +89,8 @@ function ImportOperations() {
         }
         if (location.state?.detailedStatusExPlan !== undefined) {
           setDetailedStatusExPlan(location.state.detailedStatusExPlan);
-        }      } else {
+        }
+      } else {
         // Clear search state when coming from other tabs (not job details)
         setSearchQuery("");
         setSelectedImporter("");
@@ -117,7 +120,7 @@ function ImportOperations() {
     currentStatus,
     currentICD,
     currentImporter,
-        unresolvedOnly = false
+    unresolvedOnly = false
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !yearState || !user?.username) {
@@ -129,7 +132,7 @@ function ImportOperations() {
     abortControllerRef.current = controller;
 
     try {
-      
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
         {
@@ -141,7 +144,7 @@ function ImportOperations() {
             detailedStatusExPlan: currentStatus,
             selectedICD: currentICD,
             importer: currentImporter?.trim() || "",
-                        unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+            unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
 
           },
           signal: controller.signal,
@@ -155,12 +158,12 @@ function ImportOperations() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-                  unresolvedCount, // ✅ Get unresolved count from response
+          unresolvedCount, // ✅ Get unresolved count from response
 
-        } = res.data;        setRows(Array.isArray(jobs) ? jobs : []);
+        } = res.data; setRows(Array.isArray(jobs) ? jobs : []);
         setTotalPages(totalPages || 1);
         setTotalJobs(totalJobs || 0);
-              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
         abortControllerRef.current = null;
       }
     } catch (error) {
@@ -168,13 +171,13 @@ function ImportOperations() {
         return;
       }
       console.error("Error fetching data:", error);
-      
+
       // Only update state if this is still the current request
       if (abortControllerRef.current === controller) {
         setRows([]);
         setTotalPages(1);
         setTotalJobs(0);
-              setUnresolvedCount(0);
+        setUnresolvedCount(0);
 
         abortControllerRef.current = null;
       }
@@ -187,7 +190,7 @@ function ImportOperations() {
     // Clear existing timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
-    }    debounceTimeoutRef.current = setTimeout(() => {
+    } debounceTimeoutRef.current = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       // Only reset to first page if there's an actual search query (not when clearing)
       if (searchQuery && searchQuery.trim() !== "") {
@@ -257,10 +260,10 @@ function ImportOperations() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
- useEffect(() => {
+  useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
-        // Use a small delay to ensure all state is properly restored
+      // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
         fetchJobs(
           location.state?.currentPage || currentPage, // Use the restored page or current page
@@ -296,7 +299,7 @@ function ImportOperations() {
     selectedImporter,
     isInitialized,
     location.state,
-        showUnresolvedOnly,
+    showUnresolvedOnly,
   ]);
 
   // Cleanup on unmount
@@ -442,12 +445,12 @@ function ImportOperations() {
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
     },
-      {
-        accessorKey: "be_no",
-        header: "BE Number and Date",
-        size: 200,
-        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy}  />,
-      },
+    {
+      accessorKey: "be_no",
+      header: "BE Number and Date",
+      size: 200,
+      Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
+    },
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
@@ -455,7 +458,7 @@ function ImportOperations() {
       Cell: ({ row }) => {
         const containerNos = row.original.container_nos;
         if (!Array.isArray(containerNos)) return null;
-        
+
         return (
           <React.Fragment>
             {containerNos.map((container, id) => (
@@ -514,9 +517,9 @@ function ImportOperations() {
               <strong>Completed:</strong>{" "}
               {doCompleted
                 ? new Date(doCompleted).toLocaleString("en-US", {
-                    timeZone: "Asia/Kolkata",
-                    hour12: true,
-                  })
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })
                 : "Not Completed"}
             </div>
             <div>
@@ -539,10 +542,10 @@ function ImportOperations() {
                 ))}
               </div>
             ) : null}
-    <div>
-                <strong>EmptyOff LOC:</strong> {do_list}
-              </div>
-        
+            <div>
+              <strong>EmptyOff LOC:</strong> {do_list}
+            </div>
+
           </div>
         );
       },
@@ -663,6 +666,44 @@ function ImportOperations() {
         );
       },
     },
+    {
+      id: "indent",
+      header: "Concor Job Order",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        const indentRef = React.useRef(null);
+        const { custom_house } = row.original;
+
+        const handleGenerate = () => {
+          indentRef.current?.generatePdf(row.original);
+        };
+
+        if (custom_house !== "ICD KHODIYAR") return null;
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <IndentForDeliveryPDF ref={indentRef} />
+            <button
+              onClick={handleGenerate}
+              style={{
+                padding: "10px 20px",
+                fontSize: "16px",
+                borderRadius: "6px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                backgroundColor: "#e3f2fd",
+                color: "#1976d2",
+                border: "1px solid #1976d2",
+                cursor: "pointer",
+              }}
+            >
+              Download
+            </button>
+          </div>
+        );
+      },
+    },
+
   ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, detailedStatusExPlan, navigate, handleCopy, formatDate, getCustomHouseLocation]);
 
   const tableConfig = useMemo(() => ({
@@ -712,7 +753,7 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""}          onInputChange={(event, newValue) => {
+          value={selectedImporter || ""} onInputChange={(event, newValue) => {
             setSelectedImporter(newValue);
             setCurrentPage(1);
           }}
@@ -730,7 +771,7 @@ function ImportOperations() {
         <TextField
           select
           size="small"
-          value={selectedYearState || ""}          onChange={(e) => {
+          value={selectedYearState || ""} onChange={(e) => {
             setSelectedYearState(e.target.value);
             setCurrentPage(1);
           }}
@@ -748,7 +789,7 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}          onChange={(e) => {
+          value={selectedICD} onChange={(e) => {
             setSelectedICD(e.target.value);
             setCurrentPage(1);
           }}
@@ -765,7 +806,7 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="Select Status Ex-Planning"
-          value={detailedStatusExPlan}          onChange={(e) => {
+          value={detailedStatusExPlan} onChange={(e) => {
             setDetailedStatusExPlan(e.target.value);
             setCurrentPage(1);
           }}
@@ -786,54 +827,54 @@ function ImportOperations() {
           sx={{ width: "250px", marginRight: "20px", marginLeft: "20px" }}
         />
 
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Box sx={{ position: 'relative' }}>
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                                sx={{
-                                   borderRadius: 3,
-                                textTransform: 'none',
-                                fontWeight: 500,
-                                fontSize: '0.875rem',
-                                padding: '8px 20px',
-                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                                color: '#ffffff',
-                                border: 'none',
-                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                                  transform: 'translateY(-1px)',
-                                },
-                                '&:active': {
-                                  transform: 'translateY(0px)',
-                                },
-                                }}
-                              >
-                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                              </Button>
-                              <Badge 
-                                badgeContent={unresolvedCount} 
-                                color="error" 
-                                overlap="circular" 
-                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                sx={{ 
-                                  position: 'absolute',
-                                  top: 4,
-                                  right: 4,
-                                  '& .MuiBadge-badge': {
-                                    fontSize: '0.75rem',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                  }
-                                }}
-                              />
-                            </Box>
-                  </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: 'relative' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                padding: '8px 20px',
+                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                '& .MuiBadge-badge': {
+                  fontSize: '0.75rem',
+                  minWidth: '18px',
+                  height: '18px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, detailedStatusExPlan, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery]);

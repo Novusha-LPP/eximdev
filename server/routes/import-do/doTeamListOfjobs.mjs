@@ -18,6 +18,7 @@ router.get(
         selectedICD,
         year,
         unresolvedOnly,
+        emergency, // ✅ Extract emergency param
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -43,15 +44,15 @@ router.get(
       // Build search query
       const searchQuery = search
         ? {
-            $or: [
-              { job_no: { $regex: search, $options: "i" } },
-              { importer: { $regex: search, $options: "i" } },
-              { awb_bl_no: { $regex: search, $options: "i" } },
-              { shipping_line_airline: { $regex: search, $options: "i" } },
-              { vessel_flight: { $regex: search, $options: "i" } },
-              { voyage_no: { $regex: search, $options: "i" } },
-            ],
-          }
+          $or: [
+            { job_no: { $regex: search, $options: "i" } },
+            { importer: { $regex: search, $options: "i" } },
+            { awb_bl_no: { $regex: search, $options: "i" } },
+            { shipping_line_airline: { $regex: search, $options: "i" } },
+            { vessel_flight: { $regex: search, $options: "i" } },
+            { voyage_no: { $regex: search, $options: "i" } },
+          ],
+        }
         : {};
 
       // Base query conditions (without importer or ICD filter)
@@ -99,13 +100,6 @@ router.get(
         ],
       };
 
-      // ✅ Apply unresolved queries filter if requested
-      if (unresolvedOnly === "true") {
-        baseQuery.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
-        });
-      }
-
       // ✅ Apply Year Filter if Provided
       if (selectedYear) {
         baseQuery.$and.push({ year: selectedYear }); // Match year as a string
@@ -130,10 +124,77 @@ router.get(
         // User has specific ICD restrictions
         baseQuery.$and.push(req.userIcdFilter);
       }
+
+      // 🚨 Emergency Criteria Definition
+      const emergencyCriteria = {
+        $and: [
+          {
+            $or: [
+              { shipping_line_airline: { $regex: /CMA CGM AGENCIES INDIA PVT\. LTD\./i } },
+              {
+                shipping_line_airline: {
+                  $regex: /Ocean Network Express \(India\) Private Limited/i,
+                },
+              },
+            ],
+          },
+          {
+            container_nos: {
+              $elemMatch: {
+                arrival_date: { $exists: true, $ne: null, $ne: "" },
+              },
+            },
+          },
+          {
+            $or: [
+              { advanced_payment_done: { $exists: false } },
+              { advanced_payment_done: false },
+            ],
+          },
+        ],
+      };
+
+      // 🔍 **Calculate Stats (Independent of toggles)**
+      // Clone baseQuery for stats.
+      // We need to use JSON.parse/stringify or similar because object is deep.
+      // But simple spread operator on $and might be enough if structure is simple.
+      // Let's safe-clone.
+      const queryForStats = { $and: [...baseQuery.$and] };
+
+      // 1. Calculate Unresolved Count
+      const unresolvedQuery = {
+        ...queryForStats,
+        $and: [
+          ...queryForStats.$and,
+          { dsr_queries: { $elemMatch: { resolved: { $ne: true } } } },
+        ],
+      };
+      const unresolvedCount = await JobModel.countDocuments(unresolvedQuery);
+
+      // 2. Calculate Emergency Count
+      const emergencyQuery = {
+        ...queryForStats,
+        $and: [...queryForStats.$and, emergencyCriteria],
+      };
+      const emergencyCount = await JobModel.countDocuments(emergencyQuery);
+
+      // unique filters
+      // ✅ Apply unresolved queries filter if requested
+      if (unresolvedOnly === "true") {
+        baseQuery.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
+        });
+      }
+
+      // ✅ Apply Emergency Filter if requested
+      if (emergency === "true") {
+        baseQuery.$and.push(emergencyCriteria);
+      }
+
       // 🔍 **Step 1: Fetch Jobs After Applying Filters**
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no"
+          "job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date"
         )
         .lean();
 
@@ -145,17 +206,6 @@ router.get(
       };
       const sortedJobs = allJobs.sort(
         (a, b) => priorityRank(a) - priorityRank(b)
-      );
-      const unresolvedQueryBase = { ...baseQuery };
-      unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(
-        (condition) => !condition.hasOwnProperty("dsr_queries") // Remove the unresolved filter temporarily
-      );
-      unresolvedQueryBase.$and.push({
-        dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
-      });
-
-      const unresolvedCount = await JobModel.countDocuments(
-        unresolvedQueryBase
       );
 
       // Apply pagination
@@ -170,6 +220,7 @@ router.get(
           currentPage: pageNumber,
           jobs: [], // Return an empty array instead of 404
           unresolvedCount, // ✅ Include unresolved count
+          emergencyCount, // ✅ Include emergency count
         });
       }
 
@@ -180,6 +231,7 @@ router.get(
         currentPage: pageNumber,
         jobs: paginatedJobs,
         unresolvedCount,
+        emergencyCount,
       });
     } catch (error) {
       console.error("Error fetching DO team jobs:", error);

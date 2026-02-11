@@ -62,6 +62,12 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
           $or: [
             { bill_document_sent_to_accounts: { $exists: false } },
             { bill_document_sent_to_accounts: "" },
+            {
+              $and: [
+                { bill_document_sent_to_accounts: { $exists: true, $ne: "" } },
+                { dsr_queries: { $elemMatch: { select_module: "DO", resolved: { $ne: true } } } }
+              ]
+            }
           ],
         },
         { detailed_status: { $regex: /^Billing Pending$/i } },
@@ -110,7 +116,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year thar_invoices hasti_invoices icd_cfs_invoice_img importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos"
+        "job_no year thar_invoices hasti_invoices icd_cfs_invoice_img importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos dsr_queries"
       )
       .lean();
 
@@ -125,84 +131,84 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
 
     // FIXED: Enhanced sorting logic
-const calculateDaysDifference = (dateStr) => {
-  if (!dateStr) return null;
-  
-  const currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0);
-  
-  const date = new Date(dateStr);
-  date.setHours(0, 0, 0, 0);
-  
-  const diffTime = date.getTime() - currentDate.getTime();
-  return Math.floor(diffTime / (1000 * 3600 * 24));
-};
+    const calculateDaysDifference = (dateStr) => {
+      if (!dateStr) return null;
 
-const getColorPriority = (daysDifference) => {
-  if (daysDifference === null) return 999;
-  
-  if (daysDifference <= -10) return 1;  // Red
-  if (daysDifference <= -6) return 2;   // Orange  
-  if (daysDifference < 0) return 3;     // White
-  
-  return 100; // Future dates
-};
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
 
-const rankedJobs = allJobs
-  .map((job) => {
-    let mostCriticalDays = null;
-    let mostCriticalPriority = 999;
+      const date = new Date(dateStr);
+      date.setHours(0, 0, 0, 0);
 
-    if (job.detailed_status === "Billing Pending" && Array.isArray(job.container_nos) && job.container_nos.length > 0) {
-      job.container_nos.forEach((container) => {
-        const targetDate = job.consignment_type === "LCL" 
-          ? container.delivery_date 
-          : container.emptyContainerOffLoadDate;
+      const diffTime = date.getTime() - currentDate.getTime();
+      return Math.floor(diffTime / (1000 * 3600 * 24));
+    };
 
-        if (targetDate) {
-          const daysDiff = calculateDaysDifference(targetDate);
-          const priority = getColorPriority(daysDiff);
-          
-          if (priority < mostCriticalPriority) {
-            mostCriticalDays = daysDiff;
-            mostCriticalPriority = priority;
-          } else if (priority === mostCriticalPriority && daysDiff !== null) {
-            if (mostCriticalDays === null || daysDiff < mostCriticalDays) {
-              mostCriticalDays = daysDiff;
+    const getColorPriority = (daysDifference) => {
+      if (daysDifference === null) return 999;
+
+      if (daysDifference <= -10) return 1;  // Red
+      if (daysDifference <= -6) return 2;   // Orange  
+      if (daysDifference < 0) return 3;     // White
+
+      return 100; // Future dates
+    };
+
+    const rankedJobs = allJobs
+      .map((job) => {
+        let mostCriticalDays = null;
+        let mostCriticalPriority = 999;
+
+        if (job.detailed_status === "Billing Pending" && Array.isArray(job.container_nos) && job.container_nos.length > 0) {
+          job.container_nos.forEach((container) => {
+            const targetDate = job.consignment_type === "LCL"
+              ? container.delivery_date
+              : container.emptyContainerOffLoadDate;
+
+            if (targetDate) {
+              const daysDiff = calculateDaysDifference(targetDate);
+              const priority = getColorPriority(daysDiff);
+
+              if (priority < mostCriticalPriority) {
+                mostCriticalDays = daysDiff;
+                mostCriticalPriority = priority;
+              } else if (priority === mostCriticalPriority && daysDiff !== null) {
+                if (mostCriticalDays === null || daysDiff < mostCriticalDays) {
+                  mostCriticalDays = daysDiff;
+                }
+              }
             }
+          });
+        }
+
+        if (mostCriticalDays === null && mostCriticalPriority === 999) {
+          const fallbackDate = job.vessel_berthing || job.delivery_date;
+          if (fallbackDate) {
+            mostCriticalDays = calculateDaysDifference(fallbackDate);
+            mostCriticalPriority = getColorPriority(mostCriticalDays);
           }
         }
+
+        return {
+          ...job,
+          daysDifference: mostCriticalDays,
+          colorPriority: mostCriticalPriority
+        };
+      })
+      .sort((a, b) => {
+        if (a.colorPriority !== b.colorPriority) {
+          return a.colorPriority - b.colorPriority;
+        }
+
+        if (a.daysDifference !== null && b.daysDifference !== null) {
+          return a.daysDifference - b.daysDifference;
+        }
+
+        if (a.daysDifference === null && b.daysDifference !== null) return 1;
+        if (a.daysDifference !== null && b.daysDifference === null) return -1;
+
+        return a.job_no.localeCompare(b.job_no);
       });
-    }
-
-    if (mostCriticalDays === null && mostCriticalPriority === 999) {
-      const fallbackDate = job.vessel_berthing || job.delivery_date;
-      if (fallbackDate) {
-        mostCriticalDays = calculateDaysDifference(fallbackDate);
-        mostCriticalPriority = getColorPriority(mostCriticalDays);
-      }
-    }
-
-    return { 
-      ...job, 
-      daysDifference: mostCriticalDays, 
-      colorPriority: mostCriticalPriority
-    };
-  })
-  .sort((a, b) => {
-    if (a.colorPriority !== b.colorPriority) {
-      return a.colorPriority - b.colorPriority;
-    }
-    
-    if (a.daysDifference !== null && b.daysDifference !== null) {
-      return a.daysDifference - b.daysDifference;
-    }
-    
-    if (a.daysDifference === null && b.daysDifference !== null) return 1;
-    if (a.daysDifference !== null && b.daysDifference === null) return -1;
-    
-    return a.job_no.localeCompare(b.job_no);
-  });
 
 
     // **Step 3: Apply Pagination**

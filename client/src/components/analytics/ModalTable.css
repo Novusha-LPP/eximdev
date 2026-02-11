@@ -1,0 +1,35 @@
+.analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.analytics-table th {
+    background: #f3f4f6;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    position: sticky;
+    top: 0;
+}
+
+.analytics-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #4b5563;
+}
+
+.analytics-table tr:hover {
+    background: #f9fafb;
+    cursor: pointer;
+}
+
+.clickable-job {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.clickable-job:hover {
+    text-decoration: underline;
+}

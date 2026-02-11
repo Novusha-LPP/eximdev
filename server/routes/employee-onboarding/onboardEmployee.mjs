@@ -1,7 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
-import aws from "aws-sdk";
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -10,11 +10,13 @@ dotenv.config();
 
 const router = express.Router();
 
-// Configure AWS SDK
-aws.config.update({
-  accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-  secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+// Configure AWS SES
+const sesClient = new SESClient({
   region: "ap-south-1",
+  credentials: {
+    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+  },
 });
 
 const CLIENT_URI =
@@ -26,7 +28,7 @@ const CLIENT_URI =
 
 // Create Nodemailer SES transporter
 let transporter = nodemailer.createTransport({
-  SES: new aws.SES({ apiVersion: "2010-12-01" }),
+  SES: { ses: sesClient, aws: { SendRawEmailCommand } },
 });
 
 router.post("/api/onboard-employee", async (req, res) => {

@@ -152,18 +152,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     const cKey = (container_nos || [])
       .map(
         (c) =>
-          `${c.container_number || ""}|${c.arrival_date || ""}|${
-            c.detention_from || ""
-          }|${c.delivery_date || ""}|${c.emptyContainerOffLoadDate || ""}|${
-            c.container_rail_out_date || ""
+          `${c.container_number || ""}|${c.arrival_date || ""}|${c.detention_from || ""
+          }|${c.delivery_date || ""}|${c.emptyContainerOffLoadDate || ""}|${c.container_rail_out_date || ""
           }|${c.by_road_movement_date || ""}`
       )
       .join("||");
-    return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${
-      gateway_igm_date || ""
-    }|${discharge_date || ""}|${pcv_date || ""}|${out_of_charge || ""}|${
-      duty_paid_date || ""
-    }|${detailed_status || ""}|${free_time || ""}|${cKey}`;
+    return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${gateway_igm_date || ""
+      }|${discharge_date || ""}|${pcv_date || ""}|${out_of_charge || ""}|${duty_paid_date || ""
+      }|${detailed_status || ""}|${free_time || ""}|${cKey}`;
   }, [
     _id,
     assessment_date,
@@ -218,14 +214,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     return `${yy}-${mm}-${dd}`;
   };
 
-const buildFieldPayload = (fieldPath, value) => {
-  // value is already normalized or raw; treat "empty" as empty string
-  if (value === "" || value === null || value === undefined) {
-    return { [fieldPath]: "" };
-  }
-  const normalized = normalizeDateForSave(value);
-  return { [fieldPath]: normalized };
-};
+  const buildFieldPayload = (fieldPath, value) => {
+    // value is already normalized or raw; treat "empty" as empty string
+    if (value === "" || value === null || value === undefined) {
+      return { [fieldPath]: "" };
+    }
+    const normalized = normalizeDateForSave(value);
+    return { [fieldPath]: normalized };
+  };
 
   const isArrivalDateDisabled = useCallback(
     (idx) => {
@@ -265,11 +261,11 @@ const buildFieldPayload = (fieldPath, value) => {
           return next;
         });
         setContainers(updated);
-const payload = {};
-payload[`container_nos.${index}.${field}`] = "";
-if (field === "arrival_date" && !isLCL) {
-  payload[`container_nos.${index}.detention_from`] = "";
-}
+        const payload = {};
+        payload[`container_nos.${index}.${field}`] = "";
+        if (field === "arrival_date" && !isLCL) {
+          payload[`container_nos.${index}.detention_from`] = "";
+        }
 
 
 
@@ -286,7 +282,7 @@ if (field === "arrival_date" && !isLCL) {
         setTempDateValue("");
       } else {
         setDates((d) => ({ ...d, [field]: null }));
-const payload = { [field]: "" };
+        const payload = { [field]: "" };
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
@@ -330,8 +326,8 @@ const payload = { [field]: "" };
           { free_time: value },
           { headers }
         );
-            if (typeof onRowDataUpdate === "function")
-              onRowDataUpdate(_id, { free_time: value });
+        if (typeof onRowDataUpdate === "function")
+          onRowDataUpdate(_id, { free_time: value });
 
         const updated = containers.map((c) => {
           if (!c.arrival_date) return c;
@@ -644,7 +640,7 @@ const payload = { [field]: "" };
         {renderRowDateEditor("PCV", dates.pcv_date, "pcv_date")}
         <br />
 
-        {payment_method !== "Deferred" && (
+        {payment_method !== "Deferred" && !InBondflag && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span>
               <strong>Duty Paid:</strong>{" "}
@@ -705,19 +701,17 @@ const payload = { [field]: "" };
         {isFactory ? (
           <>
             {/* Delivery then EmptyOff */}
-            {!InBondflag && (
-              <>
-                <br />
-                {containers.map((c, i) =>
-                  renderContainerEditor(
-                    "Delivery",
-                    c.delivery_date,
-                    "delivery_date",
-                    i
-                  )
-                )}
-              </>
-            )}
+            <>
+              <br />
+              {containers.map((c, i) =>
+                renderContainerEditor(
+                  "Delivery",
+                  c.delivery_date,
+                  "delivery_date",
+                  i
+                )
+              )}
+            </>
 
             <br />
 

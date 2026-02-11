@@ -19,15 +19,17 @@ const importPriority = [
   "Import - Billing",
   "Import Utility Tool",
   "Report",
+
   "Audit Trail",
 
+  "Open Points",
 ];
 
 function Home() {
   const { user } = useContext(UserContext);
   const [data, setData] = useState();
   const navigate = useNavigate();
-  
+
   // Get search context functions to clear all search state
   const {
     setSearchQuery,

@@ -1,16 +1,32 @@
 import "./App.scss";
 import "./styles/job-details.scss";
+import axios from "axios";
 import { UserContext } from "./contexts/UserContext";
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 
 function App() {
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("exim_user"))
-  );
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/me`, { withCredentials: true });
+        setUser(res.data);
+      } catch (e) {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkSession();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -25,9 +41,9 @@ function App() {
         event.metaKey && event.shiftKey && event.key === "ArrowRight" && isMac;
 
       if (ctrlShiftLeftArrow || cmdShiftLeftArrow) {
-        navigate(-1); // Go back to the previous page
+        navigate(-1);
       } else if (ctrlShiftRightArrow || cmdShiftRightArrow) {
-        navigate(1); // Go forward to the next page
+        navigate(1);
       }
     };
 
@@ -38,9 +54,27 @@ function App() {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("exim_user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("exim_user");
+    }
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        Loading...
+      </div>
+    );
+  }
+
   return (
     <UserContext.Provider value={{ user, setUser }}>
-      <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+      </LocalizationProvider>
     </UserContext.Provider>
   );
 }

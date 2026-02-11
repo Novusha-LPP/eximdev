@@ -28,6 +28,8 @@ export const getTableRowsClassname = (params) => {
         return "eta";
       case "ETA Date Pending":
         return "eta-date-pending";
+      case "Do completed and Delivery pending":
+        return "do-completed-delivery-pending";
       default:
         return "";
     }
@@ -70,6 +72,8 @@ export const getTableRowInlineStyle = (params) => {
         return "eta";
       case "ETA Date Pending":
         return "eta-date-pending";
+      case "Do completed and Delivery pending":
+        return "do-completed-delivery-pending";
       default:
         return "";
     }
@@ -94,6 +98,7 @@ export const getTableRowInlineStyle = (params) => {
     "bg-yellow": "#f9e781",
     "bg-orange": "#fbba5f",
     "bg-green": "#b0f8b0",
+    "do-completed-delivery-pending": "#ccffcc",
   };
 
   const bg = colorMap[colorKey] || "";

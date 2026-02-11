@@ -4,23 +4,22 @@ import AccountEntry from "../../model/accounts/AccountEntry.js";
 import UserModel from "../../model/userModel.mjs";
 import cron from "node-cron";
 import nodemailer from "nodemailer";
-import aws from "aws-sdk";
-
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 
 const router = express.Router();
 
-
-
-// Configure AWS SDK
-aws.config.update({
-  accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-  secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+// Configure AWS SES
+const sesClient = new SESClient({
   region: "ap-south-1",
+  credentials: {
+    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+  },
 });
 
 // Create Nodemailer SES transporter
 let transporter = nodemailer.createTransport({
-  SES: new aws.SES({ apiVersion: "2010-12-01" }),
+  SES: { ses: sesClient, aws: { SendRawEmailCommand } },
 });
 
 // Helper function to send reminder email using your existing working transporter

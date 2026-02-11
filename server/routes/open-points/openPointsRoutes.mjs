@@ -317,13 +317,13 @@ router.put("/api/open-points/points/:pointId", async (req, res) => {
         // Permission Check for Target Date
         if (otherFields.target_date) {
             const project = point.project_id;
-            if (!project) return res.status(404).json({ error: "Project not found for this point" });
-
-            if (project.owner.toString() !== userId) {
-                const oldDate = point.target_date ? new Date(point.target_date).toISOString().split('T')[0] : '';
-                const newDate = new Date(otherFields.target_date).toISOString().split('T')[0];
-                if (oldDate !== newDate) {
-                    return res.status(403).json({ error: "Access Denied: Only the project owner can modify target dates." });
+            if (project) { // Check if project exists (defensive)
+                if (project.owner.toString() !== userId) {
+                    const oldDate = point.target_date ? new Date(point.target_date).toISOString().split('T')[0] : '';
+                    const newDate = new Date(otherFields.target_date).toISOString().split('T')[0];
+                    if (oldDate !== newDate) {
+                        return res.status(403).json({ error: "Access Denied: Only the project owner can modify target dates." });
+                    }
                 }
             }
         }
@@ -335,7 +335,7 @@ router.put("/api/open-points/points/:pointId", async (req, res) => {
 
             point.history.push({
                 action: `Status changed to ${status}`,
-                changed_by: userId,
+                changed_by: userId || null, // Ensure not undefined
                 remarks: remarks || "",
                 timestamp: new Date()
             });
@@ -352,13 +352,23 @@ router.put("/api/open-points/points/:pointId", async (req, res) => {
         }
 
         // 3. Handle Other Fields (Excel Inline Edits)
+        // Explicit allowed fields list to prevent overwriting with garbage
+        const allowedUpdates = ['title', 'responsibility', 'level', 'gap_action', 'review_date', 'priority', 'target_date', 'department', 'responsible_person', 'reviewer'];
+
         Object.keys(otherFields).forEach(key => {
-            if (key !== 'history' && key !== '_id' && key !== 'project_id') { // Protect sensitive fields
-                point[key] = otherFields[key];
+            if (allowedUpdates.includes(key)) {
+                // Special handling for empty strings on ObjectId fields to avoid CastError
+                if ((key === 'responsible_person' || key === 'reviewer') && otherFields[key] === "") {
+                    point[key] = null;
+                } else {
+                    point[key] = otherFields[key];
+                }
             }
         });
 
         await point.save();
+
+        // Return updated point
         res.json(point);
 
     } catch (error) {

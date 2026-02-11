@@ -4,7 +4,10 @@ import { MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import Snackbar from "@mui/material/Snackbar";
-import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
+import { IconButton } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import FileUpload from "../gallery/FileUpload";
+
 import { validationSchema } from "../../schemas/employeeOnboarding/completeOnboarding";
 
 // Compact Field Component
@@ -15,27 +18,7 @@ const Field = ({ label, children }) => (
   </div>
 );
 
-// Compact File Upload
-const FileUpload = ({ label, field, accept = "*/*", formik, setFileSnackbar }) => (
-  <div className={`hr-compact-file-upload ${formik.values[field] ? 'uploaded' : ''}`}>
-    <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--hr-text-label)' }}>{label}</span>
-    <input
-      type="file"
-      accept={accept}
-      onChange={(e) =>
-        handleSingleFileUpload(e, field, "kyc", formik, setFileSnackbar)
-      }
-    />
-    {formik.values[field] && (
-      <span className="file-status">
-        ✓ <a href={formik.values[field]} target="_blank" rel="noopener noreferrer">View</a>
-      </span>
-    )}
-    {formik.touched[field] && formik.errors[field] && (
-      <span style={{ color: 'var(--hr-error)', fontSize: '0.7rem' }}>{formik.errors[field]}</span>
-    )}
-  </div>
-);
+
 
 function CompleteOnboarding() {
   const { user, setUser } = useContext(UserContext);
@@ -72,6 +55,40 @@ function CompleteOnboarding() {
       await refreshUser();
     },
   });
+
+  // Handle file upload callback from FileUpload component
+  const handleFilesUploaded = (field) => (uploadedUrls, replaceMode) => {
+    if (uploadedUrls && uploadedUrls.length > 0) {
+      // For single file fields, take the first URL
+      formik.setFieldValue(field, uploadedUrls[0]);
+      setFileSnackbar(true);
+    }
+  };
+
+  // Handle file deletion from S3
+  const handleDeleteFile = async (field) => {
+    const fileUrl = formik.values[field];
+    if (!fileUrl) return;
+    
+    if (!window.confirm("Are you sure you want to delete this file?")) return;
+    
+    try {
+      const key = new URL(fileUrl).pathname.slice(1); // Extract key from URL
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/delete-s3-file`,
+        { key }
+      );
+      
+      if (response.status === 200) {
+        formik.setFieldValue(field, "");
+        setFileSnackbar(true);
+      }
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      alert("Failed to delete file");
+    }
+  };
+
 
   const employee_name = [user.first_name, user.middle_name, user.last_name]
     .filter(Boolean)
@@ -165,11 +182,109 @@ function CompleteOnboarding() {
             <div className="hr-section-header">Document Uploads</div>
             <div className="hr-section-body">
               <div className="hr-compact-grid cols-2">
-                <FileUpload label="Employee Photo" field="employee_photo" accept="image/*" formik={formik} setFileSnackbar={setFileSnackbar} />
-                <FileUpload label="Resume / CV" field="resume" accept=".pdf,.doc,.docx" formik={formik} setFileSnackbar={setFileSnackbar} />
-                <FileUpload label="Address Proof" field="address_proof" formik={formik} setFileSnackbar={setFileSnackbar} />
+                <div className="hr-upload-item" style={{ marginBottom: '16px' }}>
+                  <span className="hr-upload-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '4px' }}>Employee Photo</span>
+                  <div className="hr-upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FileUpload
+                      label="Upload"
+                      onFilesUploaded={handleFilesUploaded("employee_photo")}
+                      bucketPath="kyc"
+                      singleFileOnly={true}
+                      acceptedFileTypes={["image/*"]}
+                      buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                    />
+                    {formik.values.employee_photo && (
+                      <div className="hr-upload-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <a href={formik.values.employee_photo} target="_blank" rel="noopener noreferrer" className="hr-view-link" style={{ fontSize: '0.8rem', color: '#1976d2', textDecoration: 'none' }}>View</a>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteFile("employee_photo")}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                  {formik.touched.employee_photo && formik.errors.employee_photo && (
+                    <div style={{ color: '#d32f2f', fontSize: '0.75rem', marginTop: '4px' }}>
+                      {formik.errors.employee_photo}
+                    </div>
+                  )}
+                </div>
+
+                <div className="hr-upload-item" style={{ marginBottom: '16px' }}>
+                  <span className="hr-upload-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '4px' }}>Resume / CV</span>
+                  <div className="hr-upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FileUpload
+                      label="Upload"
+                      onFilesUploaded={handleFilesUploaded("resume")}
+                      bucketPath="kyc"
+                      singleFileOnly={true}
+                      acceptedFileTypes={[".pdf", ".doc", ".docx"]}
+                      buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                    />
+                    {formik.values.resume && (
+                      <div className="hr-upload-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <a href={formik.values.resume} target="_blank" rel="noopener noreferrer" className="hr-view-link" style={{ fontSize: '0.8rem', color: '#1976d2', textDecoration: 'none' }}>View</a>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteFile("resume")}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                  {formik.touched.resume && formik.errors.resume && (
+                    <div style={{ color: '#d32f2f', fontSize: '0.75rem', marginTop: '4px' }}>
+                      {formik.errors.resume}
+                    </div>
+                  )}
+                </div>
+
+                <div className="hr-upload-item" style={{ marginBottom: '16px' }}>
+                  <span className="hr-upload-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '4px' }}>Address Proof</span>
+                  <div className="hr-upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FileUpload
+                      label="Upload"
+                      onFilesUploaded={handleFilesUploaded("address_proof")}
+                      bucketPath="kyc"
+                      singleFileOnly={true}
+                      acceptedFileTypes={["image/*", ".pdf"]}
+                      buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                    />
+                    {formik.values.address_proof && (
+                      <div className="hr-upload-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <a href={formik.values.address_proof} target="_blank" rel="noopener noreferrer" className="hr-view-link" style={{ fontSize: '0.8rem', color: '#1976d2', textDecoration: 'none' }}>View</a>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteFile("address_proof")}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                  {formik.touched.address_proof && formik.errors.address_proof && (
+                    <div style={{ color: '#d32f2f', fontSize: '0.75rem', marginTop: '4px' }}>
+                      {formik.errors.address_proof}
+                    </div>
+                  )}
+                </div>
+
                 {user.company === "Alluvium IoT Solutions Private Limited" && (
-                  <FileUpload label="Signed NDA" field="nda" accept=".pdf" formik={formik} setFileSnackbar={setFileSnackbar} />
+                  <div className="hr-upload-item" style={{ marginBottom: '16px' }}>
+                    <span className="hr-upload-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '4px' }}>Signed NDA</span>
+                    <div className="hr-upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <FileUpload
+                        label="Upload"
+                        onFilesUploaded={handleFilesUploaded("nda")}
+                        bucketPath="kyc"
+                        singleFileOnly={true}
+                        acceptedFileTypes={[".pdf"]}
+                        buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                      />
+                      {formik.values.nda && (
+                        <div className="hr-upload-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <a href={formik.values.nda} target="_blank" rel="noopener noreferrer" className="hr-view-link" style={{ fontSize: '0.8rem', color: '#1976d2', textDecoration: 'none' }}>View</a>
+                          <IconButton size="small" color="error" onClick={() => handleDeleteFile("nda")}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

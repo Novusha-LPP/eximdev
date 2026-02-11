@@ -3,17 +3,12 @@ import { useNavigate } from "react-router-dom";
 import "../../styles/sidebar.scss";
 import { Avatar, IconButton, ListItemButton, Tooltip } from "@mui/material";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
-
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import LockResetIcon from "@mui/icons-material/LockReset";
-import DescriptionIcon from "@mui/icons-material/Description";
-import CurrencyExchangeIcon from "@mui/icons-material/CurrencyExchange";
-import InsightsIcon from "@mui/icons-material/Insights";
-import AssessmentIcon from "@mui/icons-material/Assessment";
-import HubIcon from "@mui/icons-material/Hub";
-import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
+import DescriptionIcon from '@mui/icons-material/Description';
+import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -39,7 +34,7 @@ function Sidebar() {
         enterDelay={0}
         placement="right"
       >
-        <IconButton onClick={() => navigate(`/profile/${user.username}`)}>
+        <IconButton>
           <Avatar src={user.employee_photo} alt="Employee Photo" />
         </IconButton>
       </Tooltip>
@@ -57,7 +52,7 @@ function Sidebar() {
       </Tooltip>
 
       {user.role === "Admin" && (
-        <Tooltip title="Admin" enterDelay={0} placement="right">
+        <Tooltip title="Assign Module" enterDelay={0} placement="right">
           <ListItemButton
             className="appbar-links"
             aria-label="list-item"
@@ -70,22 +65,7 @@ function Sidebar() {
         </Tooltip>
       )}
 
-      {/* HOD Management - For Head of Department users */}
-      {user.role === "Head_of_Department" && (
-        <Tooltip title="HoD - Team Management" enterDelay={0} placement="right">
-          <ListItemButton
-            className="appbar-links"
-            aria-label="list-item"
-            onClick={() => navigate("/hod-management")}
-          >
-            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-              <SupervisedUserCircleIcon />
-            </IconButton>
-          </ListItemButton>
-        </Tooltip>
-      )}
-
-      {/* NEW: Currency Exchange Rates Icon */}
+       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
         <ListItemButton
           sx={{ textAlign: "left" }}
@@ -99,33 +79,7 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      <Tooltip title="Analytics" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/analytics")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <InsightsIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
-      {
-        ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (
-          <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/project-nucleus")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <HubIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
-        )
-      }
+     
 
       <Tooltip title="Release Notes" enterDelay={0} placement="right">
         <ListItemButton

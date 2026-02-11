@@ -11,11 +11,6 @@ import {
   FormControlLabel,
   Button,
   Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Row, Col } from "react-bootstrap";
@@ -38,8 +33,6 @@ function EditBillingSheet() {
     open: false,
     message: "",
   });
-  const [openAlert, setOpenAlert] = React.useState(false); // State for Alert Dialog
-  const [openAdminConfirm, setOpenAdminConfirm] = React.useState(false); // State for Admin Confirm Dialog
 
   const { job_no, year } = params;
   const { user } = useContext(UserContext); // Access user from context
@@ -436,7 +429,7 @@ function EditBillingSheet() {
                       checked={!!formik.values.bill_document_sent_to_accounts}
                       onChange={(e) => {
                         const isChecked = e.target.checked;
-                        const setDateToNow = () => {
+                        if (isChecked) {
                           const currentDate = new Date();
                           const isoDate = new Date(
                             currentDate.getTime() -
@@ -448,28 +441,6 @@ function EditBillingSheet() {
                             "bill_document_sent_to_accounts",
                             isoDate
                           );
-                        };
-
-                        if (isChecked) {
-                          // Validation for ICD SANAND
-                          if (data?.custom_house === "ICD SANAND") {
-                            const hasThar =
-                              formik.values.thar_invoices &&
-                              formik.values.thar_invoices.length > 0;
-                            const hasHasti =
-                              formik.values.hasti_invoices &&
-                              formik.values.hasti_invoices.length > 0;
-
-                            if (!hasThar || !hasHasti) {
-                              if (user?.role === "Admin") {
-                                setOpenAdminConfirm(true);
-                              } else {
-                                setOpenAlert(true);
-                              }
-                              return;
-                            }
-                          }
-                          setDateToNow();
                         } else {
                           formik.setFieldValue(
                             "bill_document_sent_to_accounts",
@@ -533,72 +504,6 @@ function EditBillingSheet() {
         onClose={() => setFileSnackbar({ open: false, message: "" })}
         message={fileSnackbar.message}
       />
-
-      {/* Validation Alert Dialog */}
-      <Dialog
-        open={openAlert}
-        onClose={() => setOpenAlert(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">
-          {"Missing Documents"}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            For ICD SANAND, please upload at least one Thar Invoice and one Hasti Invoice before sending to accounts.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenAlert(false)} autoFocus>
-            OK
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Admin Confirmation Dialog */}
-      <Dialog
-        open={openAdminConfirm}
-        onClose={() => setOpenAdminConfirm(false)}
-        aria-labelledby="admin-confirm-dialog-title"
-        aria-describedby="admin-confirm-dialog-description"
-      >
-        <DialogTitle id="admin-confirm-dialog-title">
-          {"Missing Documents (Admin Warning)"}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="admin-confirm-dialog-description">
-            For ICD SANAND, Thar Invoice and Hasti Invoice are missing. As an Admin, you can proceed anyway.
-            <br />
-            <strong>Do you want to send the job to the billing team?</strong>
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenAdminConfirm(false)} color="secondary">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              const currentDate = new Date();
-              const isoDate = new Date(
-                currentDate.getTime() -
-                currentDate.getTimezoneOffset() * 60000
-              )
-                .toISOString()
-                .slice(0, 16);
-              formik.setFieldValue(
-                "bill_document_sent_to_accounts",
-                isoDate
-              );
-              setOpenAdminConfirm(false);
-            }}
-            color="primary"
-            autoFocus
-          >
-            Proceed
-          </Button>
-        </DialogActions>
-      </Dialog>
     </div>
   );
 }

@@ -12,17 +12,6 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  deactivatedAt: {
-    type: Date,
-  },
-  can_access_exim_bot: {
-    type: Boolean,
-    default: false,
-  },
   modules: [
     {
       type: String,
@@ -206,30 +195,10 @@ const userSchema = new Schema({
   kyc_approval: {
     type: String,
   },
-  children_details: [
-    {
-      gender: String,
-      age_group: String,
-    },
-  ],
-  insurance_not_applicable: {
-    type: Boolean,
-    default: false,
-  },
-  pf_not_applicable: {
-    type: Boolean,
-    default: false,
-  },
-  esic_not_applicable: {
-    type: Boolean,
-    default: false,
-  },
-  selected_icd_codes: [
-    {
-      type: String,
-      trim: true,
-    },
-  ],
+  selected_icd_codes: [{
+    type: String,
+    trim: true,
+  }],
 });
 
 const UserModel = mongoose.model("User", userSchema);

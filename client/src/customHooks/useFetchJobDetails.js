@@ -6,9 +6,8 @@ import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 // import { Dropdown } from "react-bootstrap";
 
-const handleSingleFileUpload = async (file, folderName, setFileSnackbar, shouldCompress = false) => {
+const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
   try {
-
     const key = `${folderName}/${file.name}`;
 
     const s3 = new AWS.S3({
@@ -1000,8 +999,7 @@ function useFetchJobDetails(
     const photoUrl = await handleSingleFileUpload(
       file,
       formattedDocumentName,
-      setFileSnackbar,
-      isCth
+      setFileSnackbar
     );
 
     if (isCth) {

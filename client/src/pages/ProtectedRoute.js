@@ -1,17 +1,54 @@
 // components/ProtectedRoute.js
-import React, { useContext } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { UserContext } from "../contexts/UserContext";
+import axios from 'axios';
+import { CircularProgress, Box } from '@mui/material';
 
 const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
-  const { user } = useContext(UserContext);
+  const [userModules, setUserModules] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const location = useLocation();
 
-  if (!user) {
-    return <Navigate to="/" replace />;
+  useEffect(() => {
+    const fetchUserModules = async () => {
+      try {
+        // Get current user info - adjust this based on how you store user info
+         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        
+        if (!user) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-user/${user.username || user.id}`
+        );
+        
+        setUserModules(response.data.modules || []);
+      } catch (err) {
+        console.error('Error fetching user modules:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserModules();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  const userModules = user.modules || [];
+  if (error || !userModules) {
+    return <Navigate to="/" replace />;
+  }
 
   // Check if user has the required module permission
   const hasPermission = userModules.includes(requiredModule);
@@ -19,13 +56,13 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   if (!hasPermission) {
     // Redirect to fallback path with a message
     return (
-      <Navigate
-        to={fallbackPath}
-        replace
-        state={{
-          from: location,
-          message: `Access denied. You don't have permission to access ${requiredModule}.`
-        }}
+      <Navigate 
+        to={fallbackPath} 
+        replace 
+        state={{ 
+          from: location, 
+          message: `Access denied. You don't have permission to access ${requiredModule}.` 
+        }} 
       />
     );
   }

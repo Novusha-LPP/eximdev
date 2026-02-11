@@ -42,10 +42,8 @@ router.post("/api/admin/change-password", async (req, res) => {
   try {
     // Find the admin user
     const adminUser = await UserModel.findOne({ username: adminUsername });
-    const allowedRoles = ["Admin", "Head_of_Department"];
-
-    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-      return res.status(403).json({ message: "Unauthorized. Admin or HOD privileges required." });
+    if (!adminUser || adminUser.role !== "Admin") {
+      return res.status(403).json({ message: "Unauthorized. Admin privileges required." });
     }
 
     // Find the target user

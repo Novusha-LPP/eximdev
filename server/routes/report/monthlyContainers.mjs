@@ -32,14 +32,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
       JobModel.aggregate([
         { $match: baseMatch },
         {
-          $match: {
-            $and: [
-              { be_filing_type: { $ne: "Ex-Bond" } },
-              { type_of_b_e: { $ne: "Ex-Bond" } }
-            ]
-          }
-        },
-        {
           $addFields: {
             outOfChargeDate: {
               $cond: {
@@ -88,7 +80,15 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
               $sum: {
                 $cond: [
                   { $eq: ["$consignment_type", "LCL"] },
-                  1,
+                  {
+                    $size: {
+                      $filter: {
+                        input: "$container_nos",
+                        as: "container",
+                        cond: { $eq: ["$$container.size", "20"] },
+                      },
+                    },
+                  },
                   0,
                 ],
               },
@@ -97,7 +97,15 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
               $sum: {
                 $cond: [
                   { $eq: ["$consignment_type", "LCL"] },
-                  0, // LCL counts as 1 TEU (20ft)
+                  {
+                    $size: {
+                      $filter: {
+                        input: "$container_nos",
+                        as: "container",
+                        cond: { $eq: ["$$container.size", "40"] },
+                      },
+                    },
+                  },
                   0,
                 ],
               },

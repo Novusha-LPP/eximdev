@@ -7,15 +7,9 @@ function useFileUpload(inputRef, alt, setAlt) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // New states for progress and stats
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const [uploadStats, setUploadStats] = useState(null);
-
   const handleFileUpload = (event) => {
     setLoading(true);
     setError(null);
-    setUploadStats(null); // Reset stats
-    setProgress({ current: 0, total: 0 }); // Reset progress
     const file = event.target.files[0];
 
     const reader = new FileReader();
@@ -33,7 +27,7 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // Get all data including headers for validation
       const allData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
-
+      
       // Check if second row exists
       if (allData.length < 2) {
         setError("Invalid Excel format: File must contain at least 2 rows");
@@ -44,10 +38,8 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // Check for AHMEDABAD in the second row
       const secondRow = allData[1];
-      const containsAhmedabad = secondRow.some((cell) =>
-        String(cell || "")
-          .toUpperCase()
-          .includes("AHMEDABAD")
+      const containsAhmedabad = secondRow.some(cell => 
+        String(cell || '').toUpperCase().includes("AHMEDABAD")
       );
 
       if (!containsAhmedabad) {
@@ -59,6 +51,7 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // If validation passes, continue with existing processing
       handleFileRead(event);
+      
     } catch (err) {
       console.error("Error validating file:", err);
       setError("Error processing file. Please check the format.");
@@ -89,10 +82,6 @@ function useFileUpload(inputRef, alt, setAlt) {
     const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], {
       range: 2,
     });
-
-    console.log(
-      `📊 Starting to process ${jsonData.length} rows from Excel file...`
-    );
 
     const modifiedData = jsonData?.map((item) => {
       const modifiedItem = {};
@@ -212,17 +201,6 @@ function useFileUpload(inputRef, alt, setAlt) {
           }
         }
       }
-
-      // Log progress every 100 rows
-      const rowIndex = jsonData.indexOf(item) + 1;
-      if (rowIndex % 100 === 0) {
-        console.log(
-          `✅ Processed ${rowIndex} / ${jsonData.length} rows (${Math.round(
-            (rowIndex / jsonData.length) * 100
-          )}%)`
-        );
-      }
-
       return modifiedItem;
     });
 
@@ -242,8 +220,8 @@ function useFileUpload(inputRef, alt, setAlt) {
             const sizeKey = size.includes("40")
               ? "40"
               : size.includes("20")
-                ? "20"
-                : null;
+              ? "20"
+              : null;
 
             if (sizeKey) {
               sizes[sizeKey] += parseInt(count, 10);
@@ -266,14 +244,6 @@ function useFileUpload(inputRef, alt, setAlt) {
       } else {
         item.container_nos = [];
       }
-
-      // Log container processing progress every 100 rows
-      const containerRowIndex = modifiedData.indexOf(item) + 1;
-      if (containerRowIndex % 100 === 0) {
-        console.log(
-          `📦 Container processing: ${containerRowIndex} / ${modifiedData.length} rows`
-        );
-      }
     });
 
     // Set file to null so that the same file can be selected again
@@ -281,19 +251,12 @@ function useFileUpload(inputRef, alt, setAlt) {
       inputRef.current.value = null;
     }
 
-    console.log(
-      `🎉 Excel processing complete! Total rows processed: ${modifiedData.length}`
-    );
-    console.log(`📤 Starting upload to server...`);
-
     // Upload the Excel data and check the status
     await uploadAndCheckStatus(modifiedData);
   };
 
   async function uploadAndCheckStatus(modifiedData) {
     setLoading(true);
-    const startTime = Date.now(); // Start timer
-
     try {
       // Fetch the existing LastJobsDate data to check the current vessel_berthing value
       const lastJobsDateRes = await axios.get(
@@ -302,16 +265,15 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       const existingVesselBerthing =
         lastJobsDateRes.data?.vessel_berthing || "";
-
-      const existingGatewayIGM = lastJobsDateRes.data?.gateway_igm_date || "";
+        
+      const existingGatewayIGM =
+        lastJobsDateRes.data?.gateway_igm_date || "";
 
       // Modify the data before sending it to the backend
       const finalData = modifiedData.map((item) => {
         if (
-          item.vessel_berthing &&
-          item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
-          (!existingVesselBerthing || existingVesselBerthing.trim() === "") &&
-          (!existingGatewayIGM || existingGatewayIGM.trim() === "") // And the existing value is empty or null
+          item.vessel_berthing && item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
+          ((!existingVesselBerthing || existingVesselBerthing.trim() === "") && (!existingGatewayIGM || existingGatewayIGM.trim() === "")) // And the existing value is empty or null
         ) {
           return item; // Use the Excel sheet's vessel_berthing date
         } else {
@@ -324,62 +286,23 @@ function useFileUpload(inputRef, alt, setAlt) {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
       };
 
-      // Upload in chunks to prevent timeout/loops on restricted environments (e.g. EC2)
-      const CHUNK_SIZE = 200;
-      const totalChunks = Math.ceil(finalData.length / CHUNK_SIZE);
-      let failed = false;
+      // First, upload the data
+      const uploadResponse = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
+        finalData,
+        { headers }
+      );
 
-      // Initialize progress
-      setProgress({ current: 0, total: totalChunks });
-
-      console.log(`Starting chunked upload: ${finalData.length} records in ${totalChunks} chunks`);
-
-      for (let i = 0; i < finalData.length; i += CHUNK_SIZE) {
-        const chunk = finalData.slice(i, i + CHUNK_SIZE);
-        const currentChunk = (i / CHUNK_SIZE) + 1;
-
-        console.log(`Uploading chunk ${currentChunk}/${totalChunks}...`);
-
-        try {
-          // Upload the chunk
-          const uploadResponse = await axios.post(
-            `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-            chunk,
-            { headers }
-          );
-
-          if (uploadResponse.status !== 200) {
-            failed = true;
-            setError(`Failed to upload chunk ${currentChunk}`);
-            break;
-          }
-
-          // Update progress
-          setProgress({ current: currentChunk, total: totalChunks });
-
-        } catch (err) {
-          console.error(`Error uploading chunk ${currentChunk}:`, err);
-          failed = true;
-          setError(`Error uploading chunk ${currentChunk}. Check console for details.`);
-          break;
-        }
-      }
-
-      if (!failed) {
-        const endTime = Date.now();
-        const durationSeconds = ((endTime - startTime) / 1000).toFixed(2);
-        setUploadStats({
-          count: finalData.length,
-          timeTaken: durationSeconds
-        });
-
+      if (uploadResponse.status === 200) {
         setSnackbar(true);
+
+        const firstJobNo = modifiedData[0].job_no;
 
         const checkStatusResponse = await axios.get(
           `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
@@ -387,6 +310,8 @@ function useFileUpload(inputRef, alt, setAlt) {
         if (checkStatusResponse.status !== 200) {
           console.error("Status update failed");
         }
+      } else {
+        setError("Something went wrong during data upload");
       }
     } catch (error) {
       setError("Error occurred during the upload or status check");
@@ -397,12 +322,12 @@ function useFileUpload(inputRef, alt, setAlt) {
     }
   }
 
-  // Hide snackbar after 4 seconds to give time to read stats
+  // Hide snackbar after 2 seconds
   setTimeout(() => {
     setSnackbar(false);
-  }, 4000);
+  }, 2000);
 
-  return { handleFileUpload, snackbar, loading, error, setError, progress, uploadStats };
+  return { handleFileUpload, snackbar, loading, error };
 }
 
 export default useFileUpload;

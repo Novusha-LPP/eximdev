@@ -1,14 +1,17 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate, useLocation } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faShip, faAnchor, faPlane } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
 import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
-
+import BLStatus from "./BLStatus.js";
+import SeaCargoStatus from "./SeaCargoStatus.js";
 import BLTrackingCell from "./BLTrackingCell.js";
 import axios from "axios";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -39,7 +42,13 @@ function useJobColumns(
     }
   }, []);
 
+  const extractLocationCode = (locationString) => {
+    if (!locationString) return "";
 
+    // Extract value inside parenthesis
+    const match = locationString.match(/\(([^)]+)\)/);
+    return match ? match[1] : locationString;
+  };
 
   const handleCopy = (event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -248,12 +257,6 @@ function useJobColumns(
                   <RefreshIcon fontSize="inherit" />
                 </IconButton>
               </div>
-              {row.obl_telex_bl === "OBL" && (
-                <div style={{ marginTop: 4, color: "red", fontSize: "15px" }}>
-                  Advanced OBL is received <br />
-                  {formatDate(row.document_received_date)}
-                </div>
-              )}
             </div>
           );
         },
@@ -291,9 +294,9 @@ function useJobColumns(
               </Tooltip>
 
               <Tooltip title="FTA Benefit" arrow>
-                <div
-                  style={{ marginTop: "5px", fontWeight: "bold" }}
-                >{`FTA Benefit: ${ftaDisplay}`}</div>
+                <span
+                  style={{ marginTop: "5px" }}
+                >{`FTA Benefit: ${ftaDisplay}`}</span>
               </Tooltip>
               <Tooltip title="Hss" arrow>
                 <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>

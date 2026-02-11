@@ -1,6 +1,5 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import UserModel from "../model/userModel.mjs";
 
 const router = express.Router();
@@ -14,14 +13,6 @@ router.post("/api/login", async (req, res) => {
       return res.status(400).json({ message: "User not registered" });
     }
 
-    if (user.isActive === false) {
-      return res
-        .status(403)
-        .json({
-          message: "User is deactivated. Please contact administrator.",
-        });
-    }
-
     bcrypt.compare(password, user.password, (passwordErr, passwordResult) => {
       if (passwordErr) {
         console.error(passwordErr);
@@ -31,10 +22,8 @@ router.post("/api/login", async (req, res) => {
       if (passwordResult) {
         // Create a new object with only the required fields
         const userResponse = {
-          _id: user._id,
           username: user.username,
           role: user.role,
-          can_access_exim_bot: user.can_access_exim_bot,
           modules: user.modules,
           first_name: user.first_name,
           middle_name: user.middle_name,
@@ -49,23 +38,6 @@ router.post("/api/login", async (req, res) => {
           assigned_importer_name: user.assigned_importer_name,
           selected_icd_codes: user.selected_icd_codes,
         };
-
-        const token = jwt.sign(
-          {
-            _id: user._id,
-            username: user.username,
-            role: user.role,
-          },
-          process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod",
-          { expiresIn: "10h" }
-        );
-
-        res.cookie("token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 10 * 60 * 60 * 1000, // 10 hours
-        });
 
         return res.status(200).json(userResponse);
       } else {

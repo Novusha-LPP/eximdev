@@ -1,8 +1,5 @@
 import mongoose from "mongoose";
 import { type } from "os";
-import { determineDetailedStatus } from "../utils/determineDetailedStatus.mjs";
-import { getRowColorFromStatus } from "../utils/statusColorMapper.mjs";
-import { getJobStatusRank, getJobSortDate } from "../utils/jobRanking.mjs";
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
@@ -20,7 +17,7 @@ const fieldSchema = new mongoose.Schema({
 });
 
 const masterTypeSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true, unique: true },
   fields: [fieldSchema],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
@@ -147,7 +144,7 @@ const jobSchema = new mongoose.Schema({
   clearanceValue: { type: String, trim: true },
   line_no: { type: String, trim: true },
   ie_code_no: { type: String, trim: true },
-  gst_no: { type: String, trim: true },
+
   container_nos: [
     {
       container_number: { type: String, trim: true },
@@ -232,12 +229,6 @@ const jobSchema = new mongoose.Schema({
   // *******
   status: { type: String, trim: true },
   detailed_status: { type: String, trim: true },
-  row_color: { type: String, trim: true },
-  status_rank: { type: Number, default: 999 },
-  status_sort_date: {
-    type: Date,
-    default: () => new Date("9999-12-31T23:59:59.999Z"),
-  },
   // *******
   obl_telex_bl: { type: String },
   document_received_date: { type: String, trim: true },
@@ -555,32 +546,12 @@ const jobSchema = new mongoose.Schema({
   bill_amount: { type: String },
   do_list: { type: String, trim: true },
 
-  advanced_payment_done: { type: Boolean, default: false },
-  advanced_payment_date: { type: Date },
-  advanced_payment_by: { type: String },
-
   ////////////////////////////////////////////////// Display
 });
 
 // Automatically update `updatedAt` before saving
 jobSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
-
-  try {
-    const jobObj = this.toObject();
-    const detStatus = determineDetailedStatus(jobObj);
-
-    // Only update if not explicitly set (or always update? usually computed overrides manual)
-    // We'll update it to ensure consistency.
-    this.detailed_status = detStatus;
-    this.row_color = getRowColorFromStatus(detStatus);
-    this.status_rank = getJobStatusRank(detStatus);
-    this.status_sort_date = getJobSortDate(jobObj, detStatus);
-  } catch (err) {
-    console.error("Error computing derived job fields:", err);
-    // Don't block save, but maybe log?
-  }
-
   next();
 });
 
@@ -619,10 +590,6 @@ jobSchema.index({
 
 // NEW: Composite index for sorting by status and detention date (common operation)
 jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
-
-// NEW: Optimized indexes for Status Ranking and Sorting
-jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
-jobSchema.index({ year: 1, detailed_status: 1 });
 
 const JobModel = new mongoose.model("Job", jobSchema);
 export default JobModel;

@@ -64,8 +64,6 @@ function JobList(props) {
     setSelectedICD,
     selectedImporter,
     setSelectedImporter,
-    selectedBeType,
-    setSelectedBeType,
   } = useSearchQuery();
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -87,9 +85,7 @@ function JobList(props) {
       setSearchQuery("");
       setDetailedStatus("all");
       setSelectedICD("all");
-      setSelectedICD("all");
       setSelectedImporter("");
-      setSelectedBeType("all");
       setLocalInput("");
     }
     if (location.state && location.state.fromJobDetails) {
@@ -107,25 +103,16 @@ function JobList(props) {
         params.append("detailedStatus", detailedStatus);
       }
       const queryString = params.toString();
-      const url = `${process.env.REACT_APP_API_STRING
-        }/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""
-        }`;
+      const url = `${
+        process.env.REACT_APP_API_STRING
+      }/get-importer-list/${selectedYearState}${
+        queryString ? "?" + queryString : ""
+      }`;
       const res = await axios.get(url);
-
-      let fetchedImporters = res.data;
-
-      // Filter based on assigned importers if not Admin
-      if (user && user.role !== 'Admin') {
-        const assignedImporters = user.assigned_importer_name || [];
-        fetchedImporters = fetchedImporters.filter(item =>
-          assignedImporters.includes(item.importer)
-        );
-      }
-
-      setImporters(fetchedImporters);
+      setImporters(res.data);
     }
     getImporterList();
-  }, [selectedYearState, detailedStatus, user]);
+  }, [selectedYearState, detailedStatus]);
 
   const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -163,7 +150,6 @@ function JobList(props) {
     selectedICD,
     debouncedSearchQuery,
     selectedImporter,
-    selectedBeType,
     showUnresolvedOnly
   );
 
@@ -400,11 +386,6 @@ function JobList(props) {
     [setDetailedStatus]
   );
 
-  const handleBeTypeChange = useCallback(
-    (e) => setSelectedBeType(e.target.value),
-    [setSelectedBeType]
-  );
-
   const handleLocalInputChange = useCallback((e) => {
     setLocalInput(e.target.value);
   }, []);
@@ -438,7 +419,7 @@ function JobList(props) {
           label="ICD Code"
           value={selectedICD}
           onChange={handleICDChange}
-          sx={{ width: "135px", marginRight: "10px" }}
+          sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="all">All ICDs</MenuItem>
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
@@ -446,23 +427,8 @@ function JobList(props) {
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
 
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="Type of BE"
-          value={selectedBeType}
-          onChange={handleBeTypeChange}
-          sx={{ width: "135px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All BE Types</MenuItem>
-          <MenuItem value="Home">Home</MenuItem>
-          <MenuItem value="In-Bond">In-Bond</MenuItem>
-          <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
-        </TextField>
-
         <Autocomplete
-          sx={{ width: "220px", marginRight: "10px" }}
+          sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((o) => o.label)}
           value={selectedImporter || ""}
@@ -484,7 +450,7 @@ function JobList(props) {
             size="small"
             value={selectedYearState}
             onChange={handleYearChange}
-            sx={{ width: "90px", marginRight: "10px" }}
+            sx={{ width: "100px", marginRight: "20px" }}
           >
             {years.map((y, i) => (
               <MenuItem key={`year-${y}-${i}`} value={y}>
@@ -499,7 +465,7 @@ function JobList(props) {
           size="small"
           value={detailedStatus}
           onChange={handleDetailedStatusChange}
-          sx={{ width: "220px", marginRight: "10px" }}
+          sx={{ width: "250px", marginRight: "20px" }}
         >
           {detailedStatusOptions.map((o, i) => (
             <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
@@ -515,7 +481,7 @@ function JobList(props) {
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
-          sx={{ width: "250px", marginRight: "10px" }}
+          sx={{ width: "300px", marginRight: "20px" }}
           InputProps={{
             endAdornment: (
               <IconButton size="small" onClick={handleSearchClick}>
@@ -547,8 +513,6 @@ function JobList(props) {
       handleLocalInputChange,
       handleClearSearch,
       handleOpen,
-      selectedBeType, // dependency
-      handleBeTypeChange // dependency
     ]
   );
 
@@ -574,7 +538,6 @@ function JobList(props) {
           detailedStatus,
           selectedICD,
           selectedImporter,
-          selectedBeType, // persist
         },
       }),
     setRows, // <-- pass here

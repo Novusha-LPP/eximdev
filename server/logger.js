@@ -59,19 +59,14 @@ const logger = createLogger({
           }),
         ]
       : []),
-  ],
-});
-
-export const addMongoDBTransport = (client) => {
-  logger.add(
     new transports.MongoDB({
       level: "error",
-      db: client, // Use the existing connection promise or client
+      db: MONGODB_URI,
       collection: "serverlogs",
       tryReconnect: true,
       format: format.combine(format.timestamp(), customFormat),
-    })
-  );
-};
+    }),
+  ],
+});
 
 export default logger;

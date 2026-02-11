@@ -1,396 +1,446 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
 import {
-  parse, isValid, isWithinInterval, getYear, getMonth, getQuarter
-} from 'date-fns';
-import './Penalty.css';
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Alert,
+  Chip,
+  Grid,
+  Avatar,
+  Divider,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Autocomplete,
+  TablePagination,
+} from "@mui/material";
+import {
+  TrendingUp,
+  Warning,
+  AccountBalance,
+  Search,
+  FilterList,
+  Download,
+  Refresh,
+} from "@mui/icons-material";
+import axios from "axios";
 
-const Penalty = () => {
-  // Basic state for the report tab
-  const [activeReport, setActiveReport] = useState('fine'); // 'fine' or 'penalty'
-
-  // Filter State
-  const [filterType, setFilterType] = useState('month'); // Default to month
-
-  // Custom Filter Values
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3));
-
-  const [data, setData] = useState([]);
+function Penalty() {
   const [loading, setLoading] = useState(true);
-
-  // Generate years for dropdown
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
+  const [data, setData] = useState([]);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedImporter, setSelectedImporter] = useState("");
+  const [importerNames, setImporterNames] = useState([]);
+  
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
-        if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
-
-        const endpoint = apiUrl.endsWith('/api')
-          ? `${apiUrl}/project-nucleus/reports`
-          : `${apiUrl}/api/project-nucleus/reports`;
-
-        const response = await axios.get(endpoint, { withCredentials: true });
-        setData(response.data);
-      } catch (error) {
-        console.error("Error fetching reports:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReports();
+    fetchPenaltyData();
   }, []);
-
-  const filterByTime = (items) => {
-    return items.filter(item => {
-      if (!item.be_date) return false;
-
-      // Try parsing with multiple formats
-      let date = parse(item.be_date, 'dd-MM-yyyy', new Date());
-
-      if (!isValid(date)) {
-        // Try ISO format
-        date = parse(item.be_date, 'yyyy-MM-dd', new Date());
-      }
-
-      if (!isValid(date)) {
-        // Fallback to standard JS date parser
-        date = new Date(item.be_date);
-      }
-
-      if (!isValid(date)) return false;
-
-      if (filterType === 'date-range') {
-        if (!dateRange.start || !dateRange.end) return true;
-        const start = new Date(dateRange.start);
-        const end = new Date(dateRange.end);
-        // Set end date to end of day to include the full day
-        end.setHours(23, 59, 59, 999);
-        return isWithinInterval(date, { start, end });
-      } else if (filterType === 'month') {
-        // selectedMonth is 0-indexed
-        return getMonth(date) === parseInt(selectedMonth) && getYear(date) === parseInt(selectedYear);
-      } else if (filterType === 'quarter') {
-        return getQuarter(date) === parseInt(selectedQuarter) && getYear(date) === parseInt(selectedYear);
-      } else if (filterType === 'year') {
-        return getYear(date) === parseInt(selectedYear);
-      }
-      // If preset is still set (like 'all'), show all
-      return true;
-    });
-  };
-
-  const fineData = data.filter(item => {
-    const val = item.fine_val !== undefined ? item.fine_val : (parseFloat(item.fine_amount.toString().replace(/[^0-9.]/g, '')) || 0);
-    return val > 0;
-  });
-
-  const penaltyData = data.filter(item => {
-    const val = item.penalty_val !== undefined ? item.penalty_val : (parseFloat(item.penalty_amount.toString().replace(/[^0-9.]/g, '')) || 0);
-    return val > 0;
-  });
-
-  const currentBaseData = activeReport === 'fine' ? fineData : penaltyData;
-  const currentData = filterByTime(currentBaseData);
-
-  const handleStatusUpdate = async (jobId, source) => {
+  const fetchPenaltyData = async () => {
     try {
-      const updates = {
-        penalty_by_us: source === 'us',
-        penalty_by_importer: source === 'importer'
-      };
-
-      // Optimistic update locally
-      const newData = data.map(item => {
-        if (item._id === jobId) {
-          return { ...item, ...updates };
-        }
-        return item;
-      });
-      setData(newData);
-
-      let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
-      if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
-
-      const endpoint = apiUrl.endsWith('/api')
-        ? `${apiUrl}/project-nucleus/update-penalty-status`
-        : `${apiUrl}/api/project-nucleus/update-penalty-status`;
-
-      await axios.post(endpoint, {
-        jobId,
-        updates
-      }, { withCredentials: true });
-
-    } catch (error) {
-      console.error("Error updating status:", error);
+      setLoading(true);
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/report/penalty`);
+      setData(response.data.data || []);
+      
+      // Extract unique importer names for the dropdown
+      const uniqueImporters = [...new Set((response.data.data || [])
+        .map(job => job.importer)
+        .filter(importer => importer && importer.trim() !== ""))]
+        .sort()
+        .map(importer => ({ label: importer }));
+      
+      setImporterNames(uniqueImporters);
+      setError(null);
+    } catch (err) {
+      setError("Failed to fetch penalty data");
+      console.error("Error fetching penalty data:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="penalty-page-container">
-      {/* Simple Top Navigation for Report Type */}
-      <div className="report-toggle-header">
-        <div className="header-title">
-          Bill of Entry Reports
-        </div>
-        <div className="toggle-buttons">
-          <button
-            className={`toggle-btn ${activeReport === 'fine' ? 'active' : ''}`}
-            onClick={() => setActiveReport('fine')}
-          >
-            Fine Report
-          </button>
-          <button
-            className={`toggle-btn ${activeReport === 'penalty' ? 'active' : ''}`}
-            onClick={() => setActiveReport('penalty')}
-          >
-            Penalty Report
-          </button>
-        </div>
-      </div>
+  const formatAmount = (amount) => {
+    const numAmount = parseFloat(amount) || 0;
+    return numAmount > 0 ? `₹${numAmount.toLocaleString()}` : "-";
+  };
 
-      {/* Main Content Area */}
-      <div className="nucleus-main-content no-sidebar">
+  // Calculate summary metrics
+  const totalInterest = data.reduce((sum, job) => sum + (parseFloat(job.intrest_ammount) || 0), 0);
+  const totalFines = data.reduce((sum, job) => sum + (parseFloat(job.fine_amount) || 0), 0);
+  const totalPenalties = data.reduce((sum, job) => sum + (parseFloat(job.penalty_amount) || 0), 0);
+  const totalAmount = totalInterest + totalFines + totalPenalties;
+  // Filter data based on search term and selected importer
+  const filteredData = data.filter(job => {
+    const matchesSearch = job.job_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         job.importer?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesImporter = !selectedImporter || job.importer === selectedImporter;
+    return matchesSearch && matchesImporter;
+  });
 
-        {/* Statistics Summary Section */}
-        {!loading && (
-          <div className="nucleus-stats-card">
-            <div className="stats-text">
-              {(() => {
-                // Calculate Stats
-                // 1. All Jobs in the selected period (Total Filed)
-                const allJobsInPeriod = filterByTime(data); // data contains ALL jobs now
-                const totalFiled = allJobsInPeriod.length;
+  // Pagination handlers
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
 
-                // 2. Jobs with Fines/Penalties in the selected period
-                const relevantJobsInPeriod = allJobsInPeriod.filter(item => {
-                  const val = activeReport === 'fine'
-                    ? (item.fine_val !== undefined ? item.fine_val : (parseFloat(item.fine_amount?.toString().replace(/[^0-9.]/g, '') || 0)))
-                    : (item.penalty_val !== undefined ? item.penalty_val : (parseFloat(item.penalty_amount?.toString().replace(/[^0-9.]/g, '') || 0)));
-                  return val > 0;
-                });
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
-                const affectedCount = relevantJobsInPeriod.length;
-                const percentage = totalFiled > 0 ? ((affectedCount / totalFiled) * 100).toFixed(1) : 0;
-
-                // 3. Total Amount Calculation
-                const totalAmount = relevantJobsInPeriod.reduce((sum, item) => {
-                  const val = activeReport === 'fine'
-                    ? (item.fine_val !== undefined ? item.fine_val : (parseFloat(item.fine_amount?.toString().replace(/[^0-9.]/g, '') || 0)))
-                    : (item.penalty_val !== undefined ? item.penalty_val : (parseFloat(item.penalty_amount?.toString().replace(/[^0-9.]/g, '') || 0)));
-                  return sum + val;
-                }, 0);
-
-                // Format Currency
-                const formattedAmount = new Intl.NumberFormat('en-IN', {
-                  style: 'currency',
-                  currency: 'INR',
-                  maximumFractionDigits: 0
-                }).format(totalAmount);
-
-                // Construct Time Period Text
-                let periodText = "all time";
-                if (filterType === 'month') {
-                  periodText = `in ${months[selectedMonth]} ${selectedYear}`;
-                } else if (filterType === 'quarter') {
-                  periodText = `in Q${selectedQuarter} ${selectedYear}`;
-                } else if (filterType === 'year') {
-                  periodText = `in ${selectedYear}`;
-                } else if (filterType === 'date-range' && dateRange.start) {
-                  periodText = `from ${dateRange.start} to ${dateRange.end || 'today'}`;
-                }
-
-                return (
-                  <>
-                    In <span className="highlight-text">{periodText}</span>, we filed <span className="highlight-val">{totalFiled}</span> Bills of Entry, out of which <span className="highlight-val">{affectedCount}</span> had {activeReport === 'fine' ? 'fines' : 'penalties'} (<span className="highlight-val">{percentage}%</span>).
-
-                    Total {activeReport === 'fine' ? 'Fine' : 'Penalty'} Amount: <span className="highlight-val" style={{ color: activeReport === 'fine' ? '#d97706' : '#dc2626' }}>{formattedAmount}</span>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        )}
-
-        <div className="nucleus-controls-container">
-          <div className="nucleus-filter-section">
-            <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
-              <div className="filter-type-selector">
-                <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
-                <select
-                  value={filterType}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setFilterType(val);
-                  }}
-                  className="nucleus-select"
-                >
-                  <option value="month">Month Wise</option>
-                  <option value="quarter">Quarter Wise</option>
-                  <option value="year">Year Wise</option>
-                  <option value="date-range">Date Range</option>
-                  <option value="all">Unfiltered (All Time)</option>
-                </select>
-              </div>
-
-              {filterType === 'date-range' && (
-                <div className="custom-inputs">
-                  <input
-                    type="date"
-                    className="nucleus-input"
-                    value={dateRange.start}
-                    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  />
-                  <span style={{ color: '#6b7280' }}>to</span>
-                  <input
-                    type="date"
-                    className="nucleus-input"
-                    value={dateRange.end}
-                    onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  />
-                </div>
-              )}
-
-              {filterType === 'month' && (
-                <div className="custom-inputs">
-                  <select
-                    className="nucleus-select"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                  >
-                    {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                  </select>
-                  <select
-                    className="nucleus-select"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                  >
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {filterType === 'quarter' && (
-                <div className="custom-inputs">
-                  <select
-                    className="nucleus-select"
-                    value={selectedQuarter}
-                    onChange={(e) => setSelectedQuarter(e.target.value)}
-                  >
-                    <option value="1">Q1 (Jan - Mar)</option>
-                    <option value="2">Q2 (Apr - Jun)</option>
-                    <option value="3">Q3 (Jul - Sep)</option>
-                    <option value="4">Q4 (Oct - Dec)</option>
-                  </select>
-                  <select
-                    className="nucleus-select"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                  >
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {filterType === 'year' && (
-                <div className="custom-inputs">
-                  <select
-                    className="nucleus-select"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                  >
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {loading ? (
-          <div style={{ color: '#6b7280', padding: '20px' }}>Loading reports data...</div>
-        ) : (
-          <div className="nucleus-table-wrapper">
-            <table className="nucleus-table">
-              <thead>
-                <tr>
-                  <th>Job No</th>
-                  <th>BE No</th>
-                  <th>BE Date</th>
-                  <th>{activeReport === 'fine' ? 'Fine Amount (INR)' : 'Penalty Amount (INR)'}</th>
-                  <th>Accountability</th>
-                  <th>Importer</th>
-                  <th>Handler Name(s)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentData.length > 0 ? (
-                  currentData.map((item) => (
-                    <tr key={item._id}>
-                      <td style={{ fontWeight: 500 }}>{item.job_no}</td>
-                      <td>{item.be_no}</td>
-                      <td>{item.be_date}</td>
-                      <td className={`amount-cell ${activeReport === 'fine' ? 'fine-amount' : 'penalty-amount'}`}>
-                        {activeReport === 'fine' ? item.fine_amount : item.penalty_amount}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '15px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '5px' }}>
-                            <input
-                              type="radio"
-                              name={`accountability_${item._id}`}
-                              checked={item.penalty_by_us === true}
-                              onChange={() => handleStatusUpdate(item._id, 'us')}
-                            />
-                            By Us
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '5px' }}>
-                            <input
-                              type="radio"
-                              name={`accountability_${item._id}`}
-                              checked={item.penalty_by_importer === true}
-                              onChange={() => handleStatusUpdate(item._id, 'importer')}
-                            />
-                            By Importer
-                          </label>
-                        </div>
-                      </td>
-                      <td>{item.importer}</td>
-                      <td>
-                        {item.handlers && item.handlers.length > 0 ? (
-                          item.handlers.map((h, i) => (
-                            <span key={i} className="handler-tag">{h}</span>
-                          ))
-                        ) : (
-                          <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>Unassigned</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
-                      No records found for the selected period.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
+  // Get paginated data
+  const paginatedData = filteredData.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
   );
-};
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [searchTerm, selectedImporter]);
+
+  const MetricCard = ({ title, value, icon, color, subtitle }) => (
+    <Card 
+      sx={{ 
+        height: '100%',
+        background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
+        border: `1px solid ${color}20`,
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: `0 8px 25px ${color}25`,
+        }
+      }}
+    >
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+              {title}
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: color, mb: 0.5 }}>
+              {value}
+            </Typography>
+            {subtitle && (
+              <Typography variant="caption" color="text.secondary">
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Avatar sx={{ bgcolor: `${color}15`, color: color, width: 48, height: 48 }}>
+            {icon}
+          </Avatar>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px"
+        sx={{ bgcolor: 'grey.50', borderRadius: 2, p: 4 }}
+      >
+        <CircularProgress size={48} sx={{ mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          Loading penalty data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ width: "100%", minHeight: "100vh", bgcolor: 'grey.50', p: 3 }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+              Penalty Management
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Monitor and track penalty amounts across all jobs
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton 
+              onClick={fetchPenaltyData}
+              sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+            >
+              <Refresh />
+            </IconButton>
+            <IconButton sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}>
+              <Download />
+            </IconButton>
+          </Box>
+        </Box>
+        
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 2,
+              borderRadius: 2,
+              '& .MuiAlert-icon': { fontSize: 20 }
+            }}
+          >
+            {error}
+          </Alert>
+        )}
+      </Box>
+
+      {/* Metrics Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Total Jobs"
+            value={data.length}
+            icon={<AccountBalance />}
+            color="#1976d2"
+            subtitle="with penalties"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Total Interest"
+            value={formatAmount(totalInterest)}
+            icon={<TrendingUp />}
+            color="#f57c00"
+            subtitle="accumulated"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Total Fines"
+            value={formatAmount(totalFines)}
+            icon={<Warning />}
+            color="#d32f2f"
+            subtitle="imposed"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Total Penalties"
+            value={formatAmount(totalPenalties)}
+            icon={<Warning />}
+            color="#7b1fa2"
+            subtitle="outstanding"
+          />
+        </Grid>
+      </Grid>
+
+      {/* Main Content Card */}
+      <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)', borderRadius: 3 }}>
+        <CardContent sx={{ p: 0 }}>
+          {/* Table Header */}
+          <Box sx={{ p: 3, pb: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Jobs with Penalties
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Detailed view of all jobs with penalty amounts
+                </Typography>
+              </Box>              <Chip 
+                label={filteredData.length > 0 
+                  ? `Showing ${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, filteredData.length)} of ${filteredData.length} Jobs`
+                  : `${filteredData.length} of ${data.length} Jobs`
+                } 
+                color="primary" 
+                variant="outlined"
+                sx={{ fontWeight: 500 }}
+              />
+            </Box>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Autocomplete
+                sx={{ width: "300px", marginRight: "20px" }}
+                freeSolo
+                options={importerNames.map((option) => option.label)}
+                value={selectedImporter || ""} // Controlled value
+                onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    label="Select Importer" // Placeholder text
+                  />
+                )}
+              />
+              <TextField
+                placeholder="Search by job number..."
+                variant="outlined"
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ flexGrow: 1, maxWidth: 300 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <IconButton 
+                sx={{ bgcolor: 'grey.100', '&:hover': { bgcolor: 'grey.200' } }}
+                onClick={() => {
+                  setSelectedImporter("");
+                  setSearchTerm("");
+                }}
+                title="Clear filters"
+              >
+                <FilterList />
+              </IconButton>
+            </Box>
+          </Box>
+          
+          <Divider />
+          
+          {filteredData.length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 6 }}>
+              <Warning sx={{ fontSize: 48, color: 'grey.300', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                {searchTerm ? 'No matching results' : 'No penalties found'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {searchTerm 
+                  ? 'Try adjusting your search criteria'
+                  : 'No jobs found with penalty amounts greater than 0.'
+                }
+              </Typography>
+            </Box>
+          ) : (
+            <TableContainer sx={{ maxHeight: 600 }}>
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', py: 2 }}>
+                      Job Details
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', textAlign: "right", py: 2 }}>
+                      Interest Amount
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', textAlign: "right", py: 2 }}>
+                      Fine Amount
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', textAlign: "right", py: 2 }}>
+                      Penalty Amount
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', textAlign: "right", py: 2 }}>
+                      Total
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginatedData.map((job, index) => {
+                    const jobTotal = (parseFloat(job.intrest_ammount) || 0) + 
+                                   (parseFloat(job.fine_amount) || 0) + 
+                                   (parseFloat(job.penalty_amount) || 0);
+                    
+                    return (
+                      <TableRow 
+                        key={job._id || index}
+                        hover
+                        sx={{ 
+                          "&:hover": { bgcolor: 'grey.50' },
+                          "&:last-child td": { border: 0 }
+                        }}
+                      >
+                        <TableCell sx={{ py: 2 }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                              {job.job_no || "-"}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {job.importer || "-"}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 2 }}>
+                          <Chip
+                            label={formatAmount(job.intrest_ammount)}
+                            size="small"
+                            color={parseFloat(job.intrest_ammount) > 0 ? "warning" : "default"}
+                            variant={parseFloat(job.intrest_ammount) > 0 ? "filled" : "outlined"}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 2 }}>
+                          <Chip
+                            label={formatAmount(job.fine_amount)}
+                            size="small"
+                            color={parseFloat(job.fine_amount) > 0 ? "error" : "default"}
+                            variant={parseFloat(job.fine_amount) > 0 ? "filled" : "outlined"}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 2 }}>
+                          <Chip
+                            label={formatAmount(job.penalty_amount)}
+                            size="small"
+                            color={parseFloat(job.penalty_amount) > 0 ? "secondary" : "default"}
+                            variant={parseFloat(job.penalty_amount) > 0 ? "filled" : "outlined"}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 2 }}>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 600,
+                              color: jobTotal > 0 ? 'error.main' : 'text.secondary'
+                            }}
+                          >
+                            {formatAmount(jobTotal)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>            </TableContainer>
+          )}
+          
+          {/* Pagination - only show when there's data */}
+          {filteredData.length > 0 && (
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={filteredData.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{ 
+                borderTop: '1px solid #e0e0e0',
+                bgcolor: 'grey.50',
+                '& .MuiTablePagination-toolbar': {
+                  px: 3,
+                  py: 2
+                }
+              }}
+            />
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
 
 export default Penalty;

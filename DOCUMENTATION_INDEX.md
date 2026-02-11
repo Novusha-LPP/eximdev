@@ -19,7 +19,7 @@
 **Best for**: Executives, project managers, quick understanding
 **Read time**: 5 minutes
 **Contains**:
-- What was wrong
+- What was wrong ---
 - What was fixed  
 - Benefits summary
 - Deployment steps (simplified)

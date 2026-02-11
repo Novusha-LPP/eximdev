@@ -5,7 +5,7 @@ import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { fetchUserOpenPoints } from "../../services/openPointsService";
 import "./userProfile.css";
-import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button, Menu, MenuItem } from "@mui/material";
+import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button, Menu, MenuItem, IconButton } from "@mui/material";
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -16,6 +16,11 @@ import BusinessIcon from '@mui/icons-material/Business';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import WorkIcon from '@mui/icons-material/Work';
+import DeleteIcon from "@mui/icons-material/Delete";
+import ImagePreview from "../gallery/ImagePreview";
+import FileUpload from "../gallery/FileUpload";
+
+
 
 
 const UserProfile = ({ username: propUsername }) => {
@@ -234,6 +239,67 @@ const UserProfile = ({ username: propUsername }) => {
         }
     };
 
+    // Handle document upload (generic for both Onboarding and KYC)
+    const handleDocumentUpload = async (fileUrls, field, type) => {
+        if (!fileUrls || fileUrls.length === 0) return;
+        const fileUrl = fileUrls[0];
+
+        setUploading(true);
+        try {
+            const endpoint = type === 'kyc' 
+                ? `${process.env.REACT_APP_API_STRING}/api/complete-kyc`
+                : `${process.env.REACT_APP_API_STRING}/api/complete-onboarding`;
+
+            await axios.post(endpoint, {
+                username: targetUsername,
+                [field]: fileUrl
+            });
+
+            // Update local state
+            setProfileData(prev => ({ ...prev, [field]: fileUrl }));
+            setSnackbar({ open: true, message: 'Document updated successfully!', severity: 'success' });
+        } catch (error) {
+            console.error(`Error updating ${field}:`, error);
+            setSnackbar({ open: true, message: 'Failed to update document.', severity: 'error' });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // Handle document delete
+    const handleDocumentDelete = async (field, type) => {
+        const fileUrl = profileData[field];
+        if (!fileUrl) return;
+
+        if (!window.confirm("Are you sure you want to delete this document?")) return;
+
+        setUploading(true);
+        try {
+            // 1. Delete from S3
+            const key = new URL(fileUrl).pathname.slice(1);
+            await axios.post(`${process.env.REACT_APP_API_STRING}/delete-s3-file`, { key });
+
+            // 2. Clear field in DB
+            const endpoint = type === 'kyc' 
+                ? `${process.env.REACT_APP_API_STRING}/api/complete-kyc`
+                : `${process.env.REACT_APP_API_STRING}/api/complete-onboarding`;
+
+            await axios.post(endpoint, {
+                username: targetUsername,
+                [field]: ""
+            });
+
+            // Update local state
+            setProfileData(prev => ({ ...prev, [field]: "" }));
+            setSnackbar({ open: true, message: 'Document deleted successfully!', severity: 'success' });
+        } catch (error) {
+            console.error(`Error deleting ${field}:`, error);
+            setSnackbar({ open: true, message: 'Failed to delete document.', severity: 'error' });
+        } finally {
+            setUploading(false);
+        }
+    };
+
     if (loading) return (
         <div className="profile-loader">
             <CircularProgress size={40} sx={{ color: '#1a73e8' }} />
@@ -251,11 +317,11 @@ const UserProfile = ({ username: propUsername }) => {
     const initials = `${profileData.first_name?.[0] || ''}${profileData.last_name?.[0] || ''}`.toUpperCase();
 
     const documents = [
-        { label: "Resume", url: profileData.resume },
-        { label: "Aadhar Card", url: profileData.aadhar_photo_front },
-        { label: "PAN Card", url: profileData.pan_photo },
-        { label: "NDA", url: profileData.nda },
-        { label: "Address Proof", url: profileData.address_proof }
+        { label: "Resume", field: "resume", type: "onboarding", url: profileData.resume, accept: [".pdf", ".doc", ".docx"] },
+        { label: "Aadhar Card", field: "aadhar_photo_front", type: "kyc", url: profileData.aadhar_photo_front, accept: ["image/*", ".pdf"] },
+        { label: "PAN Card", field: "pan_photo", type: "kyc", url: profileData.pan_photo, accept: ["image/*", ".pdf"] },
+        { label: "NDA", field: "nda", type: "onboarding", url: profileData.nda, accept: [".pdf"] },
+        { label: "Address Proof", field: "address_proof", type: "onboarding", url: profileData.address_proof, accept: ["image/*", ".pdf"] }
     ];
 
     // Tab content components
@@ -374,24 +440,41 @@ const UserProfile = ({ username: propUsername }) => {
                         <div className="section-header">Documents</div>
                         <div className="documents-list">
                             {documents.map((doc, index) => (
-                                <div key={index} className="document-item">
-                                    <div className="doc-icon-wrapper">
-                                        {doc.url
-                                            ? <CheckCircleIcon className="status-icon success" />
-                                            : <ErrorOutlineIcon className="status-icon missing" />
-                                        }
-                                    </div>
-                                    <div className="doc-meta">
-                                        <div className="doc-name">{doc.label}</div>
-                                        <div className={`doc-status ${doc.url ? 'uploaded' : 'pending'}`}>
-                                            {doc.url ? 'Uploaded' : 'Missing'}
+                                <div key={index} className="document-item" style={{ display: 'block' }}>
+                                    <div className="hr-upload-item" style={{ margin: 0 }}>
+                                        <span className="hr-upload-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>{doc.label}</span>
+                                        <div className="hr-upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            {(isOwnProfile || loggedInUser?.role === 'Admin') && (
+                                                <FileUpload
+                                                    label={doc.url ? "Replace" : "Upload"}
+                                                    onFilesUploaded={(files) => handleDocumentUpload(files, doc.field, doc.type)}
+                                                    bucketPath="kyc"
+                                                    singleFileOnly={true}
+                                                    acceptedFileTypes={doc.accept}
+                                                    buttonSx={{ fontSize: '0.7rem', padding: '4px 16px', minWidth: 'auto', borderRadius: '4px' }}
+                                                />
+                                            )}
+                                            
+                                            {doc.url && (
+                                                <div className="hr-upload-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="view-link">View</a>
+                                                    {(isOwnProfile || loggedInUser?.role === 'Admin') && (
+                                                        <IconButton 
+                                                            size="small" 
+                                                            color="error" 
+                                                            onClick={() => handleDocumentDelete(doc.field, doc.type)}
+                                                            title="Delete document"
+                                                        >
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!doc.url && !isOwnProfile && loggedInUser?.role !== 'Admin' && (
+                                                 <span style={{ fontSize: '0.75rem', color: '#999', fontStyle: 'italic' }}>Not uploaded</span>
+                                            )}
                                         </div>
                                     </div>
-                                    {doc.url && (
-                                        <a href={doc.url} target="_blank" rel="noreferrer" className="view-link">
-                                            View
-                                        </a>
-                                    )}
                                 </div>
                             ))}
                         </div>

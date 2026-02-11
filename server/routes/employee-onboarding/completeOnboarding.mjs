@@ -18,15 +18,15 @@ router.post("/api/complete-onboarding", async (req, res) => {
 
     // Build the update object dynamically
     const updateFields = {};
-    if (skill) updateFields.skill = skill;
-    if (company_policy_visited)
+    if (skill !== undefined) updateFields.skill = skill;
+    if (company_policy_visited !== undefined)
       updateFields.company_policy_visited = company_policy_visited;
-    if (introduction_with_md)
+    if (introduction_with_md !== undefined)
       updateFields.introduction_with_md = introduction_with_md;
-    if (employee_photo) updateFields.employee_photo = employee_photo;
-    if (resume) updateFields.resume = resume;
-    if (address_proof) updateFields.address_proof = address_proof;
-    if (nda) updateFields.nda = nda;
+    if (employee_photo !== undefined) updateFields.employee_photo = employee_photo;
+    if (resume !== undefined) updateFields.resume = resume;
+    if (address_proof !== undefined) updateFields.address_proof = address_proof;
+    if (nda !== undefined) updateFields.nda = nda;
 
     // Find the user by username and update the specified fields
     const updatedUser = await UserModel.findOneAndUpdate(

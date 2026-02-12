@@ -189,18 +189,7 @@ function CompletedKyc() {
 
   return (
     <div className="premium-card">
-      <div className="card-header">
-        <h2 className="page-title">Completed KYC</h2>
-        <p className="page-subtitle">Archive of processed applications</p>
-      </div>
-
       <div className="card-body">
-        <div className="alert-box success">
-          <CheckCircle fontSize="small" />
-          <span>
-            <strong>{data.length}</strong> completed applications found.
-          </span>
-        </div>
         <CustomTable columns={columns} data={data} />
       </div>
     </div>

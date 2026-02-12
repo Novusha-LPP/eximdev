@@ -8,7 +8,7 @@ const pointSchema = new mongoose.Schema({
 
     // New Excel Fields
     responsibility: { type: String }, // Text name from Excel
-    level: { type: String, enum: ['L1', 'L2', 'L3', 'L4'], default: 'L2' },
+    level: { type: String, enum: ['L1', 'L2', 'L3', 'L4', 'L5'], default: 'L2' },
     gap_action: String,
     review_date: String, // Keep as string for flexibility or Date
     remarks: String, // Current remarks

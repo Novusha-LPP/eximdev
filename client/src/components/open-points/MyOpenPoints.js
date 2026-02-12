@@ -125,8 +125,11 @@ const MyOpenPoints = ({ username: propUsername }) => {
     // Get unique project names for filter dropdown
     const uniqueProjects = [...new Set(points.map(p => p.project_name).filter(Boolean))].sort();
 
-    // Filter points
+    // Filter points for Table Display
     const filteredPoints = points.filter(p => {
+        // Always show points that are currently being edited (modified) so they can be saved
+        if (modifiedPoints.has(p._id)) return true;
+
         if (projectFilter && p.project_name !== projectFilter) return false;
         if (statusFilter && p.status !== statusFilter) return false;
         if (priorityFilter && p.priority !== priorityFilter) return false;
@@ -135,22 +138,21 @@ const MyOpenPoints = ({ username: propUsername }) => {
         return true;
     });
 
-    // Summary statistics (always show total counts from all points, not filtered)
-    const allPointsSummary = {
-        total: points.length,
-        red: points.filter(p => p.status === 'Red').length,
-        yellow: points.filter(p => p.status === 'Yellow').length,
-        orange: points.filter(p => p.status === 'Orange').length,
-        green: points.filter(p => p.status === 'Green').length,
-    };
+    // Summary statistics (Apply filters but IGNORE hideGreen toggle to keep stats visible)
+    const summaryPoints = points.filter(p => {
+        if (projectFilter && p.project_name !== projectFilter) return false;
+        if (statusFilter && p.status !== statusFilter) return false;
+        if (priorityFilter && p.priority !== priorityFilter) return false;
+        return true;
+    });
 
     // Filtered summary for display
     const summary = {
-        total: filteredPoints.length,
-        red: filteredPoints.filter(p => p.status === 'Red').length,
-        yellow: filteredPoints.filter(p => p.status === 'Yellow').length,
-        orange: filteredPoints.filter(p => p.status === 'Orange').length,
-        green: filteredPoints.filter(p => p.status === 'Green').length,
+        total: summaryPoints.length,
+        red: summaryPoints.filter(p => p.status === 'Red').length,
+        yellow: summaryPoints.filter(p => p.status === 'Yellow').length,
+        orange: summaryPoints.filter(p => p.status === 'Orange').length,
+        green: summaryPoints.filter(p => p.status === 'Green').length,
     };
 
     return (
@@ -276,7 +278,7 @@ const MyOpenPoints = ({ username: propUsername }) => {
                         onClick={() => setHideGreen(!hideGreen)}
                         title={hideGreen ? 'Click to show completed points' : 'Click to hide completed points'}
                     >
-                        {hideGreen ? `✅ Show Closed (${allPointsSummary.green})` : '✅ Hide Closed'}
+                        {hideGreen ? `✅ Show Closed (${summary.green})` : '✅ Hide Closed'}
                     </button>
                     {(projectFilter || statusFilter || priorityFilter) && (
                         <button

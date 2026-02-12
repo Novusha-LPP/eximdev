@@ -672,6 +672,9 @@ const ProjectWorkspace = () => {
                     </thead>
                     <tbody>
                         {points.filter(p => {
+                            // Always show points that are currently being edited (modified) so they can be saved
+                            if (modifiedPoints.has(p._id)) return true;
+
                             if (filters.status && p.status !== filters.status) return false;
                             if (filters.priority && p.priority !== filters.priority) return false;
                             if (filters.responsibility && p.responsibility !== filters.responsibility) return false;

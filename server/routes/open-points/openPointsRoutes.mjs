@@ -179,9 +179,7 @@ router.post("/api/open-points/project/:projectId/remove-member", async (req, res
 router.get("/api/open-points/my-projects", async (req, res) => {
     try {
         const username = req.headers['username'] || req.headers['x-username'];
-        console.log("GET My Projects - Username from headers:", username);
-        console.log("GET My Projects - All headers:", req.headers);
-
+       
         if (!username) {
             return res.status(401).json({ error: "Username not provided in headers" });
         }
@@ -279,7 +277,7 @@ router.get("/api/open-points/project/:projectId/points", verifyProjectAccess, as
 // Create Point
 router.post("/api/open-points/points", async (req, res) => {
     try {
-        console.log("Create Point Request Body:", JSON.stringify(req.body, null, 2));
+       
 
         const pointData = { ...req.body };
 
@@ -289,7 +287,7 @@ router.post("/api/open-points/points", async (req, res) => {
                 const user = await UserModel.findById(pointData.responsible_person);
                 if (user) {
                     pointData.responsibility = user.username;
-                    console.log("Auto-filled responsibility from ID:", user.username);
+                    
                 }
             } catch (err) {
                 console.error("Failed to auto-fill responsibility", err);
@@ -298,8 +296,7 @@ router.post("/api/open-points/points", async (req, res) => {
 
         const point = new OpenPoint(pointData);
         const savedPoint = await point.save();
-        console.log("Create Point Saved Data:", JSON.stringify(savedPoint, null, 2));
-
+   
         res.status(201).json(savedPoint);
     } catch (error) {
         res.status(500).json({ error: error.message });

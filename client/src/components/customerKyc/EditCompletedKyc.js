@@ -272,7 +272,7 @@ function EditCompletedKyc() {
   ]);
 
   return (
-    <div className="premium-card" style={{ margin: "2rem auto", maxWidth: "1600px" }}>
+    <div className="premium-card" style={{ maxWidth: '1200px' }}>
       <div className="card-header">
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <BackButton />
@@ -286,16 +286,16 @@ function EditCompletedKyc() {
           {/* Category Section */}
           <div className="form-section">
             <h4 className="section-title">Category Selection</h4>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginBottom: "1rem" }}>
+            <div className="radio-group">
               {["Individual/ Proprietary Firm", "Partnership Firm", "Company", "Trust Foundations"].map((cat) => (
-                <label key={cat} style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: 500 }}>
+                <label key={cat} className="radio-label">
                   <input
                     type="radio"
                     name="category"
                     value={cat}
                     checked={formik.values.category === cat}
                     onChange={formik.handleChange}
-                    style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary-600)" }}
+                    className="radio-input"
                   />
                   {cat === "Individual/ Proprietary Firm" ? "Individual/Proprietary Firm" : cat === "Trust Foundations" ? "Trust/ Foundation" : cat}
                 </label>
@@ -324,16 +324,16 @@ function EditCompletedKyc() {
           {/* Status Section */}
           <div className="form-section">
             <h4 className="section-title">Status of Exporter/ Importer</h4>
-            <div style={{ display: "flex", gap: "2rem" }}>
+            <div className="radio-group">
               {["Manufacturer", "Trader"].map((stat) => (
-                <label key={stat} style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: 500 }}>
+                <label key={stat} className="radio-label">
                   <input
                     type="radio"
                     name="status"
                     value={stat}
                     checked={formik.values.status === stat}
                     onChange={formik.handleChange}
-                    style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary-600)" }}
+                    className="radio-input"
                   />
                   {stat}
                 </label>
@@ -537,7 +537,7 @@ function EditCompletedKyc() {
           <div className="form-section">
             <h4 className="section-title">Factory/Branch Address</h4>
             {formik.values.factory_addresses?.map((address, index) => (
-              <div key={index} style={{ marginBottom: "1.5rem", padding: "1rem", border: "1px solid var(--slate-200)", borderRadius: "var(--radius-lg)" }}>
+              <div key={index} className="nested-card">
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Address Line 1</label>
@@ -689,20 +689,22 @@ function EditCompletedKyc() {
                   value={formik.values.iec_no}
                   onChange={formik.handleChange}
                 />
-                <FileUpload
-                  label="Upload IEC Copy"
-                  onFilesUploaded={(files) => formik.setFieldValue("iec_copy", files)}
-                  bucketPath="iec-copy"
-                  multiple={false}
-                  customerName={formik.values.name_of_individual}
-                />
-                {formik.values.iec_copy && (
-                  <ImagePreview 
-                    images={formik.values.iec_copy} 
-                    onDeleteImage={() => formik.setFieldValue("iec_copy", "")}
-                    showDeleteForAdmin={true}
-                  />
-                )}
+                <div style={{ marginTop: '0.5rem' }}>
+                    <FileUpload
+                    label="Upload IEC Copy"
+                    onFilesUploaded={(files) => formik.setFieldValue("iec_copy", files)}
+                    bucketPath="iec-copy"
+                    multiple={false}
+                    customerName={formik.values.name_of_individual}
+                    />
+                    {formik.values.iec_copy && (
+                    <ImagePreview 
+                        images={formik.values.iec_copy} 
+                        onDeleteImage={() => formik.setFieldValue("iec_copy", "")}
+                        showDeleteForAdmin={true}
+                    />
+                    )}
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label required">PAN No</label>
@@ -713,20 +715,22 @@ function EditCompletedKyc() {
                   value={formik.values.pan_no}
                   onChange={formik.handleChange}
                 />
-                <FileUpload
-                  label="Upload PAN Copy"
-                  onFilesUploaded={(files) => formik.setFieldValue("pan_copy", files)}
-                  bucketPath="pan-copy"
-                  multiple={false}
-                  customerName={formik.values.name_of_individual}
-                />
-                {formik.values.pan_copy && (
-                  <ImagePreview 
-                    images={formik.values.pan_copy} 
-                    onDeleteImage={() => formik.setFieldValue("pan_copy", "")}
-                    showDeleteForAdmin={true}
-                  />
-                )}
+                <div style={{ marginTop: '0.5rem' }}>
+                    <FileUpload
+                    label="Upload PAN Copy"
+                    onFilesUploaded={(files) => formik.setFieldValue("pan_copy", files)}
+                    bucketPath="pan-copy"
+                    multiple={false}
+                    customerName={formik.values.name_of_individual}
+                    />
+                    {formik.values.pan_copy && (
+                    <ImagePreview 
+                        images={formik.values.pan_copy} 
+                        onDeleteImage={() => formik.setFieldValue("pan_copy", "")}
+                        showDeleteForAdmin={true}
+                    />
+                    )}
+                </div>
               </div>
             </div>
           </div>
@@ -735,7 +739,7 @@ function EditCompletedKyc() {
           <div className="form-section">
             <h4 className="section-title">Banking Information</h4>
             {formik.values.banks?.map((bank, index) => (
-              <div key={index} style={{ marginBottom: "1.5rem", padding: "1rem", border: "1px solid var(--slate-200)", borderRadius: "var(--radius-lg)" }}>
+              <div key={index} className="nested-card">
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Banker's Name</label>
@@ -863,7 +867,7 @@ function EditCompletedKyc() {
             </div>
           </div>
 
-          <div className="form-actions" style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
+          <div className="form-actions">
             <button type="button" className="btn btn-secondary" onClick={handleOpen}>
               Preview Changes
             </button>

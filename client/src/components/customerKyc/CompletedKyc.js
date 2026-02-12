@@ -80,11 +80,7 @@ function CompletedKyc() {
       size: 250,
       Cell: ({ cell }) => (
         <span
-          style={{
-            fontWeight: 600,
-            color: "var(--primary-600)",
-            cursor: "pointer",
-          }}
+          className="link-text"
           onClick={() =>
             navigateWithRef(`/view-completed-kyc/${cell.row.original._id}`)
           }
@@ -118,7 +114,7 @@ function CompletedKyc() {
       header: "IEC Number",
       size: 250,
       Cell: ({ cell }) => (
-        <span style={{ fontFamily: "monospace", color: "var(--slate-600)" }}>
+        <span className="mono-text">
           {cell.getValue() || "N/A"}
         </span>
       ),
@@ -151,14 +147,7 @@ function CompletedKyc() {
       Cell: ({ cell }) => (
         <span
           title={cell.getValue() || "No remarks"}
-          style={{
-            maxWidth: "200px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            color: "var(--slate-500)",
-            fontSize: "0.9rem",
-          }}
+          className="truncate-text"
         >
           {cell.getValue() || "No remarks"}
         </span>
@@ -201,30 +190,13 @@ function CompletedKyc() {
   return (
     <div className="premium-card">
       <div className="card-header">
-        <h2
-          className="page-title"
-          style={{ fontSize: "1.5rem", paddingBottom: "0.5rem" }}
-        >
-          Completed KYC
-        </h2>
+        <h2 className="page-title">Completed KYC</h2>
         <p className="page-subtitle">Archive of processed applications</p>
       </div>
 
       <div className="card-body">
-        <div
-          style={{
-            marginBottom: "1.5rem",
-            padding: "1rem",
-            background: "var(--success-light)",
-            border: "1px solid var(--success)",
-            borderRadius: "var(--radius-md)",
-            color: "#047857",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <CheckCircle />
+        <div className="alert-box success">
+          <CheckCircle fontSize="small" />
           <span>
             <strong>{data.length}</strong> completed applications found.
           </span>

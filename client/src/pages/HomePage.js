@@ -23,6 +23,13 @@ import EmployeeKYC from "../components/employeeKyc/EmployeeKYC.js";
 import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
+
+// Customer KYC
+import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
+import ReviseCustomerKyc from "../components/customerKyc/ReviseCustomerKyc.js";
+import ViewDraftDetails from "../components/customerKyc/ViewDraftDetails.js";
+import ViewCustomerKyc from "../components/customerKyc/ViewCustomerKyc.js";
+import ViewCompletedKycDetails from "../components/customerKyc/ViewCompletedKycDetails.js";
 // E-Sanchit
 import ESanchitTab from "../components/eSanchit/ESanchitTab.js";
 
@@ -238,6 +245,48 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="Employee KYC">
                     <ViewIndividualKyc />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Customer KYC */}
+              <Route
+                path="/customer-kyc"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <CustomerKyc />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/revise-customer-kyc/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ReviseCustomerKyc />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-draft-details/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ViewDraftDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-customer-kyc/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ViewCustomerKyc />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-completed-kyc/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ViewCompletedKycDetails />
                   </ProtectedRoute>
                 }
               />

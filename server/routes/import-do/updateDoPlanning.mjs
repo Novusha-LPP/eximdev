@@ -28,6 +28,7 @@ const extractJobInfo = async (req, res, next) => {
 
 router.patch("/api/update-do-planning", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
   try {
+    console.log("PAYLOAD RECEIVED:", JSON.stringify(req.body, null, 2));
 
     const currentDate = new Date().toLocaleDateString("en-GB", {
       day: "2-digit",

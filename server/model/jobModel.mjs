@@ -476,7 +476,6 @@ const jobSchema = new mongoose.Schema({
   esanchitCharges: [esanchitChargesSchema],
 
   /////////////////////////////////// Do Charges Details
-
   // 1. Updated Schema (Backend) - Add this to your schema
   do_shipping_line_invoice: [
     {
@@ -489,6 +488,16 @@ const jobSchema = new mongoose.Schema({
       payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
       wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
       document_amount_details: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      charge_basis: { type: String, trim: true },
+      charge_rate: { type: String, trim: true },
+      exchange_rate: { type: String, trim: true },
+      amount_inr: { type: String, trim: true },
+      receivable: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
+      cost_amount: { type: String, trim: true },
+      cost_amount_inr: { type: String, trim: true },
+      payable: { type: String, trim: true },
       payment_request_date: { type: String, trim: true },
       payment_made_date: { type: String, trim: true },
       is_tds: { type: Boolean, default: false },
@@ -506,6 +515,38 @@ const jobSchema = new mongoose.Schema({
       url: [{ type: String, trim: true }],
       document_check_date: { type: String, trim: true },
       document_amount_details: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      charge_basis: { type: String, trim: true },
+      charge_rate: { type: String, trim: true },
+      exchange_rate: { type: String, trim: true },
+      amount_inr: { type: String, trim: true },
+      receivable: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
+      cost_amount: { type: String, trim: true },
+      cost_amount_inr: { type: String, trim: true },
+      payable: { type: String, trim: true },
+    },
+  ],
+
+
+  security_deposit: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      document_check_date: { type: String, trim: true },
+      document_amount_details: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      charge_basis: { type: String, trim: true },
+      charge_rate: { type: String, trim: true },
+      exchange_rate: { type: String, trim: true },
+      amount_inr: { type: String, trim: true },
+      receivable: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
+      cost_amount: { type: String, trim: true },
+      cost_amount_inr: { type: String, trim: true },
+      payable: { type: String, trim: true },
+      utr: { type: Number, trim: true },
+      Validity_upto: { type: String, trim: true },
     },
   ],
 
@@ -515,19 +556,19 @@ const jobSchema = new mongoose.Schema({
       url: [{ type: String, trim: true }],
       document_check_date: { type: String, trim: true },
       document_amount_details: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      charge_basis: { type: String, trim: true },
+      charge_rate: { type: String, trim: true },
+      exchange_rate: { type: String, trim: true },
+      amount_inr: { type: String, trim: true },
+      receivable: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
+      cost_amount: { type: String, trim: true },
+      cost_amount_inr: { type: String, trim: true },
+      payable: { type: String, trim: true },
     },
   ],
 
-  security_deposit: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      document_check_date: { type: String, trim: true },
-      document_amount_details: { type: String, trim: true },
-      utr: { type: Number, trim: true },
-      Validity_upto: { type: String, trim: true },
-    },
-  ],
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },

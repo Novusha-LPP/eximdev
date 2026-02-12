@@ -90,6 +90,17 @@ import onboardEmployee from "./routes/employee-onboarding/onboardEmployee.mjs";
 import completeOnboarding from "./routes/employee-onboarding/completeOnboarding.mjs";
 import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
 
+// Customer KYC
+import addCustomerKyc from "./routes/CustomerKyc/addCustomerKyc.mjs";
+import customerKycDraft from "./routes/CustomerKyc/customerKycDraft.mjs";
+import viewAllCustomerKyc from "./routes/CustomerKyc/viewAllCustomerKyc.mjs";
+import viewCustomerKycDetails from "./routes/CustomerKyc/viewCustomerKycDetails.mjs";
+import updateCustomerKyc from "./routes/CustomerKyc/updateCustomerKyc.mjs";
+import customerKycApproval from "./routes/CustomerKyc/customerKycApproval.mjs";
+import viewCompletedKyc from "./routes/CustomerKyc/viewCompletedKyc.mjs";
+import viewCustomerKycDrafts from "./routes/CustomerKyc/viewCustomerKycDrafts.mjs";
+import viewRevisionList from "./routes/CustomerKyc/viewRevisionList.mjs";
+
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
 import getDocs from "./routes/e-sanchit/getDocs.mjs";
@@ -340,6 +351,17 @@ app.use(viewAllKycs);
 app.use(onboardEmployee);
 app.use(completeOnboarding);
 app.use(viewOnboardings);
+
+// Customer KYC
+app.use(addCustomerKyc);
+app.use(customerKycDraft);
+app.use(viewAllCustomerKyc);
+app.use(viewCustomerKycDetails);
+app.use(updateCustomerKyc);
+app.use(customerKycApproval);
+app.use(viewCompletedKyc);
+app.use(viewCustomerKycDrafts);
+app.use(viewRevisionList);
 
 // E-Sanchit
 app.use(getCthDocs);

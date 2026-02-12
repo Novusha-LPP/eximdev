@@ -1,8 +1,14 @@
 {
   "env": {
-    "NODE_ENV": "server"
+    "NODE_ENV": "development"
   },
-  "watch": ["app.mjs", "routes", "model", ".env", "logger.js"],
+  "watch": [
+    "app.mjs",
+    "routes",
+    "model",
+    ".env",
+    "logger.js"
+  ],
   "ext": "js,json,mjs",
   "exec": "node app.mjs"
 }

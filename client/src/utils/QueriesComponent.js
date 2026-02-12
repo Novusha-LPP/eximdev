@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   TextField,
   Button,
   Chip,
   IconButton,
-  Tooltip,  
+  Tooltip,
   Collapse,
 } from "@mui/material";
 import {
@@ -18,20 +18,20 @@ import {
 } from "@mui/icons-material";
 
 // Move QueryItem OUTSIDE the main component - this is crucial!
-const QueryItem = React.memo(({ 
-  item, 
-  index, 
-  localValues, 
-  updateQuery, 
-  modules, 
-  userName, 
-  showResolveButton, 
-  resolveQuery, 
-  unresolveQuery, 
-  removeQuery 
+const QueryItem = React.memo(({
+  item,
+  index,
+  localValues,
+  updateQuery,
+  modules,
+  userName,
+  showResolveButton,
+  resolveQuery,
+  unresolveQuery,
+  removeQuery
 }) => {
   const isResolved = item.resolved === true;
-  
+
   // Get local values or fall back to props
   const queryValue = localValues[`${index}_query`] ?? item.query ?? '';
   const replyValue = localValues[`${index}_reply`] ?? item.reply ?? '';
@@ -136,9 +136,9 @@ const QueryItem = React.memo(({
             value={replyValue}
             onChange={(e) => {
               const newValue = e.target.value;
-              updateQuery(index, null, { 
-                reply: newValue, 
-                replied_by: userName 
+              updateQuery(index, null, {
+                reply: newValue,
+                replied_by: userName
               });
             }}
             variant="outlined"
@@ -314,7 +314,7 @@ const QueriesComponent = ({
   title = "Queries",
   modules = [
     "DSR",
-    "DO", 
+    "DO",
     "Documentation",
     "E-Sanchit",
     "Submission",
@@ -328,10 +328,10 @@ const QueriesComponent = ({
   userName = "",
 }) => {
   const [expanded, setExpanded] = useState(false);
-  
+
   // Local state for immediate UI updates
   const [localValues, setLocalValues] = useState({});
-  
+
   // Stable debounced function
   const debouncedUpdate = useMemo(
     () => debounce((updatedQueries) => {
@@ -350,7 +350,7 @@ const QueriesComponent = ({
           [`${index}_${field}`]: value
         }));
       }
-      
+
       // 2. Update actual queries state
       const updated = [...queries];
       if (field === null && typeof value === 'object') {
@@ -359,7 +359,7 @@ const QueriesComponent = ({
           ...updated[index],
           ...value,
         };
-        
+
         // Update local state for batch updates too
         Object.keys(value).forEach(key => {
           if (key === 'query' || key === 'reply') {
@@ -376,7 +376,7 @@ const QueriesComponent = ({
           [field]: value,
         };
       }
-      
+
       // 3. Debounced update to parent
       debouncedUpdate(updated);
     },
@@ -583,7 +583,7 @@ const QueriesComponent = ({
           }}
         >
           {queries.map((item, index) => (
-            <QueryItem 
+            <QueryItem
               key={`query-${index}-${item.created_at || index}`} // Stable key
               item={item}
               index={index}

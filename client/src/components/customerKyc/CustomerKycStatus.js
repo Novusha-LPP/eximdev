@@ -403,9 +403,8 @@ function CustomerKycStatus() {
         </div>
 
         {/* Data Table */}
-        <div className="clean-table-container">
-           <CustomTable columns={columns} data={filteredData} />
-        </div>
+        {/* Data Table */}
+        <CustomTable columns={columns} data={filteredData} enableSearch={false} />
         
       </div>
     </div>

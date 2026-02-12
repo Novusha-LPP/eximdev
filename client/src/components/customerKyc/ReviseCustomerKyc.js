@@ -120,6 +120,7 @@ function ReviseCustomerKyc() {
       trust_officially_valid_document_img: [],
       trust_resolution_of_managing_body_img: [],
       trust_telephone_bill_img: [],
+      branches: [],
     },
     validationSchema: validationSchema,
     enableReinitialize: true, // Important for loading data
@@ -158,6 +159,7 @@ function ReviseCustomerKyc() {
             ...res.data,
             factory_addresses: res.data.factory_addresses || [],
             banks: res.data.banks || [],
+            branches: res.data.branches || [],
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -256,10 +258,33 @@ function ReviseCustomerKyc() {
     }
   };
 
+  const handleAddBranch = () => {
+    formik.setFieldValue("branches", [
+      ...(formik.values.branches || []),
+      {
+        branch_name: "",
+        branch_code: "",
+        gst_no: "",
+        address: "",
+        city: "",
+        state: "",
+        postal_code: "",
+        country: "India",
+        mobile: "",
+        email: "",
+      },
+    ]);
+  };
+
+  const handleRemoveBranch = (index) => {
+    const updatedBranches = formik.values.branches.filter((_, i) => i !== index);
+    formik.setFieldValue("branches", updatedBranches);
+  };
+
 
   return (
-    <div className="premium-card" style={{ padding: '0', maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
-      <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="premium-card">
+      <div className="card-header">
         <BackButton />
         <div>
           <h2 className="page-title" style={{ fontSize: '1.5rem', margin: 0 }}>Revise Application</h2>
@@ -533,6 +558,133 @@ function ReviseCustomerKyc() {
             </div>
           </div>
 
+          {/* Branch Information */}
+          <div className="form-section">
+            <h4 className="section-title" style={{ borderBottom: '1px solid var(--slate-200)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-700)' }}>
+              Branch Information
+            </h4>
+            <div className="kyc-branch-list">
+              {formik.values.branches?.map((branch, index) => (
+                <div key={index} style={{ marginBottom: '1.5rem', border: '1px solid var(--slate-200)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', position: 'relative', background: 'var(--white)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h5 style={{ margin: 0, color: 'var(--slate-700)', fontSize: '1rem' }}>Branch {index + 1}</h5>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveBranch(index)}
+                      className="btn-text-error"
+                      style={{ padding: '4px 8px' }}
+                    >
+                      ✕ Remove Branch
+                    </button>
+                  </div>
+
+                  <div className="grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Branch Name</label>
+                      <input
+                        name={`branches[${index}].branch_name`}
+                        className="form-control"
+                        value={branch.branch_name}
+                        onChange={formik.handleChange}
+                        placeholder="e.g. Mumbai Regional Office"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Branch Code</label>
+                      <input
+                        name={`branches[${index}].branch_code`}
+                        className="form-control"
+                        value={branch.branch_code}
+                        onChange={formik.handleChange}
+                        placeholder="e.g. MUM-01"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">GST Number</label>
+                      <input
+                        name={`branches[${index}].gst_no`}
+                        className="form-control"
+                        value={branch.gst_no}
+                        onChange={formik.handleChange}
+                        placeholder="15-digit GSTIN"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label">Address</label>
+                    <input
+                      name={`branches[${index}].address`}
+                      className="form-control"
+                      value={branch.address}
+                      onChange={formik.handleChange}
+                      placeholder="Street address, building, floor etc."
+                    />
+                  </div>
+
+                  <div className="grid-3" style={{ marginTop: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">City</label>
+                      <input
+                        name={`branches[${index}].city`}
+                        className="form-control"
+                        value={branch.city}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">State</label>
+                      <input
+                        name={`branches[${index}].state`}
+                        className="form-control"
+                        value={branch.state}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">PIN Code</label>
+                      <input
+                        name={`branches[${index}].postal_code`}
+                        className="form-control"
+                        value={branch.postal_code}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid-2" style={{ marginTop: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Mobile</label>
+                      <input
+                        name={`branches[${index}].mobile`}
+                        className="form-control"
+                        value={branch.mobile}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Email</label>
+                      <input
+                        name={`branches[${index}].email`}
+                        className="form-control"
+                        value={branch.email}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleAddBranch}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+            >
+              + Add Branch Detail
+            </button>
+          </div>
+
           {/* Factory Addresses */}
           <div className="form-section">
             <h4 className="section-title" style={{ borderBottom: '1px solid var(--slate-200)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: 'var(--primary-700)' }}>
@@ -623,7 +775,7 @@ function ReviseCustomerKyc() {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={handleAddField} className="btn btn-secondary" style={{ fontSize: '0.875rem' }}>+ Add Factory/Branch Address</button>
+            <button type="button" onClick={handleAddField} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>+ Add Factory/Branch Address</button>
           </div>
 
           {/* Authorised Signatories */}
@@ -773,7 +925,7 @@ function ReviseCustomerKyc() {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={handleAddBanks} className="btn btn-secondary" style={{ fontSize: '0.875rem' }}>+ Add AD Code</button>
+            <button type="button" onClick={handleAddBanks} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>+ Add AD Code</button>
           </div>
 
           {/* Supporting Documents (Hook) */}

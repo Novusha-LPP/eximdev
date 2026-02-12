@@ -71,6 +71,20 @@ const factoryAddressSchema = new Schema({
   }]
 }, { _id: false });
 
+// Branch schema
+const branchSchema = new Schema({
+  branch_name: { type: String, required: false, trim: true },
+  branch_code: { type: String, required: false, trim: true },
+  gst_no: { type: String, required: false, trim: true },
+  address: { type: String, required: false, trim: true },
+  city: { type: String, required: false, trim: true },
+  state: { type: String, required: false, trim: true },
+  postal_code: { type: String, required: false, trim: true },
+  country: { type: String, default: 'India', trim: true },
+  mobile: { type: String, required: false, trim: true },
+  email: { type: String, required: false, trim: true, lowercase: true }
+}, { _id: false });
+
 // Main Customer KYC Schema
 const customerKycSchema = new Schema({
   // Basic Information
@@ -179,6 +193,9 @@ const customerKycSchema = new Schema({
 
   // Factory Addresses
   factory_addresses: [factoryAddressSchema],
+
+  // Branch Information
+  branches: [branchSchema],
 
   // Authorization
   authorised_signatories: [{

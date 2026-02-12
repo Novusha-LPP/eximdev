@@ -1444,3 +1444,59 @@ h6 {
   gap: 12px 20px;
   align-items: start;
 }
+
+/* ── Table Toolbar & Search ── */
+.table-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.compact-search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 300px;
+    max-width: 100%;
+}
+
+.compact-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    color: var(--slate-400);
+    font-size: 1.25rem !important;
+    pointer-events: none;
+}
+
+.compact-search-input {
+    width: 100%;
+    padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    background: white;
+}
+
+.compact-search-input:focus {
+    outline: none;
+    border-color: var(--primary-400);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.pagination-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--slate-600);
+}

@@ -188,9 +188,22 @@ function CompletedKyc() {
   ];
 
   return (
-    <div className="premium-card">
-      <div className="card-body">
-        <CustomTable columns={columns} data={data} />
+    <div className="kyc-page-wrapper">
+      <div className="kyc-page-header">
+        <div className="kyc-header-left">
+          <h2 className="kyc-page-title">
+            <CheckCircle style={{ fontSize: "1.2rem", color: "var(--success)" }} /> Completed KYC Applications
+          </h2>
+        </div>
+        <span className="kyc-verified-tag">
+          {data.length} verified record{data.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      <div className="kyc-card">
+        <div className="kyc-section" style={{ padding: "1.5rem" }}>
+          <CustomTable columns={columns} data={data} />
+        </div>
       </div>
     </div>
   );

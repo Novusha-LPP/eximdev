@@ -304,6 +304,57 @@ function ViewCompletedKycDetails() {
             </div>
           </div>
 
+          {/* 3.1 Branch Information */}
+          {data.branches && data.branches.length > 0 && (
+            <div className="kyc-section">
+              <span className="kyc-section-title">Branch Information</span>
+              {data.branches.map((branch, id) => (
+                <div key={id} className={id > 0 ? "kyc-factory-repeat" : ""}>
+                  <div className="kyc-row">
+                    <div className="kyc-cell kyc-cell-lg">
+                      <div className="kyc-lbl">Branch Name</div>
+                      <div className="kyc-val">{branch.branch_name}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-md">
+                      <div className="kyc-lbl">Code</div>
+                      <div className="kyc-val kyc-mono">{branch.branch_code}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-lg">
+                      <div className="kyc-lbl">GST Number</div>
+                      <div className="kyc-val kyc-mono">{branch.gst_no || "—"}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-xl" style={{ flexGrow: 2 }}>
+                      <div className="kyc-lbl">Address</div>
+                      <div className="kyc-val">{branch.address}</div>
+                    </div>
+                  </div>
+                  <div className="kyc-row">
+                    <div className="kyc-cell kyc-cell-md">
+                      <div className="kyc-lbl">City</div>
+                      <div className="kyc-val">{branch.city}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-md">
+                      <div className="kyc-lbl">State</div>
+                      <div className="kyc-val">{branch.state}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-sm">
+                      <div className="kyc-lbl">PIN</div>
+                      <div className="kyc-val kyc-mono">{branch.postal_code}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-md">
+                      <div className="kyc-lbl">Mobile</div>
+                      <div className="kyc-val">{branch.mobile || "—"}</div>
+                    </div>
+                    <div className="kyc-cell kyc-cell-lg">
+                      <div className="kyc-lbl">Email</div>
+                      <div className="kyc-val">{branch.email || "—"}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* ④ Factory Addresses */}
           <div className="kyc-section">
             <span className="kyc-section-title">Factory Addresses</span>

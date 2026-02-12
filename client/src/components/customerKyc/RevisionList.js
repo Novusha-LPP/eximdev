@@ -152,40 +152,23 @@ function RevisionList() {
     },
   ];
 
-  return (  
-    <div className="premium-card">
-      <div className="card-header">
-        <h2 style={{ fontSize: "1.5rem", paddingBottom: "0.5rem" }}>
-          Applications Requiring Revision
-        </h2>
-        <p className="page-subtitle">Review feedback and update applications</p>
+  return (
+    <div className="kyc-page-wrapper">
+      <div className="kyc-page-header">
+        <div className="kyc-header-left">
+          <h2 className="kyc-page-title">
+            <Warning style={{ fontSize: "1.2rem", color: "var(--warning)" }} /> Applications Requiring Revision
+          </h2>
+        </div>
+        <span className="kyc-verified-tag">
+          {data.length} application{data.length !== 1 ? "s" : ""} require attention
+        </span>
       </div>
 
-      <div className="card-body">
-        {data.length > 0 && (
-          <div
-            style={{
-              marginBottom: "1.5rem",
-              padding: "1rem",
-              background: "var(--warning-light)",
-              border: "1px solid var(--warning)",
-              borderRadius: "var(--radius-md)",
-              color: "#b45309",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <Warning />
-            <span>
-              <strong>{data.length}</strong> application
-              {data.length !== 1 ? "s" : ""} require
-              {data.length === 1 ? "s" : ""} revision.
-            </span>
-          </div>
-        )}
-
-        <CustomTable columns={columns} data={data} />
+      <div className="kyc-card">
+        <div className="kyc-section" style={{ padding: "1.5rem" }}>
+          <CustomTable columns={columns} data={data} />
+        </div>
       </div>
     </div>
   );

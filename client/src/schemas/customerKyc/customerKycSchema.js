@@ -74,4 +74,18 @@ export const validationSchema = Yup.object({
         .required('AD Code is required'),
     })
   ).min(1, 'At least one bank is required'),
+
+  // Branches
+  branches: Yup.array().of(
+    Yup.object({
+      branch_name: Yup.string().required('Branch name is required'),
+      branch_code: Yup.string().required('Branch code is required'),
+      address: Yup.string().required('Address is required'),
+      city: Yup.string().required('City is required'),
+      state: Yup.string().required('State is required'),
+      postal_code: Yup.string()
+        .matches(/^\d{6}$/, 'Postal code must be 6 digits')
+        .required('Postal code is required'),
+    })
+  ),
 });

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useSearchParams } from "react-router-dom";
 import CustomerKycForm from "./CustomerKycForm";
 import CompletedKyc from "./CompletedKyc";
 import CustomerKycStatus from "./CustomerKycStatus";
@@ -14,11 +15,34 @@ import "./customerKyc.css";
 function CustomerKyc() {
   const { user } = React.useContext(UserContext);
   const { saveTabState, getTabState } = useNavigation();
-  const [value, setValue] = React.useState(() => getTabState("/customer-kyc"));
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Initialize value from URL param 'tab' (1-indexed) or stored state
+  const [value, setValue] = React.useState(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab) {
+      const parsed = parseInt(urlTab, 10) - 1;
+      if (!isNaN(parsed) && parsed >= 0) return parsed;
+    }
+    return getTabState("/customer-kyc") || 0;
+  });
+
+  // Sync state if URL changes (e.g. back button)
+  React.useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab) {
+      const parsed = parseInt(urlTab, 10) - 1;
+      if (!isNaN(parsed) && parsed >= 0 && parsed !== value) {
+        setValue(parsed);
+      }
+    }
+  }, [searchParams, value]);
 
   const handleTabChange = (newValue) => {
     setValue(newValue);
     saveTabState("/customer-kyc", newValue);
+    // Update URL with 1-indexed tab
+    setSearchParams({ tab: newValue + 1 }, { replace: true });
   };
 
   // Save scroll position when component unmounts
@@ -90,9 +114,8 @@ function CustomerKyc() {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        minHeight: "100vh",
         width: "100%",
-        overflow: "hidden",
         background: "var(--slate-50)",
       }}
     >

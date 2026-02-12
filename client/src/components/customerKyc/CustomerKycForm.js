@@ -145,6 +145,7 @@ function CustomerKycForm() {
       trust_address_of_founder: "",
       trust_telephone_of_founder: "",
       trust_email_of_founder: "",
+      branches: [],
     },
     // Use a dynamic validation function that checks submit type
     validate: (values) => {
@@ -238,12 +239,20 @@ function CustomerKycForm() {
                 factory_address_pin_code: true,
                 gst: true,
               })),
-              banks: values.banks?.map(() => ({
+                banks: values.banks?.map(() => ({
                 bankers_name: true,
                 branch_address: true,
                 account_no: true,
                 ifsc: true,
                 adCode: true,
+              })),
+              branches: values.branches?.map(() => ({
+                branch_name: true,
+                branch_code: true,
+                address: true,
+                city: true,
+                state: true,
+                postal_code: true,
               })),
             });
 
@@ -407,6 +416,35 @@ function CustomerKycForm() {
     }
   };
 
+  const handleAddBranch = () => {
+    formik.setValues({
+      ...formik.values,
+      branches: [
+        ...(formik.values.branches || []),
+        {
+          branch_name: "",
+          branch_code: "",
+          gst_no: "",
+          address: "",
+          city: "",
+          state: "",
+          postal_code: "",
+          country: "India",
+          mobile: "",
+          email: "",
+        },
+      ],
+    });
+  };
+
+  const handleRemoveBranch = (index) => {
+    const updatedBranches = formik.values.branches.filter((_, i) => i !== index);
+    formik.setValues({
+      ...formik.values,
+      branches: updatedBranches,
+    });
+  };
+
   const handleSameAsPermanentAddress = (event) => {
     if (event.target.checked) {
       formik.setValues({
@@ -544,6 +582,7 @@ function CustomerKycForm() {
       pan_no: "PAN Number",
       factory_addresses: "Factory Address",
       banks: "Banking Information",
+      branches: "Branch Information",
     };
 
     const findFirstError = (obj, prefix = "") => {
@@ -837,12 +876,8 @@ function CustomerKycForm() {
                     </div>
                 </div>
               </div>
-            </div>
 
-            {/* Right Column */}
-            <div className="column">
-                
-              {/* Principal Business Address */}
+              {/* Principal Business Address - MOVED FROM RIGHT */}
               <div className="form-section">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <h4 className="section-title" style={{ marginBottom: 0 }}>PRINCIPAL BUSINESS ADDRESS</h4>
@@ -975,6 +1010,171 @@ function CustomerKycForm() {
                     </div>
                 </div>
               </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="column">
+                
+              {/* Branch Information Section - NEW */}
+              <div className="form-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid var(--slate-100)', paddingBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <h4 className="section-title" style={{ marginBottom: 0, color: 'var(--primary-700)' }}>BRANCH INFORMATION</h4>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleAddBranch}
+                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                        + ADD BRANCH
+                    </button>
+                </div>
+
+                {formik.values.branches?.map((branch, index) => (
+                    <div key={index} className="nested-card" style={{ position: 'relative', padding: '1.25rem', marginBottom: '1.25rem', border: '1px solid var(--slate-200)', borderRadius: 'var(--radius-md)', background: 'white' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', background: 'var(--slate-50)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', margin: '-0.5rem -0.5rem 1rem -0.5rem' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--slate-700)' }}>Branch {index}</span>
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveBranch(index)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--slate-400)',
+                                    cursor: 'pointer',
+                                    fontSize: '1.2rem',
+                                    padding: 0,
+                                    lineHeight: 1,
+                                    transition: 'color 0.2s'
+                                }}
+                                onMouseOver={(e) => e.target.style.color = 'var(--error)'}
+                                onMouseOut={(e) => e.target.style.color = 'var(--slate-400)'}
+                                title="Remove Branch"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="dense-grid-3">
+                            <div className="form-group">
+                                <label className="form-label required">Branch Name</label>
+                                <input
+                                    name={`branches[${index}].branch_name`}
+                                    className={`form-control ${formik.touched.branches?.[index]?.branch_name && formik.errors.branches?.[index]?.branch_name ? "error" : ""}`}
+                                    value={branch.branch_name}
+                                    onChange={formik.handleChange}
+                                    placeholder="Branch Name *"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label required">Branch Code</label>
+                                <input
+                                    name={`branches[${index}].branch_code`}
+                                    className={`form-control ${formik.touched.branches?.[index]?.branch_code && formik.errors.branches?.[index]?.branch_code ? "error" : ""}`}
+                                    value={branch.branch_code}
+                                    onChange={formik.handleChange}
+                                    placeholder="Branch Code *"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">GST Number</label>
+                                <input
+                                    name={`branches[${index}].gst_no`}
+                                    className="form-control"
+                                    value={branch.gst_no}
+                                    onChange={formik.handleChange}
+                                    placeholder="GST Number"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginTop: '0.75rem' }}>
+                            <label className="form-label required">Address</label>
+                            <input
+                                name={`branches[${index}].address`}
+                                className={`form-control ${formik.touched.branches?.[index]?.address && formik.errors.branches?.[index]?.address ? "error" : ""}`}
+                                value={branch.address}
+                                onChange={formik.handleChange}
+                                placeholder="Address *"
+                            />
+                        </div>
+
+                        <div className="dense-grid-3" style={{ marginTop: '0.75rem' }}>
+                            <div className="form-group">
+                                <label className="form-label required">City</label>
+                                <input
+                                    name={`branches[${index}].city`}
+                                    className={`form-control ${formik.touched.branches?.[index]?.city && formik.errors.branches?.[index]?.city ? "error" : ""}`}
+                                    value={branch.city}
+                                    onChange={formik.handleChange}
+                                    placeholder="City *"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label required">State</label>
+                                <input
+                                    name={`branches[${index}].state`}
+                                    className={`form-control ${formik.touched.branches?.[index]?.state && formik.errors.branches?.[index]?.state ? "error" : ""}`}
+                                    value={branch.state}
+                                    onChange={formik.handleChange}
+                                    placeholder="State *"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label required">Postal Code</label>
+                                <input
+                                    name={`branches[${index}].postal_code`}
+                                    className={`form-control ${formik.touched.branches?.[index]?.postal_code && formik.errors.branches?.[index]?.postal_code ? "error" : ""}`}
+                                    value={branch.postal_code}
+                                    onChange={formik.handleChange}
+                                    placeholder="Postal Code *"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="dense-grid-2" style={{ marginTop: '0.75rem' }}>
+                            <div className="form-group">
+                                <label className="form-label">Country</label>
+                                <input
+                                    name={`branches[${index}].country`}
+                                    className="form-control"
+                                    value={branch.country}
+                                    onChange={formik.handleChange}
+                                    placeholder="Country"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Mobile</label>
+                                <input
+                                    name={`branches[${index}].mobile`}
+                                    className="form-control"
+                                    value={branch.mobile}
+                                    onChange={formik.handleChange}
+                                    placeholder="Mobile"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginTop: '0.75rem' }}>
+                            <label className="form-label">Email</label>
+                            <input
+                                name={`branches[${index}].email`}
+                                className="form-control"
+                                value={branch.email}
+                                onChange={formik.handleChange}
+                                placeholder="Email"
+                            />
+                        </div>
+                    </div>
+                ))}
+                
+                {(!formik.values.branches || formik.values.branches.length === 0) && (
+                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px dashed var(--slate-300)', borderRadius: 'var(--radius-md)', color: 'var(--slate-400)', fontSize: '0.85rem', background: 'var(--slate-50)' }}>
+                        No branches added. Click "+ ADD BRANCH" to add one.
+                    </div>
+                )}
+              </div>
 
               {/* Factory Address Section */}
                <div className="form-section">
@@ -1081,7 +1281,7 @@ function CustomerKycForm() {
                     type="button"
                     className="btn btn-secondary"
                     onClick={handleAddField}
-                    style={{ width: '100%', marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.25rem' }}
+                    style={{ marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 1rem' }}
                 >
                     + ADD FACTORY ADDRESS
                 </button>
@@ -1398,7 +1598,7 @@ function CustomerKycForm() {
                     type="button"
                     onClick={handleAddBanks}
                     className="btn btn-secondary"
-                    style={{ width: '100%', marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.25rem' }}
+                    style={{ marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 1rem' }}
                   >
                     + ADD BANK
                   </button>

@@ -137,40 +137,22 @@ function HodApprovalPending() {
   ];
 
   return (
-    <div className="premium-card">
-      <div className="card-header">
-        <h2
-          className="page-title"
-          style={{ fontSize: "1.5rem", paddingBottom: "0.5rem" }}
-        >
-          Pending Approval
-        </h2>
-        <p className="page-subtitle">Applications awaiting final review</p>
+    <div className="kyc-page-wrapper">
+      <div className="kyc-page-header">
+        <div className="kyc-header-left">
+          <h2 className="kyc-page-title">
+            <AccessTime style={{ fontSize: "1.2rem", color: "var(--info)" }} /> Pending Final Approval
+          </h2>
+        </div>
+        <span className="kyc-verified-tag">
+          {data.length} application{data.length !== 1 ? "s" : ""} awaiting final review
+        </span>
       </div>
 
-      <div className="card-body">
-        {data.length > 0 && (
-          <div
-            style={{
-              marginBottom: "1.5rem",
-              padding: "1rem",
-              background: "var(--info-light)",
-              border: "1px solid var(--info)",
-              borderRadius: "var(--radius-md)",
-              color: "#0369a1",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <AccessTime />
-            <span>
-              <strong>{data.length}</strong> application
-              {data.length !== 1 ? "s" : ""} awaiting approval.
-            </span>
-          </div>
-        )}
-        <CustomTable columns={columns} data={data} />
+      <div className="kyc-card">
+        <div className="kyc-section" style={{ padding: "1.5rem" }}>
+          <CustomTable columns={columns} data={data} />
+        </div>
       </div>
     </div>
   );

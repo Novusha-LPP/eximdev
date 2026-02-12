@@ -107,14 +107,20 @@ function ViewDrafts() {
   ];
 
   return (
-    <div className="premium-card">
-      <div className="card-header">
-           <h2 className="page-title" style={{ fontSize: "1.5rem", paddingBottom: "0.5rem" }}>Draft Applications</h2>
-        <p className="page-subtitle">Resume your incomplete applications</p>
+    <div className="kyc-page-wrapper">
+      <div className="kyc-page-header">
+        <div className="kyc-header-left">
+          <h2 className="kyc-page-title">
+            <DraftsOutlined style={{ fontSize: "1.2rem" }} /> Draft Applications
+          </h2>
+        </div>
+        <span className="kyc-verified-tag">Resume your incomplete applications</span>
       </div>
 
-      <div className="card-body">
-        <CustomTable columns={columns} data={data} />
+      <div className="kyc-card">
+        <div className="kyc-section" style={{ padding: "1.5rem" }}>
+          <CustomTable columns={columns} data={data} />
+        </div>
       </div>
     </div>
   );

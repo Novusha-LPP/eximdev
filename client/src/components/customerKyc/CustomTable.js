@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight, FilterList } from '@mui/icons-material';
 
-const CustomTable = ({ columns, data, rowsPerPage = 10 }) => {
+const CustomTable = ({ columns, data, rowsPerPage = 10, enableSearch = true }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
     // Filter data based on search term
     const filteredData = useMemo(() => {
-        if (!searchTerm) return data;
+        if (!enableSearch || !searchTerm) return data;
 
         const lowerTerm = searchTerm.toLowerCase();
         return data.filter(row => {
@@ -16,7 +16,7 @@ const CustomTable = ({ columns, data, rowsPerPage = 10 }) => {
                 return val && String(val).toLowerCase().includes(lowerTerm);
             });
         });
-    }, [data, searchTerm, columns]);
+    }, [data, searchTerm, columns, enableSearch]);
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredData.length / rowsPerPage);
@@ -41,6 +41,27 @@ const CustomTable = ({ columns, data, rowsPerPage = 10 }) => {
     return (
         <div style={{ paddingBottom: '1rem' }}>
     
+
+            {/* Search and Toolbar */}
+            {enableSearch && (
+                <div className="table-toolbar">
+                    <div className="compact-search-input-wrapper">
+                        <Search className="compact-search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Search records..."
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                            className="compact-search-input"
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--slate-500)' }}>
+                        <span>Showing {filteredData.length} records</span>
+                    </div>
+                </div>
+            )}
+           
 
             <div className="clean-table-container">
                 <table className="premium-table">

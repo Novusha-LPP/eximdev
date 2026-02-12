@@ -106,21 +106,7 @@ function RevisionList() {
         </span>
       ),
     },
-    {
-      accessorKey: "approved_by",
-      header: "Reviewed By",
-      size: 250,
-      Cell: ({ cell }) => (
-        <span
-          style={{
-            fontStyle: cell.getValue() ? "normal" : "italic",
-            color: "var(--slate-500)",
-          }}
-        >
-          {cell.getValue() || "System"}
-        </span>
-      ),
-    },
+   
     {
       accessorKey: "remarks",
       header: "Revision Notes",
@@ -129,13 +115,14 @@ function RevisionList() {
         <span
           title={cell.getValue() || "No specific remarks"}
           style={{
-            maxWidth: "200px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            minWidth: "200px",
+            maxWidth: "400px",
+            whiteSpace: "normal",
+            wordBreak: "break-word", 
             color: "var(--error)",
             fontWeight: 500,
             display: "block",
+            lineHeight: "1.4"
           }}
         >
           {cell.getValue() || "Requires attention"}

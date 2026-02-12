@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { Row, Col } from "react-bootstrap";
-import { TextField } from "@mui/material";
 import BackButton from "./BackButton";
 import "./customerKyc.css";
 import { ViewButton, MultipleViewButtons } from "../../utils/documentHelpers";
@@ -21,22 +19,17 @@ function ViewCompletedKycDetails() {
       const res = await axios(
         `${process.env.REACT_APP_API_STRING}/view-customer-kyc-details/${_id}`
       );
-
       setData(res.data);
-      console.log("Fetching KYC details for ID:", res);
     }
-    console.log(data, "data.authorisation_letter");
     getData();
   }, [_id]);
 
   // Handle file deletion by admin
   const handleFileDelete = async (fileIndex, fieldName, arrayIndex = null) => {
     try {
-      // Create a copy of data to update
       const updatedData = { ...data };
 
       if (arrayIndex !== null && fieldName.includes(".")) {
-        // Handle nested array fields (like factory_addresses.gst_reg or banks.adCode_file)
         const [arrayField, subField] = fieldName.split(".");
         if (updatedData[arrayField] && updatedData[arrayField][arrayIndex]) {
           if (Array.isArray(updatedData[arrayField][arrayIndex][subField])) {
@@ -48,7 +41,6 @@ function ViewCompletedKycDetails() {
               [subField]: newArray,
             };
           } else {
-            // Handle single file in nested structure
             updatedData[arrayField] = [...updatedData[arrayField]];
             updatedData[arrayField][arrayIndex] = {
               ...updatedData[arrayField][arrayIndex],
@@ -57,24 +49,20 @@ function ViewCompletedKycDetails() {
           }
         }
       } else {
-        // Handle regular array fields
         if (Array.isArray(updatedData[fieldName])) {
           const newArray = [...updatedData[fieldName]];
           newArray.splice(fileIndex, 1);
           updatedData[fieldName] = newArray;
         } else {
-          // Handle single file fields
           updatedData[fieldName] = "";
         }
       }
 
-      // Update the database
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`,
         updatedData
       );
 
-      // Update local state
       setData(updatedData);
       showSuccess("File deleted successfully by admin");
     } catch (error) {
@@ -83,646 +71,405 @@ function ViewCompletedKycDetails() {
     }
   };
 
-  const supportingDocuments = (type) => {
+  // ── Render file name from URL ──
+  function renderFileName(fileUrl) {
+    if (!fileUrl) return "";
+    if (typeof fileUrl !== "string") return "File";
+    const parts = fileUrl.split("/");
+    return parts[parts.length - 1];
+  }
+
+  // ── Render document table (View + Delete) ──
+  function renderDocTable(files, fieldName, arrayIndex = null) {
+    if (!files || (Array.isArray(files) && files.length === 0) || files === "") {
+      return <div className="kyc-no-docs">No documents uploaded yet.</div>;
+    }
+
+    const fileArray = Array.isArray(files) ? files : [files];
+    const validFiles = fileArray.filter(Boolean);
+
+    if (validFiles.length === 0) {
+      return <div className="kyc-no-docs">No documents uploaded yet.</div>;
+    }
+
+    return (
+      <table className="kyc-doc-table">
+        <thead>
+          <tr>
+            <th>Document Name</th>
+            <th>View</th>
+            <th>Admin Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {validFiles.map((file, idx) => (
+            <tr key={idx}>
+              <td>{renderFileName(file)}</td>
+              <td>
+                <span
+                  className="kyc-view-link"
+                  onClick={() => window.open(file, "_blank")}
+                >
+                  View
+                </span>
+              </td>
+              <td>
+                <button
+                  className="kyc-del-btn"
+                  onClick={() => handleFileDelete(idx, fieldName, arrayIndex)}
+                  title="Delete file"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4h6v2"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  // ── Render a labeled doc section (label + table) ──
+  function renderDocSection(title, files, fieldName, arrayIndex = null) {
+    return (
+      <div className="kyc-doc-section">
+        <div className="kyc-lbl">{title}</div>
+        {renderDocTable(files, fieldName, arrayIndex)}
+      </div>
+    );
+  }
+
+  // ── Category-specific documents ──
+  function supportingDocumentsClean(data) {
+    const type = data.category;
     switch (type) {
       case "Individual/ Proprietary Firm":
         return (
           <>
-            <Row>
-              <Col>
-                <strong>Passport:&nbsp;</strong>
-                <ImagePreview
-                  images={data.individual_passport_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "individual_passport_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Voter Card:&nbsp;</strong>
-                <ImagePreview
-                  images={data.individual_voter_card_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "individual_voter_card_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Driving License:&nbsp;</strong>
-                <ImagePreview
-                  images={data.individual_driving_license_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "individual_driving_license_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                <strong>Bank Statement:&nbsp;</strong>
-                <ImagePreview
-                  images={data.individual_bank_statement_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "individual_bank_statement_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Ration Card:&nbsp;</strong>
-                <ImagePreview
-                  images={data.individual_ration_card_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "individual_ration_card_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Aadhar Card:&nbsp;</strong>
-                <ImagePreview
-                  images={data.individual_aadhar_card}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "individual_aadhar_card")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
+            {renderDocSection("Passport", data.individual_passport_img, "individual_passport_img")}
+            {renderDocSection("Voter Card", data.individual_voter_card_img, "individual_voter_card_img")}
+            {renderDocSection("Driving License", data.individual_driving_license_img, "individual_driving_license_img")}
+            {renderDocSection("Bank Statement", data.individual_bank_statement_img, "individual_bank_statement_img")}
+            {renderDocSection("Ration Card", data.individual_ration_card_img, "individual_ration_card_img")}
+            {renderDocSection("Aadhar Card", data.individual_aadhar_card, "individual_aadhar_card")}
           </>
         );
       case "Partnership Firm":
         return (
           <>
-            <Row>
-              <Col>
-                <strong>Registration Certificate:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_registration_certificate_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "partnership_registration_certificate_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Partnership Deed:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_deed_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "partnership_deed_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Power of Attorney:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_power_of_attorney_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "partnership_power_of_attorney_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                <strong>Valid Document:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_valid_document}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "partnership_valid_document")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Aadhar Card Front:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_aadhar_card_front_photo}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "partnership_aadhar_card_front_photo"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Aadhar Card Back:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_aadhar_card_back_photo}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "partnership_aadhar_card_back_photo"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                <strong>Telephone Bill:&nbsp;</strong>
-                <ImagePreview
-                  images={data.partnership_telephone_bill}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "partnership_telephone_bill")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col></Col>
-              <Col></Col>
-            </Row>
+            {renderDocSection("Registration Certificate", data.partnership_registration_certificate_img, "partnership_registration_certificate_img")}
+            {renderDocSection("Partnership Deed", data.partnership_deed_img, "partnership_deed_img")}
+            {renderDocSection("Power of Attorney", data.partnership_power_of_attorney_img, "partnership_power_of_attorney_img")}
+            {renderDocSection("Valid Document", data.partnership_valid_document, "partnership_valid_document")}
+            {renderDocSection("Aadhar Card Front", data.partnership_aadhar_card_front_photo, "partnership_aadhar_card_front_photo")}
+            {renderDocSection("Aadhar Card Back", data.partnership_aadhar_card_back_photo, "partnership_aadhar_card_back_photo")}
+            {renderDocSection("Telephone Bill", data.partnership_telephone_bill, "partnership_telephone_bill")}
           </>
         );
       case "Company":
         return (
           <>
-            <Row>
-              <Col>
-                <strong>Certificate of Incorporation:&nbsp;</strong>
-                <ImagePreview
-                  images={data.company_certificate_of_incorporation_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "company_certificate_of_incorporation_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Memorandum of Association:&nbsp;</strong>
-                <ImagePreview
-                  images={data.company_memorandum_of_association_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "company_memorandum_of_association_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Articles of Association:&nbsp;</strong>
-                <ImagePreview
-                  images={data.company_articles_of_association_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "company_articles_of_association_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                <strong>Power of Attorney:&nbsp;</strong>
-                <ImagePreview
-                  images={data.company_power_of_attorney_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "company_power_of_attorney_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Telephone Bill:&nbsp;</strong>
-                <ImagePreview
-                  images={data.company_telephone_bill_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "company_telephone_bill_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>PAN Allotment Letter:&nbsp;</strong>
-                <ImagePreview
-                  images={data.company_pan_allotment_letter_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "company_pan_allotment_letter_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
+            {renderDocSection("Certificate of Incorporation", data.company_certificate_of_incorporation_img, "company_certificate_of_incorporation_img")}
+            {renderDocSection("Memorandum of Association", data.company_memorandum_of_association_img, "company_memorandum_of_association_img")}
+            {renderDocSection("Articles of Association", data.company_articles_of_association_img, "company_articles_of_association_img")}
+            {renderDocSection("Power of Attorney", data.company_power_of_attorney_img, "company_power_of_attorney_img")}
+            {renderDocSection("Telephone Bill", data.company_telephone_bill_img, "company_telephone_bill_img")}
+            {renderDocSection("PAN Allotment Letter", data.company_pan_allotment_letter_img, "company_pan_allotment_letter_img")}
           </>
         );
       case "Trust Foundations":
         return (
           <>
-            <Row>
-              <Col>
-                <strong>Certificate of Registration:&nbsp;</strong>
-                <ImagePreview
-                  images={data.trust_certificate_of_registration_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "trust_certificate_of_registration_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Power of Attorney:&nbsp;</strong>
-                <ImagePreview
-                  images={data.trust_power_of_attorney_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(index, "trust_power_of_attorney_img")
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Offically Valid Document:&nbsp;</strong>
-                <ImagePreview
-                  images={data.trust_officially_valid_document_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "trust_officially_valid_document_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                <strong>Resoultion of Managing Body:&nbsp;</strong>
-                <ImagePreview
-                  images={data.trust_resolution_of_managing_body_img}
-                  onDeleteImage={(index) =>
-                    handleFileDelete(
-                      index,
-                      "trust_resolution_of_managing_body_img"
-                    )
-                  }
-                  showDeleteForAdmin={true}
-                />
-              </Col>
-              <Col>
-                <strong>Name of Trustees:&nbsp;</strong>
-                {data.trust_name_of_trustees}
-              </Col>
-              <Col>
-                <strong>Name of Founder:&nbsp;</strong>
-                {data.trust_name_of_founder}
-              </Col>
-            </Row>
-            <Row>
-              <Col>
-                <strong>Address of Founder:&nbsp;</strong>
-                {data.trust_address_of_founder}
-              </Col>
-              <Col>
-                <strong>Telephone of Founder:&nbsp;</strong>
-                {data.trust_telephone_of_founder}
-              </Col>
-              <Col>
-                <strong>Email of Founder:&nbsp;</strong>
-                {data.trust_email_of_founder}
-              </Col>
-            </Row>
+            {renderDocSection("Certificate of Registration", data.trust_certificate_of_registration_img, "trust_certificate_of_registration_img")}
+            {renderDocSection("Power of Attorney", data.trust_power_of_attorney_img, "trust_power_of_attorney_img")}
+            {renderDocSection("Officially Valid Document", data.trust_officially_valid_document_img, "trust_officially_valid_document_img")}
+            {renderDocSection("Resolution of Managing Body", data.trust_resolution_of_managing_body_img, "trust_resolution_of_managing_body_img")}
+            {data.trust_name_of_trustees && (
+              <div className="kyc-doc-section">
+                <div className="kyc-lbl">Name of Trustees</div>
+                <div className="kyc-val">{data.trust_name_of_trustees}</div>
+              </div>
+            )}
+            {data.trust_name_of_founder && (
+              <div className="kyc-doc-section">
+                <div className="kyc-lbl">Name of Founder</div>
+                <div className="kyc-val">{data.trust_name_of_founder}</div>
+              </div>
+            )}
           </>
         );
       default:
         return null;
     }
-  };
-
-  // Remove duplicate helper functions since we're importing from utils
-  // isValidFileUrl and openFileInNewTab are now imported from documentHelpers
+  }
 
   if (!user || user.role !== "Admin") {
     return (
-      <div
-        style={{
-          padding: 40,
-          textAlign: "center",
-          color: "#d32f2f",
-          fontWeight: 600,
-        }}
-      >
+      <div style={{ padding: 40, textAlign: "center", color: "#d32f2f", fontWeight: 600 }}>
         You do not have permission to view this page.
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        width: "80%",
-        margin: "auto",
-        boxShadow: "2px 2px 50px 10px rgba(0, 0, 0, 0.05)",
-        padding: "20px",
-      }}
-    >
-      {/* Header with Back Button */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          marginBottom: "20px",
-          padding: "10px 0",
-          borderBottom: "2px solid #e0e0e0",
-        }}
-      >
-        <BackButton />
-        <h2
-          style={{
-            color: "var(--primary-orange)",
-            margin: "0 auto",
-            textAlign: "center",
-            flex: 1,
-          }}
-        >
-          📋 View Completed KYC Details
-        </h2>
+    <div className="kyc-page-wrapper">
+
+      {/* ── Page Header ── */}
+      <div className="kyc-page-header">
+        <div className="kyc-header-left">
+       
+          <span className="kyc-page-title"> View Completed KYC Details</span>
+        </div>
+        <span className="kyc-verified-tag">Verified customer application</span>
       </div>
 
+      {/* ── Single Card ── */}
       {data && (
-        <>
-          <Row>
-            <Col>
-              <strong>Category:</strong> {data.category}
-            </Col>
-            <Col>
-              <strong>Name of Individual:</strong> {data.name_of_individual}
-            </Col>
-            <Col>
-              <strong>Status of Exporter/ Importer:</strong> {data.status}
-            </Col>
-          </Row>
-          <br />
-          <h4>Permanent Address</h4>
-          <Row>
-            <Col>
-              <strong>Line 1:</strong>
-              {data.permanent_address_line_1}
-            </Col>
-            <Col>
-              <strong>Line 2:</strong>
-              {data.permanent_address_line_2}
-            </Col>
-            <Col>
-              <strong>City:</strong>
-              {data.permanent_address_city}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>State:</strong> {data.permanent_address_state}
-            </Col>
-            <Col>
-              <strong>PIN Code:</strong> {data.permanent_address_pin_code}
-            </Col>
-            <Col></Col>
-          </Row>
+        <div className="kyc-card">
 
-          <br />
-          <h4>Principal Business Address</h4>
-          <Row>
-            <Col>
-              <strong>Line 1: </strong> {data.principle_business_address_line_1}
-            </Col>
-            <Col>
-              <strong>Line 2: </strong> {data.principle_business_address_line_2}
-            </Col>
-            <Col>
-              <strong>City: </strong> {data.principle_business_address_city}
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <strong>State: </strong> {data.principle_business_address_state}
-            </Col>
-            <Col>
-              <strong>PIN Code: </strong>
-              {data.principle_business_address_pin_code}
-            </Col>
-            <Col></Col>
-          </Row>
-          <br />
-          <h4>Factory Addresses</h4>
-          {data.factory_addresses?.map((address, id) => {
-            return (
-              <div key={id}>
-                <Row>
-                  <Col>
-                    <strong>Line 1: </strong>
-                    {address.factory_address_line_1}
-                  </Col>
-                  <Col>
-                    <strong>Line 2: </strong>
-                    {address.factory_address_line_2}
-                  </Col>
-                  <Col>
-                    <strong>City: </strong> {address.factory_address_city}
-                  </Col>
-                </Row>
-                <Row>
-                  <Col>
-                    <strong>State: </strong> {address.factory_address_state}
-                  </Col>
-                  <Col>
-                    <strong>PIN Code: </strong>
-                    {address.factory_address_pin_code}
-                  </Col>
-                  <Col>
-                    <strong>GST: </strong> {address.gst}
-                  </Col>
-                </Row>
-                <Row>
-                  <Col>
-                    <strong>GST Registration Certificate: </strong>
-                    <ImagePreview
-                      images={address.gst_reg}
-                      onDeleteImage={(index) =>
-                        handleFileDelete(index, "factory_addresses.gst_reg", id)
-                      }
-                      showDeleteForAdmin={true}
-                    />
-                  </Col>
-                </Row>
+          {/* ① Basic Info — no title, just fields */}
+          <div className="kyc-section">
+            <div className="kyc-row">
+              <div className="kyc-cell kyc-cell-lg">
+                <div className="kyc-lbl">Category</div>
+                <div className="kyc-val">{data.category}</div>
               </div>
-            );
-          })}
-
-          <br />
-          <h6>
-            <strong>
-              Name of Authorised Signatory/ies for signing import/export
-              documents on behalf of the Firm/ Company. Please provide recent
-              passport size self attested photographs of each signatory
-            </strong>
-          </h6>
-          <Row>
-            <Col>
-              <ImagePreview
-                images={data.authorised_signatories}
-                onDeleteImage={(index) =>
-                  handleFileDelete(index, "authorised_signatories")
-                }
-                showDeleteForAdmin={true}
-              />
-            </Col>
-          </Row>
-          <br />
-          <h6>
-            <strong>Authorisation Letter</strong>
-          </h6>
-          <Row>
-            <Col>
-              <ImagePreview
-                images={data.authorisation_letter}
-                onDeleteImage={(index) =>
-                  handleFileDelete(index, "authorisation_letter")
-                }
-                showDeleteForAdmin={true}
-              />
-            </Col>
-          </Row>
-          <br />
-          <h4>IEC</h4>
-          <Row>
-            <Col>
-              <strong>IEC Number:</strong> {data.iec_no}
-            </Col>
-            <Col>
-              <strong>IEC Copy:&nbsp;</strong>
-              <ImagePreview
-                images={data.iec_copy}
-                onDeleteImage={(index) => handleFileDelete(index, "iec_copy")}
-                showDeleteForAdmin={true}
-              />
-            </Col>
-            <Col></Col>
-          </Row>
-          <br />
-          <h4>PAN</h4>
-          <Row>
-            <Col>
-              <strong>PAN:</strong> {data.pan_no}
-            </Col>
-            <Col>
-              <strong>PAN Copy:&nbsp;</strong>
-              <ImagePreview
-                images={data.pan_copy}
-                onDeleteImage={(index) => handleFileDelete(index, "pan_copy")}
-                showDeleteForAdmin={true}
-              />
-            </Col>
-            <Col></Col>
-          </Row>
-          <br />
-          <h4>Bank</h4>
-          {data.banks?.map((bank, id) => {
-            return (
-              <div key={id}>
-                <Row>
-                  <Col>
-                    <strong>Banker's Name: </strong>
-                    {bank.bankers_name}
-                  </Col>
-                  <Col>
-                    <strong>Branch Address:</strong>
-                    {bank.branch_address}
-                  </Col>
-                  <Col>
-                    <strong>Account Number: </strong>
-                    {bank.account_no}
-                  </Col>
-                </Row>
-                <Row>
-                  <Col>
-                    <strong>IFSC: </strong>
-                    {bank.ifsc}
-                  </Col>
-                  <Col>
-                    <strong>AD Code: </strong>
-                    {bank.adCode}
-                  </Col>
-                  <Col>
-                    <strong>AD Code File: </strong>
-                    <ImagePreview
-                      images={bank.adCode_file}
-                      onDeleteImage={(index) =>
-                        handleFileDelete(index, "banks.adCode_file", id)
-                      }
-                      showDeleteForAdmin={true}
-                    />
-                  </Col>
-                </Row>
+              <div className="kyc-cell kyc-cell-lg">
+                <div className="kyc-lbl">Name of Individual</div>
+                <div className="kyc-val">{data.name_of_individual}</div>
               </div>
-            );
-          })}
+              <div className="kyc-cell">
+                <div className="kyc-lbl">Status of Exporter/Importer</div>
+                <div className="kyc-val">{data.status}</div>
+              </div>
+            </div>
+          </div>
 
-          <br />
-          <h4>Other Documents</h4>
-          <Row>
-            <Col>
-              <ImagePreview
-                images={data.other_documents}
-                onDeleteImage={(index) =>
-                  handleFileDelete(index, "other_documents")
-                }
-                showDeleteForAdmin={true}
-              />
-            </Col>
-          </Row>
-          <br />
-          <Row>
-            <Col>
-              <strong>SPCB Registration Certificate: </strong>
-              <ImagePreview
-                images={data.spcb_reg}
-                onDeleteImage={(index) => handleFileDelete(index, "spcb_reg")}
-                showDeleteForAdmin={true}
-              />
-            </Col>
-            <Col>
-              <strong>KYC Verification Images: </strong>
-              <ImagePreview
-                images={data.kyc_verification_images}
-                onDeleteImage={(index) =>
-                  handleFileDelete(index, "kyc_verification_images")
-                }
-                showDeleteForAdmin={true}
-              />
-            </Col>
-            <Col>
-              <strong>GST Returns: </strong>
-              <ImagePreview
-                images={data.gst_returns}
-                onDeleteImage={(index) =>
-                  handleFileDelete(index, "gst_returns")
-                }
-                showDeleteForAdmin={true}
-              />
-            </Col>
-          </Row>
-          <br />
-          {supportingDocuments(data.category)}
-        </>
+          {/* ② Permanent Address */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">Permanent Address</span>
+            <div className="kyc-row">
+              <div className="kyc-cell kyc-cell-lg">
+                <div className="kyc-lbl">Line 1</div>
+                <div className="kyc-val">{data.permanent_address_line_1}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-xl">
+                <div className="kyc-lbl">Line 2</div>
+                <div className="kyc-val">{data.permanent_address_line_2 || "—"}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-md">
+                <div className="kyc-lbl">City</div>
+                <div className="kyc-val">{data.permanent_address_city}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-md">
+                <div className="kyc-lbl">State</div>
+                <div className="kyc-val">{data.permanent_address_state}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-sm">
+                <div className="kyc-lbl">PIN Code</div>
+                <div className="kyc-val kyc-mono">{data.permanent_address_pin_code}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ③ Principal Business Address */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">Principal Business Address</span>
+            <div className="kyc-row">
+              <div className="kyc-cell kyc-cell-lg">
+                <div className="kyc-lbl">Line 1</div>
+                <div className="kyc-val">{data.principle_business_address_line_1}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-xl">
+                <div className="kyc-lbl">Line 2</div>
+                <div className="kyc-val">{data.principle_business_address_line_2 || "—"}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-md">
+                <div className="kyc-lbl">City</div>
+                <div className="kyc-val">{data.principle_business_address_city}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-md">
+                <div className="kyc-lbl">State</div>
+                <div className="kyc-val">{data.principle_business_address_state}</div>
+              </div>
+              <div className="kyc-cell kyc-cell-sm">
+                <div className="kyc-lbl">PIN Code</div>
+                <div className="kyc-val kyc-mono">{data.principle_business_address_pin_code}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ④ Factory Addresses */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">Factory Addresses</span>
+            {data.factory_addresses?.map((address, id) => (
+              <div key={id} className={id > 0 ? "kyc-factory-repeat" : ""}>
+                <div className="kyc-row">
+                  <div className="kyc-cell kyc-cell-lg">
+                    <div className="kyc-lbl">Line 1</div>
+                    <div className="kyc-val">{address.factory_address_line_1}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">Line 2</div>
+                    <div className="kyc-val">{address.factory_address_line_2 || "—"}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">City</div>
+                    <div className="kyc-val">{address.factory_address_city}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">State</div>
+                    <div className="kyc-val">{address.factory_address_state}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-sm">
+                    <div className="kyc-lbl">PIN Code</div>
+                    <div className="kyc-val kyc-mono">{address.factory_address_pin_code}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-lg">
+                    <div className="kyc-lbl">GST</div>
+                    <div className="kyc-val kyc-mono">{address.gst}</div>
+                  </div>
+                </div>
+                <div className="kyc-row">
+                  <div className="kyc-cell">
+                    <div className="kyc-lbl">GST Registration Certificate</div>
+                    {renderDocTable(address.gst_reg, "factory_addresses.gst_reg", id)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ⑤ Authorised Signatories */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">Authorised Signatories</span>
+            <div className="kyc-note">
+              Name of Authorised Signatory/ies for signing import/export documents on behalf of the Firm/ Company. Please provide recent passport size self attested photographs of each signatory
+            </div>
+            <div className="kyc-row">
+              <div className="kyc-cell">
+                <div className="kyc-lbl">Signatory Photos</div>
+                {renderDocTable(data.authorised_signatories, "authorised_signatories")}
+              </div>
+              <div className="kyc-cell">
+                <div className="kyc-lbl">Authorisation Letter</div>
+                {renderDocTable(data.authorisation_letter, "authorisation_letter")}
+              </div>
+              <div className="kyc-cell kyc-cell-2x" />
+            </div>
+          </div>
+
+          {/* ⑥ IEC */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">IEC</span>
+            <div className="kyc-row">
+              <div className="kyc-cell kyc-cell-xl">
+                <div className="kyc-lbl">IEC Number</div>
+                <div className="kyc-val kyc-mono">{data.iec_no}</div>
+              </div>
+              <div className="kyc-cell">
+                <div className="kyc-lbl">IEC Copy</div>
+                {renderDocTable(data.iec_copy, "iec_copy")}
+              </div>
+            </div>
+          </div>
+
+          {/* ⑦ PAN */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">PAN</span>
+            <div className="kyc-row">
+              <div className="kyc-cell kyc-cell-xl">
+                <div className="kyc-lbl">PAN</div>
+                <div className="kyc-val kyc-mono">{data.pan_no}</div>
+              </div>
+              <div className="kyc-cell">
+                <div className="kyc-lbl">PAN Copy</div>
+                {renderDocTable(data.pan_copy, "pan_copy")}
+              </div>
+            </div>
+          </div>
+
+          {/* ⑧ Bank */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">Bank</span>
+            {data.banks?.map((bank, id) => (
+              <div key={id} className={id > 0 ? "kyc-factory-repeat" : ""}>
+                <div className="kyc-row">
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">Banker's Name</div>
+                    <div className="kyc-val">{bank.bankers_name}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">Branch Address</div>
+                    <div className="kyc-val">{bank.branch_address}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-lg">
+                    <div className="kyc-lbl">Account Number</div>
+                    <div className="kyc-val kyc-mono">{bank.account_no}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">IFSC</div>
+                    <div className="kyc-val kyc-mono">{bank.ifsc}</div>
+                  </div>
+                  <div className="kyc-cell kyc-cell-md">
+                    <div className="kyc-lbl">AD Code</div>
+                    <div className="kyc-val kyc-mono">{bank.adCode}</div>
+                  </div>
+                  <div className="kyc-cell">
+                    <div className="kyc-lbl">AD Code File</div>
+                    {renderDocTable(bank.adCode_file, "banks.adCode_file", id)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ⑨ Other Documents */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">Other Documents</span>
+            <div className="kyc-row kyc-row-top">
+              <div className="kyc-cell kyc-cell-2x">
+                <div className="kyc-lbl">Uploaded Documents</div>
+                {renderDocTable(data.other_documents, "other_documents")}
+              </div>
+              <div className="kyc-cell">
+                <div className="kyc-lbl">SPCB Registration Certificate</div>
+                {data.spcb_reg && data.spcb_reg.length > 0
+                  ? renderDocTable(data.spcb_reg, "spcb_reg")
+                  : <div className="kyc-no-docs">No documents uploaded yet.</div>}
+              </div>
+              <div className="kyc-cell">
+                <div className="kyc-lbl">KYC Verification Images</div>
+                {data.kyc_verification_images && data.kyc_verification_images.length > 0
+                  ? renderDocTable(data.kyc_verification_images, "kyc_verification_images")
+                  : <div className="kyc-no-docs">No documents uploaded yet.</div>}
+              </div>
+              <div className="kyc-cell">
+                <div className="kyc-lbl">GST Returns</div>
+                {data.gst_returns && data.gst_returns.length > 0
+                  ? renderDocTable(data.gst_returns, "gst_returns")
+                  : <div className="kyc-no-docs">No documents uploaded yet.</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* ⑩ Category Specific Documents */}
+          <div className="kyc-section">
+            <span className="kyc-section-title">
+              Category Specific Documents
+              <span className="kyc-section-title-sub"> ({data.category})</span>
+            </span>
+            <div className="kyc-doc-grid">
+              {supportingDocumentsClean(data)}
+            </div>
+          </div>
+
+        </div>
       )}
     </div>
   );

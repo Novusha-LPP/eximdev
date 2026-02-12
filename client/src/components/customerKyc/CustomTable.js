@@ -40,42 +40,7 @@ const CustomTable = ({ columns, data, rowsPerPage = 10 }) => {
 
     return (
         <div style={{ paddingBottom: '1rem' }}>
-            {/* Search and Toolbar */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-                flexWrap: 'wrap',
-                gap: '1rem'
-            }}>
-                <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
-                    <Search style={{
-                        position: 'absolute',
-                        left: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: 'var(--slate-400)',
-                        fontSize: '1.2rem'
-                    }} />
-                    <input
-                        type="text"
-                        placeholder="Search records..."
-                        value={searchTerm}
-                        onChange={handleSearchChange}
-                        className="form-control"
-                        style={{
-                            paddingLeft: '2.5rem',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--slate-300)'
-                        }}
-                    />
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--slate-500)' }}>
-                    <span>Showing {filteredData.length} records</span>
-                </div>
-            </div>
+    
 
             <div className="clean-table-container">
                 <table className="premium-table">
@@ -114,23 +79,16 @@ const CustomTable = ({ columns, data, rowsPerPage = 10 }) => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    marginTop: '1.5rem',
-                    gap: '1rem'
-                }}>
+                <div className="pagination-controls">
                     <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
                         className="btn btn-secondary"
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
                     >
                         <ChevronLeft style={{ fontSize: '1rem' }} /> Previous
                     </button>
 
-                    <span style={{ fontSize: '0.9rem', color: 'var(--slate-600)', fontWeight: 500 }}>
+                    <span className="pagination-text">
                         Page {currentPage} of {totalPages}
                     </span>
 
@@ -138,7 +96,6 @@ const CustomTable = ({ columns, data, rowsPerPage = 10 }) => {
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
                         className="btn btn-secondary"
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
                     >
                         Next <ChevronRight style={{ fontSize: '1rem' }} />
                     </button>

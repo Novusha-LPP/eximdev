@@ -207,202 +207,206 @@ function CustomerKycStatus() {
   // --- Main Render ---
 
   return (
-    <div className="premium-card">
-      <div className="card-header">
-        <h2 className="page-title" style={{ fontSize: "1.5rem", paddingBottom: "0.5rem" }}>
-          KYC Status Overview
-        </h2>
-        <p className="page-subtitle" >
-          Monitor and manage customer applications
-        </p>
-      </div>
-
-      <div className="card-body">
-        {/* Statistics Cards */}
-        <div
-          className="grid-3"
-          style={{
-            marginBottom: "2rem",
-            gridTemplateColumns: "repeat(4, 1fr)",
-          }}
-        >
-          <div
-            className="form-section"
-            style={{
-              padding: "1.5rem",
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              borderLeft: "4px solid var(--primary-500)",
-            }}
+    <div className="premium-card" style={{ padding: "1rem" }}>
+      <div
+        className="card-header"
+        style={{
+          padding: "0.5rem 0.75rem",
+          marginBottom: "0.5rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <h2
+            className="page-title"
+            style={{ fontSize: "1.1rem", paddingBottom: "0.25rem" }}
           >
-            <div
-              style={{
-                background: "var(--primary-50)",
-                padding: "1rem",
-                borderRadius: "50%",
-                color: "var(--primary-600)",
-              }}
-            >
-              <Group />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "1.5rem" }}>{stats.total}</h3>
-              <p style={{ margin: 0, fontSize: "0.85rem" }}>Total Customers</p>
-            </div>
-          </div>
-
-          <div
-            className="form-section"
-            style={{
-              padding: "1.5rem",
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              borderLeft: "4px solid var(--warning)",
-            }}
-          >
-            <div
-              style={{
-                background: "var(--warning-light)",
-                padding: "1rem",
-                borderRadius: "50%",
-                color: "var(--warning)",
-              }}
-            >
-              <HourglassEmpty />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "1.5rem" }}>{stats.pending}</h3>
-              <p style={{ margin: 0, fontSize: "0.85rem" }}>Pending</p>
-            </div>
-          </div>
-
-          <div
-            className="form-section"
-            style={{
-              padding: "1.5rem",
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              borderLeft: "4px solid var(--success)",
-            }}
-          >
-            <div
-              style={{
-                background: "var(--success-light)",
-                padding: "1rem",
-                borderRadius: "50%",
-                color: "var(--success)",
-              }}
-            >
-              <CheckCircle />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "1.5rem" }}>
-                {stats.approved}
-              </h3>
-              <p style={{ margin: 0, fontSize: "0.85rem" }}>Approved</p>
-            </div>
-          </div>
-
-          <div
-            className="form-section"
-            style={{
-              padding: "1.5rem",
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              borderLeft: "4px solid var(--info)",
-            }}
-          >
-            <div
-              style={{
-                background: "var(--info-light)",
-                padding: "1rem",
-                borderRadius: "50%",
-                color: "var(--info)",
-              }}
-            >
-              <Edit />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "1.5rem" }}>
-                {stats.sentForRevision}
-              </h3>
-              <p style={{ margin: 0, fontSize: "0.85rem" }}>Revisions</p>
-            </div>
-          </div>
+            KYC Status Overview
+          </h2>
+          <p className="page-subtitle" style={{ fontSize: "0.75rem", margin: 0 }}>
+            Monitor and manage customer applications
+          </p>
         </div>
 
-        {/* Filters */}
+        {/* Statistics Cards - Moved to Header */}
         <div
-          className="premium-card"
           style={{
-            padding: "1.5rem",
-            marginBottom: "2rem",
-            background: "var(--slate-50)",
-            border: "none",
+            display: "flex",
+            gap: "0.75rem",
+            flexWrap: "wrap",
           }}
         >
-          <div className="grid-2">
-            <div>
-              <label className="form-label">Search</label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search by name, IEC, or PAN..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ paddingLeft: "2.5rem" }}
-                />
-                <Search
+          {[
+            {
+              icon: <Group style={{ fontSize: "1.1rem" }} />,
+              value: stats.total,
+              label: "Total",
+              color: "var(--primary-500)",
+              bg: "var(--primary-50)",
+              text: "var(--primary-600)",
+            },
+            {
+              icon: <HourglassEmpty style={{ fontSize: "1.1rem" }} />,
+              value: stats.pending,
+              label: "Pending",
+              color: "var(--warning)",
+              bg: "var(--warning-light)",
+              text: "var(--warning)",
+            },
+            {
+              icon: <CheckCircle style={{ fontSize: "1.1rem" }} />,
+              value: stats.approved,
+              label: "Approved",
+              color: "var(--success)",
+              bg: "var(--success-light)",
+              text: "var(--success)",
+            },
+            {
+              icon: <Edit style={{ fontSize: "1.1rem" }} />,
+              value: stats.sentForRevision,
+              label: "Revisions",
+              color: "var(--info)",
+              bg: "var(--info-light)",
+              text: "var(--info)",
+            },
+          ].map((stat, index) => (
+            <div
+              key={index}
+              style={{
+                padding: "0.4rem 0.75rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                background: "#fff",
+                border: "1px solid var(--slate-200)",
+                borderRadius: "var(--radius-md)",
+                boxShadow: "var(--shadow-sm)",
+                minWidth: "120px",
+              }}
+            >
+              <div
+                style={{
+                  background: stat.bg,
+                  padding: "0.3rem",
+                  borderRadius: "50%",
+                  color: stat.text,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {stat.icon}
+              </div>
+              <div>
+                <h3
                   style={{
-                    position: "absolute",
-                    left: "0.75rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--slate-400)",
-                    fontSize: "1.2rem",
+                    margin: 0,
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    lineHeight: 1,
                   }}
-                />
+                >
+                  {stat.value}
+                </h3>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.65rem",
+                    color: "var(--slate-500)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {stat.label}
+                </p>
               </div>
             </div>
-            <div>
-              <label className="form-label">Filter Status</label>
-              <select
+          ))}
+        </div>
+      </div>
+
+      <div className="card-body" style={{ padding: "0 0.5rem" }}>
+        
+        {/* Filters */}
+        <div
+          style={{
+            padding: "0.75rem",
+            marginBottom: "0.75rem",
+            background: "var(--slate-50)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--slate-200)",
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+          }}
+        >
+          <div style={{ flex: 1 }}>
+             <div style={{ position: "relative" }}>
+               <input
+                type="text"
                 className="form-control"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Sent for revision">Sent for Revision</option>
-              </select>
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  paddingLeft: "2.2rem",
+                  paddingTop: "0.4rem",
+                  paddingBottom: "0.4rem",
+                  fontSize: "0.85rem",
+                }}
+              />
+              <Search
+                style={{
+                  position: "absolute",
+                  left: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--slate-400)",
+                  fontSize: "1rem",
+                }}
+              />
             </div>
+          </div>
+          <div style={{ width: "200px" }}>
+            <select
+              className="form-control"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                paddingTop: "0.4rem",
+                paddingBottom: "0.4rem",
+                fontSize: "0.85rem",
+              }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Sent for revision">Sent for Revision</option>
+            </select>
           </div>
         </div>
 
         {/* Results Info */}
         <div
           style={{
-            marginBottom: "1rem",
+            marginBottom: "0.5rem",
             color: "var(--slate-500)",
-            fontSize: "0.9rem",
+            fontSize: "0.8rem",
             fontStyle: "italic",
+            textAlign: "right",
           }}
         >
-          Showing {filteredData.length} result(s)
+          Showing {filteredData.length} record(s)
         </div>
 
         {/* Data Table */}
-        <CustomTable columns={columns} data={filteredData} />
+        <div className="clean-table-container">
+           <CustomTable columns={columns} data={filteredData} />
+        </div>
+        
       </div>
     </div>
   );

@@ -84,6 +84,13 @@ function ReviseCustomerKyc() {
           adCode_file: [],
         },
       ],
+      // Finance Details
+      credit_period: "",
+      credit_limit_validity_date: "",
+      quotation: "No",
+      outstanding_limit: "",
+      advance_payment: false,
+
       other_documents: [],
       spcb_reg: [],
       kyc_verification_images: [],
@@ -160,6 +167,12 @@ function ReviseCustomerKyc() {
             factory_addresses: res.data.factory_addresses || [],
             banks: res.data.banks || [],
             branches: res.data.branches || [],
+            // Finance defaults
+            credit_period: res.data.credit_period || "",
+            credit_limit_validity_date: res.data.credit_limit_validity_date || "",
+            quotation: res.data.quotation || "No",
+            outstanding_limit: res.data.outstanding_limit || "",
+            advance_payment: res.data.advance_payment || false,
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -925,7 +938,84 @@ function ReviseCustomerKyc() {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={handleAddBanks} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>+ Add AD Code</button>
+            <button type="button" onClick={handleAddBanks} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>+ Add Bank</button>
+            
+            {/* Finance Details */}
+            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px dashed var(--slate-300)' }}>
+              <h5 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--slate-600)' }}>FINANCE DETAILS</h5>
+              
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Credit Period</label>
+                  <input
+                    name="credit_period"
+                    className="form-control"
+                    placeholder="e.g. 30 Days"
+                    value={formik.values.credit_period}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Credit Limit Validity</label>
+                  <input
+                    type="date"
+                    name="credit_limit_validity_date"
+                    className="form-control"
+                    value={formik.values.credit_limit_validity_date ? new Date(formik.values.credit_limit_validity_date).toISOString().split('T')[0] : ''}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </div>
+
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Outstanding Limit (O/S)</label>
+                  <input
+                    name="outstanding_limit"
+                    className="form-control"
+                    value={formik.values.outstanding_limit}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Quotation Given?</label>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="quotation"
+                        value="Yes"
+                        checked={formik.values.quotation === "Yes"}
+                        onChange={formik.handleChange}
+                      />
+                      Yes
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="quotation"
+                        value="No"
+                        checked={formik.values.quotation === "No"}
+                        onChange={formik.handleChange}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    name="advance_payment"
+                    checked={formik.values.advance_payment}
+                    onChange={(e) => formik.setFieldValue("advance_payment", e.target.checked)}
+                  />
+                  ADVANCE PAYMENT
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* Supporting Documents (Hook) */}

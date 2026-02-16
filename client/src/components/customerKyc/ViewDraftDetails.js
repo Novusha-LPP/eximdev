@@ -8,7 +8,7 @@ import ImagePreview from "../gallery/ImagePreview";
 import Preview from "./Preview";
 import { getCityAndStateByPinCode } from "../../utils/getCityAndStateByPinCode";
 import "./customerKyc.css";
-import "./KycForm.css";
+import "./KycForm.scss";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { validationSchema } from "../../schemas/customerKyc/customerKycSchema";
 import { draftValidationSchema } from "../../schemas/customerKyc/draftValidationSchema";
@@ -387,7 +387,7 @@ function ViewDraftDetails() {
   if (!data) return <div>Loading...</div>;
 
   return (
-    <div className="app">
+    <div className="app customer-kyc-wrapper">
       <div className="page">
         <div className="page-header">
           <div className="page-title">Edit Draft Application</div>

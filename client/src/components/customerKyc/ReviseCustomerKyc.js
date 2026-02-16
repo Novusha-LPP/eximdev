@@ -8,7 +8,7 @@ import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import Preview from "./Preview";
 import "./customerKyc.css";
-import "./KycForm.css";
+import "./KycForm.scss";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { UserContext } from "../../contexts/UserContext";
 import CustomDialog from "./CustomDialog";
@@ -387,7 +387,7 @@ function ReviseCustomerKyc() {
   if (!data) return <div>Loading...</div>;
 
   return (
-    <div className="app">
+    <div className="app customer-kyc-wrapper">
       <div className="page">
         <div className="page-header">
           <div className="page-title">Revise Application</div>

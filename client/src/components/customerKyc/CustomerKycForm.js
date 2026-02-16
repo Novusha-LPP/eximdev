@@ -10,7 +10,7 @@ import Preview from "./Preview";
 import { getCityAndStateByPinCode } from "../../utils/getCityAndStateByPinCode";
 import BackButton from "./BackButton";
 import "./customerKyc.css";
-import "./KycForm.css";
+import "./KycForm.scss";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { UserContext } from "../../contexts/UserContext";
 import { validationSchema } from "../../schemas/customerKyc/customerKycSchema";
@@ -499,7 +499,7 @@ function CustomerKycForm() {
   );
 
   return (
-    <div className="app">
+    <div className="app customer-kyc-wrapper">
 
      
       {/* Page Content */}

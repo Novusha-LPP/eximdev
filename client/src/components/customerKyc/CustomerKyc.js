@@ -8,6 +8,7 @@ import ViewDrafts from "./ViewDrafts";
 import RevisionList from "./RevisionList";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigation } from "../../contexts/NavigationContext";
+import HodApprovalPending from "./HodApprovalPending";
 import BackButton from "./BackButton";
 import "./customerKyc.css";
 
@@ -86,7 +87,7 @@ function CustomerKyc() {
         case 3:
           return <RevisionList />;
         case 4:
-          return <RevisionList type="pending_approval" />;
+          return <HodApprovalPending />;
         case 5:
           return <CompletedKyc />;
         default:

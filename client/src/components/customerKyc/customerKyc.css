@@ -1368,9 +1368,7 @@ h6 {
 
 /* ── Document table ── */
 .kyc-doc-table {
-  width: auto;
-  min-width: 400px; /* Ensure it's not too small */
-  max-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   font-size: 12px;
   margin-top: 3px;
@@ -1379,7 +1377,7 @@ h6 {
   background: #f8f9fb;
 }
 .kyc-doc-table th {
-  padding: 4px 20px 4px 10px; /* Extra right padding for separation */
+  padding: 4px 10px;
   font-size: 10px;
   font-weight: 600;
   color: #9ca3af;
@@ -1389,10 +1387,15 @@ h6 {
   border-bottom: 1px solid #eaecf0;
 }
 .kyc-doc-table td {
-  padding: 5px 20px 5px 10px; /* Match header padding */
+  padding: 5px 10px;
   border-bottom: 1px solid #f2f3f5;
   color: #1a1a2e;
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.kyc-doc-table td:last-child {
+  white-space: nowrap;
+  width: 1%;
 }
 .kyc-doc-table tr:last-child td {
   border-bottom: none;
@@ -1440,7 +1443,7 @@ h6 {
 /* ── Category-specific doc grid ── */
 .kyc-doc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 12px 20px;
   align-items: start;
 }

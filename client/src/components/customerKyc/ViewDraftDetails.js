@@ -1,13 +1,12 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useFormik } from "formik";
+import { useFormik, getIn } from "formik";
 import useSupportingDocuments from "../../customHooks/useSupportingDocuments";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import Preview from "./Preview";
 import { getCityAndStateByPinCode } from "../../utils/getCityAndStateByPinCode";
-import BackButton from "./BackButton";
 import "./customerKyc.css";
 import "./KycForm.css";
 import { useSnackbar } from "../../contexts/SnackbarContext";
@@ -163,14 +162,16 @@ function ViewDraftDetails() {
                 payload.approval = "Pending";
             }
   
-            await axios.put(`${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`, payload);
+            await axios.patch(`${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`, payload);
+            
+            const draftTabIndex = user?.role === "Admin" ? 3 : 2;
             
             if (submitType === "update_draft") {
                 showSuccess("Draft updated successfully!");
-                navigate("/view-drafts"); 
+                navigate(`/customer-kyc?tab=${draftTabIndex}`); 
             } else {
                 showSuccess("Application submitted for approval!");
-                navigate("/view-drafts"); 
+                navigate(`/customer-kyc?tab=${draftTabIndex}`); 
             }
         } catch (error) {
             console.error("Submission error:", error);
@@ -211,6 +212,34 @@ function ViewDraftDetails() {
   const { getSupportingDocs } = useSupportingDocuments(formik);
 
   // Address Logic
+  useEffect(() => {
+    // Show errors if validation fails after submission attempt
+    if (formik.submitCount > 0 && !formik.isValid) {
+        // Debounce slightly to avoid duplicate toasts or race conditions
+        const timer = setTimeout(() => {
+           // Count errors
+           const errorCount = Object.keys(formik.errors).length;
+           if (errorCount > 0) {
+             showError(`Please correct ${errorCount} error(s) before submitting.`);
+           }
+        }, 100);
+        return () => clearTimeout(timer);
+    }
+  }, [formik.submitCount, formik.isValid, formik.errors]);
+
+  // Helper for error display
+  const getFieldError = (name) => {
+    const error = getIn(formik.errors, name);
+    const touch = getIn(formik.touched, name);
+    return touch && error ? error : null;
+  };
+
+  const hasError = (name) => {
+    const error = getIn(formik.errors, name);
+    const touch = getIn(formik.touched, name);
+    return touch && error;
+  };
+
   useEffect(() => {
     const fetchCityAndState = async () => {
       if (formik.values.permanent_address_pin_code?.length === 6) {
@@ -361,9 +390,6 @@ function ViewDraftDetails() {
     <div className="app">
       <div className="page">
         <div className="page-header">
-           <div className="header-actions">
-            <BackButton />
-           </div>
           <div className="page-title">Edit Draft Application</div>
         </div>
 
@@ -872,7 +898,11 @@ function ViewDraftDetails() {
                               placeholder="22AAAAA0000A1Z5"
                               value={address.gst}
                               onChange={formik.handleChange}
+                              className={hasError(`factory_addresses[${index}].gst`) ? "error" : ""}
                             />
+                            {getFieldError(`factory_addresses[${index}].gst`) && (
+                                <div className="err-msg">{getFieldError(`factory_addresses[${index}].gst`)}</div>
+                            )}
                           </div>
                           <div className="field w-half">
                              <label>GST Registration Doc</label>
@@ -927,8 +957,10 @@ function ViewDraftDetails() {
                                             name={`branches[${index}].branch_name`}
                                             value={branch.branch_name}
                                             onChange={formik.handleChange}
-                                            placeholder="Branch name" 
+                                            placeholder="Branch name"
+                                            className={hasError(`branches[${index}].branch_name`) ? "error" : ""} 
                                         />
+                                        {getFieldError(`branches[${index}].branch_name`) && <div className="err-msg">{getFieldError(`branches[${index}].branch_name`)}</div>}
                                     </div>
                                     <div className="field w-third">
                                         <label>Branch Code <span className="req">*</span></label>
@@ -937,7 +969,9 @@ function ViewDraftDetails() {
                                              value={branch.branch_code}
                                             onChange={formik.handleChange}
                                             placeholder="Branch code" 
+                                            className={hasError(`branches[${index}].branch_code`) ? "error" : ""}
                                         />
+                                        {getFieldError(`branches[${index}].branch_code`) && <div className="err-msg">{getFieldError(`branches[${index}].branch_code`)}</div>}
                                     </div>
                                     <div className="field w-third">
                                         <label>GST Number</label>
@@ -956,7 +990,9 @@ function ViewDraftDetails() {
                                              value={branch.address}
                                             onChange={formik.handleChange}
                                             placeholder="Full address" 
+                                            className={hasError(`branches[${index}].address`) ? "error" : ""}
                                         />
+                                        {getFieldError(`branches[${index}].address`) && <div className="err-msg">{getFieldError(`branches[${index}].address`)}</div>}
                                     </div>
                                 </div>
                                 <div className="row">
@@ -966,7 +1002,9 @@ function ViewDraftDetails() {
                                              name={`branches[${index}].city`}
                                              value={branch.city}
                                             onChange={formik.handleChange}
+                                            className={hasError(`branches[${index}].city`) ? "error" : ""}
                                         />
+                                        {getFieldError(`branches[${index}].city`) && <div className="err-msg">{getFieldError(`branches[${index}].city`)}</div>}
                                     </div>
                                     <div className="field w-third">
                                         <label>State <span className="req">*</span></label>
@@ -974,7 +1012,9 @@ function ViewDraftDetails() {
                                              name={`branches[${index}].state`}
                                              value={branch.state}
                                             onChange={formik.handleChange}
+                                            className={hasError(`branches[${index}].state`) ? "error" : ""}
                                         />
+                                        {getFieldError(`branches[${index}].state`) && <div className="err-msg">{getFieldError(`branches[${index}].state`)}</div>}
                                     </div>
                                     <div className="field w-third">
                                         <label>Postal Code <span className="req">*</span></label>
@@ -983,7 +1023,9 @@ function ViewDraftDetails() {
                                              value={branch.postal_code}
                                             onChange={formik.handleChange}
                                             maxLength="6" 
+                                            className={hasError(`branches[${index}].postal_code`) ? "error" : ""}
                                         />
+                                        {getFieldError(`branches[${index}].postal_code`) && <div className="err-msg">{getFieldError(`branches[${index}].postal_code`)}</div>}
                                     </div>
                                 </div>
                             </div>
@@ -1030,7 +1072,11 @@ function ViewDraftDetails() {
                               placeholder="Bank name"
                               value={bank.bankers_name}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].bankers_name`) ? "error" : ""}
                             />
+                            {getFieldError(`banks[${index}].bankers_name`) && (
+                                <div className="err-msg">{getFieldError(`banks[${index}].bankers_name`)}</div>
+                            )}
                           </div>
                           <div className="field w-half">
                             <label>
@@ -1042,7 +1088,11 @@ function ViewDraftDetails() {
                               placeholder="Branch location"
                               value={bank.branch_address}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].branch_address`) ? "error" : ""}
                             />
+                             {getFieldError(`banks[${index}].branch_address`) && (
+                                <div className="err-msg">{getFieldError(`banks[${index}].branch_address`)}</div>
+                            )}
                           </div>
                         </div>
                         <div className="row">
@@ -1055,7 +1105,11 @@ function ViewDraftDetails() {
                                 name={`banks[${index}].account_no`}
                                value={bank.account_no}
                                onChange={formik.handleChange}
+                               className={hasError(`banks[${index}].account_no`) ? "error" : ""}
                             />
+                            {getFieldError(`banks[${index}].account_no`) && (
+                                <div className="err-msg">{getFieldError(`banks[${index}].account_no`)}</div>
+                            )}
                           </div>
                           <div className="field w-third">
                             <label>
@@ -1066,7 +1120,11 @@ function ViewDraftDetails() {
                                 name={`banks[${index}].ifsc`}
                                value={bank.ifsc}
                                onChange={formik.handleChange}
+                               className={hasError(`banks[${index}].ifsc`) ? "error" : ""}
                             />
+                             {getFieldError(`banks[${index}].ifsc`) && (
+                                <div className="err-msg">{getFieldError(`banks[${index}].ifsc`)}</div>
+                            )}
                           </div>
                           <div className="field w-third">
                             <label>
@@ -1077,7 +1135,11 @@ function ViewDraftDetails() {
                                 name={`banks[${index}].adCode`}
                                value={bank.adCode}
                                onChange={formik.handleChange}
+                               className={hasError(`banks[${index}].adCode`) ? "error" : ""}
                             />
+                             {getFieldError(`banks[${index}].adCode`) && (
+                                <div className="err-msg">{getFieldError(`banks[${index}].adCode`)}</div>
+                            )}
                           </div>
                         </div>
                         <div className="row">
@@ -1274,7 +1336,7 @@ function ViewDraftDetails() {
                 className="btn btn-draft"
                  onClick={() => {
                     setSubmitType("update_draft"); // Trigger draft logic
-                    formik.handleSubmit();
+                    setTimeout(() => formik.handleSubmit(), 0);
                   }}
               >
                 💾 Save Draft
@@ -1284,7 +1346,7 @@ function ViewDraftDetails() {
                 className="btn btn-success"
                 onClick={() => {
                     setSubmitType("submit_for_approval"); // Trigger submit logic
-                    formik.handleSubmit();
+                    setTimeout(() => formik.handleSubmit(), 0);
                   }}
               >
                 📤 Submit Application

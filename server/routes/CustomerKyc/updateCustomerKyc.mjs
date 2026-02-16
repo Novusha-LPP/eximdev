@@ -32,6 +32,9 @@ router.put("/api/update-customer-kyc/:_id", async (req, res) => {
       data: updatedKyc 
     });
   } catch (error) {
+    if (error.code === 11000) {
+        return res.status(400).json({ message: "IEC Number already exists in the system." });
+    }
     console.error("Error updating customer KYC:", error);
     res.status(500).json({ message: error.message });
   }
@@ -71,6 +74,9 @@ router.patch("/api/update-customer-kyc/:_id", async (req, res) => {
       data: updatedKyc 
     });
   } catch (error) {
+    if (error.code === 11000) {
+        return res.status(400).json({ message: "IEC Number already exists in the system." });
+    }
     console.error("Error updating customer KYC:", error);
     res.status(500).json({ message: error.message });
   }

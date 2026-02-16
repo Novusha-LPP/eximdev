@@ -4,7 +4,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import { Row, Col } from "react-bootstrap";
 import { IconButton, TextField, Box, Typography, Button, Tabs, Tab } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import { Edit, Delete, Add as AddIcon } from "@mui/icons-material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import FileUpload from "../../components/gallery/FileUpload.js"; // Reusable FileUpload component
@@ -44,6 +44,13 @@ function ViewOperationsJob() {
 
   const [viewJobTab, setViewJobTab] = useState(0);
   const [selectedContainerIndex, setSelectedContainerIndex] = useState(0);
+  const [showAllSeals, setShowAllSeals] = useState(false);
+  const [showAllWireSeals, setShowAllWireSeals] = useState(false);
+
+  useEffect(() => {
+    setShowAllSeals(false);
+    setShowAllWireSeals(false);
+  }, [selectedContainerIndex]);
   const handleViewJobTabChange = (event, newValue) => {
     setViewJobTab(newValue);
   };
@@ -905,31 +912,180 @@ function ViewOperationsJob() {
                     return (
                       <div key={index}>
                         <div style={{ padding: "30px" }}>
-                          <h6>
-                            <strong>
-                              {index + 1}. Container Number:&nbsp;
-                              <span ref={container_number_ref[index]}>
-                                <a
-                                  href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {container.container_number}
-                                </a>
-                              </span>
-                              <IconButton
-                                onClick={() =>
-                                  handleCopyContainerNumber(
-                                    container.container_number
-                                  )
-                                }
-                                aria-label="copy-btn"
-                              >
-                                <ContentCopyIcon />
-                              </IconButton>
-                              Size: {container.size}
-                            </strong>
-                          </h6>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', marginBottom: '10px' }}>
+
+                            <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px' }}>
+                              <h6 style={{ margin: 0 }}>
+                                <strong>
+                                  {index + 1}. Container Number:&nbsp;
+                                  <span ref={container_number_ref[index]}>
+                                    <a
+                                      href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {container.container_number}
+                                    </a>
+                                  </span>
+                                  <IconButton
+                                    onClick={() =>
+                                      handleCopyContainerNumber(
+                                        container.container_number
+                                      )
+                                    }
+                                    aria-label="copy-btn"
+                                  >
+                                    <ContentCopyIcon />
+                                  </IconButton>
+                                  Size: {container.size}
+                                </strong>
+                              </h6>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', height: '40px' }}>
+                                <strong>Seal No:</strong>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                {(() => {
+                                  const seals = Array.isArray(container.seal_number) ? container.seal_number : [];
+                                  const visibleSeals = showAllSeals
+                                    ? seals.map((seal, i) => ({ seal, i }))
+                                    : (seals.length > 0 ? [{ seal: seals[seals.length - 1], i: seals.length - 1 }] : []);
+
+                                  const renderAddButton = () => (
+                                    <Button
+                                      size="small"
+                                      startIcon={<AddIcon />}
+                                      onClick={() => {
+                                        const currentSeals = Array.isArray(container.seal_number) ? container.seal_number : [];
+                                        if (!showAllSeals && currentSeals.length > 0) {
+                                          setShowAllSeals(true);
+                                        }
+                                        formik.setFieldValue(`container_nos[${index}].seal_number`, [...currentSeals, ""]);
+                                      }}
+                                      sx={{ minWidth: 'auto', marginRight: '5px' }}
+                                    >
+                                      Add
+                                    </Button>
+                                  );
+
+                                  return (
+                                    <>
+                                      {visibleSeals.length === 0 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px', marginBottom: '5px' }}>
+                                          {renderAddButton()}
+                                        </div>
+                                      )}
+
+                                      {visibleSeals.map(({ seal, i: sIndex }, vIndex) => (
+                                        <div key={sIndex} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+                                          <TextField
+                                            size="small"
+                                            variant="outlined"
+                                            name={`container_nos[${index}].seal_number[${sIndex}]`}
+                                            value={seal}
+                                            onChange={formik.handleChange}
+                                            style={{ width: '150px', marginRight: '5px' }}
+                                          />
+                                          {vIndex === visibleSeals.length - 1 && renderAddButton()}
+                                          <IconButton size="small" onClick={() => {
+                                            const newSeals = [...seals];
+                                            newSeals.splice(sIndex, 1);
+                                            formik.setFieldValue(`container_nos[${index}].seal_number`, newSeals);
+                                          }}><Delete fontSize="small" /></IconButton>
+                                        </div>
+                                      ))}
+
+                                      {seals.length > 1 && (
+                                        <div style={{ marginBottom: '5px' }}>
+                                          <span
+                                            style={{ color: '#1976d2', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+                                            onClick={() => setShowAllSeals(!showAllSeals)}
+                                          >
+                                            {showAllSeals ? "Show Less" : `Show ${seals.length - 1} More...`}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', height: '40px' }}>
+                                <strong>Wire Seal:</strong>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                {(() => {
+                                  const wireSeals = Array.isArray(container.wire_seal) ? container.wire_seal : [];
+                                  const visibleWireSeals = showAllWireSeals
+                                    ? wireSeals.map((seal, i) => ({ seal, i }))
+                                    : (wireSeals.length > 0 ? [{ seal: wireSeals[wireSeals.length - 1], i: wireSeals.length - 1 }] : []);
+
+                                  const renderAddWireSealButton = () => (
+                                    <Button
+                                      size="small"
+                                      startIcon={<AddIcon />}
+                                      onClick={() => {
+                                        const currentWireSeals = Array.isArray(container.wire_seal) ? container.wire_seal : [];
+                                        if (!showAllWireSeals && currentWireSeals.length > 0) {
+                                          setShowAllWireSeals(true);
+                                        }
+                                        formik.setFieldValue(`container_nos[${index}].wire_seal`, [...currentWireSeals, ""]);
+                                      }}
+                                      sx={{ minWidth: 'auto', marginRight: '5px' }}
+                                    >
+                                      Add
+                                    </Button>
+                                  );
+
+                                  return (
+                                    <>
+                                      {visibleWireSeals.length === 0 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px', marginBottom: '5px' }}>
+                                          {renderAddWireSealButton()}
+                                        </div>
+                                      )}
+
+                                      {visibleWireSeals.map(({ seal, i: sIndex }, vIndex) => (
+                                        <div key={sIndex} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+                                          <TextField
+                                            size="small"
+                                            variant="outlined"
+                                            name={`container_nos[${index}].wire_seal[${sIndex}]`}
+                                            value={seal}
+                                            onChange={formik.handleChange}
+                                            style={{ width: '150px', marginRight: '5px' }}
+                                          />
+                                          {vIndex === visibleWireSeals.length - 1 && renderAddWireSealButton()}
+                                          <IconButton size="small" onClick={() => {
+                                            const newWireSeals = [...wireSeals];
+                                            newWireSeals.splice(sIndex, 1);
+                                            formik.setFieldValue(`container_nos[${index}].wire_seal`, newWireSeals);
+                                          }}><Delete fontSize="small" /></IconButton>
+                                        </div>
+                                      ))}
+
+                                      {wireSeals.length > 1 && (
+                                        <div style={{ marginBottom: '5px' }}>
+                                          <span
+                                            style={{ color: '#1976d2', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+                                            onClick={() => setShowAllWireSeals(!showAllWireSeals)}
+                                          >
+                                            {showAllWireSeals ? "Show Less" : `Show ${wireSeals.length - 1} More...`}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
                           <Row className="job-detail-row">
                             <Col xs={12} md={2}>
                               <div className="job-detail-input-container">

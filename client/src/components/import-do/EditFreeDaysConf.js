@@ -109,7 +109,7 @@ function EditFreeDaysConf() {
 
     // Handle back navigation
     const handleBackToList = () => {
-        navigate("/import-do/free-days-conf");
+        navigate("/import-do");
     };
 
     // Fetch data from API
@@ -159,6 +159,7 @@ function EditFreeDaysConf() {
                 // Set formik values
                 formik.setValues({
                     free_time: jobData.free_time || "",
+                    shipping_line_airline: jobData.shipping_line_airline || "",
                     do_shipping_line_invoice:
                         jobData.do_shipping_line_invoice.length > 0
                             ? jobData.do_shipping_line_invoice
@@ -210,6 +211,7 @@ function EditFreeDaysConf() {
     const formik = useFormik({
         initialValues: {
             free_time: "",
+            shipping_line_airline: "",
             do_shipping_line_invoice: [
                 {
                     document_name: "Shipping Line Invoice",
@@ -307,7 +309,7 @@ function EditFreeDaysConf() {
                             },
                         }}
                     >
-                        Back to Free Days Config
+                        Back
                     </Button>
                 </Box>
                 <div>Error: Missing job_no or year parameters in URL</div>
@@ -342,7 +344,7 @@ function EditFreeDaysConf() {
                             },
                         }}
                     >
-                        Back to Free Days Config
+                        Back
                     </Button>
                 </Box>
                 <div>{error}</div>
@@ -376,25 +378,6 @@ function EditFreeDaysConf() {
 
             {/* Form */}
             <form onSubmit={formik.handleSubmit}>
-                {/* Free Days Section */}
-                <div className="free-days-section">
-                    <div className="free-days-header">Free Days Configuration</div>
-                    <div className="form-field">
-                        <label className="field-label">Free Time (Days)</label>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            type="number"
-                            id="free_time"
-                            name="free_time"
-                            placeholder="Enter free time in days"
-                            value={formik.values.free_time}
-                            onChange={formik.handleChange}
-                            inputProps={{ min: 0 }}
-                        />
-                    </div>
-                </div>
 
                 {/* Charges Table */}
                 <ImportDoChargesTable
@@ -406,7 +389,7 @@ function EditFreeDaysConf() {
                 {/* Submit Button */}
                 <div className="submit-section">
                     <button className="submit-btn" type="submit" aria-label="submit-btn">
-                        Save Configuration
+                        Submit
                     </button>
                 </div>
             </form>

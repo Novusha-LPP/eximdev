@@ -213,6 +213,7 @@ function EditDoList() {
           shipping_line_bond_docs: mergedData.shipping_line_bond_docs,
           shipping_line_bond_charges: mergedData.shipping_line_bond_charges || "",
           shipping_line_insurance: mergedData.shipping_line_insurance,
+          shipping_line_airline: mergedData.shipping_line_airline || "",
           do_shipping_line_invoice: mergedData.do_shipping_line_invoice.length > 0
             ? mergedData.do_shipping_line_invoice
             : [{
@@ -277,6 +278,7 @@ function EditDoList() {
       shipping_line_bond_docs: [],
       shipping_line_bond_charges: "",
       shipping_line_insurance: [],
+      shipping_line_airline: "",
       do_shipping_line_invoice: [
         {
           document_name: "Shipping Line Invoice",

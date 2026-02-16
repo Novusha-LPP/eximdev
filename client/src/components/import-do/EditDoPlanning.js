@@ -364,9 +364,9 @@ function EditDoPlanning() {
         const tabIndex = storedSearchParams?.currentTab ?? 2;
 
         // Close the tab after successful submit
-        // setTimeout(() => {
-        //   window.close();
-        // }, 500);
+        setTimeout(() => {
+          window.close();
+        }, 500);
 
         setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {

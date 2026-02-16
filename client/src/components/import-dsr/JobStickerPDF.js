@@ -220,7 +220,7 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
             ? containerList.map((container) => ({
               container_number: container?.container_number || "N/A",
               size: container?.size || "N/A",
-              seal_number: container?.seal_number || "N/A",
+              seal_number: Array.isArray(container?.seal_number) ? (container.seal_number.length > 0 ? container.seal_number[container.seal_number.length - 1] : "N/A") : (container?.seal_number || "N/A"),
             }))
             : [
               {

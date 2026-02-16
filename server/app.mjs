@@ -222,7 +222,7 @@ import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
-import kpiAnalyticsRoutes from "./routes/kpi/kpiAnalyticsRoutes.mjs";
+
 import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
 import teamRoutes from "./routes/team/teamRoutes.mjs";
 
@@ -487,7 +487,7 @@ app.use("/api/project-nucleus", nucleusReports);
 
 // KPI Module
 app.use(kpiRoutes);
-app.use(kpiAnalyticsRoutes);
+
 app.use(mrmRoutes);
 app.use(teamRoutes);
 

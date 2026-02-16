@@ -1361,7 +1361,7 @@ function DoPlanning() {
                   onChange={handleToggleOBL}
                   style={{ marginRight: "6px" }}
                 />
-                OBL Received
+                OBL Received {row.original.obl_telex_bl ? ` - ${row.original.obl_telex_bl}` : ""}
               </label>
             </div>
           </React.Fragment>

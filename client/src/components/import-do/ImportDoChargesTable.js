@@ -152,16 +152,7 @@ const ImportDoChargesTable = ({
             url: [],
             document_check_date: "",
             document_amount_details: "",
-            currency: "INR",
-            charge_basis: "Per B/E - Per Shp",
-            charge_rate: "",
-            exchange_rate: "1",
-            amount_inr: "",
-            receivable: "",
             cost_rate: "",
-            cost_amount: "",
-            cost_amount_inr: "",
-            payable: "",
         };
 
         if (selectedDocumentType !== "Security Deposit") {
@@ -440,153 +431,6 @@ const ImportDoChargesTable = ({
                     </div>
                 </td>
 
-                {/* CURRENCY */}
-                <td style={excelStyles.td}>
-                    <Select
-                        value={doc.currency || "INR"}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].currency`, e.target.value)}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        disableUnderline
-                        sx={{
-                            ...excelStyles.inputSx,
-                            "& .MuiSelect-select": {
-                                fontWeight: 500,
-                                color: "#1a237e"
-                            }
-                        }}
-                    >
-                        <MenuItem value="INR">INR</MenuItem>
-                        <MenuItem value="USD">USD</MenuItem>
-                        <MenuItem value="EUR">EUR</MenuItem>
-                    </Select>
-                </td>
-
-                {/* BASIS */}
-                <td style={{ ...excelStyles.td, minWidth: "160px" }}>
-                    <Select
-                        value={doc.charge_basis || ""}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].charge_basis`, e.target.value)}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        displayEmpty
-                        disableUnderline
-                        sx={excelStyles.inputSx}
-                    >
-                        <MenuItem value="" disabled><em style={{ color: "#999" }}>Select Basis</em></MenuItem>
-                        <MenuItem value="Per Package">Per Package</MenuItem>
-                        <MenuItem value="By Gross Wt">By Gross Wt</MenuItem>
-                        <MenuItem value="By Chg Wt">By Chg Wt</MenuItem>
-                        <MenuItem value="By Volume">By Volume</MenuItem>
-                        <MenuItem value="Per Container">Per Container</MenuItem>
-                        <MenuItem value="Per TEU">Per TEU</MenuItem>
-                        <MenuItem value="Per FEU">Per FEU</MenuItem>
-                        <MenuItem value="% of Other Charges">% of Other Charges</MenuItem>
-                        <MenuItem value="% of Assessable Value">% of Assessable Value</MenuItem>
-                        <MenuItem value="% of AV+Duty">% of AV+Duty</MenuItem>
-                        <MenuItem value="% of CIF Value">% of CIF Value</MenuItem>
-                        <MenuItem value="Per Vehicle">Per Vehicle</MenuItem>
-                        <MenuItem value="% of Invoice Value">% of Invoice Value</MenuItem>
-                        <MenuItem value="Per License">Per License</MenuItem>
-                        <MenuItem value="Per B/E - Per Shp">Per B/E - Per Shp</MenuItem>
-                        <MenuItem value="% of Product Value">% of Product Value</MenuItem>
-                        <MenuItem value="Per Labour">Per Labour</MenuItem>
-                        <MenuItem value="Per Product">Per Product</MenuItem>
-                        <MenuItem value="By Net Wt">By Net Wt</MenuItem>
-                        <MenuItem value="Per Invoice">Per Invoice</MenuItem>
-                    </Select>
-                </td>
-
-                {/* RATE */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        type="number"
-                        value={doc.charge_rate || ""}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].charge_rate`, e.target.value)}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        placeholder="0.00"
-                        InputProps={cellInputProps}
-                        sx={excelStyles.inputSx}
-                    />
-                </td>
-
-                {/* AMOUNT */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        type="number"
-                        value={doc.document_amount_details}
-                        onChange={(e) =>
-                            formik.setFieldValue(
-                                `${docType}[${index}].document_amount_details`,
-                                e.target.value.replace(/[^0-9.]/g, "")
-                            )
-                        }
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        placeholder="0.00"
-                        InputProps={cellInputProps}
-                        sx={excelStyles.inputSx}
-                    />
-                </td>
-
-                {/* EXCHANGE RATE */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        type="number"
-                        value={doc.exchange_rate || 1}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].exchange_rate`, e.target.value)}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        InputProps={cellInputProps}
-                        sx={excelStyles.inputSx}
-                    />
-                </td>
-
-                {/* AMOUNT (INR) */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        type="number"
-                        value={doc.amount_inr || (doc.document_amount_details ? (doc.document_amount_details * (doc.exchange_rate || 1)).toFixed(2) : "")}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].amount_inr`, e.target.value)}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        placeholder="0.00"
-                        InputProps={cellInputProps}
-                        sx={excelStyles.inputSx}
-                    />
-                </td>
-
-                {/* RECEIVABLE */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        value={(doc.receivable || "").toUpperCase()}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].receivable`, e.target.value.toUpperCase())}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        placeholder="RECEIVABLE"
-                        InputProps={cellInputProps}
-                        sx={{
-                            ...excelStyles.inputSx,
-                            "& input": { textTransform: "uppercase" }
-                        }}
-                    />
-                </td>
-
                 {/* COST RATE */}
                 <td style={{ ...excelStyles.td, borderLeft: "3px solid #90caf9" }}>
                     <TextField
@@ -603,12 +447,17 @@ const ImportDoChargesTable = ({
                     />
                 </td>
 
-                {/* COST AMOUNT */}
+                {/* AMOUNT */}
                 <td style={excelStyles.td}>
                     <TextField
                         type="number"
-                        value={doc.cost_amount || ""}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].cost_amount`, e.target.value)}
+                        value={doc.document_amount_details || ""}
+                        onChange={(e) =>
+                            formik.setFieldValue(
+                                `${docType}[${index}].document_amount_details`,
+                                e.target.value.replace(/[^0-9.]/g, "")
+                            )
+                        }
                         disabled={!isTableEditable}
                         variant="standard"
                         fullWidth
@@ -616,40 +465,6 @@ const ImportDoChargesTable = ({
                         placeholder="0.00"
                         InputProps={cellInputProps}
                         sx={excelStyles.inputSx}
-                    />
-                </td>
-
-                {/* COST AMOUNT (INR) */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        type="number"
-                        value={doc.cost_amount_inr || ""}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].cost_amount_inr`, e.target.value)}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        placeholder="0.00"
-                        InputProps={cellInputProps}
-                        sx={excelStyles.inputSx}
-                    />
-                </td>
-
-                {/* PAYABLE */}
-                <td style={excelStyles.td}>
-                    <TextField
-                        value={(doc.payable || "").toUpperCase()}
-                        onChange={(e) => formik.setFieldValue(`${docType}[${index}].payable`, e.target.value.toUpperCase())}
-                        disabled={!isTableEditable}
-                        variant="standard"
-                        fullWidth
-                        size="small"
-                        placeholder="PAYABLE"
-                        InputProps={cellInputProps}
-                        sx={{
-                            ...excelStyles.inputSx,
-                            "& input": { textTransform: "uppercase" }
-                        }}
                     />
                 </td>
 
@@ -925,13 +740,9 @@ const ImportDoChargesTable = ({
                 <table style={excelStyles.table}>
                     <thead>
                         <tr>
-                            <th rowSpan={2} width="15%" style={excelStyles.th}>Charge Head</th>
-                            <th rowSpan={2} width="15%" style={excelStyles.th}>Document / Status</th>
-                            <th rowSpan={2} width="5%" style={excelStyles.th}>Curr</th>
-                            <th colSpan={6} style={{ ...excelStyles.th, borderBottom: '3px solid #90caf9', backgroundColor: "#1565c0" }}>
-                                Revenue
-                            </th>
-                            <th colSpan={4} style={{ ...excelStyles.th, borderBottom: '3px solid #90caf9', borderLeft: "3px solid #90caf9", backgroundColor: "#1565c0" }}>
+                            <th rowSpan={2} width="20%" style={excelStyles.th}>Charge Head</th>
+                            <th rowSpan={2} width="20%" style={excelStyles.th}>Document / Status</th>
+                            <th colSpan={2} style={{ ...excelStyles.th, borderBottom: '3px solid #90caf9', borderLeft: "3px solid #90caf9", backgroundColor: "#1565c0" }}>
                                 Cost
                             </th>
                             <th colSpan={3} style={{ ...excelStyles.th, borderBottom: '3px solid #ffb74d', borderLeft: "3px solid #ffb74d", backgroundColor: "#ef6c00" }}>
@@ -939,16 +750,8 @@ const ImportDoChargesTable = ({
                             </th>
                         </tr>
                         <tr>
-                            <th width="8%" style={excelStyles.th}>Basis</th>
-                            <th width="8%" style={excelStyles.th}>Rate</th>
-                            <th width="8%" style={excelStyles.th}>Amount</th>
-                            <th width="5%" style={excelStyles.th}>Ex.Rate</th>
-                            <th width="8%" style={excelStyles.th}>Amt (INR)</th>
-                            <th width="10%" style={excelStyles.th}>Receivable</th>
-                            <th width="8%" style={{ ...excelStyles.th, borderLeft: "3px solid #90caf9" }}>Rate</th>
-                            <th width="8%" style={excelStyles.th}>Amount</th>
-                            <th width="8%" style={excelStyles.th}>Amt (INR)</th>
-                            <th width="10%" style={excelStyles.th}>Payable</th>
+                            <th width="10%" style={{ ...excelStyles.th, borderLeft: "3px solid #90caf9" }}>Rate</th>
+                            <th width="10%" style={excelStyles.th}>Amount</th>
                             <th width="15%" style={{ ...excelStyles.th, borderLeft: "3px solid #ffb74d" }}>Payment/Details</th>
                             <th width="10%" style={excelStyles.th}>Status</th>
                             <th width="8%" style={excelStyles.th}>Checked</th>

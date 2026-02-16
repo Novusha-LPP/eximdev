@@ -5,6 +5,7 @@ import {
   useMaterialReactTable,
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
+import InvoiceDisplay from "./InvoiceDisplay";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
 
@@ -298,8 +299,8 @@ function DoCompleted() {
           cell.row.original.priorityJob === "High Priority"
             ? "orange"
             : cell.row.original.priorityJob === "Priority"
-            ? "yellow"
-            : "transparent";
+              ? "yellow"
+              : "transparent";
         const isSelected = selectedJobId === _id;
         // Get selectedImporter, currentPage, searchQuery from context
         // ...existing code...
@@ -825,12 +826,12 @@ function DoCompleted() {
           <div style={{ textAlign: "left" }}>
             {/* Render the "Checklist" link or fallback text */}
             {cth_documents &&
-            cth_documents.some(
-              (doc) =>
-                doc.url &&
-                doc.url.length > 0 &&
-                doc.document_name === "Bill of Lading"
-            ) ? (
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  doc.document_name === "Bill of Lading"
+              ) ? (
               cth_documents
                 .filter(
                   (doc) =>
@@ -893,6 +894,7 @@ function DoCompleted() {
                 <span style={{ color: "gray" }}> No DO copies </span>
               </div>
             )}
+            <InvoiceDisplay row={cell.row.original} />
           </div>
         );
       },

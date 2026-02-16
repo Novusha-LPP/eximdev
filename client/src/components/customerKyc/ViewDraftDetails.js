@@ -9,6 +9,7 @@ import Preview from "./Preview";
 import { getCityAndStateByPinCode } from "../../utils/getCityAndStateByPinCode";
 import BackButton from "./BackButton";
 import "./customerKyc.css";
+import "./KycForm.css";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { validationSchema } from "../../schemas/customerKyc/customerKycSchema";
 import { draftValidationSchema } from "../../schemas/customerKyc/draftValidationSchema";
@@ -19,12 +20,9 @@ function ViewDraftDetails() {
   const { _id } = useParams();
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-  const [data, setData] = useState();
-  const [open, setOpen] = useState(false);
+  const [data, setData] = useState(null);
+  
   const [submitType, setSubmitType] = useState("");
-  const [submissionAttempted, setSubmissionAttempted] = useState(false);
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
   const { showSuccess, showError } = useSnackbar();
 
   // Dialog state
@@ -32,74 +30,11 @@ function ViewDraftDetails() {
     isOpen: false,
     title: "",
     content: null,
-    severity: "info"
+    severity: "info",
+    actions: null
   });
 
-  const closeDialog = () => setDialogState(prev => ({ ...prev, isOpen: false }));
-  // Admin file delete handler
-  const handleFileDelete = async (index, fieldPath, bankIndex = null) => {
-    try {
-      let updatedData = { ...data };
-      
-      if (fieldPath.includes('banks.') && bankIndex !== null) {
-        if (updatedData.banks && updatedData.banks[bankIndex]) {
-          updatedData.banks[bankIndex].adCode_file = "";
-        }
-      } else if (fieldPath.includes('factory_addresses.')) {
-        const addressIndex = fieldPath.match(/\[(\d+)\]/)?.[1];
-        if (addressIndex !== null && updatedData.factory_addresses && updatedData.factory_addresses[addressIndex]) {
-          updatedData.factory_addresses[addressIndex].gst_reg = "";
-        }
-      } else if (fieldPath.includes('.')) {
-        const pathArray = fieldPath.split('.');
-        let current = updatedData;
-        
-        for (let i = 0; i < pathArray.length - 1; i++) {
-          if (current[pathArray[i]]) {
-            current = current[pathArray[i]];
-          }
-        }
-        
-        const finalField = pathArray[pathArray.length - 1];
-        if (Array.isArray(current[finalField])) {
-          current[finalField].splice(index, 1);
-        } else {
-          current[finalField] = "";
-        }
-      } else {
-        if (Array.isArray(updatedData[fieldPath])) {
-          updatedData[fieldPath].splice(index, 1);
-        } else {
-          updatedData[fieldPath] = "";
-        }
-      }
-
-      await axios.put(
-        `${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`,
-        updatedData
-      );
-
-      setData(updatedData);
-      if (formik.setValues) {
-        formik.setValues(updatedData);
-      }
-      showSuccess("File removed successfully");
-    } catch (error) {
-      console.error("Error updating database after file deletion:", error);
-      showError("Failed to remove file. Please try again.");
-    }
-  };
-  useEffect(() => {
-    async function getData() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/view-customer-kyc-details/${_id}`
-      );
-
-      setData(res.data);
-    }
-
-    getData();
-  }, [_id]);
+  const handleCloseDialog = () => setDialogState(prev => ({ ...prev, isOpen: false }));
 
   const formik = useFormik({
     initialValues: {
@@ -134,6 +69,7 @@ function ViewDraftDetails() {
       principle_business_telephone: "",
       principle_address_email: "",
       principle_business_website: "",
+      sameAsPermanentAddress: false, 
 
       authorised_signatories: [],
       authorisation_letter: [],
@@ -151,6 +87,13 @@ function ViewDraftDetails() {
           adCode_file: [],
         },
       ],
+      // Finance Details
+      credit_period: "",
+      credit_limit_validity_date: "",
+      quotation: "No",
+      outstanding_limit: "",
+      advance_payment: false,
+
       other_documents: [],
       spcb_reg: [],
       kyc_verification_images: [],
@@ -162,6 +105,7 @@ function ViewDraftDetails() {
       individual_driving_license_img: [],
       individual_bank_statement_img: [],
       individual_ration_card_img: [],
+      individual_aadhar_card: [],
 
       // partnership
       partnership_registration_certificate_img: [],
@@ -193,74 +137,119 @@ function ViewDraftDetails() {
       trust_email_of_founder: "",
       branches: [],
     },
-    // Use dynamic validation based on submit type
-    validate: (values) => {
-      const schema = submitType === "update_draft" ? draftValidationSchema : validationSchema;
-      
-      try {
-        schema.validateSync(values, { abortEarly: false });
-        return {};
-      } catch (err) {
-        const errors = {};
-        if (err.inner) {
-          err.inner.forEach((error) => {
-            if (error.path) {
-              errors[error.path] = error.message;
-            }
-          });
-        }
-        return errors;
-      }
-    },
+    validationSchema: submitType === "update_draft" ? draftValidationSchema : validationSchema,
+    enableReinitialize: true,
     onSubmit: async (values, { validateForm }) => {
-      try {
-        const errors = await validateForm();
-        if (Object.keys(errors).length > 0) {
-          if (submitType === "update_draft") {
-            if (errors.iec_no || errors.name_of_individual) {
-              setDialogState({
-                isOpen: true,
-                title: "Incomplete Information",
-                content: "Please provide both IEC number and name to save as draft.",
-                severity: "warning"
-              });
-              return;
+        try {
+            // Manual validation check before submit
+            const errors = await validateForm();
+            if (Object.keys(errors).length > 0) {
+              if (submitType === "update_draft") {
+                if (errors.iec_no || errors.name_of_individual) {
+                    showError("Please provide both IEC number and name to save as draft.");
+                    return;
+                }
+              } else {
+                showError(`Please correct ${Object.keys(errors).length} error(s) before submitting.`);
+                return;
+              }
             }
-          } else {
-            setDialogState({
-              isOpen: true,
-              title: "Validation Errors",
-              content: `Please correct the following ${Object.keys(errors).length} error(s) before submitting.`,
-              severity: "error"
-            });
-            return;
-          }
+  
+            const payload = { ...values };
+            if (submitType === "update_draft") {
+                payload.draft = "true";
+            } else {
+                payload.draft = "false";
+                payload.approval = "Pending";
+            }
+  
+            await axios.put(`${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`, payload);
+            
+            if (submitType === "update_draft") {
+                showSuccess("Draft updated successfully!");
+                navigate("/view-drafts"); 
+            } else {
+                showSuccess("Application submitted for approval!");
+                navigate("/view-drafts"); 
+            }
+        } catch (error) {
+            console.error("Submission error:", error);
+            showError(error.response?.data?.message || "An error occurred during submission");
         }
-
-        if (submitType === "update_draft") {
-          await axios.put(`${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`, { ...values, draft: "true" });
-          showSuccess("Draft updated successfully!");
-        } else if (submitType === "submit_for_approval") {
-          await axios.patch(`${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`, { ...values, approval: "Pending", draft: "false" });
-          showSuccess("Application submitted for approval!");
-          setTimeout(() => navigate("/view-drafts"), 2000);
-        }
-      } catch (error) {
-        console.error("Submission error:", error);
-        showError(error.response?.data?.message || "An error occurred during submission");
-      }
     },
   });
 
   useEffect(() => {
-    if (data) {
-      formik.setValues(data);
+    async function getData() {
+      try {
+        const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/view-customer-kyc-details/${_id}`
+        );
+        if (res.data) {
+            const sanitizedData = {
+                ...res.data,
+                factory_addresses: res.data.factory_addresses || [],
+                banks: res.data.banks || [],
+                branches: res.data.branches || [],
+                // Finance defaults
+                credit_period: res.data.credit_period || "",
+                credit_limit_validity_date: res.data.credit_limit_validity_date || "",
+                quotation: res.data.quotation || "No",
+                outstanding_limit: res.data.outstanding_limit || "",
+                advance_payment: res.data.advance_payment || false,
+            };
+            setData(sanitizedData);
+            formik.setValues(sanitizedData);
+        }
+      } catch (error) {
+          console.error("Fetch error", error);
+      }
     }
-    // eslint-disable-next-line
-  }, [data]);
+    getData();
+  }, [_id]);
 
-  const { getSupportingDocs } = useSupportingDocuments(formik, handleFileDelete);
+  const { getSupportingDocs } = useSupportingDocuments(formik);
 
+  // Address Logic
+  useEffect(() => {
+    const fetchCityAndState = async () => {
+      if (formik.values.permanent_address_pin_code?.length === 6) {
+        const data = await getCityAndStateByPinCode(formik.values.permanent_address_pin_code);
+        if (data) {
+          formik.setFieldValue("permanent_address_city", data.city);
+          formik.setFieldValue("permanent_address_state", data.state);
+        }
+      }
+      if (formik.values.principle_business_address_pin_code?.length === 6) {
+        const data = await getCityAndStateByPinCode(formik.values.principle_business_address_pin_code);
+        if (data) {
+          formik.setFieldValue("principle_business_address_city", data.city);
+          formik.setFieldValue("principle_business_address_state", data.state);
+        }
+      }
+    };
+    fetchCityAndState();
+  }, [formik.values.permanent_address_pin_code, formik.values.principle_business_address_pin_code]);
+
+  const handleSameAsPermanentAddress = (event) => {
+    if (event.target.checked) {
+      formik.setValues({
+        ...formik.values,
+        principle_business_address_line_1: formik.values.permanent_address_line_1,
+        principle_business_address_line_2: formik.values.permanent_address_line_2,
+        principle_business_address_city: formik.values.permanent_address_city,
+        principle_business_address_state: formik.values.permanent_address_state,
+        principle_business_address_pin_code: formik.values.permanent_address_pin_code,
+        principle_business_telephone: formik.values.permanent_address_telephone,
+        principle_address_email: formik.values.permanent_address_email,
+        sameAsPermanentAddress: true,
+      });
+    } else {
+        formik.setFieldValue("sameAsPermanentAddress", false);
+    }
+  };
+
+  // Helper functions for dynamic fields
   const handleAddField = () => {
     formik.setFieldValue("factory_addresses", [
       ...formik.values.factory_addresses,
@@ -274,6 +263,34 @@ function ViewDraftDetails() {
         gst_reg: [],
       },
     ]);
+  };
+
+  const handleRemoveField = (index) => {
+    if (formik.values.factory_addresses.length > 1) {
+      const updated = formik.values.factory_addresses.filter((_, i) => i !== index);
+      formik.setFieldValue("factory_addresses", updated);
+    }
+  };
+
+  const handleAddBanks = () => {
+    formik.setFieldValue("banks", [
+      ...formik.values.banks,
+      {
+        bankers_name: "",
+        branch_address: "",
+        account_no: "",
+        ifsc: "",
+        adCode: "",
+        adCode_file: [],
+      },
+    ]);
+  };
+
+  const handleRemoveBank = (index) => {
+    if (formik.values.banks.length > 1) {
+      const updated = formik.values.banks.filter((_, i) => i !== index);
+      formik.setFieldValue("banks", updated);
+    }
   };
 
   const handleAddBranch = () => {
@@ -299,532 +316,995 @@ function ViewDraftDetails() {
     formik.setFieldValue("branches", updatedBranches);
   };
 
-  const handleAddBanks = () => {
-    formik.setFieldValue("banks", [
-      ...formik.values.banks,
-      {
-        bankers_name: "",
-        branch_address: "",
-        account_no: "",
-        ifsc: "",
-        adCode: "",
-        adCode_file: [],
-      },
-    ]);
-  };
-  // File upload handlers will use handleFileUpload from awsFileUpload.js
+  const renderUpload = (field, bucket, multiple = false) => (
+    <div className="field w-half">
+      <label>{field.replace(/_/g, ' ').toUpperCase()}</label>
+      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <FileUpload
+            label={
+              <div className="upload-zone" style={{ margin: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload
+              </div>
+            }
+            onFilesUploaded={(files) => {
+                const currentFn = formik.values[field] || [];
+                formik.setFieldValue(field, multiple ? [...currentFn, ...files] : files);
+            }}
+            bucketPath={bucket}
+            multiple={multiple}
+            customerName={formik.values.name_of_individual}
+            variant="unstyled"
+            containerStyles={{ marginTop: 0 }}
+          />
+          {formik.values[field] && (formik.values[field].length > 0) && (
+             <ImagePreview
+               images={Array.isArray(formik.values[field]) ? formik.values[field] : [formik.values[field]]}
+               onDeleteImage={(idx) => {
+                   if(multiple) {
+                       const updated = formik.values[field].filter((_, i) => i !== idx);
+                       formik.setFieldValue(field, updated);
+                   } else {
+                       formik.setFieldValue(field, []);
+                   }
+               }}
+               allowUserDelete={true} 
+             />
+          )}
+      </div>
+    </div>
+  );
 
-  const handleSameAsPermanentAddress = (event) => {
-    if (event.target.checked) {
-      formik.setValues({
-        ...formik.values,
-        principle_business_address_line_1: formik.values.permanent_address_line_1,
-        principle_business_address_line_2: formik.values.permanent_address_line_2,
-        principle_business_address_city: formik.values.permanent_address_city,
-        principle_business_address_state: formik.values.permanent_address_state,
-        principle_business_address_pin_code: formik.values.permanent_address_pin_code,
-        principle_business_telephone: formik.values.permanent_address_telephone,
-        principle_address_email: formik.values.permanent_address_email,
-      });
-    }
-  };
-
-  useEffect(() => {
-    const fetchCityAndState = async () => {
-      if (formik.values.permanent_address_pin_code.length === 6) {
-        const data = await getCityAndStateByPinCode(
-          formik.values.permanent_address_pin_code
-        );
-        if (data) {
-          formik.setFieldValue("permanent_address_city", data.city);
-          formik.setFieldValue("permanent_address_state", data.state);
-        }
-      }
-      if (formik.values.principle_business_address_pin_code.length === 6) {
-        const data = await getCityAndStateByPinCode(
-          formik.values.principle_business_address_pin_code
-        );
-        if (data) {
-          formik.setFieldValue("principle_business_address_city", data.city);
-          formik.setFieldValue("principle_business_address_state", data.state);
-        }
-      }
-    };
-    fetchCityAndState();
-    // eslint-disable-next-line
-  }, [
-    formik.values.permanent_address_pin_code,
-    formik.values.principle_business_address_pin_code,
-  ]);
-
-  const customerName = formik.values.name_of_individual || "customer";
+  if (!data) return <div>Loading...</div>;
 
   return (
-    <div className="app-layout">
-      <div className="main-content">
-        <div className="kyc-container">
-          <div style={{ display: "flex", alignItems: "center", marginBottom: "2rem" }}>
+    <div className="app">
+      <div className="page">
+        <div className="page-header">
+           <div className="header-actions">
             <BackButton />
-            <h2 style={{ margin: "0 auto", fontSize: "1.75rem", fontWeight: 700, color: "var(--slate-800)" }}>
-              Edit Draft KYC Application
-            </h2>
+           </div>
+          <div className="page-title">Edit Draft Application</div>
+        </div>
+
+        <div className="kyc-card">
+           {/* Category Row */}
+           <div className="category-bar">
+            <span className="bar-label">
+              Category <span style={{ color: "var(--red)" }}>*</span>
+            </span>
+            <label className={`radio-chip ${formik.values.category === "Individual/ Proprietary Firm" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="category"
+                value="Individual/ Proprietary Firm"
+                checked={formik.values.category === "Individual/ Proprietary Firm"}
+                onChange={formik.handleChange}
+              />
+              <span className="dot"></span> Individual / Proprietary
+            </label>
+            <label className={`radio-chip ${formik.values.category === "Partnership Firm" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="category"
+                value="Partnership Firm"
+                checked={formik.values.category === "Partnership Firm"}
+                onChange={formik.handleChange}
+              />
+              <span className="dot"></span> Partnership Firm
+            </label>
+            <label className={`radio-chip ${formik.values.category === "Company" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="category"
+                value="Company"
+                checked={formik.values.category === "Company"}
+                onChange={formik.handleChange}
+              />
+              <span className="dot"></span> Company
+            </label>
+            <label className={`radio-chip ${formik.values.category === "Trust Foundations" ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="category"
+                value="Trust Foundations"
+                checked={formik.values.category === "Trust Foundations"}
+                onChange={formik.handleChange}
+              />
+              <span className="dot"></span> Trust / Foundation
+            </label>
           </div>
 
-          <form onSubmit={formik.handleSubmit}>
-            <div className="premium-card">
-              <div className="form-section">
-                <h4 className="section-title">Category Selection</h4>
-                <div className="category-grid">
-                  {[
-                    "Individual/ Proprietary Firm",
-                    "Partnership Firm",
-                    "Company",
-                    "Trust Foundations"
-                  ].map((cat) => (
-                    <label key={cat} className={`category-card ${formik.values.category === cat ? 'active' : ''}`}>
+          <div className="panels">
+            {/* LEFT PANEL */}
+            <div className="panel">
+              {/* Individual Info */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">
+                    Individual Information
+                  </span>
+                </div>
+                <div className="fields">
+                  <div className="row">
+                    <div className="field">
+                      <label>
+                        Name of Individual / Firm / Company <span className="req">*</span>
+                      </label>
                       <input
-                        type="radio"
-                        name="category"
-                        value={cat}
-                        checked={formik.values.category === cat}
+                        type="text"
+                        name="name_of_individual"
+                        placeholder="Enter full name"
+                        value={formik.values.name_of_individual}
                         onChange={formik.handleChange}
-                        className="category-radio"
+                        className={formik.touched.name_of_individual && formik.errors.name_of_individual ? "error" : ""}
                       />
-                      <span className="category-label">{cat}</span>
-                    </label>
+                       {formik.touched.name_of_individual && formik.errors.name_of_individual && <div className="err-msg">{formik.errors.name_of_individual}</div>}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field">
+                      <label>
+                        Status of Exporter / Importer <span className="req">*</span>
+                      </label>
+                      <div className="inline-radios">
+                        <label>
+                          <input
+                            type="radio"
+                            name="status"
+                            value="Manufacturer"
+                            checked={formik.values.status === "Manufacturer"}
+                            onChange={formik.handleChange}
+                          />{" "}
+                          Manufacturer
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="status"
+                            value="Trader"
+                            checked={formik.values.status === "Trader"}
+                            onChange={formik.handleChange}
+                          />{" "}
+                          Trader
+                        </label>
+                      </div>
+                      {formik.touched.status && formik.errors.status && <div className="err-msg">{formik.errors.status}</div>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Permanent Address */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title">Permanent Address</span>
+                </div>
+                <div className="fields">
+                  <div className="row">
+                    <div className="field">
+                      <label>
+                        Address Line 1 <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="permanent_address_line_1"
+                        placeholder="Street, Building, Flat No."
+                        value={formik.values.permanent_address_line_1}
+                        onChange={formik.handleChange}
+                         className={formik.touched.permanent_address_line_1 && formik.errors.permanent_address_line_1 ? "error" : ""}
+                      />
+                       {formik.touched.permanent_address_line_1 && formik.errors.permanent_address_line_1 && <div className="err-msg">{formik.errors.permanent_address_line_1}</div>}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field">
+                      <label>Address Line 2</label>
+                      <input
+                        type="text"
+                        name="permanent_address_line_2"
+                        placeholder="Area, Landmark"
+                        value={formik.values.permanent_address_line_2}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field w-third">
+                      <label>
+                        Pin Code <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="permanent_address_pin_code"
+                        placeholder="6-digit"
+                        maxLength="6"
+                        value={formik.values.permanent_address_pin_code}
+                        onChange={formik.handleChange}
+                         className={formik.touched.permanent_address_pin_code && formik.errors.permanent_address_pin_code ? "error" : ""}
+                      />
+                    </div>
+                    <div className="field w-third">
+                      <label>
+                        City <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="permanent_address_city"
+                        placeholder="Auto-filled"
+                        value={formik.values.permanent_address_city}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="field w-third">
+                      <label>
+                        State <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="permanent_address_state"
+                        placeholder="Auto-filled"
+                        value={formik.values.permanent_address_state}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>
+                        Mobile <span className="req">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        name="permanent_address_telephone"
+                        placeholder="+91 XXXXX XXXXX"
+                        value={formik.values.permanent_address_telephone}
+                        onChange={formik.handleChange}
+                         className={formik.touched.permanent_address_telephone && formik.errors.permanent_address_telephone ? "error" : ""}
+                      />
+                    </div>
+                    <div className="field w-half">
+                      <label>
+                        Email <span className="req">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        name="permanent_address_email"
+                        placeholder="email@domain.com"
+                        value={formik.values.permanent_address_email}
+                        onChange={formik.handleChange}
+                         className={formik.touched.permanent_address_email && formik.errors.permanent_address_email ? "error" : ""}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Principal Business Address */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title">Principal Business Address</span>
+                  <label className="field-checkbox" style={{ margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={formik.values.sameAsPermanentAddress}
+                      onChange={handleSameAsPermanentAddress}
+                    />
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "#fff",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Same as Permanent
+                    </span>
+                  </label>
+                </div>
+                <div className="fields">
+                  <div className="row">
+                    <div className="field">
+                      <label>
+                        Address Line 1 <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="principle_business_address_line_1"
+                        placeholder="Street, Building, Flat No."
+                        value={formik.values.principle_business_address_line_1}
+                         onChange={formik.handleChange}
+                         className={formik.touched.principle_business_address_line_1 && formik.errors.principle_business_address_line_1 ? "error" : ""}
+                      />
+                      {formik.touched.principle_business_address_line_1 && formik.errors.principle_business_address_line_1 && <div className="err-msg">{formik.errors.principle_business_address_line_1}</div>}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field">
+                      <label>Address Line 2</label>
+                      <input
+                        type="text"
+                        name="principle_business_address_line_2"
+                        placeholder="Area, Landmark"
+                        value={formik.values.principle_business_address_line_2}
+                         onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field w-third">
+                      <label>
+                        Pin Code <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="principle_business_address_pin_code"
+                        placeholder="6-digit"
+                        maxLength="6"
+                         value={formik.values.principle_business_address_pin_code}
+                         onChange={formik.handleChange}
+                          className={formik.touched.principle_business_address_pin_code && formik.errors.principle_business_address_pin_code ? "error" : ""}
+                      />
+                    </div>
+                    <div className="field w-third">
+                      <label>
+                        City <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="principle_business_address_city"
+                        placeholder="Auto-filled"
+                         value={formik.values.principle_business_address_city}
+                         onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="field w-third">
+                      <label>
+                        State <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="principle_business_address_state"
+                        placeholder="Auto-filled"
+                         value={formik.values.principle_business_address_state}
+                         onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field w-third">
+                      <label>
+                        Mobile <span className="req">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        name="principle_business_telephone"
+                        placeholder="+91 XXXXX"
+                         value={formik.values.principle_business_telephone}
+                         onChange={formik.handleChange}
+                          className={formik.touched.principle_business_telephone && formik.errors.principle_business_telephone ? "error" : ""}
+                      />
+                    </div>
+                    <div className="field w-third">
+                      <label>
+                        Email <span className="req">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        name="principle_address_email"
+                        placeholder="email@domain.com"
+                         value={formik.values.principle_address_email}
+                          onChange={formik.handleChange}
+                           className={formik.touched.principle_address_email && formik.errors.principle_address_email ? "error" : ""}
+                      />
+                    </div>
+                    <div className="field w-third">
+                      <label>Website</label>
+                      <input
+                        type="text"
+                        name="principle_business_website"
+                        placeholder="www.example.com"
+                         value={formik.values.principle_business_website}
+                         onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* IEC & PAN */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">
+                    IEC & PAN Details
+                  </span>
+                </div>
+                <div className="fields">
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>
+                        IEC No <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="iec_no"
+                        placeholder="AAAA0000000"
+                        value={formik.values.iec_no}
+                        onChange={formik.handleChange}
+                        className={formik.touched.iec_no && formik.errors.iec_no ? "error" : ""}
+                      />
+                      {formik.touched.iec_no && formik.errors.iec_no && <div className="err-msg">{formik.errors.iec_no}</div>}
+                    </div>
+                    {renderUpload("iec_copy", "iec_copy")}
+                  </div>
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>
+                        PAN No <span className="req">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="pan_no"
+                        placeholder="AAAAA0000A"
+                        maxLength="10"
+                        value={formik.values.pan_no}
+                        onChange={formik.handleChange}
+                         className={formik.touched.pan_no && formik.errors.pan_no ? "error" : ""}
+                      />
+                      {formik.touched.pan_no && formik.errors.pan_no && <div className="err-msg">{formik.errors.pan_no}</div>}
+                    </div>
+                    {renderUpload("pan_copy", "pan-copy")}
+                  </div>
+                </div>
+              </div>
+
+              {/* Authorised Signatory */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title">Authorised Signatory</span>
+                </div>
+                <div className="fields">
+                  <div className="row">
+                     {renderUpload("authorised_signatories", "authorised-signatories", true)}
+                     {renderUpload("authorisation_letter", "authorisation_letter", true)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT PANEL */}
+            
+            <div className="panel">
+              {/* Factory Addresses */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">
+                    Factory Addresses
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-add"
+                    onClick={handleAddField}
+                  >
+                    + Add Factory
+                  </button>
+                </div>
+                <div id="factory-list">
+                  {formik.values.factory_addresses?.map((address, index) => (
+                    <div key={index} className="repeat-entry">
+                      <div className="repeat-entry-header">
+                        <span className="repeat-entry-title">
+                          Factory #{index + 1}
+                        </span>
+                        {formik.values.factory_addresses.length > 1 && (
+                            <button className="btn-remove" onClick={() => handleRemoveField(index)}>×</button>
+                        )}
+                      </div>
+                      <div className="fields">
+                        <div className="row">
+                          <div className="field w-half">
+                            <label>
+                              Address Line 1 <span className="req">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name={`factory_addresses[${index}].factory_address_line_1`}
+                              placeholder="Street, Building"
+                              value={address.factory_address_line_1}
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-half">
+                            <label>Address Line 2</label>
+                            <input
+                               type="text"
+                               name={`factory_addresses[${index}].factory_address_line_2`}
+                               placeholder="Area, Landmark"
+                               value={address.factory_address_line_2}
+                               onChange={formik.handleChange}
+                            />
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="field w-third">
+                            <label>
+                              Pin Code <span className="req">*</span>
+                            </label>
+                            <input
+                              type="text"
+                               name={`factory_addresses[${index}].factory_address_pin_code`}
+                              placeholder="6-digit"
+                              maxLength="6"
+                              value={address.factory_address_pin_code}
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-third">
+                            <label>
+                              City <span className="req">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                name={`factory_addresses[${index}].factory_address_city`}
+                                value={address.factory_address_city}
+                                onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-third">
+                            <label>
+                              State <span className="req">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                name={`factory_addresses[${index}].factory_address_state`}
+                                value={address.factory_address_state}
+                                onChange={formik.handleChange}
+                            />
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="field w-half">
+                            <label>
+                              GST Number <span className="req">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name={`factory_addresses[${index}].gst`}
+                              placeholder="22AAAAA0000A1Z5"
+                              value={address.gst}
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-half">
+                             <label>GST Registration Doc</label>
+                             <FileUpload
+                                label={<div className="upload-zone" style={{margin:0}}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Upload
+                                </div>}
+                                onFilesUploaded={(files) => formik.setFieldValue(`factory_addresses[${index}].gst_reg`, files)}
+                                bucketPath="gst_reg"
+                                customerName={formik.values.name_of_individual}
+                                variant="unstyled"
+                                containerStyles={{ marginTop: 0 }}
+                                />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <div className="form-section">
-                <h4 className="section-title">General Information</h4>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Name of Individual/Firm/Company *</label>
-                    <input
-                      type="text"
-                      name="name_of_individual"
-                      className="form-control"
-                      value={formik.values.name_of_individual}
-                      onChange={formik.handleChange}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Status of Exporter/Importer *</label>
-                    <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.5rem" }}>
-                      {["Manufacturer", "Trader"].map(status => (
-                        <label key={status} style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-                          <input
-                            type="radio"
-                            name="status"
-                            value={status}
-                            checked={formik.values.status === status}
-                            onChange={formik.handleChange}
-                          />
-                          <span style={{ fontSize: "0.9rem", color: "var(--slate-600)" }}>{status}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <h4 className="section-title">Permanent Address</h4>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Address Line 1 *</label>
-                    <input type="text" name="permanent_address_line_1" className="form-control" value={formik.values.permanent_address_line_1} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Address Line 2</label>
-                    <input type="text" name="permanent_address_line_2" className="form-control" value={formik.values.permanent_address_line_2} onChange={formik.handleChange} />
-                  </div>
-                </div>
-                <div className="grid-3">
-                  <div className="form-group">
-                    <label className="form-label">PIN Code *</label>
-                    <input type="text" name="permanent_address_pin_code" className="form-control" value={formik.values.permanent_address_pin_code} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">City *</label>
-                    <input type="text" name="permanent_address_city" className="form-control" value={formik.values.permanent_address_city} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">State *</label>
-                    <input type="text" name="permanent_address_state" className="form-control" value={formik.values.permanent_address_state} onChange={formik.handleChange} />
-                  </div>
-                </div>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Mobile *</label>
-                    <input type="text" name="permanent_address_telephone" className="form-control" value={formik.values.permanent_address_telephone} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Email *</label>
-                    <input type="email" name="permanent_address_email" className="form-control" value={formik.values.permanent_address_email} onChange={formik.handleChange} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <h4 className="section-title">Principal Business Address</h4>
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-                    <input type="checkbox" onChange={handleSameAsPermanentAddress} />
-                    <span style={{ fontSize: "0.85rem", color: "var(--slate-500)" }}>Same as permanent address</span>
-                  </label>
-                </div>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Address Line 1 *</label>
-                    <input type="text" name="principle_business_address_line_1" className="form-control" value={formik.values.principle_business_address_line_1} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Address Line 2</label>
-                    <input type="text" name="principle_business_address_line_2" className="form-control" value={formik.values.principle_business_address_line_2} onChange={formik.handleChange} />
-                  </div>
-                </div>
-                <div className="grid-3">
-                  <div className="form-group">
-                    <label className="form-label">PIN Code *</label>
-                    <input type="text" name="principle_business_address_pin_code" className="form-control" value={formik.values.principle_business_address_pin_code} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">City *</label>
-                    <input type="text" name="principle_business_address_city" className="form-control" value={formik.values.principle_business_address_city} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">State *</label>
-                    <input type="text" name="principle_business_address_state" className="form-control" value={formik.values.principle_business_address_state} onChange={formik.handleChange} />
-                  </div>
-                </div>
-                <div className="grid-3">
-                  <div className="form-group">
-                    <label className="form-label">Mobile *</label>
-                    <input type="text" name="principle_business_telephone" className="form-control" value={formik.values.principle_business_telephone} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Email *</label>
-                    <input type="email" name="principle_address_email" className="form-control" value={formik.values.principle_address_email} onChange={formik.handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Website</label>
-                    <input type="text" name="principle_business_website" className="form-control" value={formik.values.principle_business_website} onChange={formik.handleChange} />
-                  </div>
-                </div>
-              </div>
-
               {/* Branch Information */}
-              <div className="form-section">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                  <h4 className="section-title" style={{ marginBottom: 0 }}>Branch Information</h4>
-                  <button type="button" className="btn btn-secondary" onClick={handleAddBranch} style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}>
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">
+                    Branch Information
+                  </span>
+                  <button 
+                    type="button" 
+                    className="btn-add"
+                    onClick={handleAddBranch}
+                  >
                     + Add Branch
                   </button>
                 </div>
-                {formik.values.branches?.map((branch, index) => (
-                  <div key={index} className="nested-card" style={{ marginBottom: "1rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
-                      <h6 style={{ margin: 0 }}>Branch {index + 1}</h6>
-                      <button type="button" className="btn-close" onClick={() => handleRemoveBranch(index)} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
-                    </div>
-                    <div className="grid-3">
-                      <div className="form-group">
-                        <label className="form-label">Branch Name</label>
-                        <input
-                          name={`branches[${index}].branch_name`}
-                          className="form-control"
-                          value={branch.branch_name}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Branch Code</label>
-                        <input
-                          name={`branches[${index}].branch_code`}
-                          className="form-control"
-                          value={branch.branch_code}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">GST Number</label>
-                        <input
-                          name={`branches[${index}].gst_no`}
-                          className="form-control"
-                          value={branch.gst_no}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </div>
-                    <div className="form-group" style={{ marginTop: '1rem' }}>
-                      <label className="form-label">Address</label>
-                      <input
-                        name={`branches[${index}].address`}
-                        className="form-control"
-                        value={branch.address}
-                        onChange={formik.handleChange}
-                      />
-                    </div>
-                    <div className="grid-3" style={{ marginTop: '1rem' }}>
-                      <div className="form-group">
-                        <label className="form-label">City</label>
-                        <input
-                          name={`branches[${index}].city`}
-                          className="form-control"
-                          value={branch.city}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">State</label>
-                        <input
-                          name={`branches[${index}].state`}
-                          className="form-control"
-                          value={branch.state}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Postal Code</label>
-                        <input
-                          name={`branches[${index}].postal_code`}
-                          className="form-control"
-                          value={branch.postal_code}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid-3" style={{ marginTop: '1rem' }}>
-                      <div className="form-group">
-                        <label className="form-label">Country</label>
-                        <input
-                          name={`branches[${index}].country`}
-                          className="form-control"
-                          value={branch.country}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Mobile</label>
-                        <input
-                          name={`branches[${index}].mobile`}
-                          className="form-control"
-                          value={branch.mobile}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Email</label>
-                        <input
-                          name={`branches[${index}].email`}
-                          className="form-control"
-                          value={branch.email}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="form-section">
-                <h4 className="section-title">Factory/Branch Addresses</h4>
-                {formik.values.factory_addresses.map((address, index) => (
-                  <div key={index} style={{ padding: "1.5rem", background: "var(--slate-50)", borderRadius: "12px", marginBottom: "1rem", border: "1px solid var(--slate-100)" }}>
-                    <h5 style={{ fontSize: "0.9rem", color: "var(--slate-700)", marginBottom: "1rem" }}>Address #{index + 1}</h5>
-                    <div className="grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Address Line 1</label>
-                        <input type="text" name={`factory_addresses[${index}].factory_address_line_1`} className="form-control" value={address.factory_address_line_1} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Address Line 2</label>
-                        <input type="text" name={`factory_addresses[${index}].factory_address_line_2`} className="form-control" value={address.factory_address_line_2} onChange={formik.handleChange} />
-                      </div>
-                    </div>
-                    <div className="grid-3">
-                      <div className="form-group">
-                        <label className="form-label">PIN Code</label>
-                        <input type="text" name={`factory_addresses[${index}].factory_address_pin_code`} className="form-control" value={address.factory_address_pin_code} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">City</label>
-                        <input type="text" name={`factory_addresses[${index}].factory_address_city`} className="form-control" value={address.factory_address_city} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">State</label>
-                        <input type="text" name={`factory_addresses[${index}].factory_address_state`} className="form-control" value={address.factory_address_state} onChange={formik.handleChange} />
-                      </div>
-                    </div>
-                    <div className="grid-2">
-                      <div className="form-group">
-                        <label className="form-label">GST Number</label>
-                        <input type="text" name={`factory_addresses[${index}].gst`} className="form-control" value={address.gst} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">GST Registration Copy</label>
-                        <FileUpload
-                          label="Upload GST"
-                          onFilesUploaded={(files) => formik.setFieldValue(`factory_addresses[${index}].gst_reg`, files)}
-                          bucketPath="gst-reg"
-                          customerName={customerName}
-                        />
-                        {address.gst_reg && <ImagePreview images={address.gst_reg} onDeleteImage={(idx) => handleFileDelete(idx, `factory_addresses[${index}].gst_reg`)} />}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button type="button" className="btn btn-secondary" onClick={handleAddField} style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>+ Add Another Address</button>
-              </div>
-
-              <div className="form-section">
-                <h4 className="section-title">Authorised Signatory Information</h4>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Signatory Photos</label>
-                    <FileUpload
-                      label="Upload Photos"
-                      onFilesUploaded={(files) => formik.setFieldValue("authorised_signatories", files)}
-                      bucketPath="signatories"
-                      customerName={customerName}
-                    />
-                    {formik.values.authorised_signatories && <ImagePreview images={formik.values.authorised_signatories} onDeleteImage={(idx) => handleFileDelete(idx, "authorised_signatories")} />}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Authorisation Letter</label>
-                    <FileUpload
-                      label="Upload Letter"
-                      onFilesUploaded={(files) => formik.setFieldValue("authorisation_letter", files)}
-                      bucketPath="auth-letter"
-                      customerName={customerName}
-                    />
-                    {formik.values.authorisation_letter && <ImagePreview images={formik.values.authorisation_letter} onDeleteImage={(idx) => handleFileDelete(idx, "authorisation_letter")} />}
-                  </div>
+                <div id="branch-list">
+                  {(!formik.values.branches || formik.values.branches.length === 0) ? (
+                     <div className="empty-state">No branches added. Click "+ Add Branch" to add one.</div>
+                  ) : (
+                    formik.values.branches.map((branch, index) => (
+                        <div key={index} className="repeat-entry">
+                            <div className="repeat-entry-header">
+                                <span className="repeat-entry-title">Branch #{index + 1}</span>
+                                <button className="btn-remove" onClick={() => handleRemoveBranch(index)}>×</button>
+                            </div>
+                            <div className="fields">
+                                <div className="row">
+                                    <div className="field w-third">
+                                        <label>Branch Name <span className="req">*</span></label>
+                                        <input 
+                                            name={`branches[${index}].branch_name`}
+                                            value={branch.branch_name}
+                                            onChange={formik.handleChange}
+                                            placeholder="Branch name" 
+                                        />
+                                    </div>
+                                    <div className="field w-third">
+                                        <label>Branch Code <span className="req">*</span></label>
+                                        <input 
+                                             name={`branches[${index}].branch_code`}
+                                             value={branch.branch_code}
+                                            onChange={formik.handleChange}
+                                            placeholder="Branch code" 
+                                        />
+                                    </div>
+                                    <div className="field w-third">
+                                        <label>GST Number</label>
+                                        <input 
+                                             name={`branches[${index}].gst_no`}
+                                             value={branch.gst_no}
+                                            onChange={formik.handleChange}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="row">
+                                    <div className="field">
+                                        <label>Address <span className="req">*</span></label>
+                                        <input 
+                                             name={`branches[${index}].address`}
+                                             value={branch.address}
+                                            onChange={formik.handleChange}
+                                            placeholder="Full address" 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="row">
+                                    <div className="field w-third">
+                                        <label>City <span className="req">*</span></label>
+                                        <input 
+                                             name={`branches[${index}].city`}
+                                             value={branch.city}
+                                            onChange={formik.handleChange}
+                                        />
+                                    </div>
+                                    <div className="field w-third">
+                                        <label>State <span className="req">*</span></label>
+                                        <input 
+                                             name={`branches[${index}].state`}
+                                             value={branch.state}
+                                            onChange={formik.handleChange}
+                                        />
+                                    </div>
+                                    <div className="field w-third">
+                                        <label>Postal Code <span className="req">*</span></label>
+                                        <input 
+                                             name={`branches[${index}].postal_code`}
+                                             value={branch.postal_code}
+                                            onChange={formik.handleChange}
+                                            maxLength="6" 
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              <div className="form-section">
-                <h4 className="section-title">IEC & PAN Information</h4>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">IEC Number *</label>
-                    <input type="text" name="iec_no" className="form-control" value={formik.values.iec_no} onChange={formik.handleChange} />
-                    <FileUpload
-                      label="Upload IEC Copy"
-                      onFilesUploaded={(files) => formik.setFieldValue("iec_copy", files)}
-                      bucketPath="iec"
-                      customerName={customerName}
-                    />
-                    {formik.values.iec_copy && <ImagePreview images={formik.values.iec_copy} onDeleteImage={(idx) => handleFileDelete(idx, "iec_copy")} />}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">PAN Number *</label>
-                    <input type="text" name="pan_no" className="form-control" value={formik.values.pan_no} onChange={formik.handleChange} />
-                    <FileUpload
-                      label="Upload PAN Copy"
-                      onFilesUploaded={(files) => formik.setFieldValue("pan_copy", files)}
-                      bucketPath="pan"
-                      customerName={customerName}
-                    />
-                    {formik.values.pan_copy && <ImagePreview images={formik.values.pan_copy} onDeleteImage={(idx) => handleFileDelete(idx, "pan_copy")} />}
+              {/* Banking Information */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">
+                    Banking Information
+                  </span>
+                  <button 
+                    type="button" 
+                    className="btn-add"
+                    onClick={handleAddBanks}
+                  >
+                    + Add Bank
+                  </button>
+                </div>
+                <div id="bank-list">
+                  {formik.values.banks?.map((bank, index) => (
+                    <div key={index} className="repeat-entry">
+                      <div className="repeat-entry-header">
+                        <span className="repeat-entry-title">
+                          Bank #{index + 1}
+                        </span>
+                        {formik.values.banks.length > 1 && (
+                            <button className="btn-remove" onClick={() => handleRemoveBank(index)}>×</button>
+                        )}
+                      </div>
+                      <div className="fields">
+                        <div className="row">
+                          <div className="field w-half">
+                            <label>
+                              Bank / Dealer Name <span className="req">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name={`banks[${index}].bankers_name`}
+                              placeholder="Bank name"
+                              value={bank.bankers_name}
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-half">
+                            <label>
+                              Branch Address <span className="req">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name={`banks[${index}].branch_address`}
+                              placeholder="Branch location"
+                              value={bank.branch_address}
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="field w-third">
+                            <label>
+                              A/C Number <span className="req">*</span>
+                            </label>
+                            <input
+                               type="text"
+                                name={`banks[${index}].account_no`}
+                               value={bank.account_no}
+                               onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-third">
+                            <label>
+                              IFSC <span className="req">*</span>
+                            </label>
+                            <input
+                               type="text"
+                                name={`banks[${index}].ifsc`}
+                               value={bank.ifsc}
+                               onChange={formik.handleChange}
+                            />
+                          </div>
+                          <div className="field w-third">
+                            <label>
+                              AD Code <span className="req">*</span>
+                            </label>
+                            <input
+                               type="text"
+                                name={`banks[${index}].adCode`}
+                               value={bank.adCode}
+                               onChange={formik.handleChange}
+                            />
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="field">
+                            <label>AD Code File</label>
+                             <FileUpload
+                                label={<div className="upload-zone" style={{margin:0}}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Upload
+                                </div>}
+                                onFilesUploaded={(files) => formik.setFieldValue(`banks[${index}].adCode_file`, files)}
+                                bucketPath={`ad-code-${index}`}
+                                customerName={formik.values.name_of_individual}
+                                variant="unstyled"
+                                containerStyles={{ marginTop: 0 }}
+                             />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Finance Details (Visual/Static) */}
+                  <div className="fields" style={{ paddingTop: "4px" }}>
+                    <div className="finance-divider">
+                      Finance Details (verify by account team)
+                    </div>
+                    <div className="row">
+                      <div className="field w-quarter">
+                        <label>Credit Period</label>
+                        <input type="text" placeholder="e.g. 30 Days" />
+                      </div>
+                      <div className="field w-quarter">
+                        <label>Credit Limit Validity</label>
+                        <input type="date" />
+                      </div>
+                      <div className="field w-quarter">
+                        <label>O/S Limit</label>
+                        <input type="text" placeholder="Outstanding limit" />
+                      </div>
+                      <div className="field w-quarter">
+                        <label>Quotation Given?</label>
+                        <div className="inline-radios">
+                          <label>
+                            <input type="radio" name="quotation" value="yes" />{" "}
+                            Yes
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="quotation"
+                              value="no"
+                              defaultChecked
+                            />{" "}
+                            No
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="row">
+                      <div className="field">
+                        <label className="field-checkbox">
+                          <input type="checkbox" />{" "}
+                          <span>Advance Payment Required</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="form-section">
-                <h4 className="section-title">Banking Information</h4>
-                {formik.values.banks.map((bank, index) => (
-                  <div key={index} style={{ padding: "1.5rem", background: "white", borderRadius: "12px", marginBottom: "1rem", border: "1px solid var(--slate-200)" }}>
-                    <h5 style={{ fontSize: "0.9rem", color: "var(--slate-700)", marginBottom: "1rem" }}>Bank #{index + 1}</h5>
-                    <div className="grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Banker's Name</label>
-                        <input type="text" name={`banks[${index}].bankers_name`} className="form-control" value={bank.bankers_name} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Branch Address</label>
-                        <input type="text" name={`banks[${index}].branch_address`} className="form-control" value={bank.branch_address} onChange={formik.handleChange} />
-                      </div>
-                    </div>
-                    <div className="grid-3">
-                      <div className="form-group">
-                        <label className="form-label">Account Number</label>
-                        <input type="text" name={`banks[${index}].account_no`} className="form-control" value={bank.account_no} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">IFSC Code</label>
-                        <input type="text" name={`banks[${index}].ifsc`} className="form-control" value={bank.ifsc} onChange={formik.handleChange} />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">AD Code</label>
-                        <input type="text" name={`banks[${index}].adCode`} className="form-control" value={bank.adCode} onChange={formik.handleChange} />
-                      </div>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">AD Code File</label>
-                      <FileUpload
-                        label="Upload AD Code"
-                        onFilesUploaded={(files) => formik.setFieldValue(`banks[${index}].adCode_file`, files)}
-                        bucketPath="bank-ad-code"
-                        customerName={customerName}
-                      />
-                      {bank.adCode_file && <ImagePreview images={bank.adCode_file} onDeleteImage={(idx) => handleFileDelete(idx, `banks[${index}].adCode_file`, index)} />}
-                    </div>
-                  </div>
-                ))}
-                <button type="button" className="btn btn-secondary" onClick={handleAddBanks} style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>+ Add Another Bank</button>
-              </div>
-
-              {getSupportingDocs()}
-              
-              <div className="form-section">
-                <h4 className="section-title">Additional Documents</h4>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Other Documents</label>
-                    <FileUpload
-                      label="Upload Others"
-                      onFilesUploaded={(files) => formik.setFieldValue("other_documents", files)}
-                      bucketPath="others"
-                      customerName={customerName}
-                    />
-                    {formik.values.other_documents && <ImagePreview images={formik.values.other_documents} onDeleteImage={(idx) => handleFileDelete(idx, "other_documents")} />}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">SPCB Registration</label>
-                    <FileUpload
-                      label="Upload SPCB"
-                      onFilesUploaded={(files) => formik.setFieldValue("spcb_reg", files)}
-                      bucketPath="spcb"
-                      customerName={customerName}
-                    />
-                    {formik.values.spcb_reg && <ImagePreview images={formik.values.spcb_reg} onDeleteImage={(idx) => handleFileDelete(idx, "spcb_reg")} />}
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-actions" style={{ display: "flex", gap: "1rem", marginTop: "2rem" }}>
-                <button type="button" className="btn-info" onClick={() => { setOpen(true); }}>Preview Changes</button>
-                <button type="submit" className="btn-secondary" onClick={() => setSubmitType("update_draft")}>Update Draft</button>
-                <button type="submit" className="btn-primary" onClick={() => setSubmitType("submit_for_approval")}>Submit for Approval</button>
               </div>
             </div>
-          </form>
+          </div>
+
+          {/* Supporting Documents (Category Aware) */}
+          <div className="full-section">
+            <div className="section-header">
+              <span className="section-title section-title-accent">
+                Supporting Documents
+              </span>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.75)" }}>
+                Shown based on selected category {formik.values.category ? `(${formik.values.category})` : ""}
+              </span>
+            </div>
+             
+             <div className="cat-docs-section active">
+                 <div className="cat-docs-grid">
+                    {(formik.values.category === "Individual/ Proprietary Firm" || !formik.values.category) && (
+                        <>
+                           {renderUpload("individual_passport_img", "individual_passport_img")}
+                           {renderUpload("individual_voter_card_img", "individual_voter_card_img")}
+                           {renderUpload("individual_driving_license_img", "individual_driving_license_img")}
+                           {renderUpload("individual_bank_statement_img", "individual_bank_statement_img")}
+                           {renderUpload("individual_ration_card_img", "individual_ration_card_img")}
+                           {renderUpload("individual_aadhar_card", "individual_aadhar_card")}
+                        </>
+                    )}
+                    {(formik.values.category === "Partnership Firm") && (
+                        <>
+                           {renderUpload("partnership_registration_certificate_img", "partnership_registration_certificate_img")}
+                           {renderUpload("partnership_deed_img", "partnership_deed_img")}
+                           {renderUpload("partnership_power_of_attorney_img", "partnership_power_of_attorney_img")}
+                           {renderUpload("partnership_valid_document", "partnership_valid_document")}
+                           {renderUpload("partnership_aadhar_card_front_photo", "partnership_aadhar_card_front_photo")}
+                           {renderUpload("partnership_aadhar_card_back_photo", "partnership_aadhar_card_back_photo")}
+                           {renderUpload("partnership_telephone_bill", "partnership_telephone_bill")}
+                        </>
+                    )}
+                     {(formik.values.category === "Company") && (
+                        <>
+                           {renderUpload("company_certificate_of_incorporation_img", "company_certificate_of_incorporation_img")}
+                           {renderUpload("company_memorandum_of_association_img", "company_memorandum_of_association_img")}
+                           {renderUpload("company_articles_of_association_img", "company_articles_of_association_img")}
+                           {renderUpload("company_power_of_attorney_img", "company_power_of_attorney_img")}
+                           {renderUpload("company_telephone_bill_img", "company_telephone_bill_img")}
+                           {renderUpload("company_pan_allotment_letter_img", "company_pan_allotment_letter_img")}
+                        </>
+                    )}
+                     {(formik.values.category === "Trust Foundations") && (
+                        <>
+                           {renderUpload("trust_certificate_of_registration_img", "trust_certificate_of_registration_img")}
+                           {renderUpload("trust_power_of_attorney_img", "trust_power_of_attorney_img")}
+                           {renderUpload("trust_officially_valid_document_img", "trust_officially_valid_document_img")}
+                           {renderUpload("trust_resolution_of_managing_body_img", "trust_resolution_of_managing_body_img")}
+                           {renderUpload("trust_telephone_bill_img", "trust_telephone_bill_img")}
+                             {/* Trust Extra Fields */}
+                            <div style={{gridColumn: '1 / -1', marginTop: '10px'}}>
+                                <div className="fields" style={{ padding: '8px 16px 10px', borderTop: '1px solid var(--border-light)', marginTop: '8px' }}>
+                                    <div className="row">
+                                    <div className="field w-half">
+                                        <label>Name of Trustees</label>
+                                        <input type="text" name="trust_name_of_trustees" value={formik.values.trust_name_of_trustees} onChange={formik.handleChange} />
+                                    </div>
+                                    <div className="field w-half">
+                                        <label>Name of Founder</label>
+                                        <input type="text" name="trust_name_of_founder" value={formik.values.trust_name_of_founder} onChange={formik.handleChange} />
+                                    </div>
+                                    </div>
+                                     <div className="row">
+                                        <div className="field w-third">
+                                            <label>Address of Founder</label>
+                                            <input type="text" name="trust_address_of_founder" value={formik.values.trust_address_of_founder} onChange={formik.handleChange} />
+                                        </div>
+                                         <div className="field w-third">
+                                            <label>Telephone of Founder</label>
+                                            <input type="text" name="trust_telephone_of_founder" value={formik.values.trust_telephone_of_founder} onChange={formik.handleChange} />
+                                        </div>
+                                         <div className="field w-third">
+                                            <label>Email of Founder</label>
+                                            <input type="text" name="trust_email_of_founder" value={formik.values.trust_email_of_founder} onChange={formik.handleChange} />
+                                        </div>
+                                     </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                 </div>
+             </div>
+          </div>
+
+          {/* Additional Documents */}
+          <div className="full-section">
+            <div className="section-header">
+              <span className="section-title">Additional Documents</span>
+            </div>
+            <div className="docs-grid">
+               {renderUpload("other_documents", "other-documents", true)}
+               {renderUpload("spcb_reg", "spcb-registration", true)}
+               {renderUpload("kyc_verification_images", "kyc-verification-images", true)}
+               {renderUpload("gst_returns", "gst-returns", true)}
+            </div>
+          </div>
+
+          {/* Form Footer */}
+          <div className="form-footer">
+            <div className="footer-info">
+              💡 <strong>Save Draft:</strong> Only IEC Number + Name required &nbsp;•&nbsp;{" "}
+              <strong>Submit:</strong> All mandatory fields required
+            </div>
+            <div className="footer-actions">
+              <button 
+                type="button"
+                className="btn btn-outline"
+                 onClick={() => setDialogState({
+                    isOpen: true,
+                    title: "Preview Application",
+                    content: <Preview data={formik.values} />,
+                    severity: "info",
+                })}
+              >
+                👁 Preview
+              </button>
+              <button 
+                type="button"
+                className="btn btn-draft"
+                 onClick={() => {
+                    setSubmitType("update_draft"); // Trigger draft logic
+                    formik.handleSubmit();
+                  }}
+              >
+                💾 Save Draft
+              </button>
+              <button 
+                type="button"
+                className="btn btn-success"
+                onClick={() => {
+                    setSubmitType("submit_for_approval"); // Trigger submit logic
+                    formik.handleSubmit();
+                  }}
+              >
+                📤 Submit Application
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <Preview open={open} handleClose={() => setOpen(false)} data={formik.values} />
-      <CustomDialog
-        isOpen={dialogState.isOpen}
-        title={dialogState.title}
-        content={dialogState.content}
-        severity={dialogState.severity}
-        onClose={closeDialog}
-      />
+      
+       <CustomDialog
+            open={dialogState.isOpen}
+            onClose={handleCloseDialog}
+            title={dialogState.title}
+            severity={dialogState.severity}
+            actions={dialogState.actions}
+          >
+            {dialogState.content}
+        </CustomDialog>
     </div>
   );
 }
 
-export default ViewDraftDetails;
+export default React.memo(ViewDraftDetails);

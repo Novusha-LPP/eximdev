@@ -229,6 +229,33 @@ const customerKycSchema = new Schema({
   // Banking Information
   banks: [bankSchema],
 
+  // Finance Details
+  credit_period: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  credit_limit_validity_date: {
+    type: Date,
+    required: false
+  },
+  quotation: {
+    type: String,
+    enum: ['Yes', 'No'],
+    required: false
+  },
+  outstanding_limit: {
+    type: String, // As requested "field as a string only"
+    required: false,
+    trim: true
+  },
+  advance_payment: {
+    type: Boolean,
+    default: false
+  },
+
+
+
   // Documents
   other_documents: [{
     type: String

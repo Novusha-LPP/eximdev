@@ -28,6 +28,7 @@ const StatusBadge = ({ status }) => {
 
 function ViewKycList() {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [companyFilter, setCompanyFilter] = useState("All");
@@ -41,6 +42,8 @@ function ViewKycList() {
         setData(res.data);
       } catch (error) {
         console.error("Error fetching KYC list:", error);
+      } finally {
+        setLoading(false);
       }
     }
     getData();
@@ -55,19 +58,19 @@ function ViewKycList() {
   // Filter Data
   const filteredData = data.filter((row) => {
     const term = searchTerm.toLowerCase();
-    const name = `${row.first_name} ${row.middle_name} ${row.last_name}`.toLowerCase();
-    const email = (row.email || "").toLowerCase();
-    const company = (row.company || "").toLowerCase();
+    const firstName = (row.first_name || "").toLowerCase();
+    const lastName = (row.last_name || "").toLowerCase();
+    const fullName = `${firstName} ${lastName}`;
     
     // Status Logic
     const rowStatus = row.kyc_approval ? row.kyc_approval.toLowerCase() : 'pending';
-    const filterStatus = statusFilter.toLowerCase();
-    const matchesStatus = statusFilter === 'All' || rowStatus === filterStatus;
+    const filterStatus = statusFilter.toLowerCase(); // Ensure consistent comparison
+    const matchesStatus = statusFilter === 'All' || rowStatus === filterStatus; 
 
     // Company Logic
     const matchesCompany = companyFilter === 'All' || row.company === companyFilter;
     
-    return (name.includes(term) || email.includes(term) || company.includes(term)) && matchesStatus && matchesCompany;
+    return fullName.includes(term) && matchesStatus && matchesCompany;
   });
 
  
@@ -182,7 +185,7 @@ function ViewKycList() {
               {filteredData.length === 0 ? (
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-                    {data.length === 0 ? "Loading records..." : "No matching records found"}
+                    {loading ? "Loading records..." : "No matching records found"}
                   </td>
                 </tr>
               ) : (

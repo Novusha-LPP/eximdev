@@ -247,8 +247,8 @@ const UserProfile = ({ username: propUsername }) => {
         setUploading(true);
         try {
             const endpoint = type === 'kyc' 
-                ? `${process.env.REACT_APP_API_STRING}/api/complete-kyc`
-                : `${process.env.REACT_APP_API_STRING}/api/complete-onboarding`;
+                ? `${process.env.REACT_APP_API_STRING}/complete-kyc`
+                : `${process.env.REACT_APP_API_STRING}/complete-onboarding`;
 
             await axios.post(endpoint, {
                 username: targetUsername,
@@ -281,8 +281,8 @@ const UserProfile = ({ username: propUsername }) => {
 
             // 2. Clear field in DB
             const endpoint = type === 'kyc' 
-                ? `${process.env.REACT_APP_API_STRING}/api/complete-kyc`
-                : `${process.env.REACT_APP_API_STRING}/api/complete-onboarding`;
+                ? `${process.env.REACT_APP_API_STRING}/complete-kyc`
+                : `${process.env.REACT_APP_API_STRING}/complete-onboarding`;
 
             await axios.post(endpoint, {
                 username: targetUsername,

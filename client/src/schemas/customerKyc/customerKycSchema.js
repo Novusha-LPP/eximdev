@@ -88,4 +88,11 @@ export const validationSchema = Yup.object({
         .required('Postal code is required'),
     })
   ),
+
+  // Finance Details (Optional)
+  credit_period: Yup.string(),
+  credit_limit_validity_date: Yup.date().nullable(),
+  quotation: Yup.string().oneOf(['Yes', 'No']),
+  outstanding_limit: Yup.string(),
+  advance_payment: Yup.boolean(),
 });

@@ -228,6 +228,7 @@ function EditPaymentRequest() {
       do_Revalidation_Completed: data?.do_Revalidation_Completed || false,
       container_nos: data?.container_nos || [],
       dsr_queries: data?.dsr_queries || [],
+      shipping_line_airline: data?.shipping_line_airline || "", // Pass this to formik so child components can access it
 
       do_shipping_line_invoice: Array.isArray(data?.do_shipping_line_invoice) && data?.do_shipping_line_invoice.length > 0
         ? data.do_shipping_line_invoice
@@ -337,6 +338,7 @@ function EditPaymentRequest() {
         do_processed: values.do_processed ? "Yes" : "No",
         other_invoices: values.other_invoices ? "Yes" : "No",
         security_deposit: values.security_deposit ? "Yes" : "No",
+        _id: data._id, // Include _id to ensure the backend can identify the document
         do_completed:
           typeof values.do_completed === "string" &&
             values.do_completed.trim() !== ""
@@ -347,7 +349,7 @@ function EditPaymentRequest() {
             ...doc,
             payment_mode: Array.isArray(doc.payment_mode)
               ? doc.payment_mode.join(",")
-              : doc.payment_mode,
+              : doc.payment_mode || "", // Ensure it falls back to empty string if undefined/null
           })
         ),
         insurance_copy: values.insurance_copy,

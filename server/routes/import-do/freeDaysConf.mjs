@@ -38,15 +38,15 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     // Build search query
     const searchQuery = search
       ? {
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-            { awb_bl_no: { $regex: search, $options: "i" } },
-            { shipping_line_airline: { $regex: search, $options: "i" } },
-            { vessel_flight: { $regex: search, $options: "i" } },
-            { voyage_no: { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+          { awb_bl_no: { $regex: search, $options: "i" } },
+          { shipping_line_airline: { $regex: search, $options: "i" } },
+          { vessel_flight: { $regex: search, $options: "i" } },
+          { voyage_no: { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     // Define job filtering criteria
@@ -91,11 +91,11 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } 
+    }
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year, cth_documents checklist processed_be_attachment line_no"
+        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year cth_documents checklist processed_be_attachment line_no _id"
       )
       .lean();
 
@@ -160,6 +160,73 @@ router.patch("/api/update-free-time/:id", async (req, res) => {
   } catch (error) {
     console.error("Error updating free_time:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+// PATCH API that updates free_time and all DO-related documents
+router.patch("/api/update-free-days-config", async (req, res) => {
+  try {
+    const {
+      _id,
+      free_time,
+      do_shipping_line_invoice,
+      insurance_copy,
+      other_do_documents,
+      security_deposit,
+    } = req.body;
+
+    // Validate required fields
+    if (!_id) {
+      return res.status(400).json({ error: "_id is required" });
+    }
+
+    // Build update object with only provided fields
+    const updateFields = {
+      is_free_time_updated: true,
+    };
+
+    if (free_time !== undefined) {
+      updateFields.free_time = free_time;
+    }
+
+    if (do_shipping_line_invoice !== undefined) {
+      updateFields.do_shipping_line_invoice = do_shipping_line_invoice;
+    }
+
+    if (insurance_copy !== undefined) {
+      updateFields.insurance_copy = insurance_copy;
+    }
+
+    if (other_do_documents !== undefined) {
+      updateFields.other_do_documents = other_do_documents;
+    }
+
+    if (security_deposit !== undefined) {
+      updateFields.security_deposit = security_deposit;
+    }
+
+    // Find the job by ID and update the fields
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      _id,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    );
+
+    // If no job is found, return a 404 response
+    if (!updatedJob) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: "Free days configuration updated successfully",
+      job: updatedJob,
+    });
+  } catch (error) {
+    console.error("Error updating free days config:", error);
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 });
 

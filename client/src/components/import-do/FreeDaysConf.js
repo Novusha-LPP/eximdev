@@ -272,13 +272,32 @@ const FreeDaysConf = () => {
       header: "Job No ",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, type_of_b_e, consignment_type } =
+        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id } =
           cell.row.original;
+
+        // Debug log to check if year is available
+        if (!year) {
+          console.warn(`Year is undefined for job ${job_no}:`, cell.row.original);
+        }
+
         return (
-          <div style={{ textAlign: "center" }}>
+          <Link
+            to={`/edit-free-days-conf/${job_no}/${year || 'unknown'}?jobId=${_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              textAlign: "center",
+              cursor: "pointer",
+              color: "blue",
+              display: "inline-block",
+              width: "100%",
+              padding: "5px",
+              textDecoration: "none",
+            }}
+          >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
-          </div>
+          </Link>
         );
       },
     },
@@ -516,12 +535,12 @@ const FreeDaysConf = () => {
 
             {/* Render CTH Documents (showing actual URL) */}
             {cth_documents &&
-            cth_documents.some(
-              (doc) =>
-                doc.url &&
-                doc.url.length > 0 &&
-                doc.document_name === "Pre-Shipment Inspection Certificate"
-            ) ? (
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  doc.document_name === "Pre-Shipment Inspection Certificate"
+              ) ? (
               cth_documents
                 .filter(
                   (doc) =>
@@ -579,8 +598,8 @@ const FreeDaysConf = () => {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
-  className: getTableRowsClassname(row),
-  style: getTableRowInlineStyle(row),
+      className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
     }),
     muiTableHeadCellProps: {
       sx: {

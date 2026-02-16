@@ -42,6 +42,7 @@ import EditDoList from "../components/import-do/EditDoList.js";
 import EditDoPlanning from "../components/import-do/EditDoPlanning.js";
 import EditDoCompleted from "../components/import-do/EditDoCompleted.js";
 import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
+import EditFreeDaysConf from "../components/import-do/EditFreeDaysConf.js";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
 import ViewJob from "../components/import-dsr/ViewJob.js";
@@ -367,6 +368,14 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="Import - DO">
                     <EditBillingSheet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-free-days-conf/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditFreeDaysConf />
                   </ProtectedRoute>
                 }
               />

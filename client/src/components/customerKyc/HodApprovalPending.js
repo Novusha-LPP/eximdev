@@ -10,20 +10,6 @@ function HodApprovalPending() {
   const { user } = useContext(UserContext);
   const { navigateWithRef } = useNavigation();
 
-  useEffect(() => {
-    async function getData() {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/hod-approval-pending`
-        );
-        setData(res.data);
-      } catch (error) {
-        console.error("Error fetching HOD pending list:", error);
-      }
-    }
-    getData();
-  }, []);
-
   const getCategoryChip = (category) => {
     let type = "neutral";
     if (category?.includes("Individual")) type = "info";
@@ -39,7 +25,7 @@ function HodApprovalPending() {
     );
   };
 
-  const columns = [
+  const columns = React.useMemo(() => [
     {
       accessorKey: "name_of_individual",
       header: "Customer Name",
@@ -134,7 +120,22 @@ function HodApprovalPending() {
           </span>
         ),
     },
-  ];
+  ], [user.role, navigateWithRef]);
+
+  useEffect(() => {
+    async function getData() {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/hod-approval-pending`
+        );
+        setData(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        console.error("Error fetching HOD pending list:", error);
+        setData([]);
+      }
+    }
+    getData();
+  }, []);
 
   return (
     <div className="kyc-page-wrapper">

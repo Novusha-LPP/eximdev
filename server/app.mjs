@@ -100,6 +100,7 @@ import customerKycApproval from "./routes/CustomerKyc/customerKycApproval.mjs";
 import viewCompletedKyc from "./routes/CustomerKyc/viewCompletedKyc.mjs";
 import viewCustomerKycDrafts from "./routes/CustomerKyc/viewCustomerKycDrafts.mjs";
 import viewRevisionList from "./routes/CustomerKyc/viewRevisionList.mjs";
+import hodApprovalPending from "./routes/CustomerKyc/hodApprovalPending.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -363,6 +364,7 @@ app.use(customerKycApproval);
 app.use(viewCompletedKyc);
 app.use(viewCustomerKycDrafts);
 app.use(viewRevisionList);
+app.use(hodApprovalPending);
 
 // E-Sanchit
 app.use(getCthDocs);

@@ -423,6 +423,20 @@ function ViewCompletedKycDetails() {
              </div>
         ))}
 
+        {/* Finance Details */}
+        <div className="view-card full-row">
+            <div className="view-card-header"><span className="dot"></span>Finance Details</div>
+            <div className="view-card-body">
+                <div className="bank-meta"> {/* Reusing bank-meta for similar grid layout */}
+                    <Field label="Credit Period" value={data.credit_period} />
+                    <Field label="Credit Limit Validity" value={data.credit_limit_validity_date ? new Date(data.credit_limit_validity_date).toLocaleDateString() : ""} />
+                    <Field label="O/S Limit" value={data.outstanding_limit} />
+                    <Field label="Quotation Given?" value={data.quotation} />
+                    <Field label="Advance Payment" value={data.advance_payment ? "Yes" : "No"} />
+                </div>
+            </div>
+        </div>
+
         {/* ROW 5: Other Documents */}
         <div className="view-card full-row">
           <div className="view-card-header"><span className="dot"></span>Other Documents</div>

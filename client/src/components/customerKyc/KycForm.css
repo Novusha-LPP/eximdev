@@ -93,15 +93,13 @@ body {
 .page-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
 }
 .page-title {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
-  color: var(--blue);
+  color: #000000;
 }
 .header-actions { display: flex; gap: 8px; align-items: center; }
 

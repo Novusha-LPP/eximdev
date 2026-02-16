@@ -7,7 +7,6 @@ import useSupportingDocuments from "../../customHooks/useSupportingDocuments";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import Preview from "./Preview";
-import BackButton from "./BackButton";
 import "./customerKyc.css";
 import "./KycForm.css";
 import { useSnackbar } from "../../contexts/SnackbarContext";
@@ -145,9 +144,10 @@ function ReviseCustomerKyc() {
           { ...values, approval: "Pending" } 
         );
 
+        const revisionTabIndex = user?.role === "Admin" ? 4 : 3;
         showSuccess(res.data.message || "Application updated successfully.");
         // resetForm(); // Do not reset form on revision success, user might want to see it or we nav away
-        navigate("/customer-kyc");
+        navigate(`/customer-kyc?tab=${revisionTabIndex}`);
       } catch (error) {
         console.error("Error updating customer KYC:", error);
         if (error.response?.data?.message) {
@@ -390,9 +390,6 @@ function ReviseCustomerKyc() {
     <div className="app">
       <div className="page">
         <div className="page-header">
-           <div className="header-actions">
-            <BackButton />
-           </div>
           <div className="page-title">Revise Application</div>
         </div>
 
@@ -1129,7 +1126,7 @@ function ReviseCustomerKyc() {
                     </div>
                   ))}
 
-                  {/* Finance Details (Visual/Static Only for now) */}
+                  {/* Finance Details */}
                   <div className="fields" style={{ paddingTop: "4px" }}>
                     <div className="finance-divider">
                       Finance Details (verify by account team)
@@ -1137,29 +1134,53 @@ function ReviseCustomerKyc() {
                     <div className="row">
                       <div className="field w-quarter">
                         <label>Credit Period</label>
-                        <input type="text" placeholder="e.g. 30 Days" />
+                        <input
+                          type="text"
+                          name="credit_period"
+                          placeholder="e.g. 30 Days"
+                          value={formik.values.credit_period}
+                          onChange={formik.handleChange}
+                        />
                       </div>
                       <div className="field w-quarter">
                         <label>Credit Limit Validity</label>
-                        <input type="date" />
+                        <input
+                          type="date"
+                          name="credit_limit_validity_date"
+                          value={formik.values.credit_limit_validity_date}
+                          onChange={formik.handleChange}
+                        />
                       </div>
                       <div className="field w-quarter">
                         <label>O/S Limit</label>
-                        <input type="text" placeholder="Outstanding limit" />
+                        <input
+                          type="text"
+                          name="outstanding_limit"
+                          placeholder="Outstanding limit"
+                          value={formik.values.outstanding_limit}
+                          onChange={formik.handleChange}
+                        />
                       </div>
                       <div className="field w-quarter">
                         <label>Quotation Given?</label>
                         <div className="inline-radios">
                           <label>
-                            <input type="radio" name="quotation" value="yes" />{" "}
+                            <input
+                              type="radio"
+                              name="quotation"
+                              value="Yes"
+                              checked={formik.values.quotation === "Yes"}
+                              onChange={formik.handleChange}
+                            />{" "}
                             Yes
                           </label>
                           <label>
                             <input
                               type="radio"
                               name="quotation"
-                              value="no"
-                              defaultChecked
+                              value="No"
+                              checked={formik.values.quotation === "No"}
+                              onChange={formik.handleChange}
                             />{" "}
                             No
                           </label>
@@ -1169,7 +1190,12 @@ function ReviseCustomerKyc() {
                     <div className="row">
                       <div className="field">
                         <label className="field-checkbox">
-                          <input type="checkbox" />{" "}
+                          <input
+                            type="checkbox"
+                            name="advance_payment"
+                            checked={formik.values.advance_payment}
+                            onChange={formik.handleChange}
+                          />{" "}
                           <span>Advance Payment Required</span>
                         </label>
                       </div>

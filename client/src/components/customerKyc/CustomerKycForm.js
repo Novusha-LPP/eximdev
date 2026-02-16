@@ -265,7 +265,6 @@ function CustomerKycForm() {
           showSuccess(res.data.message);
           resetForm();
         }
-        localStorage.removeItem("kycFormValues");
       } catch (error) {
         console.error("Error during submission", error);
       }
@@ -277,7 +276,6 @@ function CustomerKycForm() {
 
   const handleClearAll = () => {
     formik.resetForm();
-    localStorage.removeItem("kycFormValues");
     setSubmitType("");
     setSubmissionAttempted(false);
     setShowClearConfirmation(false);
@@ -320,20 +318,6 @@ function CustomerKycForm() {
       ),
     });
   };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      localStorage.setItem("kycFormValues", JSON.stringify(formik.values));
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [formik.values]);
-
-  useEffect(() => {
-    const storedValues = JSON.parse(localStorage.getItem("kycFormValues"));
-    if (storedValues) {
-      formik.setValues(storedValues);
-    }
-  }, []);
 
   const handleAddField = () => {
     formik.setValues({
@@ -520,8 +504,8 @@ function CustomerKycForm() {
      
       {/* Page Content */}
       <div className="page">
-        <div className="page-header">
-          <div className="page-title">New KYC Application</div>
+        <div className="kyc-page-header">
+          <div className="kyc-page-title">New KYC Application</div>
           <div className="header-actions">
            
           </div>
@@ -1455,6 +1439,7 @@ function CustomerKycForm() {
                 type="button"
                 className="btn btn-success"
                 onClick={() => {
+                  console.log("submit");
                     setSubmitType("save");
                     setSubmissionAttempted(true);
                     formik.handleSubmit();

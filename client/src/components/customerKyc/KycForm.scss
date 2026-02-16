@@ -1,0 +1,543 @@
+/* Scoped styles for Customer KYC Module */
+.customer-kyc-wrapper {
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Variables scoped to this container */
+  --blue: #1e6fc5;
+  --blue-light: #e8f1fb;
+  --blue-mid: #d0e4f7;
+  --border: #dde1e9;
+  --border-light: #eef0f4;
+  --bg: #f5f7fa;
+  --surface: #fff;
+  --text: #1a1a2e;
+  --text-mid: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --label: #8a93a2;
+  --red: #dc3545;
+  --green: #198754;
+  --orange: #e8700a;
+  --radius: 4px;
+  --font: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+
+  /* Base styles that were on body */
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+
+  /* ── App Shell ── */
+  &.app, .app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top Bar ── */
+  .topbar {
+    height: 44px;
+    background: #0f1e3c;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .topbar-brand {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .topbar-sep { color: rgba(255,255,255,0.3); font-size: 16px; }
+  .topbar-sub { color: rgba(255,255,255,0.55); font-size: 12px; }
+
+  /* ── Tab Navigation ── */
+  .tabs-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+    gap: 0;
+  }
+  .tab {
+    padding: 10px 16px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .tab:hover { color: var(--blue); }
+  .tab.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+    font-weight: 600;
+  }
+
+  /* ── Page Wrapper - FULL WIDTH ── */
+  .page {
+    flex: 1;
+    padding: 14px 20px 40px;
+    width: 100%;
+  }
+
+  /* ── Page Header ── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+  .page-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #000000;
+  }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 14px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-outline {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-muted);
+  }
+  .btn-outline:hover { border-color: #b0b7c3; color: var(--text); }
+  .btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .btn-primary:hover { background: #1659a8; }
+  .btn-success { background: var(--green); color: #fff; border-color: var(--green); }
+  .btn-success:hover { background: #157347; }
+  .btn-draft { background: #fff; color: var(--blue); border-color: var(--blue); }
+  .btn-draft:hover { background: var(--blue-light); }
+  .btn-danger-outline { background: #fff; color: var(--red); border-color: #fcd9d2; }
+  .btn-danger-outline:hover { background: #fff0ed; }
+  .btn-sm { padding: 3px 10px; font-size: 11px; }
+  .btn-add {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: #fff;
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-add:hover { background: rgba(255,255,255,0.28); border-color: #fff; }
+
+  /* ── Main Card ── */
+  .kyc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    width: 100%;
+  }
+
+  /* ── Category Radio (top full-width) ── */
+  .category-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f8f9fb;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .category-bar .bar-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--label);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .radio-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #fff;
+  }
+  .radio-chip input[type=radio] { display: none; }
+  .radio-chip:has(input:checked) {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+  }
+  /* Fallback for :has support if needed, but modern browsers support it */
+  .radio-chip.selected {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+  }
+
+  .radio-chip .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .radio-chip:has(input:checked) .dot {
+    background: #fff;
+    border-color: #fff;
+  }
+  .radio-chip.selected .dot {
+    background: #fff;
+    border-color: #fff;
+  }
+
+  /* ── Two-Panel Layout ── */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel {
+    padding: 0;
+  }
+  .panel + .panel {
+    border-left: 1px solid var(--border);
+  }
+
+  /* ── Section ── */
+  .section {
+    border-bottom: 1px solid var(--border-light);
+  }
+  .section:last-child { border-bottom: none; }
+
+  /* Modified Section Header to be specific and use important only when scoped */
+  .section-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 6px 14px 5px !important;
+    background: #0f2d55 !important;
+    border-bottom: 1px solid #0a1f3d !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  .section-title {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    /* Reset potentially inherited styles */
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    display: inline-block !important;
+  }
+  .section-title-accent { color: #fff !important; }
+
+  /* ── Fields Grid ── */
+  .fields {
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .field.w-auto { flex: 0 1 auto; }
+  .field.w-half { flex: 0 0 calc(50% - 5px); }
+  .field.w-third { flex: 0 0 calc(33.33% - 7px); }
+  .field.w-2third { flex: 0 0 calc(66.66% - 5px); }
+  .field.w-quarter { flex: 0 0 calc(25% - 7.5px); }
+  .field.w-full { flex: 0 0 100%; }
+
+  .field label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--label);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  .field label .req { color: var(--red); margin-left: 1px; }
+
+  .field input[type=text],
+  .field input[type=email],
+  .field input[type=tel],
+  .field input[type=date],
+  .field input[type=number],
+  .field select,
+  .field textarea {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    font-family: var(--font);
+    font-size: 12.5px;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    appearance: none;
+  }
+  .field textarea {
+    height: auto;
+    min-height: 52px;
+    padding: 5px 8px;
+    resize: vertical;
+  }
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 26px;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(30,111,197,0.12);
+  }
+  .field input.error,
+  .field select.error { border-color: var(--red); }
+  .field .err-msg {
+    font-size: 10px;
+    color: var(--red);
+    font-weight: 500;
+  }
+
+  /* Inline radio within fields */
+  .inline-radios {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    height: 28px;
+  }
+  .inline-radios label {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-mid);
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .inline-radios input[type=radio] {
+    width: 13px; height: 13px;
+    accent-color: var(--blue);
+    cursor: pointer;
+  }
+
+  /* Checkbox */
+  .field-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-mid);
+    cursor: pointer;
+  }
+  .field-checkbox input[type=checkbox] {
+    width: 13px; height: 13px;
+    accent-color: var(--blue);
+    cursor: pointer;
+  }
+
+  /* ── Upload Area (compact) ── */
+  .upload-zone {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px dashed #c8d0dd;
+    border-radius: var(--radius);
+    background: #fafbfc;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .upload-zone:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+  .upload-zone svg { flex-shrink: 0; }
+
+  /* ── Repeatable Entry (bank, factory, branch) ── */
+  .repeat-entry {
+    background: #fafbfd;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .repeat-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    background: #eef2f7;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .repeat-entry-title {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .btn-remove {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-faint); font-size: 16px; line-height: 1;
+    padding: 0 2px;
+    transition: color 0.15s;
+  }
+  .btn-remove:hover { color: var(--red); }
+  .repeat-entry .fields { padding: 6px 10px; }
+
+  /* ── Full-width sections (below panels) ── */
+  .full-section {
+    border-top: 1px solid var(--border);
+  }
+  .full-section .section-header {
+    padding: 6px 16px 5px !important;
+  }
+  .full-section .fields {
+    padding: 8px 16px;
+  }
+
+  /* ── Finance row ── */
+  .finance-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .finance-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+
+  /* ── Additional docs grid ── */
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    padding: 10px 16px;
+  }
+  .doc-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    background: #fafbfc;
+  }
+  .doc-card-title {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-mid);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Form Actions Footer ── */
+  .form-footer {
+    padding: 10px 16px;
+    background: #f8f9fb;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .footer-info {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--blue-light);
+    border: 1px solid var(--blue-mid);
+    border-radius: var(--radius);
+    padding: 4px 10px;
+  }
+  .footer-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── No entries placeholder ── */
+  .empty-state {
+    padding: 12px 14px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-style: italic;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    margin: 6px 14px;
+    background: #fafbfc;
+  }
+
+  /* ── Supporting docs category chips ── */
+  .cat-docs-section {
+    padding: 8px 16px;
+    display: none;
+  }
+  .cat-docs-section.active { display: block; }
+  .cat-docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+  }
+
+  /* ── Scrollable panel content ── */
+  @media (max-width: 1200px) {
+    .panels { grid-template-columns: 1fr; }
+    .panel + .panel { border-left: none; border-top: 1px solid var(--border); }
+  }
+
+  @media (max-width: 768px) {
+    .docs-grid { grid-template-columns: repeat(2, 1fr); }
+    .cat-docs-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+}

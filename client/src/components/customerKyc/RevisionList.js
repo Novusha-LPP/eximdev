@@ -3,35 +3,37 @@ import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigation } from "../../contexts/NavigationContext";
 import CustomTable from "./CustomTable";
-import { Edit, Warning, PersonOutline } from "@mui/icons-material";
+import { Edit, Warning, PersonOutline, AccessTime, Visibility } from "@mui/icons-material";
 
-function RevisionList() {
+function RevisionList({ type = "revisions" }) {
   const [data, setData] = useState([]);
   const { user } = useContext(UserContext);
   const { navigateWithRef } = useNavigation();
 
+  const isApprovalMode = type === "pending_approval";
+
   useEffect(() => {
     async function getData() {
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/view-revision-list`
-        );
+        const endpoint = `${process.env.REACT_APP_API_STRING}/view-revision-list`;
+          
+        const res = await axios.get(endpoint);
         setData(res.data);
       } catch (error) {
-        console.error("Error fetching revision list:", error);
+        console.error(`Error fetching list for ${type}:`, error);
       }
     }
     getData();
-  }, []);
+  }, [type, isApprovalMode]);
 
   const getCategoryChip = (category) => {
-    let type = "neutral";
-    if (category?.includes("Individual")) type = "info";
-    if (category?.includes("Company")) type = "success";
+    let styleType = "neutral";
+    if (category?.includes("Individual")) styleType = "info";
+    if (category?.includes("Company")) styleType = "success";
 
     return (
       <span
-        className={`status-pill ${type === "neutral" ? "info" : type}`}
+        className={`status-pill ${styleType === "neutral" ? "info" : styleType}`}
         style={{ fontWeight: 500, textTransform: "none" }}
       >
         {category}
@@ -55,7 +57,11 @@ function RevisionList() {
             cursor: "pointer",
           }}
           onClick={() =>
-            navigateWithRef(`/revise-customer-kyc/${cell.row.original._id}`)
+            navigateWithRef(
+              isApprovalMode 
+                ? `/view-customer-kyc/${cell.row.original._id}` 
+                : `/revise-customer-kyc/${cell.row.original._id}`
+            )
           }
         >
           <PersonOutline style={{ fontSize: 16, color: "var(--accent-500)" }} />
@@ -93,7 +99,8 @@ function RevisionList() {
         </span>
       ),
     },
-    {
+    // Conditionally show Status column if needed. 
+    !isApprovalMode && {
       accessorKey: "approval",
       header: "Status",
       size: 250,
@@ -106,15 +113,21 @@ function RevisionList() {
         </span>
       ),
     },
-   
     {
       accessorKey: "remarks",
-      header: "Revision Notes",
+      header: isApprovalMode ? "Remarks" : "Revision Notes",
       size: 220,
       Cell: ({ cell }) => (
         <span
-          title={cell.getValue() || "No specific remarks"}
-          style={{
+          title={cell.getValue() || (isApprovalMode ? "No remarks" : "No specific remarks")}
+          style={isApprovalMode ? {
+            maxWidth: "200px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            color: "var(--slate-500)",
+            fontSize: "0.9rem",
+          } : {
             minWidth: "200px",
             maxWidth: "400px",
             whiteSpace: "normal",
@@ -125,43 +138,55 @@ function RevisionList() {
             lineHeight: "1.4"
           }}
         >
-          {cell.getValue() || "Requires attention"}
+          {cell.getValue() || (isApprovalMode ? "No remarks" : "Requires attention")}
         </span>
       ),
     },
-    {
-      accessorKey: "revise",
-      header: "Actions",
-      size: 150,
-      Cell: ({ cell }) =>
-        user.role === "Admin" ? (
-          <button
-            className="table-action-btn"
-            title="Start Revision Process"
-            onClick={() =>
-              navigateWithRef(`/revise-customer-kyc/${cell.row.original._id}`)
-            }
-          >
-            <Edit fontSize="small" />
-          </button>
-        ) : (
-          <span style={{ color: "var(--slate-400)", fontSize: "0.75rem" }}>
-            No Access
-          </span>
-        ),
-    },
-  ];
+    // {
+    //   accessorKey: isApprovalMode ? "view" : "revise", 
+    //   header: "Actions",
+    //   size: 150,
+    //   Cell: ({ cell }) =>
+    //     user.role === "Admin" ? (
+    //       <button
+    //         className="table-action-btn"
+    //         title={isApprovalMode ? "Review Application" : "Start Revision Process"}
+    //         onClick={() =>
+    //             navigateWithRef(
+    //                 isApprovalMode 
+    //                   ? `/view-customer-kyc/${cell.row.original._id}` 
+    //                   : `/revise-customer-kyc/${cell.row.original._id}`
+    //               )
+    //         }
+    //       >
+    //         {isApprovalMode ? <Visibility fontSize="small" /> : <Edit fontSize="small" />}
+    //       </button>
+    //     ) : (
+    //       <span style={{ color: "var(--slate-400)", fontSize: "0.75rem" }}>
+    //         No Access
+    //       </span>
+    //     ),
+    // },
+  ].filter(Boolean);
 
   return (
     <div className="kyc-page-wrapper">
       <div className="kyc-page-header">
         <div className="kyc-header-left">
           <h2 className="kyc-page-title">
-            <Warning style={{ fontSize: "1.2rem", color: "var(--warning)" }} /> Applications Requiring Revision
+            {isApprovalMode ? (
+                <>
+                    <AccessTime style={{ fontSize: "1.2rem", color: "var(--info)" }} /> Pending Final Approval
+                </>
+            ) : (
+                <>
+                    <Warning style={{ fontSize: "1.2rem", color: "var(--warning)" }} /> Applications Requiring Revision
+                </>
+            )}
           </h2>
         </div>
         <span className="kyc-verified-tag">
-          {data.length} application{data.length !== 1 ? "s" : ""} require attention
+          {data.length} application{data.length !== 1 ? "s" : ""} {isApprovalMode ? "awaiting final review" : "require attention"}
         </span>
       </div>
 

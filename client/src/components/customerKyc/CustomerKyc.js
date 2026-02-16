@@ -5,7 +5,6 @@ import CompletedKyc from "./CompletedKyc";
 import CustomerKycStatus from "./CustomerKycStatus";
 import useTabs from "../../customHooks/useTabs"; // Keeping for logic if needed, but UI is custom
 import ViewDrafts from "./ViewDrafts";
-import HodApprovalPending from "./HodApprovalPending";
 import RevisionList from "./RevisionList";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigation } from "../../contexts/NavigationContext";
@@ -87,7 +86,7 @@ function CustomerKyc() {
         case 3:
           return <RevisionList />;
         case 4:
-          return <HodApprovalPending />;
+          return <RevisionList type="pending_approval" />;
         case 5:
           return <CompletedKyc />;
         default:

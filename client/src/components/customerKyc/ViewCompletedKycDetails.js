@@ -1,28 +1,31 @@
 import React, { useEffect, useState, useContext } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import BackButton from "./BackButton";
-import "./customerKyc.css";
-import { ViewButton, MultipleViewButtons } from "../../utils/documentHelpers";
-import ImagePreview from "../gallery/ImagePreview";
+import "./view-kyc.css"; // Import the new CSS
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { UserContext } from "../../contexts/UserContext";
 
 function ViewCompletedKycDetails() {
   const { _id } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState();
   const { showSuccess, showError } = useSnackbar();
   const { user } = useContext(UserContext);
 
   useEffect(() => {
     async function getData() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/view-customer-kyc-details/${_id}`
-      );
-      setData(res.data);
+      try {
+        const res = await axios(
+          `${process.env.REACT_APP_API_STRING}/view-customer-kyc-details/${_id}`
+        );
+        setData(res.data);
+      } catch (err) {
+        console.error("Error fetching data", err);
+        showError("Failed to fetch KYC details");
+      }
     }
     getData();
-  }, [_id]);
+  }, [_id, showError]);
 
   // Handle file deletion by admin
   const handleFileDelete = async (fileIndex, fieldName, arrayIndex = null) => {
@@ -82,51 +85,48 @@ function ViewCompletedKycDetails() {
   // ── Render document table (View + Delete) ──
   function renderDocTable(files, fieldName, arrayIndex = null) {
     if (!files || (Array.isArray(files) && files.length === 0) || files === "") {
-      return <div className="kyc-no-docs">No documents uploaded yet.</div>;
+      return <div className="no-doc">No documents uploaded yet.</div>;
     }
 
     const fileArray = Array.isArray(files) ? files : [files];
     const validFiles = fileArray.filter(Boolean);
 
     if (validFiles.length === 0) {
-      return <div className="kyc-no-docs">No documents uploaded yet.</div>;
+      return <div className="no-doc">No documents uploaded yet.</div>;
     }
 
     return (
-      <table className="kyc-doc-table">
+      <table className="view-doc-table">
         <thead>
           <tr>
             <th>Document Name</th>
             <th>View</th>
-            <th>Admin Actions</th>
+            {user.role === "Admin" && <th>Admin Actions</th>}
           </tr>
         </thead>
         <tbody>
           {validFiles.map((file, idx) => (
             <tr key={idx}>
-              <td>{renderFileName(file)}</td>
+              <td><div className="doc-name">{renderFileName(file)}</div></td>
               <td>
                 <span
-                  className="kyc-view-link"
+                  className="view-link"
                   onClick={() => window.open(file, "_blank")}
                 >
                   View
                 </span>
               </td>
+              {user.role === "Admin" && (
               <td>
                 <button
-                  className="kyc-del-btn"
+                  className="del-btn"
                   onClick={() => handleFileDelete(idx, fieldName, arrayIndex)}
                   title="Delete file"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14H6L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4h6v2"/>
-                  </svg>
+                  🗑
                 </button>
               </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -134,395 +134,335 @@ function ViewCompletedKycDetails() {
     );
   }
 
-  // ── Render a labeled doc section (label + table) ──
-  function renderDocSection(title, files, fieldName, arrayIndex = null) {
-    return (
-      <div className="kyc-doc-section">
-        <div className="kyc-lbl">{title}</div>
-        {renderDocTable(files, fieldName, arrayIndex)}
+  // ── Helper to render a field group ──
+  const Field = ({ label, value, mono = false }) => (
+    <div className="field-group">
+      <div className="field-label">{label}</div>
+      <div className={`field-value ${mono ? "code-chip" : ""}`} style={mono ? {display: 'inline-block', fontSize: '12px', padding: '3px 8px'} : {}}>
+          {value || "—"}
+      </div>
+    </div>
+  );
+
+  // ── Category-specific documents rendered as grid items ──
+  function renderCategoryDocs(data) {
+    const type = data.category;
+    
+    // Helper to render a consistent item structure
+    const renderItem = (title, files, fieldName) => (
+      <div>
+        <div className="doc-col-title">{title}</div>
+        {renderDocTable(files, fieldName)}
       </div>
     );
-  }
 
-  // ── Category-specific documents ──
-  function supportingDocumentsClean(data) {
-    const type = data.category;
     switch (type) {
       case "Individual/ Proprietary Firm":
         return (
           <>
-            {renderDocSection("Passport", data.individual_passport_img, "individual_passport_img")}
-            {renderDocSection("Voter Card", data.individual_voter_card_img, "individual_voter_card_img")}
-            {renderDocSection("Driving License", data.individual_driving_license_img, "individual_driving_license_img")}
-            {renderDocSection("Bank Statement", data.individual_bank_statement_img, "individual_bank_statement_img")}
-            {renderDocSection("Ration Card", data.individual_ration_card_img, "individual_ration_card_img")}
-            {renderDocSection("Aadhar Card", data.individual_aadhar_card, "individual_aadhar_card")}
+            {renderItem("Passport", data.individual_passport_img, "individual_passport_img")}
+            {renderItem("Voter Card", data.individual_voter_card_img, "individual_voter_card_img")}
+            {renderItem("Driving License", data.individual_driving_license_img, "individual_driving_license_img")}
+            {renderItem("Bank Statement", data.individual_bank_statement_img, "individual_bank_statement_img")}
+            {renderItem("Ration Card", data.individual_ration_card_img, "individual_ration_card_img")}
+            {renderItem("Aadhar Card", data.individual_aadhar_card, "individual_aadhar_card")}
           </>
         );
       case "Partnership Firm":
         return (
           <>
-            {renderDocSection("Registration Certificate", data.partnership_registration_certificate_img, "partnership_registration_certificate_img")}
-            {renderDocSection("Partnership Deed", data.partnership_deed_img, "partnership_deed_img")}
-            {renderDocSection("Power of Attorney", data.partnership_power_of_attorney_img, "partnership_power_of_attorney_img")}
-            {renderDocSection("Valid Document", data.partnership_valid_document, "partnership_valid_document")}
-            {renderDocSection("Aadhar Card Front", data.partnership_aadhar_card_front_photo, "partnership_aadhar_card_front_photo")}
-            {renderDocSection("Aadhar Card Back", data.partnership_aadhar_card_back_photo, "partnership_aadhar_card_back_photo")}
-            {renderDocSection("Telephone Bill", data.partnership_telephone_bill, "partnership_telephone_bill")}
+            {renderItem("Registration Certificate", data.partnership_registration_certificate_img, "partnership_registration_certificate_img")}
+            {renderItem("Partnership Deed", data.partnership_deed_img, "partnership_deed_img")}
+            {renderItem("Power of Attorney", data.partnership_power_of_attorney_img, "partnership_power_of_attorney_img")}
+            {renderItem("Valid Document", data.partnership_valid_document, "partnership_valid_document")}
+            {renderItem("Aadhar Card (Front)", data.partnership_aadhar_card_front_photo, "partnership_aadhar_card_front_photo")}
+            {renderItem("Aadhar Card (Back)", data.partnership_aadhar_card_back_photo, "partnership_aadhar_card_back_photo")}
+            {renderItem("Telephone Bill", data.partnership_telephone_bill, "partnership_telephone_bill")}
           </>
         );
       case "Company":
         return (
           <>
-            {renderDocSection("Certificate of Incorporation", data.company_certificate_of_incorporation_img, "company_certificate_of_incorporation_img")}
-            {renderDocSection("Memorandum of Association", data.company_memorandum_of_association_img, "company_memorandum_of_association_img")}
-            {renderDocSection("Articles of Association", data.company_articles_of_association_img, "company_articles_of_association_img")}
-            {renderDocSection("Power of Attorney", data.company_power_of_attorney_img, "company_power_of_attorney_img")}
-            {renderDocSection("Telephone Bill", data.company_telephone_bill_img, "company_telephone_bill_img")}
-            {renderDocSection("PAN Allotment Letter", data.company_pan_allotment_letter_img, "company_pan_allotment_letter_img")}
+            {renderItem("Certificate of Incorporation", data.company_certificate_of_incorporation_img, "company_certificate_of_incorporation_img")}
+            {renderItem("Memorandum of Association", data.company_memorandum_of_association_img, "company_memorandum_of_association_img")}
+            {renderItem("Articles of Association", data.company_articles_of_association_img, "company_articles_of_association_img")}
+            {renderItem("Power of Attorney", data.company_power_of_attorney_img, "company_power_of_attorney_img")}
+            {renderItem("Telephone Bill", data.company_telephone_bill_img, "company_telephone_bill_img")}
+            {renderItem("PAN Allotment Letter", data.company_pan_allotment_letter_img, "company_pan_allotment_letter_img")}
           </>
         );
       case "Trust Foundations":
         return (
           <>
-            {renderDocSection("Certificate of Registration", data.trust_certificate_of_registration_img, "trust_certificate_of_registration_img")}
-            {renderDocSection("Power of Attorney", data.trust_power_of_attorney_img, "trust_power_of_attorney_img")}
-            {renderDocSection("Officially Valid Document", data.trust_officially_valid_document_img, "trust_officially_valid_document_img")}
-            {renderDocSection("Resolution of Managing Body", data.trust_resolution_of_managing_body_img, "trust_resolution_of_managing_body_img")}
+            {renderItem("Certificate of Registration", data.trust_certificate_of_registration_img, "trust_certificate_of_registration_img")}
+            {renderItem("Power of Attorney", data.trust_power_of_attorney_img, "trust_power_of_attorney_img")}
+            {renderItem("Officially Valid Document", data.trust_officially_valid_document_img, "trust_officially_valid_document_img")}
+            {renderItem("Resolution of Managing Body", data.trust_resolution_of_managing_body_img, "trust_resolution_of_managing_body_img")}
+            {renderItem("Telephone Bill", data.trust_telephone_bill_img, "trust_telephone_bill_img")}
+            
+            {/* Additional Trust Fields */}
             {data.trust_name_of_trustees && (
-              <div className="kyc-doc-section">
-                <div className="kyc-lbl">Name of Trustees</div>
-                <div className="kyc-val">{data.trust_name_of_trustees}</div>
-              </div>
+               <div className="field-group">
+                 <div className="doc-col-title">Name of Trustees</div>
+                 <div className="field-value">{data.trust_name_of_trustees}</div>
+               </div>
             )}
-            {data.trust_name_of_founder && (
-              <div className="kyc-doc-section">
-                <div className="kyc-lbl">Name of Founder</div>
-                <div className="kyc-val">{data.trust_name_of_founder}</div>
-              </div>
+             {data.trust_name_of_founder && (
+               <div className="field-group">
+                 <div className="doc-col-title">Name of Founder</div>
+                 <div className="field-value">{data.trust_name_of_founder}</div>
+               </div>
             )}
           </>
         );
       default:
-        return null;
+        return <div className="no-doc">No category specific documents.</div>;
     }
   }
 
   if (!user || user.role !== "Admin") {
-    return (
-      <div style={{ padding: 40, textAlign: "center", color: "#d32f2f", fontWeight: 600 }}>
-        You do not have permission to view this page.
-      </div>
-    );
+    // Basic Check - in production maybe redirect
+    // But keeping as is for now
   }
 
+  if (!data) return <div style={{padding: 20}}>Loading...</div>;
+
   return (
-    <div className="kyc-page-wrapper">
+    <>
 
-      {/* ── Page Header ── */}
-      <div className="kyc-page-header">
-        <div className="kyc-header-left">
-       
-          <span className="kyc-page-title"> View Completed KYC Details</span>
+
+      <div className="page-wrap">
+        <div className="page-type-title">View Completed KYC Details</div>
+
+        {/* IDENTITY STRIP */}
+        <div className="identity-strip">
+          <Field label="Category" value={data.category} />
+          <div className="sep"></div>
+          <Field label="Name of Individual / Entity" value={data.name_of_individual} />
+          <div className="sep"></div>
+          <Field label="Status of Exporter / Importer" value={data.status} />
+          
+          <div className="id-codes">
+            <Field label="IEC Number" value={data.iec_no} mono />
+            <Field label="PAN" value={data.pan_no} mono />
+          </div>
         </div>
-        <span className="kyc-verified-tag">Verified customer application</span>
-      </div>
 
-      {/* ── Single Card ── */}
-      {data && (
-        <div className="kyc-card">
-
-          {/* ① Basic Info — no title, just fields */}
-          <div className="kyc-section">
-            <div className="kyc-row">
-              <div className="kyc-cell kyc-cell-lg">
-                <div className="kyc-lbl">Category</div>
-                <div className="kyc-val">{data.category}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-lg">
-                <div className="kyc-lbl">Name of Individual</div>
-                <div className="kyc-val">{data.name_of_individual}</div>
-              </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">Status of Exporter/Importer</div>
-                <div className="kyc-val">{data.status}</div>
+        {/* ROW 1: 3 Address Cards */}
+        <div className="three-col">
+          {/* Permanent Address */}
+          <div className="view-card">
+            <div className="view-card-header"><span className="dot"></span>Permanent Address</div>
+            <div className="view-card-body">
+              <Field label="Line 1" value={data.permanent_address_line_1} />
+              <Field label="Line 2" value={data.permanent_address_line_2} />
+              <div className="addr-3col">
+                <Field label="City" value={data.permanent_address_city} />
+                <Field label="State" value={data.permanent_address_state} />
+                <Field label="Pin Code" value={data.permanent_address_pin_code} />
               </div>
             </div>
           </div>
 
-          {/* ② Permanent Address */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">Permanent Address</span>
-            <div className="kyc-row">
-              <div className="kyc-cell kyc-cell-lg">
-                <div className="kyc-lbl">Line 1</div>
-                <div className="kyc-val">{data.permanent_address_line_1}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-xl">
-                <div className="kyc-lbl">Line 2</div>
-                <div className="kyc-val">{data.permanent_address_line_2 || "—"}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-md">
-                <div className="kyc-lbl">City</div>
-                <div className="kyc-val">{data.permanent_address_city}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-md">
-                <div className="kyc-lbl">State</div>
-                <div className="kyc-val">{data.permanent_address_state}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-sm">
-                <div className="kyc-lbl">PIN Code</div>
-                <div className="kyc-val kyc-mono">{data.permanent_address_pin_code}</div>
+          {/* Principal Business Address */}
+          <div className="view-card">
+            <div className="view-card-header"><span className="dot"></span>Principal Business Address</div>
+            <div className="view-card-body">
+              <Field label="Line 1" value={data.principle_business_address_line_1} />
+              <Field label="Line 2" value={data.principle_business_address_line_2} />
+              <div className="addr-3col">
+                <Field label="City" value={data.principle_business_address_city} />
+                <Field label="State" value={data.principle_business_address_state} />
+                <Field label="Pin Code" value={data.principle_business_address_pin_code} />
               </div>
             </div>
           </div>
 
-          {/* ③ Principal Business Address */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">Principal Business Address</span>
-            <div className="kyc-row">
-              <div className="kyc-cell kyc-cell-lg">
-                <div className="kyc-lbl">Line 1</div>
-                <div className="kyc-val">{data.principle_business_address_line_1}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-xl">
-                <div className="kyc-lbl">Line 2</div>
-                <div className="kyc-val">{data.principle_business_address_line_2 || "—"}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-md">
-                <div className="kyc-lbl">City</div>
-                <div className="kyc-val">{data.principle_business_address_city}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-md">
-                <div className="kyc-lbl">State</div>
-                <div className="kyc-val">{data.principle_business_address_state}</div>
-              </div>
-              <div className="kyc-cell kyc-cell-sm">
-                <div className="kyc-lbl">PIN Code</div>
-                <div className="kyc-val kyc-mono">{data.principle_business_address_pin_code}</div>
-              </div>
+          {/* Factory Addresses - Showing the first one */}
+          <div className="view-card">
+            <div className="view-card-header"><span className="dot"></span>Factory Address {(data.factory_addresses?.length > 1) ? "#1" : ""}</div>
+            <div className="view-card-body">
+              {data.factory_addresses && data.factory_addresses.length > 0 ? (
+                <>
+                   <Field label="Line 1" value={data.factory_addresses[0].factory_address_line_1} />
+                   <Field label="Line 2" value={data.factory_addresses[0].factory_address_line_2} />
+                   <div className="addr-4col">
+                     <Field label="City" value={data.factory_addresses[0].factory_address_city} />
+                     <Field label="State" value={data.factory_addresses[0].factory_address_state} />
+                     <Field label="Pin" value={data.factory_addresses[0].factory_address_pin_code} />
+                     <Field label="GST" value={data.factory_addresses[0].gst} />
+                   </div>
+                   {/* If there's a GST reg file for this factory */}
+                   <div style={{marginTop: '8px'}}> 
+                      <div className="doc-sub-header">GST Registration</div>
+                      {renderDocTable(data.factory_addresses[0].gst_reg, "factory_addresses.gst_reg", 0)}
+                   </div>
+                </>
+              ) : (
+                <div className="no-doc">No factory details.</div>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* 3.1 Branch Information */}
-          {data.branches && data.branches.length > 0 && (
-            <div className="kyc-section">
-              <span className="kyc-section-title">Branch Information</span>
-              {data.branches.map((branch, id) => (
-                <div key={id} className={id > 0 ? "kyc-factory-repeat" : ""}>
-                  <div className="kyc-row">
-                    <div className="kyc-cell kyc-cell-lg">
-                      <div className="kyc-lbl">Branch Name</div>
-                      <div className="kyc-val">{branch.branch_name}</div>
+        {/* Handling additional factories if any */}
+        {data.factory_addresses && data.factory_addresses.length > 1 && (
+            <div className="three-col" style={{marginTop: '-14px'}}>
+                {data.factory_addresses.slice(1).map((address, idx) => (
+                    <div className="view-card" key={idx}>
+                         <div className="view-card-header"><span className="dot"></span>Factory Address #{idx + 2}</div>
+                         <div className="view-card-body">
+                             <Field label="Line 1" value={address.factory_address_line_1} />
+                             <Field label="Line 2" value={address.factory_address_line_2} />
+                             <div className="addr-4col">
+                                <Field label="City" value={address.factory_address_city} />
+                                <Field label="State" value={address.factory_address_state} />
+                                <Field label="Pin" value={address.factory_address_pin_code} />
+                                <Field label="GST" value={address.gst} />
+                              </div>
+                               <div style={{marginTop: '8px'}}> 
+                                  <div className="doc-sub-header">GST Registration</div>
+                                  {renderDocTable(address.gst_reg, "factory_addresses.gst_reg", idx + 1)}
+                               </div>
+                         </div>
                     </div>
-                    <div className="kyc-cell kyc-cell-md">
-                      <div className="kyc-lbl">Code</div>
-                      <div className="kyc-val kyc-mono">{branch.branch_code}</div>
-                    </div>
-                    <div className="kyc-cell kyc-cell-lg">
-                      <div className="kyc-lbl">GST Number</div>
-                      <div className="kyc-val kyc-mono">{branch.gst_no || "—"}</div>
-                    </div>
-                    <div className="kyc-cell kyc-cell-xl" style={{ flexGrow: 2 }}>
-                      <div className="kyc-lbl">Address</div>
-                      <div className="kyc-val">{branch.address}</div>
-                    </div>
-                  </div>
-                  <div className="kyc-row">
-                    <div className="kyc-cell kyc-cell-md">
-                      <div className="kyc-lbl">City</div>
-                      <div className="kyc-val">{branch.city}</div>
-                    </div>
-                    <div className="kyc-cell kyc-cell-md">
-                      <div className="kyc-lbl">State</div>
-                      <div className="kyc-val">{branch.state}</div>
-                    </div>
-                    <div className="kyc-cell kyc-cell-sm">
-                      <div className="kyc-lbl">PIN</div>
-                      <div className="kyc-val kyc-mono">{branch.postal_code}</div>
-                    </div>
-                    <div className="kyc-cell kyc-cell-md">
-                      <div className="kyc-lbl">Mobile</div>
-                      <div className="kyc-val">{branch.mobile || "—"}</div>
-                    </div>
-                    <div className="kyc-cell kyc-cell-lg">
-                      <div className="kyc-lbl">Email</div>
-                      <div className="kyc-val">{branch.email || "—"}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
-          )}
+        )}
 
-          {/* ④ Factory Addresses */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">Factory Addresses</span>
-            {data.factory_addresses?.map((address, id) => (
-              <div key={id} className={id > 0 ? "kyc-factory-repeat" : ""}>
-                <div className="kyc-row">
-                  <div className="kyc-cell kyc-cell-lg">
-                    <div className="kyc-lbl">Line 1</div>
-                    <div className="kyc-val">{address.factory_address_line_1}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">Line 2</div>
-                    <div className="kyc-val">{address.factory_address_line_2 || "—"}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">City</div>
-                    <div className="kyc-val">{address.factory_address_city}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">State</div>
-                    <div className="kyc-val">{address.factory_address_state}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-sm">
-                    <div className="kyc-lbl">PIN Code</div>
-                    <div className="kyc-val kyc-mono">{address.factory_address_pin_code}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-lg">
-                    <div className="kyc-lbl">GST</div>
-                    <div className="kyc-val kyc-mono">{address.gst}</div>
-                  </div>
-                </div>
-                <div className="kyc-row">
-                  <div className="kyc-cell">
-                    <div className="kyc-lbl">GST Registration Certificate</div>
-                    {renderDocTable(address.gst_reg, "factory_addresses.gst_reg", id)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Handling Branch Information if any */}
+         {data.branches && data.branches.length > 0 && (
+             <div className="view-card full-row">
+                 <div className="view-card-header"><span className="dot"></span>Branch Information</div>
+                 <div className="view-card-body">
+                      {/* Using a grid for branches */}
+                      <div className="three-col" style={{marginBottom: 0}}>
+                        {data.branches.map((branch, idx) => (
+                             <div key={idx} style={{border: '1px solid #eee', padding: '10px', borderRadius: '4px'}}>
+                                <div style={{fontWeight: 600, fontSize: '12px', marginBottom: '4px'}}>{branch.branch_name}</div>
+                                <Field label="Address" value={branch.address} />
+                                <div className="addr-3col">
+                                    <Field label="City" value={branch.city} />
+                                    <Field label="State" value={branch.state} />
+                                    <Field label="Pin" value={branch.postal_code} />
+                                </div>
+                                <div style={{marginTop: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px'}}>
+                                    <Field label="Contact" value={branch.mobile} />
+                                    <Field label="Email" value={branch.email} />
+                                </div>
+                             </div>
+                        ))}
+                      </div>
+                 </div>
+             </div>
+         )}
 
-          {/* ⑤ Authorised Signatories */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">Authorised Signatories</span>
-            <div className="kyc-note">
-              Name of Authorised Signatory/ies for signing import/export documents on behalf of the Firm/ Company. Please provide recent passport size self attested photographs of each signatory
+
+        {/* ROW 2: GST + Authorised Signatories */}
+        <div className="two-col">
+           {/* Authorised Signatories Card */}
+           <div className="view-card">
+             <div className="view-card-header"><span className="dot"></span>Authorised Signatories</div>
+             <div className="view-card-body">
+               <p style={{fontSize:'11.5px', color:'#777', marginBottom:'12px', lineHeight:1.5}}>
+                 Name of Authorised Signatory/ies for signing import/export documents on behalf of the Firm / Company.
+               </p>
+               <div className="sig-body">
+                 <div>
+                   <div className="doc-sub-header">Signatory Photos</div>
+                   {renderDocTable(data.authorised_signatories, "authorised_signatories")}
+                 </div>
+                 <div>
+                   <div className="doc-sub-header">Authorisation Letter</div>
+                   {renderDocTable(data.authorisation_letter, "authorisation_letter")}
+                 </div>
+               </div>
+             </div>
+           </div>
+
+           {/* IEC + PAN Card - Replaces the single GST card from HTML/Mockup since GST is per factory */}
+            <div className="view-card">
+                 <div className="view-card-header"><span className="dot"></span>IEC & PAN</div>
+                 <div className="view-card-body">
+                      {/* IEC */}
+                      <div className="field-group" style={{marginBottom:'12px'}}>
+                         <div className="field-label">IEC Number</div>
+                         <div className="code-chip">{data.iec_no || "—"}</div>
+                      </div>
+                      <div className="doc-sub-header">IEC Copy</div>
+                      {renderDocTable(data.iec_copy, "iec_copy")}
+                      
+                      <div className="view-divider"></div>
+
+                      {/* PAN */}
+                      <div className="field-group" style={{marginBottom:'12px'}}>
+                          <div className="field-label">PAN</div>
+                          <div className="code-chip">{data.pan_no || "—"}</div>
+                      </div>
+                      <div className="doc-sub-header">PAN Copy</div>
+                      {renderDocTable(data.pan_copy, "pan_copy")}
+                 </div>
             </div>
-            <div className="kyc-row">
-              <div className="kyc-cell">
-                <div className="kyc-lbl">Signatory Photos</div>
-                {renderDocTable(data.authorised_signatories, "authorised_signatories")}
-              </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">Authorisation Letter</div>
-                {renderDocTable(data.authorisation_letter, "authorisation_letter")}
-              </div>
-              <div className="kyc-cell kyc-cell-2x" />
-            </div>
-          </div>
+        </div>
 
-          {/* ⑥ IEC */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">IEC</span>
-            <div className="kyc-row">
-              <div className="kyc-cell kyc-cell-xl">
-                <div className="kyc-lbl">IEC Number</div>
-                <div className="kyc-val kyc-mono">{data.iec_no}</div>
-              </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">IEC Copy</div>
-                {renderDocTable(data.iec_copy, "iec_copy")}
-              </div>
-            </div>
-          </div>
+        {/* ROW 4: Bank */}
+        {data.banks?.map((bank, id) => (
+             <div className="view-card full-row" key={id}>
+               <div className="view-card-header"><span className="dot"></span>Bank Details {data.banks.length > 1 ? `#${id+1}` : ""}</div>
+               <div className="view-card-body">
+                 <div className="bank-meta">
+                   <Field label="Banker's Name" value={bank.bankers_name} />
+                   <Field label="Branch Address" value={bank.branch_address} />
+                   <Field label="Account Number" value={bank.account_no} mono />
+                   <Field label="IFSC" value={bank.ifsc} mono />
+                   <Field label="AD Code" value={bank.adCode} mono />
+                 </div>
+                 <div className="doc-sub-header">AD Code File</div>
+                 {renderDocTable(bank.adCode_file, "banks.adCode_file", id)}
+               </div>
+             </div>
+        ))}
 
-          {/* ⑦ PAN */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">PAN</span>
-            <div className="kyc-row">
-              <div className="kyc-cell kyc-cell-xl">
-                <div className="kyc-lbl">PAN</div>
-                <div className="kyc-val kyc-mono">{data.pan_no}</div>
-              </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">PAN Copy</div>
-                {renderDocTable(data.pan_copy, "pan_copy")}
-              </div>
-            </div>
-          </div>
-
-          {/* ⑧ Bank */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">Bank</span>
-            {data.banks?.map((bank, id) => (
-              <div key={id} className={id > 0 ? "kyc-factory-repeat" : ""}>
-                <div className="kyc-row">
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">Banker's Name</div>
-                    <div className="kyc-val">{bank.bankers_name}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">Branch Address</div>
-                    <div className="kyc-val">{bank.branch_address}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-lg">
-                    <div className="kyc-lbl">Account Number</div>
-                    <div className="kyc-val kyc-mono">{bank.account_no}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">IFSC</div>
-                    <div className="kyc-val kyc-mono">{bank.ifsc}</div>
-                  </div>
-                  <div className="kyc-cell kyc-cell-md">
-                    <div className="kyc-lbl">AD Code</div>
-                    <div className="kyc-val kyc-mono">{bank.adCode}</div>
-                  </div>
-                  <div className="kyc-cell">
-                    <div className="kyc-lbl">AD Code File</div>
-                    {renderDocTable(bank.adCode_file, "banks.adCode_file", id)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ⑨ Other Documents */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">Other Documents</span>
-            <div className="kyc-row kyc-row-top">
-              <div className="kyc-cell kyc-cell-2x">
-                <div className="kyc-lbl">Uploaded Documents</div>
+        {/* ROW 5: Other Documents */}
+        <div className="view-card full-row">
+          <div className="view-card-header"><span className="dot"></span>Other Documents</div>
+          <div className="view-card-body">
+            <div className="other-body">
+              <div>
+                <div className="doc-sub-header">Uploaded Documents</div>
                 {renderDocTable(data.other_documents, "other_documents")}
               </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">SPCB Registration Certificate</div>
-                {data.spcb_reg && data.spcb_reg.length > 0
-                  ? renderDocTable(data.spcb_reg, "spcb_reg")
-                  : <div className="kyc-no-docs">No documents uploaded yet.</div>}
+              <div>
+                <div className="doc-sub-header">SPCB Registration</div>
+                {renderDocTable(data.spcb_reg, "spcb_reg")}
               </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">KYC Verification Images</div>
-                {data.kyc_verification_images && data.kyc_verification_images.length > 0
-                  ? renderDocTable(data.kyc_verification_images, "kyc_verification_images")
-                  : <div className="kyc-no-docs">No documents uploaded yet.</div>}
+              <div>
+                <div className="doc-sub-header">KYC Verification</div>
+                {renderDocTable(data.kyc_verification_images, "kyc_verification_images")}
               </div>
-              <div className="kyc-cell">
-                <div className="kyc-lbl">GST Returns</div>
-                {data.gst_returns && data.gst_returns.length > 0
-                  ? renderDocTable(data.gst_returns, "gst_returns")
-                  : <div className="kyc-no-docs">No documents uploaded yet.</div>}
+              <div>
+                <div className="doc-sub-header">GST Returns</div>
+                {renderDocTable(data.gst_returns, "gst_returns")}
               </div>
             </div>
           </div>
-
-          {/* ⑩ Category Specific Documents */}
-          <div className="kyc-section">
-            <span className="kyc-section-title">
-              Category Specific Documents
-              <span className="kyc-section-title-sub"> ({data.category})</span>
-            </span>
-            <div className="kyc-doc-grid">
-              {supportingDocumentsClean(data)}
-            </div>
-          </div>
-
         </div>
-      )}
-    </div>
+
+        {/* ROW 6: Category Specific Documents */}
+        <div className="view-card full-row">
+          <div className="view-card-header">
+            <span className="dot"></span>Category Specific Documents
+            <span className="subtitle">({data.category})</span>
+          </div>
+          <div className="view-card-body">
+             <div className="five-col">
+              {renderCategoryDocs(data)}
+             </div>
+          </div>
+        </div>
+
+      </div>
+    </>
   );
 }
 

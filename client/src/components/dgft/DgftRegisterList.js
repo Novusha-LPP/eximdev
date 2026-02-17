@@ -1,35 +1,42 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   IconButton,
-
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import "./dgft.scss";
 
 // ===================== Constants =====================
 
 const CATEGORY_OPTIONS = [
-  "IEC",
-  "RCMC",
-  "ADV AUTHORIZATION",
-  "AMENDMEND OF ADV AUTHORIZATION",
-  "REVALIDATION OF ADV AUTHORIZATION",
-  "EO EXTENSION OF ADV AUTHORIZATION",
-  "SURRENDER OF ADV AUTHORIZATION",
-  "EODC OF ADV AUTHORIZATION",
-  "EPCG AUTHORIZATION",
-  "AMENDMEND OF EPCG AUTHORIZATION",
-  "INSTALLATION OF EPCG AUTHORIZATION",
-  "BLOCK WISE EXTENSION",
-  "EO PERIOD EXTENSION",
-  "SURRENDER OF EPCG AUTHORIZATION",
-  "EODC OF EPCG AUTHORIZATION",
+  "ADVANCE AUTHORIZATION",
+  "Amendment of advance Authorization",
+  "Revalidation of advance Authorization",
+  "EO extension of advance Authorization",
+  "EODC of advance Authorization",
+  "Surrender",
+  "EPCG Authorization",
+  "Amendment of EPCG Authorization",
+  "EPCG block extension",
+  "EPCG overall period extension",
+  "EODC of EPCG Authorization",
+  "Surrender of EPCG Authorization",
+  "RCMC application",
+  "IEC application",
 ];
+
+const JOB_STATUS_OPTIONS = [
+  "Completed",
+  "Pending",
+  "Processed",
+  "Closed",
+  "Open",
+];
+
+const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
 
 const INITIAL_FORM = {
   sr_no: "",
@@ -51,8 +58,11 @@ const INITIAL_FORM = {
   ft_do: "",
   adg: "",
   d_dg: "",
-  licence_no_date: "",
+  licence_no: "",
+  licence_date: "",
   matter_closed_date: "",
+  matter_closed_inv_no: "",
+  matter_closed_inv_date: "",
   docs_handed_over_to_ac: "",
   remarks: "",
   accounts_inv_no: "",
@@ -67,15 +77,16 @@ const DATE_FIELDS = new Set([
   "submitted_at_dgft_on",
   "bid_date",
   "file_date",
+  "licence_date",
   "matter_closed_date",
+  "matter_closed_inv_date",
   "accounts_inv_date",
 ]);
 
-// All fields with label and optional type
+// All fields with label and optional type (sr_no is auto-generated, job_no auto-generated)
 const FIELDS = [
-  { key: "sr_no", label: "Sr No" },
-  { key: "job_no", label: "JOB No." },
-  { key: "job_status", label: "Job Status" },
+  { key: "job_no", label: "JOB No.", readOnly: true },
+  { key: "job_status", label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
   { key: "date", label: "Date", type: "date" },
   { key: "party_name", label: "Party's Name" },
   {
@@ -83,6 +94,7 @@ const FIELDS = [
     label: "Category",
     select: true,
     options: CATEGORY_OPTIONS,
+    allowCustom: true,
   },
   { key: "licence_cif_value", label: "Licence / CIF Value" },
   { key: "docs_received_date", label: "Docs Recvd Date", type: "date" },
@@ -97,94 +109,48 @@ const FIELDS = [
   { key: "ft_do", label: "F/T Do" },
   { key: "adg", label: "ADG" },
   { key: "d_dg", label: "D.DG" },
-  { key: "licence_no_date", label: "Licence No & Date" },
+  { key: "licence_no", label: "Licence No" },
+  { key: "licence_date", label: "Licence Date", type: "date" },
   { key: "matter_closed_date", label: "Closed Date", type: "date" },
+  { key: "matter_closed_inv_no", label: "INV No." },
+  { key: "matter_closed_inv_date", label: "INV Date", type: "date" },
   { key: "docs_handed_over_to_ac", label: "Docs to A/c Dept." },
   { key: "remarks", label: "Remarks" },
   { key: "accounts_inv_no", label: "Acc INV No." },
   { key: "accounts_inv_date", label: "Acc INV Date", type: "date" },
 ];
 
-// Grouped column definitions for the table header
-const COLUMN_GROUPS = [
-  {
-    group: "Actions",
-    colSpan: 1,
-    columns: [{ key: "_actions", label: "Actions", width: 90 }],
-  },
-  {
-    group: "Job Info",
-    colSpan: 3,
-    columns: [
-      { key: "sr_no", label: "Sr", width: 40 },
-      { key: "job_no", label: "Job No.", width: 80 },
-      { key: "job_status", label: "Status", width: 80 },
-    ],
-  },
-  {
-    group: "Party & Category",
-    colSpan: 3,
-    columns: [
-      { key: "date", label: "Date", width: 85 },
-      { key: "party_name", label: "Party Name", width: 160 },
-      { key: "category", label: "Category", width: 130 },
-    ],
-  },
-  {
-    group: "Licence / CIF",
-    colSpan: 2,
-    columns: [
-      { key: "licence_cif_value", label: "Value", width: 100 },
-      { key: "licence_no_date", label: "No. & Date", width: 120 },
-    ],
-  },
-  {
-    group: "Dates / DGFT",
-    colSpan: 3,
-    columns: [
-      { key: "docs_received_date", label: "Docs Recvd", width: 90 },
-      { key: "application_prepared_on", label: "App. Prepared", width: 95 },
-      { key: "submitted_at_dgft_on", label: "At DGFT", width: 90 },
-    ],
-  },
-  {
-    group: "EFT / BID",
-    colSpan: 3,
-    columns: [
-      { key: "eft_amount", label: "EFT Amt", width: 80 },
-      { key: "bid_no", label: "BID No", width: 80 },
-      { key: "bid_date", label: "BID Date", width: 85 },
-    ],
-  },
-  {
-    group: "File / Officers",
-    colSpan: 5,
-    columns: [
-      { key: "file_no_key_no", label: "File/Key", width: 80 },
-      { key: "file_date", label: "Date", width: 85 },
-      { key: "dh", label: "D/H", width: 50 },
-      { key: "ft_do", label: "F/T", width: 50 },
-      { key: "adg", label: "ADG", width: 50 },
-    ],
-  },
-  {
-    group: "Completion",
-    colSpan: 3,
-    columns: [
-      { key: "d_dg", label: "D.DG", width: 50 },
-      { key: "matter_closed_date", label: "Closed", width: 85 },
-      { key: "docs_handed_over_to_ac", label: "To A/c", width: 80 },
-    ],
-  },
-  {
-    group: "Accounts / Remarks",
-    colSpan: 3,
-    columns: [
-      { key: "remarks", label: "Remarks", width: 130 },
-      { key: "accounts_inv_no", label: "INV No.", width: 85 },
-      { key: "accounts_inv_date", label: "INV Date", width: 85 },
-    ],
-  },
+// Flat column definitions for the table (no grouping)
+const COLUMNS = [
+  { key: "_actions", label: "Actions", width: 90 },
+  { key: "sr_no", label: "Sr No", width: 40 },
+  { key: "job_status", label: "Job Status", width: 80 },
+  { key: "job_no", label: "Job No.", width: 80 },
+  { key: "date", label: "Date", width: 85 },
+  { key: "party_name", label: "Party's Name", width: 160 },
+  { key: "category", label: "Category", width: 130 },
+  { key: "licence_cif_value", label: "Licence / CIF Value", width: 100 },
+  { key: "docs_received_date", label: "Docs Recvd Date", width: 90 },
+  { key: "application_prepared_on", label: "App. Prepared On", width: 95 },
+  { key: "submitted_at_dgft_on", label: "Submitted at DGFT", width: 90 },
+  { key: "eft_amount", label: "EFT Amount", width: 80 },
+  { key: "bid_no", label: "BID No", width: 80 },
+  { key: "bid_date", label: "BID Date", width: 85 },
+  { key: "file_no_key_no", label: "File / Key No", width: 80 },
+  { key: "file_date", label: "File Date", width: 85 },
+  { key: "dh", label: "D/H", width: 50 },
+  { key: "ft_do", label: "F/T Do", width: 50 },
+  { key: "adg", label: "ADG", width: 50 },
+  { key: "d_dg", label: "D.DG", width: 50 },
+  { key: "licence_no", label: "Licence No", width: 110 },
+  { key: "licence_date", label: "Licence Date", width: 90 },
+  { key: "matter_closed_date", label: "Closed Date", width: 85 },
+  { key: "matter_closed_inv_no", label: "INV No.", width: 85 },
+  { key: "matter_closed_inv_date", label: "INV Date", width: 85 },
+  { key: "docs_handed_over_to_ac", label: "Docs to A/c Dept.", width: 80 },
+  { key: "remarks", label: "Remarks", width: 130 },
+  { key: "accounts_inv_no", label: "Acc INV No.", width: 85 },
+  { key: "accounts_inv_date", label: "Acc INV Date", width: 85 },
 ];
 
 // Inline styles matching the enterprise design
@@ -201,6 +167,7 @@ const s = {
     display: "flex",
     gap: "8px",
     alignItems: "center",
+    flexWrap: "wrap",
   },
   toolbarRight: {
     display: "flex",
@@ -215,7 +182,18 @@ const s = {
     borderRadius: "3px",
     outline: "none",
     color: "#333",
-    minWidth: "200px",
+    minWidth: "180px",
+  },
+  filterSelect: {
+    height: "30px",
+    padding: "0 6px",
+    fontSize: "12px",
+    border: "1px solid #d1d5db",
+    borderRadius: "3px",
+    outline: "none",
+    color: "#333",
+    minWidth: "130px",
+    background: "#fff",
   },
   btnPrimary: {
     display: "inline-flex",
@@ -250,33 +228,32 @@ const s = {
     fontWeight: "600",
     cursor: "pointer",
   },
-  th: {
-    padding: "8px 6px",
-    textAlign: "left",
-    fontWeight: "700",
-    fontSize: "13px",
-    color: "#ffffff",
-    borderBottom: "1px solid #dbdbdb",
-    borderRight: "1px solid #dbdbdb",
-    whiteSpace: "normal",
-    wordBreak: "break-word",
-    verticalAlign: "top",
-    top: 0,
-    zIndex: 10,
+  pagination: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "10px 4px",
+    flexWrap: "wrap",
+    gap: "8px",
+    fontSize: "12px",
+    color: "#374151",
   },
-  td: {
-    padding: "5px 6px",
-    borderBottom: "1px solid #dbdbdb",
-    color: "#1f2937",
-    whiteSpace: "normal",
-    wordBreak: "break-word",
-    verticalAlign: "middle",
+  pageBtn: {
+    padding: "4px 10px",
+    border: "1px solid #d1d5db",
+    borderRadius: "3px",
+    background: "#fff",
+    cursor: "pointer",
+    fontSize: "12px",
   },
-  message: {
-    padding: "40px",
-    textAlign: "center",
+  pageBtnDisabled: {
+    padding: "4px 10px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "3px",
+    background: "#f9fafb",
+    cursor: "not-allowed",
+    fontSize: "12px",
     color: "#9ca3af",
-    fontStyle: "italic",
   },
 };
 
@@ -305,6 +282,8 @@ function Toast({ toast, onClose }) {
 function DgftRegisterList({ onCountChange }) {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM);
@@ -314,6 +293,10 @@ function DgftRegisterList({ onCountChange }) {
     message: "",
     severity: "success",
   });
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [availableCategories, setAvailableCategories] = useState(CATEGORY_OPTIONS);
+  const [categoryInput, setCategoryInput] = useState("");
   const fileInput = useRef(null);
 
   // Fetch data
@@ -335,9 +318,23 @@ function DgftRegisterList({ onCountChange }) {
     }
   }, [onCountChange]);
 
+  const getCategories = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-dgft-categories`
+      );
+      // Merge unique categories from DB with standard options
+      const unique = Array.from(new Set([...CATEGORY_OPTIONS, ...res.data]));
+      setAvailableCategories(unique);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     getData();
-  }, [getData]);
+    getCategories();
+  }, [getData, getCategories]);
 
   // Validation
   const validate = () => {
@@ -345,7 +342,6 @@ function DgftRegisterList({ onCountChange }) {
     DATE_FIELDS.forEach((key) => {
       const val = formData[key];
       if (val && val.trim() !== "") {
-        // Must be a valid date (YYYY-MM-DD from input type=date)
         if (isNaN(Date.parse(val))) {
           errs[key] = "Invalid date";
         }
@@ -355,11 +351,33 @@ function DgftRegisterList({ onCountChange }) {
     return Object.keys(errs).length === 0;
   };
 
+  const getNextJobNo = () => {
+    if (rows.length === 0) return "DGFT/1";
+    let maxNum = 0;
+    rows.forEach((r) => {
+      const match = (r.job_no || "").match(/\/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    return `DGFT/${maxNum + 1}`;
+  };
+
   const handleOpenAdd = () => {
-    setFormData(INITIAL_FORM);
+    setFormData({ ...INITIAL_FORM, job_no: getNextJobNo() });
     setEditingId(null);
     setErrors({});
+    setCategoryInput("");
     setDialogOpen(true);
+  };
+
+  const handleAddCustomCategory = () => {
+    if (categoryInput.trim() && !availableCategories.includes(categoryInput.trim())) {
+      setAvailableCategories([...availableCategories, categoryInput.trim()]);
+      showToast("Category added to list", "success");
+      setCategoryInput("");
+    }
   };
 
   const handleOpenEdit = (row) => {
@@ -441,20 +459,71 @@ function DgftRegisterList({ onCountChange }) {
     setToast({ open: true, message, severity });
   };
 
-  // Filter rows by search
-  const filtered = rows.filter((row) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      (row.job_no || "").toLowerCase().includes(q) ||
-      (row.party_name || "").toLowerCase().includes(q) ||
-      (row.category || "").toLowerCase().includes(q) ||
-      (row.sr_no || "").toLowerCase().includes(q)
-    );
-  });
+  // Filter rows by search + category + status
+  const { filtered, grouped } = useMemo(() => {
+    let result = rows.filter((row) => {
+      // Category filter
+      if (categoryFilter && !(row.category || "").toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      // Status filter
+      if (statusFilter && !(row.job_status || "").toLowerCase().includes(statusFilter.toLowerCase())) return false;
+      // Search
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (
+          !(row.job_no || "").toLowerCase().includes(q) &&
+          !(row.party_name || "").toLowerCase().includes(q) &&
+          !(row.category || "").toLowerCase().includes(q) &&
+          !(row.sr_no || "").toLowerCase().includes(q)
+        )
+          return false;
+      }
+      return true;
+    });
 
-  // Flatten columns for cell rendering
-  const flatCols = COLUMN_GROUPS.flatMap((g) => g.columns);
+    // If category filter is applied, group by category
+    let grouped_result = null;
+    if (categoryFilter) {
+      const groups = {};
+      result.forEach((row) => {
+        const cat = row.category || "Uncategorized";
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(row);
+      });
+      grouped_result = groups;
+    }
+
+    return { filtered: result, grouped: grouped_result };
+  }, [rows, search, categoryFilter, statusFilter]);
+
+  // For pagination with grouping
+  const renderRows = useMemo(() => {
+    if (grouped) {
+      // Flatten grouped data for display (with group headers)
+      const flattened = [];
+      Object.entries(grouped).forEach(([groupName, groupRows]) => {
+        groupRows.forEach((row, idx) => {
+          flattened.push({ ...row, _groupName: idx === 0 ? groupName : null });
+        });
+      });
+      return flattened;
+    }
+    return filtered;
+  }, [grouped, filtered]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [search, categoryFilter, statusFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(renderRows.length / rowsPerPage) || 1;
+  const paginatedRows = renderRows.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  // Use flat columns directly
+  const flatCols = COLUMNS;
 
   return (
     <div>
@@ -463,11 +532,35 @@ function DgftRegisterList({ onCountChange }) {
         <div style={s.toolbarLeft}>
           <input
             type="text"
-            placeholder="Search by Job No, Party, Category..."
+            placeholder="Search Job No, Party..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={s.input}
           />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={s.filterSelect}
+          >
+            <option value="">All Categories</option>
+            {availableCategories.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={s.filterSelect}
+          >
+            <option value="">All Statuses</option>
+            {JOB_STATUS_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
         </div>
         <div style={s.toolbarRight}>
           <button style={s.btnPrimary} onClick={handleOpenAdd}>
@@ -489,15 +582,7 @@ function DgftRegisterList({ onCountChange }) {
       <div className="dgft-table-wrapper">
         <table>
           <thead>
-            {/* Group header row */}
-            <tr className="header-group">
-              {COLUMN_GROUPS.map((g, i) => (
-                <th key={i} colSpan={g.colSpan}>
-                  {g.group}
-                </th>
-              ))}
-            </tr>
-            {/* Sub header row */}
+            {/* Header row with column labels */}
             <tr className="header-sub">
               {flatCols.map((col) => (
                 <th
@@ -511,41 +596,138 @@ function DgftRegisterList({ onCountChange }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {paginatedRows.length === 0 ? (
               <tr className="dgft-empty-row">
                 <td colSpan={flatCols.length}>No records found</td>
               </tr>
             ) : (
-              filtered.map((row) => (
-                <tr key={row._id}>
-                  {flatCols.map((col) => {
-                    if (col.key === "_actions") {
-                      return (
-                        <td key="_actions" className="col-actions-cell">
-                          <div className="dgft-actions-cell">
-                            <button
-                              style={s.btnEdit}
-                              onClick={() => handleOpenEdit(row)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              style={s.btnDelete}
-                              onClick={() => handleDelete(row._id)}
-                            >
-                              Del
-                            </button>
-                          </div>
+              paginatedRows.map((row, idx) => {
+                // Render group header if this is the first row of a group
+                if (row._groupName) {
+                  return (
+                    <React.Fragment key={`group-${row._groupName}`}>
+                      <tr className="dgft-group-header">
+                        <td colSpan={flatCols.length} style={{ fontWeight: "bold", background: "#f0f4f8", padding: "8px", borderBottom: "2px solid #d1d5db" }}>
+                          {row._groupName}
                         </td>
-                      );
-                    }
-                    return <td key={col.key}>{row[col.key] || ""}</td>;
-                  })}
-                </tr>
-              ))
+                      </tr>
+                      <tr key={row._id} className="dgft-data-row">
+                        {flatCols.map((col) => {
+                          if (col.key === "_actions") {
+                            return (
+                              <td key="_actions" className="col-actions-cell">
+                                <div className="dgft-actions-cell">
+                                  <button
+                                    style={s.btnEdit}
+                                    onClick={() => handleOpenEdit(row)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    style={s.btnDelete}
+                                    onClick={() => handleDelete(row._id)}
+                                  >
+                                    Del
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          }
+                          if (col.key === "sr_no") {
+                            return (
+                              <td key={col.key}>
+                                {page * rowsPerPage + idx + 1}
+                              </td>
+                            );
+                          }
+                          return <td key={col.key}>{row[col.key] || ""}</td>;
+                        })}
+                      </tr>
+                    </React.Fragment>
+                  );
+                }
+
+                return (
+                  <tr key={row._id} className="dgft-data-row">
+                    {flatCols.map((col) => {
+                      if (col.key === "_actions") {
+                        return (
+                          <td key="_actions" className="col-actions-cell">
+                            <div className="dgft-actions-cell">
+                              <button
+                                style={s.btnEdit}
+                                onClick={() => handleOpenEdit(row)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                style={s.btnDelete}
+                                onClick={() => handleDelete(row._id)}
+                              >
+                                Del
+                              </button>
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (col.key === "sr_no") {
+                        return (
+                          <td key={col.key}>
+                            {page * rowsPerPage + idx + 1}
+                          </td>
+                        );
+                      }
+                      return <td key={col.key}>{row[col.key] || ""}</td>;
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div style={s.pagination}>
+        <div>
+          Showing {renderRows.length === 0 ? 0 : page * rowsPerPage + 1}–
+          {Math.min((page + 1) * rowsPerPage, renderRows.length)} of{" "}
+          {renderRows.length} records
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span>Rows:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => {
+              setRowsPerPage(Number(e.target.value));
+              setPage(0);
+            }}
+            style={{ ...s.filterSelect, minWidth: "60px" }}
+          >
+            {ROWS_PER_PAGE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            style={page === 0 ? s.pageBtnDisabled : s.pageBtn}
+          >
+            ‹ Prev
+          </button>
+          <span>
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            style={page >= totalPages - 1 ? s.pageBtnDisabled : s.pageBtn}
+          >
+            Next ›
+          </button>
+        </div>
       </div>
 
       {/* Add/Edit Dialog (MUI Dialog allowed) */}
@@ -570,34 +752,103 @@ function DgftRegisterList({ onCountChange }) {
         </DialogTitle>
         <DialogContent dividers>
           <div className="dgft-form-grid">
-            {FIELDS.map((field) => (
-              <div className="dgft-form-group" key={field.key}>
-                <label>{field.label}</label>
-                {field.select ? (
-                  <select
-                    value={formData[field.key]}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                  >
-                    <option value="">-- Select --</option>
-                    {field.options.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={field.type === "date" ? "date" : "text"}
-                    value={formData[field.key]}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                    className={errors[field.key] ? "input-error" : ""}
-                  />
-                )}
-                {errors[field.key] && (
-                  <span className="field-error">{errors[field.key]}</span>
-                )}
-              </div>
-            ))}
+            {FIELDS.map((field) => {
+              // Handle category field with custom category input
+              if (field.key === "category") {
+                return (
+                  <div className="dgft-form-group" key={field.key}>
+                    <label>{field.label}</label>
+                    <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+                      <select
+                        value={formData[field.key]}
+                        onChange={(e) => handleChange(field.key, e.target.value)}
+                      >
+                        <option value="">-- Select Category --</option>
+                        {availableCategories.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <input
+                          type="text"
+                          placeholder="Add custom category..."
+                          value={categoryInput}
+                          onChange={(e) => setCategoryInput(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && handleAddCustomCategory()}
+                          style={{ ...s.input, flex: 1, minWidth: "150px" }}
+                        />
+                        <button
+                          onClick={handleAddCustomCategory}
+                          style={{
+                            padding: "4px 10px",
+                            background: "#10b981",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "3px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                    {errors[field.key] && (
+                      <span className="field-error">{errors[field.key]}</span>
+                    )}
+                  </div>
+                );
+              }
+
+              // Skip rendering sr_no since it's auto-generated
+              if (field.key === "sr_no") return null;
+
+              // Handle read-only job_no
+              if (field.readOnly) {
+                return (
+                  <div className="dgft-form-group" key={field.key}>
+                    <label>{field.label}</label>
+                    <input
+                      type="text"
+                      value={formData[field.key]}
+                      readOnly
+                      style={{ ...s.input, background: "#f3f4f6", color: "#666" }}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className="dgft-form-group" key={field.key}>
+                  <label>{field.label}</label>
+                  {field.select ? (
+                    <select
+                      value={formData[field.key]}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                    >
+                      <option value="">-- Select --</option>
+                      {field.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type === "date" ? "date" : "text"}
+                      value={formData[field.key]}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                      className={errors[field.key] ? "input-error" : ""}
+                    />
+                  )}
+                  {errors[field.key] && (
+                    <span className="field-error">{errors[field.key]}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </DialogContent>
         <div

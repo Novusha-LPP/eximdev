@@ -50,7 +50,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/screen4");
     case "Screen5":
       return navigate("/screen5");
-
+    case "DGFT":
+      return navigate("/dgft");
     case "Screen6":
       return navigate("/screen6");
     case "Open Points":

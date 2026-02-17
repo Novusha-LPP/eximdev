@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import "./dgft.scss";
 
 const INITIAL_FORM = {
   job_no: "",
+  job_status: "",
   date: "",
   party_name: "",
   job_type: "",
@@ -38,12 +39,41 @@ const DATE_FIELDS = new Set([
   "registration_date",
 ]);
 
+const CATEGORY_OPTIONS = [
+  "ADVANCE AUTHORIZATION",
+  "Amendment of advance Authorization",
+  "Revalidation of advance Authorization",
+  "EO",
+  "EODC",
+  "Surrender",
+  "EPCG Authorization",
+  "Amendment of EPCG Authorization",
+  "EPCG block extension",
+  "EPCG overall period extension",
+  "EODC of EPCG Authorization",
+  "Surrender of EPCG Authorization",
+  "RCMC application",
+  "IEC application",
+];
+
+const JOB_STATUS_OPTIONS = [
+  "Completed",
+  "Pending",
+  "Processed",
+  "Closed",
+  "Open",
+];
+
+const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
+
 const FIELDS = [
-  { key: "job_no", label: "JOB No" },
+  { key: "job_no", label: "JOB No"},
+  { key: "job_status", label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
   { key: "date", label: "Date", type: "date" },
   { key: "party_name", label: "Party's Name" },
   { key: "job_type", label: "Job Type" },
   { key: "port_name", label: "Port Name" },
+  { key: "category", label: "Category", select: true, options: CATEGORY_OPTIONS, allowCustom: true },
   { key: "licence_no", label: "Licence No" },
   { key: "licence_date", label: "Licence Date", type: "date" },
   { key: "licence_amount", label: "Licence Amount" },
@@ -58,14 +88,17 @@ const FIELDS = [
   { key: "bill_number", label: "Bill Number" },
 ];
 
-// Table columns (Actions first, then data)
+// Table columns (Actions first, then Sr No auto-generated, then data)
 const TABLE_COLUMNS = [
   { key: "_actions", label: "Actions", width: 90 },
+  { key: "_sr_no", label: "Sr", width: 40 },
   { key: "job_no", label: "JOB No", width: 90 },
+  { key: "job_status", label: "Status", width: 80 },
   { key: "date", label: "Date", width: 85 },
   { key: "party_name", label: "Party's Name", width: 180 },
   { key: "job_type", label: "Job Type", width: 100 },
   { key: "port_name", label: "Port Name", width: 120 },
+  { key: "category", label: "Category", width: 130 },
   { key: "licence_no", label: "Licence No", width: 100 },
   { key: "licence_date", label: "Lic. Date", width: 85 },
   { key: "licence_amount", label: "Lic. Amount", width: 100 },
@@ -98,7 +131,18 @@ const s = {
     borderRadius: "3px",
     outline: "none",
     color: "#333",
-    minWidth: "200px",
+    minWidth: "180px",
+  },
+  filterSelect: {
+    height: "30px",
+    padding: "0 6px",
+    fontSize: "12px",
+    border: "1px solid #d1d5db",
+    borderRadius: "3px",
+    outline: "none",
+    color: "#333",
+    minWidth: "130px",
+    background: "#fff",
   },
   btnPrimary: {
     display: "inline-flex",
@@ -133,6 +177,33 @@ const s = {
     fontWeight: "600",
     cursor: "pointer",
   },
+  pagination: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "10px 4px",
+    flexWrap: "wrap",
+    gap: "8px",
+    fontSize: "12px",
+    color: "#374151",
+  },
+  pageBtn: {
+    padding: "4px 10px",
+    border: "1px solid #d1d5db",
+    borderRadius: "3px",
+    background: "#fff",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  pageBtnDisabled: {
+    padding: "4px 10px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "3px",
+    background: "#f9fafb",
+    cursor: "not-allowed",
+    fontSize: "12px",
+    color: "#9ca3af",
+  },
 };
 
 // ===================== Toast Component =====================
@@ -160,6 +231,8 @@ function Toast({ toast, onClose }) {
 function AuthorizationRegistrationList({ onCountChange }) {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM);
@@ -169,6 +242,11 @@ function AuthorizationRegistrationList({ onCountChange }) {
     message: "",
     severity: "success",
   });
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [availableCategories, setAvailableCategories] = useState(CATEGORY_OPTIONS);
+  const [categoryInput, setCategoryInput] = useState("");
+  const fileInput = React.useRef(null);
 
   const getData = useCallback(async () => {
     try {
@@ -188,9 +266,23 @@ function AuthorizationRegistrationList({ onCountChange }) {
     }
   }, [onCountChange]);
 
+  const getCategories = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-auth-reg-categories`
+      );
+      // Merge unique categories from DB with standard options
+      const unique = Array.from(new Set([...CATEGORY_OPTIONS, ...res.data]));
+      setAvailableCategories(unique);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     getData();
-  }, [getData]);
+    getCategories();
+  }, [getData, getCategories]);
 
   // Validation
   const validate = () => {
@@ -207,11 +299,33 @@ function AuthorizationRegistrationList({ onCountChange }) {
     return Object.keys(errs).length === 0;
   };
 
+  const getNextJobNo = () => {
+    if (rows.length === 0) return "LIC/1";
+    let maxNum = 0;
+    rows.forEach((r) => {
+      const match = (r.job_no || "").match(/\/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    return `LIC/${maxNum + 1}`;
+  };
+
   const handleOpenAdd = () => {
-    setFormData(INITIAL_FORM);
+    setFormData({ ...INITIAL_FORM, job_no: getNextJobNo() });
     setEditingId(null);
     setErrors({});
+    setCategoryInput("");
     setDialogOpen(true);
+  };
+
+  const handleAddCustomCategory = () => {
+    if (categoryInput.trim() && !availableCategories.includes(categoryInput.trim())) {
+      setAvailableCategories([...availableCategories, categoryInput.trim()]);
+      showToast("Category added to list", "success");
+      setCategoryInput("");
+    }
   };
 
   const handleOpenEdit = (row) => {
@@ -268,7 +382,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
-  const fileInput = React.useRef(null);
+
 
   const handleExcelUpload = async (e) => {
     const file = e.target.files[0];
@@ -295,30 +409,104 @@ function AuthorizationRegistrationList({ onCountChange }) {
     setToast({ open: true, message, severity });
   };
 
-  // Filter rows
-  const filtered = rows.filter((row) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      (row.job_no || "").toLowerCase().includes(q) ||
-      (row.party_name || "").toLowerCase().includes(q) ||
-      (row.licence_no || "").toLowerCase().includes(q) ||
-      (row.port_name || "").toLowerCase().includes(q)
-    );
-  });
+  // Filter rows by search + category + status with grouping support
+  const { filtered, grouped } = useMemo(() => {
+    let result = rows.filter((row) => {
+      // Category filter
+      if (categoryFilter && !(row.category || "").toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      // Status filter
+      if (statusFilter && !(row.job_status || "").toLowerCase().includes(statusFilter.toLowerCase())) return false;
+      // Search
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (
+          !(row.job_no || "").toLowerCase().includes(q) &&
+          !(row.party_name || "").toLowerCase().includes(q) &&
+          !(row.licence_no || "").toLowerCase().includes(q) &&
+          !(row.port_name || "").toLowerCase().includes(q)
+        )
+          return false;
+      }
+      return true;
+    });
+
+    // If category filter is applied, group by category
+    let grouped_result = null;
+    if (categoryFilter) {
+      const groups = {};
+      result.forEach((row) => {
+        const cat = row.category || "Uncategorized";
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(row);
+      });
+      grouped_result = groups;
+    }
+
+    return { filtered: result, grouped: grouped_result };
+  }, [rows, search, categoryFilter, statusFilter]);
+
+  // For display with grouping
+  const renderRows = useMemo(() => {
+    if (grouped) {
+      const flattened = [];
+      Object.entries(grouped).forEach(([groupName, groupRows]) => {
+        groupRows.forEach((row, idx) => {
+          flattened.push({ ...row, _groupName: idx === 0 ? groupName : null });
+        });
+      });
+      return flattened;
+    }
+    return filtered;
+  }, [grouped, filtered]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [search, categoryFilter, statusFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(renderRows.length / rowsPerPage) || 1;
+  const paginatedRows = renderRows.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   return (
     <div>
       {/* Toolbar */}
       <div style={s.toolbar}>
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           <input
             type="text"
-            placeholder="Search by Job No, Party, Licence, Port..."
+            placeholder="Search Job No, Party, Licence, Port..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={s.input}
           />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={s.filterSelect}
+          >
+            <option value="">All Categories</option>
+            {availableCategories.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={s.filterSelect}
+          >
+            <option value="">All Statuses</option>
+            {JOB_STATUS_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button style={s.btnPrimary} onClick={handleOpenAdd}>
@@ -353,41 +541,138 @@ function AuthorizationRegistrationList({ onCountChange }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {paginatedRows.length === 0 ? (
               <tr className="dgft-empty-row">
                 <td colSpan={TABLE_COLUMNS.length}>No records found</td>
               </tr>
             ) : (
-              filtered.map((row) => (
-                <tr key={row._id}>
-                  {TABLE_COLUMNS.map((col) => {
-                    if (col.key === "_actions") {
-                      return (
-                        <td key="_actions" className="col-actions-cell">
-                          <div className="dgft-actions-cell">
-                            <button
-                              style={s.btnEdit}
-                              onClick={() => handleOpenEdit(row)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              style={s.btnDelete}
-                              onClick={() => handleDelete(row._id)}
-                            >
-                              Del
-                            </button>
-                          </div>
+              paginatedRows.map((row, idx) => {
+                // Render group header if this is the first row of a group
+                if (row._groupName) {
+                  return (
+                    <React.Fragment key={`group-${row._groupName}`}>
+                      <tr className="dgft-group-header">
+                        <td colSpan={TABLE_COLUMNS.length} style={{ fontWeight: "bold", background: "#f0f4f8", padding: "8px", borderBottom: "2px solid #d1d5db" }}>
+                          {row._groupName}
                         </td>
-                      );
-                    }
-                    return <td key={col.key}>{row[col.key] || ""}</td>;
-                  })}
-                </tr>
-              ))
+                      </tr>
+                      <tr key={row._id} className="dgft-data-row">
+                        {TABLE_COLUMNS.map((col) => {
+                          if (col.key === "_actions") {
+                            return (
+                              <td key="_actions" className="col-actions-cell">
+                                <div className="dgft-actions-cell">
+                                  <button
+                                    style={s.btnEdit}
+                                    onClick={() => handleOpenEdit(row)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    style={s.btnDelete}
+                                    onClick={() => handleDelete(row._id)}
+                                  >
+                                    Del
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          }
+                          if (col.key === "_sr_no") {
+                            return (
+                              <td key={col.key}>
+                                {page * rowsPerPage + idx + 1}
+                              </td>
+                            );
+                          }
+                          return <td key={col.key}>{row[col.key] || ""}</td>;
+                        })}
+                      </tr>
+                    </React.Fragment>
+                  );
+                }
+
+                return (
+                  <tr key={row._id} className="dgft-data-row">
+                    {TABLE_COLUMNS.map((col) => {
+                      if (col.key === "_actions") {
+                        return (
+                          <td key="_actions" className="col-actions-cell">
+                            <div className="dgft-actions-cell">
+                              <button
+                                style={s.btnEdit}
+                                onClick={() => handleOpenEdit(row)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                style={s.btnDelete}
+                                onClick={() => handleDelete(row._id)}
+                              >
+                                Del
+                              </button>
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (col.key === "_sr_no") {
+                        return (
+                          <td key={col.key}>
+                            {page * rowsPerPage + idx + 1}
+                          </td>
+                        );
+                      }
+                      return <td key={col.key}>{row[col.key] || ""}</td>;
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div style={s.pagination}>
+        <div>
+          Showing {renderRows.length === 0 ? 0 : page * rowsPerPage + 1}–
+          {Math.min((page + 1) * rowsPerPage, renderRows.length)} of{" "}
+          {renderRows.length} records
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span>Rows:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => {
+              setRowsPerPage(Number(e.target.value));
+              setPage(0);
+            }}
+            style={{ ...s.filterSelect, minWidth: "60px" }}
+          >
+            {ROWS_PER_PAGE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            style={page === 0 ? s.pageBtnDisabled : s.pageBtn}
+          >
+            ‹ Prev
+          </button>
+          <span>
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            style={page >= totalPages - 1 ? s.pageBtnDisabled : s.pageBtn}
+          >
+            Next ›
+          </button>
+        </div>
       </div>
 
       {/* Add/Edit Dialog */}
@@ -412,20 +697,100 @@ function AuthorizationRegistrationList({ onCountChange }) {
         </DialogTitle>
         <DialogContent dividers>
           <div className="dgft-form-grid">
-            {FIELDS.map((field) => (
-              <div className="dgft-form-group" key={field.key}>
-                <label>{field.label}</label>
-                <input
-                  type={field.type === "date" ? "date" : "text"}
-                  value={formData[field.key]}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  className={errors[field.key] ? "input-error" : ""}
-                />
-                {errors[field.key] && (
-                  <span className="field-error">{errors[field.key]}</span>
-                )}
-              </div>
-            ))}
+            {FIELDS.map((field) => {
+              // Handle category field with custom category input
+              if (field.key === "category") {
+                return (
+                  <div className="dgft-form-group" key={field.key}>
+                    <label>{field.label}</label>
+                    <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+                      <select
+                        value={formData[field.key]}
+                        onChange={(e) => handleChange(field.key, e.target.value)}
+                      >
+                        <option value="">-- Select Category --</option>
+                        {availableCategories.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <input
+                          type="text"
+                          placeholder="Add custom category..."
+                          value={categoryInput}
+                          onChange={(e) => setCategoryInput(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && handleAddCustomCategory()}
+                          style={{ ...s.input, flex: 1, minWidth: "150px" }}
+                        />
+                        <button
+                          onClick={handleAddCustomCategory}
+                          style={{
+                            padding: "4px 10px",
+                            background: "#10b981",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "3px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                    {errors[field.key] && (
+                      <span className="field-error">{errors[field.key]}</span>
+                    )}
+                  </div>
+                );
+              }
+
+              // Handle read-only job_no
+              if (field.readOnly) {
+                return (
+                  <div className="dgft-form-group" key={field.key}>
+                    <label>{field.label}</label>
+                    <input
+                      type="text"
+                      value={formData[field.key]}
+                      readOnly
+                      style={{ ...s.input, background: "#f3f4f6", color: "#666" }}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className="dgft-form-group" key={field.key}>
+                  <label>{field.label}</label>
+                  {field.select ? (
+                    <select
+                      value={formData[field.key]}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                    >
+                      <option value="">-- Select --</option>
+                      {field.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type === "date" ? "date" : "text"}
+                      value={formData[field.key]}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                      className={errors[field.key] ? "input-error" : ""}
+                    />
+                  )}
+                  {errors[field.key] && (
+                    <span className="field-error">{errors[field.key]}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </DialogContent>
         <div

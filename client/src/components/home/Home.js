@@ -22,6 +22,7 @@ const importPriority = [
 
   "Audit Trail",
 
+  "DGFT",
   "Open Points",
 ];
 

@@ -3,10 +3,12 @@ import mongoose from "mongoose";
 const authorizationRegistrationSchema = new mongoose.Schema(
   {
     job_no: { type: String },
+    job_status: { type: String },
     date: { type: String },
     party_name: { type: String },
     job_type: { type: String },
     port_name: { type: String },
+    category: { type: String },
     licence_no: { type: String },
     licence_date: { type: String },
     licence_amount: { type: String },

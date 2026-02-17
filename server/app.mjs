@@ -226,6 +226,9 @@ import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
 import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
 import teamRoutes from "./routes/team/teamRoutes.mjs";
 
+// DGFT Module
+import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -490,6 +493,9 @@ app.use(kpiRoutes);
 
 app.use(mrmRoutes);
 app.use(teamRoutes);
+
+// DGFT Module
+app.use(dgftRoutes);
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

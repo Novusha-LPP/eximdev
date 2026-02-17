@@ -1,0 +1,258 @@
+/* ===== DGFT Module SCSS ===== */
+
+.dgft-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  max-height: 600px;
+  overflow-y: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+
+      // Group header row
+      tr.header-group {
+        th {
+          background: #1a3168; // Dark Navy Blue
+          color: #fff;
+          padding: 6px 6px;
+          font-size: 11px;
+          font-weight: 700;
+          text-align: center;
+          border: 1px solid #c5c5c5;
+          white-space: nowrap;
+        }
+      }
+
+      // Sub header row
+      tr.header-sub {
+        th {
+          background: #16476A; // Light Navy Blue
+          color: #ffffff;
+          padding: 7px 6px;
+          font-size: 11px;
+          font-weight: 600;
+          text-align: center;
+          border: 1px solid #f0f0f0;
+          white-space: nowrap;
+        }
+      }
+
+      // Single-level header (for auth tab)
+      tr.header-single {
+        th {
+          background: #2563eb;
+          color: #fff;
+          padding: 8px 6px;
+          font-size: 11px;
+          font-weight: 700;
+          text-align: left;
+          border: 1px solid #1e40af;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    tbody {
+      tr {
+        border-bottom: 1px solid #e5e7eb;
+        transition: background 0.1s;
+
+        &:hover {
+          background: #f0f7ff;
+        }
+
+        &:nth-child(even) {
+          background: #fafbfc;
+
+          &:hover {
+            background: #f0f7ff;
+          }
+        }
+
+        td {
+          padding: 5px 6px;
+          font-size: 12px;
+          color: #1f2937;
+          border-right: 1px solid #f0f0f0;
+          vertical-align: middle;
+          white-space: nowrap;
+
+          &:last-child {
+            border-right: none;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Sticky actions column
+.col-actions-head {
+  position: sticky;
+  left: 0;
+  z-index: 12 !important;
+  background: #2563eb !important;
+  min-width: 90px;
+}
+
+.col-actions-cell {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: inherit;
+  min-width: 90px;
+}
+
+// Actions cell layout
+.dgft-actions-cell {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+// Empty rows
+.dgft-empty-row td {
+  text-align: center;
+  padding: 40px 20px !important;
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 13px;
+}
+
+// Modal form grid
+.dgft-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.dgft-form-group {
+  display: flex;
+  flex-direction: column;
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  input,
+  select {
+    padding: 7px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    font-size: 13px;
+    color: #333;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    &.input-error {
+      border-color: #dc2626;
+    }
+  }
+
+  .field-error {
+    font-size: 11px;
+    color: #dc2626;
+    margin-top: 2px;
+  }
+}
+
+// Toast notification
+.dgft-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 2000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: dgft-toast-in 0.25s ease;
+
+  &.success {
+    background: #16a34a;
+  }
+
+  &.error {
+    background: #dc2626;
+  }
+
+  button {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 2px;
+    opacity: 0.8;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+@keyframes dgft-toast-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+// Upload label button
+.dgft-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid #2563eb;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2563eb;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #eff6ff;
+  }
+
+  input[type="file"] {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .dgft-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

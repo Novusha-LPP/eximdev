@@ -684,6 +684,7 @@ function useFetchJobDetails(
         container_number: safeValue(container.container_number),
         size: safeValue(container.size, "20"),
         seal_number: Array.isArray(container.seal_number) ? container.seal_number : (container.seal_number ? [container.seal_number] : []),
+        wire_seal: Array.isArray(container.wire_seal) ? container.wire_seal : (container.wire_seal ? [container.wire_seal] : []),
         net_weight_as_per_PL_document: safeValue(container.net_weight_as_per_PL_document),
         container_rail_out_date: safeValue(container.container_rail_out_date),
         by_road_movement_date: safeValue(container.by_road_movement_date),

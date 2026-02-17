@@ -179,6 +179,7 @@ function useFetchOperationTeamJob(params) {
         do_validity_upto_container_level: container.do_validity_upto_container_level || "",
         required_do_validity_upto: container.required_do_validity_upto || "",
         seal_number: Array.isArray(container.seal_number) ? container.seal_number : (container.seal_number ? [container.seal_number] : []),
+        wire_seal: Array.isArray(container.wire_seal) ? container.wire_seal : (container.wire_seal ? [container.wire_seal] : []),
         container_rail_out_date: container.container_rail_out_date || "",
         by_road_movement_date: container.by_road_movement_date || "",
         emptyContainerOffLoadDate: container.emptyContainerOffLoadDate || "",

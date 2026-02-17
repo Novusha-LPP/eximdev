@@ -20,6 +20,51 @@ import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import Charges from "../Charges/Charges";
 import QueriesComponent from "../../utils/QueriesComponent";
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+
+// Excel-like styles
+const excelStyles = {
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontSize: "12px",
+    backgroundColor: "#ffffff",
+    border: "2px solid #000000", // Strong black border for outer edge
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)", // Sharper shadow
+    marginBottom: "20px",
+  },
+  th: {
+    backgroundColor: "#061f45", // Dark Blue
+    color: "#ffffff", // White text
+    border: "1px solid #000000", // Black border
+    padding: "12px 14px",
+    textAlign: "left",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: "13px",
+    letterSpacing: "0.5px",
+    verticalAlign: "middle",
+  },
+  td: {
+    border: "1px solid #000000", // Black border
+    padding: "10px 14px",
+    verticalAlign: "middle",
+    backgroundColor: "#ffffff",
+    fontSize: "13px",
+    color: "#000000", // Pitch black text
+    fontWeight: "500",
+  },
+  link: {
+    color: "#0056b3", // Darker vibrant blue for links
+    textDecoration: "none",
+    fontWeight: "600",
+    display: "inline-block",
+    marginRight: "10px",
+    marginBottom: "2px",
+    transition: "all 0.2s ease"
+  }
+};
 
 const ViewBillingJob = () => {
   const routeLocation = useLocation();
@@ -246,113 +291,97 @@ const ViewBillingJob = () => {
       }
     }
   }, [isFieldDisabled, formik.values.billing_completed_date]);
-  const renderDocuments = (documents, type) => {
-    if (!documents || documents.length === 0) {
-      return <p>No {type} uploaded yet.</p>;
+
+  // Unified Render Table Function
+  // Unified Render Table Function
+  const renderDocumentTable = (docs, type) => {
+    if (!docs || docs.length === 0) {
+      return <p style={{ padding: '10px', color: '#666', fontStyle: 'italic' }}>No documents available.</p>;
     }
 
+    // Adapt data structure
+    const rows = type === 'CTH' ? docs : docs.map(url => ({
+      document_name: extractFileName(url), // Kept for consistency, though not used in 'ALL' column
+      url: [url]
+    }));
+
+    // Function to render a single table given a subset of rows
+    const renderTable = (tableRows, startIndex) => (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={excelStyles.table}>
+          <thead>
+            <tr>
+              {type === 'ALL' ? (
+                <th style={{ ...excelStyles.th, width: '50px', textAlign: 'center' }}>Sr No</th>
+              ) : (
+                <th style={{ ...excelStyles.th, width: '40%' }}>Document Name</th>
+              )}
+              <th style={excelStyles.th}>Files</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map((row, index) => (
+              <tr key={index} style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                {type === 'ALL' ? (
+                  <td style={{ ...excelStyles.td, textAlign: 'center', fontWeight: 700, color: 'black' }}>
+                    {startIndex + index + 1}
+                  </td>
+                ) : (
+                  <td style={{ ...excelStyles.td, color: 'black' }}>
+                    <div style={{ fontWeight: 700 }}>
+                      {row.document_name || '-'}
+                    </div>
+                    {row.document_code && (
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                        {row.document_code}
+                      </div>
+                    )}
+                  </td>
+                )}
+                <td style={excelStyles.td}>
+                  {row.url && row.url.length > 0 ? (
+                    row.url.map((fileUrl, i) => (
+                      <a
+                        key={i}
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          ...excelStyles.link,
+                          '&:hover': { textDecoration: 'underline' }
+                        }}
+                      >
+                        {extractFileName(fileUrl)}
+                      </a>
+                    ))
+                  ) : (
+                    <span style={{ color: '#999' }}>No files</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    // Split rows into two columns
+    const midPoint = Math.ceil(rows.length / 2);
+    const leftRows = rows.slice(0, midPoint);
+    const rightRows = rows.slice(midPoint);
+
     return (
-      <Box display="flex" flexWrap="wrap" gap={2} mt={2}>
-        {documents.map((doc, index) => (
-          <Box
-            key={index}
-            sx={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              borderRadius: "5px",
-              flex: "1 1 30%",
-              maxWidth: "30%",
-              minWidth: "250px",
-              maxHeight: "150px",
-              overflowY: "auto",
-            }}
-          >
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-            >
-              {doc.document_name || `Document ${index + 1}`} (
-              {doc.document_code})
-            </Typography>
-            <Box mt={2}>
-              {doc.url.map((url, imgIndex) => (
-                <div
-                  key={imgIndex}
-                  style={{
-                    marginBottom: "10px",
-                    paddingBottom: "5px",
-                    borderBottom: "1px solid #ccc",
-                  }}
-                >
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", color: "blue" }}
-                  >
-                    {extractFileName(url)}
-                  </a>
-                </div>
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Box>
+      <Row>
+        <Col md={6} style={{ paddingRight: '10px' }}>
+          {renderTable(leftRows, 0)}
+        </Col>
+        <Col md={6} style={{ paddingLeft: '10px' }}>
+          {rightRows.length > 0 && renderTable(rightRows, midPoint)}
+        </Col>
+      </Row>
     );
   };
 
-  const renderAllDocuments = (documents) => {
-    if (!documents || documents.length === 0) {
-      return <p>No documents uploaded yet.</p>;
-    }
-
-    return (
-      <Box
-        display="flex"
-        flexWrap="wrap"
-        gap={2}
-        mt={2}
-        sx={{
-          justifyContent: "flex-start",
-        }}
-      >
-        {documents.map((url, index) => (
-          <Box
-            key={index}
-            sx={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              borderRadius: "5px",
-              flex: "1 1 30%",
-              maxWidth: "30%",
-              minWidth: "250px",
-            }}
-          >
-            <Box mt={1} textAlign="center">
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ textDecoration: "none", color: "blue" }}
-              >
-                {extractFileName(url)}
-              </a>
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    );
-  };
   return (
     <div>
       {data !== null ? (
@@ -393,220 +422,355 @@ const ViewBillingJob = () => {
                 />
               </div>
             )}
-            <div className="job-details-container">
-              <JobDetailsRowHeading heading="CTH Documents" />
-              {renderDocuments(data.cth_documents, "CTH Documents")}
-            </div>
-            <div className="job-details-container">
-              <JobDetailsRowHeading heading="All Documents" />
-              {renderAllDocuments(data.all_documents)}
-            </div>
-            {/* Agency Bill Details */}
+
+            {/* Agency & Reimbursement Bill Details - Compact Table */}
             <div className="job-details-container">
               <JobDetailsRowHeading heading="Billing Details" />
 
-              <Box sx={{ mt: 3, mb: 4 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
-                  Agency Bill Details
-                </Typography>
-                <Row>
-                  <Col xs={12} md={4}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Bill Number:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      name="agency_bill_no"
-                      value={formik.values.agency_bill_no}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                  <Col xs={12} md={4}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Bill Date:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      type="datetime-local"
-                      size="small"
-                      name="agency_bill_date"
-                      value={formik.values.agency_bill_date}
-                      onChange={formik.handleChange}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </Col>
-                  <Col xs={12} md={4}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Bill Amount:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="number"
-                      name="agency_bill_amount"
-                      value={formik.values.agency_bill_amount}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                  <Col xs={12} md={12} className="mt-3">
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Agency Bill Document:
-                    </Typography>
+              <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+                <table style={excelStyles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...excelStyles.th, width: '15%' }}>Bill Type</th>
+                      <th style={{ ...excelStyles.th, width: '20%' }}>Bill Number</th>
+                      <th style={{ ...excelStyles.th, width: '20%' }}>Bill Date</th>
+                      <th style={{ ...excelStyles.th, width: '15%' }}>Bill Amount</th>
+                      <th style={{ ...excelStyles.th, width: '30%' }}>Document</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Agency Bill Row */}
+                    <tr style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                      <td style={{ ...excelStyles.td, fontWeight: 700, color: '#1976d2' }}>
+                        Agency Bill
+                      </td>
+                      <td style={excelStyles.td}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          variant="standard"
+                          name="agency_bill_no"
+                          value={formik.values.agency_bill_no}
+                          onChange={formik.handleChange}
+                          InputProps={{ disableUnderline: true }}
+                          placeholder="Enter Bill No"
+                        />
+                      </td>
+                      <td style={excelStyles.td}>
+                        <TextField
+                          fullWidth
+                          type="datetime-local"
+                          size="small"
+                          variant="standard"
+                          name="agency_bill_date"
+                          value={formik.values.agency_bill_date}
+                          onChange={formik.handleChange}
+                          InputProps={{
+                            disableUnderline: true,
+                            style: { fontSize: '12px' }
+                          }}
+                        />
+                      </td>
+                      <td style={excelStyles.td}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type="number"
+                          variant="standard"
+                          name="agency_bill_amount"
+                          value={formik.values.agency_bill_amount}
+                          onChange={formik.handleChange}
+                          InputProps={{ disableUnderline: true }}
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td style={{ ...excelStyles.td, padding: '4px 8px' }}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <div style={{ flex: 1 }}>
+                            {formik.values.upload_agency_bill_img ? (
+                              <Box display="flex" alignItems="center" justifyContent="space-between">
+                                <a
+                                  href={formik.values.upload_agency_bill_img}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: '11px',
+                                    color: '#1976d2',
+                                    textDecoration: 'none',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '150px',
+                                    display: 'inline-block'
+                                  }}
+                                >
+                                  {extractFileName(formik.values.upload_agency_bill_img)}
+                                </a>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  onClick={() => formik.setFieldValue("upload_agency_bill_img", "")}
+                                  sx={{ minWidth: '30px', padding: 0 }}
+                                >
+                                  ✕
+                                </Button>
+                              </Box>
+                            ) : (
+                              <FileUpload
+                                label="UPLOAD"
+                                bucketPath="upload_agency_bill_img"
+                                onFilesUploaded={(files) =>
+                                  handleFilesUploaded(files, "upload_agency_bill_img")
+                                }
+                                containerStyles={{ marginTop: "0px" }}
+                                buttonSx={{ backgroundColor: "black", color: "white", "&:hover": { backgroundColor: "#333" }, width: "auto", minWidth: "100px" }}
+                              />
+                            )}
+                          </div>
+                        </Box>
+                      </td>
+                    </tr>
 
-                    <FileUpload
-                      label="Upload Agency Bill"
-                      bucketPath="upload_agency_bill_img"
-                      onFilesUploaded={(files) =>
-                        handleFilesUploaded(files, "upload_agency_bill_img")
-                      }
-                      containerStyles={{ marginTop: "0px" }}
-                      buttonSx={{ width: "100%", minHeight: "40px" }}
-                    />
-
-                    {formik.values.upload_agency_bill_img && (
-                      <ImagePreview
-                        images={[formik.values.upload_agency_bill_img]}
-                        onDeleteImage={() => {
-                          formik.setFieldValue("upload_agency_bill_img", "");
-                        }}
-                      />
-                    )}
-                  </Col>
-                </Row>
-              </Box>
-
-              {/* Reimbursement Bill Details */}
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
-                  Reimbursement Bill Details
-                </Typography>
-                <Row>
-                  <Col xs={12} md={4}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Bill Number:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      name="reimbursement_bill_no"
-                      value={formik.values.reimbursement_bill_no}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                  <Col xs={12} md={4}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Bill Date:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      type="datetime-local"
-                      size="small"
-                      name="reimbursement_bill_date"
-                      value={formik.values.reimbursement_bill_date}
-                      onChange={formik.handleChange}
-                      placeholder="DD-MMM-YYYY (e.g., 23-Apr-2024)"
-                    />
-                  </Col>
-                  <Col xs={12} md={4}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Bill Amount:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="number"
-                      name="reimbursement_bill_amount"
-                      value={formik.values.reimbursement_bill_amount}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                  <Col xs={12} md={12} className="mt-3">
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Reimbursement Bill Document:
-                    </Typography>
-
-                    <FileUpload
-                      label="Upload Reimbursement Bill"
-                      bucketPath="upload_reimbursement_bill_img"
-                      onFilesUploaded={(files) =>
-                        handleFilesUploaded(
-                          files,
-                          "upload_reimbursement_bill_img"
-                        )
-                      }
-                      containerStyles={{ marginTop: "0px" }}
-                      buttonSx={{ width: "100%", minHeight: "40px" }}
-                    />
-
-                    {formik.values.upload_reimbursement_bill_img && (
-                      <ImagePreview
-                        images={[formik.values.upload_reimbursement_bill_img]}
-                        onDeleteImage={() => {
-                          formik.setFieldValue(
-                            "upload_reimbursement_bill_img",
-                            ""
-                          );
-                        }}
-                      />
-                    )}
-                  </Col>
-                </Row>
-              </Box>
+                    {/* Reimbursement Bill Row */}
+                    <tr style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                      <td style={{ ...excelStyles.td, fontWeight: 700, color: '#e65100' }}>
+                        Reimbursement Bill
+                      </td>
+                      <td style={excelStyles.td}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          variant="standard"
+                          name="reimbursement_bill_no"
+                          value={formik.values.reimbursement_bill_no}
+                          onChange={formik.handleChange}
+                          InputProps={{ disableUnderline: true }}
+                          placeholder="Enter Bill No"
+                        />
+                      </td>
+                      <td style={excelStyles.td}>
+                        <TextField
+                          fullWidth
+                          type="datetime-local"
+                          size="small"
+                          variant="standard"
+                          name="reimbursement_bill_date"
+                          value={formik.values.reimbursement_bill_date}
+                          onChange={formik.handleChange}
+                          InputProps={{
+                            disableUnderline: true,
+                            style: { fontSize: '12px' }
+                          }}
+                        />
+                      </td>
+                      <td style={excelStyles.td}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type="number"
+                          variant="standard"
+                          name="reimbursement_bill_amount"
+                          value={formik.values.reimbursement_bill_amount}
+                          onChange={formik.handleChange}
+                          InputProps={{ disableUnderline: true }}
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td style={{ ...excelStyles.td, padding: '4px 8px' }}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <div style={{ flex: 1 }}>
+                            {formik.values.upload_reimbursement_bill_img ? (
+                              <Box display="flex" alignItems="center" justifyContent="space-between">
+                                <a
+                                  href={formik.values.upload_reimbursement_bill_img}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: '11px',
+                                    color: '#1976d2',
+                                    textDecoration: 'none',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '150px',
+                                    display: 'inline-block'
+                                  }}
+                                >
+                                  {extractFileName(formik.values.upload_reimbursement_bill_img)}
+                                </a>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  onClick={() => formik.setFieldValue("upload_reimbursement_bill_img", "")}
+                                  sx={{ minWidth: '30px', padding: 0 }}
+                                >
+                                  ✕
+                                </Button>
+                              </Box>
+                            ) : (
+                              <FileUpload
+                                label="UPLOAD"
+                                bucketPath="upload_reimbursement_bill_img"
+                                onFilesUploaded={(files) =>
+                                  handleFilesUploaded(files, "upload_reimbursement_bill_img")
+                                }
+                                containerStyles={{ marginTop: "0px" }}
+                                buttonSx={{ backgroundColor: "black", color: "white", "&:hover": { backgroundColor: "#333" }, width: "auto", minWidth: "100px" }}
+                              />
+                            )}
+                          </div>
+                        </Box>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
+
+            {/* CTH Documents Table */}
+            <div className="job-details-container">
+              <JobDetailsRowHeading heading="CTH Documents" />
+              {renderDocumentTable(data.cth_documents, 'CTH')}
+            </div>
+
+            {/* All Documents Table */}
+            <div className="job-details-container">
+              <JobDetailsRowHeading heading="All Documents" />
+              {renderDocumentTable(data.all_documents, 'ALL')}
+            </div>
+
+
             {/* Conditional Invoices for ICD SANAND */}
             {data?.custom_house === "ICD SANAND" && (
               <div className="job-details-container">
                 <JobDetailsRowHeading heading="ICD Sanand Invoices" />
-                <Row>
-                  <Col xs={12} md={4}>
-                    <FileUpload
-                      label="Upload Thar Invoices"
-                      bucketPath="thar_invoices"
-                      onFilesUploaded={(newFiles) => {
-                        const existingFiles = formik.values.thar_invoices || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue("thar_invoices", updatedFiles);
-                      }}
-                      multiple={true}
-                      containerStyles={{ marginTop: "0px" }}
-                      buttonSx={{ width: "100%", minHeight: "40px" }}
-                    />
-                    <ImagePreview
-                      images={formik.values.thar_invoices || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [...formik.values.thar_invoices];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue("thar_invoices", updatedFiles);
-                      }}
-                    />
-                  </Col>
-                  <Col xs={12} md={4}>
-                    <FileUpload
-                      label="Upload Hasti Invoices"
-                      bucketPath="hasti_invoices"
-                      onFilesUploaded={(newFiles) => {
-                        const existingFiles =
-                          formik.values.hasti_invoices || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue("hasti_invoices", updatedFiles);
-                      }}
-                      multiple={true}
-                      containerStyles={{ marginTop: "0px" }}
-                      buttonSx={{ width: "100%", minHeight: "40px" }}
-                    />
-                    <ImagePreview
-                      images={formik.values.hasti_invoices || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [...formik.values.hasti_invoices];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue("hasti_invoices", updatedFiles);
-                      }}
-                    />
-                  </Col>
-                </Row>
+                <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+                  <table style={excelStyles.table}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...excelStyles.th, width: '30%' }}>Invoice Type</th>
+                        <th style={{ ...excelStyles.th, width: '70%' }}>Document</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Thar Invoices Row */}
+                      <tr style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                        <td style={{ ...excelStyles.td, fontWeight: 700, color: '#000' }}>
+                          Thar Invoices
+                        </td>
+                        <td style={{ ...excelStyles.td, padding: '4px 8px' }}>
+                          <Box display="flex" flexDirection="column" gap={1}>
+                            {(formik.values.thar_invoices || []).map((fileUrl, index) => (
+                              <Box key={index} display="flex" alignItems="center" justifyContent="space-between" sx={{ borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: '11px',
+                                    color: '#0056b3',
+                                    textDecoration: 'none',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '300px',
+                                    display: 'inline-block'
+                                  }}
+                                >
+                                  {extractFileName(fileUrl)}
+                                </a>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    const updatedFiles = [...formik.values.thar_invoices];
+                                    updatedFiles.splice(index, 1);
+                                    formik.setFieldValue("thar_invoices", updatedFiles);
+                                  }}
+                                  sx={{ minWidth: '24px', padding: 0, height: '24px' }}
+                                >
+                                  ✕
+                                </Button>
+                              </Box>
+                            ))}
+                            <div style={{ marginTop: '4px' }}>
+                              <FileUpload
+                                label="UPLOAD"
+                                bucketPath="thar_invoices"
+                                onFilesUploaded={(newFiles) => {
+                                  const existingFiles = formik.values.thar_invoices || [];
+                                  const updatedFiles = [...existingFiles, ...newFiles];
+                                  formik.setFieldValue("thar_invoices", updatedFiles);
+                                }}
+                                multiple={true}
+                                containerStyles={{ marginTop: "0px" }}
+                                buttonSx={{ backgroundColor: "black", color: "white", "&:hover": { backgroundColor: "#333" }, width: "auto", minWidth: "100px" }}
+                              />
+                            </div>
+                          </Box>
+                        </td>
+                      </tr>
+
+                      {/* Hasti Invoices Row */}
+                      <tr style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                        <td style={{ ...excelStyles.td, fontWeight: 700, color: '#000' }}>
+                          Hasti Invoices
+                        </td>
+                        <td style={{ ...excelStyles.td, padding: '4px 8px' }}>
+                          <Box display="flex" flexDirection="column" gap={1}>
+                            {(formik.values.hasti_invoices || []).map((fileUrl, index) => (
+                              <Box key={index} display="flex" alignItems="center" justifyContent="space-between" sx={{ borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: '11px',
+                                    color: '#0056b3',
+                                    textDecoration: 'none',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '300px',
+                                    display: 'inline-block'
+                                  }}
+                                >
+                                  {extractFileName(fileUrl)}
+                                </a>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    const updatedFiles = [...formik.values.hasti_invoices];
+                                    updatedFiles.splice(index, 1);
+                                    formik.setFieldValue("hasti_invoices", updatedFiles);
+                                  }}
+                                  sx={{ minWidth: '24px', padding: 0, height: '24px' }}
+                                >
+                                  ✕
+                                </Button>
+                              </Box>
+                            ))}
+                            <div style={{ marginTop: '4px' }}>
+                              <FileUpload
+                                label="UPLOAD"
+                                bucketPath="hasti_invoices"
+                                onFilesUploaded={(newFiles) => {
+                                  const existingFiles = formik.values.hasti_invoices || [];
+                                  const updatedFiles = [...existingFiles, ...newFiles];
+                                  formik.setFieldValue("hasti_invoices", updatedFiles);
+                                }}
+                                multiple={true}
+                                containerStyles={{ marginTop: "0px" }}
+                                buttonSx={{ backgroundColor: "black", color: "white", "&:hover": { backgroundColor: "#333" }, width: "auto", minWidth: "100px" }}
+                              />
+                            </div>
+                          </Box>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
             {/* Charges Section (below Billing Details) */}

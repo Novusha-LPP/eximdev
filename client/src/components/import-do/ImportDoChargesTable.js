@@ -147,8 +147,7 @@ const ImportDoChargesTable = ({
         if (!selectedDocumentType) return;
 
         const newDocument = {
-            document_name:
-                selectedDocumentType === "other" || selectedDocumentType === "new_charge" ? "" : selectedDocumentType,
+            document_name: selectedDocumentType,
             url: [],
             document_check_date: "",
             document_amount_details: "",
@@ -267,40 +266,11 @@ const ImportDoChargesTable = ({
             <tr key={`${docType}-${index}`} style={{ height: "auto", transition: "background-color 0.2s" }}>
                 {/* CHARGE HEAD */}
                 <td style={{ ...excelStyles.td, padding: "8px" }}>
-                    {docType === "other_do_documents" ? (
-                        <Autocomplete
-                            freeSolo
-                            options={chargeHeadOptions}
-                            value={(doc.document_name || "").toUpperCase()}
-                            disabled={!isTableEditable}
-                            onInputChange={(event, newValue) => {
-                                formik.setFieldValue(`${docType}[${index}].document_name`, newValue ? newValue.toUpperCase() : "");
-                            }}
-                            onChange={(event, newValue) => {
-                                formik.setFieldValue(`${docType}[${index}].document_name`, newValue ? newValue.toUpperCase() : "");
-                            }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    fullWidth
-                                    size="small"
-                                    variant="standard"
-                                    placeholder="DOCUMENT NAME"
-                                    InputProps={{ ...params.InputProps, disableUnderline: true }}
-                                    sx={{
-                                        ...excelStyles.inputSx,
-                                        "& input": { textTransform: "uppercase", fontWeight: 500 }
-                                    }}
-                                />
-                            )}
-                        />
-                    ) : (
-                        <span style={{ fontWeight: 600, paddingLeft: "4px", fontSize: "12px", color: "#1a237e" }}>
-                            {docType === "do_shipping_line_invoice" && formik.values.shipping_line_airline
-                                ? formik.values.shipping_line_airline.toUpperCase()
-                                : (doc.document_name || "").toUpperCase()}
-                        </span>
-                    )}
+                    <span style={{ fontWeight: 600, paddingLeft: "4px", fontSize: "12px", color: "#1a237e" }}>
+                        {docType === "do_shipping_line_invoice" && formik.values.shipping_line_airline
+                            ? formik.values.shipping_line_airline.toUpperCase()
+                            : (doc.document_name || "").toUpperCase()}
+                    </span>
                     {isRemovable && user?.role === "Admin" && isTableEditable && (
                         <div style={{ marginTop: 6 }}>
                             <Chip

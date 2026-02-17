@@ -570,6 +570,46 @@ const FreeDaysConf = () => {
                 No Pre-Shipment Inspection Certificate{" "}
               </span>
             )}
+
+            {/* Render Bill of Lading */}
+            {cth_documents &&
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  doc.document_name === "Bill of Lading"
+              ) ? (
+              cth_documents
+                .filter(
+                  (doc) =>
+                    doc.url &&
+                    doc.url.length > 0 &&
+                    doc.document_name === "Bill of Lading"
+                )
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>
+                  {" "}
+                  No Bill of Lading{" "}
+                </span>
+              </div>
+            )}
           </div>
         );
       },

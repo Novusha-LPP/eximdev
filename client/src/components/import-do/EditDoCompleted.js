@@ -715,7 +715,7 @@ function EditDoCompleted() {
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
-            <form onSubmit={formik.handleSubmit}>
+            <form id="do-completed-form" onSubmit={formik.handleSubmit}>
               <div className="job-details-container">
                 <strong>KYC Documents:&nbsp;</strong>
                 <br />
@@ -798,26 +798,43 @@ function EditDoCompleted() {
               </div>
 
               {renderChargesSection()}
-              <button
-                className="btn sticky-btn"
-                type="submit"
-                style={{ float: "right", margin: "10px" }}
-                aria-label="submit-btn"
-              >
-                Submit
-              </button>
+              <Box sx={{ height: "60px" }} />
             </form>
-
-            <Snackbar
-              open={fileSnackbar}
-              autoHideDuration={3000}
-              onClose={() => setFileSnackbar(false)}
-              message={"File uploaded successfully!"}
-              sx={{ left: "auto !important", right: "24px !important" }}
-            />
           </div>
         )}
       </div>
+
+      <Button
+        type="submit"
+        form="do-completed-form"
+        variant="contained"
+        sx={{
+          position: "fixed",
+          bottom: 40,
+          right: 40,
+          zIndex: 1000,
+          backgroundColor: "#000",
+          color: "#fff",
+          "&:hover": {
+            backgroundColor: "#333",
+          },
+          padding: "12px 32px",
+          fontSize: "16px",
+          fontWeight: "600",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          borderRadius: "8px"
+        }}
+      >
+        Submit
+      </Button>
+
+      <Snackbar
+        open={fileSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setFileSnackbar(false)}
+        message={"File uploaded successfully!"}
+        sx={{ left: "auto !important", right: "24px !important" }}
+      />
     </>
   );
 }

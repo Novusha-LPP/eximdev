@@ -544,8 +544,8 @@ function HodManagement() {
                                             <Text type="secondary" style={{ fontSize: 12 }}>
                                                 {team.members?.length || 0} members
                                             </Text>
-                                            {/* Show HOD name for admin view */}
-                                            {user?.role === 'Admin' && (team.hodDetails || team.hodUsername) && (
+                                            {/* Show HOD name */}
+                                            {(team.hodDetails || team.hodUsername) && (
                                                 <>
                                                     <br />
                                                     <Text type="secondary" style={{ fontSize: 11, color: '#1890ff' }}>
@@ -634,6 +634,14 @@ function HodManagement() {
                                             <Text type="secondary">
                                                 {teamMembers.length} member{teamMembers.length !== 1 ? "s" : ""}
                                             </Text>
+                                            {/* Show HOD name */}
+                                            {(selectedTeam.hodDetails || selectedTeam.hodUsername) && (
+                                                <Text type="secondary" style={{ color: '#1890ff' }}>
+                                                    HOD: {selectedTeam.hodDetails
+                                                        ? `${selectedTeam.hodDetails.first_name} ${selectedTeam.hodDetails.last_name}`
+                                                        : selectedTeam.hodUsername}
+                                                </Text>
+                                            )}
                                         </Space>
                                         {selectedTeam.description && (
                                             <div>

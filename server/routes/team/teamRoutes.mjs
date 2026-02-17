@@ -8,8 +8,43 @@ const router = express.Router();
 router.get("/api/teams/hod/:hodUsername", async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const teams = await TeamModel.find({ hodUsername, isActive: true }).sort({ createdAt: -1 });
-        res.json({ success: true, teams });
+        const teams = await TeamModel.find({ hodUsername, isActive: true })
+            .sort({ createdAt: -1 });
+
+        // Auto-add HOD to members if not already present (fixes old teams)
+        for (const team of teams) {
+            const hodInMembers = team.members.some(m => m.username === team.hodUsername);
+            if (!hodInMembers && team.hodUsername) {
+                const hodUser = await UserModel.findOne({ username: team.hodUsername });
+                if (hodUser) {
+                    team.members.unshift({
+                        userId: hodUser._id,
+                        username: team.hodUsername,
+                        addedAt: team.createdAt || new Date()
+                    });
+                    await team.save();
+                }
+            }
+        }
+
+        // Convert to plain objects and enrich with HOD details
+        const teamsLean = teams.map(t => t.toObject());
+
+        const hodIds = [...new Set(teamsLean.map(t => t.hodId?.toString()).filter(Boolean))];
+        const hods = await UserModel.find({ _id: { $in: hodIds } })
+            .select('_id first_name last_name username')
+            .lean();
+
+        const hodMap = {};
+        hods.forEach(h => { hodMap[h._id.toString()] = h; });
+
+        // Enrich teams with HOD details
+        const enrichedTeams = teamsLean.map(team => ({
+            ...team,
+            hodDetails: hodMap[team.hodId?.toString()] || null
+        }));
+
+        res.json({ success: true, teams: enrichedTeams });
     } catch (error) {
         console.error("Error fetching HOD teams:", error);
         res.status(500).json({ success: false, message: "Failed to fetch teams" });
@@ -20,11 +55,28 @@ router.get("/api/teams/hod/:hodUsername", async (req, res) => {
 router.get("/api/teams/all", async (req, res) => {
     try {
         const teams = await TeamModel.find({ isActive: true })
-            .sort({ createdAt: -1 })
-            .lean();
+            .sort({ createdAt: -1 });
+
+        // Auto-add HOD to members if not already present (fixes old teams)
+        for (const team of teams) {
+            const hodInMembers = team.members.some(m => m.username === team.hodUsername);
+            if (!hodInMembers && team.hodUsername) {
+                const hodUser = await UserModel.findOne({ username: team.hodUsername });
+                if (hodUser) {
+                    team.members.unshift({
+                        userId: hodUser._id,
+                        username: team.hodUsername,
+                        addedAt: team.createdAt || new Date()
+                    });
+                    await team.save();
+                }
+            }
+        }
+
+        const teamsLean = teams.map(t => t.toObject());
 
         // Fetch HOD details for each team
-        const hodIds = [...new Set(teams.map(t => t.hodId?.toString()).filter(Boolean))];
+        const hodIds = [...new Set(teamsLean.map(t => t.hodId?.toString()).filter(Boolean))];
         const hods = await UserModel.find({ _id: { $in: hodIds } })
             .select('_id first_name last_name username')
             .lean();
@@ -34,17 +86,17 @@ router.get("/api/teams/all", async (req, res) => {
 
         // Fetch member details
         const allMemberUsernames = new Set();
-        teams.forEach(t => t.members.forEach(m => allMemberUsernames.add(m.username)));
+        teamsLean.forEach(t => t.members.forEach(m => allMemberUsernames.add(m.username)));
 
         const members = await UserModel.find({ username: { $in: [...allMemberUsernames] } })
-            .select('username first_name last_name department employee_photo')
+            .select('username first_name last_name department employee_photo role')
             .lean();
 
         const memberMap = {};
         members.forEach(m => { memberMap[m.username] = m; });
 
         // Enrich teams with HOD and member details
-        const enrichedTeams = teams.map(team => ({
+        const enrichedTeams = teamsLean.map(team => ({
             ...team,
             hodDetails: hodMap[team.hodId?.toString()] || null,
             membersDetails: team.members.map(m => ({
@@ -68,6 +120,21 @@ router.get("/api/teams/:teamId", async (req, res) => {
         if (!team) {
             return res.status(404).json({ success: false, message: "Team not found" });
         }
+
+        // Auto-add HOD to members if not already present (fixes old teams)
+        const hodInMembers = team.members.some(m => m.username === team.hodUsername);
+        if (!hodInMembers && team.hodUsername) {
+            const hodUser = await UserModel.findOne({ username: team.hodUsername });
+            if (hodUser) {
+                team.members.unshift({
+                    userId: hodUser._id,
+                    username: team.hodUsername,
+                    addedAt: team.createdAt || new Date()
+                });
+                await team.save();
+            }
+        }
+
         res.json({ success: true, team });
     } catch (error) {
         console.error("Error fetching team:", error);

@@ -128,6 +128,9 @@ import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 // HOD Management
 import HodManagement from "../components/home/HodManagement.js";
 
+// DGFT Module
+import DgftTabs from "../components/dgft/DgftTabs.js";
+
 const drawerWidth = 60;
 
 function HomePage() {
@@ -738,6 +741,9 @@ function HomePage() {
 
               {/* Project Nucleus */}
               <Route path="/project-nucleus" element={<NucleusHome />} />
+
+              {/* DGFT Module */}
+              <Route path="/dgft" element={<DgftTabs />} />
             </Routes>
           </Box>
         </Box>

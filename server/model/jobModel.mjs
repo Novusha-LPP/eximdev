@@ -176,7 +176,8 @@ const jobSchema = new mongoose.Schema({
       do_revalidation_date: { type: String, trim: true },
       do_validity_upto_container_level: { type: String, trim: true },
       required_do_validity_upto: { type: String, trim: true },
-      seal_number: { type: String, trim: true },
+      seal_number: [{ type: String, trim: true }],
+      wire_seal: [{ type: String, trim: true }],
       container_rail_out_date: { type: String, trim: true },
       by_road_movement_date: { type: String, trim: true },
       emptyContainerOffLoadDate: { type: String, trim: true },
@@ -476,7 +477,6 @@ const jobSchema = new mongoose.Schema({
   esanchitCharges: [esanchitChargesSchema],
 
   /////////////////////////////////// Do Charges Details
-
   // 1. Updated Schema (Backend) - Add this to your schema
   do_shipping_line_invoice: [
     {
@@ -489,6 +489,7 @@ const jobSchema = new mongoose.Schema({
       payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
       wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
       document_amount_details: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
       payment_request_date: { type: String, trim: true },
       payment_made_date: { type: String, trim: true },
       is_tds: { type: Boolean, default: false },
@@ -504,19 +505,25 @@ const jobSchema = new mongoose.Schema({
     {
       document_name: { type: String, trim: true },
       url: [{ type: String, trim: true }],
-      document_check_date: { type: String, trim: true },
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
+      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
       document_amount_details: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
+      payment_request_date: { type: String, trim: true },
+      payment_made_date: { type: String, trim: true },
+      is_tds: { type: Boolean, default: false },
+      is_payment_made: { type: Boolean, default: false },
+      is_payment_requested: { type: Boolean, default: false },
+      is_non_tds: { type: Boolean, default: false },
+      payment_recipt: [{ type: String, trim: true }],
+      payment_recipt_date: { type: String, trim: true },
     },
   ],
 
-  other_do_documents: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      document_check_date: { type: String, trim: true },
-      document_amount_details: { type: String, trim: true },
-    },
-  ],
 
   security_deposit: [
     {
@@ -524,10 +531,35 @@ const jobSchema = new mongoose.Schema({
       url: [{ type: String, trim: true }],
       document_check_date: { type: String, trim: true },
       document_amount_details: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
       utr: { type: Number, trim: true },
       Validity_upto: { type: String, trim: true },
     },
   ],
+
+  other_do_documents: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
+      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
+      document_amount_details: { type: String, trim: true },
+      cost_rate: { type: String, trim: true },
+      payment_request_date: { type: String, trim: true },
+      payment_made_date: { type: String, trim: true },
+      is_tds: { type: Boolean, default: false },
+      is_payment_made: { type: Boolean, default: false },
+      is_payment_requested: { type: Boolean, default: false },
+      is_non_tds: { type: Boolean, default: false },
+      payment_recipt: [{ type: String, trim: true }],
+      payment_recipt_date: { type: String, trim: true },
+    },
+  ],
+
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },

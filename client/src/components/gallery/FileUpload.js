@@ -13,7 +13,8 @@ const FileUpload = ({
   replaceMode = false, // New prop: when true, replaces existing files; when false, appends
   singleFileOnly = false, // New prop: when true, only allows one file to be selected
   containerStyles = {}, // New prop: custom styles for the container div
-  buttonSx = {}, // New prop: custom sx styles for the MUI Button
+  variant = "button", // "button" | "unstyled"
+  buttonSx = {}, // Custom sx styles
 }) => {
   const [uploading, setUploading] = useState(false);
   const { user } = useContext(UserContext);
@@ -45,6 +46,45 @@ const FileUpload = ({
     // Pass the upload mode to the callback
     onFilesUploaded(uploadedFiles, replaceMode);
   };
+
+  if (variant === "unstyled") {
+    return (
+      <div style={{ ...containerStyles }}>
+        <Tooltip
+          title={
+            readOnly
+              ? "Upload is disabled"
+              : `Select file to upload${singleFileOnly ? " (single file)" : ""}`
+          }
+          arrow
+        >
+          <label
+            style={{
+              cursor: readOnly ? "not-allowed" : "pointer",
+              display: "inline-block",
+              width: "100%", // ensure it takes width of container if needed
+              ...buttonSx
+            }}
+          >
+            {label}
+            <input
+              type="file"
+              hidden
+              multiple={!singleFileOnly && multiple}
+              accept={
+                acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""
+              }
+              onChange={handleFileUpload}
+              disabled={readOnly || uploading}
+            />
+          </label>
+        </Tooltip>
+        {uploading && (
+          <CircularProgress size={20} style={{ marginLeft: "10px", verticalAlign: "middle" }} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginTop: "10px", ...containerStyles }}>

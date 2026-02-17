@@ -72,6 +72,25 @@ function JobDetails() {
     setViewJobTab(newValue);
   };
 
+  // State to track which containers have expanded seal number lists
+  const [expandedSealIndices, setExpandedSealIndices] = useState({});
+
+  const toggleSealExpansion = (index) => {
+    setExpandedSealIndices(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const [expandedWireSealIndices, setExpandedWireSealIndices] = useState({});
+
+  const toggleWireSealExpansion = (index) => {
+    setExpandedWireSealIndices(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
 
@@ -2533,15 +2552,155 @@ function JobDetails() {
                             </Col>
                             <Col xs={12} md={3} lg={2} className="mb-3">
                               <label style={labelStyle}>Seal Number</label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                variant="outlined"
-                                name={`container_nos[${index}].seal_number`}
-                                value={container.seal_number}
-                                onChange={formik.handleChange}
-                                sx={compactInputSx}
-                              />
+                              {(() => {
+                                const seals = Array.isArray(container.seal_number) ? container.seal_number : [];
+                                const isExpanded = expandedSealIndices[index];
+                                const visibleSeals = isExpanded
+                                  ? seals.map((seal, i) => ({ seal, i }))
+                                  : (seals.length > 0 ? [{ seal: seals[seals.length - 1], i: seals.length - 1 }] : []);
+
+                                const renderAddButton = () => (
+                                  <Button
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    onClick={() => {
+                                      const currentSeals = Array.isArray(container.seal_number) ? container.seal_number : [];
+                                      if (!isExpanded && currentSeals.length > 0) {
+                                        setExpandedSealIndices(prev => ({ ...prev, [index]: true }));
+                                      }
+                                      formik.setFieldValue(`container_nos[${index}].seal_number`, [...currentSeals, ""]);
+                                    }}
+                                    sx={{ minWidth: 'auto', marginRight: '5px', whiteSpace: 'nowrap' }}
+                                  >
+                                    Add
+                                  </Button>
+                                );
+
+                                return (
+                                  <>
+                                    {visibleSeals.length === 0 && (
+                                      <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px', marginBottom: '5px' }}>
+                                        {renderAddButton()}
+                                      </div>
+                                    )}
+
+                                    {visibleSeals.map(({ seal, i: sIndex }, vIndex) => (
+                                      <div key={sIndex} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px', gap: '5px' }}>
+                                        <TextField
+                                          fullWidth
+                                          size="small"
+                                          variant="outlined"
+                                          name={`container_nos[${index}].seal_number[${sIndex}]`}
+                                          value={seal}
+                                          onChange={formik.handleChange}
+                                          sx={compactInputSx}
+                                        />
+
+                                        {vIndex === visibleSeals.length - 1 && renderAddButton()}
+
+                                        <IconButton
+                                          size="small"
+                                          color="error"
+                                          onClick={() => {
+                                            const newSeals = [...seals];
+                                            newSeals.splice(sIndex, 1);
+                                            formik.setFieldValue(`container_nos[${index}].seal_number`, newSeals);
+                                          }}
+                                        >
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </div>
+                                    ))}
+
+                                    {seals.length > 1 && (
+                                      <div style={{ marginBottom: '5px', marginLeft: '2px' }}>
+                                        <span
+                                          style={{ color: '#1976d2', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+                                          onClick={() => toggleSealExpansion(index)}
+                                        >
+                                          {isExpanded ? "Show Less" : `Show ${seals.length - 1} More...`}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </Col>
+                            <Col xs={12} md={3} lg={2} className="mb-3">
+                              <label style={labelStyle}>Wire Seal</label>
+                              {(() => {
+                                const wireSeals = Array.isArray(container.wire_seal) ? container.wire_seal : [];
+                                const isExpanded = expandedWireSealIndices[index];
+                                const visibleWireSeals = isExpanded
+                                  ? wireSeals.map((seal, i) => ({ seal, i }))
+                                  : (wireSeals.length > 0 ? [{ seal: wireSeals[wireSeals.length - 1], i: wireSeals.length - 1 }] : []);
+
+                                const renderAddWireSealButton = () => (
+                                  <Button
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    onClick={() => {
+                                      const currentWireSeals = Array.isArray(container.wire_seal) ? container.wire_seal : [];
+                                      if (!isExpanded && currentWireSeals.length > 0) {
+                                        setExpandedWireSealIndices(prev => ({ ...prev, [index]: true }));
+                                      }
+                                      formik.setFieldValue(`container_nos[${index}].wire_seal`, [...currentWireSeals, ""]);
+                                    }}
+                                    sx={{ minWidth: 'auto', marginRight: '5px', whiteSpace: 'nowrap' }}
+                                  >
+                                    Add
+                                  </Button>
+                                );
+
+                                return (
+                                  <>
+                                    {visibleWireSeals.length === 0 && (
+                                      <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px', marginBottom: '5px' }}>
+                                        {renderAddWireSealButton()}
+                                      </div>
+                                    )}
+
+                                    {visibleWireSeals.map(({ seal, i: sIndex }, vIndex) => (
+                                      <div key={sIndex} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px', gap: '5px' }}>
+                                        <TextField
+                                          fullWidth
+                                          size="small"
+                                          variant="outlined"
+                                          name={`container_nos[${index}].wire_seal[${sIndex}]`}
+                                          value={seal}
+                                          onChange={formik.handleChange}
+                                          sx={compactInputSx}
+                                        />
+
+                                        {vIndex === visibleWireSeals.length - 1 && renderAddWireSealButton()}
+
+                                        <IconButton
+                                          size="small"
+                                          color="error"
+                                          onClick={() => {
+                                            const newWireSeals = [...wireSeals];
+                                            newWireSeals.splice(sIndex, 1);
+                                            formik.setFieldValue(`container_nos[${index}].wire_seal`, newWireSeals);
+                                          }}
+                                        >
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </div>
+                                    ))}
+
+                                    {wireSeals.length > 1 && (
+                                      <div style={{ marginBottom: '5px', marginLeft: '2px' }}>
+                                        <span
+                                          style={{ color: '#1976d2', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+                                          onClick={() => toggleWireSealExpansion(index)}
+                                        >
+                                          {isExpanded ? "Show Less" : `Show ${wireSeals.length - 1} More...`}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </Col>
                             <Col xs={12} md={6} lg={4} className="mb-3">
                               <label style={labelStyle}>Transporter</label>

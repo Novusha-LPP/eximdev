@@ -377,7 +377,7 @@ const KPIHome = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <motion.div
                             className="modern-section"
-                            style={{ borderTop: '4px solid #0078d4' }}
+                            style={{ borderTop: '4px solid #ffffffff' }}
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ delay: 0.1 }}

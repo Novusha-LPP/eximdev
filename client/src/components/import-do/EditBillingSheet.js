@@ -20,14 +20,61 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Row, Col } from "react-bootstrap";
 import FileUpload from "../../components/gallery/FileUpload.js";
-import ImagePreview from "../../components/gallery/ImagePreview.js";
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportDO";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DeleteIcon from "@mui/icons-material/Delete";
 import Charges from "../Charges/Charges.js";
 import QueriesComponent from "../../utils/QueriesComponent.js";
+
+// Excel-like styles
+const excelStyles = {
+  table: {
+    width: "70%", // Reduced width as requested
+    marginLeft: "0",
+    borderCollapse: "collapse",
+    fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontSize: "12px",
+    backgroundColor: "#ffffff",
+    border: "2px solid #000000",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    marginBottom: "20px",
+  },
+  th: {
+    backgroundColor: "#061f45",
+    color: "#ffffff",
+    border: "1px solid #000000",
+    padding: "12px 14px",
+    textAlign: "left",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: "13px",
+    letterSpacing: "0.5px",
+    verticalAlign: "middle",
+  },
+  td: {
+    border: "1px solid #000000",
+    padding: "10px 14px",
+    verticalAlign: "middle",
+    backgroundColor: "#ffffff",
+    fontSize: "13px",
+    color: "#000000",
+    fontWeight: "500",
+  },
+  link: {
+    color: "#0056b3",
+    textDecoration: "none",
+    fontWeight: "600",
+    display: "inline-block",
+    marginRight: "10px",
+    marginBottom: "2px",
+    transition: "all 0.2s ease"
+  }
+};
 
 function EditBillingSheet() {
   const params = useParams();
@@ -159,6 +206,18 @@ function EditBillingSheet() {
     // You can add API calls, notifications, etc.
   };
 
+  // Extract filename from URL
+  const extractFileName = (url) => {
+    if (!url) return "No file uploaded";
+    try {
+      const parts = url.split("/");
+      return decodeURIComponent(parts[parts.length - 1]);
+    } catch (error) {
+      console.error("Failed to extract file name:", error);
+      return url;
+    }
+  };
+
   // Fetch data when the component is mounted
   React.useEffect(() => {
     async function getData() {
@@ -193,6 +252,117 @@ function EditBillingSheet() {
     }
     getData();
   }, [jobId]);
+
+  // Helper to render consistent rows
+  const renderUploadRow = (label, fieldName, bucketPath, extraLeftContent = null) => {
+    return (
+      <tr key={fieldName} style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+        <td style={{ ...excelStyles.td, fontWeight: 700, color: '#000', width: '30%', verticalAlign: 'top' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span>{label}</span>
+            {extraLeftContent}
+          </div>
+        </td>
+        <td style={{ ...excelStyles.td, padding: '8px', width: '70%', verticalAlign: 'middle' }}>
+          <Box display="flex" alignItems="flex-start" justifyContent="space-between" width="100%">
+            {/* Left: Files List */}
+            <Box display="flex" flexDirection="column" gap={1} flexGrow={1} mr={2}>
+              {(formik.values[fieldName] || []).length > 0 ? (
+                (formik.values[fieldName] || []).map((url, index) => (
+                  <Box
+                    key={index}
+                    display="flex"
+                    alignItems="center"
+                    sx={{
+                      borderBottom: '1px solid #eee',
+                      paddingBottom: '4px',
+                      minHeight: '36px' // Match button height
+                    }}
+                  >
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: '12px',
+                        color: '#0056b3',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '350px',
+                        display: 'inline-block'
+                      }}
+                    >
+                      {extractFileName(url)}
+                    </a>
+                  </Box>
+                ))
+              ) : (
+                <span style={{ color: '#aaa', fontStyle: 'italic', fontSize: '12px', padding: '10px 0' }}>
+                  No files uploaded
+                </span>
+              )}
+            </Box>
+
+            {/* Right: Actions Group */}
+            <Box flexShrink={0} display="flex" flexDirection="row" gap={1} alignItems="flex-start">
+              {/* Upload Button */}
+              <Box>
+                <FileUpload
+                  label={<CloudUploadIcon fontSize="small" />}
+                  bucketPath={bucketPath}
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values[fieldName] || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue(fieldName, updatedFiles);
+                  }}
+                  multiple={true}
+                  containerStyles={{ marginTop: 0 }}
+                  buttonSx={{
+                    minWidth: '36px',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    padding: 0,
+                    backgroundColor: 'black',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#333' },
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                />
+              </Box>
+
+              {/* Delete Buttons Column (Right side of Upload) */}
+              <Box display="flex" flexDirection="column" gap={1}>
+                {(formik.values[fieldName] || []).map((_, index) => (
+                  <IconButton
+                    key={`del-${index}`}
+                    size="small"
+                    onClick={() => {
+                      const updatedFiles = [...formik.values[fieldName]];
+                      updatedFiles.splice(index, 1);
+                      formik.setFieldValue(fieldName, updatedFiles);
+                    }}
+                    sx={{
+                      width: '36px',
+                      height: '36px',
+                      padding: 0,
+                      color: '#d32f2f',
+                      '&:hover': { backgroundColor: '#ffebee' }
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+        </td>
+      </tr>
+    );
+  };
 
   if (loading) return <p>Loading data...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
@@ -238,195 +408,79 @@ function EditBillingSheet() {
 
       <div className="job-details-container">
         <form id="billing-sheet-form" onSubmit={formik.handleSubmit}>
-          <Row>
-            <Col xs={12} md={6}>
-              {data?.custom_house === "ICD Sabarmati, Ahmedabad" && (
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="icd_cfs_invoice"
-                  name="icd_cfs_invoice"
-                  label="ICD CFS Invoice"
-                  value={formik.values.icd_cfs_invoice}
-                  onChange={formik.handleChange}
-                >
-                  <MenuItem value="No">No</MenuItem>
-                  <MenuItem value="Yes">Yes</MenuItem>
-                </TextField>
-              )}
-            </Col>
-          </Row>
+          <div style={{ overflowX: 'auto', marginBottom: '20px' }}>
+            <table style={excelStyles.table}>
+              <thead>
+                <tr>
+                  <th style={{ ...excelStyles.th, width: '30%' }}>Invoice Type</th>
+                  <th style={{ ...excelStyles.th, width: '70%' }}>Document</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* ICD CFS Invoices */}
+                {renderUploadRow(
+                  "ICD CFS Invoices",
+                  "icd_cfs_invoice_img",
+                  "icd_cfs_invoice_img",
+                  data?.custom_house === "ICD Sabarmati, Ahmedabad" ? (
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="icd_cfs_invoice"
+                      name="icd_cfs_invoice"
+                      label="Is Applicable?"
+                      value={formik.values.icd_cfs_invoice}
+                      onChange={formik.handleChange}
+                      sx={{ marginTop: '5px' }}
+                    >
+                      <MenuItem value="No">No</MenuItem>
+                      <MenuItem value="Yes">Yes</MenuItem>
+                    </TextField>
+                  ) : null
+                )}
 
-          <Row>
-            <Col xs={12} md={4}>
-              <FileUpload
-                label="ICD CFS Invoices"
-                bucketPath="icd_cfs_invoice_img"
-                onFilesUploaded={(newFiles) => {
-                  const existingFiles = formik.values.icd_cfs_invoice_img || [];
-                  const updatedFiles = [...existingFiles, ...newFiles];
-                  formik.setFieldValue("icd_cfs_invoice_img", updatedFiles);
-                }}
-                multiple={true}
-                containerStyles={{ marginTop: "0px" }}
-                buttonSx={{ width: "50%", minHeight: "40px" }}
-              />
-              <ImagePreview
-                images={formik.values.icd_cfs_invoice_img || []}
-                onDeleteImage={(index) => {
-                  const updatedFiles = [...formik.values.icd_cfs_invoice_img];
-                  updatedFiles.splice(index, 1);
-                  formik.setFieldValue("icd_cfs_invoice_img", updatedFiles);
-                }}
-              />
+                {/* Concor Invoice (Conditional) */}
+                {data?.custom_house?.includes("ICD KHODIYAR") &&
+                  renderUploadRow(
+                    "Concor Invoice & Receipt Copy",
+                    "concor_invoice_and_receipt_copy",
+                    "concor_invoice_and_receipt_copy"
+                  )}
 
-              <div className="mt-3">
-                {data?.custom_house?.includes("ICD KHODIYAR") && (
+                {/* Other Invoices */}
+                {renderUploadRow(
+                  "Other Invoices",
+                  "other_invoices_img",
+                  "other_invoices_img"
+                )}
+
+                {/* Shipping Line Invoices */}
+                {renderUploadRow(
+                  "Shipping Line Invoices",
+                  "shipping_line_invoice_imgs",
+                  "shipping_line_invoice_imgs"
+                )}
+
+                {/* Conditional Invoices for ICD SANAND */}
+                {data?.custom_house === "ICD SANAND" && (
                   <>
-                    <FileUpload
-                      label="Concor Invoice & Receipt Copy"
-                      bucketPath="concor_invoice_and_receipt_copy"
-                      onFilesUploaded={(newFiles) => {
-                        const existingFiles =
-                          formik.values.concor_invoice_and_receipt_copy || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue(
-                          "concor_invoice_and_receipt_copy",
-                          updatedFiles
-                        );
-                      }}
-                      multiple={true}
-                      containerStyles={{ marginTop: "0px" }}
-                      buttonSx={{ width: "50%", minHeight: "40px" }}
-                    />
-                    <ImagePreview
-                      images={
-                        formik.values.concor_invoice_and_receipt_copy || []
-                      }
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [
-                          ...formik.values.concor_invoice_and_receipt_copy,
-                        ];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue(
-                          "concor_invoice_and_receipt_copy",
-                          updatedFiles
-                        );
-                      }}
-                    />
+                    {renderUploadRow(
+                      "Thar Invoices",
+                      "thar_invoices",
+                      "thar_invoices"
+                    )}
+                    {renderUploadRow(
+                      "Hasti Invoices",
+                      "hasti_invoices",
+                      "hasti_invoices"
+                    )}
                   </>
                 )}
-              </div>
-            </Col>
-
-            <Col xs={12} md={4}>
-              <FileUpload
-                label="Other Invoices"
-                bucketPath="other_invoices_img"
-                onFilesUploaded={(newFiles) => {
-                  const existingFiles = formik.values.other_invoices_img || [];
-                  const updatedFiles = [...existingFiles, ...newFiles];
-                  formik.setFieldValue("other_invoices_img", updatedFiles);
-                }}
-                multiple={true}
-                containerStyles={{ marginTop: "0px" }}
-                buttonSx={{ width: "50%", minHeight: "40px" }}
-              />
-              <ImagePreview
-                images={formik.values.other_invoices_img || []}
-                onDeleteImage={(index) => {
-                  const updatedFiles = [...formik.values.other_invoices_img];
-                  updatedFiles.splice(index, 1);
-                  formik.setFieldValue("other_invoices_img", updatedFiles);
-                }}
-              />
-            </Col>
-
-            <Col xs={12} md={4}>
-              <FileUpload
-                label="Shipping Line Invoices"
-                bucketPath="shipping_line_invoice_imgs"
-                onFilesUploaded={(newFiles) => {
-                  const existingFiles =
-                    formik.values.shipping_line_invoice_imgs || [];
-                  const updatedFiles = [...existingFiles, ...newFiles];
-                  formik.setFieldValue(
-                    "shipping_line_invoice_imgs",
-                    updatedFiles
-                  );
-                }}
-                multiple={true}
-                containerStyles={{ marginTop: "0px" }}
-                buttonSx={{ width: "50%", minHeight: "40px" }}
-              />
-              <ImagePreview
-                images={formik.values.shipping_line_invoice_imgs || []}
-                onDeleteImage={(index) => {
-                  const updatedFiles = [
-                    ...formik.values.shipping_line_invoice_imgs,
-                  ];
-                  updatedFiles.splice(index, 1);
-                  formik.setFieldValue(
-                    "shipping_line_invoice_imgs",
-                    updatedFiles
-                  );
-                }}
-              />
-            </Col>
-          </Row>
-
-          {/* Conditional Invoices for ICD SANAND */}
-          {data?.custom_house === "ICD SANAND" && (
-            <Row>
-              <Col xs={12} md={4}>
-                <FileUpload
-                  label="Thar Invoices"
-                  bucketPath="thar_invoices"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.thar_invoices || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("thar_invoices", updatedFiles);
-                  }}
-                  multiple={true}
-                  containerStyles={{ marginTop: "0px" }}
-                  buttonSx={{ width: "50%", minHeight: "40px" }}
-                />
-                <ImagePreview
-                  images={formik.values.thar_invoices || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.thar_invoices];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("thar_invoices", updatedFiles);
-                  }}
-                />
-              </Col>
-              <Col xs={12} md={4}>
-                <FileUpload
-                  label="Hasti Invoices"
-                  bucketPath="hasti_invoices"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.hasti_invoices || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("hasti_invoices", updatedFiles);
-                  }}
-                  multiple={true}
-                  containerStyles={{ marginTop: "0px" }}
-                  buttonSx={{ width: "50%", minHeight: "40px" }}
-                />
-                <ImagePreview
-                  images={formik.values.hasti_invoices || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.hasti_invoices];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("hasti_invoices", updatedFiles);
-                  }}
-                />
-              </Col>
-            </Row>
-          )}
+              </tbody>
+            </table>
+          </div>
           <Row>
             <Col xs={12} md={6}>
               <div>
@@ -526,14 +580,29 @@ function EditBillingSheet() {
         </form>
       </div>
 
-      <button
-        className="btn sticky-btn"
+      <Button
         type="submit"
         form="billing-sheet-form"
-        aria-label="submit-btn"
+        variant="contained"
+        sx={{
+          position: "fixed",
+          bottom: 40,
+          right: 40,
+          zIndex: 1000,
+          backgroundColor: "#000",
+          color: "#fff",
+          "&:hover": {
+            backgroundColor: "#333",
+          },
+          padding: "12px 32px",
+          fontSize: "16px",
+          fontWeight: "600",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          borderRadius: "8px"
+        }}
       >
         Submit
-      </button>
+      </Button>
 
       <Snackbar
         open={fileSnackbar.open}

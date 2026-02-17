@@ -293,23 +293,7 @@ router.get(
       const baseQuery = {
         $and: [
           {
-            bill_document_sent_to_accounts: {
-              $exists: true,
-              $nin: [null, ""],
-            },
-          },
-          {
-            billing_completed_date: { $exists: true, $nin: [null, ""] },
-          },
-          {
-            dsr_queries: {
-              $not: {
-                $elemMatch: {
-                  select_module: "Accounts",
-                  resolved: { $ne: true }
-                }
-              }
-            }
+            bill_date: { $exists: true, $nin: [null, ""] },
           },
         ],
       };
@@ -340,12 +324,27 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date"
         )
         .lean();
 
-      // Apply color-based sorting
-      const rankedJobs = sortJobsByColorPriority(allJobs);
+      // Calculate color priority for frontend display
+      const jobsWithPriority = allJobs.map((job) => {
+        const { daysDifference, colorPriority } = calculateJobColorPriority(job);
+        return {
+          ...job,
+          daysDifference,
+          colorPriority,
+        };
+      });
+
+      // Apply sorting by job_no descending (3, 2, 1)
+      const rankedJobs = jobsWithPriority.sort((a, b) => {
+        const jobA = a.job_no || "";
+        const jobB = b.job_no || "";
+        // Use numeric sort for job numbers to handle "10" vs "2" correctly
+        return jobB.localeCompare(jobA, undefined, { numeric: true });
+      });
 
       // Get count of jobs with unresolved queries
       const unresolvedQueryBase = { ...baseQuery };
@@ -514,7 +513,13 @@ router.get(
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { "do_shipping_line_invoice.is_payment_requested": true },
+          {
+            $or: [
+              { "do_shipping_line_invoice.is_payment_requested": true },
+              { "insurance_copy.is_payment_requested": true },
+              { "other_do_documents.is_payment_requested": true },
+            ],
+          },
         ],
       };
 
@@ -555,31 +560,89 @@ router.get(
             has_pending_payments: {
               $gt: [
                 {
-                  $size: {
-                    $filter: {
-                      input: "$do_shipping_line_invoice",
-                      as: "invoice",
-                      cond: {
-                        $and: [
-                          { $eq: ["$$invoice.is_payment_requested", true] },
-                          {
-                            $or: [
-                              { $eq: ["$$invoice.payment_made_date", ""] },
-                              { $eq: ["$$invoice.payment_made_date", null] },
+                  $add: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$do_shipping_line_invoice", []] },
+                          as: "invoice",
+                          cond: {
+                            $and: [
+                              { $eq: ["$$invoice.is_payment_requested", true] },
                               {
-                                $not: {
-                                  $ifNull: [
-                                    "$$invoice.payment_made_date",
-                                    false,
-                                  ],
-                                },
+                                $or: [
+                                  { $eq: ["$$invoice.payment_made_date", ""] },
+                                  { $eq: ["$$invoice.payment_made_date", null] },
+                                  {
+                                    $not: {
+                                      $ifNull: [
+                                        "$$invoice.payment_made_date",
+                                        false,
+                                      ],
+                                    },
+                                  },
+                                ],
                               },
                             ],
                           },
-                        ],
+                        },
                       },
                     },
-                  },
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$insurance_copy", []] },
+                          as: "insurance",
+                          cond: {
+                            $and: [
+                              { $eq: ["$$insurance.is_payment_requested", true] },
+                              {
+                                $or: [
+                                  { $eq: ["$$insurance.payment_made_date", ""] },
+                                  { $eq: ["$$insurance.payment_made_date", null] },
+                                  {
+                                    $not: {
+                                      $ifNull: [
+                                        "$$insurance.payment_made_date",
+                                        false,
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$other_do_documents", []] },
+                          as: "other_doc",
+                          cond: {
+                            $and: [
+                              { $eq: ["$$other_doc.is_payment_requested", true] },
+                              {
+                                $or: [
+                                  { $eq: ["$$other_doc.payment_made_date", ""] },
+                                  { $eq: ["$$other_doc.payment_made_date", null] },
+                                  {
+                                    $not: {
+                                      $ifNull: [
+                                        "$$other_doc.payment_made_date",
+                                        false,
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                  ],
                 },
                 0,
               ],
@@ -642,6 +705,8 @@ router.get(
             concor_invoice_and_receipt_copy: 1,
             billing_completed_date: 1,
             do_shipping_line_invoice: 1,
+            insurance_copy: 1,
+            other_do_documents: 1,
             dsr_queries: 1,
             vessel_berthing: 1,
           },
@@ -651,7 +716,13 @@ router.get(
       const unresolvedMatchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { "do_shipping_line_invoice.is_payment_requested": true },
+          {
+            $or: [
+              { "do_shipping_line_invoice.is_payment_requested": true },
+              { "insurance_copy.is_payment_requested": true },
+              { "other_do_documents.is_payment_requested": true },
+            ],
+          },
           { dsr_queries: { $elemMatch: { resolved: { $ne: true } } } },
         ],
       };
@@ -687,31 +758,89 @@ router.get(
             has_pending_payments: {
               $gt: [
                 {
-                  $size: {
-                    $filter: {
-                      input: "$do_shipping_line_invoice",
-                      as: "invoice",
-                      cond: {
-                        $and: [
-                          { $eq: ["$$invoice.is_payment_requested", true] },
-                          {
-                            $or: [
-                              { $eq: ["$$invoice.payment_made_date", ""] },
-                              { $eq: ["$$invoice.payment_made_date", null] },
+                  $add: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$do_shipping_line_invoice", []] },
+                          as: "invoice",
+                          cond: {
+                            $and: [
+                              { $eq: ["$$invoice.is_payment_requested", true] },
                               {
-                                $not: {
-                                  $ifNull: [
-                                    "$$invoice.payment_made_date",
-                                    false,
-                                  ],
-                                },
+                                $or: [
+                                  { $eq: ["$$invoice.payment_made_date", ""] },
+                                  { $eq: ["$$invoice.payment_made_date", null] },
+                                  {
+                                    $not: {
+                                      $ifNull: [
+                                        "$$invoice.payment_made_date",
+                                        false,
+                                      ],
+                                    },
+                                  },
+                                ],
                               },
                             ],
                           },
-                        ],
+                        },
                       },
                     },
-                  },
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$insurance_copy", []] },
+                          as: "insurance",
+                          cond: {
+                            $and: [
+                              { $eq: ["$$insurance.is_payment_requested", true] },
+                              {
+                                $or: [
+                                  { $eq: ["$$insurance.payment_made_date", ""] },
+                                  { $eq: ["$$insurance.payment_made_date", null] },
+                                  {
+                                    $not: {
+                                      $ifNull: [
+                                        "$$insurance.payment_made_date",
+                                        false,
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$other_do_documents", []] },
+                          as: "other_doc",
+                          cond: {
+                            $and: [
+                              { $eq: ["$$other_doc.is_payment_requested", true] },
+                              {
+                                $or: [
+                                  { $eq: ["$$other_doc.payment_made_date", ""] },
+                                  { $eq: ["$$other_doc.payment_made_date", null] },
+                                  {
+                                    $not: {
+                                      $ifNull: [
+                                        "$$other_doc.payment_made_date",
+                                        false,
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                  ],
                 },
                 0,
               ],
@@ -773,8 +902,13 @@ router.get(
         $and: [
           req.icdFilterCondition,
           { status: { $regex: /^pending$/i } },
-          { "do_shipping_line_invoice.is_payment_requested": true },
-          { do_shipping_line_invoice: { $exists: true, $ne: [] } },
+          {
+            $or: [
+              { "do_shipping_line_invoice.is_payment_requested": true },
+              { "insurance_copy.is_payment_requested": true },
+              { "other_do_documents.is_payment_requested": true },
+            ],
+          },
         ],
       };
 
@@ -800,24 +934,28 @@ router.get(
 
       const allJobsFromDB = await JobModel.find(baseQuery)
         .select(
-          "priorityJob eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries dsr_queries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice vessel_berthing"
+          "priorityJob eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries dsr_queries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice insurance_copy other_do_documents vessel_berthing"
         )
         .lean();
 
-      // Filter jobs where ALL do_shipping_line_invoice have payment_made_date
+      // Filter jobs where ALL invoices have payment_made_date
       const filteredJobs = allJobsFromDB.filter((job) => {
-        if (
-          !job.do_shipping_line_invoice ||
-          job.do_shipping_line_invoice.length === 0
-        ) {
+        const allInvoices = [
+          ...(job.do_shipping_line_invoice || []),
+          ...(job.insurance_copy || []),
+          ...(job.other_do_documents || [])
+        ];
+
+        if (allInvoices.length === 0) {
           return false;
         }
 
-        const allPaymentsMade = job.do_shipping_line_invoice.every(
+        const allPaymentsMade = allInvoices.every(
           (invoice) =>
-            invoice.payment_made_date &&
-            invoice.payment_made_date !== "" &&
-            invoice.payment_made_date !== null
+            !invoice.is_payment_requested || // Skip if not requested
+            (invoice.payment_made_date &&
+              invoice.payment_made_date !== "" &&
+              invoice.payment_made_date !== null)
         );
 
         const hasUnresolvedAccountsQueries = job.dsr_queries?.some(
@@ -828,42 +966,50 @@ router.get(
       });
 
       // Apply color-based sorting
+
+
+      // Apply color-based sorting
       const rankedJobs = sortJobsByColorPriority(filteredJobs);
 
       const totalJobs = rankedJobs.length;
       const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
 
       // Add payment status information
-      const jobsWithStatus = paginatedJobs.map((job) => ({
-        ...job,
-        payment_summary: {
-          total_invoices: job.do_shipping_line_invoice?.length || 0,
-          payment_requested_count:
-            job.do_shipping_line_invoice?.filter(
+      const jobsWithStatus = paginatedJobs.map((job) => {
+        const allInvoices = [
+          ...(job.do_shipping_line_invoice || []),
+          ...(job.insurance_copy || []),
+          ...(job.other_do_documents || [])
+        ];
+
+        return {
+          ...job,
+          payment_summary: {
+            total_invoices: allInvoices.length,
+            payment_requested_count: allInvoices.filter(
               (inv) => inv.is_payment_requested
-            ).length || 0,
-          payment_made_count:
-            job.do_shipping_line_invoice?.filter(
+            ).length,
+            payment_made_count: allInvoices.filter(
               (inv) => inv.payment_made_date && inv.payment_made_date !== ""
-            ).length || 0,
-          receipt_uploaded_count:
-            job.do_shipping_line_invoice?.filter(
+            ).length,
+            receipt_uploaded_count: allInvoices.filter(
               (inv) =>
                 inv.payment_recipt &&
                 Array.isArray(inv.payment_recipt) &&
                 inv.payment_recipt.length > 0
-            ).length || 0,
-          all_payments_completed: true,
-          completion_dates: job.do_shipping_line_invoice?.map((inv) => ({
-            document_name: inv.document_name,
-            payment_made_date: inv.payment_made_date,
-            has_receipt:
-              inv.payment_recipt &&
-              Array.isArray(inv.payment_recipt) &&
-              inv.payment_recipt.length > 0,
-          })),
-        },
-      }));
+            ).length,
+            all_payments_completed: true,
+            completion_dates: allInvoices.map((inv) => ({
+              document_name: inv.document_name,
+              payment_made_date: inv.payment_made_date,
+              has_receipt:
+                inv.payment_recipt &&
+                Array.isArray(inv.payment_recipt) &&
+                inv.payment_recipt.length > 0,
+            })),
+          },
+        };
+      });
 
       return res.status(200).json({
         totalJobs,

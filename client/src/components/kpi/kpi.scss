@@ -2,8 +2,8 @@
 // ===================================================
 
 // Color Variables - Office/Excel Theme
-$primary-blue: #0078d4;
-$primary-dark: #005a9e;
+$primary-blue: #ffffff;
+$primary-dark: #ffffff;
 $header-orange: #ff9800;
 $header-orange-light: #ffb74d;
 $excel-green: #217346;
@@ -1614,12 +1614,15 @@ table.kpi-table {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: #ffffff !important;
+      border-radius: 0 !important;
+      border-bottom: 1px solid #f0f2f5 !important;
 
       h2 {
         margin: 0;
         font-size: 1.1rem;
         font-weight: 600;
-        color: #34495e;
+        color: #34495e !important;
       }
     }
 

@@ -779,32 +779,51 @@ function EditDoPlanning() {
                   EmptyOff LOC
                 </h5>
 
-                {/* DO List dropdown - removed the checkbox */}
-                <div style={{ marginBottom: "16px" }}>
-                  <select
-                    value={formik.values.do_list || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue("do_list", e.target.value)
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      fontSize: "14px",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                      backgroundColor: "white",
-                    }}
-                  >
-                    {doListOptions.map((option, index) => (
-                      <option key={index} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <Row className="align-items-center">
+                  {/* DO List dropdown */}
+                  <Col xs={12} md={8}>
+                    <select
+                      value={formik.values.do_list || ""}
+                      onChange={(e) =>
+                        formik.setFieldValue("do_list", e.target.value)
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "8.5px 12px",
+                        fontSize: "14px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        backgroundColor: "white",
+                      }}
+                    >
+                      {doListOptions.map((option, index) => (
+                        <option key={index} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Col>
+
+                  {/* DO Validity Date */}
+                  <Col xs={12} md={4}>
+                    <TextField
+                      type="date"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="do_validity"
+                      name="do_validity"
+                      label="DO Validity"
+                      value={formik.values.do_validity}
+                      onChange={formik.handleChange}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ m: 0 }}
+                    />
+                  </Col>
+                </Row>
 
                 {/* Display selected DO List value if any */}
-                {formik.values.do_list && (
+                {formik.values.do_list && formik.values.do_list.trim() !== "" && (
                   <div
                     style={{
                       fontSize: "13px",
@@ -812,13 +831,18 @@ function EditDoPlanning() {
                       padding: "4px 12px",
                       backgroundColor: "#e8f5e9",
                       borderRadius: "4px",
-                      display: "inline-block",
+                      display: "flex",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "10px",
                       marginBottom: "10px",
                     }}
                   >
                     <strong>Selected DO List:</strong> {formik.values.do_list}
                   </div>
                 )}
+
               </div>
               {/* DO Completed Section with Date Display and Admin Input */}
               <div className="job-details-container">
@@ -878,7 +902,7 @@ function EditDoPlanning() {
                   <Row>
                     <Col xs={12}>
                       <span style={{ color: "red", fontSize: "0.9em" }}>
-                        Please set DO Validity and upload at least one DO Copy
+                        Please set DO Validity, Do List and upload at least one DO Copy
                         to enable DO Completed.
                       </span>
                     </Col>

@@ -60,6 +60,7 @@ const JOB_STATUS_OPTIONS = [
   "Completed",
   "Pending",
   "Processed",
+  "Billing",
   "Closed",
   "Open",
 ];

@@ -32,8 +32,10 @@ const JOB_STATUS_OPTIONS = [
   "Completed",
   "Pending",
   "Processed",
+   "Billing",
   "Closed",
   "Open",
+  
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];

@@ -74,6 +74,9 @@ const esanchitChargesSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
   document_charge_refrence_no: { type: String, trim: true },
   document_charge_recipt_copy: { type: String, trim: true },
+  is_registration_charges: { type: Boolean, default: false },
+  registration_receipt_no: { type: String, trim: true },
+  registration_amount: { type: String, trim: true },
 });
 
 const documentSchema = new mongoose.Schema({

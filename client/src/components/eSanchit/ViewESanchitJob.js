@@ -67,6 +67,9 @@ function ViewESanchitJob() {
       document_check_date: "",
       document_charge_refrence_no: "",
       document_charge_recipt_copy: "",
+      is_registration_charges: false,
+      registration_receipt_no: "",
+      registration_amount: "",
     },
     {
       document_name: "PIMS",
@@ -74,6 +77,9 @@ function ViewESanchitJob() {
       document_check_date: "",
       document_charge_refrence_no: "",
       document_charge_recipt_copy: "",
+      is_registration_charges: false,
+      registration_receipt_no: "",
+      registration_amount: "",
     },
   ]);
 
@@ -455,84 +461,137 @@ function ViewESanchitJob() {
 
             {/* Charges section */}
             <div className="job-details-container">
-              <h4>Charges</h4>
-              <div className="table-responsive">
-                <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
-                  <thead style={{ backgroundColor: "#f8f9fa" }}>
-                    <tr>
-                      <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
-                      <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Ref No</th>
-                      <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Receipt Copy</th>
-                      <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
-                      <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {formik.values.esanchitCharges?.map((charge, index) => (
-                      <tr key={index}>
-                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                          <div style={{ fontWeight: "600", color: "#212529" }}>{charge.document_name}</div>
-                        </td>
-                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                          <TextField
-                            size="small"
-                            placeholder="Ref No"
-                            name={`esanchitCharges[${index}].document_charge_refrence_no`}
-                            value={formik.values.esanchitCharges[index]?.document_charge_refrence_no || ""}
-                            onChange={formik.handleChange}
-                            fullWidth
-                            type="number"
-                            disabled={isDisabled}
-                            sx={compactInputSx}
-                            InputProps={{ disableUnderline: true }}
-                          />
-                        </td>
-                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                          <TextField
-                            size="small"
-                            placeholder="Amount"
-                            name={`esanchitCharges[${index}].document_charge_recipt_copy`}
-                            value={formik.values.esanchitCharges[index]?.document_charge_recipt_copy || ""}
-                            onChange={formik.handleChange}
-                            fullWidth
-                            type="number"
-                            disabled={isDisabled}
-                            sx={compactInputSx}
-                            InputProps={{ disableUnderline: true }}
-                          />
-                        </td>
-                        <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
-                          <FileUpload
-                            label="Upload"
-                            bucketPath={`esanchit-charges/${charge.document_name}`}
-                            onFilesUploaded={(urls) => {
-                              const updatedCharges = [...formik.values.esanchitCharges];
-                              updatedCharges[index].url = [...(updatedCharges[index].url || []), ...urls];
-                              formik.setFieldValue("esanchitCharges", updatedCharges);
-                              setFileSnackbar(true);
-                            }}
-                            multiple={true}
-                            readOnly={isDisabled}
-                            containerStyles={{ marginTop: 0 }}
-                            buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
-                          />
-                        </td>
-                        <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                          <ImagePreview
-                            images={charge.url || []}
-                            onDeleteImage={(deleteIndex) => {
-                              const updatedCharges = [...formik.values.esanchitCharges];
-                              updatedCharges[index].url.splice(deleteIndex, 1);
-                              formik.setFieldValue("esanchitCharges", updatedCharges);
-                            }}
-                            readOnly={isDisabled}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {(() => {
+                const showRegDetails = formik.values.esanchitCharges?.some(
+                  (charge) => charge.is_registration_charges
+                );
+                return (
+                  <>
+                    <h4>Charges</h4>
+                    <div className="table-responsive">
+                      <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
+                        <thead style={{ backgroundColor: "#f8f9fa" }}>
+                          <tr>
+                            <th style={{ width: "15%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
+                            <th style={{ width: "15%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Ref No</th>
+                            <th style={{ width: "10%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Amount</th>
+                            <th style={{ width: "5%", fontWeight: "600", color: "#495057", padding: "4px 8px", textAlign: "center" }}>Reg. Chg?</th>
+                            {showRegDetails && (
+                              <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Reg. Details</th>
+                            )}
+                            <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
+                            <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formik.values.esanchitCharges?.map((charge, index) => (
+                            <tr key={index}>
+                              <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                                <div style={{ fontWeight: "600", color: "#212529" }}>{charge.document_name}</div>
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                                <TextField
+                                  size="small"
+                                  placeholder="Ref No"
+                                  name={`esanchitCharges[${index}].document_charge_refrence_no`}
+                                  value={formik.values.esanchitCharges[index]?.document_charge_refrence_no || ""}
+                                  onChange={formik.handleChange}
+                                  fullWidth
+                                  type="number"
+                                  disabled={isDisabled}
+                                  sx={compactInputSx}
+                                  InputProps={{ disableUnderline: true }}
+                                />
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                                <TextField
+                                  size="small"
+                                  placeholder="Amount"
+                                  name={`esanchitCharges[${index}].document_charge_recipt_copy`}
+                                  value={formik.values.esanchitCharges[index]?.document_charge_recipt_copy || ""}
+                                  onChange={formik.handleChange}
+                                  fullWidth
+                                  type="number"
+                                  disabled={isDisabled}
+                                  sx={compactInputSx}
+                                  InputProps={{ disableUnderline: true }}
+                                />
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 8px", textAlign: "center" }}>
+                                <Checkbox
+                                  checked={formik.values.esanchitCharges[index]?.is_registration_charges || false}
+                                  onChange={(e) => formik.setFieldValue(`esanchitCharges[${index}].is_registration_charges`, e.target.checked)}
+                                  disabled={isDisabled}
+                                  size="small"
+                                  style={{ padding: 0 }}
+                                />
+                              </td>
+                              {showRegDetails && (
+                                <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                                  {formik.values.esanchitCharges[index]?.is_registration_charges && (
+                                    <div style={{ display: "flex", gap: "5px" }}>
+                                      <TextField
+                                        size="small"
+                                        placeholder="Rcpt No"
+                                        name={`esanchitCharges[${index}].registration_receipt_no`}
+                                        value={formik.values.esanchitCharges[index]?.registration_receipt_no || ""}
+                                        onChange={formik.handleChange}
+                                        fullWidth
+                                        disabled={isDisabled}
+                                        sx={compactInputSx}
+                                        InputProps={{ disableUnderline: true }}
+                                      />
+                                      <TextField
+                                        size="small"
+                                        placeholder="Amt"
+                                        name={`esanchitCharges[${index}].registration_amount`}
+                                        value={formik.values.esanchitCharges[index]?.registration_amount || ""}
+                                        onChange={formik.handleChange}
+                                        fullWidth
+                                        type="number"
+                                        disabled={isDisabled}
+                                        sx={compactInputSx}
+                                        InputProps={{ disableUnderline: true }}
+                                      />
+                                    </div>
+                                  )}
+                                </td>
+                              )}
+                              <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
+                                <FileUpload
+                                  label="Upload"
+                                  bucketPath={`esanchit-charges/${charge.document_name}`}
+                                  onFilesUploaded={(urls) => {
+                                    const updatedCharges = [...formik.values.esanchitCharges];
+                                    updatedCharges[index].url = [...(updatedCharges[index].url || []), ...urls];
+                                    formik.setFieldValue("esanchitCharges", updatedCharges);
+                                    setFileSnackbar(true);
+                                  }}
+                                  multiple={true}
+                                  readOnly={isDisabled}
+                                  containerStyles={{ marginTop: 0 }}
+                                  buttonSx={{ fontSize: "0.75rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
+                                />
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
+                                <ImagePreview
+                                  images={charge.url || []}
+                                  onDeleteImage={(deleteIndex) => {
+                                    const updatedCharges = [...formik.values.esanchitCharges];
+                                    updatedCharges[index].url.splice(deleteIndex, 1);
+                                    formik.setFieldValue("esanchitCharges", updatedCharges);
+                                  }}
+                                  readOnly={isDisabled}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="job-details-container">

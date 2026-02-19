@@ -744,6 +744,114 @@ const ImportDoChargesTable = ({
                 </table>
             </div>
 
+            {/* E-Sanchit Charges Table (NIMS/SIMS/PIMS) */}
+            {formik.values.esanchitCharges && formik.values.esanchitCharges.length > 0 && (
+                <div style={{
+                    marginBottom: "20px",
+                    overflowX: "auto",
+                    borderRadius: "8px",
+                    border: "1px solid #e0e0e0"
+                }}>
+                    <div style={{
+                        padding: "8px 12px",
+                        backgroundColor: "#f5f5f5",
+                        borderBottom: "1px solid #e0e0e0",
+                        fontWeight: 600,
+                        color: "#1a237e",
+                        fontSize: "13px"
+                    }}>
+                        NIMS/SIMS/PIMS Charges
+                    </div>
+                    <table style={excelStyles.table}>
+                        <thead>
+                            <tr>
+                                <th style={{ ...excelStyles.th, width: "20%" }}>Document Name</th>
+                                <th style={{ ...excelStyles.th, width: "15%" }}>Ref No</th>
+                                <th style={{ ...excelStyles.th, width: "15%" }}>Amount</th>
+                                <th style={{ ...excelStyles.th, width: "15%" }}>Reg. Receipt</th>
+                                <th style={{ ...excelStyles.th, width: "15%" }}>Reg. Amount</th>
+                                <th style={{ ...excelStyles.th, width: "20%" }}>Files</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {formik.values.esanchitCharges.map((charge, index) => (
+                                <tr key={index}>
+                                    <td style={{ ...excelStyles.td, fontWeight: 600 }}>{charge.document_name}</td>
+                                    <td style={excelStyles.td}>
+                                        <TextField
+                                            size="small"
+                                            value={charge.document_charge_refrence_no || ""}
+                                            InputProps={{ disableUnderline: true, readOnly: true }}
+                                            variant="standard"
+                                            fullWidth
+                                            placeholder="—"
+                                            sx={excelStyles.inputSx}
+                                        />
+                                    </td>
+                                    <td style={excelStyles.td}>
+                                        <TextField
+                                            size="small"
+                                            value={charge.document_charge_recipt_copy || ""}
+                                            InputProps={{ disableUnderline: true, readOnly: true }}
+                                            variant="standard"
+                                            fullWidth
+                                            placeholder="0.00"
+                                            sx={excelStyles.inputSx}
+                                        />
+                                    </td>
+                                    <td style={excelStyles.td}>
+                                        <TextField
+                                            size="small"
+                                            value={charge.registration_receipt_no || ""}
+                                            InputProps={{ disableUnderline: true, readOnly: true }}
+                                            variant="standard"
+                                            fullWidth
+                                            placeholder="—"
+                                            sx={excelStyles.inputSx}
+                                        />
+                                    </td>
+                                    <td style={excelStyles.td}>
+                                        <TextField
+                                            size="small"
+                                            value={charge.registration_amount || ""}
+                                            InputProps={{ disableUnderline: true, readOnly: true }}
+                                            variant="standard"
+                                            fullWidth
+                                            placeholder="—"
+                                            sx={excelStyles.inputSx}
+                                        />
+                                    </td>
+                                    <td style={excelStyles.td}>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                            {charge.url && charge.url.map((url, i) => (
+                                                <Chip
+                                                    key={i}
+                                                    label={extractFileName(url)}
+                                                    size="small"
+                                                    component="a"
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    clickable
+                                                    sx={{
+                                                        maxWidth: "100px",
+                                                        fontSize: "10px",
+                                                        height: "20px",
+                                                        backgroundColor: "#e3f2fd",
+                                                        color: "#1565c0"
+                                                    }}
+                                                />
+                                            ))}
+                                            {(!charge.url || charge.url.length === 0) && <span style={{ color: "#999" }}>No files</span>}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
             {/* Add Document Section */}
             <div style={{
                 marginTop: "24px",

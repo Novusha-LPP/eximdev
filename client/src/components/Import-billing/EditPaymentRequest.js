@@ -229,6 +229,30 @@ function EditPaymentRequest() {
       container_nos: data?.container_nos || [],
       dsr_queries: data?.dsr_queries || [],
       shipping_line_airline: data?.shipping_line_airline || "", // Pass this to formik so child components can access it
+      esanchitCharges: data?.esanchitCharges && data.esanchitCharges.length > 0
+        ? data.esanchitCharges
+        : [
+          {
+            document_name: "NFIMS/SIMS",
+            url: [],
+            document_check_date: "",
+            document_charge_refrence_no: "",
+            document_charge_recipt_copy: "",
+            is_registration_charges: false,
+            registration_receipt_no: "",
+            registration_amount: "",
+          },
+          {
+            document_name: "PIMS",
+            url: [],
+            document_check_date: "",
+            document_charge_refrence_no: "",
+            document_charge_recipt_copy: "",
+            is_registration_charges: false,
+            registration_receipt_no: "",
+            registration_amount: "",
+          },
+        ],
 
       do_shipping_line_invoice: Array.isArray(data?.do_shipping_line_invoice) && data?.do_shipping_line_invoice.length > 0
         ? data.do_shipping_line_invoice
@@ -355,6 +379,7 @@ function EditPaymentRequest() {
         insurance_copy: values.insurance_copy,
         other_do_documents: values.other_do_documents,
         security_deposit: values.security_deposit,
+        esanchitCharges: values.esanchitCharges,
       };
 
       try {

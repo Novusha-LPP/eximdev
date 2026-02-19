@@ -20,6 +20,7 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
     hasti_invoices = [],
     icd_cfs_invoice_img = [],
     ooc_copies = [],
+    in_bond_ooc_copies = [],
   } = row;
 
   // Combine shipping line invoices
@@ -95,6 +96,14 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
     key: "ooc",
     title: "OOC Copies",
     items: ooc_copies,
+    icon: <FileCopyIcon fontSize="small" />,
+  };
+
+  // In Bond OOC section
+  const inBondOocSection = {
+    key: "in_bond_ooc",
+    title: "In Bond OOC Copies",
+    items: in_bond_ooc_copies,
     icon: <FileCopyIcon fontSize="small" />,
   };
 
@@ -183,6 +192,28 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
             url: url,
             key: `ooc-${idx}`,
             icon: oocSection.icon,
+          });
+        }
+      });
+    }
+
+    // In Bond OOC
+    if (showOOC && inBondOocSection.items && inBondOocSection.items.length > 0) {
+      options.push({
+        type: "header",
+        label: inBondOocSection.title,
+        key: inBondOocSection.key,
+      });
+      inBondOocSection.items.forEach((item, idx) => {
+        const url = typeof item === "string" ? item : item.url;
+        const name = typeof item === "string" ? `In Bond OOC Copy ${idx + 1}` : item.name;
+        if (url) {
+          options.push({
+            type: "item",
+            label: name,
+            url: url,
+            key: `in-bond-ooc-${idx}`,
+            icon: inBondOocSection.icon,
           });
         }
       });

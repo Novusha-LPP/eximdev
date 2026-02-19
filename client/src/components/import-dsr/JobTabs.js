@@ -206,6 +206,11 @@ function JobTabs() {
         endpointUrl = `${baseUrl}/${apiConfig.endpoint}/${apiFilters.job_no}`;
       }
 
+      // Ensure trailing slash to avoid server redirect (mixed content issue)
+      if (!endpointUrl.endsWith("/")) {
+        endpointUrl += "/";
+      }
+
       const url = `${endpointUrl}?${params.toString()}`;
 
       const response = await fetch(url, {

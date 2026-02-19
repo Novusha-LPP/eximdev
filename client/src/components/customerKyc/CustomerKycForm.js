@@ -58,6 +58,8 @@ function CustomerKycForm() {
           gst_reg: [],
         },
       ],
+      factory_name_board_img: [],
+      factory_selfie_img: [],
       permanent_address_line_1: "",
       permanent_address_line_2: "",
       permanent_address_city: "",
@@ -134,6 +136,10 @@ function CustomerKycForm() {
       trust_telephone_of_founder: "",
       trust_email_of_founder: "",
       branches: [],
+      // New fields
+      hsn_codes: [],
+      date_of_incorporation: "",
+      contacts: [],
     },
     validate: (values) => {
       const schema =
@@ -223,6 +229,13 @@ function CustomerKycForm() {
                 state: true,
                 postal_code: true,
               })),
+              hsn_codes: true,
+              date_of_incorporation: true,
+              factory_name_board_img: true,
+              factory_selfie_img: true,
+              contacts: values.contacts?.map(() => ({
+                name: true, designation: true, phone: true, email: true
+              })),
             });
 
             scrollToFirstError(errors);
@@ -249,18 +262,23 @@ function CustomerKycForm() {
 
         validateBanks(values.banks);
 
+        const payload = { ...values };
+        if (payload.date_of_incorporation === "") {
+          payload.date_of_incorporation = null;
+        }
+
         let res;
         if (submitType === "save_draft") {
           res = await axios.post(
             `${process.env.REACT_APP_API_STRING}/customer-kyc-draft`,
-            { ...values, draft: "true" }
+            { ...payload, draft: "true" }
           );
           showSuccess(res.data.message);
           resetForm();
         } else if (submitType === "save") {
           const res = await axios.post(
             `${process.env.REACT_APP_API_STRING}/add-customer-kyc`,
-            { ...values, approval: "Pending" }
+            { ...payload, approval: "Pending" }
           );
           showSuccess(res.data.message);
           resetForm();
@@ -375,6 +393,40 @@ function CustomerKycForm() {
     });
   };
 
+  const handleAddHsn = (e) => {
+    if (e.key === 'Enter') {
+      const val = e.target.value.trim();
+      e.preventDefault();
+      if (val !== "") {
+        const currentHsn = formik.values.hsn_codes || [];
+        if (!currentHsn.includes(val)) {
+          formik.setFieldValue("hsn_codes", [...currentHsn, val]);
+        }
+        e.target.value = "";
+      }
+    }
+  };
+
+  const handleRemoveHsn = (idx) => {
+    const currentHsn = formik.values.hsn_codes || [];
+    const updated = currentHsn.filter((_, i) => i !== idx);
+    formik.setFieldValue("hsn_codes", updated);
+  };
+
+  const handleAddContact = () => {
+    const currentContacts = formik.values.contacts || [];
+    formik.setFieldValue("contacts", [
+      ...currentContacts,
+      { name: "", designation: "", phone: "", email: "" }
+    ]);
+  };
+
+  const handleRemoveContact = (idx) => {
+    const currentContacts = formik.values.contacts || [];
+    const updated = currentContacts.filter((_, i) => i !== idx);
+    formik.setFieldValue("contacts", updated);
+  };
+
   const handleRemoveField = (index) => {
     if (formik.values.factory_addresses.length > 1) {
       const updated = formik.values.factory_addresses.filter((_, i) => i !== index);
@@ -451,49 +503,49 @@ function CustomerKycForm() {
   };
 
   const getFirstErrorFieldName = (errors) => {
-     // simplified
-     return Object.keys(errors)[0] || "Unknown Field";
+    // simplified
+    return Object.keys(errors)[0] || "Unknown Field";
   };
-  
+
   const scrollToFirstError = (errors) => {
-     // Logic from previous file kept primarily
+    // Logic from previous file kept primarily
   };
 
   const renderUpload = (field, bucket, multiple = false) => (
     <div className="field w-half">
       <label>{field.replace(/_/g, ' ').toUpperCase()}</label>
       <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          <FileUpload
-            label={
-              <div className="upload-zone" style={{ margin: 0 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload
-              </div>
-            }
-            onFilesUploaded={(files) => {
-                const currentFn = formik.values[field] || [];
-                formik.setFieldValue(field, multiple ? [...currentFn, ...files] : files);
+        <FileUpload
+          label={
+            <div className="upload-zone" style={{ margin: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+              Upload
+            </div>
+          }
+          onFilesUploaded={(files) => {
+            const currentFn = formik.values[field] || [];
+            formik.setFieldValue(field, multiple ? [...currentFn, ...files] : files);
+          }}
+          bucketPath={bucket}
+          multiple={multiple}
+          customerName={formik.values.name_of_individual}
+          variant="unstyled"
+          containerStyles={{ marginTop: 0 }}
+        />
+        {formik.values[field] && (formik.values[field].length > 0) && (
+          <ImagePreview
+            images={Array.isArray(formik.values[field]) ? formik.values[field] : [formik.values[field]]}
+            onDeleteImage={(idx) => {
+              if (multiple) {
+                const updated = formik.values[field].filter((_, i) => i !== idx);
+                formik.setFieldValue(field, updated);
+              } else {
+                formik.setFieldValue(field, []);
+              }
             }}
-            bucketPath={bucket}
-            multiple={multiple}
-            customerName={formik.values.name_of_individual}
-            variant="unstyled"
-            containerStyles={{ marginTop: 0 }}
+            allowUserDelete={true}
           />
-          {formik.values[field] && (formik.values[field].length > 0) && (
-             <ImagePreview
-               images={Array.isArray(formik.values[field]) ? formik.values[field] : [formik.values[field]]}
-               onDeleteImage={(idx) => {
-                   if(multiple) {
-                       const updated = formik.values[field].filter((_, i) => i !== idx);
-                       formik.setFieldValue(field, updated);
-                   } else {
-                       formik.setFieldValue(field, []);
-                   }
-               }}
-               allowUserDelete={true} 
-             />
-          )}
+        )}
       </div>
     </div>
   );
@@ -501,13 +553,13 @@ function CustomerKycForm() {
   return (
     <div className="app customer-kyc-wrapper">
 
-     
+
       {/* Page Content */}
       <div className="page">
         <div className="kyc-page-header">
           <div className="kyc-page-title">New KYC Application</div>
           <div className="header-actions">
-           
+
           </div>
         </div>
 
@@ -583,7 +635,7 @@ function CustomerKycForm() {
                         onChange={formik.handleChange}
                         className={formik.touched.name_of_individual && formik.errors.name_of_individual ? "error" : ""}
                       />
-                       {formik.touched.name_of_individual && formik.errors.name_of_individual && <div className="err-msg">{formik.errors.name_of_individual}</div>}
+                      {formik.touched.name_of_individual && formik.errors.name_of_individual && <div className="err-msg">{formik.errors.name_of_individual}</div>}
                     </div>
                   </div>
                   <div className="row">
@@ -616,6 +668,40 @@ function CustomerKycForm() {
                       {formik.touched.status && formik.errors.status && <div className="err-msg">{formik.errors.status}</div>}
                     </div>
                   </div>
+
+                  {/* Date of Incorporation */}
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>Date of Incorporation</label>
+                      <input
+                        type="date"
+                        name="date_of_incorporation"
+                        value={formik.values.date_of_incorporation ? new Date(formik.values.date_of_incorporation).toISOString().split('T')[0] : ""}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  {/* HSN Codes */}
+                  <div className="row">
+                    <div className="field">
+                      <label>HSN Codes (List)</label>
+                      <input
+                        type="text"
+                        placeholder="Type HSN Code and press Enter"
+                        onKeyDown={handleAddHsn}
+                        className="hsn-input" // added class for styling if needed
+                      />
+                      <div className="chip-container" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                        {formik.values.hsn_codes?.map((code, idx) => (
+                          <div key={idx} className="chip" style={{ background: '#334155', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {code}
+                            <span className="close-btn" style={{ cursor: 'pointer', color: '#ef4444' }} onClick={() => handleRemoveHsn(idx)}>×</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -636,9 +722,9 @@ function CustomerKycForm() {
                         placeholder="Street, Building, Flat No."
                         value={formik.values.permanent_address_line_1}
                         onChange={formik.handleChange}
-                         className={formik.touched.permanent_address_line_1 && formik.errors.permanent_address_line_1 ? "error" : ""}
+                        className={formik.touched.permanent_address_line_1 && formik.errors.permanent_address_line_1 ? "error" : ""}
                       />
-                       {formik.touched.permanent_address_line_1 && formik.errors.permanent_address_line_1 && <div className="err-msg">{formik.errors.permanent_address_line_1}</div>}
+                      {formik.touched.permanent_address_line_1 && formik.errors.permanent_address_line_1 && <div className="err-msg">{formik.errors.permanent_address_line_1}</div>}
                     </div>
                   </div>
                   <div className="row">
@@ -665,7 +751,7 @@ function CustomerKycForm() {
                         maxLength="6"
                         value={formik.values.permanent_address_pin_code}
                         onChange={formik.handleChange}
-                         className={formik.touched.permanent_address_pin_code && formik.errors.permanent_address_pin_code ? "error" : ""}
+                        className={formik.touched.permanent_address_pin_code && formik.errors.permanent_address_pin_code ? "error" : ""}
                       />
                     </div>
                     <div className="field w-third">
@@ -704,7 +790,7 @@ function CustomerKycForm() {
                         placeholder="+91 XXXXX XXXXX"
                         value={formik.values.permanent_address_telephone}
                         onChange={formik.handleChange}
-                         className={formik.touched.permanent_address_telephone && formik.errors.permanent_address_telephone ? "error" : ""}
+                        className={formik.touched.permanent_address_telephone && formik.errors.permanent_address_telephone ? "error" : ""}
                       />
                     </div>
                     <div className="field w-half">
@@ -717,7 +803,7 @@ function CustomerKycForm() {
                         placeholder="email@domain.com"
                         value={formik.values.permanent_address_email}
                         onChange={formik.handleChange}
-                         className={formik.touched.permanent_address_email && formik.errors.permanent_address_email ? "error" : ""}
+                        className={formik.touched.permanent_address_email && formik.errors.permanent_address_email ? "error" : ""}
                       />
                     </div>
                   </div>
@@ -756,8 +842,8 @@ function CustomerKycForm() {
                         name="principle_business_address_line_1"
                         placeholder="Street, Building, Flat No."
                         value={formik.values.principle_business_address_line_1}
-                         onChange={formik.handleChange}
-                         className={formik.touched.principle_business_address_line_1 && formik.errors.principle_business_address_line_1 ? "error" : ""}
+                        onChange={formik.handleChange}
+                        className={formik.touched.principle_business_address_line_1 && formik.errors.principle_business_address_line_1 ? "error" : ""}
                       />
                       {formik.touched.principle_business_address_line_1 && formik.errors.principle_business_address_line_1 && <div className="err-msg">{formik.errors.principle_business_address_line_1}</div>}
                     </div>
@@ -770,7 +856,7 @@ function CustomerKycForm() {
                         name="principle_business_address_line_2"
                         placeholder="Area, Landmark"
                         value={formik.values.principle_business_address_line_2}
-                         onChange={formik.handleChange}
+                        onChange={formik.handleChange}
                       />
                     </div>
                   </div>
@@ -784,9 +870,9 @@ function CustomerKycForm() {
                         name="principle_business_address_pin_code"
                         placeholder="6-digit"
                         maxLength="6"
-                         value={formik.values.principle_business_address_pin_code}
-                         onChange={formik.handleChange}
-                          className={formik.touched.principle_business_address_pin_code && formik.errors.principle_business_address_pin_code ? "error" : ""}
+                        value={formik.values.principle_business_address_pin_code}
+                        onChange={formik.handleChange}
+                        className={formik.touched.principle_business_address_pin_code && formik.errors.principle_business_address_pin_code ? "error" : ""}
                       />
                     </div>
                     <div className="field w-third">
@@ -797,8 +883,8 @@ function CustomerKycForm() {
                         type="text"
                         name="principle_business_address_city"
                         placeholder="Auto-filled"
-                         value={formik.values.principle_business_address_city}
-                         onChange={formik.handleChange}
+                        value={formik.values.principle_business_address_city}
+                        onChange={formik.handleChange}
                       />
                     </div>
                     <div className="field w-third">
@@ -809,8 +895,8 @@ function CustomerKycForm() {
                         type="text"
                         name="principle_business_address_state"
                         placeholder="Auto-filled"
-                         value={formik.values.principle_business_address_state}
-                         onChange={formik.handleChange}
+                        value={formik.values.principle_business_address_state}
+                        onChange={formik.handleChange}
                       />
                     </div>
                   </div>
@@ -823,9 +909,9 @@ function CustomerKycForm() {
                         type="tel"
                         name="principle_business_telephone"
                         placeholder="+91 XXXXX"
-                         value={formik.values.principle_business_telephone}
-                         onChange={formik.handleChange}
-                          className={formik.touched.principle_business_telephone && formik.errors.principle_business_telephone ? "error" : ""}
+                        value={formik.values.principle_business_telephone}
+                        onChange={formik.handleChange}
+                        className={formik.touched.principle_business_telephone && formik.errors.principle_business_telephone ? "error" : ""}
                       />
                     </div>
                     <div className="field w-third">
@@ -836,9 +922,9 @@ function CustomerKycForm() {
                         type="email"
                         name="principle_address_email"
                         placeholder="email@domain.com"
-                         value={formik.values.principle_address_email}
-                          onChange={formik.handleChange}
-                           className={formik.touched.principle_address_email && formik.errors.principle_address_email ? "error" : ""}
+                        value={formik.values.principle_address_email}
+                        onChange={formik.handleChange}
+                        className={formik.touched.principle_address_email && formik.errors.principle_address_email ? "error" : ""}
                       />
                     </div>
                     <div className="field w-third">
@@ -847,8 +933,8 @@ function CustomerKycForm() {
                         type="text"
                         name="principle_business_website"
                         placeholder="www.example.com"
-                         value={formik.values.principle_business_website}
-                         onChange={formik.handleChange}
+                        value={formik.values.principle_business_website}
+                        onChange={formik.handleChange}
                       />
                     </div>
                   </div>
@@ -892,7 +978,7 @@ function CustomerKycForm() {
                         maxLength="10"
                         value={formik.values.pan_no}
                         onChange={formik.handleChange}
-                         className={formik.touched.pan_no && formik.errors.pan_no ? "error" : ""}
+                        className={formik.touched.pan_no && formik.errors.pan_no ? "error" : ""}
                       />
                       {formik.touched.pan_no && formik.errors.pan_no && <div className="err-msg">{formik.errors.pan_no}</div>}
                     </div>
@@ -916,7 +1002,7 @@ function CustomerKycForm() {
             </div>
 
             {/* RIGHT PANEL */}
-            
+
             <div className="panel">
               {/* Factory Addresses */}
               <div className="section">
@@ -940,7 +1026,7 @@ function CustomerKycForm() {
                           Factory #{index + 1}
                         </span>
                         {formik.values.factory_addresses.length > 1 && (
-                            <button className="btn-remove" onClick={() => handleRemoveField(index)}>×</button>
+                          <button className="btn-remove" onClick={() => handleRemoveField(index)}>×</button>
                         )}
                       </div>
                       <div className="fields">
@@ -960,11 +1046,11 @@ function CustomerKycForm() {
                           <div className="field w-half">
                             <label>Address Line 2</label>
                             <input
-                               type="text"
-                               name={`factory_addresses[${index}].factory_address_line_2`}
-                               placeholder="Area, Landmark"
-                               value={address.factory_address_line_2}
-                               onChange={formik.handleChange}
+                              type="text"
+                              name={`factory_addresses[${index}].factory_address_line_2`}
+                              placeholder="Area, Landmark"
+                              value={address.factory_address_line_2}
+                              onChange={formik.handleChange}
                             />
                           </div>
                         </div>
@@ -975,7 +1061,7 @@ function CustomerKycForm() {
                             </label>
                             <input
                               type="text"
-                               name={`factory_addresses[${index}].factory_address_pin_code`}
+                              name={`factory_addresses[${index}].factory_address_pin_code`}
                               placeholder="6-digit"
                               maxLength="6"
                               value={address.factory_address_pin_code}
@@ -986,22 +1072,22 @@ function CustomerKycForm() {
                             <label>
                               City <span className="req">*</span>
                             </label>
-                            <input 
-                                type="text" 
-                                name={`factory_addresses[${index}].factory_address_city`}
-                                value={address.factory_address_city}
-                                onChange={formik.handleChange}
+                            <input
+                              type="text"
+                              name={`factory_addresses[${index}].factory_address_city`}
+                              value={address.factory_address_city}
+                              onChange={formik.handleChange}
                             />
                           </div>
                           <div className="field w-third">
                             <label>
                               State <span className="req">*</span>
                             </label>
-                            <input 
-                                type="text" 
-                                name={`factory_addresses[${index}].factory_address_state`}
-                                value={address.factory_address_state}
-                                onChange={formik.handleChange}
+                            <input
+                              type="text"
+                              name={`factory_addresses[${index}].factory_address_state`}
+                              value={address.factory_address_state}
+                              onChange={formik.handleChange}
                             />
                           </div>
                         </div>
@@ -1019,23 +1105,141 @@ function CustomerKycForm() {
                             />
                           </div>
                           <div className="field w-half">
-                             <label>GST Registration Doc</label>
-                             <FileUpload
-                                label={<div className="upload-zone" style={{margin:0}}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                    Upload
-                                </div>}
-                                onFilesUploaded={(files) => formik.setFieldValue(`factory_addresses[${index}].gst_reg`, files)}
-                                bucketPath="gst_reg"
-                                customerName={formik.values.name_of_individual}
-                                variant="unstyled"
-                                containerStyles={{ marginTop: 0 }}
-                                />
+                            <label>GST Registration Doc</label>
+                            <FileUpload
+                              label={<div className="upload-zone" style={{ margin: 0 }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                Upload
+                              </div>}
+                              onFilesUploaded={(files) => formik.setFieldValue(`factory_addresses[${index}].gst_reg`, files)}
+                              bucketPath="gst_reg"
+                              customerName={formik.values.name_of_individual}
+                              variant="unstyled"
+                              containerStyles={{ marginTop: 0 }}
+                            />
+                            {address.gst_reg && address.gst_reg.length > 0 && (
+                              <ImagePreview
+                                images={Array.isArray(address.gst_reg) ? address.gst_reg : [address.gst_reg]}
+                                onDeleteImage={(idx) => {
+                                  const updated = address.gst_reg.filter((_, i) => i !== idx);
+                                  formik.setFieldValue(`factory_addresses[${index}].gst_reg`, updated);
+                                }}
+                                allowUserDelete={true}
+                              />
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Factory Photos (Mandatory) */}
+
+
+
+              {/* Factory Photos (Mandatory) */}
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">Factory Photos (Mandatory)</span>
+                </div>
+                <div className="fields">
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>FACTORY NAME BOARD PHOTO</label>
+                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <FileUpload
+                          label={<div className="upload-zone" style={{ margin: 0 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                            Upload
+                          </div>}
+                          onFilesUploaded={(files) => formik.setFieldValue("factory_name_board_img", files)}
+                          bucketPath="factory_name_board_img"
+                          customerName={formik.values.name_of_individual}
+                          variant="unstyled"
+                          containerStyles={{ marginTop: 0 }}
+                        />
+                        {formik.values.factory_name_board_img && formik.values.factory_name_board_img.length > 0 && (
+                          <ImagePreview
+                            images={Array.isArray(formik.values.factory_name_board_img) ? formik.values.factory_name_board_img : [formik.values.factory_name_board_img]}
+                            onDeleteImage={(idx) => {
+                              const updated = formik.values.factory_name_board_img.filter((_, i) => i !== idx);
+                              formik.setFieldValue("factory_name_board_img", updated);
+                            }}
+                            allowUserDelete={true}
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <div className="field w-half">
+                      <label>FACTORY SELFIE PHOTO</label>
+                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <FileUpload
+                          label={<div className="upload-zone" style={{ margin: 0 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                            Upload
+                          </div>}
+                          onFilesUploaded={(files) => formik.setFieldValue("factory_selfie_img", files)}
+                          bucketPath="factory_selfie_img"
+                          customerName={formik.values.name_of_individual}
+                          variant="unstyled"
+                          containerStyles={{ marginTop: 0 }}
+                        />
+                        {formik.values.factory_selfie_img && formik.values.factory_selfie_img.length > 0 && (
+                          <ImagePreview
+                            images={Array.isArray(formik.values.factory_selfie_img) ? formik.values.factory_selfie_img : [formik.values.factory_selfie_img]}
+                            onDeleteImage={(idx) => {
+                              const updated = formik.values.factory_selfie_img.filter((_, i) => i !== idx);
+                              formik.setFieldValue("factory_selfie_img", updated);
+                            }}
+                            allowUserDelete={true}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="section">
+                <div className="section-header">
+                  <span className="section-title section-title-accent">Contact Information</span>
+                  <button type="button" className="btn-add" onClick={handleAddContact}>+ Add Contact</button>
+                </div>
+                <div id="contact-list">
+                  {/* Map over contacts */}
+                  {formik.values.contacts?.map((contact, idx) => (
+                    <div key={idx} className="repeat-entry">
+                      <div className="repeat-entry-header">
+                        <span className="repeat-entry-title">Contact #{idx + 1}</span>
+                        <button type="button" className="btn-remove" onClick={() => handleRemoveContact(idx)}>×</button>
+                      </div>
+                      <div className="fields">
+                        <div className="row">
+                          <div className="field w-half">
+                            <label>Name <span className="req">*</span></label>
+                            <input name={`contacts[${idx}].name`} value={contact.name} onChange={formik.handleChange} />
+                          </div>
+                          <div className="field w-half">
+                            <label>Designation <span className="req">*</span></label>
+                            <input name={`contacts[${idx}].designation`} value={contact.designation} onChange={formik.handleChange} />
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="field w-half">
+                            <label>Phone <span className="req">*</span></label>
+                            <input name={`contacts[${idx}].phone`} value={contact.phone} onChange={formik.handleChange} />
+                          </div>
+                          <div className="field w-half">
+                            <label>Email <span className="req">*</span></label>
+                            <input name={`contacts[${idx}].email`} value={contact.email} onChange={formik.handleChange} />
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
+                  {(!formik.values.contacts || formik.values.contacts.length === 0) && <div className="empty-state">No contacts added.</div>}
                 </div>
               </div>
 
@@ -1045,8 +1249,8 @@ function CustomerKycForm() {
                   <span className="section-title section-title-accent">
                     Branch Information
                   </span>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn-add"
                     onClick={handleAddBranch}
                   >
@@ -1055,83 +1259,83 @@ function CustomerKycForm() {
                 </div>
                 <div id="branch-list">
                   {(!formik.values.branches || formik.values.branches.length === 0) ? (
-                     <div className="empty-state">No branches added. Click "+ Add Branch" to add one.</div>
+                    <div className="empty-state">No branches added. Click "+ Add Branch" to add one.</div>
                   ) : (
                     formik.values.branches.map((branch, index) => (
-                        <div key={index} className="repeat-entry">
-                            <div className="repeat-entry-header">
-                                <span className="repeat-entry-title">Branch #{index + 1}</span>
-                                <button className="btn-remove" onClick={() => handleRemoveBranch(index)}>×</button>
-                            </div>
-                            <div className="fields">
-                                <div className="row">
-                                    <div className="field w-third">
-                                        <label>Branch Name <span className="req">*</span></label>
-                                        <input 
-                                            name={`branches[${index}].branch_name`}
-                                            value={branch.branch_name}
-                                            onChange={formik.handleChange}
-                                            placeholder="Branch name" 
-                                        />
-                                    </div>
-                                    <div className="field w-third">
-                                        <label>Branch Code <span className="req">*</span></label>
-                                        <input 
-                                             name={`branches[${index}].branch_code`}
-                                             value={branch.branch_code}
-                                            onChange={formik.handleChange}
-                                            placeholder="Branch code" 
-                                        />
-                                    </div>
-                                    <div className="field w-third">
-                                        <label>GST Number</label>
-                                        <input 
-                                             name={`branches[${index}].gst_no`}
-                                             value={branch.gst_no}
-                                            onChange={formik.handleChange}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="row">
-                                    <div className="field">
-                                        <label>Address <span className="req">*</span></label>
-                                        <input 
-                                             name={`branches[${index}].address`}
-                                             value={branch.address}
-                                            onChange={formik.handleChange}
-                                            placeholder="Full address" 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="row">
-                                    <div className="field w-third">
-                                        <label>City <span className="req">*</span></label>
-                                        <input 
-                                             name={`branches[${index}].city`}
-                                             value={branch.city}
-                                            onChange={formik.handleChange}
-                                        />
-                                    </div>
-                                    <div className="field w-third">
-                                        <label>State <span className="req">*</span></label>
-                                        <input 
-                                             name={`branches[${index}].state`}
-                                             value={branch.state}
-                                            onChange={formik.handleChange}
-                                        />
-                                    </div>
-                                    <div className="field w-third">
-                                        <label>Postal Code <span className="req">*</span></label>
-                                        <input 
-                                             name={`branches[${index}].postal_code`}
-                                             value={branch.postal_code}
-                                            onChange={formik.handleChange}
-                                            maxLength="6" 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                      <div key={index} className="repeat-entry">
+                        <div className="repeat-entry-header">
+                          <span className="repeat-entry-title">Branch #{index + 1}</span>
+                          <button className="btn-remove" onClick={() => handleRemoveBranch(index)}>×</button>
                         </div>
+                        <div className="fields">
+                          <div className="row">
+                            <div className="field w-third">
+                              <label>Branch Name <span className="req">*</span></label>
+                              <input
+                                name={`branches[${index}].branch_name`}
+                                value={branch.branch_name}
+                                onChange={formik.handleChange}
+                                placeholder="Branch name"
+                              />
+                            </div>
+                            <div className="field w-third">
+                              <label>Branch Code <span className="req">*</span></label>
+                              <input
+                                name={`branches[${index}].branch_code`}
+                                value={branch.branch_code}
+                                onChange={formik.handleChange}
+                                placeholder="Branch code"
+                              />
+                            </div>
+                            <div className="field w-third">
+                              <label>GST Number</label>
+                              <input
+                                name={`branches[${index}].gst_no`}
+                                value={branch.gst_no}
+                                onChange={formik.handleChange}
+                              />
+                            </div>
+                          </div>
+                          <div className="row">
+                            <div className="field">
+                              <label>Address <span className="req">*</span></label>
+                              <input
+                                name={`branches[${index}].address`}
+                                value={branch.address}
+                                onChange={formik.handleChange}
+                                placeholder="Full address"
+                              />
+                            </div>
+                          </div>
+                          <div className="row">
+                            <div className="field w-third">
+                              <label>City <span className="req">*</span></label>
+                              <input
+                                name={`branches[${index}].city`}
+                                value={branch.city}
+                                onChange={formik.handleChange}
+                              />
+                            </div>
+                            <div className="field w-third">
+                              <label>State <span className="req">*</span></label>
+                              <input
+                                name={`branches[${index}].state`}
+                                value={branch.state}
+                                onChange={formik.handleChange}
+                              />
+                            </div>
+                            <div className="field w-third">
+                              <label>Postal Code <span className="req">*</span></label>
+                              <input
+                                name={`branches[${index}].postal_code`}
+                                value={branch.postal_code}
+                                onChange={formik.handleChange}
+                                maxLength="6"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>
@@ -1143,8 +1347,8 @@ function CustomerKycForm() {
                   <span className="section-title section-title-accent">
                     Banking Information
                   </span>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn-add"
                     onClick={handleAddBank}
                   >
@@ -1159,7 +1363,7 @@ function CustomerKycForm() {
                           Bank #{index + 1}
                         </span>
                         {formik.values.banks.length > 1 && (
-                            <button className="btn-remove" onClick={() => handleRemoveBank(index)}>×</button>
+                          <button className="btn-remove" onClick={() => handleRemoveBank(index)}>×</button>
                         )}
                       </div>
                       <div className="fields">
@@ -1195,10 +1399,10 @@ function CustomerKycForm() {
                               A/C Number <span className="req">*</span>
                             </label>
                             <input
-                               type="text"
-                                name={`banks[${index}].account_no`}
-                               value={bank.account_no}
-                               onChange={formik.handleChange}
+                              type="text"
+                              name={`banks[${index}].account_no`}
+                              value={bank.account_no}
+                              onChange={formik.handleChange}
                             />
                           </div>
                           <div className="field w-third">
@@ -1206,10 +1410,10 @@ function CustomerKycForm() {
                               IFSC <span className="req">*</span>
                             </label>
                             <input
-                               type="text"
-                                name={`banks[${index}].ifsc`}
-                               value={bank.ifsc}
-                               onChange={formik.handleChange}
+                              type="text"
+                              name={`banks[${index}].ifsc`}
+                              value={bank.ifsc}
+                              onChange={formik.handleChange}
                             />
                           </div>
                           <div className="field w-third">
@@ -1217,27 +1421,37 @@ function CustomerKycForm() {
                               AD Code <span className="req">*</span>
                             </label>
                             <input
-                               type="text"
-                                name={`banks[${index}].adCode`}
-                               value={bank.adCode}
-                               onChange={formik.handleChange}
+                              type="text"
+                              name={`banks[${index}].adCode`}
+                              value={bank.adCode}
+                              onChange={formik.handleChange}
                             />
                           </div>
                         </div>
                         <div className="row">
                           <div className="field">
                             <label>AD Code File</label>
-                             <FileUpload
-                                label={<div className="upload-zone" style={{margin:0}}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                    Upload
-                                </div>}
-                                onFilesUploaded={(files) => formik.setFieldValue(`banks[${index}].adCode_file`, files)}
-                                bucketPath={`ad-code-${index}`}
-                                customerName={formik.values.name_of_individual}
-                                variant="unstyled"
-                                containerStyles={{ marginTop: 0 }}
-                             />
+                            <FileUpload
+                              label={<div className="upload-zone" style={{ margin: 0 }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                Upload
+                              </div>}
+                              onFilesUploaded={(files) => formik.setFieldValue(`banks[${index}].adCode_file`, files)}
+                              bucketPath={`ad-code-${index}`}
+                              customerName={formik.values.name_of_individual}
+                              variant="unstyled"
+                              containerStyles={{ marginTop: 0 }}
+                            />
+                            {bank.adCode_file && bank.adCode_file.length > 0 && (
+                              <ImagePreview
+                                images={Array.isArray(bank.adCode_file) ? bank.adCode_file : [bank.adCode_file]}
+                                onDeleteImage={(idx) => {
+                                  const updated = bank.adCode_file.filter((_, i) => i !== idx);
+                                  formik.setFieldValue(`banks[${index}].adCode_file`, updated);
+                                }}
+                                allowUserDelete={true}
+                              />
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1305,84 +1519,84 @@ function CustomerKycForm() {
                 Shown based on selected category {formik.values.category ? `(${formik.values.category})` : ""}
               </span>
             </div>
-             
-             {/* We use getSupportingDocs() which returns logic, but user wanted strict HTML structure.
+
+            {/* We use getSupportingDocs() which returns logic, but user wanted strict HTML structure.
                  I will map the specific category sections manually to match HTML layout using React conditionals.
              */}
-             <div className="cat-docs-section active">
-                 <div className="cat-docs-grid">
-                    {/* Render fields based on Category */}
-                    {(formik.values.category === "Individual/ Proprietary Firm" || !formik.values.category) && (
-                        <>
-                           {renderUpload("individual_passport_img", "individual_passport_img")}
-                           {renderUpload("individual_voter_card_img", "individual_voter_card_img")}
-                           {renderUpload("individual_driving_license_img", "individual_driving_license_img")}
-                           {renderUpload("individual_bank_statement_img", "individual_bank_statement_img")}
-                           {renderUpload("individual_ration_card_img", "individual_ration_card_img")}
-                           {renderUpload("individual_aadhar_card", "individual_aadhar_card")}
-                        </>
-                    )}
-                    {(formik.values.category === "Partnership Firm") && (
-                        <>
-                           {renderUpload("partnership_registration_certificate_img", "partnership_registration_certificate_img")}
-                           {renderUpload("partnership_deed_img", "partnership_deed_img")}
-                           {renderUpload("partnership_power_of_attorney_img", "partnership_power_of_attorney_img")}
-                           {renderUpload("partnership_valid_document", "partnership_valid_document")}
-                           {renderUpload("partnership_aadhar_card_front_photo", "partnership_aadhar_card_front_photo")}
-                           {renderUpload("partnership_aadhar_card_back_photo", "partnership_aadhar_card_back_photo")}
-                           {renderUpload("partnership_telephone_bill", "partnership_telephone_bill")}
-                        </>
-                    )}
-                     {(formik.values.category === "Company") && (
-                        <>
-                           {renderUpload("company_certificate_of_incorporation_img", "company_certificate_of_incorporation_img")}
-                           {renderUpload("company_memorandum_of_association_img", "company_memorandum_of_association_img")}
-                           {renderUpload("company_articles_of_association_img", "company_articles_of_association_img")}
-                           {renderUpload("company_power_of_attorney_img", "company_power_of_attorney_img")}
-                           {renderUpload("company_telephone_bill_img", "company_telephone_bill_img")}
-                           {renderUpload("company_pan_allotment_letter_img", "company_pan_allotment_letter_img")}
-                        </>
-                    )}
-                     {(formik.values.category === "Trust Foundations") && (
-                        <>
-                           {renderUpload("trust_certificate_of_registration_img", "trust_certificate_of_registration_img")}
-                           {renderUpload("trust_power_of_attorney_img", "trust_power_of_attorney_img")}
-                           {renderUpload("trust_officially_valid_document_img", "trust_officially_valid_document_img")}
-                           {renderUpload("trust_resolution_of_managing_body_img", "trust_resolution_of_managing_body_img")}
-                           {renderUpload("trust_telephone_bill_img", "trust_telephone_bill_img")}
-                             {/* Trust Extra Fields */}
-                            <div style={{gridColumn: '1 / -1', marginTop: '10px'}}>
-                                <div className="fields" style={{ padding: '8px 16px 10px', borderTop: '1px solid var(--border-light)', marginTop: '8px' }}>
-                                    <div className="row">
-                                    <div className="field w-half">
-                                        <label>Name of Trustees</label>
-                                        <input type="text" name="trust_name_of_trustees" value={formik.values.trust_name_of_trustees} onChange={formik.handleChange} />
-                                    </div>
-                                    <div className="field w-half">
-                                        <label>Name of Founder</label>
-                                        <input type="text" name="trust_name_of_founder" value={formik.values.trust_name_of_founder} onChange={formik.handleChange} />
-                                    </div>
-                                    </div>
-                                     <div className="row">
-                                        <div className="field w-third">
-                                            <label>Address of Founder</label>
-                                            <input type="text" name="trust_address_of_founder" value={formik.values.trust_address_of_founder} onChange={formik.handleChange} />
-                                        </div>
-                                         <div className="field w-third">
-                                            <label>Telephone of Founder</label>
-                                            <input type="text" name="trust_telephone_of_founder" value={formik.values.trust_telephone_of_founder} onChange={formik.handleChange} />
-                                        </div>
-                                         <div className="field w-third">
-                                            <label>Email of Founder</label>
-                                            <input type="text" name="trust_email_of_founder" value={formik.values.trust_email_of_founder} onChange={formik.handleChange} />
-                                        </div>
-                                     </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                 </div>
-             </div>
+            <div className="cat-docs-section active">
+              <div className="cat-docs-grid">
+                {/* Render fields based on Category */}
+                {(formik.values.category === "Individual/ Proprietary Firm" || !formik.values.category) && (
+                  <>
+                    {renderUpload("individual_passport_img", "individual_passport_img")}
+                    {renderUpload("individual_voter_card_img", "individual_voter_card_img")}
+                    {renderUpload("individual_driving_license_img", "individual_driving_license_img")}
+                    {renderUpload("individual_bank_statement_img", "individual_bank_statement_img")}
+                    {renderUpload("individual_ration_card_img", "individual_ration_card_img")}
+                    {renderUpload("individual_aadhar_card", "individual_aadhar_card")}
+                  </>
+                )}
+                {(formik.values.category === "Partnership Firm") && (
+                  <>
+                    {renderUpload("partnership_registration_certificate_img", "partnership_registration_certificate_img")}
+                    {renderUpload("partnership_deed_img", "partnership_deed_img")}
+                    {renderUpload("partnership_power_of_attorney_img", "partnership_power_of_attorney_img")}
+                    {renderUpload("partnership_valid_document", "partnership_valid_document")}
+                    {renderUpload("partnership_aadhar_card_front_photo", "partnership_aadhar_card_front_photo")}
+                    {renderUpload("partnership_aadhar_card_back_photo", "partnership_aadhar_card_back_photo")}
+                    {renderUpload("partnership_telephone_bill", "partnership_telephone_bill")}
+                  </>
+                )}
+                {(formik.values.category === "Company") && (
+                  <>
+                    {renderUpload("company_certificate_of_incorporation_img", "company_certificate_of_incorporation_img")}
+                    {renderUpload("company_memorandum_of_association_img", "company_memorandum_of_association_img")}
+                    {renderUpload("company_articles_of_association_img", "company_articles_of_association_img")}
+                    {renderUpload("company_power_of_attorney_img", "company_power_of_attorney_img")}
+                    {renderUpload("company_telephone_bill_img", "company_telephone_bill_img")}
+                    {renderUpload("company_pan_allotment_letter_img", "company_pan_allotment_letter_img")}
+                  </>
+                )}
+                {(formik.values.category === "Trust Foundations") && (
+                  <>
+                    {renderUpload("trust_certificate_of_registration_img", "trust_certificate_of_registration_img")}
+                    {renderUpload("trust_power_of_attorney_img", "trust_power_of_attorney_img")}
+                    {renderUpload("trust_officially_valid_document_img", "trust_officially_valid_document_img")}
+                    {renderUpload("trust_resolution_of_managing_body_img", "trust_resolution_of_managing_body_img")}
+                    {renderUpload("trust_telephone_bill_img", "trust_telephone_bill_img")}
+                    {/* Trust Extra Fields */}
+                    <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+                      <div className="fields" style={{ padding: '8px 16px 10px', borderTop: '1px solid var(--border-light)', marginTop: '8px' }}>
+                        <div className="row">
+                          <div className="field w-half">
+                            <label>Name of Trustees</label>
+                            <input type="text" name="trust_name_of_trustees" value={formik.values.trust_name_of_trustees} onChange={formik.handleChange} />
+                          </div>
+                          <div className="field w-half">
+                            <label>Name of Founder</label>
+                            <input type="text" name="trust_name_of_founder" value={formik.values.trust_name_of_founder} onChange={formik.handleChange} />
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="field w-third">
+                            <label>Address of Founder</label>
+                            <input type="text" name="trust_address_of_founder" value={formik.values.trust_address_of_founder} onChange={formik.handleChange} />
+                          </div>
+                          <div className="field w-third">
+                            <label>Telephone of Founder</label>
+                            <input type="text" name="trust_telephone_of_founder" value={formik.values.trust_telephone_of_founder} onChange={formik.handleChange} />
+                          </div>
+                          <div className="field w-third">
+                            <label>Email of Founder</label>
+                            <input type="text" name="trust_email_of_founder" value={formik.values.trust_email_of_founder} onChange={formik.handleChange} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Additional Documents */}
@@ -1391,10 +1605,10 @@ function CustomerKycForm() {
               <span className="section-title">Additional Documents</span>
             </div>
             <div className="docs-grid">
-               {renderUpload("other_documents", "other-documents", true)}
-               {renderUpload("spcb_reg", "spcb-registration", true)}
-               {renderUpload("kyc_verification_images", "kyc-verification-images", true)}
-               {renderUpload("gst_returns", "gst-returns", true)}
+              {renderUpload("other_documents", "other-documents", true)}
+              {renderUpload("spcb_reg", "spcb-registration", true)}
+              {renderUpload("kyc_verification_images", "kyc-verification-images", true)}
+              {renderUpload("gst_returns", "gst-returns", true)}
             </div>
           </div>
 
@@ -1405,45 +1619,45 @@ function CustomerKycForm() {
               <strong>Submit:</strong> All mandatory fields required
             </div>
             <div className="footer-actions">
-              <button 
+              <button
                 type="button"
                 className="btn btn-outline"
-                 onClick={() => setDialogState({
-                    isOpen: true,
-                    title: "Preview Application",
-                    content: <Preview data={formik.values} />,
-                    severity: "info",
+                onClick={() => setDialogState({
+                  isOpen: true,
+                  title: "Preview Application",
+                  content: <Preview data={formik.values} />,
+                  severity: "info",
                 })}
               >
                 👁 Preview
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn btn-danger-outline"
                 onClick={handleClearConfirmation}
               >
                 🗑 Clear All
               </button>
-              <button 
+              <button
                 type="button"
                 className="btn btn-draft"
-                 onClick={() => {
-                    setSubmitType("save_draft");
-                    setSubmissionAttempted(true);
-                    formik.handleSubmit();
-                  }}
+                onClick={() => {
+                  setSubmitType("save_draft");
+                  setSubmissionAttempted(true);
+                  formik.handleSubmit();
+                }}
               >
                 💾 Save Draft
               </button>
-              <button 
+              <button
                 type="button"
                 className="btn btn-success"
                 onClick={() => {
                   console.log("submit");
-                    setSubmitType("save");
-                    setSubmissionAttempted(true);
-                    formik.handleSubmit();
-                  }}
+                  setSubmitType("save");
+                  setSubmissionAttempted(true);
+                  formik.handleSubmit();
+                }}
               >
                 📤 Submit Application
               </button>
@@ -1451,16 +1665,16 @@ function CustomerKycForm() {
           </div>
         </div>
       </div>
-      
-       <CustomDialog
-            open={dialogState.isOpen}
-            onClose={handleCloseDialog}
-            title={dialogState.title}
-            severity={dialogState.severity}
-            actions={dialogState.actions}
-          >
-            {dialogState.content}
-        </CustomDialog>
+
+      <CustomDialog
+        open={dialogState.isOpen}
+        onClose={handleCloseDialog}
+        title={dialogState.title}
+        severity={dialogState.severity}
+        actions={dialogState.actions}
+      >
+        {dialogState.content}
+      </CustomDialog>
     </div>
   );
 }

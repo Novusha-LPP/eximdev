@@ -1,5 +1,5 @@
 //STORAGE OF BROWSER
-const CACHE_NAME = "version-1";
+const CACHE_NAME = "version-2";
 const urlsToCache = ["index.html"];
 const self = this;
 
@@ -14,10 +14,25 @@ self.addEventListener("install", (event) => {
 
 // listen for request
 self.addEventListener("fetch", (event) => {
+  // Skip cross-origin requests (e.g., eximbot.alvision.in API calls)
+  // and non-GET requests — let them go directly to the network
+  if (
+    event.request.method !== "GET" ||
+    !event.request.url.startsWith(self.location.origin)
+  ) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((res) => {
-      return fetch(event.request).catch(() => caches.match("offline.html"));
-    })
+    fetch(event.request)
+      .then((response) => {
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          return cachedResponse || caches.match("index.html");
+        });
+      })
   );
 });
 

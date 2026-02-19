@@ -256,6 +256,33 @@ const customerKycSchema = new Schema({
 
 
 
+  // New Modules
+  hsn_codes: [{
+    type: String,
+    trim: true
+  }],
+  date_of_incorporation: {
+    type: Date,
+    required: false
+  },
+
+  // Contacts
+  contacts: [{
+    _id: false, // Prevent nested IDs if not modifying individually
+    name: { type: String, trim: true },
+    designation: { type: String, trim: true },
+    phone: { type: String, trim: true },
+    email: { type: String, trim: true, lowercase: true }
+  }],
+
+  // Factory Photos
+  factory_name_board_img: [{
+    type: String
+  }],
+  factory_selfie_img: [{
+    type: String
+  }],
+
   // Documents
   other_documents: [{
     type: String
@@ -407,22 +434,22 @@ customerKycSchema.index({ category: 1 });
 customerKycSchema.index({ createdAt: -1 });
 
 // Virtual for formatted creation date
-customerKycSchema.virtual('formattedCreatedAt').get(function() {
+customerKycSchema.virtual('formattedCreatedAt').get(function () {
   return this.createdAt ? this.createdAt.toLocaleDateString() : '';
 });
 
 // Pre-save middleware
-customerKycSchema.pre('save', function(next) {
+customerKycSchema.pre('save', function (next) {
   // Ensure IEC number is uppercase
   if (this.iec_no) {
     this.iec_no = this.iec_no.toUpperCase();
   }
-  
+
   // Ensure PAN number is uppercase
   if (this.pan_no) {
     this.pan_no = this.pan_no.toUpperCase();
   }
-  
+
   next();
 });
 

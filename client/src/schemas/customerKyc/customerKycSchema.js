@@ -4,7 +4,7 @@ export const validationSchema = Yup.object({
   category: Yup.string().required('Category is required'),
   name_of_individual: Yup.string().required('Name is required'),
   status: Yup.string().required('Status is required'),
-  
+
   // Permanent Address
   permanent_address_line_1: Yup.string().required('Permanent address line 1 is required'),
   permanent_address_city: Yup.string().required('City is required'),
@@ -55,6 +55,22 @@ export const validationSchema = Yup.object({
       gst: Yup.string()
         .matches(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GST format')
         .required('GST number is required'),
+    })
+  ),
+
+  // Factory Photos (Mandatory)
+  factory_name_board_img: Yup.array().min(1, 'Factory Name Board photo is required'),
+  factory_selfie_img: Yup.array().min(1, 'Factory Selfie photo is required'),
+
+  // New Fields
+  hsn_codes: Yup.array().of(Yup.string().required('HSN Code is required')),
+  date_of_incorporation: Yup.date().nullable(),
+  contacts: Yup.array().of(
+    Yup.object({
+      name: Yup.string().required('Name is required'),
+      designation: Yup.string().required('Designation is required'),
+      phone: Yup.string().required('Phone number is required'),
+      email: Yup.string().email('Invalid email').required('Email is required'),
     })
   ),
 

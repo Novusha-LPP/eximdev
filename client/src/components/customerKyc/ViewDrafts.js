@@ -1,13 +1,32 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { useNavigation } from "../../contexts/NavigationContext";
+import { UserContext } from "../../contexts/UserContext";
+import { useSnackbar } from "../../contexts/SnackbarContext";
 import CustomTable from "./CustomTable";
-import { Visibility, DraftsOutlined } from "@mui/icons-material";
+import { Visibility, DraftsOutlined, Delete } from "@mui/icons-material";
 
 function ViewDrafts() {
   const [data, setData] = useState([]);
   const { navigateWithRef } = useNavigation();
+  const { user } = useContext(UserContext);
+  const { showSuccess, showError } = useSnackbar();
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this draft application?")) {
+      try {
+        await axios.delete(
+          `${process.env.REACT_APP_API_STRING}/delete-customer-kyc/${id}`
+        );
+        setData((prev) => prev.filter((item) => item._id !== id));
+        showSuccess("Draft deleted successfully");
+      } catch (error) {
+        console.error("Error deleting draft:", error);
+        showError("Failed to delete draft");
+      }
+    }
+  };
 
   useEffect(() => {
     async function getData() {
@@ -95,13 +114,25 @@ function ViewDrafts() {
       header: "Actions",
       size: 150,
       Cell: ({ cell }) => (
-        <button
-          className="table-action-btn"
-          title="View Draft Details"
-          onClick={() => navigateWithRef(`/view-draft-details/${cell.row.original._id}`)}
-        >
-          <Visibility fontSize="small" />
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="table-action-btn"
+            title="View Draft Details"
+            onClick={() => navigateWithRef(`/view-draft-details/${cell.row.original._id}`)}
+          >
+            <Visibility fontSize="small" />
+          </button>
+          {user?.role === 'Admin' && (
+            <button
+              className="table-action-btn"
+              title="Delete Draft"
+              style={{ color: '#ef4444' }}
+              onClick={() => handleDelete(cell.row.original._id)}
+            >
+              <Delete fontSize="small" />
+            </button>
+          )}
+        </div>
       ),
     },
   ];

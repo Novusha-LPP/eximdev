@@ -744,14 +744,28 @@ function EditPaymentRequest() {
               </div>
 
               {renderChargesSection()}
-              <button
-                className="btn sticky-btn"
+              <Button
                 type="submit"
-                style={{ float: "right", margin: "10px" }}
-                aria-label="submit-btn"
+                variant="contained"
+                sx={{
+                  position: "fixed",
+                  bottom: 40,
+                  right: 40,
+                  zIndex: 1000,
+                  backgroundColor: "#000",
+                  color: "#fff",
+                  "&:hover": {
+                    backgroundColor: "#333",
+                  },
+                  padding: "12px 32px",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                  borderRadius: "8px"
+                }}
               >
                 Submit
-              </button>
+              </Button>
 
               {/* Add validation message */}
               {!someReceiptsUploaded && (

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
@@ -19,6 +19,8 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly } = req.query;
@@ -403,6 +405,8 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   }
 });
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly } = req.query;
@@ -781,6 +785,8 @@ export async function getTodayJob(req, res) {
 
 // Add this to your backend routes
 router.get('/get-new-do-billing-jobs', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { since, username } = req.query;
 

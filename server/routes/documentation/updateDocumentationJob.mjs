@@ -1,10 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
 router.patch("/api/update-documentation-job/:id", auditMiddleware('Job'), async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { documentation_completed_date_time, documentationQueries } = req.body;
     const job = await JobModel.findById(req.params.id);

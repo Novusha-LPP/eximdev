@@ -1,10 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import UserModel from "../../model/userModel.mjs";
 
 const router = express.Router();
 
 router.get("/api/importer-list-to-assign-jobs", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Get all importers from the JobModel
     const importers = await JobModel.aggregate([

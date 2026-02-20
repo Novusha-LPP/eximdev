@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState } from "react";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid } from "@mui/material";
+import { IconButton, Tooltip, Collapse, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -83,12 +83,12 @@ function JobDetailsStaticData(props) {
     var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
   }
 
-  if (props.container_nos) {
-    var net_weight = props.container_nos?.reduce((sum, container) => {
-      const weight = parseFloat(container.net_weight);
-      return sum + (isNaN(weight) ? 0 : weight);
-    }, 0);
-  }
+  // if (props.container_nos) {
+  //   var net_weight = props.container_nos?.reduce((sum, container) => {
+  //     const weight = parseFloat(container.net_weight);
+  //     return sum + (isNaN(weight) ? 0 : weight);
+  //   }, 0);
+  // }
 
   const handleCopy = useCallback((event, text) => {
     event.stopPropagation();

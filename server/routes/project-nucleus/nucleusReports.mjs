@@ -1,10 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import UserModel from "../../model/userModel.mjs";
 
 const router = express.Router();
 
 router.get("/reports", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
@@ -88,6 +90,8 @@ router.get("/reports", async (req, res) => {
 });
 
 router.post("/update-penalty-status", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
         const { jobId, updates } = req.body;
 
@@ -125,6 +129,8 @@ function parseAmount(amountStr) {
 
 // Top 10 Importers Report
 router.get("/top-importers", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
         const { filterType, month, year, quarter, startDate, endDate } = req.query;
 

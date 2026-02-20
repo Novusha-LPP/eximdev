@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
@@ -18,6 +18,8 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Extract query parameters
     const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly } = req.query;
@@ -195,6 +197,8 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
 
 
 router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Extract query parameters
     const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year } = req.query;

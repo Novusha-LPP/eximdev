@@ -2,6 +2,7 @@ import "./App.scss";
 import "./styles/job-details.scss";
 import axios from "axios";
 import { UserContext } from "./contexts/UserContext";
+import { BranchProvider } from "./contexts/BranchContext";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import React, { useState, useEffect } from "react";
@@ -72,11 +73,14 @@ function App() {
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
-      </LocalizationProvider>
+      <BranchProvider>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+        </LocalizationProvider>
+      </BranchProvider>
     </UserContext.Provider>
   );
 }
 
 export default React.memo(App);
+

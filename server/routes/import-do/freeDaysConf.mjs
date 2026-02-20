@@ -15,11 +15,13 @@ const buildSearchQuery = (search) => ({
 });
 
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Extract and validate query parameters
     const page = parseInt(req.query.page, 10) || 1;
@@ -131,6 +133,8 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 
 // PATCH API that updates only the free_time
 router.patch("/api/update-free-time/:id", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { id } = req.params; // Extract job ID from route parameters
     const { free_time } = req.body; // Extract free_time from request body
@@ -166,6 +170,8 @@ router.patch("/api/update-free-time/:id", async (req, res) => {
 
 // PATCH API that updates free_time and all DO-related documents
 router.patch("/api/update-free-days-config", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const {
       _id,

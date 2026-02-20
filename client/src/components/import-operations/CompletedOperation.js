@@ -26,29 +26,31 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { TabContext } from "./ImportOperations.js";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function CompletedOperations() {
   const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-        const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-        const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const { user } = useContext(UserContext);
+  const { availableIcds } = useContext(BranchContext);
   const navigate = useNavigate();
- 
+
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-    // Use context for searchQuery, selectedImporter, and currentPage for tab 2 (Completed Operations)
-  const { 
-    searchQuery, 
-    setSearchQuery, 
-    selectedImporter, 
-    setSelectedImporter, 
-    currentPageOpTab2: currentPage, 
-    setCurrentPageOpTab2: setCurrentPage 
+  // Use context for searchQuery, selectedImporter, and currentPage for tab 2 (Completed Operations)
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageOpTab2: currentPage,
+    setCurrentPageOpTab2: setCurrentPage
   } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -64,12 +66,12 @@ function CompletedOperations() {
   const isFromJobDetailsRef = useRef(false);
 
   const limit = 50;
-  
+
   // Initialize component and handle navigation state
   useEffect(() => {
     const fromJobDetails = location.state?.fromJobDetails;
     isFromJobDetailsRef.current = fromJobDetails;
-    
+
     // Changed to check for currentTab === 2 (Completed Operations tab)
     if (currentTab === 2) {
       if (fromJobDetails) {
@@ -99,7 +101,7 @@ function CompletedOperations() {
 
     setIsInitialized(true);
   }, [currentTab, location.state, setSearchQuery, setSelectedImporter]);
-  
+
   // Cleanup function to cancel ongoing requests
   const cancelPreviousRequest = useCallback(() => {
     if (abortControllerRef.current) {
@@ -115,7 +117,7 @@ function CompletedOperations() {
     year,
     selectedICD,
     selectedImporter,
-        unresolvedOnly = false
+    unresolvedOnly = false
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !year || !user?.username) {
@@ -126,7 +128,7 @@ function CompletedOperations() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    try {      
+    try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
         {
@@ -137,7 +139,7 @@ function CompletedOperations() {
             year,
             selectedICD,
             importer: selectedImporter?.trim() || "",
-                        unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+            unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
 
           },
           signal: controller.signal,
@@ -151,15 +153,15 @@ function CompletedOperations() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-                  unresolvedCount, // ✅ Get unresolved count from response
+          unresolvedCount, // ✅ Get unresolved count from response
 
         } = res.data;
-        
+
         setRows(Array.isArray(jobs) ? jobs : []);
         setTotalPages(totalPages || 1);
         setTotalJobs(totalJobs || 0);
         abortControllerRef.current = null;
-              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
 
       }
     } catch (error) {
@@ -167,18 +169,18 @@ function CompletedOperations() {
         return;
       }
       console.error("Error fetching rows:", error);
-      
+
       // Only update state if this is still the current request
       if (abortControllerRef.current === controller) {
         setRows([]);
         setTotalPages(1);
         setTotalJobs(0);
-              setUnresolvedCount(0);
+        setUnresolvedCount(0);
         abortControllerRef.current = null;
       }
     }
   }, [isInitialized, user?.username, limit, cancelPreviousRequest]);
-  
+
   // Handle search debouncing
   useEffect(() => {
     if (!isInitialized) return;
@@ -255,12 +257,12 @@ function CompletedOperations() {
     }
     getYears();
   }, [selectedYearState, setSelectedYearState]);
-  
+
   // Main effect to fetch data - consolidated and optimized
   useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
-      
+
       // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
         const restoredPage = location.state?.currentPage || currentPage;
@@ -285,7 +287,7 @@ function CompletedOperations() {
         selectedYearState,
         selectedICD,
         selectedImporter,
-                showUnresolvedOnly
+        showUnresolvedOnly
       );
     }
   }, [
@@ -299,7 +301,7 @@ function CompletedOperations() {
     location.state,
     currentPage,
     user?.username,
-        showUnresolvedOnly,
+    showUnresolvedOnly,
   ]);
 
   // Cleanup on unmount
@@ -311,7 +313,7 @@ function CompletedOperations() {
       }
     };
   }, [cancelPreviousRequest]);
-  
+
   // Handle pagination change
   const handlePageChange = useCallback((event, newPage) => {
     setPage(newPage);
@@ -406,7 +408,7 @@ function CompletedOperations() {
         const icdCode = row.original.custom_house;
         const year = row.original.year;
         // Build query string for context passing
-      
+
 
         return (
           <Link
@@ -518,46 +520,46 @@ function CompletedOperations() {
         );
       },
     },
-{
-  accessorKey: "container_nos",
-  header: "Arrival Date",
-  enableSorting: false,
-  size: 150,
-  Cell: ({ cell }) =>
-    cell.getValue()?.map((container, id) => (
-      <React.Fragment key={id}>
-        {formatDate(container.arrival_date)}
-        <br />
-      </React.Fragment>
-    )),
-},
-{
-  accessorKey: "examination_planning_date",
-  header: "Examination Planning Date",
-  enableSorting: false,
-  size: 240,
-  Cell: ({ cell }) => (
-    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
-  ),
-},
-{
-  accessorKey: "pcv_date",
-  header: "PCV Date",
-  enableSorting: false,
-  size: 120,
-  Cell: ({ cell }) => (
-    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
-  ),
-},
-{
-  accessorKey: "out_of_charge",
-  header: "Out Of Charge Date",
-  enableSorting: false,
-  size: 150,
-  Cell: ({ cell }) => (
-    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
-  ),
-},
+    {
+      accessorKey: "container_nos",
+      header: "Arrival Date",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) =>
+        cell.getValue()?.map((container, id) => (
+          <React.Fragment key={id}>
+            {formatDate(container.arrival_date)}
+            <br />
+          </React.Fragment>
+        )),
+    },
+    {
+      accessorKey: "examination_planning_date",
+      header: "Examination Planning Date",
+      enableSorting: false,
+      size: 240,
+      Cell: ({ cell }) => (
+        <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+      ),
+    },
+    {
+      accessorKey: "pcv_date",
+      header: "PCV Date",
+      enableSorting: false,
+      size: 120,
+      Cell: ({ cell }) => (
+        <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+      ),
+    },
+    {
+      accessorKey: "out_of_charge",
+      header: "Out Of Charge Date",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => (
+        <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+      ),
+    },
   ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, handleCopy, formatDate, getCustomHouseLocation, navigate, page]);
 
   const tableConfig = useMemo(() => ({
@@ -659,9 +661,11 @@ function CompletedOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {availableIcds.map((icd) => (
+            <MenuItem key={icd} value={icd}>
+              {icd}
+            </MenuItem>
+          ))}
         </TextField>
 
         <TextField
@@ -672,54 +676,54 @@ function CompletedOperations() {
           onChange={(e) => setSearchQuery(e.target.value)}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Box sx={{ position: 'relative' }}>
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                                sx={{
-                                   borderRadius: 3,
-                                textTransform: 'none',
-                                fontWeight: 500,
-                                fontSize: '0.875rem',
-                                padding: '8px 20px',
-                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                                color: '#ffffff',
-                                border: 'none',
-                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                                  transform: 'translateY(-1px)',
-                                },
-                                '&:active': {
-                                  transform: 'translateY(0px)',
-                                },
-                                }}
-                              >
-                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                              </Button>
-                              <Badge 
-                                badgeContent={unresolvedCount} 
-                                color="error" 
-                                overlap="circular" 
-                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                sx={{ 
-                                  position: 'absolute',
-                                  top: 4,
-                                  right: 4,
-                                  '& .MuiBadge-badge': {
-                                    fontSize: '0.75rem',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                  }
-                                }}
-                              />
-                            </Box>
-                  </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: 'relative' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                padding: '8px 20px',
+                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                '& .MuiBadge-badge': {
+                  fontSize: '0.75rem',
+                  minWidth: '18px',
+                  height: '18px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery, setCurrentPage]);

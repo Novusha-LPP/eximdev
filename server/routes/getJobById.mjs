@@ -1,9 +1,11 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+import { getJobModel } from "../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-job-by-id/:_id", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { _id } = req.params;
     const job = await JobModel.findOne({ _id }).lean(); // Using .lean() for better performance

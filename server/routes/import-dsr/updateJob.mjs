@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
@@ -7,6 +7,8 @@ const router = express.Router();
 router.put("/api/update-job/:year/:jobNo",
   auditMiddleware('Job'),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     const { jobNo, year } = req.params;
 
     const {
@@ -277,6 +279,8 @@ router.put("/api/update-job/:year/:jobNo",
 router.patch("/api/update-job/fields/:year/:jobNo",
   auditMiddleware('Job'),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     const { year, jobNo } = req.params;
     const { vessel_berthing, arrival_date, container_index } = req.body;
 
@@ -315,6 +319,8 @@ router.patch("/api/update-job/fields/:year/:jobNo",
 router.put("/api/admin/update-job-static/:year/:jobNo",
   auditMiddleware('Job'),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     const { year, jobNo } = req.params;
     const updateData = req.body;
 

@@ -1,11 +1,13 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs"; // Import your JobModel
+import { getJobModel } from "../../model/jobModelFactory.mjs"; // Import your JobModel
 import auditMiddleware from "../../middleware/auditTrail.mjs"; // Import audit middleware
 
 const router = express.Router();
 
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     if (req.params.id) {
       // Fetch job details to get job_no and year
@@ -33,6 +35,8 @@ router.patch(
   extractJobInfo,
   auditMiddleware("Job"),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
       const jobId = req.params.id;
       const updateData = req.body;

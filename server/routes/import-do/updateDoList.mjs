@@ -1,11 +1,13 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
 router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, next) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const {
     _id,
     shipping_line_bond_completed,

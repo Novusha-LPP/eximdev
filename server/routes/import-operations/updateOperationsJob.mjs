@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
@@ -9,6 +9,8 @@ const router = express.Router();
 // The job_no and year are already available in the URL params,
 // so we just need to attach them to req.jobInfo for the audit middleware
 const extractJobInfo = async (req, res, next) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { year, job_no } = req.params;
     
@@ -31,6 +33,8 @@ const extractJobInfo = async (req, res, next) => {
 };
 
 router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const { year, job_no } = req.params;
   const updateData = req.body;
 

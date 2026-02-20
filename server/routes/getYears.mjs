@@ -1,9 +1,11 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+import { getJobModel } from "../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-years", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const pipeline = [
       // Group by year to get distinct years

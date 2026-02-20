@@ -1,11 +1,13 @@
 import express from 'express';
-import JobModel from '../../model/jobModel.mjs';
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import KycDocumentsModel from '../../model/kycDocumentsModel.mjs';
 
 const router = express.Router();
 
 // GET /api/charges-section/job-details?year=YYYY&job_no=XXX
 router.get('/api/charges-section/job-details', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { year, job_no } = req.query;
     if (!year || !job_no) {

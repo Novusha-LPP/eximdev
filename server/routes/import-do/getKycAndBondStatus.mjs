@@ -1,10 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-kyc-and-bond-status/:_id", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const { _id } = req.params;
 
   // Find the job by its _id

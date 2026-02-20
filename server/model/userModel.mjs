@@ -39,6 +39,12 @@ const userSchema = new Schema({
       ref: "Importer", // References the Importer model
     },
   ],
+  assigned_branches: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Branch", // References the Branch model
+    },
+  ],
   ////////////////////////////////////////////////////////////////// Onboarding
   first_name: {
     type: String,

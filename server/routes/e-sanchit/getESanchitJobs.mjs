@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
@@ -36,6 +36,8 @@ const getMostRecentSendDate = (job) => {
 };
 
 router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -176,6 +178,8 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 router.patch("/api/update-esanchit-job/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     const { job_no, year } = req.params;
     const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
 

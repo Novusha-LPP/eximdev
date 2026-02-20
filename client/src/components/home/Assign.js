@@ -18,12 +18,6 @@ import {
 } from "antd";
 import {
   UserOutlined,
-  AppstoreOutlined,
-  SafetyCertificateOutlined,
-  KeyOutlined,
-  EnvironmentOutlined,
-  ProjectOutlined,
-  RobotOutlined,
   SearchOutlined,
   GroupOutlined,
   InfoCircleOutlined,
@@ -36,11 +30,11 @@ import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignImporters from "./AssignImporters";
 import AssignEximBot from "./AssignEximBot/AssignEximBot";
+import AssignBranches from "./AssignRole/AssignBranches";
 import ModuleUserList from "./ModuleUserList";
 import UserProfile from "../userProfile/UserProfile";
 import HodManagement from "./HodManagement";
 
-const { Option } = Select;
 const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
 
@@ -151,6 +145,11 @@ function Assign() {
       key: "Assign Role",
       label: "Assign Role",
       children: <AssignRole selectedUser={selectedUser} />,
+    },
+    {
+      key: "Assign Branches",
+      label: "Assign Branches",
+      children: <AssignBranches selectedUser={selectedUser} />,
     },
     {
       key: "Change Password",

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
@@ -7,6 +7,8 @@ const router = express.Router();
 router.post("/api/update-esanchit-job",
   auditMiddleware('Job'),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     const { job_no, year, cth_documents, documents, eSachitQueries, esanchitCharges } = req.body;
 
     try {

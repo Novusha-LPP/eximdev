@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
@@ -11,6 +11,8 @@ const SCRAP_HS_CODES = [
 ];
 
 router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const { year, month } = req.params;
   const monthInt = parseInt(month, 10);
   const grade = req.query.grade || "";

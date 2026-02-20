@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import JobModel from '../../model/jobModel.mjs';
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import CthModel from '../../model/cthDocumentsModel.mjs';
 
 const router = Router();
 
 // PATCH API to update job with duty details from CTH collection
 router.patch('/jobs/:jobId/update-duty-from-cth', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { jobId } = req.params;
     const { cth_no } = req.body;

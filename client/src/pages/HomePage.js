@@ -127,6 +127,7 @@ import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
 // HOD Management
 import HodManagement from "../components/home/HodManagement.js";
+import BranchManagement from "../components/home/BranchManagement.js";
 
 // DGFT Module
 import DgftTabs from "../components/dgft/DgftTabs.js";
@@ -177,6 +178,7 @@ function HomePage() {
 
               {/* Protected Routes */}
               <Route path="/assign" element={<Assign />} />
+              <Route path="/branch-management" element={<BranchManagement />} />
 
               {/* HOD Management - For Head of Department users */}
               <Route path="/hod-management" element={<HodManagement />} />

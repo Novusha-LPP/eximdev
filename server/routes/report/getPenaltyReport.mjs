@@ -1,10 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import logger from "../../logger.js";
 
 const router = express.Router();
 
 router.get("/api/report/penalty", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {    // Find jobs where any of the penalty fields have a value greater than 0
     const jobs = await JobModel.find({
       $or: [

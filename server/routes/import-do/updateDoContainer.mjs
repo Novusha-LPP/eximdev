@@ -1,9 +1,11 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 router.post("/api/update-do-container", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const { job_no, year, container_number, do_validity_upto_container_level } =
     req.body;
 

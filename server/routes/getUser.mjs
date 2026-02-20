@@ -8,8 +8,8 @@ router.get("/api/get-user/:username", async (req, res) => {
 
   try {
     const user = await UserModel.findOne({ username }).select(
-      "username role can_access_exim_bot modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer_name selected_icd_codes"
-    );
+      "username role can_access_exim_bot modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer_name selected_icd_codes assigned_branches"
+    ).populate("assigned_branches");
 
     if (!user) {
       return res.status(200).json({ message: "User not found" });

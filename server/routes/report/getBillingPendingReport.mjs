@@ -1,11 +1,13 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import logger from "../../logger.js";
 
 const router = express.Router();
 
 // GET /api/report/billing-pending?year=22-23
 router.get("/api/report/billing-pending", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Get year from query params, default to "25-26" if not provided
     const year = req.query.year || "25-26";

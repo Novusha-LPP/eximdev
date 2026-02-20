@@ -1,12 +1,14 @@
 import express from "express";
 import mongoose from "mongoose";
 import CthModel from "./CthUtil.mjs";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 // Get all CTH entries (with pagination)
 router.get("/api/getallcth", async (req, res) => {
+  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -56,6 +58,8 @@ router.get("/api/getallcth", async (req, res) => {
 
 // Get a single CTH entry by ID
 // router.get("/api/:id", async (req, res) => {
+//     const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
 //   try {
 //     const cth = await CthModel.findById(req.params.id).populate(
 //       "job",
@@ -86,6 +90,8 @@ router.get("/api/getallcth", async (req, res) => {
 // Look up CTH by HS code
 // Look up CTH by HS code or by job number and year
 router.get("/api/lookup/:hsCode?/:jobNo/:year", async (req, res) => {
+  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { hsCode, jobNo, year } = req.params;
     let job, cthEntry, lookupHsCode;

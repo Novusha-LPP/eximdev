@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
@@ -8,6 +8,8 @@ router.patch(
   "/api/update-submission-job/:id",
   auditMiddleware("Job"),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
       const jobId = req.params.id;
       const updateData = req.body; // Data coming from frontend

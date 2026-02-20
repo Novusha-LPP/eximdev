@@ -11,8 +11,8 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import DescriptionIcon from "@mui/icons-material/Description";
 import CurrencyExchangeIcon from "@mui/icons-material/CurrencyExchange";
 import InsightsIcon from "@mui/icons-material/Insights";
-import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
@@ -57,17 +57,31 @@ function Sidebar() {
       </Tooltip>
 
       {user.role === "Admin" && (
-        <Tooltip title="Admin" enterDelay={0} placement="right">
-          <ListItemButton
-            className="appbar-links"
-            aria-label="list-item"
-            onClick={() => navigate("/assign")}
-          >
-            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-              <AssignmentIndIcon />
-            </IconButton>
-          </ListItemButton>
-        </Tooltip>
+        <>
+          <Tooltip title="Admin Assignments" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/assign")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <AssignmentIndIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          <Tooltip title="Branch Management" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/branch-management")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <AccountTreeIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+        </>
       )}
 
       {/* HOD Management - For Head of Department users */}

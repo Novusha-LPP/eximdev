@@ -9,7 +9,7 @@ router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await UserModel.findOne({ username });
+    const user = await UserModel.findOne({ username }).populate("assigned_branches");
     if (!user) {
       return res.status(400).json({ message: "User not registered" });
     }
@@ -48,6 +48,7 @@ router.post("/api/login", async (req, res) => {
           assigned_importer: user.assigned_importer,
           assigned_importer_name: user.assigned_importer_name,
           selected_icd_codes: user.selected_icd_codes,
+          assigned_branches: user.assigned_branches,
         };
 
         const token = jwt.sign(

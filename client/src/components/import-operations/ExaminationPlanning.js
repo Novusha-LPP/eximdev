@@ -24,6 +24,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { YearContext } from "../../contexts/yearContext.js";
@@ -46,6 +47,7 @@ function ImportOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
+  const { availableIcds } = useContext(BranchContext);
 
   const navigate = useNavigate();
   // Remove local page state and use persistent pagination from context
@@ -796,9 +798,11 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {availableIcds.map((icd) => (
+            <MenuItem key={icd} value={icd}>
+              {icd}
+            </MenuItem>
+          ))}
         </TextField>
 
         <TextField

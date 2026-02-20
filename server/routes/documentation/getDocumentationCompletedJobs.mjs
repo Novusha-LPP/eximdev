@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
@@ -19,6 +19,8 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (req, res) => {
+  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
 
@@ -174,6 +176,8 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
 });
 
 // router.patch("/api/update-documentation-job/:id", async (req, res) => {
+//     const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
 //   try {
 //     const { id } = req.params; // Get the job ID from the URL
 //     const { documentation_completed_date_time } = req.body; // Take the custom date from the request body

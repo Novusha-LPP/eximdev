@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
@@ -14,6 +14,8 @@ function formatImporter(importer) {
 
 // ✅ API Endpoint to get job counts for an importer
 router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { year, importerURL } = req.params;
     const formattedImporter = formatImporter(importerURL);

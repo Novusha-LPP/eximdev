@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
@@ -8,6 +8,8 @@ router.patch(
     "/api/update-advanced-payment/:id",
     auditMiddleware("Job"),
     async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
         try {
             const { id } = req.params;
             const { advanced_payment_done, username } = req.body;

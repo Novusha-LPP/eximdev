@@ -1,10 +1,12 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 const router = express.Router();
 
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     if (req.body._id) {
       // Fetch job details to get job_no and year
@@ -27,6 +29,8 @@ const extractJobInfo = async (req, res, next) => {
 };
 
 router.patch("/api/update-do-planning", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
 
     const currentDate = new Date().toLocaleDateString("en-GB", {

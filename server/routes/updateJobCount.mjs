@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+import { getJobModel } from "../model/jobModelFactory.mjs";
 
 const router = express.Router();
 // Define the custom order for grouping

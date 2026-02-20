@@ -15,6 +15,7 @@ import {
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext";
 import {
   MenuItem,
   TextField,
@@ -54,6 +55,7 @@ function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { availableIcds } = useContext(BranchContext);
 
   const {
     searchQuery,
@@ -443,9 +445,11 @@ function JobList(props) {
           sx={{ width: "135px", marginRight: "10px" }}
         >
           <MenuItem value="all">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {availableIcds.map((icd) => (
+            <MenuItem key={icd} value={icd}>
+              {icd}
+            </MenuItem>
+          ))}
         </TextField>
 
         <TextField

@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 // Status Rank Configuration
 const statusRank = {
@@ -24,6 +24,8 @@ const parseDate = (dateStr) => {
 router.get(
   "/api/download-report/:years/:importerURL/:status",
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
       let { years, importerURL, status } = req.params;
 

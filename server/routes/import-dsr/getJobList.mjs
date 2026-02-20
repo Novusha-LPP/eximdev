@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
@@ -217,6 +217,8 @@ router.get(
   "/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer",
   applyUserImporterFilter,
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
       const { year, status, detailedStatus, importer, selectedICD } =
         req.params;
@@ -845,6 +847,8 @@ const applyDotNotationToMerged = (merged, updateData) => {
 };
 
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -911,6 +915,8 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 // ---------------- SINGLE JOB FETCH ----------------
 
 router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { jobNo, year } = req.params;
 

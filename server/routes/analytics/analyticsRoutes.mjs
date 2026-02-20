@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import mongoose from "mongoose";
 
 const router = express.Router();
@@ -8,6 +8,8 @@ const router = express.Router();
 const parseDate = (d) => new Date(d);
 
 router.get("/api/analytics/:module", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
         const { module } = req.params;
         let { startDate, endDate, importer } = req.query;

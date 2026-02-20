@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 // Initialize the router
@@ -44,6 +44,8 @@ router.post(
   "/api/jobs/add-job-all-In-bond",
   auditMiddleware("Job"),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
       const jobs = await JobModel.find(
         { type_of_b_e: "In-Bond" },
@@ -62,6 +64,8 @@ router.post(
   "/api/jobs/add-job-imp-man",
   auditMiddleware("Job"),
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     try {
       const {
         container_nos,
@@ -162,6 +166,8 @@ router.post(
   "/api/jobs/add-job",
   // auditMiddleware('Job'), // Disabled for bulk operations - causes performance issues with large datasets
   async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
     const jsonData = req.body;
     const CHUNK_SIZE = 1000; // Process 1000 jobs at a time
 
@@ -395,6 +401,8 @@ router.post(
 
 // Route to update detailed_status for all pending jobs
 router.get("/api/jobs/update-pending-status", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     // Step 1: Find all jobs where status is 'Pending'
     const pendingJobs = await JobModel.find({ status: "Pending" });

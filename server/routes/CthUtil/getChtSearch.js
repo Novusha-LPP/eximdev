@@ -4,7 +4,7 @@ import CthModel from './CthUtil.mjs';
 import FavoriteModel from './FavouriteCth.mjs';
 import RecentModel from './RecentCth.mjs';
 import NodeCache from 'node-cache'; 
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
@@ -64,6 +64,8 @@ async function getHsCodeWithContext(hsCode, Model) {
 }
 
 router.get('/api/search', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { query } = req.query;
     const addToRecent = req.query.addToRecent === 'true';
@@ -270,6 +272,8 @@ async function addToRecentCollection(item) {
 
 // New API endpoint to add an item to the recent collection
 router.post('/api/add-to-recent', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const itemData = req.body;
     // Ensure at least one unique identifier
@@ -290,6 +294,8 @@ router.post('/api/add-to-recent', async (req, res) => {
 
 // Improved toggle favorite API to sync across all collections
 router.patch('/api/toggle-favorite/:id', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { id } = req.params;
     const { collectionName } = req.body;
@@ -399,6 +405,8 @@ router.patch('/api/toggle-favorite/:id', async (req, res) => {
 
 // Get favorites
 router.get('/api/favorites', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const favorites = await FavoriteModel.find().sort({ createdAt: -1 });
     return res.status(200).json(favorites);
@@ -412,6 +420,8 @@ router.get('/api/favorites', async (req, res) => {
 
 // Get recent
 router.get('/api/recent', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const recents = await RecentModel.find().sort({ createdAt: -1 });
     return res.status(200).json(recents);
@@ -425,6 +435,8 @@ router.get('/api/recent', async (req, res) => {
 
 // Improved delete API to handle favorite status sync
 router.delete('/api/delete/:collection/:id', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { collection, id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -491,6 +503,8 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
 
 // Get context items for an HS code
 router.get('/api/context/:hsCode', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { hsCode } = req.params;
     
@@ -517,6 +531,8 @@ router.get('/api/context/:hsCode', async (req, res) => {
 
 // DELETE all favorites
 router.delete('/api/favorite-cth/clear', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     await FavoriteModel.deleteMany({});
     res.json({ message: 'All favorite CTH entries deleted.' });
@@ -528,6 +544,8 @@ router.delete('/api/favorite-cth/clear', async (req, res) => {
 
 // DELETE all recent items
 router.delete('/api/recent-cth/clear', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     await RecentModel.deleteMany({});
     res.json({ message: 'All recent CTH entries deleted.' });
@@ -539,6 +557,8 @@ router.delete('/api/recent-cth/clear', async (req, res) => {
 
 // PATCH API endpoint to update job duty details from CTH
 router.patch('/api/jobs/:jobId/update-duty-from-cth', async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { jobId } = req.params;
     const { cth_no } = req.body;

@@ -1,9 +1,11 @@
 import express from "express";
-import JobModel from "../model/jobModel.mjs";
+import { getJobModel } from "../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-shipping-lines/:year", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const selectedYear = req.params.year;
 

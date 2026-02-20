@@ -32,6 +32,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function List() {
   const { job_no, year } = useParams();
@@ -55,6 +56,7 @@ function List() {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { availableIcds } = useContext(BranchContext);
 
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -881,12 +883,14 @@ function List() {
             setSelectedICD(e.target.value); // Update the selected ICD code
             setCurrentPage(1); // Reset to the first page when the filter changes
           }}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "200px", marginRight: "200px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {availableIcds.map((icd) => (
+            <MenuItem key={icd} value={icd}>
+              {icd}
+            </MenuItem>
+          ))}
         </TextField>{" "}
         {/* Search Field */}
         <TextField

@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
@@ -20,6 +20,8 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, res) => {
+  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 
@@ -154,6 +156,8 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
 
 // PATCH endpoint for updating E-Sanchit jobs
 // router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
+//     const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
 //   const { job_no, year } = req.params;
 //   const { cth_documents, queries, esanchit_completed_date_time } = req.body;
 

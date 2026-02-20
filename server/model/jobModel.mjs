@@ -660,4 +660,5 @@ jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
 jobSchema.index({ year: 1, detailed_status: 1 });
 
 const JobModel = new mongoose.model("Job", jobSchema);
+export { jobSchema };
 export default JobModel;

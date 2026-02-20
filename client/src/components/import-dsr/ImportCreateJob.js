@@ -32,8 +32,21 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import useImportJobForm from "../../customHooks/useImportJobForm.js";
 import axios from "axios";
+import { BranchContext } from "../../contexts/BranchContext";
+import { UserContext } from "../../contexts/UserContext";
 
 const ImportCreateJob = () => {
+  const { user } = React.useContext(UserContext);
+  const { activeBranch } = React.useContext(BranchContext);
+
+  const currentBranchObj = user?.assigned_branches?.find(
+    (b) => b.branch_name === activeBranch
+  ) || user?.assigned_branches?.[0];
+
+  const branchCustomHouseOptions = currentBranchObj?.icd_list?.length > 0
+    ? currentBranchObj.icd_list
+    : customHouseOptions;
+
   // const [HSS, setHSS] = useState("");
   // const [sallerName, setSallerName] = useState("");
 
@@ -297,7 +310,7 @@ const ImportCreateJob = () => {
           </Typography>
           <Autocomplete
             freeSolo
-            options={customHouseOptions}
+            options={branchCustomHouseOptions}
             value={custom_house}
             onInputChange={(event, newValue) => setCustomHouse(newValue)}
             renderInput={(params) => (

@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 // Status Rank Configuration
 const statusRank = {
@@ -20,6 +20,8 @@ const parseDate = (dateStr) => {
   return isNaN(date.getTime()) ? null : date;
 };
 router.get("/api/download-report/:years/:status", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     let { years, status } = req.params;
     // Convert years into an array (e.g., "24-25,25-26" to ["24-25", "25-26"])

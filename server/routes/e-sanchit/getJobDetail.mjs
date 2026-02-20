@@ -1,9 +1,11 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 router.get("/api/get-esanchit-job/:job_no/:year", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   const { job_no, year } = req.params;
   try {
     const data = await JobModel.findOne({ job_no, year });

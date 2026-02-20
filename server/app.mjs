@@ -58,6 +58,8 @@ import getSupplierExporterList from "./routes/getSupplierExporterList.mjs";
 import getJobById from "./routes/getJobById.mjs";
 import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
+import branchRoutes from "./routes/admin/branchRoutes.mjs";
+import BranchModel from "./model/branchModel.mjs";
 import updateProfilePhoto from "./routes/user/updateProfilePhoto.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
@@ -89,19 +91,6 @@ import viewAllKycs from "./routes/employee-kyc/viewAllKycs.mjs";
 import onboardEmployee from "./routes/employee-onboarding/onboardEmployee.mjs";
 import completeOnboarding from "./routes/employee-onboarding/completeOnboarding.mjs";
 import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
-
-// Customer KYC
-import addCustomerKyc from "./routes/CustomerKyc/addCustomerKyc.mjs";
-import customerKycDraft from "./routes/CustomerKyc/customerKycDraft.mjs";
-import viewAllCustomerKyc from "./routes/CustomerKyc/viewAllCustomerKyc.mjs";
-import viewCustomerKycDetails from "./routes/CustomerKyc/viewCustomerKycDetails.mjs";
-import updateCustomerKyc from "./routes/CustomerKyc/updateCustomerKyc.mjs";
-import customerKycApproval from "./routes/CustomerKyc/customerKycApproval.mjs";
-import viewCompletedKyc from "./routes/CustomerKyc/viewCompletedKyc.mjs";
-import viewCustomerKycDrafts from "./routes/CustomerKyc/viewCustomerKycDrafts.mjs";
-import viewRevisionList from "./routes/CustomerKyc/viewRevisionList.mjs";
-import hodApprovalPending from "./routes/CustomerKyc/hodApprovalPending.mjs";
-import deleteCustomerKyc from "./routes/CustomerKyc/deleteCustomerKyc.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -223,12 +212,8 @@ import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
-
 import mrmRoutes from "./routes/mrm/mrmRoutes.mjs";
 import teamRoutes from "./routes/team/teamRoutes.mjs";
-
-// DGFT Module
-import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -294,6 +279,8 @@ app.use(
       "username",
       "user-role",
       "x-username",
+      "x-branch",
+      "x-category",
     ],
   })
 );
@@ -331,6 +318,7 @@ app.use(updateProfilePhoto);
 app.use(getYears);
 app.use(login);
 app.use(me);
+app.use(branchRoutes);
 
 // handle delete
 app.use(handleS3Deletation);
@@ -357,20 +345,6 @@ app.use(viewAllKycs);
 app.use(onboardEmployee);
 app.use(completeOnboarding);
 app.use(viewOnboardings);
-
-// Customer KYC
-app.use(addCustomerKyc);
-app.use(customerKycDraft);
-app.use(viewAllCustomerKyc);
-app.use(viewCustomerKycDetails);
-app.use(updateCustomerKyc);
-app.use(customerKycApproval);
-app.use(viewCompletedKyc);
-app.use(viewCustomerKycDrafts);
-app.use(viewRevisionList);
-app.use(hodApprovalPending);
-
-app.use(deleteCustomerKyc);
 
 // E-Sanchit
 app.use(getCthDocs);
@@ -493,12 +467,8 @@ app.use("/api/project-nucleus", nucleusReports);
 
 // KPI Module
 app.use(kpiRoutes);
-
 app.use(mrmRoutes);
 app.use(teamRoutes);
-
-// DGFT Module
-app.use(dgftRoutes);
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

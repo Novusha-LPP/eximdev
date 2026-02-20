@@ -1,5 +1,5 @@
 import express from "express";
-import JobModel from "../../model/jobModel.mjs";
+import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
@@ -15,6 +15,8 @@ const buildSearchQuery = (search) => {
 };
 
 router.get("/api/get-jobs-overview/:year", async (req, res) => {
+    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+
   try {
     const { year } = req.params;
     const status = req.query.status;

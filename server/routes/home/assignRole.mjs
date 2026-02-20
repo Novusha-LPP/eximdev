@@ -107,4 +107,26 @@ router.patch("/api/users/:username/add-importer", async (req, res) => {
       .send({ message: "Internal Server Error", error: error.message });
   }
 });
+// PATCH: Assign branches to a user
+router.patch("/api/users/:username/assign-branches", async (req, res) => {
+  const { username } = req.params;
+  const { branches } = req.body; // Array of Branch ObjectIds
+
+  try {
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    user.assigned_branches = branches || [];
+    await user.save();
+
+    res.status(200).send({
+      message: "Branches assigned successfully",
+      assigned_branches: user.assigned_branches,
+    });
+  } catch (error) {
+    res.status(500).send({ message: "Internal Server Error", error: error.message });
+  }
+});
 export default router;

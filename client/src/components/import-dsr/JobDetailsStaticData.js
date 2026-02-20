@@ -1,14 +1,83 @@
 import React, { useMemo, useCallback, useState } from "react";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, Tooltip, Collapse, Box, Typography } from "@mui/material";
+import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import EditIcon from "@mui/icons-material/Edit";
+import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
+  const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+  const isAdmin = user?.role === "Admin";
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleEditClick = (e) => {
+    e.stopPropagation();
+    setEditFormData({
+      job_no: props.params.job_no || "",
+      custom_house: props.data?.custom_house || "",
+      importer: props.data?.importer || "",
+      awb_bl_no: props.data?.awb_bl_no || "",
+      be_no: props.data?.be_no || "",
+      status: props.data?.status || "",
+      payment_method: props.data?.payment_method || "",
+      clearanceValue: props.data?.clearanceValue || "",
+      origin_country: props.data?.origin_country || "",
+      import_terms: props.data?.import_terms || "",
+      ie_code_no: props.data?.ie_code_no || "",
+      invoice_number: props.data?.invoice_number || "",
+      invoice_date: props.data?.invoice_date || "",
+      supplier_exporter: props.data?.supplier_exporter || "",
+      be_filing_type: props.data?.be_filing_type || "",
+      loading_port: props.data?.loading_port || "",
+      port_of_reporting: props.data?.port_of_reporting || "",
+      shipping_line_airline: props.data?.shipping_line_airline || "",
+      cth_no: props.data?.cth_no || "",
+      gross_weight: props.data?.gross_weight || "",
+      job_net_weight: props.data?.job_net_weight || "",
+      be_date: props.data?.be_date || "",
+      no_of_pkgs: props.data?.no_of_pkgs || "",
+      adCode: props.data?.adCode || "",
+      hawb_hbl_no: props.data?.hawb_hbl_no || "",
+      hawb_hbl_date: props.data?.hawb_hbl_date || "",
+      gateway_igm: props.data?.gateway_igm || "",
+      gateway_igm_date: props.data?.gateway_igm_date || "",
+      line_no: props.data?.line_no || "",
+      bank_name: props.data?.bank_name || "",
+      igm_no: props.data?.igm_no || "",
+      igm_date: props.data?.igm_date || "",
+      hss: props.data?.hss || "",
+      saller_name: props.data?.saller_name || "",
+      importer_address: props.data?.importer_address || "",
+    });
+    setErrorMsg("");
+    setEditModalOpen(true);
+  };
+
+  const handleEditChange = (e) => {
+    setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      setIsSaving(true);
+      setErrorMsg("");
+      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.year}/${props.params.job_no}`, editFormData);
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.error || "Failed to update job data.");
+      setIsSaving(false);
+    }
+  };
   if (props.data) {
     const inv_value = (props.data.cif_amount / props.data.exrate).toFixed(2);
     var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
@@ -244,11 +313,20 @@ function JobDetailsStaticData(props) {
                     </span>
                   )}
               </h5>
-              <Tooltip title="Collapse Details">
-                <IconButton size="small" onClick={() => setExpanded(false)}>
-                  <KeyboardArrowUpIcon />
-                </IconButton>
-              </Tooltip>
+              <div>
+                {isAdmin && (
+                  <Tooltip title="Edit Job Static Data (Admin Only)">
+                    <IconButton size="small" onClick={handleEditClick} style={{ marginRight: "10px" }}>
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title="Collapse Details">
+                  <IconButton size="small" onClick={() => setExpanded(false)}>
+                    <KeyboardArrowUpIcon />
+                  </IconButton>
+                </Tooltip>
+              </div>
             </Col>
           </Row>
 
@@ -525,6 +603,38 @@ function JobDetailsStaticData(props) {
           </Row>
         </div>
       </Collapse>
+
+      {isAdmin && (
+        <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="lg" fullWidth>
+          <DialogTitle>Edit Job Static Data (Admin Only)</DialogTitle>
+          <DialogContent dividers>
+            {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
+            <Grid container spacing={2} style={{ marginTop: '5px' }}>
+              {Object.keys(editFormData).map((key) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    name={key}
+                    value={editFormData[key] || ""}
+                    onChange={handleEditChange}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditModalOpen(false)} color="secondary" disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} color="primary" variant="contained" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
     </div>
   );
 }

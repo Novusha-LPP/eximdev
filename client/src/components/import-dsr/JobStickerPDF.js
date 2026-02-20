@@ -4,7 +4,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import logo from "../../assets/images/srcc.png"; // Ensure this path is correct
 
-const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
+const JobStickerPDF = forwardRef(({ jobData, data, activeBranchBehavior }, ref) => {
   useImperativeHandle(ref, () => ({
     /**
      * Generates the PDF and opens it in a new browser tab.
@@ -169,19 +169,21 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
             getField("job_net_weight")
           );
 
-          // Row: Gateway IGM & Date
-          addTwoColumnRow(
-            "Gateway IGM",
-            data.gateway_igm || "N/A",
-            "Gateway IGM Date",
-            data.gateway_igm_date || "N/A"
-          );
+          // Row: Gateway IGM & Date (Only for HO SEA)
+          if (activeBranchBehavior === "HO SEA") {
+            addTwoColumnRow(
+              "Gateway IGM",
+              data.gateway_igm || "N/A",
+              "Gateway IGM Date",
+              data.gateway_igm_date || "N/A"
+            );
+          }
 
-          // Row: Local IGM No & Local IGM Date
+          // Row: IGM No & IGM Date
           addTwoColumnRow(
-            "Local IGM No",
+            activeBranchBehavior === "HO SEA" ? "Local IGM No" : "IGM No",
             data.igm_no || "N/A",
-            "Local IGM Date",
+            activeBranchBehavior === "HO SEA" ? "Local IGM Date" : "IGM Date",
             data.igm_date || "N/A"
           );
 
@@ -213,6 +215,7 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
             { header: "Container No", dataKey: "container_number" },
             { header: "Size", dataKey: "size" },
             { header: "Seal Number", dataKey: "seal_number" },
+            { header: "Wire Seal", dataKey: "wire_seal" },
           ];
 
           // If no containers, return a "No containers" row
@@ -221,12 +224,14 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
               container_number: container?.container_number || "N/A",
               size: container?.size || "N/A",
               seal_number: Array.isArray(container?.seal_number) ? (container.seal_number.length > 0 ? container.seal_number[container.seal_number.length - 1] : "N/A") : (container?.seal_number || "N/A"),
+              wire_seal: Array.isArray(container?.wire_seal) ? (container.wire_seal.length > 0 ? container.wire_seal[container.wire_seal.length - 1] : "N/A") : (container?.wire_seal || "N/A"),
             }))
             : [
               {
                 container_number: "No containers available.",
                 size: "",
                 seal_number: "",
+                wire_seal: "",
               },
             ];
 
@@ -237,6 +242,7 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
               row.container_number,
               row.size,
               row.seal_number,
+              row.wire_seal,
             ]),
             styles: { fontSize: 12, cellPadding: 5 },
             headStyles: {

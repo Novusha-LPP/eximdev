@@ -36,6 +36,8 @@ import {
   Anchor as AnchorIcon,
 } from "@mui/icons-material";
 import axios from "axios";
+import { BranchContext } from "../contexts/BranchContext";
+import { useContext } from "react";
 
 const SeaCargoStatus = ({
   isOpen,
@@ -45,6 +47,7 @@ const SeaCargoStatus = ({
   jobId,
   onUpdateSuccess,
 }) => {
+  const { activeBranchBehavior, activeBranch } = useContext(BranchContext);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -135,9 +138,8 @@ const SeaCargoStatus = ({
       } else if (err.response) {
         setError({
           type: "server",
-          message: `Server error: ${err.response.status} - ${
-            err.response.data?.error || "Unknown error"
-          }`,
+          message: `Server error: ${err.response.status} - ${err.response.data?.error || "Unknown error"
+            }`,
         });
       } else {
         setError({
@@ -282,15 +284,23 @@ const SeaCargoStatus = ({
         updateData.no_of_pkgs = summary.totalPackage;
       }
 
-      // Only add gateway_igm if valid
+      // Update IGM fields based on branch behavior
       if (isValidValue(summary.igmNo)) {
-        updateData.gateway_igm = summary.igmNo;
+        if (activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") {
+          updateData.gateway_igm = summary.igmNo;
+        } else {
+          updateData.igm_no = summary.igmNo;
+        }
       }
 
-      // Only add gateway_igm_date if the formatted date is valid
+      // Only add IGM date if the formatted date is valid
       const formattedIgmDate = formatDateForDatabase(summary.igmDate);
       if (isValidValue(formattedIgmDate)) {
-        updateData.gateway_igm_date = formattedIgmDate;
+        if (activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") {
+          updateData.gateway_igm_date = formattedIgmDate;
+        } else {
+          updateData.igm_date = formattedIgmDate;
+        }
       }
 
       // Check if we have any valid data to update
@@ -439,8 +449,8 @@ const SeaCargoStatus = ({
         { label: "BL Date", value: summary.blDate },
         { label: "House BL Number", value: summary.houseBlNo },
         { label: "House BL Date", value: summary.houseBlDate },
-        { label: "G-IGM Number", value: summary.igmNo },
-        { label: "G-IGM Date", value: summary.igmDate },
+        { label: (activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") ? "G-IGM Number" : "IGM Number", value: summary.igmNo },
+        { label: (activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") ? "G-IGM Date" : "IGM Date", value: summary.igmDate },
         { label: "Line Number", value: summary.lineNo },
         { label: "Sub Line Number", value: summary.subLineNo },
         { label: "Cargo Movement", value: summary.cargoMovement },
@@ -485,8 +495,8 @@ const SeaCargoStatus = ({
         { label: "Gateway Port", value: vesselDetails.gatewayPort },
         { label: "Inward Date", value: vesselDetails.inwardDate },
         { label: "File Name", value: vesselDetails.fileName },
-        { label: "G-IGM Number", value: vesselDetails.igmNo },
-        { label: "G-IGM Date", value: vesselDetails.igmDate },
+        { label: (activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") ? "G-IGM Number" : "IGM Number", value: vesselDetails.igmNo },
+        { label: (activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") ? "G-IGM Date" : "IGM Date", value: vesselDetails.igmDate },
       ];
       return <KeyValuePanel title="Vessel Information" fields={fields} />;
     }
@@ -777,10 +787,10 @@ const SeaCargoStatus = ({
                   {error.type === "network"
                     ? "Connection Error"
                     : error.type === "timeout"
-                    ? "Request Timeout"
-                    : error.type === "server"
-                    ? "Server Error"
-                    : "Request Failed"}
+                      ? "Request Timeout"
+                      : error.type === "server"
+                        ? "Server Error"
+                        : "Request Failed"}
                 </Typography>
                 <Typography variant="body2" sx={{ color: "error.dark", mb: 2 }}>
                   {error.message}

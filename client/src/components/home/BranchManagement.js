@@ -95,6 +95,12 @@ function BranchManagement() {
             render: (categories) => categories.join(", "),
         },
         {
+            title: "SEA Behavior",
+            dataIndex: "sea_behavior",
+            key: "sea_behavior",
+            render: (behavior, record) => record.categories.includes("SEA") ? behavior : "-",
+        },
+        {
             title: "ICD List",
             dataIndex: "icd_list",
             key: "icd_list",
@@ -186,6 +192,27 @@ function BranchManagement() {
                     </Form.Item>
 
                     <Form.Item
+                        noStyle
+                        shouldUpdate={(prevValues, currentValues) => prevValues.categories !== currentValues.categories}
+                    >
+                        {({ getFieldValue }) =>
+                            getFieldValue('categories')?.includes('SEA') ? (
+                                <Form.Item
+                                    name="sea_behavior"
+                                    label="SEA Behavior Selection"
+                                    rules={[{ required: true, message: "Please select SEA behavior type" }]}
+                                    initialValue="Other SEA"
+                                >
+                                    <Select placeholder="Select behavior">
+                                        <Option value="HO SEA">HO SEA (Ahmedabad Behaviour)</Option>
+                                        <Option value="Other SEA">Other SEA (Non-HO Behaviour)</Option>
+                                    </Select>
+                                </Form.Item>
+                            ) : null
+                        }
+                    </Form.Item>
+
+                    <Form.Item
                         name="icd_list"
                         label="Configured ICDs"
                         help="Type an ICD name and press Enter to add."
@@ -207,7 +234,7 @@ function BranchManagement() {
                     </Form.Item>
                 </Form>
             </Modal>
-        </div>
+        </div >
     );
 }
 

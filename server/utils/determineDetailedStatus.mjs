@@ -1,4 +1,4 @@
-export function determineDetailedStatus(job) {
+export function determineDetailedStatus(job, seaBehavior = "HO SEA") {
   const {
     be_no,
     container_nos,
@@ -6,6 +6,7 @@ export function determineDetailedStatus(job) {
     pcv_date,
     discharge_date,
     gateway_igm_date,
+    igm_date,
     vessel_berthing,
     type_of_b_e,
     consignment_type,
@@ -23,9 +24,11 @@ export function determineDetailedStatus(job) {
     ? container_nos.some((c) => isValidDate(c?.arrival_date))
     : false;
 
-  const anyRailOut = Array.isArray(container_nos)
-    ? container_nos.some((c) => isValidDate(c?.container_rail_out_date))
-    : false;
+  // Rail Out is only for HO SEA
+  const anyRailOut =
+    seaBehavior === "HO SEA" && Array.isArray(container_nos)
+      ? container_nos.some((c) => isValidDate(c?.container_rail_out_date))
+      : false;
 
   const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
 
@@ -40,7 +43,11 @@ export function determineDetailedStatus(job) {
   const validOOC = isValidDate(out_of_charge);
   const validPCV = isValidDate(pcv_date);
   const validDischarge = isValidDate(discharge_date);
-  const validIGM = isValidDate(gateway_igm_date);
+
+  // Use IGM Date for Other SEA, Gateway IGM Date for HO SEA
+  const validIGM =
+    seaBehavior === "HO SEA" ? isValidDate(gateway_igm_date) : isValidDate(igm_date);
+
   const validETA = isValidDate(vessel_berthing);
   const validDoCompleted = isValidDate(do_completed);
 
@@ -112,7 +119,7 @@ export function determineDetailedStatus(job) {
     return "Discharged";
   }
   if (validIGM) {
-    return "Gateway IGM Filed";
+    return seaBehavior === "HO SEA" ? "Gateway IGM Filed" : "IGM Filed";
   }
   if (validETA) {
     return "Estimated Time of Arrival";

@@ -33,6 +33,7 @@ import FormGroup from "@mui/material/FormGroup";
 import { TabValueContext } from "../../contexts/TabValueContext";
 import { handleGrossWeightChange } from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -99,6 +100,7 @@ function JobDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const { activeBranchBehavior, activeBranch } = useContext(BranchContext);
   const { setTabValue } = React.useContext(TabValueContext);
   const { setSearchQuery, setSelectedImporter } = useSearchQuery();
 
@@ -357,6 +359,7 @@ function JobDetails() {
       pcv_date,
       discharge_date,
       gateway_igm_date,
+      igm_date,
       vessel_berthing,
       type_of_b_e,
       consignment_type,
@@ -392,7 +395,9 @@ function JobDetails() {
     const validOOC = isValidDate(out_of_charge);
     const validPCV = isValidDate(pcv_date);
     const validDischarge = isValidDate(discharge_date);
-    const validIGM = isValidDate(gateway_igm_date);
+
+    const validIGM = isValidDate(igm_date) || (activeBranchBehavior === "HO SEA" && isValidDate(gateway_igm_date));
+
     const validETA = isValidDate(vessel_berthing);
     const validDoCompleted = isValidDate(do_completed);
 
@@ -412,7 +417,10 @@ function JobDetails() {
         return;
       }
       if (validDoCompleted && !allDelivered) {
-        formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
+        formik.setFieldValue(
+          "detailed_status",
+          "Do completed and Delivery pending"
+        );
         return;
       }
       if (be_no && validOOC) {
@@ -443,13 +451,17 @@ function JobDetails() {
       }
     } else {
       // Standard Logic (Home Consumption, etc.)
-      billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+      billingComplete =
+        isLCL || isTypeDoIcd ? allDelivered : allEmptyOffloaded;
     }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
     } else if (validDoCompleted && !allDelivered) {
-      formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
+      formik.setFieldValue(
+        "detailed_status",
+        "Do completed and Delivery pending"
+      );
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
     } else if (be_no && anyArrival && validPCV) {
@@ -465,7 +477,15 @@ function JobDetails() {
     } else if (validDischarge) {
       formik.setFieldValue("detailed_status", "Discharged");
     } else if (validIGM) {
-      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+      let status = "IGM Filed";
+      if (activeBranchBehavior === "HO SEA") {
+        if (isValidDate(igm_date)) {
+          status = "IGM Filed";
+        } else if (isValidDate(gateway_igm_date)) {
+          status = "Gateway IGM Filed";
+        }
+      }
+      formik.setFieldValue("detailed_status", status);
     } else if (validETA) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
     } else {
@@ -822,6 +842,7 @@ function JobDetails() {
               bl_no_ref={bl_no_ref}
               setSnackbar={setSnackbar}
               container_nos={formik.values.container_nos}
+              activeBranchBehavior={activeBranchBehavior}
             // Passing be_no from formik
             />
           </div>
@@ -1275,11 +1296,13 @@ function JobDetails() {
                         >
                           <MenuItem value="ETA Date Pending">ETA Date Pending</MenuItem>
                           <MenuItem value="Estimated Time of Arrival">ETA</MenuItem>
-                          <MenuItem value="Gateway IGM Filed">
-                            Gateway IGM Filed
+                          <MenuItem value={(activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") ? "Gateway IGM Filed" : "IGM Filed"}>
+                            {(activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") ? "Gateway IGM Filed" : "IGM Filed"}
                           </MenuItem>
                           <MenuItem value="Discharged">Discharged</MenuItem>
-                          <MenuItem value="Rail Out">Rail Out</MenuItem>
+                          {(activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") && (
+                            <MenuItem value="Rail Out">Rail Out</MenuItem>
+                          )}
                           <MenuItem value="BE Noted, Arrival Pending">
                             BE Noted, Arrival Pending
                           </MenuItem>
@@ -1476,17 +1499,21 @@ function JobDetails() {
                         value={formik.values.vessel_berthing ? (formik.values.vessel_berthing.length === 10 ? `${formik.values.vessel_berthing}T00:00` : formik.values.vessel_berthing) : ""}
                         disabled={!(user?.role === "Admin") && (ExBondflag || isSubmissionDate)} onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM No</label>
-                      <TextField fullWidth size="small" variant="outlined" id="gateway_igm" name="gateway_igm" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.gateway_igm || ""} onChange={formik.handleChange} placeholder="Enter Gateway IGM" sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM Date</label>
-                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="gateway_igm_date" name="gateway_igm_date" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.gateway_igm_date ? (formik.values.gateway_igm_date.length === 10 ? `${formik.values.gateway_igm_date}T00:00` : formik.values.gateway_igm_date) : ""}
-                        onChange={formik.handleChange} sx={compactInputSx} />
-                    </Col>
+                    {(activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") && (
+                      <>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM No</label>
+                          <TextField fullWidth size="small" variant="outlined" id="gateway_igm" name="gateway_igm" disabled={user?.role !== "Admin" && isSubmissionDate}
+                            value={formik.values.gateway_igm || ""} onChange={formik.handleChange} placeholder="Enter Gateway IGM" sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gateway IGM Date</label>
+                          <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="gateway_igm_date" name="gateway_igm_date" disabled={user?.role !== "Admin" && isSubmissionDate}
+                            value={formik.values.gateway_igm_date ? (formik.values.gateway_igm_date.length === 10 ? `${formik.values.gateway_igm_date}T00:00` : formik.values.gateway_igm_date) : ""}
+                            onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                      </>
+                    )}
                     <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>IGM Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="igm_no" name="igm_no" value={formik.values.igm_no || ""}
@@ -1827,7 +1854,7 @@ function JobDetails() {
                             job_net_weight: formik.values.job_net_weight, gateway_igm: formik.values.gateway_igm, gateway_igm_date: formik.values.gateway_igm_date,
                             igm_no: formik.values.igm_no, igm_date: formik.values.igm_date, awb_bl_no: formik.values.awb_bl_no, awb_bl_date: formik.values.awb_bl_date,
                             shipping_line_airline: formik.values.shipping_line_airline, custom_house: formik.values.custom_house, container_nos: formik.values.container_nos,
-                          }} data={data} />
+                          }} data={data} activeBranchBehavior={activeBranchBehavior} />
                           <Button variant="contained" size="small" onClick={handleGenerate}>Generate</Button>
                         </div>
                         <FileUpload label="Upload Job Sticker" bucketPath="job-sticker" multiple={true}
@@ -2745,24 +2772,26 @@ function JobDetails() {
 
                           {/* Row 2: Dates */}
                           <Row className="mb-3">
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Railout Date</label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="datetime-local"
-                                variant="outlined"
-                                name={`container_nos[${index}].container_rail_out_date`}
-                                value={container.container_rail_out_date}
-                                disabled={
-                                  !(user?.role === "Admin") &&
-                                  (LCLFlag || ExBondflag)
-                                }
-                                onChange={formik.handleChange}
-                                InputLabelProps={{ shrink: true }}
-                                sx={compactInputSx}
-                              />
-                            </Col>
+                            {(activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") && (
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Railout Date</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].container_rail_out_date`}
+                                  value={container.container_rail_out_date}
+                                  disabled={
+                                    !(user?.role === "Admin") &&
+                                    (LCLFlag || ExBondflag)
+                                  }
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                            )}
                             <Col xs={12} md={3} lg={2} className="mb-3">
                               <label style={labelStyle}>Arrival Date</label>
                               {formik.values.checked ? (

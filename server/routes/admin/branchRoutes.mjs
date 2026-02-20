@@ -19,6 +19,7 @@ router.post("/api/admin/branches", async (req, res) => {
             branch_name,
             icd_list: icd_list || [],
             categories: categories || ["SEA"],
+            sea_behavior: req.body.sea_behavior || "Other SEA",
         });
 
         await newBranch.save();
@@ -49,6 +50,7 @@ router.put("/api/admin/branches/:id", async (req, res) => {
                 categories,
                 isActive,
                 branch_name,
+                sea_behavior: req.body.sea_behavior,
             },
             { new: true }
         );

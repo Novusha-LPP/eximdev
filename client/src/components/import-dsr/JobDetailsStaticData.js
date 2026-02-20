@@ -8,8 +8,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { BranchContext } from "../../contexts/BranchContext";
+import { useContext } from "react";
 
 function JobDetailsStaticData(props) {
+  const { activeBranchBehavior, activeBranch } = useContext(BranchContext);
   const [expanded, setExpanded] = useState(false);
   const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
   const isAdmin = user?.role === "Admin";
@@ -546,14 +549,18 @@ function JobDetailsStaticData(props) {
 
           {/* Row 8: G-IGM No, G-IGM Date, Line No, Bank Name */}
           <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM No: </span>
-              <span style={valueStyle}>{props.data.gateway_igm}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM Date: </span>
-              <span style={valueStyle}>{props.data.gateway_igm_date}</span>
-            </Col>
+            {(activeBranchBehavior === "HO SEA" || activeBranch?.toUpperCase() === "AHMEDABAD") && (
+              <>
+                <Col xs={12} md={6} lg={3}>
+                  <span style={labelStyle}>G-IGM No: </span>
+                  <span style={valueStyle}>{props.data.gateway_igm}</span>
+                </Col>
+                <Col xs={12} md={6} lg={3}>
+                  <span style={labelStyle}>G-IGM Date: </span>
+                  <span style={valueStyle}>{props.data.gateway_igm_date}</span>
+                </Col>
+              </>
+            )}
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Line No: </span>
               <span style={valueStyle}>{props.data.line_no}</span>

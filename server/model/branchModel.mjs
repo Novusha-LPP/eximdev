@@ -20,6 +20,11 @@ const branchSchema = new mongoose.Schema({
             trim: true,
         },
     ],
+    sea_behavior: {
+        type: String,
+        enum: ["HO SEA", "Other SEA"],
+        default: "Other SEA",
+    },
     isActive: {
         type: Boolean,
         default: true,

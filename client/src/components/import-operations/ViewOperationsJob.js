@@ -28,10 +28,12 @@ import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
   const { user } = useContext(UserContext);
+  const { activeBranchBehavior } = useContext(BranchContext);
   const containerImagesRef = useRef();
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
@@ -415,6 +417,7 @@ function ViewOperationsJob() {
             params={params}
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
+            activeBranchBehavior={activeBranchBehavior}
           />
 
           {data && data.dsr_queries && (

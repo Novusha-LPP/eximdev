@@ -57,6 +57,15 @@ export const BranchProvider = ({ children }) => {
         return currentBranch?.categories || ["SEA", "AIR"];
     }, [user, activeBranch]);
 
+    const activeBranchBehavior = React.useMemo(() => {
+        if (!user || !user.assigned_branches) return "Other SEA";
+        const currentBranch = user.assigned_branches.find(b =>
+            typeof b === 'object' ? b.branch_name === activeBranch : b === activeBranch
+        );
+        if (currentBranch?.sea_behavior) return currentBranch.sea_behavior;
+        return activeBranch?.toUpperCase() === "AHMEDABAD" ? "HO SEA" : "Other SEA";
+    }, [user, activeBranch]);
+
     return (
         <BranchContext.Provider
             value={{
@@ -66,6 +75,7 @@ export const BranchProvider = ({ children }) => {
                 setActiveCategory,
                 availableIcds,
                 availableCategories,
+                activeBranchBehavior,
             }}
         >
             {children}

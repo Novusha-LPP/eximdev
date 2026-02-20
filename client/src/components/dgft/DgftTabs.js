@@ -44,7 +44,9 @@ const s = {
     alignItems: "center",
     gap: "8px",
     backgroundColor: "transparent",
-    border: "none",
+    borderTop: "none",
+    borderLeft: "none",
+    borderRight: "none",
     outline: "none",
     marginBottom: "-1px",
   },
@@ -76,8 +78,14 @@ function DgftTabs() {
   const [counts, setCounts] = useState({ register: 0, authorization: 0 });
 
   const handleCountUpdate = useCallback((tab, count) => {
-    setCounts((prev) => ({ ...prev, [tab]: count }));
+    setCounts((prev) => {
+      if (prev[tab] === count) return prev;
+      return { ...prev, [tab]: count };
+    });
   }, []);
+
+  const handleRegisterCount = useCallback((c) => handleCountUpdate("register", c), [handleCountUpdate]);
+  const handleAuthCount = useCallback((c) => handleCountUpdate("authorization", c), [handleCountUpdate]);
 
   return (
     <div style={s.wrapper}>
@@ -113,12 +121,12 @@ function DgftTabs() {
         {/* Tab Content */}
         {activeTab === 0 && (
           <DgftRegisterList
-            onCountChange={(c) => handleCountUpdate("register", c)}
+            onCountChange={handleRegisterCount}
           />
         )}
         {activeTab === 1 && (
           <AuthorizationRegistrationList
-            onCountChange={(c) => handleCountUpdate("authorization", c)}
+            onCountChange={handleAuthCount}
           />
         )}
       </div>

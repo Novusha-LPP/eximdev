@@ -73,6 +73,34 @@ router.post("/api/open-points/projects", async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// Update Project Details (Name, Description) - Owner Only
+router.put("/api/open-points/projects/:projectId", async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { name, description } = req.body;
+        const requesterId = req.headers['user-id'];
+
+        if (!requesterId) return res.status(401).json({ error: "Unauthorized" });
+
+        const project = await OpenPointProject.findById(projectId);
+        if (!project) return res.status(404).json({ error: "Project not found" });
+
+        // Only owner can update project details
+        if (project.owner.toString() !== requesterId) {
+            return res.status(403).json({ error: "Access Denied: Only the project owner can update project details" });
+        }
+
+        if (name) project.name = name;
+        if (description !== undefined) project.description = description;
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error("Update Project Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 // Delete Project (Owner Only)
 router.delete("/api/open-points/projects/:projectId", async (req, res) => {
     try {
@@ -179,7 +207,7 @@ router.post("/api/open-points/project/:projectId/remove-member", async (req, res
 router.get("/api/open-points/my-projects", async (req, res) => {
     try {
         const username = req.headers['username'] || req.headers['x-username'];
-       
+
         if (!username) {
             return res.status(401).json({ error: "Username not provided in headers" });
         }
@@ -277,7 +305,7 @@ router.get("/api/open-points/project/:projectId/points", verifyProjectAccess, as
 // Create Point
 router.post("/api/open-points/points", async (req, res) => {
     try {
-       
+
 
         const pointData = { ...req.body };
 
@@ -287,7 +315,7 @@ router.post("/api/open-points/points", async (req, res) => {
                 const user = await UserModel.findById(pointData.responsible_person);
                 if (user) {
                     pointData.responsibility = user.username;
-                    
+
                 }
             } catch (err) {
                 console.error("Failed to auto-fill responsibility", err);
@@ -296,7 +324,7 @@ router.post("/api/open-points/points", async (req, res) => {
 
         const point = new OpenPoint(pointData);
         const savedPoint = await point.save();
-   
+
         res.status(201).json(savedPoint);
     } catch (error) {
         res.status(500).json({ error: error.message });

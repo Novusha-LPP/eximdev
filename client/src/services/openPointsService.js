@@ -33,6 +33,11 @@ export const createProject = async (projectData) => {
     return response.data;
 };
 
+export const updateProject = async (projectId, projectData) => {
+    const response = await axios.put(`${API_URL}/open-points/projects/${projectId}`, projectData, getHeaders());
+    return response.data;
+};
+
 export const fetchProjectPoints = async (projectId) => {
     const response = await axios.get(`${API_URL}/open-points/project/${projectId}/points`, getHeaders());
     return response.data;

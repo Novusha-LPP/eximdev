@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useContext } from 'react';
-import { fetchMyProjects, createProject } from '../../services/openPointsService';
+import { fetchMyProjects, createProject, updateProject } from '../../services/openPointsService';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -24,6 +24,10 @@ const OpenPointsHome = () => {
     // Create Modal State
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newProject, setNewProject] = useState({ name: '', description: '' });
+
+    // Edit Modal State
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingProject, setEditingProject] = useState({ id: '', name: '', description: '' });
 
     // Dialog State
     const [dialogConfig, setDialogConfig] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
@@ -77,6 +81,23 @@ const OpenPointsHome = () => {
         }
     };
 
+    const handleUpdateProject = async (e) => {
+        e.preventDefault();
+        try {
+            await updateProject(editingProject.id, {
+                name: editingProject.name,
+                description: editingProject.description
+            });
+            setShowEditModal(false);
+            setEditingProject({ id: '', name: '', description: '' });
+            loadProjects();
+            showDialog("Success", "Project updated successfully!", "alert");
+        } catch (error) {
+            console.error("Error updating project", error);
+            showDialog("Error", "Failed to update project: " + (error.response?.data?.error || error.message), "alert");
+        }
+    };
+
     // Filter & Pagination Logic
     const filteredProjects = projects.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -93,6 +114,12 @@ const OpenPointsHome = () => {
         if (newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage);
         }
+    };
+
+    const openEditModal = (e, project) => {
+        e.stopPropagation();
+        setEditingProject({ id: project._id, name: project.name, description: project.description });
+        setShowEditModal(true);
     };
 
     const getInitials = (name) => {
@@ -306,9 +333,30 @@ const OpenPointsHome = () => {
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                                 <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>{project.name}</h3>
-                                                <span style={{ fontSize: '0.75rem', background: project.owner?.username === user?.username ? '#dbeafe' : '#f1f5f9', color: project.owner?.username === user?.username ? '#1e40af' : '#64748b', padding: '6px 10px', borderRadius: '20px', fontWeight: 600 }}>
-                                                    {project.owner?.username === user?.username ? 'Owner' : 'Member'}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '0.75rem', background: project.owner?.username === user?.username ? '#dbeafe' : '#f1f5f9', color: project.owner?.username === user?.username ? '#1e40af' : '#64748b', padding: '6px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                                                        {project.owner?.username === user?.username ? 'Owner' : 'Member'}
+                                                    </span>
+                                                    {project.owner?.username === user?.username && (
+                                                        <button
+                                                            onClick={(e) => openEditModal(e, project)}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                fontSize: '1.2rem',
+                                                                padding: '0 5px',
+                                                                color: '#64748b',
+                                                                transition: 'color 0.2s'
+                                                            }}
+                                                            title="Edit Project"
+                                                            onMouseEnter={(e) => e.target.style.color = '#3b82f6'}
+                                                            onMouseLeave={(e) => e.target.style.color = '#64748b'}
+                                                        >
+                                                            ✎
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '24px', flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '40px' }}>
@@ -442,7 +490,32 @@ const OpenPointsHome = () => {
                 </div>
             )}
 
-            {/* Custom Dialog */}
+            {/* Edit Project Modal */}
+            {showEditModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ width: '450px', background: 'white', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ padding: '24px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderBottom: '1px solid #e2e8f0' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>Edit Project</h3>
+                        </div>
+                        <div style={{ padding: '30px' }}>
+                            <form onSubmit={handleUpdateProject}>
+                                <div className="mb-4">
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>Project Name</label>
+                                    <input value={editingProject.name} onChange={e => setEditingProject({ ...editingProject, name: e.target.value })} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', transition: 'border 0.2s', fontSize: '1rem' }} onFocus={(e) => e.target.style.borderColor = '#3b82f6'} onBlur={(e) => e.target.style.borderColor = '#cbd5e1'} />
+                                </div>
+                                <div className="mb-4">
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>Description</label>
+                                    <textarea value={editingProject.description} onChange={e => setEditingProject({ ...editingProject, description: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', minHeight: '120px', outline: 'none', transition: 'border 0.2s', fontSize: '1rem', resize: 'vertical' }} onFocus={(e) => e.target.style.borderColor = '#3b82f6'} onBlur={(e) => e.target.style.borderColor = '#cbd5e1'} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                    <button type="button" onClick={() => setShowEditModal(false)} style={{ background: 'transparent', color: '#64748b', padding: '10px 20px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                                    <button type="submit" style={{ background: '#3b82f6', color: 'white', padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.4)' }}>Update Project</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
             {dialogConfig.open && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', zIndex: 2000, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(2px)' }}>
                     <div style={{ background: 'white', padding: '30px', borderRadius: '16px', minWidth: '350px', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>

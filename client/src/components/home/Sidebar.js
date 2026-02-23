@@ -30,6 +30,14 @@ function Sidebar() {
     localStorage.removeItem("selected_importer");
     localStorage.removeItem("selected_importer_url");
     localStorage.removeItem("tab_value");
+
+    // Clear the specific token cookie and all accessible cookies
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+    });
   };
 
   return (

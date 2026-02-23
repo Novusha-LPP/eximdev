@@ -69,12 +69,12 @@ const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
 
 const FIELDS = [
   { key: "job_no", label: "JOB No"},
-  { key: "job_status", label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
+  // { key: "job_status", label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
   { key: "date", label: "Date", type: "date" },
   { key: "party_name", label: "Party's Name" },
   { key: "job_type", label: "Job Type" },
   { key: "port_name", label: "Port Name" },
-  { key: "category", label: "Category", select: true, options: CATEGORY_OPTIONS, allowCustom: true },
+  // { key: "category", label: "Category", select: true, options: CATEGORY_OPTIONS, allowCustom: true },
   { key: "licence_no", label: "Licence No" },
   { key: "licence_date", label: "Licence Date", type: "date" },
   { key: "licence_amount", label: "Licence Amount" },
@@ -94,12 +94,12 @@ const TABLE_COLUMNS = [
   { key: "_actions", label: "Actions", width: 90 },
   { key: "_sr_no", label: "Sr", width: 40 },
   { key: "job_no", label: "JOB No", width: 90 },
-  { key: "job_status", label: "Status", width: 80 },
+  // { key: "job_status", label: "Status", width: 80 },
   { key: "date", label: "Date", width: 85 },
   { key: "party_name", label: "Party's Name", width: 180 },
   { key: "job_type", label: "Job Type", width: 100 },
   { key: "port_name", label: "Port Name", width: 120 },
-  { key: "category", label: "Category", width: 130 },
+  // { key: "category", label: "Category", width: 130 },
   { key: "licence_no", label: "Licence No", width: 100 },
   { key: "licence_date", label: "Lic. Date", width: 85 },
   { key: "licence_amount", label: "Lic. Amount", width: 100 },
@@ -232,7 +232,7 @@ function Toast({ toast, onClose }) {
 function AuthorizationRegistrationList({ onCountChange }) {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [jobTypeFilter, setJobTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -410,11 +410,11 @@ function AuthorizationRegistrationList({ onCountChange }) {
     setToast({ open: true, message, severity });
   };
 
-  // Filter rows by search + category + status with grouping support
+  // Filter rows by search + jobType + status with grouping support
   const { filtered, grouped } = useMemo(() => {
     let result = rows.filter((row) => {
-      // Category filter
-      if (categoryFilter && !(row.category || "").toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      // Job Type filter
+      if (jobTypeFilter && !(row.job_type || "").toLowerCase().includes(jobTypeFilter.toLowerCase())) return false;
       // Status filter
       if (statusFilter && !(row.job_status || "").toLowerCase().includes(statusFilter.toLowerCase())) return false;
       // Search
@@ -431,20 +431,29 @@ function AuthorizationRegistrationList({ onCountChange }) {
       return true;
     });
 
-    // If category filter is applied, group by category
+    // If jobType filter is applied, group by job_type
     let grouped_result = null;
-    if (categoryFilter) {
+    if (jobTypeFilter) {
       const groups = {};
       result.forEach((row) => {
-        const cat = row.category || "Uncategorized";
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(row);
+        const jt = row.job_type || "Unspecified";
+        if (!groups[jt]) groups[jt] = [];
+        groups[jt].push(row);
       });
       grouped_result = groups;
     }
 
     return { filtered: result, grouped: grouped_result };
-  }, [rows, search, categoryFilter, statusFilter]);
+  }, [rows, search, jobTypeFilter, statusFilter]);
+
+  // Compute unique job types for the dropdown
+  const availableJobTypes = useMemo(() => {
+    const types = new Set();
+    rows.forEach((r) => {
+      if (r.job_type) types.add(r.job_type.trim());
+    });
+    return Array.from(types).sort();
+  }, [rows]);
 
   // For display with grouping
   const renderRows = useMemo(() => {
@@ -463,7 +472,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [search, categoryFilter, statusFilter]);
+  }, [search, jobTypeFilter, statusFilter]);
 
   // Pagination
   const totalPages = Math.ceil(renderRows.length / rowsPerPage) || 1;
@@ -485,12 +494,12 @@ function AuthorizationRegistrationList({ onCountChange }) {
             style={s.input}
           />
           <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            value={jobTypeFilter}
+            onChange={(e) => setJobTypeFilter(e.target.value)}
             style={s.filterSelect}
           >
-            <option value="">All Categories</option>
-            {availableCategories.map((opt) => (
+            <option value="">All Job Types</option>
+            {availableJobTypes.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>

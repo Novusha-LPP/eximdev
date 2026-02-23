@@ -69,8 +69,8 @@ const s = {
 };
 
 const TABS = [
-  { label: "Register Format", key: "register" },
-  { label: "Authorization Registration", key: "authorization" },
+  { label: "Authorization Registration", key: "register" },
+  { label: "Register Format ", key: "authorization" },
 ];
 
 function DgftTabs() {

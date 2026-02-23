@@ -116,6 +116,8 @@ function parseLicenceNoDate(combined) {
 function looksLikeDate(str) {
   if (!str) return false;
   const s = str.trim();
+  // Excel date numbers (e.g. 45762)
+  if (/^\d{4,5}(\.\d+)?$/.test(s)) return true;
   // DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY (1-2 digit day/month, 2-4 digit year)
   if (/^\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}$/.test(s)) return true;
   // YYYY-MM-DD
@@ -126,23 +128,38 @@ function looksLikeDate(str) {
 // Helper: Normalize date strings to consistent DD/MM/YYYY format
 function normalizeDate(val) {
   if (!val || typeof val !== "string") return val;
-  const trimmed = val.trim();
+  let trimmed = val.trim();
   if (!trimmed) return "";
-  // DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
-  const dmy = trimmed.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2,4})$/);
-  if (dmy) {
-    const dd = dmy[1].padStart(2, "0");
-    const mm = dmy[2].padStart(2, "0");
-    const yyyy = dmy[3].length === 2 ? "20" + dmy[3] : dmy[3];
+
+  // Handle Excel serial date values (e.g. "45762" means 15/04/2025)
+  if (/^\d{4,5}(\.\d+)?$/.test(trimmed)) {
+    const excelNum = parseFloat(trimmed);
+    if (excelNum > 59) {
+      // Offset 25569 is days between Jan 1 1900 and Jan 1 1970
+      const jsDate = new Date(Math.round((excelNum - 25569) * 86400 * 1000));
+      const dd = String(jsDate.getUTCDate()).padStart(2, "0");
+      const mm = String(jsDate.getUTCMonth() + 1).padStart(2, "0");
+      const yyyy = jsDate.getUTCFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+  }
+
+  // Replace DD.MM.YYYY, DD-MM-YYYY, or DD/MM/YYYY with DD/MM/YYYY
+  // and handle multiple dates in the same string like "25.04.2025 & 17.02.2025"
+  trimmed = trimmed.replace(/\b(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2,4})\b/g, (match, d, m, y) => {
+    const dd = d.padStart(2, "0");
+    const mm = m.padStart(2, "0");
+    const yyyy = y.length === 2 ? "20" + y : y;
     return `${dd}/${mm}/${yyyy}`;
-  }
-  // YYYY-MM-DD
-  const ymd = trimmed.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})$/);
-  if (ymd) {
-    const dd = ymd[3].padStart(2, "0");
-    const mm = ymd[2].padStart(2, "0");
-    return `${dd}/${mm}/${ymd[1]}`;
-  }
+  });
+
+  // Replace YYYY-MM-DD or YYYY.MM.DD with DD/MM/YYYY
+  trimmed = trimmed.replace(/\b(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})\b/g, (match, y, m, d) => {
+    const dd = d.padStart(2, "0");
+    const mm = m.padStart(2, "0");
+    return `${dd}/${mm}/${y}`;
+  });
+
   return trimmed;
 }
 
@@ -203,17 +220,53 @@ router.post(
           }
         }
 
-        // --- Handle "DATE" column separately (exact case) to avoid clash with "Date" ---
-        // The Excel has "Date" for job date and "DATE" for invoice date near Matter Complete.
-        if (row["DATE"] !== undefined && !mapped.matter_closed_inv_date) {
-          mapped.matter_closed_inv_date = String(row["DATE"]);
+        // --- Handle matter_closed_inv_date automatically if it is the column after "INV. NO." ---
+        const keysList = Object.keys(row);
+        const invNoIdx = keysList.findIndex((k) => k.trim().toUpperCase() === "INV. NO.");
+        if (invNoIdx !== -1 && invNoIdx + 1 < keysList.length) {
+          const nextKey = keysList[invNoIdx + 1];
+          if (/date/i.test(nextKey) && row[nextKey] !== undefined && !mapped.matter_closed_inv_date) {
+            mapped.matter_closed_inv_date = String(row[nextKey]);
+          }
         }
-        // Also try __EMPTY variants that XLSX may generate for adjacent unnamed columns
-        const dateKeys = Object.keys(row).filter(
-          (k) => /^DATE$/i.test(k.trim()) && k !== "Date" && k.trim() !== "Date"
-        );
-        if (dateKeys.length > 0 && !mapped.matter_closed_inv_date) {
-          mapped.matter_closed_inv_date = String(row[dateKeys[0]]);
+
+        // --- Handle accounts_inv_date automatically if it is the column after "Accounts INV. NO." ---
+        const accInvIdx = keysList.findIndex((k) => k.trim().toUpperCase() === "ACCOUNTS INV. NO.");
+        if (accInvIdx !== -1 && accInvIdx + 1 < keysList.length) {
+          const nextKey = keysList[accInvIdx + 1];
+          if (/date/i.test(nextKey) && row[nextKey] !== undefined && !mapped.accounts_inv_date) {
+            mapped.accounts_inv_date = String(row[nextKey]);
+          }
+        }
+
+        // Fallback for matter_closed_inv_date if still missing: "DATE" (exact match)
+        if (!mapped.matter_closed_inv_date) {
+          if (row["DATE"] !== undefined) {
+             mapped.matter_closed_inv_date = String(row["DATE"]);
+          } else {
+             const fallbackDate = keysList.find(k => /^DATE$/i.test(k.trim()) && k.trim() !== "Date");
+             if (fallbackDate && row[fallbackDate] !== undefined) {
+               mapped.matter_closed_inv_date = String(row[fallbackDate]);
+             }
+          }
+        }
+
+        // --- Handle bid_date automatically if it is the column after "BID NO" ---
+        const bidNoIdx = keysList.findIndex((k) => k.trim().toUpperCase() === "BID NO" || k.trim().toLowerCase() === "bid no");
+        if (bidNoIdx !== -1 && bidNoIdx + 1 < keysList.length) {
+          const nextKey = keysList[bidNoIdx + 1];
+          if (/date/i.test(nextKey) && row[nextKey] !== undefined && !mapped.bid_date) {
+            mapped.bid_date = String(row[nextKey]);
+          }
+        }
+
+        // --- Handle file_date automatically if it is the column after "File No Key No." ---
+        const fileNoIdx = keysList.findIndex((k) => /file no/i.test(k.trim()) && /key no/i.test(k.trim()));
+        if (fileNoIdx !== -1 && fileNoIdx + 1 < keysList.length) {
+          const nextKey = keysList[fileNoIdx + 1];
+          if (/date/i.test(nextKey) && row[nextKey] !== undefined && !mapped.file_date) {
+            mapped.file_date = String(row[nextKey]);
+          }
         }
 
         // --- Split "Licence No.& date." into separate licence_no and licence_date ---
@@ -310,6 +363,7 @@ const AUTH_HEADER_MAP = {
   "JOB No": "job_no",
   "Date": "date",
   "party's name": "party_name",
+  "PARTICULAR": "party_name",
   "Job Type": "job_type",
   "Port Name": "port_name",
   "Category": "category",
@@ -373,7 +427,7 @@ router.post(
         }
 
         // --- Normalize all date fields to DD/MM/YYYY ---
-        const AUTH_DATE_KEYS = ["date", "licence_date", "date_send_to_icd_ports", "registration_date"];
+        const AUTH_DATE_KEYS = ["date", "licence_date", "date_send_to_icd_ports", "registration_date", "lic_recd_from_party"];
         AUTH_DATE_KEYS.forEach((key) => {
           if (mapped[key]) {
             mapped[key] = normalizeDate(mapped[key]);

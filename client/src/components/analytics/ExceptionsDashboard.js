@@ -4,27 +4,17 @@ import { useAnalytics } from './AnalyticsContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
 
+import useLiveAnalytics from '../../hooks/useLiveAnalytics';
+
 const ExceptionsDashboard = () => {
     const { startDate, endDate, importer } = useAnalytics();
-    const [data, setData] = useState({ summary: {}, details: {} });
+    const { data: rawData, loading } = useLiveAnalytics('exceptions', startDate, endDate, importer);
+    const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
+
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalData, setModalData] = useState([]);
     const [dateLabel, setDateLabel] = useState('Relevant Date');
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/exceptions`, {
-                    params: { startDate, endDate, importer }
-                });
-                setData(response.data);
-            } catch (error) {
-                console.error("Error fetching exceptions data", error);
-            }
-        };
-        fetchData();
-    }, [startDate, endDate, importer]);
 
     const handleCardClick = (key, title) => {
         setModalTitle(title);

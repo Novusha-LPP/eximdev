@@ -38,6 +38,7 @@ import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
+import { setupAnalyticsWebSocket } from "./setupAnalyticsWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 
@@ -562,7 +563,26 @@ if (cluster.isPrimary) {
 
         // Initialize WebSocket logic
         const server = http.createServer(app);
-        setupJobOverviewWebSocket(server);
+
+        // Get wss instances without attaching them to the main server directly
+        const jobWss = setupJobOverviewWebSocket(null);
+        const analyticsWss = setupAnalyticsWebSocket(null);
+
+        server.on('upgrade', (request, socket, head) => {
+          const pathname = request.url;
+
+          if (pathname === '/analytics') {
+            analyticsWss.handleUpgrade(request, socket, head, (ws) => {
+              analyticsWss.emit('connection', ws, request);
+            });
+          } else if (pathname === '/' || pathname === '/job-overview') {
+            jobWss.handleUpgrade(request, socket, head, (ws) => {
+              jobWss.emit('connection', ws, request);
+            });
+          } else {
+            socket.destroy();
+          }
+        });
 
         server.listen(9006, () => {
           console.log(`🟢 Server listening on http://localhost:${9006}`);

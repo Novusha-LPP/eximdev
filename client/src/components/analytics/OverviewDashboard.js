@@ -17,28 +17,18 @@ import {
 } from 'recharts';
 import './AnalyticsLayout.css'; // Inherits the theme
 
+import useLiveAnalytics from '../../hooks/useLiveAnalytics';
+
 const OverviewDashboard = () => {
     const { startDate, endDate, importer } = useAnalytics();
-    const [data, setData] = useState({ summary: {}, details: {} });
+    const { data: rawData, loading } = useLiveAnalytics('overview', startDate, endDate, importer);
+    const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
+
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalData, setModalData] = useState([]);
     const [modalType, setModalType] = useState('');
     const [dateLabel, setDateLabel] = useState('Relevant Date');
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/overview`, {
-                    params: { startDate, endDate, importer }
-                });
-                setData(response.data);
-            } catch (error) {
-                console.error("Error fetching overview data", error);
-            }
-        };
-        fetchData();
-    }, [startDate, endDate, importer]);
 
     const handleCardClick = (key, title, label = 'Relevant Date') => {
         setModalTitle(title);

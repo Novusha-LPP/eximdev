@@ -1,82 +1,106 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PulseNav from './PulseNav';
 import { useAnalytics } from './AnalyticsContext';
-import KPICard from './KPICard';
-import ModalTable from './ModalTable';
+import useLiveAnalytics from '../../hooks/useLiveAnalytics';
+import { motion, useSpring, useTransform } from 'framer-motion';
+import './ESanchitTV.css';
 
-import './AnalyticsLayout.css';
-import {
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer
-} from 'recharts';
+const AnimatedNumber = ({ value }) => {
+    const spring = useSpring(0, { mass: 1, stiffness: 50, damping: 15 });
+    const display = useTransform(spring, (current) => Math.round(current));
+    useEffect(() => { spring.set(value); }, [value, spring]);
+    return <motion.span>{display}</motion.span>;
+};
 
 const SubmissionDashboard = () => {
+    const navigate = useNavigate();
     const { startDate, endDate, importer } = useAnalytics();
-    const [data, setData] = useState({ summary: {}, details: {} });
-    const [modalOpen, setModalOpen] = useState(false);
-    const [modalTitle, setModalTitle] = useState('');
-    const [modalData, setModalData] = useState([]);
+    const { data: rawData, loading } = useLiveAnalytics('submission', startDate, endDate, importer);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/submission`, {
-                    params: { startDate, endDate, importer }
-                });
-                setData(response.data);
-            } catch (error) {
-                console.error("Error fetching Submission data", error);
-            }
-        };
-        fetchData();
-    }, [startDate, endDate, importer]);
+    const isDataLoaded = !loading && rawData && rawData.summary && Object.keys(rawData.summary).length > 0;
 
-    const handleCardClick = (key, title) => {
-        setModalTitle(title);
-        setModalData(data.details[key] || []);
-        setModalOpen(true);
-    };
+    if (!isDataLoaded) {
+        return (
+            <div className="tv-dashboard-wrapper">
+                <button className="tv-exit-btn" onClick={() => navigate('/')}>← Exit</button>
+                <PulseNav />
+                <motion.div
+                    className="tv-loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ repeat: Infinity, duration: 1.5, repeatType: "reverse" }}
+                >
+                    LOADING...
+                </motion.div>
+            </div>
+        );
+    }
 
-    const { summary, details } = data;
-    const submissionTrend = (details?.submission_trend || []).map(item => ({ date: item._id, count: item.count }));
+    const data = rawData && rawData.summary ? rawData : { summary: {} };
+    const pending = data.summary.submission_pending || 0;
+
+    const severity = pending === 0 ? 'green' : pending <= 5 ? 'amber' : 'red';
 
     return (
-        <div className="overview-container">
-            <h2>Submission Management</h2>
-            <div className="dashboard-grid">
-                <KPICard title="Pending Submission" count={summary.submission_pending || 0} color="red" onClick={() => handleCardClick('submission_pending', 'Pending Submission')} />
-                <KPICard title="Completed Submission" count={summary.submission_completed || 0} color="green" onClick={() => handleCardClick('submission_completed', 'Completed Submission')} />
-            </div>
+        <div className={`tv-dashboard-wrapper tv-severity-${severity}`}>
+            <button className="tv-exit-btn" onClick={() => navigate('/')}>← Exit</button>
+            <PulseNav />
 
-            <div className="charts-section">
-                <div className="chart-card">
-                    <h3>Submission Completion Trend (Last 7 Days)</h3>
-                    <div style={{ width: '100%', height: 300 }}>
-                        <ResponsiveContainer>
-                            <AreaChart data={submissionTrend}>
-                                <defs>
-                                    <linearGradient id="colorSub" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                                <Area type="monotone" dataKey="count" stroke="#10b981" fillOpacity={1} fill="url(#colorSub)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
+            {severity === 'red' && (
+                <div className="tv-ember-container">
+                    {[...Array(20)].map((_, i) => (
+                        <div key={i} className="tv-ember" style={{
+                            left: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 4}s`,
+                            animationDuration: `${4 + Math.random() * 4}s`,
+                            backgroundColor: ['#ef4444', '#f87171', '#fb923c', '#fca5a5'][Math.floor(Math.random() * 4)],
+                            width: `${3 + Math.random() * 5}px`,
+                            height: `${3 + Math.random() * 5}px`,
+                        }} />
+                    ))}
                 </div>
-            </div>
+            )}
 
-            <ModalTable open={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle} data={modalData} />
+            {severity === 'amber' && (
+                <>
+                    <div className="tv-radar-ring" />
+                    <div className="tv-radar-ping" />
+                </>
+            )}
+
+            {severity === 'green' && (
+                <div className="tv-confetti-container">
+                    {[...Array(30)].map((_, i) => (
+                        <div key={i} className="tv-confetti" style={{
+                            left: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 3}s`,
+                            animationDuration: `${2.5 + Math.random() * 3}s`,
+                            backgroundColor: ['#10b981', '#34d399', '#6ee7b7', '#fbbf24', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c'][Math.floor(Math.random() * 8)],
+                            width: `${6 + Math.random() * 8}px`,
+                            height: `${6 + Math.random() * 8}px`,
+                        }} />
+                    ))}
+                </div>
+            )}
+
+            <div className="tv-center">
+                <div className="tv-label">Alvision Pulse — Submission</div>
+                <div className={`tv-number tv-number-${severity}`}>
+                    <AnimatedNumber value={pending} />
+                </div>
+                <div className="tv-subtitle">Pending</div>
+                {severity === 'green' && (
+                    <motion.div
+                        className="tv-celebration-msg"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.3 }}
+                    >
+                        🏆 All Clear! Great job team! 🎉
+                    </motion.div>
+                )}
+            </div>
         </div>
     );
 };

@@ -60,6 +60,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/kpi");
     case "MRM":
       return navigate("/mrm");
+    case "Pulse":
+      return navigate("/pulse");
     default:
       return navigate("/home");
   }

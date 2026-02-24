@@ -107,17 +107,8 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      <Tooltip title="Analytics" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/analytics")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <InsightsIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
+
+
 
       {
         ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (

@@ -628,35 +628,30 @@ function HomePage() {
               <Route path="/release-notes" element={<ReleaseNotes />} />
               <Route path="/feedback" element={<Feedback />} />
 
-              {/* Analytics */}
+              {/* Pulse */}
 
               <Route
-                path="/analytics"
+                path="/pulse"
                 element={
-                  <ProtectedRoute requiredModule="Report">
+                  <ProtectedRoute requiredModule="Pulse">
                     <AnalyticsProvider>
                       <AnalyticsLayout />
                     </AnalyticsProvider>
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="overview" replace />} />
-                <Route path="overview" element={<OverviewDashboard />} />
-                <Route path="movement" element={<MovementDashboard />} />
-                <Route path="customs" element={<CustomsDashboard />} />
+                <Route index element={<Navigate to="esanchit" replace />} />
+                <Route path="esanchit" element={<ESanchitDashboard />} />
                 <Route
                   path="documentation"
                   element={<DocumentationDashboard />}
                 />
                 <Route path="submission" element={<SubmissionDashboard />} />
-                <Route path="esanchit" element={<ESanchitDashboard />} />
                 <Route path="operations" element={<OperationsDashboard />} />
                 <Route
                   path="do-management"
                   element={<DoManagementDashboard />}
                 />
-                <Route path="billing" element={<BillingDashboard />} />
-                <Route path="exceptions" element={<ExceptionsDashboard />} />
               </Route>
 
               {/* MRM Module */}

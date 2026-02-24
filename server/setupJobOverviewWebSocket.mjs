@@ -4,7 +4,7 @@ import fetchJobOverviewData from '../server/routes/updateJobCount.mjs'; // Updat
 const connections = new Map(); // key: socket, value: { year }
 
 export function setupJobOverviewWebSocket(server) {
-  const wss = new WebSocketServer({ server });
+  const wss = server ? new WebSocketServer({ server }) : new WebSocketServer({ noServer: true });
 
   wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
@@ -44,4 +44,6 @@ export function setupJobOverviewWebSocket(server) {
       connections.delete(ws);
     });
   });
+
+  return wss;
 }

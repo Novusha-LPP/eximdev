@@ -32,15 +32,11 @@ import TaskIcon from '@mui/icons-material/Task';
 import './AnalyticsLayout.css';
 
 const navItems = [
-    { name: 'Overview', path: 'overview', icon: <DashboardIcon fontSize="small" /> },
-    { name: 'Movement', path: 'movement', icon: <LocalShippingIcon fontSize="small" /> },
-    { name: 'Customs', path: 'customs', icon: <GavelIcon fontSize="small" /> },
+    { name: 'e-Sanchit', path: 'esanchit', icon: <CloudUploadIcon fontSize="small" /> },
     { name: 'Documentation', path: 'documentation', icon: <DescriptionIcon fontSize="small" /> },
     { name: 'Submission', path: 'submission', icon: <TaskIcon fontSize="small" /> },
-    { name: 'e-Sanchit', path: 'esanchit', icon: <CloudUploadIcon fontSize="small" /> },
     { name: 'Operations', path: 'operations', icon: <EngineeringIcon fontSize="small" /> },
-    { name: 'DO Management', path: 'do-management', icon: <AssignmentTurnedInIcon fontSize="small" /> },
-    { name: 'Billing', path: 'billing', icon: <ReceiptIcon fontSize="small" /> },
+    { name: 'DO', path: 'do-management', icon: <AssignmentTurnedInIcon fontSize="small" /> },
 ];
 
 const AnalyticsLayout = () => {
@@ -211,6 +207,7 @@ const AnalyticsLayout = () => {
                         <div className="date-picker-group">
                             <DatePicker
                                 value={startDate}
+                                format="dd-MM-yyyy"
                                 onChange={(newValue) => setRange('Custom', newValue, endDate)}
                                 slotProps={{
                                     textField: {
@@ -222,6 +219,7 @@ const AnalyticsLayout = () => {
                             <span style={{ color: '#0f172a', margin: '0 8px' }}>—</span>
                             <DatePicker
                                 value={endDate}
+                                format="dd-MM-yyyy"
                                 onChange={(newValue) => setRange('Custom', startDate, newValue)}
                                 slotProps={{
                                     textField: {

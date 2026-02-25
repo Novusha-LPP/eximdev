@@ -18,6 +18,7 @@ const INITIAL_FORM = {
   party_name: "",
   job_type: "",
   port_name: "",
+  category: "",
   licence_no: "",
   licence_date: "",
   licence_amount: "",
@@ -30,352 +31,370 @@ const INITIAL_FORM = {
   month: "",
   billing_done_or_not: "",
   bill_number: "",
+  bg_number: "",
+  bg_amount: "",
+  bg_date: "",
+  bg_expiry_date: "",
+  bond_number: "",
+  bond_date: "",
 };
 
 const DATE_FIELDS = new Set([
-  "date",
-  "licence_date",
-  "date_send_to_icd_ports",
-  "registration_date",
+  "date", "licence_date", "date_send_to_icd_ports",
+  "registration_date", "bg_date", "bg_expiry_date", "bond_date",
 ]);
 
 const CATEGORY_OPTIONS = [
   "ADVANCE AUTHORIZATION",
   "Amendment of advance Authorization",
   "Revalidation of advance Authorization",
-  "EO",
-  "EODC",
-  "Surrender",
-  "EPCG Authorization",
-  "Amendment of EPCG Authorization",
-  "EPCG block extension",
-  "EPCG overall period extension",
-  "EODC of EPCG Authorization",
-  "Surrender of EPCG Authorization",
-  "RCMC application",
-  "IEC application",
+  "EO", "EODC", "Surrender",
+  "EPCG Authorization", "Amendment of EPCG Authorization",
+  "EPCG block extension", "EPCG overall period extension",
+  "EODC of EPCG Authorization", "Surrender of EPCG Authorization",
+  "RCMC application", "IEC application",
+];
+
+const DEFAULT_JOB_TYPE_OPTIONS = [
+  "AA", "EPCG", "BOND AA", "BOND EPCG", "BG AA", "BG EPCG",
+  "BOND CANCELLATION AA", "BOND CANCELLATION EPCG",
+  "Non utilization certificate",
 ];
 
 const JOB_STATUS_OPTIONS = [
-  "Completed",
-  "Pending",
-  "Processed",
-  "Billing",
-  "Closed",
-  "Open",
+  "Completed", "Pending", "Processed",
+  "Documents Received", "Send to ICD", "Billing", "Closed", "Open",
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
 
+const SUBROW_FIELDS = [
+  { key: "import_validity",        label: "Import Validity" },
+  { key: "export_validity",        label: "Export Validity" },
+  { key: "hs_code",                label: "HS Code" },
+  { key: "item_description",       label: "Item Description" },
+  { key: "value_usd",              label: "Value USD" },
+  { key: "value_rs",               label: "Value Rs" },
+  { key: "qty",                    label: "Qty" },
+  { key: "utilized_qty",           label: "Utilized Qty" },
+  { key: "balance_qty",            label: "Balance Qty" },
+  { key: "boe_details",            label: "BOE Details" },
+  { key: "sb_details",             label: "SB Details" },
+  { key: "documents_received_date",label: "Documents Received Date" },
+  { key: "documents_send_to_icd",  label: "Documents Send to ICD" },
+  { key: "documents_send_to_account", label: "Documents Send to Account" },
+];
+
+// Form fields for dialog
 const FIELDS = [
-  { key: "job_no", label: "JOB No"},
-  // { key: "job_status", label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
-  { key: "date", label: "Date", type: "date" },
-  { key: "party_name", label: "Party's Name" },
-  { key: "job_type", label: "Job Type" },
-  { key: "port_name", label: "Port Name" },
-  // { key: "category", label: "Category", select: true, options: CATEGORY_OPTIONS, allowCustom: true },
-  { key: "licence_no", label: "Licence No" },
-  { key: "licence_date", label: "Licence Date", type: "date" },
-  { key: "licence_amount", label: "Licence Amount" },
-  { key: "lic_recd_from_party", label: "Lic. Recd From Party" },
+  { key: "job_no",               label: "JOB No" },
+  { key: "date",                 label: "Date", type: "date" },
+  { key: "job_type",             label: "Job Category", select: true, allowCustom: true },
+  { key: "party_name",           label: "Firm Name" },
+  { key: "iec_no",               label: "IEC Number" },
+  { key: "licence_no",           label: "Authorization Number" },
+  { key: "licence_date",         label: "Auth Date", type: "date" },
+  { key: "bg_number",            label: "BG Number" },
+  { key: "bg_amount",            label: "BG Amount" },
+  { key: "bg_date",              label: "BG Date", type: "date" },
+  { key: "bg_expiry_date",       label: "BG Expiry Date", type: "date" },
+  { key: "bond_number",          label: "Bond Number" },
+  { key: "bond_date",            label: "Bond Date", type: "date" },
+  { key: "job_status",           label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
+  { key: "port_name",            label: "Port Name" },
+  { key: "category",             label: "Category", select: true, allowCustom: true },
+  { key: "licence_amount",       label: "Licence Amount" },
+  { key: "lic_recd_from_party",  label: "Lic. Recd From Party" },
   { key: "date_send_to_icd_ports", label: "Send to ICDs/Ports", type: "date" },
-  { key: "bond_challan_no", label: "Bond / Challan No" },
-  { key: "iec_no", label: "IEC No." },
-  { key: "completed", label: "Completed" },
-  { key: "registration_date", label: "Registration Date", type: "date" },
-  { key: "month", label: "Month" },
-  { key: "billing_done_or_not", label: "Billing Done" },
-  { key: "bill_number", label: "Bill Number" },
+  { key: "bond_challan_no",      label: "Bond / Challan No" },
+  { key: "completed",            label: "Completed" },
+  { key: "registration_date",    label: "Registration Date", type: "date" },
+  { key: "month",                label: "Month" },
+  { key: "billing_done_or_not",  label: "Billing Done" },
+  { key: "bill_number",          label: "Bill Number" },
 ];
 
-// Table columns (Actions first, then Sr No auto-generated, then data)
+// Table columns — per image 1 (no Sr No, actions first)
 const TABLE_COLUMNS = [
-  { key: "_actions", label: "Actions", width: 90 },
-  { key: "_sr_no", label: "Sr", width: 40 },
-  { key: "job_no", label: "JOB No", width: 90 },
-  // { key: "job_status", label: "Status", width: 80 },
-  { key: "date", label: "Date", width: 85 },
-  { key: "party_name", label: "Party's Name", width: 180 },
-  { key: "job_type", label: "Job Type", width: 100 },
-  { key: "port_name", label: "Port Name", width: 120 },
-  // { key: "category", label: "Category", width: 130 },
-  { key: "licence_no", label: "Licence No", width: 100 },
-  { key: "licence_date", label: "Lic. Date", width: 85 },
-  { key: "licence_amount", label: "Lic. Amount", width: 100 },
-  { key: "lic_recd_from_party", label: "Lic. Recd", width: 100 },
-  { key: "date_send_to_icd_ports", label: "To ICDs", width: 90 },
-  { key: "bond_challan_no", label: "Bond/Challan", width: 110 },
-  { key: "iec_no", label: "IEC No.", width: 90 },
-  { key: "completed", label: "Completed", width: 85 },
-  { key: "registration_date", label: "Reg. Date", width: 90 },
-  { key: "month", label: "Month", width: 70 },
-  { key: "billing_done_or_not", label: "Billing", width: 80 },
-  { key: "bill_number", label: "Bill No.", width: 90 },
+  { key: "_expand",      label: "",                    width: 28 },
+  { key: "_actions",     label: "Actions",             width: 90 },
+  { key: "job_no",       label: "Job Number",          width: 100 },
+  { key: "date",         label: "Date",                width: 90 },
+  { key: "job_type",     label: "Job Category",        width: 160 },
+  { key: "party_name",   label: "Firm Name",           width: 180 },
+  { key: "iec_no",       label: "IEC Number",          width: 120 },
+  { key: "licence_no",   label: "Authorization Number",width: 150 },
+  { key: "licence_date", label: "Auth Date",           width: 90 },
+  { key: "bg_number",    label: "BG Number",           width: 110 },
+  { key: "bg_amount",    label: "BG Amt",              width: 90 },
+  { key: "bg_date",      label: "BG Date",             width: 90 },
+  { key: "bg_expiry_date","label": "BG Expiry Date",   width: 110 },
+  { key: "bond_number",  label: "Bond Number",         width: 110 },
+  { key: "bond_date",    label: "Bond Date",           width: 90 },
+  { key: "job_status",   label: "Job Status",          width: 120 },
 ];
 
-// Inline styles
-const s = {
-  toolbar: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-    marginBottom: "10px",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  input: {
-    height: "30px",
-    padding: "0 8px",
-    fontSize: "12px",
-    border: "1px solid #d1d5db",
-    borderRadius: "3px",
-    outline: "none",
-    color: "#333",
-    minWidth: "180px",
-  },
-  filterSelect: {
-    height: "30px",
-    padding: "0 6px",
-    fontSize: "12px",
-    border: "1px solid #d1d5db",
-    borderRadius: "3px",
-    outline: "none",
-    color: "#333",
-    minWidth: "130px",
-    background: "#fff",
-  },
-  btnPrimary: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "5px 14px",
-    border: "none",
-    borderRadius: "3px",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-    background: "#2563eb",
-    color: "#fff",
-  },
-  btnEdit: {
-    padding: "3px 10px",
-    border: "1px solid #2563eb",
-    background: "#fff",
-    color: "#2563eb",
-    borderRadius: "3px",
-    fontSize: "11px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  btnDelete: {
-    padding: "3px 10px",
-    border: "1px solid #dc2626",
-    background: "#fff",
-    color: "#dc2626",
-    borderRadius: "3px",
-    fontSize: "11px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  pagination: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 4px",
-    flexWrap: "wrap",
-    gap: "8px",
-    fontSize: "12px",
-    color: "#374151",
-  },
-  pageBtn: {
-    padding: "4px 10px",
-    border: "1px solid #d1d5db",
-    borderRadius: "3px",
-    background: "#fff",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  pageBtnDisabled: {
-    padding: "4px 10px",
-    border: "1px solid #e5e7eb",
-    borderRadius: "3px",
-    background: "#f9fafb",
-    cursor: "not-allowed",
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-};
 
-// ===================== Toast Component =====================
 
+
+// Status badge — mono font, colour-coded with border
+function StatusBadge({ value }) {
+  if (!value) return <span style={{ color: "#a0aab8" }}>—</span>;
+  const cls = {
+    completed:           "s-completed",
+    pending:             "s-pending",
+    processed:           "s-processed",
+    billing:             "s-billing",
+    closed:              "s-closed",
+    open:                "s-open",
+    "documents received": "s-docs",
+    "send to icd":       "s-icd",
+  }[value.toLowerCase()] || "s-default";
+  return <span className={`ar-status ${cls}`}>{value}</span>;
+}
+
+// Sort icon
+function SortIcon({ dir }) {
+  return (
+    <span className="ar-sort-icon">
+      {dir === "asc" ? "↑" : dir === "desc" ? "↓" : "↕"}
+    </span>
+  );
+}
+
+// ===================== Toast =====================
 function Toast({ toast, onClose }) {
   useEffect(() => {
-    if (toast.open) {
-      const t = setTimeout(() => onClose(), 4000);
-      return () => clearTimeout(t);
-    }
+    if (toast.open) { const t = setTimeout(() => onClose(), 4000); return () => clearTimeout(t); }
   }, [toast.open, onClose]);
-
   if (!toast.open) return null;
-
   return (
     <div className={`dgft-toast ${toast.severity}`}>
-      {toast.message}
-      <button onClick={onClose}>✕</button>
+      {toast.message}<button onClick={onClose}>✕</button>
     </div>
   );
 }
 
-// ===================== Main Component =====================
+// ===================== CustomSelectField =====================
+function CustomSelectField({ label, fieldKey, value, options, onChange, inputValue, onInputChange, onAdd, placeholder, error }) {
+  return (
+    <div className="dgft-form-group">
+      <label>{label}</label>
+      <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+        <select value={value} onChange={(e) => onChange(fieldKey, e.target.value)}>
+          <option value="">-- Select {label} --</option>
+          {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <input
+            type="text" placeholder={placeholder} value={inputValue}
+            onChange={(e) => onInputChange(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && onAdd()}
+            style={{ height: "30px", padding: "0 8px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "3px", outline: "none", flex: 1 }}
+          />
+          <button onClick={onAdd} style={{ padding: "4px 10px", background: "#10b981", color: "white", border: "none", borderRadius: "3px", cursor: "pointer", fontSize: "12px" }}>Add</button>
+        </div>
+      </div>
+      {error && <span className="field-error">{error}</span>}
+    </div>
+  );
+}
 
+// ===================== SubRow — reference UI (ar-* CSS classes) =====================
+function SubRow({ row, colSpan, onSave, showToast }) {
+  const [subData, setSubData] = useState(() => {
+    const d = {};
+    SUBROW_FIELDS.forEach((f) => { d[f.key] = row[f.key] || ""; });
+
+    // Auto-calc import_validity (+12 mo) and export_validity (+18 mo) from licence_date (DD/MM/YYYY)
+    const authDateStr = row.licence_date || "";
+    if (authDateStr) {
+      const parts = authDateStr.split("/");
+      if (parts.length === 3) {
+        const [dd, mm, yyyy] = parts;
+        const authDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+        if (!isNaN(authDate.getTime())) {
+          const fmt = (date) => `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+          if (!d.import_validity) { const imp = new Date(authDate); imp.setMonth(imp.getMonth() + 12); d.import_validity = fmt(imp); }
+          if (!d.export_validity) { const exp = new Date(authDate); exp.setMonth(exp.getMonth() + 18); d.export_validity = fmt(exp); }
+        }
+      }
+    }
+    return d;
+  });
+
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${row._id}`, subData);
+      showToast("Details updated successfully", "success");
+      onSave(row._id, subData);
+    } catch (err) {
+      console.error(err);
+      showToast("Update failed", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td className="ar-subrow-cell" colSpan={colSpan}>
+        <div className="ar-subrow-inner">
+          <div className="ar-subrow-header">
+            <div className="ar-subrow-title">
+              Licence Details — <span>{row.job_no || ""}</span>
+            </div>
+            <button
+              className={`ar-btn ar-btn-save ar-btn-sm${saving ? "" : ""}`}
+              onClick={handleSave}
+              disabled={saving}
+              style={{ opacity: saving ? 0.55 : 1, cursor: saving ? "not-allowed" : "pointer" }}
+            >
+              {saving ? "Saving…" : "Save Details"}
+            </button>
+          </div>
+          <div className="ar-subrow-grid">
+            {SUBROW_FIELDS.map((f) => (
+              <div key={f.key} className="ar-subrow-field">
+                <label>{f.label}</label>
+                <input
+                  type="text"
+                  value={subData[f.key]}
+                  onChange={(e) => setSubData((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  placeholder="—"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+
+
+
+
+// ===================== Main Component =====================
 function AuthorizationRegistrationList({ onCountChange }) {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
-  const [jobTypeFilter, setJobTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [filterJobType, setFilterJobType]   = useState("");
+  const [filterFirmName, setFilterFirmName] = useState("");
+  const [filterIec, setFilterIec]           = useState("");
+  const [filterStatus, setFilterStatus]     = useState("");
+  const [sort, setSort] = useState({ key: null, dir: null });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState(INITIAL_FORM);
-  const [errors, setErrors] = useState({});
-  const [toast, setToast] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-  const [page, setPage] = useState(0);
+  const [editingId, setEditingId]   = useState(null);
+  const [formData, setFormData]     = useState(INITIAL_FORM);
+  const [errors, setErrors]         = useState({});
+  const [toast, setToast] = useState({ open: false, message: "", severity: "success" });
+  const [page, setPage]               = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
-  const [availableCategories, setAvailableCategories] = useState(CATEGORY_OPTIONS);
-  const [categoryInput, setCategoryInput] = useState("");
+  const [availableCategories, setAvailableCategories]     = useState(CATEGORY_OPTIONS);
+  const [categoryInput, setCategoryInput]                 = useState("");
+  const [availableJobTypeOptions, setAvailableJobTypeOptions] = useState(DEFAULT_JOB_TYPE_OPTIONS);
+  const [jobTypeInput, setJobTypeInput] = useState("");
+  const [expandedRowId, setExpandedRowId] = useState(null);
   const fileInput = React.useRef(null);
 
   const getData = useCallback(async () => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-authorization-registrations`
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-registrations`);
+      const sorted = res.data.sort((a, b) =>
+        String(a.job_no || "").localeCompare(String(b.job_no || ""), undefined, { numeric: true })
       );
-      setRows(
-        res.data.sort((a, b) => {
-          const s1 = String(a.job_no || "");
-          const s2 = String(b.job_no || "");
-          return s1.localeCompare(s2, undefined, { numeric: true });
-        })
-      );
-      if (onCountChange) onCountChange(res.data.length);
-    } catch (err) {
-      console.error(err);
-    }
+      setRows(sorted);
+      if (onCountChange) onCountChange(sorted.length);
+    } catch (err) { console.error(err); }
   }, [onCountChange]);
 
   const getCategories = useCallback(async () => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-auth-reg-categories`
-      );
-      // Merge unique categories from DB with standard options
-      const unique = Array.from(new Set([...CATEGORY_OPTIONS, ...res.data]));
-      setAvailableCategories(unique);
-    } catch (err) {
-      console.error(err);
-    }
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-auth-reg-categories`);
+      setAvailableCategories(Array.from(new Set([...CATEGORY_OPTIONS, ...res.data])));
+    } catch (err) { console.error(err); }
   }, []);
 
-  useEffect(() => {
-    getData();
-    getCategories();
-  }, [getData, getCategories]);
+  useEffect(() => { getData(); getCategories(); }, [getData, getCategories]);
 
-  // Validation
+  // Unique filter options derived from data
+  const filterOptions = useMemo(() => {
+    const jt = new Set(DEFAULT_JOB_TYPE_OPTIONS);
+    const fn = new Set();
+    const ic = new Set();
+    const st = new Set(JOB_STATUS_OPTIONS);
+    rows.forEach((r) => {
+      if (r.job_type?.trim())   jt.add(r.job_type.trim());
+      if (r.party_name?.trim()) fn.add(r.party_name.trim());
+      if (r.iec_no?.trim())     ic.add(r.iec_no.trim());
+      if (r.job_status?.trim()) st.add(r.job_status.trim());
+    });
+    return {
+      job_type:   Array.from(jt).sort(),
+      party_name: Array.from(fn).sort(),
+      iec_no:     Array.from(ic).sort(),
+      job_status: Array.from(st).sort(),
+    };
+  }, [rows]);
+
   const validate = () => {
     const errs = {};
     DATE_FIELDS.forEach((key) => {
       const val = formData[key];
-      if (val && val.trim() !== "") {
-        if (isNaN(Date.parse(val))) {
-          errs[key] = "Invalid date";
-        }
-      }
+      if (val && val.trim() && isNaN(Date.parse(val))) errs[key] = "Invalid date";
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const getNextJobNo = () => {
-    if (rows.length === 0) return "LIC/1";
     let maxNum = 0;
     rows.forEach((r) => {
-      const match = (r.job_no || "").match(/\/(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
+      const m = (r.job_no || "").match(/\/(\d+)$/);
+      if (m && parseInt(m[1], 10) > maxNum) maxNum = parseInt(m[1], 10);
     });
     return `LIC/${maxNum + 1}`;
   };
 
   const handleOpenAdd = () => {
     setFormData({ ...INITIAL_FORM, job_no: getNextJobNo() });
-    setEditingId(null);
-    setErrors({});
-    setCategoryInput("");
-    setDialogOpen(true);
-  };
-
-  const handleAddCustomCategory = () => {
-    if (categoryInput.trim() && !availableCategories.includes(categoryInput.trim())) {
-      setAvailableCategories([...availableCategories, categoryInput.trim()]);
-      showToast("Category added to list", "success");
-      setCategoryInput("");
-    }
+    setEditingId(null); setErrors({}); setCategoryInput(""); setJobTypeInput(""); setDialogOpen(true);
   };
 
   const handleOpenEdit = (row) => {
     setEditingId(row._id);
     const data = {};
-    FIELDS.forEach((f) => {
-      data[f.key] = row[f.key] || "";
-    });
-    setFormData(data);
-    setErrors({});
-    setDialogOpen(true);
+    FIELDS.forEach((f) => { data[f.key] = row[f.key] || ""; });
+    setFormData(data); setErrors({}); setCategoryInput(""); setJobTypeInput(""); setDialogOpen(true);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this record?")) return;
     try {
-      await axios.delete(
-        `${process.env.REACT_APP_API_STRING}/delete-authorization-registration/${id}`
-      );
+      await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-authorization-registration/${id}`);
       showToast("Record deleted", "success");
+      if (expandedRowId === id) setExpandedRowId(null);
       getData();
-    } catch (err) {
-      console.error(err);
-      showToast("Delete failed", "error");
-    }
+    } catch (err) { console.error(err); showToast("Delete failed", "error"); }
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
     try {
       if (editingId) {
-        await axios.put(
-          `${process.env.REACT_APP_API_STRING}/update-authorization-registration/${editingId}`,
-          formData
-        );
+        await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${editingId}`, formData);
         showToast("Record updated", "success");
       } else {
-        await axios.post(
-          `${process.env.REACT_APP_API_STRING}/add-authorization-registration`,
-          formData
-        );
+        await axios.post(`${process.env.REACT_APP_API_STRING}/add-authorization-registration`, formData);
         showToast("Record added", "success");
       }
-      setDialogOpen(false);
-      getData();
-    } catch (err) {
-      console.error(err);
-      showToast("Operation failed", "error");
-    }
+      setDialogOpen(false); getData();
+    } catch (err) { console.error(err); showToast("Operation failed", "error"); }
   };
 
   const handleChange = (key, value) => {
@@ -383,463 +402,278 @@ function AuthorizationRegistrationList({ onCountChange }) {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
-
-
   const handleExcelUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/upload-authorization-registration-excel`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/upload-authorization-registration-excel`, fd, { headers: { "Content-Type": "multipart/form-data" } });
       showToast(res.data.message, "success");
       getData();
-    } catch (err) {
-      console.error(err);
-      showToast("Excel upload failed", "error");
-    }
+    } catch (err) { console.error(err); showToast("Excel upload failed", "error"); }
     e.target.value = "";
   };
 
-  const showToast = (message, severity) => {
-    setToast({ open: true, message, severity });
-  };
+  const showToast = (message, severity) => setToast({ open: true, message, severity });
 
-  // Filter rows by search + jobType + status with grouping support
-  const { filtered, grouped } = useMemo(() => {
+  const handleSubRowSave = (rowId, subData) =>
+    setRows((prev) => prev.map((r) => (r._id === rowId ? { ...r, ...subData } : r)));
+
+  const handleSort = (key) =>
+    setSort((prev) => ({
+      key,
+      dir: prev.key === key ? (prev.dir === "asc" ? "desc" : "asc") : "asc",
+    }));
+
+  useEffect(() => { setPage(0); }, [search, filterJobType, filterFirmName, filterIec, filterStatus]);
+
+  // Filter + sort
+  const displayed = useMemo(() => {
     let result = rows.filter((row) => {
-      // Job Type filter
-      if (jobTypeFilter && !(row.job_type || "").toLowerCase().includes(jobTypeFilter.toLowerCase())) return false;
-      // Status filter
-      if (statusFilter && !(row.job_status || "").toLowerCase().includes(statusFilter.toLowerCase())) return false;
-      // Search
+      if (filterJobType  && row.job_type   !== filterJobType)  return false;
+      if (filterFirmName && row.party_name !== filterFirmName) return false;
+      if (filterIec      && row.iec_no     !== filterIec)      return false;
+      if (filterStatus   && row.job_status !== filterStatus)   return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         if (
-          !(row.job_no || "").toLowerCase().includes(q) &&
+          !(row.job_no     || "").toLowerCase().includes(q) &&
           !(row.party_name || "").toLowerCase().includes(q) &&
           !(row.licence_no || "").toLowerCase().includes(q) &&
-          !(row.port_name || "").toLowerCase().includes(q)
-        )
-          return false;
+          !(row.iec_no     || "").toLowerCase().includes(q)
+        ) return false;
       }
       return true;
     });
-
-    // If jobType filter is applied, group by job_type
-    let grouped_result = null;
-    if (jobTypeFilter) {
-      const groups = {};
-      result.forEach((row) => {
-        const jt = row.job_type || "Unspecified";
-        if (!groups[jt]) groups[jt] = [];
-        groups[jt].push(row);
+    if (sort.key) {
+      result = [...result].sort((a, b) => {
+        const va = String(a[sort.key] || "").toLowerCase();
+        const vb = String(b[sort.key] || "").toLowerCase();
+        return sort.dir === "asc"
+          ? va.localeCompare(vb, undefined, { numeric: true })
+          : vb.localeCompare(va, undefined, { numeric: true });
       });
-      grouped_result = groups;
     }
+    return result;
+  }, [rows, search, filterJobType, filterFirmName, filterIec, filterStatus, sort]);
 
-    return { filtered: result, grouped: grouped_result };
-  }, [rows, search, jobTypeFilter, statusFilter]);
+  const totalPages  = Math.ceil(displayed.length / rowsPerPage) || 1;
+  const paginatedRows = displayed.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // Compute unique job types for the dropdown
-  const availableJobTypes = useMemo(() => {
-    const types = new Set();
-    rows.forEach((r) => {
-      if (r.job_type) types.add(r.job_type.trim());
-    });
-    return Array.from(types).sort();
-  }, [rows]);
+  const renderDataRow = (row) => {
+    const isExpanded = expandedRowId === row._id;
+    const dataRow = (
+      <tr
+        key={row._id}
+        className={`ar-data-row${isExpanded ? " ar-expanded" : ""}`}
+        onClick={() => setExpandedRowId((p) => (p === row._id ? null : row._id))}
+      >
+        {TABLE_COLUMNS.map((col) => {
+          if (col.key === "_expand") {
+            return (
+              <td key="_expand" style={{ textAlign: "center", width: 36 }}>
+                <span className="ar-expand-icon">▶</span>
+              </td>
+            );
+          }
+          if (col.key === "_actions") {
+            return (
+              <td key="_actions" className="ar-td-actions" onClick={(e) => e.stopPropagation()}>
+                <div className="ar-actions-cell">
+                  <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
+                  <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
+                </div>
+              </td>
+            );
+          }
+          if (col.key === "job_status") {
+            return <td key={col.key}><StatusBadge value={row[col.key]} /></td>;
+          }
+          if (col.key === "party_name") {
+            return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{row[col.key] || ""}</td>;
+          }
+          return <td key={col.key}>{row[col.key] || ""}</td>;
+        })}
+      </tr>
+    );
+    return (
+      <React.Fragment key={`frag-${row._id}`}>
+        {dataRow}
+        {isExpanded && (
+          <SubRow key={`sub-${row._id}`} row={row} colSpan={TABLE_COLUMNS.length} onSave={handleSubRowSave} showToast={showToast} />
+        )}
+      </React.Fragment>
+    );
+  };
 
-  // For display with grouping
-  const renderRows = useMemo(() => {
-    if (grouped) {
-      const flattened = [];
-      Object.entries(grouped).forEach(([groupName, groupRows]) => {
-        groupRows.forEach((row, idx) => {
-          flattened.push({ ...row, _groupName: idx === 0 ? groupName : null });
-        });
-      });
-      return flattened;
-    }
-    return filtered;
-  }, [grouped, filtered]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(0);
-  }, [search, jobTypeFilter, statusFilter]);
-
-  // Pagination
-  const totalPages = Math.ceil(renderRows.length / rowsPerPage) || 1;
-  const paginatedRows = renderRows.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
 
   return (
     <div>
-      {/* Toolbar */}
-      <div style={s.toolbar}>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Search Job No, Party, Licence, Port..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={s.input}
-          />
-          <select
-            value={jobTypeFilter}
-            onChange={(e) => setJobTypeFilter(e.target.value)}
-            style={s.filterSelect}
-          >
-            <option value="">All Job Types</option>
-            {availableJobTypes.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
+      {/* ── Toolbar ── */}
+      <div className="ar-toolbar">
+        <div className="ar-toolbar-left">
+          <div className="ar-search-wrap">
+            <input
+              type="text"
+              placeholder="Search Job No, Party, Auth No, IEC…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select className="ar-filter-select" value={filterJobType}  onChange={(e) => setFilterJobType(e.target.value)}>
+            <option value="">All Job Categories</option>
+            {filterOptions.job_type.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={s.filterSelect}
-          >
+          <select className="ar-filter-select" value={filterFirmName} onChange={(e) => setFilterFirmName(e.target.value)}>
+            <option value="">All Firms</option>
+            {filterOptions.party_name.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <select className="ar-filter-select" value={filterIec}      onChange={(e) => setFilterIec(e.target.value)}>
+            <option value="">All IEC</option>
+            {filterOptions.iec_no.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <select className="ar-filter-select" value={filterStatus}   onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">All Statuses</option>
-            {JOB_STATUS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
+            {filterOptions.job_status.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button style={s.btnPrimary} onClick={handleOpenAdd}>
-            + Add New
-          </button>
-          <label className="dgft-upload-label">
+        <div className="ar-toolbar-right">
+          <button className="ar-btn ar-btn-primary" onClick={handleOpenAdd}>+ Add New</button>
+          <label className="ar-btn ar-btn-upload">
             ↑ Upload Excel
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleExcelUpload}
-            />
+            <input ref={fileInput} type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} style={{ display: "none" }} />
           </label>
         </div>
       </div>
 
-      {/* Table — single header (no grouping) */}
-      <div className="dgft-table-wrapper">
-        <table>
-          <thead>
-            <tr className="header-single">
-              {TABLE_COLUMNS.map((col) => (
-                <th
-                  key={col.key}
-                  style={{ width: col.width, minWidth: col.width }}
-                  className={col.key === "_actions" ? "col-actions-head" : ""}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRows.length === 0 ? (
-              <tr className="dgft-empty-row">
-                <td colSpan={TABLE_COLUMNS.length}>No records found</td>
-              </tr>
-            ) : (
-              paginatedRows.map((row, idx) => {
-                // Render group header if this is the first row of a group
-                if (row._groupName) {
+      {/* ── Table card ── */}
+      <div className="ar-table-outer">
+        <div className="ar-table-scroll">
+          <table className="ar-table">
+            <thead>
+              <tr>
+                {TABLE_COLUMNS.map((col) => {
+                  const sorted = sort.key === col.key;
+                  if (col.key === "_expand") return <th key="_expand" className="ar-th-expand" />;
+                  if (col.key === "_actions") return <th key="_actions" className="ar-th-actions">Actions</th>;
                   return (
-                    <React.Fragment key={`group-${row._groupName}`}>
-                      <tr className="dgft-group-header">
-                        <td colSpan={TABLE_COLUMNS.length} style={{ fontWeight: "bold", background: "#f0f4f8", padding: "8px", borderBottom: "2px solid #d1d5db" }}>
-                          {row._groupName}
-                        </td>
-                      </tr>
-                      <tr key={row._id} className="dgft-data-row">
-                        {TABLE_COLUMNS.map((col) => {
-                          if (col.key === "_actions") {
-                            return (
-                              <td key="_actions" className="col-actions-cell">
-                                <div className="dgft-actions-cell">
-                                  <button
-                                    style={s.btnEdit}
-                                    onClick={() => handleOpenEdit(row)}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    style={s.btnDelete}
-                                    onClick={() => handleDelete(row._id)}
-                                  >
-                                    Del
-                                  </button>
-                                </div>
-                              </td>
-                            );
-                          }
-                          if (col.key === "_sr_no") {
-                            return (
-                              <td key={col.key}>
-                                {page * rowsPerPage + idx + 1}
-                              </td>
-                            );
-                          }
-                          return <td key={col.key}>{row[col.key] || ""}</td>;
-                        })}
-                      </tr>
-                    </React.Fragment>
+                    <th
+                      key={col.key}
+                      className={sorted ? "ar-th-sorted" : undefined}
+                      style={{ width: col.width, minWidth: col.width }}
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.label} <SortIcon dir={sorted ? sort.dir : null} />
+                    </th>
                   );
-                }
-
-                return (
-                  <tr key={row._id} className="dgft-data-row">
-                    {TABLE_COLUMNS.map((col) => {
-                      if (col.key === "_actions") {
-                        return (
-                          <td key="_actions" className="col-actions-cell">
-                            <div className="dgft-actions-cell">
-                              <button
-                                style={s.btnEdit}
-                                onClick={() => handleOpenEdit(row)}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                style={s.btnDelete}
-                                onClick={() => handleDelete(row._id)}
-                              >
-                                Del
-                              </button>
-                            </div>
-                          </td>
-                        );
-                      }
-                      if (col.key === "_sr_no") {
-                        return (
-                          <td key={col.key}>
-                            {page * rowsPerPage + idx + 1}
-                          </td>
-                        );
-                      }
-                      return <td key={col.key}>{row[col.key] || ""}</td>;
-                    })}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div style={s.pagination}>
-        <div>
-          Showing {renderRows.length === 0 ? 0 : page * rowsPerPage + 1}–
-          {Math.min((page + 1) * rowsPerPage, renderRows.length)} of{" "}
-          {renderRows.length} records
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={TABLE_COLUMNS.length}>
+                    <div className="ar-empty-state">No records found</div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row) => renderDataRow(row))
+              )}
+            </tbody>
+          </table>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span>Rows:</span>
-          <select
-            value={rowsPerPage}
-            onChange={(e) => {
-              setRowsPerPage(Number(e.target.value));
-              setPage(0);
-            }}
-            style={{ ...s.filterSelect, minWidth: "60px" }}
-          >
-            {ROWS_PER_PAGE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            style={page === 0 ? s.pageBtnDisabled : s.pageBtn}
-          >
-            ‹ Prev
-          </button>
-          <span>
-            Page {page + 1} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            style={page >= totalPages - 1 ? s.pageBtnDisabled : s.pageBtn}
-          >
-            Next ›
-          </button>
+
+        {/* Pagination inside table card */}
+        <div className="ar-pagination">
+          <div className="ar-pagination-info">
+            Showing {displayed.length === 0 ? 0 : page * rowsPerPage + 1}–{Math.min((page + 1) * rowsPerPage, displayed.length)} of {displayed.length} records
+          </div>
+          <div className="ar-pagination-controls">
+            <span style={{ color: "#000000ff" }}>Rows:</span>
+            <select className="ar-rows-select" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0); }}>
+              {ROWS_PER_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button className="ar-page-btn" onClick={() => setPage((p) => Math.max(0, p - 1))}           disabled={page === 0}              >‹ Prev</button>
+            <span>Page {page + 1} of {totalPages}</span>
+            <button className="ar-page-btn" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>Next ›</button>
+          </div>
         </div>
       </div>
 
-      {/* Add/Edit Dialog */}
-      <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            pb: 1,
-          }}
-        >
+      {/* ── Add / Edit Dialog ── */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pb: 1 }}>
           {editingId ? "Edit Record" : "Add New Record"}
-          <IconButton onClick={() => setDialogOpen(false)} size="small">
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          <IconButton onClick={() => setDialogOpen(false)} size="small"><CloseIcon fontSize="small" /></IconButton>
         </DialogTitle>
         <DialogContent dividers>
           <div className="dgft-form-grid">
             {FIELDS.map((field) => {
-              // Handle category field with custom category input
               if (field.key === "category") {
                 return (
-                  <div className="dgft-form-group" key={field.key}>
-                    <label>{field.label}</label>
-                    <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
-                      <select
-                        value={formData[field.key]}
-                        onChange={(e) => handleChange(field.key, e.target.value)}
-                      >
-                        <option value="">-- Select Category --</option>
-                        {availableCategories.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        <input
-                          type="text"
-                          placeholder="Add custom category..."
-                          value={categoryInput}
-                          onChange={(e) => setCategoryInput(e.target.value)}
-                          onKeyPress={(e) => e.key === "Enter" && handleAddCustomCategory()}
-                          style={{ ...s.input, flex: 1, minWidth: "150px" }}
-                        />
-                        <button
-                          onClick={handleAddCustomCategory}
-                          style={{
-                            padding: "4px 10px",
-                            background: "#10b981",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "3px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                    {errors[field.key] && (
-                      <span className="field-error">{errors[field.key]}</span>
-                    )}
-                  </div>
+                  <CustomSelectField
+                    key={field.key} label={field.label} fieldKey={field.key}
+                    value={formData[field.key]} options={availableCategories}
+                    onChange={handleChange} inputValue={categoryInput}
+                    onInputChange={setCategoryInput}
+                    onAdd={() => {
+                      const t = categoryInput.trim();
+                      if (t && !availableCategories.includes(t)) { setAvailableCategories((p) => [...p, t]); showToast("Category added", "success"); setCategoryInput(""); }
+                    }}
+                    placeholder="Add custom category…" error={errors[field.key]}
+                  />
                 );
               }
-
-              // Handle read-only job_no
-              if (field.readOnly) {
+              if (field.key === "job_type") {
+                return (
+                  <CustomSelectField
+                    key={field.key} label={field.label} fieldKey={field.key}
+                    value={formData[field.key]} options={availableJobTypeOptions}
+                    onChange={handleChange} inputValue={jobTypeInput}
+                    onInputChange={setJobTypeInput}
+                    onAdd={() => {
+                      const t = jobTypeInput.trim();
+                      if (t && !availableJobTypeOptions.includes(t)) { setAvailableJobTypeOptions((p) => [...p, t].sort()); showToast("Job type added", "success"); setJobTypeInput(""); }
+                    }}
+                    placeholder="Add custom job type…" error={errors[field.key]}
+                  />
+                );
+              }
+              if (field.select && field.options) {
                 return (
                   <div className="dgft-form-group" key={field.key}>
                     <label>{field.label}</label>
-                    <input
-                      type="text"
-                      value={formData[field.key]}
-                      readOnly
-                      style={{ ...s.input, background: "#f3f4f6", color: "#666" }}
-                    />
+                    <select value={formData[field.key]} onChange={(e) => handleChange(field.key, e.target.value)}>
+                      <option value="">-- Select --</option>
+                      {field.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    {errors[field.key] && <span className="field-error">{errors[field.key]}</span>}
                   </div>
                 );
               }
-
               return (
                 <div className="dgft-form-group" key={field.key}>
                   <label>{field.label}</label>
-                  {field.select ? (
-                    <select
-                      value={formData[field.key]}
-                      onChange={(e) => handleChange(field.key, e.target.value)}
-                    >
-                      <option value="">-- Select --</option>
-                      {field.options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={field.type === "date" ? "date" : "text"}
-                      value={formData[field.key]}
-                      onChange={(e) => handleChange(field.key, e.target.value)}
-                      className={errors[field.key] ? "input-error" : ""}
-                    />
-                  )}
-                  {errors[field.key] && (
-                    <span className="field-error">{errors[field.key]}</span>
-                  )}
+                  <input
+                    type={field.type === "date" ? "date" : "text"}
+                    value={formData[field.key]}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    className={errors[field.key] ? "input-error" : ""}
+                  />
+                  {errors[field.key] && <span className="field-error">{errors[field.key]}</span>}
                 </div>
               );
             })}
           </div>
         </DialogContent>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "8px",
-            padding: "14px 20px",
-            borderTop: "1px solid #e5e7eb",
-          }}
-        >
-          <button
-            style={{
-              ...s.btnEdit,
-              padding: "6px 18px",
-              fontSize: "13px",
-            }}
-            onClick={() => setDialogOpen(false)}
-          >
-            Cancel
-          </button>
-          <button
-            style={{
-              ...s.btnPrimary,
-              padding: "6px 18px",
-              fontSize: "13px",
-            }}
-            onClick={handleSubmit}
-          >
-            {editingId ? "Update" : "Add"}
-          </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", padding: "14px 20px", borderTop: "1px solid #e5e7eb" }}>
+          <button className="ar-btn ar-btn-secondary" onClick={() => setDialogOpen(false)}>Cancel</button>
+          <button className="ar-btn ar-btn-primary" onClick={handleSubmit}>{editingId ? "Update" : "Add"}</button>
         </div>
       </Dialog>
 
-      {/* Toast */}
-      <Toast
-        toast={toast}
-        onClose={() => setToast((t) => ({ ...t, open: false }))}
-      />
+      <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, open: false }))} />
     </div>
   );
 }

@@ -32,6 +32,8 @@ const JOB_STATUS_OPTIONS = [
   "Completed",
   "Pending",
   "Processed",
+  "Documents Received",
+  "Send to ICD",
    "Billing",
   "Closed",
   "Open",

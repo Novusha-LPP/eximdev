@@ -695,11 +695,12 @@ function JobDetails() {
     );
   };
 
-  const handleDateChange = (newDate) => {
-    const updatedContainers = formik.values.container_nos.map((container) => ({
-      ...container,
-      required_do_validity_upto: newDate,
-    }));
+  const handleDateChange = (newDate, index) => {
+    const updatedContainers = formik.values.container_nos.map((container, i) =>
+      i === index
+        ? { ...container, required_do_validity_upto: newDate }
+        : container
+    );
 
     formik.setFieldValue("container_nos", updatedContainers);
   };
@@ -2875,7 +2876,7 @@ function JobDetails() {
                                 variant="outlined"
                                 name={`container_nos[${index}].required_do_validity_upto`}
                                 value={container.required_do_validity_upto}
-                                onChange={(e) => handleDateChange(e.target.value)}
+                                onChange={(e) => handleDateChange(e.target.value, index)}
                                 InputLabelProps={{ shrink: true }}
                                 sx={compactInputSx}
                               />

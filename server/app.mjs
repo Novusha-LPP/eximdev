@@ -298,7 +298,7 @@ app.use(
     ],
   })
 );
-
+app.options("*", cors());
 app.use(compression({ level: 9 }));
 
 app.get("/", async (req, res) => {

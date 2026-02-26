@@ -321,10 +321,15 @@ const ImportCreateJob = () => {
             freeSolo
             options={importerNames.map((option) => option.label)}
             value={importer || ""} // Controlled value
-            onInputChange={(event, newValue) => {
-              setImporter(newValue);
-              // clear IE code while user types
-              setIeCodeNo("");
+            onInputChange={(event, newValue, reason) => {
+              if (reason === "input") {
+                setImporter(newValue);
+                // clear IE code while user types
+                setIeCodeNo("");
+              } else if (reason === "clear") {
+                setImporter("");
+                setIeCodeNo("");
+              }
             }} // Handles input change
             onChange={(event, newValue) => {
               // when user selects from list, set importer and IE code

@@ -179,7 +179,7 @@ function OutwardRegisterDetails() {
 
       <input
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         capture="environment"
         onChange={(e) =>
           handleSingleFileUpload(

@@ -198,7 +198,7 @@ function InwardRegisterForm() {
       </label>
       <input
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         capture="environment"
         onChange={(e) =>
           handleSingleFileUpload(
@@ -211,7 +211,7 @@ function InwardRegisterForm() {
         }
       />
       {formik.touched.inward_consignment_photo &&
-      formik.errors.inward_consignment_photo ? (
+        formik.errors.inward_consignment_photo ? (
         <div style={{ color: "#D32F2F" }}>
           {formik.errors.inward_consignment_photo}
         </div>

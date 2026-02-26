@@ -264,7 +264,11 @@ const useImportJobForm = () => {
           description,
           consignment_type,
           isDraftDoc,
-          container_nos,
+          container_nos: container_nos.map((c) => ({
+            ...c,
+            // Copy seal_no into seal_number array so ViewJob can display it
+            seal_number: c.seal_no ? [c.seal_no] : [],
+          })),
           cth_documents: cthDocuments, // Renamed to match backend expectations
           scheme,
           in_bond_be_no,

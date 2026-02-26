@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import HSCodeLookup from "./HSCodeLookup.js";
 import ShipmentDetails from "./ShipmentDetails.js";
 import DutyCalculation from "./DutyCalculation.js";
+import { useFetchYears } from "../../../utils/useFetchYears";
 
 const ImportDutyCalculator = () => {
   // State for form inputs
@@ -38,13 +39,13 @@ const ImportDutyCalculator = () => {
 
   // State for tracking if user has modified assessable value
   const [userModified, setUserModified] = useState(false);
-  
+
   // New state to track if user has manually changed SWS rate
   const [userModifiedSWS, setUserModifiedSWS] = useState(false);
 
   // State for API lookup
   const [jobNo, setJobNo] = useState("");
-  const [year, setYear] = useState("25-26"); // Default value
+  const { years: availableYears, selectedYear: year, setSelectedYear: setYear } = useFetchYears("25-26");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -172,12 +173,12 @@ const ImportDutyCalculator = () => {
   // Function to handle duty rates change
   const handleDutyRateChange = (e) => {
     const { id, value } = e.target;
-    
+
     // If SWS rate is being changed, mark it as user modified
     if (id === "swsRate") {
       setUserModifiedSWS(true);
     }
-    
+
     setDutyRates((prev) => ({
       ...prev,
       [id]: value,
@@ -360,6 +361,7 @@ const ImportDutyCalculator = () => {
         lookupHSCode={lookupHSCode}
         isLoading={isLoading}
         error={error}
+        availableYears={availableYears}
       />
 
       <div

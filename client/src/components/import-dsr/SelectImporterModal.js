@@ -17,6 +17,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
+import { useFetchYears } from "../../utils/useFetchYears";
 
 const style = {
   position: "absolute",
@@ -36,6 +37,8 @@ export default function SelectImporterModal(props) {
   const [selectedImporter, setSelectedImporter] = React.useState("");
   const [checked, setChecked] = React.useState(false);
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
+
+  const { years: availableYears } = useFetchYears("25-26");
 
   // Get importer list for MUI autocomplete
   const { user } = useContext(UserContext);
@@ -177,26 +180,19 @@ export default function SelectImporterModal(props) {
           <br />
 
           <div>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  value="24-25"
-                  checked={selectedApiYears.includes("24-25")}
-                  onChange={handleYearChange}
-                />
-              }
-              label="24-25"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  value="25-26"
-                  checked={selectedApiYears.includes("25-26")}
-                  onChange={handleYearChange}
-                />
-              }
-              label="25-26"
-            />
+            {availableYears.map((y) => (
+              <FormControlLabel
+                key={y.value}
+                control={
+                  <Checkbox
+                    value={y.value}
+                    checked={selectedApiYears.includes(y.value)}
+                    onChange={handleYearChange}
+                  />
+                }
+                label={y.label}
+              />
+            ))}
           </div>
 
           <br />

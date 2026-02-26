@@ -10,6 +10,7 @@ const HSCodeLookup = ({
   lookupHSCode,
   isLoading,
   error,
+  availableYears,
 }) => {
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
@@ -94,8 +95,9 @@ const HSCodeLookup = ({
                   fontSize: "14px",
                 }}
               >
-                <option value="25-26">25-26</option>
-                <option value="24-25">24-25</option>
+                {availableYears && availableYears.map(y => (
+                  <option key={y.value} value={y.value}>{y.label}</option>
+                ))}
               </select>
             </td>
           </tr>

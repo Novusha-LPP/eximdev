@@ -10,8 +10,10 @@ router.get("/api/get-supplier-exporter-list/:year", async (req, res) => {
     const selectedYear = req.params.year;
     const { status, detailedStatus } = req.query;
 
-    // base match: year
-    const matchStage = { year: selectedYear };
+    // base match: empty object to fetch all suppliers irrespective of year, but filter out null/empty ones
+    const matchStage = {
+      supplier_exporter: { $nin: [null, ""] }
+    };
 
     // optional status filter (if provided and not "all")
     if (status && status !== "all") {

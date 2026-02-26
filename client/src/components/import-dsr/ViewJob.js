@@ -2887,6 +2887,7 @@ function JobDetails() {
                                 value={container.required_do_validity_upto}
                                 onChange={(e) => handleDateChange(e.target.value, index)}
                                 InputLabelProps={{ shrink: true }}
+                                disabled={user.role !== "Admin"}
                                 sx={compactInputSx}
                               />
                             </Col>

@@ -72,7 +72,7 @@ const DetailedReport = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears("25-26");
+  const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears();
   const [gradeFilter, setGradeFilter] = useState(""); // ✅ New Grade Filter
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [exportLoading, setExportLoading] = useState(false);

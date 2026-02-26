@@ -45,7 +45,7 @@ const ImportDutyCalculator = () => {
 
   // State for API lookup
   const [jobNo, setJobNo] = useState("");
-  const { years: availableYears, selectedYear: year, setSelectedYear: setYear } = useFetchYears("25-26");
+  const { years: availableYears, selectedYear: year, setSelectedYear: setYear } = useFetchYears();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 

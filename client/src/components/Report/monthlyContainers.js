@@ -193,7 +193,7 @@ const TrendChart = ({ trendData }) => {
 
 const MonthlyContainers = () => {
   const theme = useTheme();
-  const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears("25-26");
+  const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears();
   const currentMonth = String(new Date().getMonth() + 1);
   const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState([]);

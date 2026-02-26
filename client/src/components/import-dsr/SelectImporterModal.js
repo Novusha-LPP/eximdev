@@ -38,7 +38,7 @@ export default function SelectImporterModal(props) {
   const [checked, setChecked] = React.useState(false);
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
-  const { years: availableYears } = useFetchYears("25-26");
+  const { years: availableYears } = useFetchYears();
 
   // Get importer list for MUI autocomplete
   const { user } = useContext(UserContext);

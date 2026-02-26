@@ -45,7 +45,7 @@ function BillingPending() {
   });
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears("25-26");
+  const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears();
 
   useEffect(() => {
     fetchBillingPendingData();

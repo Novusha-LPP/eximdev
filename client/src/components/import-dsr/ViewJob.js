@@ -2011,7 +2011,7 @@ function JobDetails() {
                       <TextField fullWidth size="small" variant="outlined" type="date"
                         id="required_do_validity_upto_0" name="container_nos[0].required_do_validity_upto"
                         value={formik.values.container_nos?.[0]?.required_do_validity_upto || ""}
-                        onChange={(e) => handleDateChange(e.target.value)}
+                        onChange={(e) => handleDateChange(e.target.value, 0)}
                         InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} className="mb-3">

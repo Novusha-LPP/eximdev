@@ -704,6 +704,15 @@ function JobDetails() {
 
     formik.setFieldValue("container_nos", updatedContainers);
   };
+
+  const handleJobLevelDateChange = (newDate) => {
+    const updatedContainers = formik.values.container_nos.map((container) => ({
+      ...container,
+      required_do_validity_upto: newDate,
+    }));
+
+    formik.setFieldValue("container_nos", updatedContainers);
+  };
   const handleGenerate = () => {
     pdfRef.current?.generatePdf();
   };
@@ -2009,9 +2018,9 @@ function JobDetails() {
                     <Col xs={12} md={3} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Required DO Validity Upto</label>
                       <TextField fullWidth size="small" variant="outlined" type="date"
-                        id="required_do_validity_upto_0" name="container_nos[0].required_do_validity_upto"
+                        id="required_do_validity_upto_job"
                         value={formik.values.container_nos?.[0]?.required_do_validity_upto || ""}
-                        onChange={(e) => handleDateChange(e.target.value, 0)}
+                        onChange={(e) => handleJobLevelDateChange(e.target.value)}
                         InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} className="mb-3">

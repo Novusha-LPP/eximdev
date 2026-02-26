@@ -23,6 +23,9 @@ import {
 import { useParams } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import EditIcon from "@mui/icons-material/Edit";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 import {
   getTableRowsClassname,
 } from "../../utils/getTableRowsClassname";
@@ -67,6 +70,10 @@ function List() {
   } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
+  const [freeTimeFilter, setFreeTimeFilter] = useState(""); // Add this state
+
+  const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
+  const [freeTimeValue, setFreeTimeValue] = useState(""); // Track the value being edited
 
   const handleCopy = (event, text) => {
     event.stopPropagation();
@@ -168,7 +175,8 @@ function List() {
       currentICD,
       selectedImporter,
       unresolvedOnly = false,
-      emergencyOnly = false
+      emergencyOnly = false,
+      freeTimeFilter = ""
     ) => {
       setLoading(true);
       try {
@@ -185,6 +193,7 @@ function List() {
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               emergency: emergencyOnly.toString(), // ✅ Add emergency parameter
+              freeTimeFilter, // ✅ Add freeTimeFilter
             },
           }
         );
@@ -226,7 +235,8 @@ function List() {
         selectedICD,
         selectedImporter,
         showUnresolvedOnly,
-        showEmergencyOnly
+        showEmergencyOnly,
+        freeTimeFilter
       );
     }
   }, [
@@ -238,6 +248,7 @@ function List() {
     user?.username,
     showUnresolvedOnly,
     showEmergencyOnly,
+    freeTimeFilter,
     fetchJobs,
   ]);
 
@@ -314,6 +325,44 @@ function List() {
       console.error("Error updating advanced payment:", error);
       // Ideally show error toast and revert state
     }
+  };
+
+  const handleEditClick = (row) => {
+    if (row.consignment_type !== "LCL") {
+      setEditingRowId(row._id);
+      setFreeTimeValue(row.free_time);
+    } else {
+      alert("Free Time cannot be edited for LCL consignment type.");
+    }
+  };
+
+  const handleSave = async (id) => {
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-free-time/${id}`,
+        {
+          free_time: freeTimeValue,
+        }
+      );
+      await fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter,
+        showUnresolvedOnly,
+        showEmergencyOnly,
+        freeTimeFilter
+      );
+    } catch (error) {
+      console.error("Error saving data:", error);
+    } finally {
+      setEditingRowId(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingRowId(null);
   };
 
   const columns = [
@@ -618,6 +667,42 @@ function List() {
     },
 
     {
+      accessorKey: "free_time",
+      header: "Free Time",
+      size: 150,
+      Cell: ({ row }) =>
+        editingRowId === row.original._id ? (
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <TextField
+              value={freeTimeValue}
+              onChange={(e) => setFreeTimeValue(e.target.value)}
+              size="small"
+              variant="outlined"
+              style={{ width: "60px", marginRight: "8px" }}
+              type="number"
+            />
+            <IconButton onClick={() => handleSave(row.original._id)} size="small">
+              <CheckIcon fontSize="small" />
+            </IconButton>
+            <IconButton onClick={handleCancel} size="small">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {row.original.free_time}
+            <IconButton
+              onClick={() => handleEditClick(row.original)}
+              style={{ marginLeft: "8px" }}
+              size="small"
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </div>
+        ),
+    },
+
+    {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
@@ -869,6 +954,22 @@ function List() {
               {year}
             </MenuItem>
           ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="Free Time Filter"
+          value={freeTimeFilter}
+          onChange={(e) => {
+            setFreeTimeFilter(e.target.value);
+            setCurrentPage(1);
+          }}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="zero">Free Time = 0</MenuItem>
+          <MenuItem value="moreThanZero">Free Time &gt; 0</MenuItem>
         </TextField>
         {/* ICD Code Filter */}
         <TextField

@@ -19,6 +19,7 @@ router.get(
         year,
         unresolvedOnly,
         emergency, // ✅ Extract emergency param
+        freeTimeFilter, // ✅ Extract freeTimeFilter param
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -119,10 +120,16 @@ router.get(
         });
       }
 
-      // ✅ Apply user-based ICD filter from middleware
       if (req.userIcdFilter) {
         // User has specific ICD restrictions
         baseQuery.$and.push(req.userIcdFilter);
+      }
+
+      // ✅ Apply Free Time Filter if Provided
+      if (freeTimeFilter === "zero") {
+        baseQuery.$and.push({ free_time: 0 });
+      } else if (freeTimeFilter === "moreThanZero") {
+        baseQuery.$and.push({ free_time: { $gt: 0 } });
       }
 
       // 🚨 Emergency Criteria Definition
@@ -194,7 +201,7 @@ router.get(
       // 🔍 **Step 1: Fetch Jobs After Applying Filters**
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date"
+          "job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time"
         )
         .lean();
 

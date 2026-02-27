@@ -1,0 +1,14 @@
+{
+  "env": {
+    "NODE_ENV": "server"
+  },
+  "watch": [
+    "app.mjs",
+    "routes",
+    "model",
+    ".env",
+    "logger.js"
+  ],
+  "ext": "js,json,mjs",
+  "exec": "node app.mjs"
+}

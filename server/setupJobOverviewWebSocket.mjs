@@ -1,10 +1,10 @@
 import { WebSocketServer } from 'ws';
-import fetchJobOverviewData from '../server/routes/updateJobCount.mjs'; // Update path if needed
+import fetchJobOverviewData from './routes/updateJobCount.mjs';
 
 const connections = new Map(); // key: socket, value: { year }
 
 export function setupJobOverviewWebSocket(server) {
-  const wss = server ? new WebSocketServer({ server }) : new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on('connection', (ws) => {
     ws.on('message', async (message) => {

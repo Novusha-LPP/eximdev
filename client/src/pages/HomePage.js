@@ -105,6 +105,7 @@ import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
 import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
+import CombinedDashboard from "../components/analytics/CombinedDashboard";
 
 // Open Points
 
@@ -640,7 +641,8 @@ function HomePage() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="esanchit" replace />} />
+                <Route index element={<Navigate to="combined" replace />} />
+                <Route path="combined" element={<CombinedDashboard />} />
                 <Route path="esanchit" element={<ESanchitDashboard />} />
                 <Route
                   path="documentation"

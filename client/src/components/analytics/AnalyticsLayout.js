@@ -32,6 +32,7 @@ import TaskIcon from '@mui/icons-material/Task';
 import './AnalyticsLayout.css';
 
 const navItems = [
+    { name: 'Combined', path: 'combined', icon: <DashboardIcon fontSize="small" /> },
     { name: 'e-Sanchit', path: 'esanchit', icon: <CloudUploadIcon fontSize="small" /> },
     { name: 'Documentation', path: 'documentation', icon: <DescriptionIcon fontSize="small" /> },
     { name: 'Submission', path: 'submission', icon: <TaskIcon fontSize="small" /> },

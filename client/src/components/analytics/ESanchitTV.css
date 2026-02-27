@@ -407,3 +407,138 @@
   font-weight: 700;
   letter-spacing: 0.3vw;
 }
+
+/* Combined Dashboard Styles */
+.tv-combined-dashboard {
+  background-image: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4), transparent 70%);
+}
+
+.tv-combined-container {
+  width: 90vw;
+  max-width: 1400px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tv-combined-header {
+  text-align: center;
+  margin-bottom: 5vh;
+}
+
+.tv-combined-header h1 {
+  font-size: 3.5vw;
+  color: #f1f5f9;
+  margin-bottom: 1vh;
+  letter-spacing: 0.3vw;
+  margin-top: 0;
+  text-transform: uppercase;
+}
+
+.tv-combined-header p {
+  font-size: 1.4vw;
+  color: #94a3b8;
+  letter-spacing: 0.1vw;
+}
+
+.tv-combined-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2.5vw;
+  width: 100%;
+  justify-content: center;
+}
+
+.tv-pulse-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2.5vh;
+  padding: 4vh 2vw;
+  text-align: center;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.tv-pulse-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  opacity: 0.8;
+}
+
+.tv-pulse-card.tv-severity-green::before {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.tv-pulse-card.tv-severity-amber::before {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.tv-pulse-card.tv-severity-red::before {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.tv-pulse-card:hover {
+  transform: translateY(-8px);
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+.tv-card-label {
+  font-size: 1.3vw;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 3vh;
+  letter-spacing: 0.15vw;
+}
+
+.tv-card-number {
+  font-size: 8vw;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 2vh;
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-card-status {
+  font-size: 1vw;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1vw;
+  padding: 0.8vh 1.5vw;
+  border-radius: 1.5vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5vw;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tv-icon {
+  font-size: 1.4vw;
+}
+
+.tv-severity-green .tv-card-status {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.tv-severity-amber .tv-card-status {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.tv-severity-red .tv-card-status {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+}

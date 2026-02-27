@@ -37,6 +37,7 @@ const INITIAL_FORM = {
   bg_expiry_date: "",
   bond_number: "",
   bond_date: "",
+  port_code: "",
 };
 
 const DATE_FIELDS = new Set([
@@ -59,6 +60,10 @@ const DEFAULT_JOB_TYPE_OPTIONS = [
   "AA", "EPCG", "BOND AA", "BOND EPCG", "BG AA", "BG EPCG",
   "BOND CANCELLATION AA", "BOND CANCELLATION EPCG",
   "Non utilization certificate",
+];
+
+const PORT_CODE_OPTIONS = [
+  "INAMD4", "INSBI6", "INSAU6", "INAKV6", "INVRM6", "INMUN1", "INKDL6", "INHZA1"
 ];
 
 const JOB_STATUS_OPTIONS = [
@@ -112,6 +117,7 @@ const FIELDS = [
   { key: "month",                label: "Month" },
   { key: "billing_done_or_not",  label: "Billing Done" },
   { key: "bill_number",          label: "Bill Number" },
+  { key: "port_code",            label: "Port Code", select: true, options: PORT_CODE_OPTIONS },
 ];
 
 // Table columns — per image 1 (no Sr No, actions first)
@@ -131,6 +137,7 @@ const TABLE_COLUMNS = [
   { key: "bg_expiry_date","label": "BG Expiry Date",   width: 110 },
   { key: "bond_number",  label: "Bond Number",         width: 110 },
   { key: "bond_date",    label: "Bond Date",           width: 90 },
+  { key: "port_code",    label: "Port Code",           width: 90 },
   { key: "job_status",   label: "Job Status",          width: 120 },
 ];
 
@@ -287,6 +294,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
   const [filterFirmName, setFilterFirmName] = useState("");
   const [filterIec, setFilterIec]           = useState("");
   const [filterStatus, setFilterStatus]     = useState("");
+  const [filterPortCode, setFilterPortCode] = useState("");
   const [sort, setSort] = useState({ key: null, dir: null });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId]   = useState(null);
@@ -339,6 +347,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
       party_name: Array.from(fn).sort(),
       iec_no:     Array.from(ic).sort(),
       job_status: Array.from(st).sort(),
+      port_code:  PORT_CODE_OPTIONS,
     };
   }, [rows]);
 
@@ -426,7 +435,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
       dir: prev.key === key ? (prev.dir === "asc" ? "desc" : "asc") : "asc",
     }));
 
-  useEffect(() => { setPage(0); }, [search, filterJobType, filterFirmName, filterIec, filterStatus]);
+  useEffect(() => { setPage(0); }, [search, filterJobType, filterFirmName, filterIec, filterStatus, filterPortCode]);
 
   // Filter + sort
   const displayed = useMemo(() => {
@@ -435,6 +444,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
       if (filterFirmName && row.party_name !== filterFirmName) return false;
       if (filterIec      && row.iec_no     !== filterIec)      return false;
       if (filterStatus   && row.job_status !== filterStatus)   return false;
+      if (filterPortCode && row.port_code  !== filterPortCode) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         if (
@@ -456,7 +466,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
       });
     }
     return result;
-  }, [rows, search, filterJobType, filterFirmName, filterIec, filterStatus, sort]);
+  }, [rows, search, filterJobType, filterFirmName, filterIec, filterStatus, filterPortCode, sort]);
 
   const totalPages  = Math.ceil(displayed.length / rowsPerPage) || 1;
   const paginatedRows = displayed.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -472,14 +482,14 @@ function AuthorizationRegistrationList({ onCountChange }) {
         {TABLE_COLUMNS.map((col) => {
           if (col.key === "_expand") {
             return (
-              <td key="_expand" style={{ textAlign: "center", width: 36 }}>
+              <td key="_expand" className="ar-td-sticky ar-td-expand" style={{ textAlign: "center", width: 36 }}>
                 <span className="ar-expand-icon">▶</span>
               </td>
             );
           }
           if (col.key === "_actions") {
             return (
-              <td key="_actions" className="ar-td-actions" onClick={(e) => e.stopPropagation()}>
+              <td key="_actions" className="ar-td-sticky ar-td-actions" onClick={(e) => e.stopPropagation()}>
                 <div className="ar-actions-cell">
                   <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
                   <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
@@ -537,6 +547,10 @@ function AuthorizationRegistrationList({ onCountChange }) {
             <option value="">All Statuses</option>
             {filterOptions.job_status.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
+          <select className="ar-filter-select" value={filterPortCode} onChange={(e) => setFilterPortCode(e.target.value)}>
+            <option value="">All Ports</option>
+            {filterOptions.port_code.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
         </div>
         <div className="ar-toolbar-right">
           <button className="ar-btn ar-btn-primary" onClick={handleOpenAdd}>+ Add New</button>
@@ -555,8 +569,8 @@ function AuthorizationRegistrationList({ onCountChange }) {
               <tr>
                 {TABLE_COLUMNS.map((col) => {
                   const sorted = sort.key === col.key;
-                  if (col.key === "_expand") return <th key="_expand" className="ar-th-expand" />;
-                  if (col.key === "_actions") return <th key="_actions" className="ar-th-actions">Actions</th>;
+                  if (col.key === "_expand") return <th key="_expand" className="ar-th-sticky ar-th-expand" />;
+                  if (col.key === "_actions") return <th key="_actions" className="ar-th-sticky ar-th-actions">Actions</th>;
                   return (
                     <th
                       key={col.key}

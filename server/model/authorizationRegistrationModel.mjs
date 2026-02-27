@@ -28,6 +28,7 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     month: { type: String },
     billing_done_or_not: { type: String },
     bill_number: { type: String },
+    port_code: { type: String },
     // Subrow fields
     import_validity: { type: String },
     export_validity: { type: String },

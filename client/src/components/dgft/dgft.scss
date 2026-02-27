@@ -62,18 +62,22 @@
 
     tbody {
       tr {
-        border-bottom: 1px solid #e5e7eb;
-        transition: background 0.1s;
+        background: #ffffff; // Ensure base background is solid white
 
         &:hover {
           background: #f0f7ff;
+          
+          .col-actions-cell { background: #f0f7ff !important; }
         }
 
         &:nth-child(even) {
           background: #fafbfc;
 
+          .col-actions-cell { background: #fafbfc !important; }
+
           &:hover {
             background: #f0f7ff;
+            .col-actions-cell { background: #f0f7ff !important; }
           }
         }
 
@@ -106,9 +110,10 @@
 .col-actions-cell {
   position: sticky;
   left: 0;
-  z-index: 1;
-  background: inherit;
+  z-index: 5;
+  background: #fff; // Solid background for odd rows
   min-width: 90px;
+  border-right: 2px solid #e5e7eb !important; // Visible separation
 }
 
 // Actions cell layout
@@ -338,12 +343,21 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
 
   // ── Body rows ────────────────────────────────────────────────
   tbody tr.ar-data-row {
+    background: #ffffff; // Base solid background
     border-bottom: 1px solid $ar-border2;
     cursor: pointer;
     transition: background .12s;
 
-    &:hover     { background: #eef3fb; }
-    &.ar-expanded { background: #e6effc; }
+    &:hover { 
+      background: #eef3fb; 
+      .ar-td-sticky { background: #eef3fb !important; }
+    }
+    
+    &.ar-expanded { 
+      background: #e6effc; 
+      .ar-td-sticky { background: #e6effc !important; }
+    }
+    
     &:last-child { border-bottom: none; }
   }
 
@@ -678,3 +692,37 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
   outline: none;
 }
 
+// ── Sticky columns for AR table ──────────────────────────────────
+.ar-th-sticky {
+  position: sticky;
+  z-index: 12 !important;
+  background: $ar-navy !important;
+}
+
+.ar-td-sticky {
+  position: sticky;
+  z-index: 10;
+  background: #ffffff;
+}
+
+// Ensure hovered/expanded sticky cells match row background
+.ar-data-row:hover .ar-td-sticky {
+  background: #eef3fb !important;
+}
+
+.ar-data-row.ar-expanded .ar-td-sticky {
+  background: #e6effc !important;
+}
+
+.ar-th-expand, .ar-td-expand {
+  left: 0;
+  min-width: 36px;
+  max-width: 36px;
+}
+
+.ar-th-actions, .ar-td-actions {
+  left: 36px;
+  min-width: 100px;
+  max-width: 100px;
+  border-right: 2px solid $ar-border !important; // Add border at the end of sticky area
+}

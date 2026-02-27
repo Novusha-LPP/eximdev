@@ -379,6 +379,7 @@ const AUTH_HEADER_MAP = {
   "MONTH": "month",
   "Billing Done or Not": "billing_done_or_not",
   "Bill Number": "bill_number",
+  "Port Code": "port_code",
 };
 
 router.post(

@@ -87,5 +87,3 @@ pids/
 .yarn-integrity
 
 /server/get_data_to_local.cjs
-server/nodemon.json
-server/ecosystem.config.json

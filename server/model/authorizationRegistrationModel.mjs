@@ -34,6 +34,7 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     export_validity: { type: String },
     hs_code: { type: String },
     item_description: { type: String },
+    export_item_description: { type: String },
     value_usd: { type: String },
     value_rs: { type: String },
     qty: { type: String },

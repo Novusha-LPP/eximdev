@@ -320,6 +320,10 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
   }
 
   th {
+    position: sticky;
+    top: 0;
+    z-index: 11;
+    background: $ar-navy;
     text-align: left;
     padding: 9px 10px;
     font-size: 12px;
@@ -451,6 +455,7 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
   padding: 0 !important;
   background: #f7faff;
   border-bottom: 1px solid $ar-border !important;
+  max-width: 0; /* Prevent sub-row from expanding table */
 }
 
 .ar-subrow-inner {
@@ -458,6 +463,9 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
   margin: 0 0 0 36px;
   padding: 16px 20px 20px;
   animation: ar-fade-down .2s ease;
+  overflow-x: auto; /* Horizontal scrolling for sub-row */
+  width: calc(100% - 36px);
+  box-sizing: border-box;
 }
 
 @keyframes ar-fade-down {
@@ -476,9 +484,9 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
 
 .ar-subrow-title {
   font-family: $ar-mono;
-  font-size: 10px;
-  font-weight: 600;
-  color: $ar-text2;
+  font-size: 13px; /* Increased from 10px */
+  font-weight: 700;
+  color: #000000; /* Black for visibility */
   text-transform: uppercase;
   letter-spacing: .1em;
 
@@ -487,20 +495,22 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
 
 .ar-subrow-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 10px 16px;
+  grid-template-columns: repeat(7, minmax(160px, 1fr));
+  gap: 12px 16px;
+  width: 100%;
 }
 
 .ar-subrow-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 
   label {
-    font-size: 9px;
+    font-size: 11px; /* Increased from 9px */
     font-family: $ar-mono;
-    font-weight: 600;
-    color: $ar-text3;
+    font-weight: 700;
+    color: #000000; /* Black for visibility */
     text-transform: uppercase;
     letter-spacing: .07em;
     margin-bottom: 0;
@@ -510,10 +520,11 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
     background: #fff;
     border: 1px solid $ar-border;
     border-radius: $ar-radius;
-    height: 30px;
+    height: 32px;
     padding: 0 8px;
-    font-size: 12px;
+    font-size: 13px; /* Increased from 12px */
     color: $ar-text;
+    font-weight: 500;
     outline: none;
     transition: border-color .15s, box-shadow .15s;
     width: 100%;
@@ -695,6 +706,7 @@ $ar-navy:      #0f2167;   // header background (kept dark navy per user request)
 // ── Sticky columns for AR table ──────────────────────────────────
 .ar-th-sticky {
   position: sticky;
+  top: 0;
   z-index: 12 !important;
   background: $ar-navy !important;
 }

@@ -55,6 +55,9 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer) =
         case "exceptions":
             pipeline = getExceptionsPipeline(start, end, importer);
             break;
+        case "pulse":
+            pipeline = getPulsePipeline(start, end, importer);
+            break;
         default:
             throw new Error("Invalid module");
     }
@@ -522,13 +525,33 @@ const getDocumentationPipeline = (start, end, importer) => {
         $and: [
             importerMatch,
             { status: { $regex: /^pending$/i } },
+            { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
+            { awb_bl_no: { $ne: null, $ne: "" } },
             { job_no: { $ne: null } },
-            { be_no: { $exists: true, $ne: "", $not: { $regex: "^cancelled$", $options: "i" } } },
+            { out_of_charge: { $eq: "" } },
+            {
+                detailed_status: {
+                    $in: ["Discharged", "Gateway IGM Filed", "Estimated Time of Arrival", "ETA Date Pending", "Arrived, BE Note Pending", "Rail Out"]
+                },
+            },
             {
                 $or: [
                     { documentation_completed_date_time: { $exists: false } },
                     { documentation_completed_date_time: "" },
-                    { documentation_completed_date_time: null }
+                    {
+                        $and: [
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ],
+            },
+            {
+                $and: [
+                    { "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] } },
+                    { "cth_documents": { $elemMatch: { document_name: "Bill of Lading", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Packing List", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
                 ]
             }
         ]
@@ -870,6 +893,12 @@ const getESanchitPipeline = (start, end, importer) => {
                     { esanchit_completed_date_time: { $exists: false } },
                     { esanchit_completed_date_time: "" },
                     { esanchit_completed_date_time: null },
+                    {
+                        $and: [
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "e-Sanchit", resolved: { $ne: true } } } }
+                        ]
+                    }
                 ]
             }
         ]
@@ -1096,6 +1125,199 @@ const getSubmissionPipeline = (start, end, importer) => {
                     submission_pending: "$submission_pending",
                     submission_completed: "$submission_completed",
                     submission_trend: "$submission_trend"
+                }
+            }
+        }
+    ];
+};
+
+// 💓 Pulse Combined Pipeline
+const getPulsePipeline = (start, end, importer) => {
+    const importerMatch = importer ? { importer: importer } : {};
+
+    // E-Sanchit Pending
+    const pendingEsanchitMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+            { job_no: { $ne: null } },
+            { out_of_charge: { $eq: "" } },
+            { cth_documents: { $elemMatch: { is_sent_to_esanchit: true } } },
+            {
+                $or: [
+                    { esanchit_completed_date_time: { $exists: false } },
+                    { esanchit_completed_date_time: "" },
+                    { esanchit_completed_date_time: null },
+                    {
+                        $and: [
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "e-Sanchit", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    // Documentation Pending
+    const pendingDocsMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
+            { awb_bl_no: { $ne: null, $ne: "" } },
+            { job_no: { $ne: null } },
+            { out_of_charge: { $eq: "" } },
+            {
+                detailed_status: {
+                    $in: ["Discharged", "Gateway IGM Filed", "Estimated Time of Arrival", "ETA Date Pending", "Arrived, BE Note Pending", "Rail Out"]
+                },
+            },
+            {
+                $or: [
+                    { documentation_completed_date_time: { $exists: false } },
+                    { documentation_completed_date_time: "" },
+                    {
+                        $and: [
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ],
+            },
+            {
+                $and: [
+                    { "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] } },
+                    { "cth_documents": { $elemMatch: { document_name: "Bill of Lading", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Packing List", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
+                ]
+            }
+        ]
+    };
+
+    // Submission Pending
+    const pendingSubmissionMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { job_no: { $ne: null } },
+            {
+                $or: [
+                    { be_no: { $exists: false } },
+                    { be_no: "" },
+                    { submission_completed_date_time: { $exists: false } },
+                    { submission_completed_date_time: "" },
+                    { submission_completed_date_time: null },
+                    {
+                        $and: [
+                            { submission_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Submission", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            },
+            {
+                $or: [
+                    // FCL Prerequisites
+                    {
+                        $and: [
+                            { consignment_type: "FCL" },
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { discharge_date: { $exists: true, $ne: "" } },
+                            { gateway_igm_date: { $exists: true, $ne: "" } },
+                            { gateway_igm: { $exists: true, $ne: "" } },
+                            { igm_no: { $exists: true, $ne: "" } },
+                            { igm_date: { $exists: true, $ne: "" } },
+                            { is_checklist_aprroved: { $exists: true, $ne: false } }
+                        ]
+                    },
+                    // LCL Prerequisites
+                    {
+                        $and: [
+                            { consignment_type: "LCL" },
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { is_checklist_aprroved: { $exists: true, $ne: false } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    // Operations (Exam Planning)
+    const arrivalCondition = {
+        $or: [
+            { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
+            {
+                container_nos: {
+                    $elemMatch: {
+                        arrival_date: { $exists: true, $nin: [null, ""] }
+                    }
+                }
+            }
+        ]
+    };
+    const inExamPlanningMatch = {
+        status: { $regex: /^Pending$/i },
+        be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+        ...importerMatch,
+        $and: [
+            arrivalCondition,
+            {
+                $or: [
+                    { completed_operation_date: { $exists: false } },
+                    { completed_operation_date: "" },
+                    {
+                        $and: [
+                            { completed_operation_date: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Operations", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    // DO (In DO Planning)
+    const inDoPlanningMatch = {
+        ...importerMatch,
+        status: { $regex: /^pending$/i },
+        $or: [{ doPlanning: true }, { doPlanning: "true" }],
+        $and: [
+            {
+                $or: [
+                    { do_completed: false },
+                    { do_completed: "No" },
+                    { do_completed: { $exists: false } },
+                    { do_completed: "" },
+                    { do_completed: null }
+                ]
+            }
+        ]
+    };
+
+    return [
+        {
+            $facet: {
+                esanchit: [{ $match: pendingEsanchitMatch }, { $count: "count" }],
+                documentation: [{ $match: pendingDocsMatch }, { $count: "count" }],
+                submission: [{ $match: pendingSubmissionMatch }, { $count: "count" }],
+                operations: [{ $match: inExamPlanningMatch }, { $count: "count" }],
+                do: [{ $match: inDoPlanningMatch }, { $count: "count" }]
+            }
+        },
+        {
+            $project: {
+                summary: {
+                    esanchit: { $ifNull: [{ $arrayElemAt: ["$esanchit.count", 0] }, 0] },
+                    documentation: { $ifNull: [{ $arrayElemAt: ["$documentation.count", 0] }, 0] },
+                    submission: { $ifNull: [{ $arrayElemAt: ["$submission.count", 0] }, 0] },
+                    operations: { $ifNull: [{ $arrayElemAt: ["$operations.count", 0] }, 0] },
+                    do: { $ifNull: [{ $arrayElemAt: ["$do.count", 0] }, 0] }
                 }
             }
         }

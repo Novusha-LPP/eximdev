@@ -298,7 +298,7 @@ app.use(
     ],
   })
 );
-app.options("*", cors());
+
 app.use(compression({ level: 9 }));
 
 app.get("/", async (req, res) => {
@@ -563,24 +563,21 @@ if (cluster.isPrimary) {
 
         // Initialize WebSocket logic
         const server = http.createServer(app);
-
-        // Get wss instances without attaching them to the main server directly
-        const jobWss = setupJobOverviewWebSocket(null);
-        const analyticsWss = setupAnalyticsWebSocket(null);
+        const wssOverview = setupJobOverviewWebSocket();
+        const wssAnalytics = setupAnalyticsWebSocket();
 
         server.on('upgrade', (request, socket, head) => {
-          const pathname = request.url;
+          const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
 
           if (pathname === '/analytics') {
-            analyticsWss.handleUpgrade(request, socket, head, (ws) => {
-              analyticsWss.emit('connection', ws, request);
-            });
-          } else if (pathname === '/' || pathname === '/job-overview') {
-            jobWss.handleUpgrade(request, socket, head, (ws) => {
-              jobWss.emit('connection', ws, request);
+            wssAnalytics.handleUpgrade(request, socket, head, (ws) => {
+              wssAnalytics.emit('connection', ws, request);
             });
           } else {
-            socket.destroy();
+            // Default to overview for compatibility
+            wssOverview.handleUpgrade(request, socket, head, (ws) => {
+              wssOverview.emit('connection', ws, request);
+            });
           }
         });
 

@@ -1,5 +1,5 @@
 import { WebSocketServer } from 'ws';
-import { fetchAnalyticsData } from '../server/routes/analytics/analyticsRoutes.mjs';
+import { fetchAnalyticsData } from './routes/analytics/analyticsRoutes.mjs';
 
 const connections = new Map(); // key: socket, value: { module, startDate, endDate, importer }
 

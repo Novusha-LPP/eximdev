@@ -14,6 +14,7 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -88,6 +89,21 @@ function Sidebar() {
           >
             <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
               <SupervisedUserCircleIcon />
+            </IconButton>
+          </ListItemButton>
+        </Tooltip>
+      )}
+
+      {/* CRM Module */}
+      {(user.role === "Admin" || user.role === "Head_of_Department") && (
+        <Tooltip title="CRM Module" enterDelay={0} placement="right">
+          <ListItemButton
+            className="appbar-links"
+            aria-label="list-item"
+            onClick={() => navigate("/crm")}
+          >
+            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+              <PeopleAltIcon />
             </IconButton>
           </ListItemButton>
         </Tooltip>

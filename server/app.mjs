@@ -231,6 +231,9 @@ import teamRoutes from "./routes/team/teamRoutes.mjs";
 // DGFT Module
 import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
+// CRM Module
+import crmRoutes from "./routes/crm/crmRoutes.mjs";
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -500,6 +503,10 @@ app.use(teamRoutes);
 
 // DGFT Module
 app.use(dgftRoutes);
+
+// CRM Module (existing)
+app.use("/api/crm", crmRoutes);
+
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

@@ -132,6 +132,10 @@ import HodManagement from "../components/home/HodManagement.js";
 // DGFT Module
 import DgftTabs from "../components/dgft/DgftTabs.js";
 
+// CRM Module
+import CRMModule from "../components/crm/CRMModule.jsx";
+
+
 const drawerWidth = 60;
 
 function HomePage() {
@@ -741,6 +745,16 @@ function HomePage() {
 
               {/* DGFT Module */}
               <Route path="/dgft" element={<DgftTabs />} />
+
+              {/* CRM Module */}
+              <Route
+                path="/crm"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <CRMModule />
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
           </Box>
         </Box>

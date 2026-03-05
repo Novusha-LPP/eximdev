@@ -358,6 +358,7 @@ function useFetchJobDetails(
       igm_no: "",
       line_no: "",
       no_of_pkgs: "",
+      unit: "",
       hss: "",
       bank_name: "",
       adCode: "",
@@ -392,6 +393,7 @@ function useFetchJobDetails(
       // rail_out_date: "",
       remarks: "",
       description: "",
+      description_details: [],
       consignment_type: "",
       sims_reg_no: "",
       pims_reg_no: "",
@@ -494,6 +496,7 @@ function useFetchJobDetails(
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/update-job/${params.selected_year}/${params.job_no}`,
         {
+          description_details: values.description_details,
           cth_documents: updatedCthDocuments,
           documents: selectedDocuments,
           checkedDocs: values.checkedDocs,
@@ -502,7 +505,7 @@ function useFetchJobDetails(
           hawb_hbl_date: values.hawb_hbl_date,
           awb_bl_no: values.awb_bl_no,
           awb_bl_date: values.awb_bl_date,
-          cth_no: values.cth_no,
+          cth_no: values.description_details?.[0]?.cth_no || values.cth_no,
           free_time: values.free_time,
           status: values.status,
           detailed_status: values.detailed_status,
@@ -514,7 +517,8 @@ function useFetchJobDetails(
           job_sticker_upload: values.job_sticker_upload,
           // rail_out_date: values.rail_out_date,
           remarks: values.remarks,
-          description: values.description,
+          description:
+            values.description_details?.[0]?.description || values.description,
           consignment_type: values.consignment_type,
           sims_reg_no: values.sims_reg_no,
           pims_reg_no: values.pims_reg_no,
@@ -528,7 +532,9 @@ function useFetchJobDetails(
           igm_date: values.igm_date,
           igm_no: values.igm_no,
           line_no: values.line_no,
-          no_of_pkgs: values.no_of_pkgs,
+          no_of_pkgs:
+            values.description_details?.[0]?.quantity || values.no_of_pkgs,
+          unit: values.description_details?.[0]?.unit || values.unit,
           hss: values.hss,
           saller_name: values.saller_name,
           adCode: values.adCode,
@@ -536,7 +542,9 @@ function useFetchJobDetails(
           firstCheck: values.firstCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
-          invoice_number: values.invoice_number,
+          invoice_number:
+            values.description_details?.[0]?.sr_no_invoice ||
+            values.invoice_number,
           invoice_date: values.invoice_date,
           total_inv_value: values.total_inv_value,
           payment_method: values.payment_method,
@@ -552,7 +560,9 @@ function useFetchJobDetails(
           assessment_date: values.assessment_date,
           duty_paid_date: values.duty_paid_date,
           doPlanning: values.doPlanning,
-          clearanceValue: values.clearanceValue,
+          clearanceValue:
+            values.description_details?.[0]?.clearance_under ||
+            values.clearanceValue,
           pcv_date: values.pcv_date,
           do_planning_date: values.do_planning_date,
           examinationPlanning: values.examinationPlanning,
@@ -755,6 +765,21 @@ function useFetchJobDetails(
         job_sticker_upload: safeValue(data.job_sticker_upload, []),
         remarks: safeValue(data.remarks),
         description: safeValue(data.description),
+        description_details:
+          Array.isArray(data.description_details) &&
+            data.description_details.length > 0
+            ? data.description_details
+            : [
+              {
+                description: safeValue(data.description),
+                cth_no: safeValue(data.cth_no),
+                clearance_under: safeValue(data.clearanceValue),
+                sr_no_invoice: safeValue(data.invoice_number),
+                sr_no_lic: "",
+                quantity: safeValue(data.no_of_pkgs),
+                unit: safeValue(data.unit),
+              },
+            ],
         consignment_type: safeValue(data.consignment_type),
         sims_reg_no: safeValue(data.sims_reg_no),
         pims_reg_no: safeValue(data.pims_reg_no),
@@ -769,6 +794,7 @@ function useFetchJobDetails(
         igm_no: safeValue(data.igm_no),
         line_no: safeValue(data.line_no),
         no_of_pkgs: safeValue(data.no_of_pkgs),
+        unit: safeValue(data.unit),
         hss: safeValue(data.hss),
         saller_name: safeValue(data.saller_name),
         adCode: safeValue(data.adCode),

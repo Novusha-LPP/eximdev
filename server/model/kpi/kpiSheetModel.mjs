@@ -10,6 +10,12 @@ const KPISheetRowSchema = new Schema({
     label: {
         type: String, // Copied from template to ensure immutability of display even if template changes
     },
+    label_gu: {
+        type: String, // Gujarati translated label (copied from template)
+    },
+    label_hi: {
+        type: String, // Hindi translated label (copied from template)
+    },
     type: { // "numeric" | "checkbox" - copied from template
         type: String,
         default: "numeric"

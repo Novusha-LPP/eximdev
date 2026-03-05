@@ -1489,9 +1489,6 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
 // Get current submission deadline settings
 router.get("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: "Admin access required" });
-        }
 
         const setting = await KPISettings.findOne({ key: 'submission_deadline_override' });
 

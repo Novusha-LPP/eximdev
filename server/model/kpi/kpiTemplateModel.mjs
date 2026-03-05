@@ -23,6 +23,12 @@ const KPIRowSchema = new Schema({
         type: Boolean,
         default: false,
     },
+    weight: {
+        type: Number,
+        min: 1,
+        max: 5,
+        default: 3,
+    },
 });
 
 const KPITemplateSchema = new Schema(

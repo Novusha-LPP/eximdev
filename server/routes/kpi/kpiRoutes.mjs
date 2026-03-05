@@ -2,6 +2,7 @@ import express from "express";
 import verifyToken from "../../middleware/authMiddleware.mjs";
 import KPITemplate from "../../model/kpi/kpiTemplateModel.mjs";
 import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
+import KPISettings from "../../model/kpi/kpiSettingsModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import TeamModel from "../../model/teamModel.mjs";
 
@@ -226,7 +227,8 @@ router.post("/api/kpi/import-template", verifyToken, async (req, res) => {
                 label: row.label,
                 type: row.type || 'numeric',
                 category: row.category,
-                is_high_volume: row.is_high_volume
+                is_high_volume: row.is_high_volume,
+                weight: row.weight || 3
             })),
             owner: req.user._id,
             is_active: true,
@@ -338,6 +340,104 @@ router.get("/api/kpi/admin/stats", verifyToken, async (req, res) => {
     }
 });
 
+// Admin: Get Detailed Submission Status for a month/year
+router.get("/api/kpi/admin/submission-status", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        const { year, month, department } = req.query;
+        if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
+
+        const iYear = parseInt(year);
+        const iMonth = parseInt(month);
+
+        // 1. Get all active users
+        let userQuery = { isActive: { $ne: false } };
+        if (department) userQuery.department = department;
+
+        const allUsers = await UserModel.find(userQuery, 'first_name last_name email department');
+
+        // 2. Get all KPI sheets for this month/year
+        let sheetQuery = { year: iYear, month: iMonth };
+        if (department) sheetQuery.department = department;
+        const sheets = await KPISheet.find(sheetQuery)
+            .populate('user', 'first_name last_name email');
+
+        // 3. Get deadline for this month
+        const getSubmissionDeadline = async (y, m) => {
+            let deadlineYear = y;
+            let deadlineMonth = m + 1; // Deadline is next month
+            if (deadlineMonth > 12) {
+                deadlineMonth = 1;
+                deadlineYear = y + 1;
+            }
+            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+            while (deadline.getDay() === 0) {
+                deadline.setDate(deadline.getDate() - 1);
+            }
+
+            // Check override
+            const override = await KPISettings.findOne({ key: 'submission_deadline_override' });
+            if (override && override.value) {
+                const ov = override.value;
+                if (ov.year === y && ov.month === m && ov.deadline_date) {
+                    return new Date(ov.deadline_date);
+                }
+            }
+            return deadline;
+        };
+
+        const deadline = await getSubmissionDeadline(iYear, iMonth);
+        const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 23, 59, 59);
+
+        // 4. Map everything
+        const userStatus = allUsers.map(user => {
+            const sheet = sheets.find(s => s.user._id.toString() === user._id.toString());
+            const submitted = sheet ? (['SUBMITTED', 'CHECKED', 'VERIFIED', 'APPROVED'].includes(sheet.status)) : false;
+
+            let isLate = false;
+            let submissionDate = null;
+
+            if (sheet && sheet.summary?.submission_date) {
+                submissionDate = new Date(sheet.summary.submission_date);
+                if (submissionDate > deadlineDate) {
+                    isLate = true;
+                }
+            }
+
+            return {
+                userId: user._id,
+                name: `${user.first_name} ${user.last_name || ''}`,
+                email: user.email,
+                department: user.department,
+                hasSheet: !!sheet,
+                status: sheet ? sheet.status : 'NOT_CREATED',
+                submitted,
+                submissionDate,
+                isLate,
+                sheetId: sheet ? sheet._id : null
+            };
+        });
+
+        res.json({
+            users: userStatus,
+            deadline: deadlineDate,
+            stats: {
+                total: allUsers.length,
+                submitted: userStatus.filter(u => u.submitted).length,
+                late: userStatus.filter(u => u.isLate).length,
+                pending: userStatus.filter(u => !u.submitted).length
+            }
+        });
+
+    } catch (err) {
+        console.error("GET /api/kpi/admin/submission-status ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 // Get or Init Sheet for Month
 router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
     try {
@@ -445,11 +545,11 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
             return res.status(404).json({ message: "Template not found" });
         }
 
-        // Create Sheet Rows from Template
         const sheetRows = template.rows.map(r => ({
             row_id: r.id,
             label: r.label,
             type: r.type || 'numeric',
+            weight: r.weight || 3,
             daily_values: {},
             total: 0
         }));
@@ -571,12 +671,22 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
             }
             return deadline;
         };
-        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+        let deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+
+        // Check for admin deadline override extension
+        const deadlineOverride = await KPISettings.findOne({ key: 'submission_deadline_override' });
+        if (deadlineOverride && deadlineOverride.value) {
+            const ov = deadlineOverride.value;
+            if (ov.year === sheet.year && ov.month === sheet.month && ov.deadline_date) {
+                deadline = new Date(ov.deadline_date);
+            }
+        }
+
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
-            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
+            return res.status(403).json({ message: `KPI locked. Submission deadline (${deadlineDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}) has passed. Contact Admin for extension.` });
         }
 
         // Note: Weekly locking is disabled - users can edit any day within the month until deadline
@@ -666,12 +776,22 @@ router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
             }
             return deadline;
         };
-        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+        let deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+
+        // Check for admin deadline override extension
+        const deadlineOverride = await KPISettings.findOne({ key: 'submission_deadline_override' });
+        if (deadlineOverride && deadlineOverride.value) {
+            const ov = deadlineOverride.value;
+            if (ov.year === sheet.year && ov.month === sheet.month && ov.deadline_date) {
+                deadline = new Date(ov.deadline_date);
+            }
+        }
+
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
-            return res.status(403).json({ message: "KPI locked. Submission deadline (4th of the following month) has passed." });
+            return res.status(403).json({ message: `KPI locked. Submission deadline (${deadlineDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}) has passed. Contact Admin for extension.` });
         }
 
         const dayNum = Number(day);
@@ -820,29 +940,38 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Sheet cannot be submitted in current status" });
         }
 
-        // Deadline Check - 4th of the following month (or previous working day if 4th is a holiday)
+        // Deadline Check - default is 4th of the following month
         const today = new Date();
         const getSubmissionDeadline = (year, month) => {
-            // Deadline is the 4th of the following month
             let deadlineYear = year;
-            let deadlineMonth = month; // month is 1-indexed in sheet
+            let deadlineMonth = month;
             if (deadlineMonth > 12) {
                 deadlineMonth = 1;
                 deadlineYear = year + 1;
             }
             let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
-            // If the 4th is a Sunday, go back to the previous working day
             while (deadline.getDay() === 0) {
                 deadline.setDate(deadline.getDate() - 1);
             }
             return deadline;
         };
-        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+        let deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+
+        // Check for admin deadline override
+        const deadlineOverride = await KPISettings.findOne({ key: 'submission_deadline_override' });
+        if (deadlineOverride && deadlineOverride.value) {
+            const ov = deadlineOverride.value;
+            // Only apply if the override matches this sheet's period
+            if (ov.year === sheet.year && ov.month === sheet.month && ov.deadline_date) {
+                deadline = new Date(ov.deadline_date);
+            }
+        }
+
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
 
         if (todayDate > deadlineDate && sheet.status !== 'REJECTED') {
-            return res.status(403).json({ message: "KPI locked. Submission deadline (7th of the following month) has passed." });
+            return res.status(403).json({ message: `KPI locked. Submission deadline (${deadlineDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}) has passed. Contact Admin for extension.` });
         }
 
         // Update Summary if provided
@@ -979,7 +1108,7 @@ router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
 router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
     try {
         console.log("POST /api/kpi/sheet/review called", req.body);
-        const { sheetId, action, comments } = req.body; // action: CHECK, VERIFY, APPROVE, REJECT
+        const { sheetId, action, comments, rowWeights } = req.body; // action: CHECK, VERIFY, APPROVE, REJECT
         const sheet = await KPISheet.findById(sheetId);
         if (!sheet) return res.status(404).json({ message: "Sheet not found" });
 
@@ -1015,6 +1144,47 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             if (!isAdmin && !isShalini && !isSuraj && !isAssignedChecker) {
                 return res.status(403).json({ message: "You are not authorized to Check this sheet" });
             }
+
+            // Update weights if provided by HOD
+            if (rowWeights && typeof rowWeights === 'object') {
+                sheet.rows.forEach(row => {
+                    if (rowWeights[row.row_id] !== undefined) {
+                        row.weight = Number(rowWeights[row.row_id]);
+                    }
+                });
+            }
+
+            // Calculate Performance Metrics
+            let totalValueScore = 0;
+            let totalQuantity = 0;
+
+            sheet.rows.forEach(row => {
+                const rowTotal = Number(row.total) || 0;
+                const rowWeight = Number(row.weight) || 3;
+                totalValueScore += (rowTotal * rowWeight);
+                totalQuantity += rowTotal;
+            });
+
+            const averageComplexity = totalQuantity > 0 ? (totalValueScore / totalQuantity) : 0;
+
+            // Basic Thresholds for Quadrant Calculation
+            const WEIGHT_THRESHOLD = 3.0; // Needs >= 3 to be "High weight"
+            const VOLUME_THRESHOLD = 100; // Subjective threshold for "High Volume"
+
+            let quadrant = "";
+            if (averageComplexity >= WEIGHT_THRESHOLD && totalQuantity >= VOLUME_THRESHOLD) quadrant = "Star";
+            else if (averageComplexity >= WEIGHT_THRESHOLD && totalQuantity < VOLUME_THRESHOLD) quadrant = "Specialist";
+            else if (averageComplexity < WEIGHT_THRESHOLD && totalQuantity >= VOLUME_THRESHOLD) quadrant = "Engine";
+            else quadrant = "Drainer";
+
+            const existingSummary = sheet.summary ? sheet.summary.toObject() : {};
+            sheet.summary = {
+                ...existingSummary,
+                total_value_score: totalValueScore,
+                average_complexity: Number(averageComplexity.toFixed(2)),
+                total_quantity: totalQuantity,
+                performance_quadrant: quadrant
+            };
 
             sheet.status = "CHECKED";
             sheet.signatures.checked_by = `${req.user.first_name} ${req.user.last_name || ''}`;
@@ -1097,7 +1267,8 @@ router.post("/api/kpi/sheet/row", verifyToken, async (req, res) => {
             label: row.label,
             daily_values: new Map(),
             total: 0,
-            is_custom: true
+            is_custom: true,
+            weight: 3
         });
 
         // Audit log
@@ -1195,6 +1366,197 @@ router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
         res.json({ message: "Template deleted" });
     } catch (err) {
         console.error("DELETE /api/kpi/template ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// ==========================================
+// ANALYTICS / CEO PULSE ROUTES
+// ==========================================
+
+// Get Pulse Analytics (Delta Variation & 2x2 Matrix)
+router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Admin or HOD access required" });
+        }
+
+        const { year, month, department } = req.query; // Current month
+
+        if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
+
+        const currentYear = parseInt(year);
+        const currentMonth = parseInt(month);
+
+        let previousMonth = currentMonth - 1;
+        let previousYear = currentYear;
+        if (previousMonth === 0) {
+            previousMonth = 12;
+            previousYear -= 1;
+        }
+
+        let queryCurrent = { year: currentYear, month: currentMonth, status: { $in: ["CHECKED", "VERIFIED", "APPROVED"] } };
+        let queryPrev = { year: previousYear, month: previousMonth, status: { $in: ["CHECKED", "VERIFIED", "APPROVED"] } };
+
+        // HODs should only see their own department unless Admin
+        let effectiveDepartment = department;
+        if (!effectiveDepartment && req.user.role === 'Head_of_Department' && req.user.department) {
+            effectiveDepartment = req.user.department;
+        }
+
+        if (effectiveDepartment) {
+            queryCurrent.department = effectiveDepartment;
+            queryPrev.department = effectiveDepartment;
+        }
+
+        const currentSheets = await KPISheet.find(queryCurrent).populate('user', 'first_name last_name username role');
+        const prevSheets = await KPISheet.find(queryPrev).populate('user', 'first_name last_name username role');
+
+        const pulseData = [];
+
+        currentSheets.forEach(currSheet => {
+            if (!currSheet.user) return; // skip if user is missing somehow
+            const userId = currSheet.user._id.toString();
+            const prevSheet = prevSheets.find(s => s.user && s.user._id.toString() === userId);
+
+            const currScore = currSheet.summary?.total_value_score || 0;
+            const currAvg = currSheet.summary?.average_complexity || 0;
+            const currQty = currSheet.summary?.total_quantity || 0;
+            const currQuadrant = currSheet.summary?.performance_quadrant || "Drainer";
+
+            const prevScore = prevSheet ? (prevSheet.summary?.total_value_score || 0) : 0;
+            const prevAvg = prevSheet ? (prevSheet.summary?.average_complexity || 0) : 0;
+            const prevQty = prevSheet ? (prevSheet.summary?.total_quantity || 0) : 0;
+
+            // Calculate delta
+            let qtyChange = 0;
+            if (prevQty > 0) {
+                qtyChange = ((currQty - prevQty) / prevQty) * 100;
+            } else if (currQty > 0) {
+                qtyChange = 100; // From 0 to something
+            }
+
+            let weightChange = currAvg - prevAvg;
+
+            let deltaInsight = "Stable / Insufficient Data";
+            if (currAvg >= 3.0 && qtyChange >= 20) {
+                deltaInsight = "Promotion Delta (Rising Star)";
+            } else if (qtyChange >= 30 && currAvg < 2.5 && prevAvg > currAvg) {
+                deltaInsight = "Stagnation Delta (The Plateau)";
+            } else if (qtyChange <= -25 && prevAvg >= 3.0) {
+                deltaInsight = "Burnout / Disengagement Delta (The Warning)";
+            } else if (currAvg >= 3.0) {
+                deltaInsight = "Consistent High Performer";
+            }
+
+            pulseData.push({
+                user: {
+                    _id: currSheet.user._id,
+                    first_name: currSheet.user.first_name,
+                    last_name: currSheet.user.last_name,
+                    username: currSheet.user.username
+                },
+                department: currSheet.department,
+                current: {
+                    total_quantity: currQty,
+                    total_value_score: currScore,
+                    average_complexity: currAvg,
+                    quadrant: currQuadrant
+                },
+                previous: {
+                    total_quantity: prevQty,
+                    total_value_score: prevScore,
+                    average_complexity: prevAvg
+                },
+                delta: {
+                    qty_change_percent: Math.round(qtyChange),
+                    weight_change: Number(weightChange.toFixed(2)),
+                    insight: deltaInsight
+                }
+            });
+        });
+
+        res.json(pulseData);
+    } catch (err) {
+        console.error("GET /api/kpi/analytics/pulse ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+// ==========================================
+// SETTINGS / DEADLINE CONFIGURATION (Admin Only)
+// ==========================================
+
+// Get current submission deadline settings
+router.get("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        const setting = await KPISettings.findOne({ key: 'submission_deadline_override' });
+
+        // Also return the default deadline info
+        const today = new Date();
+        const defaultDay = 4; // 4th of next month
+
+        res.json({
+            default_deadline_day: defaultDay,
+            override: setting ? setting.value : null,
+            updated_at: setting ? setting.updatedAt : null
+        });
+    } catch (err) {
+        console.error("GET /api/kpi/settings/deadline ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Set/Update submission deadline override (Admin Only)
+router.post("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        const { year, month, deadline_date, clear } = req.body;
+
+        // If clear is true, remove the override
+        if (clear) {
+            await KPISettings.findOneAndDelete({ key: 'submission_deadline_override' });
+            return res.json({ message: "Deadline override cleared. Default deadline restored." });
+        }
+
+        if (!year || !month || !deadline_date) {
+            return res.status(400).json({ message: "Year, month, and deadline_date are required" });
+        }
+
+        // Validate the deadline date
+        const parsedDate = new Date(deadline_date);
+        if (isNaN(parsedDate.getTime())) {
+            return res.status(400).json({ message: "Invalid deadline date" });
+        }
+
+        const setting = await KPISettings.findOneAndUpdate(
+            { key: 'submission_deadline_override' },
+            {
+                key: 'submission_deadline_override',
+                value: {
+                    year: parseInt(year),
+                    month: parseInt(month),
+                    deadline_date: parsedDate.toISOString()
+                },
+                updated_by: req.user._id
+            },
+            { upsert: true, new: true }
+        );
+
+        console.log(`Admin ${req.user.username} set deadline override: Year=${year}, Month=${month}, Deadline=${parsedDate.toLocaleDateString()}`);
+
+        res.json({
+            message: `Submission deadline for ${new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })} extended to ${parsedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+            override: setting.value
+        });
+    } catch (err) {
+        console.error("POST /api/kpi/settings/deadline ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });

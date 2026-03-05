@@ -5,9 +5,10 @@ import { UserContext } from "../../contexts/UserContext";
 import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu } from '@mui/material';
 import './kpi.scss';
 
-const KPISheet = () => {
+const KPISheet = ({ sheetId: propSheetId }) => {
     const { user } = React.useContext(UserContext);
-    const { sheetId } = useParams();
+    const { sheetId: paramSheetId } = useParams();
+    const sheetId = propSheetId || paramSheetId;
     const [sheet, setSheet] = useState(null);
     // console.log(sheet);
     const [loading, setLoading] = useState(true);

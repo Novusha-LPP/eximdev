@@ -1458,6 +1458,7 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
                 },
                 department: currSheet.department,
                 current: {
+                    sheetId: currSheet._id,
                     total_quantity: currQty,
                     total_value_score: currScore,
                     average_complexity: currAvg,

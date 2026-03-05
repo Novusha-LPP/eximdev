@@ -123,6 +123,7 @@ import KPISheet from "../components/kpi/KPISheet.js";
 import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
 import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
 import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
+import KPIPulseDashboard from "../components/kpi/KPIPulseDashboard.js";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
@@ -724,6 +725,14 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="KPI">
                     <KPIAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/pulse"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIPulseDashboard />
                   </ProtectedRoute>
                 }
               />

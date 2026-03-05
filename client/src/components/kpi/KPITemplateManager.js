@@ -116,7 +116,7 @@ const KPITemplateManager = () => {
         setCurrentTemplate({
             name: '',
             department: userDepartment || '',  // Auto-populate from team if available
-            rows: [{ id: Date.now().toString(), label: 'New KPI', type: 'numeric' }]
+            rows: [{ id: Date.now().toString(), label: 'New KPI', type: 'numeric', weight: 3 }]
         });
         setIsEditing(true);
     };
@@ -148,7 +148,7 @@ const KPITemplateManager = () => {
     const addRow = () => {
         setCurrentTemplate({
             ...currentTemplate,
-            rows: [...currentTemplate.rows, { id: Date.now().toString(), label: '', type: 'numeric' }]
+            rows: [...currentTemplate.rows, { id: Date.now().toString(), label: '', type: 'numeric', weight: 3 }]
         });
     };
 
@@ -319,6 +319,7 @@ const KPITemplateManager = () => {
                                         <tr>
                                             <th style={{ minWidth: '300px', textAlign: 'left', paddingLeft: '8px' }}>KPI Metrics / Parameters</th>
                                             <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Type</th>
+                                            {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Weight</th>}
                                             {[1, 2, 3, 4].map(d => <th key={d} style={{ width: '40px' }}>{d}</th>)}
                                             <th style={{ width: '40px' }}>...</th>
                                             <th style={{ width: '40px' }}>30</th>
@@ -374,6 +375,30 @@ const KPITemplateManager = () => {
                                                             <option value="checkbox">Checkbox (☑)</option>
                                                         </select>
                                                     </td>
+                                                    {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && (
+                                                        <td style={{ padding: 0 }}>
+                                                            <select
+                                                                value={row.weight || 3}
+                                                                onChange={(e) => updateRow(idx, 'weight', Number(e.target.value))}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    border: 'none',
+                                                                    background: 'transparent',
+                                                                    padding: '6px',
+                                                                    fontSize: '11px',
+                                                                    color: '#555',
+                                                                    outline: 'none',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                <option value={5}>5 (Critical)</option>
+                                                                <option value={4}>4 (Complex)</option>
+                                                                <option value={3}>3 (Standard)</option>
+                                                                <option value={2}>2 (Routine)</option>
+                                                                <option value={1}>1 (Admin)</option>
+                                                            </select>
+                                                        </td>
+                                                    )}
                                                     {/* Mock Empty Cells */}
                                                     {[1, 2, 3, 4].map(d => <td key={d}></td>)}
                                                     <td>...</td>
@@ -404,7 +429,7 @@ const KPITemplateManager = () => {
                                         </AnimatePresence>
                                         {currentTemplate.rows.length === 0 && (
                                             <tr>
-                                                <td colSpan="12" style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
+                                                <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 12 : 11} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
                                                     No KPI rows added. Click "+ Add New Row" to begin building your template.
                                                 </td>
                                             </tr>

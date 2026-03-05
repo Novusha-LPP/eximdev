@@ -39,6 +39,7 @@ const KPIReviewerDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('check');
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Filter state
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
@@ -123,6 +124,17 @@ const KPIReviewerDashboard = () => {
             case 'approve': sheets = data.pending_approve; break;
             case 'history': sheets = data.recently_processed; break;
             default: sheets = [];
+        }
+
+        // Apply search filter
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            sheets = sheets.filter(s => {
+                const name = s.user ? `${s.user.first_name} ${s.user.last_name}`.toLowerCase() : '';
+                const dept = (s.department || '').toLowerCase();
+                const quadrant = (s.summary?.performance_quadrant || '').toLowerCase();
+                return name.includes(q) || dept.includes(q) || quadrant.includes(q);
+            });
         }
 
         // Only filter by date for history. Show all pending items for other tabs.
@@ -300,6 +312,19 @@ const KPIReviewerDashboard = () => {
                         )}
                     </div>
                 </div>
+                {/* Search Bar */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        placeholder="Search by employee name, department, quadrant..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ flex: 1, padding: '8px 14px', borderRadius: '6px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }}
+                    />
+                    {searchQuery && (
+                        <button onClick={() => setSearchQuery('')} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: '0.8rem', color: '#64748b' }}>Clear</button>
+                    )}
+                </div>
                 <div className="section-body" style={{ padding: 0 }}>
                     {loading ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>Loading...</div>
@@ -316,6 +341,8 @@ const KPIReviewerDashboard = () => {
                                         <th>Approve Date</th>
                                         <th style={{ textAlign: 'center' }}>Status</th>
                                         <th style={{ textAlign: 'center' }}>Score</th>
+                                        <th style={{ textAlign: 'center' }}>Value</th>
+                                        <th style={{ textAlign: 'center' }}>Quadrant</th>
                                         {activeTab === 'history' && <th>Last Action</th>}
                                         <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                     </tr>
@@ -372,6 +399,21 @@ const KPIReviewerDashboard = () => {
                                                     </td>
                                                     <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
                                                         {sheet.summary?.overall_percentage || 0}%
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 600, color: '#059669' }}>
+                                                        {sheet.summary?.total_value_score || 0}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 600,
+                                                            background: sheet.summary?.performance_quadrant === 'Star' ? '#dcfce7' : sheet.summary?.performance_quadrant === 'Drainer' ? '#fee2e2' : '#e0f2fe',
+                                                            color: sheet.summary?.performance_quadrant === 'Star' ? '#059669' : sheet.summary?.performance_quadrant === 'Drainer' ? '#dc2626' : '#2563eb'
+                                                        }}>
+                                                            {sheet.summary?.performance_quadrant || 'N/A'}
+                                                        </span>
                                                     </td>
                                                     {activeTab === 'history' && (
                                                         <td style={{ fontSize: '0.75rem', color: '#64748b' }}>

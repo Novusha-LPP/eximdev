@@ -801,6 +801,63 @@ function JobDetails() {
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const InBondflag = formik.values.type_of_b_e === "In-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
+  const isDescriptionTableReadOnly = user?.role !== "Admin" && isSubmissionDate;
+  const descriptionRows =
+    Array.isArray(formik.values.description_details) &&
+      formik.values.description_details.length > 0
+      ? formik.values.description_details
+      : [
+        {
+          description: "",
+          cth_no: "",
+          clearance_under: formik.values.clearanceValue || "",
+          sr_no_invoice: "",
+          sr_no_lic: "",
+          quantity: "",
+          unit: "",
+        },
+      ];
+
+  const updateDescriptionRow = (rowIndex, field, value) => {
+    const updatedRows = [...descriptionRows];
+    updatedRows[rowIndex] = {
+      ...updatedRows[rowIndex],
+      [field]: value,
+    };
+    formik.setFieldValue("description_details", updatedRows);
+
+    if (rowIndex === 0) {
+      if (field === "description") formik.setFieldValue("description", value);
+      if (field === "cth_no") formik.setFieldValue("cth_no", value);
+      if (field === "clearance_under")
+        formik.setFieldValue("clearanceValue", value);
+      if (field === "sr_no_invoice")
+        formik.setFieldValue("invoice_number", value);
+      if (field === "quantity") formik.setFieldValue("no_of_pkgs", value);
+      if (field === "unit") formik.setFieldValue("unit", value);
+    }
+  };
+
+  const addDescriptionRow = () => {
+    formik.setFieldValue("description_details", [
+      ...descriptionRows,
+      {
+        description: "",
+        cth_no: "",
+        clearance_under: formik.values.clearanceValue || "",
+        sr_no_invoice: "",
+        sr_no_lic: "",
+        quantity: "",
+        unit: "",
+      },
+    ]);
+  };
+
+  const removeDescriptionRow = (rowIndex) => {
+    if (descriptionRows.length <= 1) return;
+    const updatedRows = descriptionRows.filter((_, index) => index !== rowIndex);
+    formik.setFieldValue("description_details", updatedRows);
+  };
 
   return (
     <>
@@ -1642,20 +1699,125 @@ function JobDetails() {
                   </div>
 
                   <Row>
-                    <Col xs={12} lg={6} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Description</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <TextField size="small" fullWidth multiline rows={2} variant="outlined" id="description" name="description"
-                          value={formik.values.description || ""} onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} />
-                        <IconButton size="small" onClick={(event) => handleCopy(event, formik.values.description)}>
-                          <ContentCopyIcon fontSize="small" />
-                        </IconButton>
+                    <Col xs={12} className="mb-3">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                          Description Details
+                        </label>
+                        {!isDescriptionTableReadOnly && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={addDescriptionRow}
+                          >
+                            Add Row
+                          </Button>
+                        )}
                       </div>
-                    </Col>
-                    <Col xs={12} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>CTH No.</label>
-                      <TextField fullWidth size="small" variant="outlined" id="cth_no" name="cth_no" value={formik.values.cth_no || ""}
-                        onChange={formik.handleChange} disabled={user?.role !== "Admin" && isSubmissionDate} sx={compactInputSx} />
+
+                      <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
+                          <thead>
+                            <tr style={{ background: "#f8f9fa" }}>
+                              {["Description", "CTH", "Clearance Under", "SR No Invoice", "SR No LIC", "Quantity", "Unit", "Action"].map((h) => (
+                                <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {descriptionRows.map((row, rowIndex) => (
+                              <tr key={`desc-row-${rowIndex}`}>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.description || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.cth_no || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.clearance_under || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  >
+                                    <MenuItem value="">Select</MenuItem>
+                                    {filteredClearanceOptions.map((option, index) => (
+                                      <MenuItem key={index} value={option.value || ""}>
+                                        {option.label}
+                                      </MenuItem>
+                                    ))}
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.sr_no_invoice || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.sr_no_lic || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.quantity || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.unit || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                                  {!isDescriptionTableReadOnly && (
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      disabled={descriptionRows.length <= 1}
+                                      onClick={() => removeDescriptionRow(rowIndex)}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </Col>
                   </Row>
                 </div>

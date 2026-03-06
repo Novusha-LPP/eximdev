@@ -38,6 +38,8 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "../import-do/ImportDoChargesTable";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function EditPaymentRequest() {
   const [someReceiptsUploaded, setsomeReceiptsUploaded] = useState(false);
   const [data, setData] = useState(null);
@@ -563,6 +565,10 @@ function EditPaymentRequest() {
                 >
                   {container.container_number || "N/A"}{" "}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={data?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
               </span>
             </strong>

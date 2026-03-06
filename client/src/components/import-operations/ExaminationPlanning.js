@@ -34,6 +34,8 @@ import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
 import IndentForDeliveryPDF from "./ConcorJobOrderPDF.js";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 
 function ImportOperations() {
   const { currentTab } = useContext(TabContext);
@@ -470,6 +472,10 @@ function ImportOperations() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

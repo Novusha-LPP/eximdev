@@ -27,6 +27,8 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { TabContext } from "./ImportOperations.js";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function CompletedOperations() {
   const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -501,6 +503,10 @@ function CompletedOperations() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

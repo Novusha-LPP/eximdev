@@ -23,6 +23,8 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 const FreeDaysConf = () => {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
@@ -401,6 +403,10 @@ const FreeDaysConf = () => {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

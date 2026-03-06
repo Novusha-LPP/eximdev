@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -13,6 +13,136 @@ import BLTrackingCell from "./BLTrackingCell.js";
 import axios from "axios";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
+import ContainerTrackDialog from "../components/ContainerTrackDialog";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faAnchor } from "@fortawesome/free-solid-svg-icons";
+
+// Helper components that need internal state
+const ContainerCellContent = ({ cell, handleCopy }) => {
+  const [containerTrackOpen, setContainerTrackOpen] = useState(false);
+  const [containerTrackContainers, setContainerTrackContainers] = useState([]);
+  
+  const containerNos = cell.row.original.container_nos;
+  const jobData = cell.row.original;
+
+  // Helper function to get color based on shortage amount
+  const getShortageColor = (shortage) => {
+    if (shortage < 0) {
+      return "#e02251"; // Red for shortage
+    } else {
+      return "#2e7d32"; // Green for no shortage
+    }
+  };
+
+  // Helper function to get shortage/excess text for tooltip
+  const getShortageText = (shortage) => {
+    if (shortage < 0) {
+      return `Shortage: ${Math.abs(shortage).toFixed(2)} kg`;
+    } else if (shortage > 0) {
+      return `Excess: +${shortage.toFixed(2)} kg`;
+    } else {
+      return "No shortage/excess";
+    }
+  };
+
+  return (
+    <React.Fragment>
+      <ContainerTrackDialog 
+        open={containerTrackOpen} 
+        onClose={() => setContainerTrackOpen(false)} 
+        containers={containerTrackContainers} 
+      />
+      {containerNos?.map((container, id) => {
+        const weightShortage = parseFloat(container.weight_shortage) || 0;
+        const containerColor = getShortageColor(weightShortage);
+        const tooltipText = getShortageText(weightShortage);
+
+        return (
+          <div key={id} style={{ marginBottom: "4px" }}>
+            <Tooltip
+              title={tooltipText}
+              arrow
+              placement="top"
+            >
+              <a
+                href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: containerColor,
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                  cursor: "pointer",
+                }}
+                onMouseOver={(e) =>
+                  (e.target.style.textDecoration = "underline")
+                }
+                onMouseOut={(e) =>
+                  (e.target.style.textDecoration = "none")
+                }
+              >
+                {container.container_number}
+              </a>
+            </Tooltip>
+            
+         
+
+            | "{container.size}"
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+
+                 {/* CONCOR Container Track Button */}
+            {jobData?.custom_house?.toUpperCase().includes("ICD KHODIYAR") && (
+              <Tooltip title="Track on CONCOR India">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContainerTrackContainers([container.container_number]);
+                    setContainerTrackOpen(true);
+                  }}
+                  style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
+                >
+                  <FontAwesomeIcon icon={faAnchor} style={{ fontSize: 12, color: "#7c3aed" }} />
+                </IconButton>
+              </Tooltip>
+            )}
+              <Tooltip title="Copy Container Number" arrow>
+                <IconButton
+                  size="small"
+                  onClick={(event) =>
+                    handleCopy(event, container.container_number)
+                  }
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+              {/* Delivery Challan Download Icon */}
+              <DeliveryChallanPdf
+                year={jobData.year}
+                jobNo={jobData.job_no}
+                containerIndex={id}
+                renderAsIcon={true}
+              />
+              <IgstCalculationPDF
+                year={jobData.year}
+                jobNo={jobData.job_no}
+                containerIndex={id}
+                renderAsIcon={true}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </React.Fragment>
+  );
+};
 
 // Custom hook to manage job columns configuration
 function useJobColumns(
@@ -379,103 +509,7 @@ function useJobColumns(
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
         size: 200,
-        Cell: ({ cell }) => {
-          const containerNos = cell.row.original.container_nos;
-          const jobData = cell.row.original;
-
-          // Helper function to get color based on shortage amount
-          const getShortageColor = (shortage) => {
-            if (shortage < 0) {
-              return "#e02251"; // Red for shortage
-            } else {
-              return "#2e7d32"; // Green for no shortage
-            }
-          };
-
-          // Helper function to get shortage/excess text for tooltip
-          const getShortageText = (shortage) => {
-            if (shortage < 0) {
-              return `Shortage: ${Math.abs(shortage).toFixed(2)} kg`;
-            } else if (shortage > 0) {
-              return `Excess: +${shortage.toFixed(2)} kg`;
-            } else {
-              return "No shortage/excess";
-            }
-          };
-
-          return (
-            <React.Fragment>
-              {containerNos?.map((container, id) => {
-                const weightShortage =
-                  parseFloat(container.weight_shortage) || 0;
-                const containerColor = getShortageColor(weightShortage);
-                const tooltipText = getShortageText(weightShortage);
-
-                return (
-                  <div key={id} style={{ marginBottom: "4px" }}>
-                    <Tooltip
-                      title={tooltipText}
-                      arrow
-                      placement="top"
-                    >
-                      <a
-                        href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: containerColor,
-                          fontWeight: "bold",
-                          textDecoration: "none",
-                          cursor: "pointer",
-                        }}
-                        onMouseOver={(e) =>
-                          (e.target.style.textDecoration = "underline")
-                        }
-                        onMouseOut={(e) =>
-                          (e.target.style.textDecoration = "none")
-                        }
-                      >
-                        {container.container_number}
-                      </a>
-                    </Tooltip>
-                    | "{container.size}"
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <Tooltip title="Copy Container Number" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={(event) =>
-                            handleCopy(event, container.container_number)
-                          }
-                        >
-                          <ContentCopyIcon fontSize="inherit" />
-                        </IconButton>
-                      </Tooltip>
-                      {/* Delivery Challan Download Icon */}
-                      <DeliveryChallanPdf
-                        year={jobData.year}
-                        jobNo={jobData.job_no}
-                        containerIndex={id}
-                        renderAsIcon={true}
-                      />
-                      <IgstCalculationPDF
-                        year={jobData.year}
-                        jobNo={jobData.job_no}
-                        containerIndex={id}
-                        renderAsIcon={true}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          );
-        },
+        Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
       },
 
       {

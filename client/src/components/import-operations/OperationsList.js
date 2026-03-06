@@ -28,6 +28,8 @@ import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
 import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 function OperationsList() {
   const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
@@ -352,6 +354,10 @@ function OperationsList() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

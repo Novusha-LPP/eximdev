@@ -6,7 +6,7 @@ export const moduleCategories = {
   "Customer KYC": "Customer KYC",
   "Import - DSR": "DSR Module",
   "Audit Trail": "DSR Module",
-  "Report": "DSR Module",
+  "Report": "Analytics & Reports",
   Documentation: "DSR Module",
   Submission: "DSR Module",
   "Import - Operations": "DSR Module",
@@ -24,9 +24,10 @@ export const moduleCategories = {
   Screen4: "Screens",
   Screen5: "Screens",
   Screen6: "Screens",
-"DGFT":"DGFT",
+  "DGFT": "DGFT",
   "Open Points": "Project Management",
   "KPI": "Project Management",
   "MRM": "Project Management",
+  "Pulse": "Analytics & Reports",
 };
 

@@ -105,6 +105,7 @@ import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
 import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
+import CombinedDashboard from "../components/analytics/CombinedDashboard";
 
 // Open Points
 
@@ -122,6 +123,7 @@ import KPISheet from "../components/kpi/KPISheet.js";
 import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
 import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
 import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
+import KPIPulseDashboard from "../components/kpi/KPIPulseDashboard.js";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
@@ -131,6 +133,7 @@ import BranchManagement from "../components/home/BranchManagement.js";
 
 // DGFT Module
 import DgftTabs from "../components/dgft/DgftTabs.js";
+import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 
 const drawerWidth = 60;
 
@@ -630,35 +633,31 @@ function HomePage() {
               <Route path="/release-notes" element={<ReleaseNotes />} />
               <Route path="/feedback" element={<Feedback />} />
 
-              {/* Analytics */}
+              {/* Pulse */}
 
               <Route
-                path="/analytics"
+                path="/pulse"
                 element={
-                  <ProtectedRoute requiredModule="Report">
+                  <ProtectedRoute requiredModule="Pulse">
                     <AnalyticsProvider>
                       <AnalyticsLayout />
                     </AnalyticsProvider>
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="overview" replace />} />
-                <Route path="overview" element={<OverviewDashboard />} />
-                <Route path="movement" element={<MovementDashboard />} />
-                <Route path="customs" element={<CustomsDashboard />} />
+                <Route index element={<Navigate to="combined" replace />} />
+                <Route path="combined" element={<CombinedDashboard />} />
+                <Route path="esanchit" element={<ESanchitDashboard />} />
                 <Route
                   path="documentation"
                   element={<DocumentationDashboard />}
                 />
                 <Route path="submission" element={<SubmissionDashboard />} />
-                <Route path="esanchit" element={<ESanchitDashboard />} />
                 <Route path="operations" element={<OperationsDashboard />} />
                 <Route
                   path="do-management"
                   element={<DoManagementDashboard />}
                 />
-                <Route path="billing" element={<BillingDashboard />} />
-                <Route path="exceptions" element={<ExceptionsDashboard />} />
               </Route>
 
               {/* MRM Module */}
@@ -733,6 +732,14 @@ function HomePage() {
                 }
               />
               <Route
+                path="/kpi/pulse"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIPulseDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/kpi/reviews"
                 element={
                   <ProtectedRoute requiredModule="KPI">
@@ -746,6 +753,8 @@ function HomePage() {
 
               {/* DGFT Module */}
               <Route path="/dgft" element={<DgftTabs />} />
+              <Route path="/dgft/:tab" element={<DgftTabs />} />
+              <Route path="/dgft/authorization-details/:id" element={<ViewAuthorizationDetails />} />
             </Routes>
           </Box>
         </Box>

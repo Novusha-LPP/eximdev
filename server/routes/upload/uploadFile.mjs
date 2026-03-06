@@ -9,9 +9,9 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit for videos
   fileFilter: (req, file, cb) => {
-    // Accept images, pdfs, and excel files
+    // Accept images, pdfs, excel files, and videos
     const allowedMimeTypes = [
       "image/jpeg",
       "image/png",
@@ -23,10 +23,16 @@ const upload = multer({
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
       "application/msword", // doc
       "application/zip", // zip
+      "video/mp4",
+      "video/webm",
+      "video/ogg",
+      "video/quicktime", // mov
+      "video/x-msvideo", // avi
+      "video/x-matroska", // mkv
     ];
 
     // Also check extension as a fallback/additional check
-    const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|pdf|xlsx|xls|docx|doc|zip)$/i;
+    const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|pdf|xlsx|xls|docx|doc|zip|csv|mp4|webm|ogg|mov|avi|mkv)$/i;
 
     if (
       allowedMimeTypes.includes(file.mimetype) ||
@@ -35,7 +41,7 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(
-        new Error("Unsupported file type. Allowed types: Images, PDF, Excel"),
+        new Error("Unsupported file type. Allowed types: Images, PDF, Excel, Word, Zip, and Videos"),
         false
       );
     }

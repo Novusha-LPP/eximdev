@@ -34,6 +34,7 @@ import {
   Refresh,
 } from "@mui/icons-material";
 import axios from "axios";
+import { useFetchYears } from "../../utils/useFetchYears";
 
 function BillingPending() {
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,7 @@ function BillingPending() {
   });
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedYear, setSelectedYear] = useState("25-26");
+  const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears();
 
   useEffect(() => {
     fetchBillingPendingData();
@@ -54,7 +55,7 @@ function BillingPending() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Use API base from environment variable
       const apiBase = process.env.REACT_APP_API_STRING || '';
       const response = await axios.get(
@@ -65,15 +66,15 @@ function BillingPending() {
           }
         }
       );
-      
+
       console.log("API Response:", response.data); // For debugging
-      
+
       setData({
         count: response.data.count || 0,
         importerCount: response.data.importerCount || [],
         results: response.data.results || []
       });
-      
+
     } catch (err) {
       console.error("Error fetching billing pending data:", err);
       setError(`Failed to fetch billing pending data: ${err.message}`);
@@ -161,20 +162,20 @@ function BillingPending() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton 
+            <IconButton
               onClick={handleRefresh}
               sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
               title="Refresh Data"
             >
               <Refresh />
             </IconButton>
-            <IconButton 
+            <IconButton
               sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
               title="Download Report"
             >
               <Download />
             </IconButton>
-            <IconButton 
+            <IconButton
               sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
               title="Filter Options"
             >
@@ -255,9 +256,11 @@ function BillingPending() {
             label="Year"
             size="small"
           >
-            <MenuItem value="23-24">2023-24</MenuItem>
-            <MenuItem value="24-25">2024-25</MenuItem>
-            <MenuItem value="25-26">2025-26</MenuItem>
+            {availableYears.map((y) => (
+              <MenuItem key={y.value} value={y.value}>
+                {y.label}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
         <TextField
@@ -265,8 +268,8 @@ function BillingPending() {
           placeholder="Search by Job No or Importer..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ 
-            flexGrow: 1, 
+          sx={{
+            flexGrow: 1,
             bgcolor: 'white',
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
@@ -305,9 +308,9 @@ function BillingPending() {
               <TableBody>
                 {filteredResults.length > 0 ? (
                   filteredResults.map((row, index) => (
-                    <TableRow 
+                    <TableRow
                       key={`${row.job_no}-${index}`}
-                      sx={{ 
+                      sx={{
                         '&:last-child td, &:last-child th': { border: 0 },
                         '&:hover': { bgcolor: 'grey.50' }
                       }}
@@ -323,7 +326,7 @@ function BillingPending() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography 
+                        <Typography
                           variant="body2"
                           sx={{
                             maxWidth: '250px',

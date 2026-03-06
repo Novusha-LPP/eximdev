@@ -29,7 +29,25 @@ const KPIAdminDashboard = () => {
 
     const [stats, setStats] = useState([]);
     const [sheets, setSheets] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
+
+    // Deadline Config
+    const [deadlineConfig, setDeadlineConfig] = useState({
+        show: false,
+        overrideYear: new Date().getFullYear(),
+        overrideMonth: new Date().getMonth() + 1,
+        deadlineDate: '',
+        currentOverride: null,
+        loading: false
+    });
+
+    const [detailModal, setDetailModal] = useState({
+        show: false,
+        department: '',
+        data: null,
+        loading: false
+    });
 
     const departments = [
         'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
@@ -64,9 +82,63 @@ const KPIAdminDashboard = () => {
         }
     };
 
+    const fetchDeadlineSettings = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { withCredentials: true });
+            setDeadlineConfig(prev => ({ ...prev, currentOverride: res.data.override }));
+        } catch (err) {
+            console.error("Error fetching deadline settings", err);
+        }
+    };
+
+    useEffect(() => {
+        if (user && user.role === 'Admin') fetchDeadlineSettings();
+    }, []);
+
+    const saveDeadlineOverride = async () => {
+        try {
+            setDeadlineConfig(prev => ({ ...prev, loading: true }));
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, {
+                year: deadlineConfig.overrideYear,
+                month: deadlineConfig.overrideMonth,
+                deadline_date: deadlineConfig.deadlineDate
+            }, { withCredentials: true });
+            showMessage(res.data.message);
+            setDeadlineConfig(prev => ({ ...prev, currentOverride: res.data.override, loading: false }));
+        } catch (err) {
+            showMessage(err.response?.data?.message || 'Failed to save', 'error');
+            setDeadlineConfig(prev => ({ ...prev, loading: false }));
+        }
+    };
+
+    const clearDeadlineOverride = async () => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { clear: true }, { withCredentials: true });
+            showMessage(res.data.message);
+            setDeadlineConfig(prev => ({ ...prev, currentOverride: null }));
+        } catch (err) {
+            showMessage('Failed to clear override', 'error');
+        }
+    };
+
     const showMessage = (text, type = 'success') => {
         setMessage({ show: true, text, type });
         setTimeout(() => setMessage({ show: false, text: '', type: '' }), 4000);
+    };
+
+    const fetchSubmissionDetails = async (dept = '') => {
+        try {
+            setDetailModal(prev => ({ ...prev, show: true, department: dept || 'Global', loading: true, data: null }));
+            let url = `${process.env.REACT_APP_API_STRING}/kpi/admin/submission-status?year=${year}&month=${month}`;
+            if (dept) url += `&department=${dept}`;
+
+            const res = await axios.get(url, { withCredentials: true });
+            setDetailModal(prev => ({ ...prev, data: res.data, loading: false }));
+        } catch (err) {
+            console.error("Error fetching submission details", err);
+            showMessage("Failed to load details", "error");
+            setDetailModal(prev => ({ ...prev, loading: false, show: false }));
+        }
     };
 
     const handleAction = async (e, sheet) => {
@@ -132,8 +204,14 @@ const KPIAdminDashboard = () => {
                     <p>Overview of all department submissions and approvals.</p>
                 </div>
                 <div className="header-actions">
+                    <button className="modern-btn secondary" onClick={() => fetchSubmissionDetails('')}>
+                        <Icons.Filter /> View All Non-Submitters
+                    </button>
                     <button className="modern-btn secondary" onClick={() => navigate('/kpi')}>
                         <Icons.Back /> Back to My KPI
+                    </button>
+                    <button className="modern-btn primary" onClick={() => navigate('/kpi/pulse')}>
+                        <Icons.Dashboard /> CEO Pulse Matrix
                     </button>
                     <div style={{ display: 'flex', gap: '8px', background: 'white', padding: '4px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                         <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ border: 'none', padding: '6px', outline: 'none' }}>
@@ -146,56 +224,208 @@ const KPIAdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Stats Cards (Submission Rates) */}
+            {/* Top Toolbar: Deadline Config & Filters */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1fr) 450px', gap: '20px', marginBottom: '24px', alignItems: 'start' }}>
+
+                {/* Left Side: Search & Filters */}
+                <motion.div
+                    className="modern-section"
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                >
+                    <div className="section-header" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <h2 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Icons.Filter /> Search & Filters
+                        </h2>
+                    </div>
+                    <div className="section-body" style={{ padding: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, dept, template or quadrant..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '12px 14px 12px 40px',
+                                        borderRadius: '10px', border: '1px solid #e2e8f0',
+                                        outline: 'none', fontSize: '0.95rem',
+                                        background: '#f8fafc', focus: { background: 'white', borderColor: '#6366f1' }
+                                    }}
+                                />
+                                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>🔍</span>
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontSize: '1.2rem' }}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <select
+                                    value={department}
+                                    onChange={(e) => setDepartment(e.target.value)}
+                                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white' }}
+                                >
+                                    <option value="">All Departments</option>
+                                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                                    <button
+                                        className="modern-btn"
+                                        onClick={fetchData}
+                                        style={{ padding: '4px 12px', fontSize: '0.8rem', background: 'white' }}
+                                    >
+                                        Apply Filters
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Right Side: Deadline Configuration */}
+                <motion.div
+                    className="modern-section"
+                    initial={{ x: 20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.15 }}
+                    style={{ borderTop: '4px solid #f59e0b' }}
+                >
+                    <div
+                        style={{
+                            padding: '16px 20px', borderBottom: '1px solid #f1f5f9',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}
+                    >
+                        <h2 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            📅 Submission Deadline
+                        </h2>
+                        {deadlineConfig.currentOverride && (
+                            <span style={{
+                                padding: '3px 10px', borderRadius: '20px',
+                                background: '#fef3c7', color: '#92400e',
+                                fontSize: '0.75rem', fontWeight: 700
+                            }}>
+                                OVERRIDE ACTIVE
+                            </span>
+                        )}
+                    </div>
+                    <div className="section-body" style={{ padding: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 2fr', gap: '10px', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Period:</label>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    <select
+                                        value={deadlineConfig.overrideMonth}
+                                        onChange={(e) => setDeadlineConfig(prev => ({ ...prev, overrideMonth: Number(e.target.value) }))}
+                                        style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}
+                                    >
+                                        {months.map((m, i) => <option key={i} value={i + 1}>{m.substring(0, 3)}</option>)}
+                                    </select>
+                                    <select
+                                        value={deadlineConfig.overrideYear}
+                                        onChange={(e) => setDeadlineConfig(prev => ({ ...prev, overrideYear: Number(e.target.value) }))}
+                                        style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}
+                                    >
+                                        {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 2fr', gap: '10px', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Deadline:</label>
+                                <input
+                                    type="date"
+                                    value={deadlineConfig.deadlineDate}
+                                    onChange={(e) => setDeadlineConfig(prev => ({ ...prev, deadlineDate: e.target.value }))}
+                                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <button
+                                    className="modern-btn primary"
+                                    onClick={saveDeadlineOverride}
+                                    disabled={!deadlineConfig.deadlineDate || deadlineConfig.loading}
+                                    style={{ flex: 1, fontSize: '0.8rem', padding: '10px', justifyContent: 'center' }}
+                                >
+                                    {deadlineConfig.loading ? '...' : 'Save Extension'}
+                                </button>
+                                {deadlineConfig.currentOverride && (
+                                    <button
+                                        className="modern-btn secondary"
+                                        onClick={clearDeadlineOverride}
+                                        style={{ padding: '10px', border: '1px solid #dc2626', color: '#dc2626' }}
+                                    >
+                                        Reset
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Stats Summary Area */}
             <motion.div
-                className="modern-section"
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.1 }}
-                style={{ background: 'transparent', boxShadow: 'none', border: 'none', padding: 0 }}
+                transition={{ delay: 0.2 }}
+                style={{ marginBottom: '24px' }}
             >
-                <h3 style={{ marginBottom: '16px', fontSize: '1.1rem', color: '#64748b' }}>Department Analytics ({months[month - 1]} {year})</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+                        Department Pulse <span style={{ fontWeight: 400, color: '#64748b', fontSize: '0.9rem' }}>({months[month - 1]} {year})</span>
+                    </h3>
+                </div>
                 <div className="modern-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                     {stats.length > 0 ? stats.map((stat) => (
-                        <div key={stat._id} className="modern-stat-card">
+                        <div
+                            key={stat._id}
+                            className="modern-stat-card"
+                            style={{ background: 'white', cursor: 'pointer', border: '1px solid #f1f5f9' }}
+                            onClick={() => fetchSubmissionDetails(stat._id)}
+                            whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                        >
                             <div className="icon-box blue" style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}>
                                 {stat._id.substring(0, 2).toUpperCase()}
                             </div>
                             <div className="stat-content" style={{ width: '100%' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h3 style={{ fontSize: '1.2rem' }}>{stat._id}</h3>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>{Math.round((stat.approved / stat.total) * 100)}% Approved</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#22c55e' }}>{Math.round((stat.approved / stat.total) * 100)}%</span>
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', fontSize: '0.8rem', color: '#64748b' }}>
-                                    <span style={{ color: '#0078d4' }}>Total: {stat.total}</span>
-                                    <span style={{ color: '#22c55e' }}>Approved: {stat.approved}</span>
-                                    <span style={{ color: '#f59e0b' }}>Submitted: {stat.submitted}</span>
-                                </div>
-                                {/* Progress Bar */}
                                 <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
                                     <div style={{ width: `${(stat.approved / stat.total) * 100}%`, height: '100%', background: '#22c55e' }}></div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', fontSize: '0.75rem', color: '#64748b' }}>
+                                    <span>T: {stat.total}</span>
+                                    <span>Sub: {stat.submitted}</span>
+                                    <span>App: {stat.approved}</span>
+                                    <span style={{ marginLeft: 'auto', color: '#6366f1', fontWeight: 600 }}>See Details →</span>
                                 </div>
                             </div>
                         </div>
                     )) : (
-                        <div style={{ padding: '20px', color: '#999', gridColumn: '1 / -1', textAlign: 'center', background: 'white', borderRadius: '8px' }}>
-                            No statistics available for this month.
+                        <div style={{ padding: '30px', color: '#94a3b8', gridColumn: '1 / -1', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                            No statistics available for this period.
                         </div>
                     )}
                 </div>
             </motion.div>
 
-            {/* Filter by Dept */}
-            <div style={{ margin: '24px 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontWeight: 600, color: '#64748b' }}><Icons.Filter /> Filter Sheets:</span>
-                <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none' }}
-                >
-                    <option value="">All Departments</option>
-                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+            <div style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>
+                Showing {sheets.filter(sheet => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    const name = sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}`.toLowerCase() : '';
+                    const dept = (sheet.department || '').toLowerCase();
+                    const tmpl = (sheet.template_version?.name || '').toLowerCase();
+                    const quadrant = (sheet.summary?.performance_quadrant || '').toLowerCase();
+                    return name.includes(q) || dept.includes(q) || tmpl.includes(q) || quadrant.includes(q);
+                }).length} KPI Sheets
             </div>
 
             {/* Sheets Table */}
@@ -219,12 +449,22 @@ const KPIAdminDashboard = () => {
                                         <th>Verify Date</th>
                                         <th>Approve Date</th>
                                         <th style={{ textAlign: 'center' }}>Score</th>
+                                        <th style={{ textAlign: 'center' }}>Avg Wt.</th>
+                                        <th style={{ textAlign: 'center' }}>Quadrant</th>
                                         <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <AnimatePresence>
-                                        {sheets.map((sheet, i) => (
+                                        {sheets.filter(sheet => {
+                                            if (!searchQuery.trim()) return true;
+                                            const q = searchQuery.toLowerCase();
+                                            const name = sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}`.toLowerCase() : '';
+                                            const dept = (sheet.department || '').toLowerCase();
+                                            const tmpl = (sheet.template_version?.name || '').toLowerCase();
+                                            const quadrant = (sheet.summary?.performance_quadrant || '').toLowerCase();
+                                            return name.includes(q) || dept.includes(q) || tmpl.includes(q) || quadrant.includes(q);
+                                        }).map((sheet, i) => (
                                             <motion.tr
                                                 key={sheet._id}
                                                 initial={{ opacity: 0 }}
@@ -267,6 +507,21 @@ const KPIAdminDashboard = () => {
                                                 <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
                                                     {sheet.summary?.overall_percentage || 0}%
                                                 </td>
+                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#059669' }}>
+                                                    {sheet.summary?.average_complexity ? sheet.summary.average_complexity.toFixed(1) : '-'}
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 600,
+                                                        background: sheet.summary?.performance_quadrant === 'Star' ? '#dcfce7' : sheet.summary?.performance_quadrant === 'Drainer' ? '#fee2e2' : sheet.summary?.performance_quadrant === 'Specialist' ? '#f3e8ff' : '#e0f2fe',
+                                                        color: sheet.summary?.performance_quadrant === 'Star' ? '#059669' : sheet.summary?.performance_quadrant === 'Drainer' ? '#dc2626' : sheet.summary?.performance_quadrant === 'Specialist' ? '#7c3aed' : '#2563eb'
+                                                    }}>
+                                                        {sheet.summary?.performance_quadrant || '-'}
+                                                    </span>
+                                                </td>
                                                 <td style={{ textAlign: 'right', paddingRight: '24px' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                                         <button
@@ -306,6 +561,124 @@ const KPIAdminDashboard = () => {
                     )}
                 </div>
             </motion.div>
+
+            {/* Submission Detail Modal */}
+            <AnimatePresence>
+                {detailModal.show && (
+                    <div className="modern-modal-overlay" onClick={() => setDetailModal(prev => ({ ...prev, show: false }))}>
+                        <motion.div
+                            className="modern-modal-content"
+                            style={{ width: '90%', maxWidth: '900px', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="modal-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
+                                        Submission Details: {detailModal.department}
+                                    </h2>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                                        KPI period: {months[month - 1]} {year}
+                                    </p>
+                                </div>
+                                <button className="close-btn" onClick={() => setDetailModal(prev => ({ ...prev, show: false }))} style={{ border: 'none', background: '#f1f5f9', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className="modal-body" style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+                                {detailModal.loading ? (
+                                    <div style={{ textAlign: 'center', padding: '40px' }}>Loading...</div>
+                                ) : detailModal.data ? (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b' }}>{detailModal.data.stats.total}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>TOTAL USERS</div>
+                                            </div>
+                                            <div style={{ background: '#ecfdf5', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#059669' }}>{detailModal.data.stats.submitted}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>SUBMITTED</div>
+                                            </div>
+                                            <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626' }}>{detailModal.data.stats.pending}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600 }}>PENDING</div>
+                                            </div>
+                                            <div style={{ background: '#fff7ed', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>{detailModal.data.stats.late}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>LATE SUBMISSIONS</div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginBottom: '12px', padding: '12px', borderRadius: '8px', background: '#fefce8', border: '1px solid #fef08a', fontSize: '0.85rem', color: '#854d0e' }}>
+                                            <strong>Policy Deadline:</strong> {new Date(detailModal.data.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                        </div>
+
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ textAlign: 'left', borderBottom: '2px solid #f1f5f9' }}>
+                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>EMPLOYEE</th>
+                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>DEPARTMENT</th>
+                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>STATUS</th>
+                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>SUBMIT DATE</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {detailModal.data.users
+                                                    .sort((a, b) => (a.submitted === b.submitted) ? 0 : a.submitted ? 1 : -1)
+                                                    .map((u, i) => (
+                                                        <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                            <td style={{ padding: '12px 0' }}>
+                                                                <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>{u.name}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{u.email}</div>
+                                                            </td>
+                                                            <td style={{ padding: '12px 0' }}>
+                                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{u.department}</span>
+                                                            </td>
+                                                            <td style={{ padding: '12px 0' }}>
+                                                                {u.submitted ? (
+                                                                    <span style={{
+                                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                        background: '#dcfce7', color: '#059669'
+                                                                    }}>
+                                                                        SUBMITTED
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{
+                                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                        background: '#fee2e2', color: '#dc2626'
+                                                                    }}>
+                                                                        NON-SUBMITTER
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ padding: '12px 0' }}>
+                                                                {u.submissionDate ? (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                        <span style={{ fontSize: '0.8rem', color: '#1e293b' }}>
+                                                                            {new Date(u.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                        </span>
+                                                                        {u.isLate && (
+                                                                            <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 700 }}>
+                                                                                ⚠️ LATE SUBMISSION
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </tbody>
+                                        </table>
+                                    </>
+                                ) : null}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {message.show && (
                 <div style={{

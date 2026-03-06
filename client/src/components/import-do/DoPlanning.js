@@ -1405,6 +1405,11 @@ function DoPlanning() {
       },
     },
     {
+      accessorKey: "free_time",
+      header: "Free Time",
+      size: 100,
+    },
+    {
       accessorKey: "displayDate",
       header: "Required Do Validity Upto",
       enableSorting: false,

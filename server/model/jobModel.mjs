@@ -87,6 +87,19 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const descriptionDetailsSchema = new mongoose.Schema(
+  {
+    description: { type: String, trim: true },
+    cth_no: { type: String, trim: true },
+    clearance_under: { type: String, trim: true },
+    sr_no_invoice: { type: String, trim: true },
+    sr_no_lic: { type: String, trim: true },
+    quantity: { type: String, trim: true },
+    unit: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const jobSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
@@ -115,6 +128,7 @@ const jobSchema = new mongoose.Schema({
   awb_bl_no: { type: String, trim: true },
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
+  description_details: [descriptionDetailsSchema],
   hawb_hbl_no: { type: String, trim: true },
   hawb_hbl_date: { type: String, trim: true },
   be_no: { type: String, trim: true },

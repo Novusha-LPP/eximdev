@@ -580,7 +580,7 @@ const Feedback = () => {
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.875rem' }}>
                 Attachments
               </Typography>
-              <FileUpload label="Upload Files" bucketPath="feedback" onFilesUploaded={handleFileUpload} multiple={true} acceptedFileTypes={[ '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.zip' ]} />
+              <FileUpload label="Upload Files" bucketPath="feedback" onFilesUploaded={handleFileUpload} multiple={true} acceptedFileTypes={['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.zip', '.mp4', '.mkv', '.avi', '.mov', '.webm']} />
 
               {/* Display uploaded files */}
               {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (

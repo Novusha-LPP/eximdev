@@ -42,11 +42,12 @@ const MODULES = [
   "Documentation",
   "Submission",
   "Open Points",
-  
+
   "DGFT",
   "KPI",
   "MRM",
   "Project Nucleus", // Keeping this as it was in the original list
+  "Pulse",
 ];
 
 function ModuleUserList() {

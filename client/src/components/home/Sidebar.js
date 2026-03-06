@@ -30,6 +30,14 @@ function Sidebar() {
     localStorage.removeItem("selected_importer");
     localStorage.removeItem("selected_importer_url");
     localStorage.removeItem("tab_value");
+
+    // Clear the specific token cookie and all accessible cookies
+    // document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    // document.cookie.split(";").forEach((c) => {
+    //   document.cookie = c
+    //     .replace(/^ +/, "")
+    //     .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+    // });
   };
 
   return (
@@ -113,17 +121,8 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      <Tooltip title="Analytics" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/analytics")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <InsightsIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
+
+
 
       {
         ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (

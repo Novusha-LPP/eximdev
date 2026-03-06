@@ -30,6 +30,9 @@ const KPISheet = () => {
     // Review Dialog State
     const [reviewDialog, setReviewDialog] = useState({ open: false, action: '', comments: '' });
 
+    // Row Weights State
+    const [rowWeights, setRowWeights] = useState({});
+
     // Add Row Dialog State
     const [addRowDialog, setAddRowDialog] = useState({ open: false, label: '' });
 
@@ -46,6 +49,9 @@ const KPISheet = () => {
     // Day Action Menu State
     const [dayMenu, setDayMenu] = useState({ anchorEl: null, day: null });
 
+    // Deadline Override State
+    const [deadlineOverride, setDeadlineOverride] = useState(null);
+
     // Remarks Dialog State
     const [openRemarks, setOpenRemarks] = useState(false);
 
@@ -59,7 +65,19 @@ const KPISheet = () => {
 
     useEffect(() => {
         fetchSheet();
+        fetchDeadlineOverride();
     }, [sheetId]);
+
+    const fetchDeadlineOverride = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { withCredentials: true });
+            if (res.data && res.data.override) {
+                setDeadlineOverride(res.data.override);
+            }
+        } catch (err) {
+            // Non-critical - just use default deadline
+        }
+    };
 
     const fetchSheet = async () => {
         try {
@@ -82,6 +100,15 @@ const KPISheet = () => {
             console.log("KPISheet - Fetched successfully:", res.data);
             setSheet(res.data);
             if (res.data.summary) setSummary(res.data.summary);
+
+            // Set initial row weights
+            const initialWeights = {};
+            if (res.data.rows) {
+                res.data.rows.forEach(r => {
+                    initialWeights[r.row_id] = r.weight || 3;
+                });
+            }
+            setRowWeights(initialWeights);
 
             const days = new Date(res.data.year, res.data.month, 0).getDate();
             setDaysInMonth([...Array(days).keys()].map(i => i + 1));
@@ -173,15 +200,26 @@ const KPISheet = () => {
         return deadline;
     };
 
+    const getEffectiveDeadline = () => {
+        if (!sheet) return new Date();
+        let deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+
+        // Check for admin override
+        if (deadlineOverride && deadlineOverride.year === sheet.year && deadlineOverride.month === sheet.month && deadlineOverride.deadline_date) {
+            deadline = new Date(deadlineOverride.deadline_date);
+        }
+        return deadline;
+    };
+
     const isLocked = (day = null) => {
         if (!sheet) return true;
 
         // Status Check
         if (sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED') return true;
 
-        // Deadline Check (7th of the following month)
+        // Deadline Check (uses admin override if available)
         const today = new Date();
-        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+        const deadline = getEffectiveDeadline();
 
         // Compare dates only
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -460,7 +498,8 @@ const KPISheet = () => {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/review`, {
                 sheetId: sheet._id,
                 action: reviewDialog.action,
-                comments: reviewDialog.comments
+                comments: reviewDialog.comments,
+                rowWeights: reviewDialog.action === 'CHECK' ? rowWeights : undefined
             }, { withCredentials: true });
 
             const actionText = reviewDialog.action === 'CHECK' ? 'Checked' :
@@ -537,7 +576,10 @@ const KPISheet = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f', fontSize: '0.9rem' }}>
                         <span>📅</span>
-                        <strong>Deadline:</strong> {getSubmissionDeadline(sheet.year, sheet.month + 1).toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        <strong>Deadline:</strong> {getEffectiveDeadline().toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {deadlineOverride && deadlineOverride.year === sheet.year && deadlineOverride.month === sheet.month && (
+                            <span style={{ background: '#fff3e0', color: '#e65100', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>EXTENDED</span>
+                        )}
                     </div>
                 </div>
 
@@ -610,6 +652,7 @@ const KPISheet = () => {
                     <thead>
                         <tr>
                             <th>{new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}</th>
+                            {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && <th style={{ width: '60px' }}>Weight</th>}
                             {daysInMonth.map(d => {
                                 const isSun = isSunday(d);
                                 const isWS = isWorkingSunday(d);
@@ -653,6 +696,25 @@ const KPISheet = () => {
                                         </button>
                                     )}
                                 </td>
+                                {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && (
+                                    <td style={{ textAlign: 'center', padding: '0 4px', backgroundColor: '#f9fafb' }}>
+                                        {sheet.status === 'SUBMITTED' && (user?.role === 'Admin' || sheet.assigned_signatories?.checked_by?._id === user?._id) ? (
+                                            <select
+                                                value={rowWeights[row.row_id] || 3}
+                                                onChange={(e) => setRowWeights({ ...rowWeights, [row.row_id]: Number(e.target.value) })}
+                                                style={{ width: '100%', padding: '4px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px' }}
+                                            >
+                                                <option value={5}>5</option>
+                                                <option value={4}>4</option>
+                                                <option value={3}>3</option>
+                                                <option value={2}>2</option>
+                                                <option value={1}>1</option>
+                                            </select>
+                                        ) : (
+                                            <span style={{ fontWeight: 'bold' }}>{rowWeights[row.row_id] || row.weight || 3}</span>
+                                        )}
+                                    </td>
+                                )}
                                 {daysInMonth.map(day => {
                                     const isSun = isSunday(day);
                                     const isWS = isWorkingSunday(day);
@@ -698,7 +760,7 @@ const KPISheet = () => {
                     </tbody>
                     <tfoot>
                         <tr >
-                            <td>TOTAL:</td>
+                            <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 2 : 1} style={{ textAlign: 'right', paddingRight: '10px' }}>TOTAL:</td>
                             {daysInMonth.map(day => (
                                 <td key={day}>{getColumnTotal(day)}</td>
                             ))}
@@ -880,6 +942,27 @@ const KPISheet = () => {
                                     />
                                 </td>
                             </tr>
+                            {/* Performance Metrics (Read-only, restricted to HOD/Admin) */}
+                            {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && sheet.summary?.total_value_score !== undefined && (
+                                <>
+                                    <tr>
+                                        <td style={{ textAlign: 'left', backgroundColor: '#eef2ff', padding: '5px', fontWeight: 'bold' }}>Total Value Score</td>
+                                        <td style={{ padding: '5px', fontWeight: '500' }}>{sheet.summary.total_value_score}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ textAlign: 'left', backgroundColor: '#eef2ff', padding: '5px', fontWeight: 'bold' }}>Average Complexity</td>
+                                        <td style={{ padding: '5px', fontWeight: '500' }}>
+                                            {sheet.summary.average_complexity ? sheet.summary.average_complexity.toFixed(2) : '0.00'}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ textAlign: 'left', backgroundColor: '#eef2ff', padding: '5px', fontWeight: 'bold' }}>Performance Quadrant</td>
+                                        <td style={{ padding: '5px', fontWeight: 'bold', color: sheet.summary.performance_quadrant === 'Star' ? '#059669' : sheet.summary.performance_quadrant === 'Drainer' ? '#dc2626' : '#2563eb' }}>
+                                            {sheet.summary.performance_quadrant || 'N/A'}
+                                        </td>
+                                    </tr>
+                                </>
+                            )}
                             <tr>
                                 <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>KPI Submission Date</td>
                                 <td>

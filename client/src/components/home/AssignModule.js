@@ -29,7 +29,8 @@ const allModules = [
   "Open Points",
   "KPI",
   "MRM",
-  "DGFT"
+  "DGFT",
+  "Pulse"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

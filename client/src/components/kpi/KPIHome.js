@@ -90,8 +90,9 @@ const KPIHome = () => {
     const [teamTemplates, setTeamTemplates] = useState([]);
     const [selectedTeamTemplate, setSelectedTeamTemplate] = useState('');
     const [showTeamImport, setShowTeamImport] = useState(false);
-    const [importTemplateName, setImportTemplateName] = useState('');
     const [importNameError, setImportNameError] = useState('');
+    const [importTemplateName, setImportTemplateName] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchTemplates();
@@ -591,19 +592,37 @@ const KPIHome = () => {
                                         {sheets.length}
                                     </span>
                                 </div>
-                                <select
-                                    value={filterYear}
-                                    onChange={(e) => setFilterYear(Number(e.target.value))}
-                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
-                                >
-                                    {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search sheets..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            style={{ padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.85rem', outline: 'none', width: '180px' }}
+                                        />
+                                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.8rem' }}>🔍</span>
+                                    </div>
+                                    <select
+                                        value={filterYear}
+                                        onChange={(e) => setFilterYear(Number(e.target.value))}
+                                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
+                                    >
+                                        {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
                             </div>
                             <div className="section-body" style={{ background: '#fcfcfc', minHeight: '400px' }}>
                                 {sheets.length > 0 ? (
                                     <div className="modern-sheet-grid">
                                         <AnimatePresence>
-                                            {sheets.map((sheet) => (
+                                            {sheets.filter(sheet => {
+                                                if (!searchQuery.trim()) return true;
+                                                const q = searchQuery.toLowerCase();
+                                                const templateName = (sheet.template_version?.name || '').toLowerCase();
+                                                const status = (sheet.status || '').toLowerCase();
+                                                return templateName.includes(q) || status.includes(q);
+                                            }).map((sheet) => (
                                                 <motion.div
                                                     key={sheet._id}
                                                     layout

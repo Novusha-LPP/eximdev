@@ -47,6 +47,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { UserContext } from "../../contexts/UserContext";
+import { useFetchYears } from "../../utils/useFetchYears";
 
 const columns = [
   { label: "Srl No.", key: "srlNo", minWidth: 50 },
@@ -71,7 +72,7 @@ const DetailedReport = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [year, setYear] = useState("25-26");
+  const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears();
   const [gradeFilter, setGradeFilter] = useState(""); // ✅ New Grade Filter
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [exportLoading, setExportLoading] = useState(false);
@@ -95,10 +96,7 @@ const DetailedReport = () => {
     user.role.toLowerCase().includes('manager')
   );
 
-  const years = [
-    { value: "25-26", label: "25-26" },
-    { value: "24-25", label: "24-25" },
-  ];
+  // The years array is now fetched dynamically through the useFetchYears hook.
 
   const months = [
     { value: "1", label: "January" },

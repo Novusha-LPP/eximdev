@@ -7,68 +7,77 @@ const router = express.Router();
 // Helper to parse dates
 const parseDate = (d) => new Date(d);
 
+export const fetchAnalyticsData = async (module, startDate, endDate, importer) => {
+    let start, end;
+
+    if (!startDate || !endDate) {
+        // Default to today if not provided
+        const today = new Date();
+        start = new Date(today.setHours(0, 0, 0, 0));
+        end = new Date(today.setHours(23, 59, 59, 999));
+    } else {
+        start = new Date(startDate);
+        end = new Date(endDate);
+        // Ensure end date covers the full day
+        end.setHours(23, 59, 59, 999);
+    }
+
+    let pipeline = [];
+
+    switch (module) {
+        case "overview":
+            pipeline = getOverviewPipeline(start, end, importer);
+            break;
+        case "movement":
+            pipeline = getMovementPipeline(start, end, importer);
+            break;
+        case "customs":
+            pipeline = getCustomsPipeline(start, end, importer);
+            break;
+        case "documentation":
+            pipeline = getDocumentationPipeline(start, end, importer);
+            break;
+        case "do-management":
+            pipeline = getDoManagementPipeline(start, end, importer);
+            break;
+        case "esanchit":
+            pipeline = getESanchitPipeline(start, end, importer);
+            break;
+        case "operations":
+            pipeline = getOperationsPipeline(start, end, importer);
+            break;
+        case "submission":
+            pipeline = getSubmissionPipeline(start, end, importer);
+            break;
+        case "billing":
+            pipeline = getBillingPipeline(start, end, importer);
+            break;
+        case "exceptions":
+            pipeline = getExceptionsPipeline(start, end, importer);
+            break;
+        case "pulse":
+            pipeline = getPulsePipeline(start, end, importer);
+            break;
+        default:
+            throw new Error("Invalid module");
+    }
+
+    const result = await JobModel.aggregate(pipeline);
+    return result[0] || {};
+};
+
 router.get("/api/analytics/:module", async (req, res) => {
     const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
 
     try {
         const { module } = req.params;
-        let { startDate, endDate, importer } = req.query;
+        const { startDate, endDate, importer } = req.query;
 
-        if (!startDate || !endDate) {
-            // Default to today if not provided
-            const today = new Date();
-            startDate = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-            endDate = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-        }
-
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-
-        // Ensure end date covers the full day
-        end.setHours(23, 59, 59, 999);
-
-        let pipeline = [];
-
-        switch (module) {
-            case "overview":
-                pipeline = getOverviewPipeline(start, end, importer);
-                break;
-            case "movement":
-                pipeline = getMovementPipeline(start, end, importer);
-                break;
-            case "customs":
-                pipeline = getCustomsPipeline(start, end, importer);
-                break;
-            case "documentation":
-                pipeline = getDocumentationPipeline(start, end, importer);
-                break;
-            case "do-management":
-                pipeline = getDoManagementPipeline(start, end, importer);
-                break;
-            case "esanchit":
-                pipeline = getESanchitPipeline(start, end, importer);
-                break;
-            case "operations":
-                pipeline = getOperationsPipeline(start, end, importer);
-                break;
-            case "submission":
-                pipeline = getSubmissionPipeline(start, end, importer);
-                break;
-            case "billing":
-                pipeline = getBillingPipeline(start, end, importer);
-                break;
-            case "exceptions":
-                pipeline = getExceptionsPipeline(start, end, importer);
-                break;
-            default:
-                return res.status(400).json({ error: "Invalid module" });
-        }
-
-        const result = await JobModel.aggregate(pipeline);
-        res.json(result[0] || {});
+        const data = await fetchAnalyticsData(module, startDate, endDate, importer);
+        res.json(data);
     } catch (error) {
         console.error("Analytics Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(error.message === "Invalid module" ? 400 : 500).json({ error: error.message });
     }
 });
 
@@ -518,13 +527,33 @@ const getDocumentationPipeline = (start, end, importer) => {
         $and: [
             importerMatch,
             { status: { $regex: /^pending$/i } },
+            { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
+            { awb_bl_no: { $ne: null, $ne: "" } },
             { job_no: { $ne: null } },
-            { be_no: { $exists: true, $ne: "", $not: { $regex: "^cancelled$", $options: "i" } } },
+            { out_of_charge: { $eq: "" } },
+            {
+                detailed_status: {
+                    $in: ["Discharged", "Gateway IGM Filed", "Estimated Time of Arrival", "ETA Date Pending", "Arrived, BE Note Pending", "Rail Out"]
+                },
+            },
             {
                 $or: [
                     { documentation_completed_date_time: { $exists: false } },
                     { documentation_completed_date_time: "" },
-                    { documentation_completed_date_time: null }
+                    {
+                        $and: [
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ],
+            },
+            {
+                $and: [
+                    { "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] } },
+                    { "cth_documents": { $elemMatch: { document_name: "Bill of Lading", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Packing List", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
                 ]
             }
         ]
@@ -658,6 +687,28 @@ const getDoManagementPipeline = (start, end, importer) => {
                     { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
                     { $group: { _id: { $substr: ["$do_completed", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
+                ],
+                // Jobs currently IN DO Planning (doPlanning=true, not completed) - NOT date-filtered
+                in_do_planning: [
+                    {
+                        $match: {
+                            ...importerMatch,
+                            status: { $regex: /^pending$/i },
+                            $or: [{ doPlanning: true }, { doPlanning: "true" }],
+                            $and: [
+                                {
+                                    $or: [
+                                        { do_completed: false },
+                                        { do_completed: "No" },
+                                        { do_completed: { $exists: false } },
+                                        { do_completed: "" },
+                                        { do_completed: null }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_planning_date" } }
                 ]
             }
         },
@@ -671,6 +722,7 @@ const getDoManagementPipeline = (start, end, importer) => {
                     do_expiring_job: { $size: "$do_expiring_job" },
                     jobs_with_invoices: { $size: "$jobs_with_invoices" },
                     jobs_without_invoices: { $size: "$jobs_without_invoices" },
+                    in_do_planning: { $size: "$in_do_planning" },
                 },
                 details: "$$ROOT"
             }
@@ -807,11 +859,20 @@ const getESanchitPipeline = (start, end, importer) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
-    // Calculate 7 days ago for trend
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const sevenDaysAgoStr = toYMD(sevenDaysAgo);
     const todayStr = new Date().toISOString();
+
+    // Week start = Monday of current week
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - diffToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekStartStr = toYMD(weekStart);
+
+    // Month start = 1st of current month
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStartStr = toYMD(monthStart);
 
     const importerMatch = importer ? { importer: importer } : {};
 
@@ -834,6 +895,12 @@ const getESanchitPipeline = (start, end, importer) => {
                     { esanchit_completed_date_time: { $exists: false } },
                     { esanchit_completed_date_time: "" },
                     { esanchit_completed_date_time: null },
+                    {
+                        $and: [
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "e-Sanchit", resolved: { $ne: true } } } }
+                        ]
+                    }
                 ]
             }
         ]
@@ -844,14 +911,18 @@ const getESanchitPipeline = (start, end, importer) => {
             $facet: {
                 esanchit_pending: [
                     { $match: pendingEsanchitMatch },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } } // Use job_date as ref
+                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 esanchit_completed: makeJobFacet("esanchit_completed_date_time"),
-                // Trend
-                esanchit_trend: [
-                    { $match: { esanchit_completed_date_time: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
-                    { $group: { _id: { $substr: ["$esanchit_completed_date_time", 0, 10] }, count: { $sum: 1 } } },
-                    { $sort: { _id: 1 } }
+                // This Week (Monday to Today)
+                esanchit_completed_this_week: [
+                    { $match: { esanchit_completed_date_time: { $gte: weekStartStr, $lte: todayStr }, ...importerMatch } },
+                    { $project: { job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
+                ],
+                // This Month (1st to Today)
+                esanchit_completed_this_month: [
+                    { $match: { esanchit_completed_date_time: { $gte: monthStartStr, $lte: todayStr }, ...importerMatch } },
+                    { $project: { job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
                 ]
             }
         },
@@ -859,12 +930,15 @@ const getESanchitPipeline = (start, end, importer) => {
             $project: {
                 summary: {
                     esanchit_pending: { $size: "$esanchit_pending" },
-                    esanchit_completed: { $size: "$esanchit_completed" }
+                    esanchit_completed: { $size: "$esanchit_completed" },
+                    esanchit_completed_this_week: { $size: "$esanchit_completed_this_week" },
+                    esanchit_completed_this_month: { $size: "$esanchit_completed_this_month" }
                 },
                 details: {
                     esanchit_pending: "$esanchit_pending",
                     esanchit_completed: "$esanchit_completed",
-                    esanchit_trend: "$esanchit_trend"
+                    esanchit_completed_this_week: "$esanchit_completed_this_week",
+                    esanchit_completed_this_month: "$esanchit_completed_this_month"
                 }
             }
         }
@@ -897,29 +971,39 @@ const getOperationsPipeline = (start, end, importer) => {
     // In getOperationPlanningJobs.mjs, "Ex. Planning" tab means: `examination_planning_date` exists, `pcv_date` empty, `OOC` empty.
 
     // Arrival condition logic from getOperationPlanningJobs.mjs is complex to replicate fully in aggregation if it involves array elemMatch.
-    // Simplified Pending Ops:
-    const pendingOpsBase = {
-        $and: [
-            importerMatch,
-            { status: { $regex: /^Pending$/i } },
-            { be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i } },
+    // Exact match logic from getOperationPlanningJobs.mjs baseConditions
+    // This matches the "EXAMINATION PLANNING" tab which shows all pending operation jobs
+    const arrivalCondition = {
+        $or: [
+            { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
             {
-                $or: [
-                    { completed_operation_date: { $exists: false } },
-                    { completed_operation_date: "" }
-                ]
+                container_nos: {
+                    $elemMatch: {
+                        arrival_date: { $exists: true, $nin: [null, ""] }
+                    }
+                }
             }
         ]
     };
 
-    // "In Examination Planning" specifically
     const inExamPlanningMatch = {
+        status: { $regex: /^Pending$/i },
+        be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+        ...importerMatch,
         $and: [
-            ...pendingOpsBase.$and,
-            { examination_planning_date: { $exists: true, $nin: ["", null] } },
-            // not moved to PCV or OOC yet
-            { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
-            { $or: [{ out_of_charge: { $exists: false } }, { out_of_charge: "" }, { out_of_charge: false }] }
+            arrivalCondition,
+            {
+                $or: [
+                    { completed_operation_date: { $exists: false } },
+                    { completed_operation_date: "" },
+                    {
+                        $and: [
+                            { completed_operation_date: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Operations", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
         ]
     };
 
@@ -1043,6 +1127,199 @@ const getSubmissionPipeline = (start, end, importer) => {
                     submission_pending: "$submission_pending",
                     submission_completed: "$submission_completed",
                     submission_trend: "$submission_trend"
+                }
+            }
+        }
+    ];
+};
+
+// 💓 Pulse Combined Pipeline
+const getPulsePipeline = (start, end, importer) => {
+    const importerMatch = importer ? { importer: importer } : {};
+
+    // E-Sanchit Pending
+    const pendingEsanchitMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+            { job_no: { $ne: null } },
+            { out_of_charge: { $eq: "" } },
+            { cth_documents: { $elemMatch: { is_sent_to_esanchit: true } } },
+            {
+                $or: [
+                    { esanchit_completed_date_time: { $exists: false } },
+                    { esanchit_completed_date_time: "" },
+                    { esanchit_completed_date_time: null },
+                    {
+                        $and: [
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "e-Sanchit", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    // Documentation Pending
+    const pendingDocsMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
+            { awb_bl_no: { $ne: null, $ne: "" } },
+            { job_no: { $ne: null } },
+            { out_of_charge: { $eq: "" } },
+            {
+                detailed_status: {
+                    $in: ["Discharged", "Gateway IGM Filed", "Estimated Time of Arrival", "ETA Date Pending", "Arrived, BE Note Pending", "Rail Out"]
+                },
+            },
+            {
+                $or: [
+                    { documentation_completed_date_time: { $exists: false } },
+                    { documentation_completed_date_time: "" },
+                    {
+                        $and: [
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ],
+            },
+            {
+                $and: [
+                    { "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] } },
+                    { "cth_documents": { $elemMatch: { document_name: "Bill of Lading", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Packing List", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
+                ]
+            }
+        ]
+    };
+
+    // Submission Pending
+    const pendingSubmissionMatch = {
+        $and: [
+            importerMatch,
+            { status: { $regex: /^pending$/i } },
+            { job_no: { $ne: null } },
+            {
+                $or: [
+                    { be_no: { $exists: false } },
+                    { be_no: "" },
+                    { submission_completed_date_time: { $exists: false } },
+                    { submission_completed_date_time: "" },
+                    { submission_completed_date_time: null },
+                    {
+                        $and: [
+                            { submission_completed_date_time: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Submission", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            },
+            {
+                $or: [
+                    // FCL Prerequisites
+                    {
+                        $and: [
+                            { consignment_type: "FCL" },
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { discharge_date: { $exists: true, $ne: "" } },
+                            { gateway_igm_date: { $exists: true, $ne: "" } },
+                            { gateway_igm: { $exists: true, $ne: "" } },
+                            { igm_no: { $exists: true, $ne: "" } },
+                            { igm_date: { $exists: true, $ne: "" } },
+                            { is_checklist_aprroved: { $exists: true, $ne: false } }
+                        ]
+                    },
+                    // LCL Prerequisites
+                    {
+                        $and: [
+                            { consignment_type: "LCL" },
+                            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                            { esanchit_completed_date_time: { $exists: true, $ne: "" } },
+                            { is_checklist_aprroved: { $exists: true, $ne: false } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    // Operations (Exam Planning)
+    const arrivalCondition = {
+        $or: [
+            { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
+            {
+                container_nos: {
+                    $elemMatch: {
+                        arrival_date: { $exists: true, $nin: [null, ""] }
+                    }
+                }
+            }
+        ]
+    };
+    const inExamPlanningMatch = {
+        status: { $regex: /^Pending$/i },
+        be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+        ...importerMatch,
+        $and: [
+            arrivalCondition,
+            {
+                $or: [
+                    { completed_operation_date: { $exists: false } },
+                    { completed_operation_date: "" },
+                    {
+                        $and: [
+                            { completed_operation_date: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Operations", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    // DO (In DO Planning)
+    const inDoPlanningMatch = {
+        ...importerMatch,
+        status: { $regex: /^pending$/i },
+        $or: [{ doPlanning: true }, { doPlanning: "true" }],
+        $and: [
+            {
+                $or: [
+                    { do_completed: false },
+                    { do_completed: "No" },
+                    { do_completed: { $exists: false } },
+                    { do_completed: "" },
+                    { do_completed: null }
+                ]
+            }
+        ]
+    };
+
+    return [
+        {
+            $facet: {
+                esanchit: [{ $match: pendingEsanchitMatch }, { $count: "count" }],
+                documentation: [{ $match: pendingDocsMatch }, { $count: "count" }],
+                submission: [{ $match: pendingSubmissionMatch }, { $count: "count" }],
+                operations: [{ $match: inExamPlanningMatch }, { $count: "count" }],
+                do: [{ $match: inDoPlanningMatch }, { $count: "count" }]
+            }
+        },
+        {
+            $project: {
+                summary: {
+                    esanchit: { $ifNull: [{ $arrayElemAt: ["$esanchit.count", 0] }, 0] },
+                    documentation: { $ifNull: [{ $arrayElemAt: ["$documentation.count", 0] }, 0] },
+                    submission: { $ifNull: [{ $arrayElemAt: ["$submission.count", 0] }, 0] },
+                    operations: { $ifNull: [{ $arrayElemAt: ["$operations.count", 0] }, 0] },
+                    do: { $ifNull: [{ $arrayElemAt: ["$do.count", 0] }, 0] }
                 }
             }
         }

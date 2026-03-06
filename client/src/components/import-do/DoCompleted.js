@@ -668,6 +668,11 @@ function DoCompleted() {
       },
     },
     {
+      accessorKey: "free_time",
+      header: "Free Time",
+      size: 100,
+    },
+    {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,

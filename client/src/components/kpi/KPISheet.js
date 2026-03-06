@@ -5,9 +5,10 @@ import { UserContext } from "../../contexts/UserContext";
 import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu } from '@mui/material';
 import './kpi.scss';
 
-const KPISheet = () => {
+const KPISheet = ({ sheetId: propSheetId }) => {
     const { user } = React.useContext(UserContext);
-    const { sheetId } = useParams();
+    const { sheetId: paramSheetId } = useParams();
+    const sheetId = propSheetId || paramSheetId;
     const [sheet, setSheet] = useState(null);
     // console.log(sheet);
     const [loading, setLoading] = useState(true);
@@ -30,6 +31,9 @@ const KPISheet = () => {
     // Review Dialog State
     const [reviewDialog, setReviewDialog] = useState({ open: false, action: '', comments: '' });
 
+    // Row Weights State
+    const [rowWeights, setRowWeights] = useState({});
+
     // Add Row Dialog State
     const [addRowDialog, setAddRowDialog] = useState({ open: false, label: '' });
 
@@ -46,6 +50,12 @@ const KPISheet = () => {
     // Day Action Menu State
     const [dayMenu, setDayMenu] = useState({ anchorEl: null, day: null });
 
+    // Deadline Override State
+    const [deadlineOverride, setDeadlineOverride] = useState(null);
+
+    // Language Display Toggle (en | gu | hi)
+    const [displayLang, setDisplayLang] = useState(() => localStorage.getItem('kpi_lang_pref') || 'en');
+
     // Remarks Dialog State
     const [openRemarks, setOpenRemarks] = useState(false);
 
@@ -59,7 +69,19 @@ const KPISheet = () => {
 
     useEffect(() => {
         fetchSheet();
+        fetchDeadlineOverride();
     }, [sheetId]);
+
+    const fetchDeadlineOverride = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { withCredentials: true });
+            if (res.data && res.data.override) {
+                setDeadlineOverride(res.data.override);
+            }
+        } catch (err) {
+            // Non-critical - just use default deadline
+        }
+    };
 
     const fetchSheet = async () => {
         try {
@@ -82,6 +104,15 @@ const KPISheet = () => {
             console.log("KPISheet - Fetched successfully:", res.data);
             setSheet(res.data);
             if (res.data.summary) setSummary(res.data.summary);
+
+            // Set initial row weights
+            const initialWeights = {};
+            if (res.data.rows) {
+                res.data.rows.forEach(r => {
+                    initialWeights[r.row_id] = r.weight || 3;
+                });
+            }
+            setRowWeights(initialWeights);
 
             const days = new Date(res.data.year, res.data.month, 0).getDate();
             setDaysInMonth([...Array(days).keys()].map(i => i + 1));
@@ -173,15 +204,26 @@ const KPISheet = () => {
         return deadline;
     };
 
+    const getEffectiveDeadline = () => {
+        if (!sheet) return new Date();
+        let deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+
+        // Check for admin override
+        if (deadlineOverride && deadlineOverride.year === sheet.year && deadlineOverride.month === sheet.month && deadlineOverride.deadline_date) {
+            deadline = new Date(deadlineOverride.deadline_date);
+        }
+        return deadline;
+    };
+
     const isLocked = (day = null) => {
         if (!sheet) return true;
 
         // Status Check
         if (sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED') return true;
 
-        // Deadline Check (7th of the following month)
+        // Deadline Check (uses admin override if available)
         const today = new Date();
-        const deadline = getSubmissionDeadline(sheet.year, sheet.month + 1);
+        const deadline = getEffectiveDeadline();
 
         // Compare dates only
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -460,7 +502,8 @@ const KPISheet = () => {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/review`, {
                 sheetId: sheet._id,
                 action: reviewDialog.action,
-                comments: reviewDialog.comments
+                comments: reviewDialog.comments,
+                rowWeights: reviewDialog.action === 'CHECK' ? rowWeights : undefined
             }, { withCredentials: true });
 
             const actionText = reviewDialog.action === 'CHECK' ? 'Checked' :
@@ -537,7 +580,10 @@ const KPISheet = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f', fontSize: '0.9rem' }}>
                         <span>📅</span>
-                        <strong>Deadline:</strong> {getSubmissionDeadline(sheet.year, sheet.month + 1).toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        <strong>Deadline:</strong> {getEffectiveDeadline().toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {deadlineOverride && deadlineOverride.year === sheet.year && deadlineOverride.month === sheet.month && (
+                            <span style={{ background: '#fff3e0', color: '#e65100', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>EXTENDED</span>
+                        )}
                     </div>
                 </div>
 
@@ -581,28 +627,63 @@ const KPISheet = () => {
                 </button>
             </div>
 
-            {/* Color Legend */}
-            <div className="kpi-legend">
-                <span className="legend-title">Legend:</span>
-                <span className="legend-item">
-                    <span className="legend-color sunday"></span>
-                    Sunday
-                </span>
-                <span className="legend-item">
-                    <span className="legend-color half-day">HD</span>
-                    Half Day
-                </span>
-                <span className="legend-item">
-                    <span className="legend-color leave"></span>
-                    Leave
-                </span>
-                <span className="legend-item">
-                    <span className="legend-color festival"></span>
-                    Festival
-                </span>
-                <span className="legend-item" style={{ fontStyle: 'italic', fontSize: '0.8em', marginLeft: '10px' }}>
-                    * Click on a date header to manage status
-                </span>
+            {/* Color Legend & Language Toggle */}
+            <div className="kpi-legend" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span className="legend-title">Legend:</span>
+                    <span className="legend-item">
+                        <span className="legend-color sunday"></span>
+                        Sunday
+                    </span>
+                    <span className="legend-item">
+                        <span className="legend-color half-day">HD</span>
+                        Half Day
+                    </span>
+                    <span className="legend-item">
+                        <span className="legend-color leave"></span>
+                        Leave
+                    </span>
+                    <span className="legend-item">
+                        <span className="legend-color festival"></span>
+                        Festival
+                    </span>
+                    <span className="legend-item" style={{ fontStyle: 'italic', fontSize: '0.8em', marginLeft: '10px' }}>
+                        * Click on a date header to manage status
+                    </span>
+                </div>
+                {/* Language Toggle */}
+                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', borderRadius: '8px', padding: '2px', alignSelf: 'center' }}>
+                    <button
+                        onClick={() => { setDisplayLang('en'); localStorage.setItem('kpi_lang_pref', 'en'); }}
+                        style={{
+                            padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
+                            border: 'none', borderRadius: '6px', cursor: 'pointer',
+                            background: displayLang === 'en' ? '#0F172A' : 'transparent',
+                            color: displayLang === 'en' ? '#fff' : '#64748B',
+                            transition: 'all 0.2s'
+                        }}
+                    >English</button>
+                    <button
+                        onClick={() => { setDisplayLang('gu'); localStorage.setItem('kpi_lang_pref', 'gu'); }}
+                        style={{
+                            padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
+                            border: 'none', borderRadius: '6px', cursor: 'pointer',
+                            background: displayLang === 'gu' ? '#C2410C' : 'transparent',
+                            color: displayLang === 'gu' ? '#fff' : '#64748B',
+                            transition: 'all 0.2s'
+                        }}
+                    >ગુજરાતી</button>
+                    <button
+                        onClick={() => { setDisplayLang('hi'); localStorage.setItem('kpi_lang_pref', 'hi'); }}
+                        style={{
+                            padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
+                            border: 'none', borderRadius: '6px', cursor: 'pointer',
+                            background: displayLang === 'hi' ? '#BE123C' : 'transparent',
+                            color: displayLang === 'hi' ? '#fff' : '#64748B',
+                            transition: 'all 0.2s'
+                        }}
+                    >हिंदी</button>
+                </div>
             </div>
 
             <div className="kpi-grid-container">
@@ -610,6 +691,7 @@ const KPISheet = () => {
                     <thead>
                         <tr>
                             <th>{new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}</th>
+                            {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && <th style={{ width: '60px' }}>Weight</th>}
                             {daysInMonth.map(d => {
                                 const isSun = isSunday(d);
                                 const isWS = isWorkingSunday(d);
@@ -642,7 +724,10 @@ const KPISheet = () => {
                         {sheet.rows.map(row => (
                             <tr key={row.row_id}>
                                 <td className={row.is_custom ? 'custom-row-label' : ''}>
-                                    {row.label}
+                                    {displayLang === 'en' ? row.label : (displayLang === 'gu' ? (row.label_gu || row.label) : (row.label_hi || row.label))}
+                                    {displayLang !== 'en' && (
+                                        <div style={{ fontSize: '9px', color: '#94A3B8', marginTop: '1px' }}>{row.label}</div>
+                                    )}
                                     {row.is_custom && (sheet.status === 'DRAFT' || sheet.status === 'REJECTED') && (
                                         <button
                                             className="remove-row-btn"
@@ -653,6 +738,25 @@ const KPISheet = () => {
                                         </button>
                                     )}
                                 </td>
+                                {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && (
+                                    <td style={{ textAlign: 'center', padding: '0 4px', backgroundColor: '#f9fafb' }}>
+                                        {sheet.status === 'SUBMITTED' && (user?.role === 'Admin' || sheet.assigned_signatories?.checked_by?._id === user?._id) ? (
+                                            <select
+                                                value={rowWeights[row.row_id] || 3}
+                                                onChange={(e) => setRowWeights({ ...rowWeights, [row.row_id]: Number(e.target.value) })}
+                                                style={{ width: '100%', padding: '4px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px' }}
+                                            >
+                                                <option value={5}>5</option>
+                                                <option value={4}>4</option>
+                                                <option value={3}>3</option>
+                                                <option value={2}>2</option>
+                                                <option value={1}>1</option>
+                                            </select>
+                                        ) : (
+                                            <span style={{ fontWeight: 'bold' }}>{rowWeights[row.row_id] || row.weight || 3}</span>
+                                        )}
+                                    </td>
+                                )}
                                 {daysInMonth.map(day => {
                                     const isSun = isSunday(day);
                                     const isWS = isWorkingSunday(day);
@@ -698,7 +802,7 @@ const KPISheet = () => {
                     </tbody>
                     <tfoot>
                         <tr >
-                            <td>TOTAL:</td>
+                            <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 2 : 1} style={{ textAlign: 'right', paddingRight: '10px' }}>TOTAL:</td>
                             {daysInMonth.map(day => (
                                 <td key={day}>{getColumnTotal(day)}</td>
                             ))}
@@ -772,7 +876,7 @@ const KPISheet = () => {
                         <tbody>
                             <tr>
                                 <td style={{ width: '25%', textAlign: 'left', padding: '5px', backgroundColor: '#5baf62ff' }}>
-                                    Business Loss amount in Rupees (INR) <span style={{ color: 'red' }}>*</span>
+                                    {displayLang === 'gu' ? 'બિઝનેસ લોસ રકમ (રૂપિયામાં)' : displayLang === 'hi' ? 'व्यवसाय हानि राशि (रुपये में)' : 'Business Loss amount in Rupees (INR)'} <span style={{ color: 'red' }}>*</span>
                                 </td>
                                 <td>
                                     <input
@@ -795,7 +899,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause for business loss <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસનું મૂળ કારણ' : displayLang === 'hi' ? 'व्यवसाय हानि का मूल कारण' : 'Rootcause for business loss'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="text"
@@ -807,7 +911,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Action plan for business loss <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસ માટે કાર્યયોજના' : displayLang === 'hi' ? 'व्यवसाय हानि के लिए कार्ययोजना' : 'Action plan for business loss'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <textarea
                                         rows={3}
@@ -819,7 +923,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Overall KPI % <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'એકંદર KPI %' : displayLang === 'hi' ? 'समग्र KPI %' : 'Overall KPI %'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="number"
@@ -831,7 +935,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Blockers <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'અવરોધો' : displayLang === 'hi' ? 'अवरोधक' : 'Blockers'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="text"
@@ -843,7 +947,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Rootcause <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'મૂળ કારણ' : displayLang === 'hi' ? 'मूल कारण' : 'Rootcause'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="text"
@@ -855,7 +959,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>Can HOD solve the problem (Yes/No) <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'શું HOD સમસ્યા ઉકેલી શકે છે? (હા/ના)' : displayLang === 'hi' ? 'क्या HOD समस्या हल कर सकते हैं? (हाँ/नहीं)' : 'Can HOD solve the problem (Yes/No)'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <select
                                         value={summary.can_hod_solve || 'No'}
@@ -869,7 +973,7 @@ const KPISheet = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px', fontSize: '14px', fontWeight: 'bold' }}>Total Month Workload % <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px', fontSize: '14px', fontWeight: 'bold' }}>{displayLang === 'gu' ? 'કુલ માસિક કાર્યભાર %' : displayLang === 'hi' ? 'कुल मासिक कार्यभार %' : 'Total Month Workload %'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <input
                                         type="number"
@@ -880,8 +984,29 @@ const KPISheet = () => {
                                     />
                                 </td>
                             </tr>
+                            {/* Performance Metrics (Read-only, restricted to HOD/Admin) */}
+                            {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && sheet.summary?.total_value_score !== undefined && (
+                                <>
+                                    <tr>
+                                        <td style={{ textAlign: 'left', backgroundColor: '#eef2ff', padding: '5px', fontWeight: 'bold' }}>{displayLang === 'gu' ? 'કુલ મૂલ્ય સ્કોર' : displayLang === 'hi' ? 'कुल मूल्य स्कोर' : 'Total Value Score'}</td>
+                                        <td style={{ padding: '5px', fontWeight: '500' }}>{sheet.summary.total_value_score}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ textAlign: 'left', backgroundColor: '#eef2ff', padding: '5px', fontWeight: 'bold' }}>{displayLang === 'gu' ? 'સરેરાશ જટિલતા' : displayLang === 'hi' ? 'औसत जटिलता' : 'Average Complexity'}</td>
+                                        <td style={{ padding: '5px', fontWeight: '500' }}>
+                                            {sheet.summary.average_complexity ? sheet.summary.average_complexity.toFixed(2) : '0.00'}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ textAlign: 'left', backgroundColor: '#eef2ff', padding: '5px', fontWeight: 'bold' }}>{displayLang === 'gu' ? 'કામગિરી ચતુર્ભુજ' : displayLang === 'hi' ? 'प्रदर्शन चतुर्भुज' : 'Performance Quadrant'}</td>
+                                        <td style={{ padding: '5px', fontWeight: 'bold', color: sheet.summary.performance_quadrant === 'Star' ? '#059669' : sheet.summary.performance_quadrant === 'Drainer' ? '#dc2626' : '#2563eb' }}>
+                                            {sheet.summary.performance_quadrant || 'N/A'}
+                                        </td>
+                                    </tr>
+                                </>
+                            )}
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>KPI Submission Date</td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'KPI સબમિશન તારીખ' : displayLang === 'hi' ? 'KPI सबमिशन तारीख' : 'KPI Submission Date'}</td>
                                 <td>
                                     <div style={{ padding: '5px', color: '#555', minHeight: '30px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                                         {summary.submission_date ? new Date(summary.submission_date).toLocaleDateString() : 'Pending Submission'}

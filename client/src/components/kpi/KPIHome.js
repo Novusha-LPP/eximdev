@@ -90,14 +90,17 @@ const KPIHome = () => {
     const [teamTemplates, setTeamTemplates] = useState([]);
     const [selectedTeamTemplate, setSelectedTeamTemplate] = useState('');
     const [showTeamImport, setShowTeamImport] = useState(false);
-    const [importTemplateName, setImportTemplateName] = useState('');
     const [importNameError, setImportNameError] = useState('');
+    const [importTemplateName, setImportTemplateName] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [extendedDeadline, setExtendedDeadline] = useState(null);
 
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
         fetchPendingCount();
         fetchTeamTemplates();
+        fetchExtendedDeadline();
     }, []);
 
     useEffect(() => {
@@ -107,6 +110,17 @@ const KPIHome = () => {
     useEffect(() => {
         fetchSheets();
     }, [filterYear]);
+
+    const fetchExtendedDeadline = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { withCredentials: true });
+            if (res.data && res.data.override) {
+                setExtendedDeadline(res.data.override);
+            }
+        } catch (error) {
+            console.error("Error fetching deadline override", error);
+        }
+    };
 
     const fetchPendingCount = async () => {
         try {
@@ -332,6 +346,28 @@ const KPIHome = () => {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
             >
+                {extendedDeadline && (
+                    <div style={{
+                        background: 'linear-gradient(to right, #fff7ed, #ffedd5)',
+                        borderLeft: '4px solid #f97316',
+                        padding: '12px 20px',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                    }}>
+                        <span style={{ fontSize: '1.4rem' }}>📢</span>
+                        <div>
+                            <strong style={{ color: '#c2410c', display: 'block', fontSize: '0.95rem' }}>Important Update</strong>
+                            <span style={{ color: '#9a3412', fontSize: '0.85rem' }}>
+                                The KPI submission deadline for <strong>{months[extendedDeadline.month - 1]} {extendedDeadline.year}</strong> has been extended until <strong>{new Date(extendedDeadline.deadline_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>. You can now edit your sheets until this date.
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="modern-header" style={{ marginBottom: '24px' }}>
                     <div className="header-title">
@@ -591,19 +627,37 @@ const KPIHome = () => {
                                         {sheets.length}
                                     </span>
                                 </div>
-                                <select
-                                    value={filterYear}
-                                    onChange={(e) => setFilterYear(Number(e.target.value))}
-                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
-                                >
-                                    {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search sheets..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            style={{ padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.85rem', outline: 'none', width: '180px' }}
+                                        />
+                                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.8rem' }}>🔍</span>
+                                    </div>
+                                    <select
+                                        value={filterYear}
+                                        onChange={(e) => setFilterYear(Number(e.target.value))}
+                                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none' }}
+                                    >
+                                        {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
                             </div>
                             <div className="section-body" style={{ background: '#fcfcfc', minHeight: '400px' }}>
                                 {sheets.length > 0 ? (
                                     <div className="modern-sheet-grid">
                                         <AnimatePresence>
-                                            {sheets.map((sheet) => (
+                                            {sheets.filter(sheet => {
+                                                if (!searchQuery.trim()) return true;
+                                                const q = searchQuery.toLowerCase();
+                                                const templateName = (sheet.template_version?.name || '').toLowerCase();
+                                                const status = (sheet.status || '').toLowerCase();
+                                                return templateName.includes(q) || status.includes(q);
+                                            }).map((sheet) => (
                                                 <motion.div
                                                     key={sheet._id}
                                                     layout

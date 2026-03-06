@@ -10,6 +10,12 @@ const KPISheetRowSchema = new Schema({
     label: {
         type: String, // Copied from template to ensure immutability of display even if template changes
     },
+    label_gu: {
+        type: String, // Gujarati translated label (copied from template)
+    },
+    label_hi: {
+        type: String, // Hindi translated label (copied from template)
+    },
     type: { // "numeric" | "checkbox" - copied from template
         type: String,
         default: "numeric"
@@ -26,6 +32,12 @@ const KPISheetRowSchema = new Schema({
     is_custom: {
         type: Boolean,
         default: false, // True for rows added by user, false for template rows
+    },
+    weight: {
+        type: Number,
+        min: 1,
+        max: 5,
+        default: 3,
     },
 });
 
@@ -108,7 +120,11 @@ const KPISheetSchema = new Schema(
             blockers_root_cause: { type: String, default: "" }, // Rootcause for blockers
             can_hod_solve: { type: String, enum: ["Yes", "No", ""], default: "" },
             total_workload_percentage: { type: Number, default: 0 },
-            submission_date: Date
+            submission_date: Date,
+            total_value_score: { type: Number, default: 0 },
+            average_complexity: { type: Number, default: 0 },
+            performance_quadrant: { type: String, enum: ["Star", "Specialist", "Engine", "Drainer", ""], default: "" },
+            total_quantity: { type: Number, default: 0 }
         },
 
         // Signature Metadata

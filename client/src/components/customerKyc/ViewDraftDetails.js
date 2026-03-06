@@ -33,6 +33,8 @@ function ViewDraftDetails() {
     actions: null
   });
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const handleCloseDialog = () => setDialogState(prev => ({ ...prev, isOpen: false }));
 
   const formik = useFormik({
@@ -1322,12 +1324,7 @@ function ViewDraftDetails() {
               <button 
                 type="button"
                 className="btn btn-outline"
-                 onClick={() => setDialogState({
-                    isOpen: true,
-                    title: "Preview Application",
-                    content: <Preview data={formik.values} />,
-                    severity: "info",
-                })}
+                 onClick={() => setPreviewOpen(true)}
               >
                 👁 Preview
               </button>
@@ -1346,7 +1343,15 @@ function ViewDraftDetails() {
                 className="btn btn-success"
                 onClick={() => {
                     setSubmitType("submit_for_approval"); // Trigger submit logic
-                    setTimeout(() => formik.handleSubmit(), 0);
+                    setTimeout(async () => {
+                      const errors = await formik.validateForm();
+                      if (Object.keys(errors).length > 0) {
+                        showError("Please fix the validation errors before submitting. Scroll up to see the issue.");
+                        formik.setTouched(Object.keys(errors).reduce((a, c) => ({...a, [c]: true}), {}));
+                      } else {
+                        formik.handleSubmit();
+                      }
+                    }, 0);
                   }}
               >
                 📤 Submit Application
@@ -1356,6 +1361,8 @@ function ViewDraftDetails() {
         </div>
       </div>
       
+      <Preview open={previewOpen} handleClose={() => setPreviewOpen(false)} data={formik.values} />
+
        <CustomDialog
             open={dialogState.isOpen}
             onClose={handleCloseDialog}

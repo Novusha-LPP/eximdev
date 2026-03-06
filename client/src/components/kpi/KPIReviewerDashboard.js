@@ -39,6 +39,8 @@ const KPIReviewerDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('check');
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedSheets, setSelectedSheets] = useState([]);
 
     // Filter state
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
@@ -56,6 +58,10 @@ const KPIReviewerDashboard = () => {
         sheetId: null,
         action: '',
         comments: ''
+    });
+
+    const [bulkDialog, setBulkDialog] = useState({
+        open: false
     });
 
     useEffect(() => {
@@ -125,13 +131,89 @@ const KPIReviewerDashboard = () => {
             default: sheets = [];
         }
 
-        // Only filter by date for history. Show all pending items for other tabs.
+        // Apply search filter
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            sheets = sheets.filter(s => {
+                const name = s.user ? `${s.user.first_name} ${s.user.last_name}`.toLowerCase() : '';
+                const dept = (s.department || '').toLowerCase();
+                const quadrant = (s.summary?.performance_quadrant || '').toLowerCase();
+                return name.includes(q) || dept.includes(q) || quadrant.includes(q);
+            });
+        }
+
+        // Filter by date for all tabs
+        sheets = sheets.filter(s => s.month === filterMonth && s.year === filterYear);
+
         if (activeTab === 'history') {
-            return sheets.filter(s => s.month === filterMonth && s.year === filterYear)
-                .sort((a, b) => b.year - a.year || b.month - a.month); // Newest first
+            return sheets.sort((a, b) => b.year - a.year || b.month - a.month); // Newest first
         }
 
         return sheets.sort((a, b) => a.year - b.year || a.month - b.month); // Oldest first (FIFO) for pending
+    };
+
+    // Clear selection when filters or tabs change
+    useEffect(() => {
+        setSelectedSheets([]);
+    }, [activeTab, filterMonth, filterYear, searchQuery]);
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const visibleIds = getActiveSheets().map(s => s._id);
+            setSelectedSheets(visibleIds);
+        } else {
+            setSelectedSheets([]);
+        }
+    };
+
+    const handleSelectSheet = (e, id) => {
+        if (e.target.checked) {
+            setSelectedSheets([...selectedSheets, id]);
+        } else {
+            setSelectedSheets(selectedSheets.filter(sId => sId !== id));
+        }
+    };
+
+    const handleBulkAction = async () => {
+        if (selectedSheets.length === 0) return;
+
+        // Disable "Bulk" in history tab
+        if (activeTab === 'history') return;
+
+        setBulkDialog({ open: true });
+    };
+
+    const confirmBulkAction = async () => {
+        setBulkDialog({ open: false });
+        const action = getActionLabel();
+        const actionName = action.toLowerCase();
+
+        setLoading(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const sheetId of selectedSheets) {
+            try {
+                await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/review`, {
+                    sheetId,
+                    action,
+                    comments: `Bulk ${actionName} by ${user.first_name}`
+                }, { withCredentials: true });
+                successCount++;
+            } catch (error) {
+                console.error(`Failed to bulk ${actionName} sheet ${sheetId}`, error);
+                failCount++;
+            }
+        }
+
+        setSelectedSheets([]);
+        fetchPendingSheets();
+
+        if (failCount > 0) {
+            showMessage(`Bulk Review completed: ${successCount} successful, ${failCount} failed.`, "warning");
+        } else {
+            showMessage(`Successfully bulk ${actionName}ed ${successCount} sheets.`, "success");
+        }
     };
 
     const getActionLabel = () => {
@@ -143,7 +225,13 @@ const KPIReviewerDashboard = () => {
         }
     };
 
-    const totalPending = data.counts.check + data.counts.verify + data.counts.approve;
+    const filteredCounts = useMemo(() => {
+        const check = data.pending_check.filter(s => s.month === filterMonth && s.year === filterYear).length;
+        const verify = data.pending_verify.filter(s => s.month === filterMonth && s.year === filterYear).length;
+        const approve = data.pending_approve.filter(s => s.month === filterMonth && s.year === filterYear).length;
+        const history = data.recently_processed.filter(s => s.month === filterMonth && s.year === filterYear).length;
+        return { check, verify, approve, history, total: check + verify + approve };
+    }, [data, filterMonth, filterYear]);
 
     const formatCurrency = (value) => {
         if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)}Cr`;
@@ -178,7 +266,7 @@ const KPIReviewerDashboard = () => {
                     <button className="modern-btn secondary" onClick={() => navigate('/kpi')}>
                         <Icons.Back /> Back to My KPI
                     </button>
-                    {totalPending > 0 && (
+                    {filteredCounts.total > 0 && (
                         <div style={{
                             background: '#ef4444',
                             color: 'white',
@@ -187,7 +275,7 @@ const KPIReviewerDashboard = () => {
                             fontWeight: 600,
                             fontSize: '0.9rem'
                         }}>
-                            {totalPending} Pending
+                            {filteredCounts.total} Pending
                         </div>
                     )}
                 </div>
@@ -204,7 +292,7 @@ const KPIReviewerDashboard = () => {
                         <Icons.Pending />
                     </div>
                     <div className="stat-content">
-                        <h3>{data.counts.check}</h3>
+                        <h3>{filteredCounts.check}</h3>
                         <p>Pending Check</p>
                     </div>
                 </div>
@@ -218,7 +306,7 @@ const KPIReviewerDashboard = () => {
                         <Icons.Pending />
                     </div>
                     <div className="stat-content">
-                        <h3>{data.counts.verify}</h3>
+                        <h3>{filteredCounts.verify}</h3>
                         <p>Pending Verify</p>
                     </div>
                 </div>
@@ -232,7 +320,7 @@ const KPIReviewerDashboard = () => {
                         <Icons.Pending />
                     </div>
                     <div className="stat-content">
-                        <h3>{data.counts.approve}</h3>
+                        <h3>{filteredCounts.approve}</h3>
                         <p>Pending Approve</p>
                     </div>
                 </div>
@@ -246,7 +334,7 @@ const KPIReviewerDashboard = () => {
                         <Icons.Eye />
                     </div>
                     <div className="stat-content">
-                        <h3>{data.recently_processed.length}</h3>
+                        <h3>{filteredCounts.history}</h3>
                         <p>Recently Reviewed</p>
                     </div>
                 </div>
@@ -267,6 +355,26 @@ const KPIReviewerDashboard = () => {
                         {activeTab === 'history' && 'Recently Reviewed'}
                     </h2>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        {selectedSheets.length > 0 && activeTab !== 'history' && (
+                            <button
+                                className="modern-btn"
+                                onClick={handleBulkAction}
+                                style={{
+                                    background: activeTab === 'check' ? '#f59e0b' : activeTab === 'verify' ? '#0078d4' : '#22c55e',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <Icons.Check /> Bulk {getActionLabel()} ({selectedSheets.length})
+                            </button>
+                        )}
                         <button
                             className="modern-btn icon-only"
                             title="Refresh Data"
@@ -280,25 +388,34 @@ const KPIReviewerDashboard = () => {
                             </svg>
                         </button>
 
-                        {activeTab === 'history' && (
-                            <>
-                                <select
-                                    value={filterMonth}
-                                    onChange={(e) => setFilterMonth(Number(e.target.value))}
-                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none', background: 'white' }}
-                                >
-                                    {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                                </select>
-                                <select
-                                    value={filterYear}
-                                    onChange={(e) => setFilterYear(Number(e.target.value))}
-                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none', background: 'white' }}
-                                >
-                                    {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
-                            </>
-                        )}
+                        <select
+                            value={filterMonth}
+                            onChange={(e) => setFilterMonth(Number(e.target.value))}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none', background: 'white' }}
+                        >
+                            {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                        </select>
+                        <select
+                            value={filterYear}
+                            onChange={(e) => setFilterYear(Number(e.target.value))}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none', background: 'white' }}
+                        >
+                            {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
                     </div>
+                </div>
+                {/* Search Bar */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        placeholder="Search by employee name, department, quadrant..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ flex: 1, padding: '8px 14px', borderRadius: '6px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }}
+                    />
+                    {searchQuery && (
+                        <button onClick={() => setSearchQuery('')} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: '0.8rem', color: '#64748b' }}>Clear</button>
+                    )}
                 </div>
                 <div className="section-body" style={{ padding: 0 }}>
                     {loading ? (
@@ -308,7 +425,17 @@ const KPIReviewerDashboard = () => {
                             <table className="modern-table" style={{ border: 'none' }}>
                                 <thead style={{ background: '#f8fafc' }}>
                                     <tr>
-                                        <th style={{ paddingLeft: '24px' }}>Employee</th>
+                                        {activeTab !== 'history' && (
+                                            <th style={{ paddingLeft: '24px', width: '40px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={getActiveSheets().length > 0 && selectedSheets.length === getActiveSheets().length}
+                                                    onChange={handleSelectAll}
+                                                    style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                                                />
+                                            </th>
+                                        )}
+                                        <th style={{ paddingLeft: activeTab !== 'history' ? '12px' : '24px' }}>Employee</th>
                                         <th>Department</th>
                                         <th>Period</th>
                                         <th>Check Date</th>
@@ -316,6 +443,8 @@ const KPIReviewerDashboard = () => {
                                         <th>Approve Date</th>
                                         <th style={{ textAlign: 'center' }}>Status</th>
                                         <th style={{ textAlign: 'center' }}>Score</th>
+                                        <th style={{ textAlign: 'center' }}>Value</th>
+                                        <th style={{ textAlign: 'center' }}>Quadrant</th>
                                         {activeTab === 'history' && <th>Last Action</th>}
                                         <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                     </tr>
@@ -331,9 +460,19 @@ const KPIReviewerDashboard = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ delay: i * 0.03 }}
-                                                    style={{ borderBottom: '1px solid #f1f5f9' }}
+                                                    style={{ borderBottom: '1px solid #f1f5f9', background: selectedSheets.includes(sheet._id) ? '#f8fafc' : 'transparent' }}
                                                 >
-                                                    <td style={{ paddingLeft: '24px' }}>
+                                                    {activeTab !== 'history' && (
+                                                        <td style={{ paddingLeft: '24px' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSheets.includes(sheet._id)}
+                                                                onChange={(e) => handleSelectSheet(e, sheet._id)}
+                                                                style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                                                            />
+                                                        </td>
+                                                    )}
+                                                    <td style={{ paddingLeft: activeTab !== 'history' ? '12px' : '24px' }}>
                                                         <div style={{ fontWeight: 600, color: '#334155' }}>
                                                             {sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}` : 'Unknown'}
                                                         </div>
@@ -372,6 +511,21 @@ const KPIReviewerDashboard = () => {
                                                     </td>
                                                     <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
                                                         {sheet.summary?.overall_percentage || 0}%
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 600, color: '#059669' }}>
+                                                        {sheet.summary?.total_value_score || 0}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 600,
+                                                            background: sheet.summary?.performance_quadrant === 'Star' ? '#dcfce7' : sheet.summary?.performance_quadrant === 'Drainer' ? '#fee2e2' : '#e0f2fe',
+                                                            color: sheet.summary?.performance_quadrant === 'Star' ? '#059669' : sheet.summary?.performance_quadrant === 'Drainer' ? '#dc2626' : '#2563eb'
+                                                        }}>
+                                                            {sheet.summary?.performance_quadrant || 'N/A'}
+                                                        </span>
                                                     </td>
                                                     {activeTab === 'history' && (
                                                         <td style={{ fontSize: '0.75rem', color: '#64748b' }}>
@@ -460,6 +614,29 @@ const KPIReviewerDashboard = () => {
                         color={reviewDialog.action === 'REJECT' ? "error" : "primary"}
                     >
                         {reviewDialog.action}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Bulk Action Dialog */}
+            <Dialog open={bulkDialog.open} onClose={() => setBulkDialog({ open: false })} fullWidth maxWidth="xs">
+                <DialogTitle style={{ fontWeight: 700 }}>Confirm Bulk Action</DialogTitle>
+                <DialogContent>
+                    <p style={{ margin: 0, color: '#334155' }}>
+                        Are you sure you want to bulk <strong>{getActionLabel().toLowerCase()}</strong> {selectedSheets.length} sheets?
+                    </p>
+                    <p style={{ margin: '12px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+                        This action cannot be immediately undone and employees will be notified.
+                    </p>
+                </DialogContent>
+                <DialogActions style={{ padding: '16px 24px' }}>
+                    <Button onClick={() => setBulkDialog({ open: false })} style={{ color: '#64748b' }}>Cancel</Button>
+                    <Button
+                        onClick={confirmBulkAction}
+                        variant="contained"
+                        style={{ background: '#6366f1', color: '#fff', fontWeight: 600 }}
+                    >
+                        Confirm Action
                     </Button>
                 </DialogActions>
             </Dialog>

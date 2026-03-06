@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useFormik } from "formik";
+import { useFormik, getIn } from "formik";
 import { validationSchema } from "../../schemas/customerKyc/customerKycSchema.js";
 import useSupportingDocuments from "../../customHooks/useSupportingDocuments";
 import FileUpload from "../gallery/FileUpload";
@@ -22,7 +22,6 @@ function ReviseCustomerKyc() {
   const [data, setData] = useState(null);
   const keepStatusRef = useRef(false);
 
-  // Dialog State
   const [dialogState, setDialogState] = useState({
     isOpen: false,
     title: "",
@@ -31,9 +30,47 @@ function ReviseCustomerKyc() {
     actions: null
   });
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Helpers for field validation (supports nested paths like banks[0].ifsc)
+  const hasError = (path) => !!getIn(formik.touched, path) && !!getIn(formik.errors, path);
+  const fieldError = (path) => hasError(path) ? getIn(formik.errors, path) : null;
+
+  // Deep-touch all fields so red borders appear on validation
+  const setAllTouched = (obj, prefix = "") => {
+    const touched = {};
+    const setLeaf = (path) => {
+      const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
+      let cur = touched;
+      parts.forEach((p, i) => {
+        if (i === parts.length - 1) { cur[p] = true; }
+        else {
+          if (cur[p] === undefined) cur[p] = isNaN(parts[i + 1]) ? {} : [];
+          cur = cur[p];
+        }
+      });
+    };
+    const flatten = (o, path) => {
+      if (Array.isArray(o)) {
+        if (o.length === 0) {
+          // Empty array: mark the field itself touched so min(1) validation shows
+          if (path) setLeaf(path);
+        } else {
+          // Non-empty: recurse into items only (do NOT mark array itself, prevents boolean conflict)
+          o.forEach((item, i) => flatten(item, `${path}[${i}]`));
+        }
+      } else if (o && typeof o === "object") {
+        Object.keys(o).forEach(k => flatten(o[k], path ? `${path}.${k}` : k));
+      } else {
+        if (path) setLeaf(path);
+      }
+    };
+    flatten(obj, prefix);
+    return touched;
+  };
+
   const handleCloseDialog = () => setDialogState(prev => ({ ...prev, isOpen: false }));
 
-  // Formik Setup
   const formik = useFormik({
     initialValues: {
       category: "",
@@ -647,6 +684,7 @@ function ReviseCustomerKyc() {
                         placeholder="Auto-filled"
                         value={formik.values.permanent_address_city}
                         onChange={formik.handleChange}
+                        className={hasError("permanent_address_city") ? "error" : ""}
                       />
                     </div>
                     <div className="field w-third">
@@ -659,6 +697,7 @@ function ReviseCustomerKyc() {
                         placeholder="Auto-filled"
                         value={formik.values.permanent_address_state}
                         onChange={formik.handleChange}
+                        className={hasError("permanent_address_state") ? "error" : ""}
                       />
                     </div>
                   </div>
@@ -768,6 +807,7 @@ function ReviseCustomerKyc() {
                         placeholder="Auto-filled"
                         value={formik.values.principle_business_address_city}
                         onChange={formik.handleChange}
+                        className={hasError("principle_business_address_city") ? "error" : ""}
                       />
                     </div>
                     <div className="field w-third">
@@ -780,6 +820,7 @@ function ReviseCustomerKyc() {
                         placeholder="Auto-filled"
                         value={formik.values.principle_business_address_state}
                         onChange={formik.handleChange}
+                        className={hasError("principle_business_address_state") ? "error" : ""}
                       />
                     </div>
                   </div>
@@ -924,6 +965,7 @@ function ReviseCustomerKyc() {
                               placeholder="Street, Building"
                               value={address.factory_address_line_1}
                               onChange={formik.handleChange}
+                              className={hasError(`factory_addresses[${index}].factory_address_line_1`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-half">
@@ -949,6 +991,7 @@ function ReviseCustomerKyc() {
                               maxLength="6"
                               value={address.factory_address_pin_code}
                               onChange={formik.handleChange}
+                              className={hasError(`factory_addresses[${index}].factory_address_pin_code`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-third">
@@ -960,6 +1003,7 @@ function ReviseCustomerKyc() {
                               name={`factory_addresses[${index}].factory_address_city`}
                               value={address.factory_address_city}
                               onChange={formik.handleChange}
+                              className={hasError(`factory_addresses[${index}].factory_address_city`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-third">
@@ -971,6 +1015,7 @@ function ReviseCustomerKyc() {
                               name={`factory_addresses[${index}].factory_address_state`}
                               value={address.factory_address_state}
                               onChange={formik.handleChange}
+                              className={hasError(`factory_addresses[${index}].factory_address_state`) ? "error" : ""}
                             />
                           </div>
                         </div>
@@ -985,6 +1030,7 @@ function ReviseCustomerKyc() {
                               placeholder="22AAAAA0000A1Z5"
                               value={address.gst}
                               onChange={formik.handleChange}
+                              className={hasError(`factory_addresses[${index}].gst`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-half">
@@ -1026,8 +1072,9 @@ function ReviseCustomerKyc() {
                 <div className="fields">
                   <div className="row">
                     <div className="field w-half">
-                      <label>FACTORY NAME BOARD PHOTO</label>
-                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ color: hasError("factory_name_board_img") ? "var(--red)" : "" }}>FACTORY NAME BOARD PHOTO <span className="req">*</span></label>
+                      {fieldError("factory_name_board_img") && <div className="err-msg">{fieldError("factory_name_board_img")}</div>}
+                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px', border: hasError("factory_name_board_img") ? '1px solid var(--red)' : '1px solid transparent', borderRadius: '4px', padding: hasError("factory_name_board_img") ? '4px' : '0' }}>
                         <FileUpload
                           label={<div className="upload-zone" style={{ margin: 0 }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
@@ -1052,8 +1099,9 @@ function ReviseCustomerKyc() {
                       </div>
                     </div>
                     <div className="field w-half">
-                      <label>FACTORY SELFIE PHOTO</label>
-                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ color: hasError("factory_selfie_img") ? "var(--red)" : "" }}>FACTORY SELFIE PHOTO <span className="req">*</span></label>
+                      {fieldError("factory_selfie_img") && <div className="err-msg">{fieldError("factory_selfie_img")}</div>}
+                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px', border: hasError("factory_selfie_img") ? '1px solid var(--red)' : '1px solid transparent', borderRadius: '4px', padding: hasError("factory_selfie_img") ? '4px' : '0' }}>
                         <FileUpload
                           label={<div className="upload-zone" style={{ margin: 0 }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
@@ -1099,21 +1147,21 @@ function ReviseCustomerKyc() {
                         <div className="row">
                           <div className="field w-half">
                             <label>Name <span className="req">*</span></label>
-                            <input name={`contacts[${idx}].name`} value={contact.name} onChange={formik.handleChange} />
+                            <input name={`contacts[${idx}].name`} value={contact.name} onChange={formik.handleChange} className={hasError(`contacts[${idx}].name`) ? "error" : ""} />
                           </div>
                           <div className="field w-half">
                             <label>Designation <span className="req">*</span></label>
-                            <input name={`contacts[${idx}].designation`} value={contact.designation} onChange={formik.handleChange} />
+                            <input name={`contacts[${idx}].designation`} value={contact.designation} onChange={formik.handleChange} className={hasError(`contacts[${idx}].designation`) ? "error" : ""} />
                           </div>
                         </div>
                         <div className="row">
                           <div className="field w-half">
                             <label>Phone <span className="req">*</span></label>
-                            <input name={`contacts[${idx}].phone`} value={contact.phone} onChange={formik.handleChange} />
+                            <input name={`contacts[${idx}].phone`} value={contact.phone} onChange={formik.handleChange} className={hasError(`contacts[${idx}].phone`) ? "error" : ""} />
                           </div>
                           <div className="field w-half">
                             <label>Email <span className="req">*</span></label>
-                            <input name={`contacts[${idx}].email`} value={contact.email} onChange={formik.handleChange} />
+                            <input name={`contacts[${idx}].email`} value={contact.email} onChange={formik.handleChange} className={hasError(`contacts[${idx}].email`) ? "error" : ""} />
                           </div>
                         </div>
                       </div>
@@ -1156,6 +1204,7 @@ function ReviseCustomerKyc() {
                                 value={branch.branch_name}
                                 onChange={formik.handleChange}
                                 placeholder="Branch name"
+                                className={hasError(`branches[${index}].branch_name`) ? "error" : ""}
                               />
                             </div>
                             <div className="field w-third">
@@ -1165,6 +1214,7 @@ function ReviseCustomerKyc() {
                                 value={branch.branch_code}
                                 onChange={formik.handleChange}
                                 placeholder="Branch code"
+                                className={hasError(`branches[${index}].branch_code`) ? "error" : ""}
                               />
                             </div>
                             <div className="field w-third">
@@ -1184,6 +1234,7 @@ function ReviseCustomerKyc() {
                                 value={branch.address}
                                 onChange={formik.handleChange}
                                 placeholder="Full address"
+                                className={hasError(`branches[${index}].address`) ? "error" : ""}
                               />
                             </div>
                           </div>
@@ -1194,6 +1245,7 @@ function ReviseCustomerKyc() {
                                 name={`branches[${index}].city`}
                                 value={branch.city}
                                 onChange={formik.handleChange}
+                                className={hasError(`branches[${index}].city`) ? "error" : ""}
                               />
                             </div>
                             <div className="field w-third">
@@ -1202,6 +1254,7 @@ function ReviseCustomerKyc() {
                                 name={`branches[${index}].state`}
                                 value={branch.state}
                                 onChange={formik.handleChange}
+                                className={hasError(`branches[${index}].state`) ? "error" : ""}
                               />
                             </div>
                             <div className="field w-third">
@@ -1211,6 +1264,7 @@ function ReviseCustomerKyc() {
                                 value={branch.postal_code}
                                 onChange={formik.handleChange}
                                 maxLength="6"
+                                className={hasError(`branches[${index}].postal_code`) ? "error" : ""}
                               />
                             </div>
                           </div>
@@ -1258,6 +1312,7 @@ function ReviseCustomerKyc() {
                               placeholder="Bank name"
                               value={bank.bankers_name}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].bankers_name`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-half">
@@ -1270,6 +1325,7 @@ function ReviseCustomerKyc() {
                               placeholder="Branch location"
                               value={bank.branch_address}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].branch_address`) ? "error" : ""}
                             />
                           </div>
                         </div>
@@ -1283,6 +1339,7 @@ function ReviseCustomerKyc() {
                               name={`banks[${index}].account_no`}
                               value={bank.account_no}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].account_no`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-third">
@@ -1294,6 +1351,7 @@ function ReviseCustomerKyc() {
                               name={`banks[${index}].ifsc`}
                               value={bank.ifsc}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].ifsc`) ? "error" : ""}
                             />
                           </div>
                           <div className="field w-third">
@@ -1305,6 +1363,7 @@ function ReviseCustomerKyc() {
                               name={`banks[${index}].adCode`}
                               value={bank.adCode}
                               onChange={formik.handleChange}
+                              className={hasError(`banks[${index}].adCode`) ? "error" : ""}
                             />
                           </div>
                         </div>
@@ -1524,7 +1583,6 @@ function ReviseCustomerKyc() {
             </div>
           </div>
 
-          {/* Form Footer */}
           <div className="form-footer">
             <div className="footer-info">
               💡 <strong>Note:</strong> You are submitting a revision. Ensure all details are correct.
@@ -1533,12 +1591,7 @@ function ReviseCustomerKyc() {
               <button
                 type="button"
                 className="btn btn-outline"
-                onClick={() => setDialogState({
-                  isOpen: true,
-                  title: "Preview Application",
-                  content: <Preview data={formik.values} />,
-                  severity: "info",
-                })}
+                onClick={() => setPreviewOpen(true)}
               >
                 👁 Preview
               </button>
@@ -1548,9 +1601,15 @@ function ReviseCustomerKyc() {
                     type="button"
                     className="btn btn-outline"
                     style={{ marginRight: '10px' }}
-                    onClick={() => {
-                      keepStatusRef.current = true;
-                      formik.handleSubmit();
+                    onClick={async () => {
+                      const errors = await formik.validateForm();
+                      if (Object.keys(errors).length > 0) {
+                        formik.setTouched(setAllTouched(formik.values), true);
+                        showError("Please fill in all required fields");
+                      } else {
+                        keepStatusRef.current = true;
+                        formik.handleSubmit();
+                      }
                     }}
                   >
                     💾 Update Details (Keep Approved)
@@ -1558,9 +1617,15 @@ function ReviseCustomerKyc() {
                   <button
                     type="button"
                     className="btn btn-success"
-                    onClick={() => {
-                      keepStatusRef.current = false;
-                      formik.handleSubmit();
+                    onClick={async () => {
+                      const errors = await formik.validateForm();
+                      if (Object.keys(errors).length > 0) {
+                        formik.setTouched(setAllTouched(formik.values), true);
+                        showError("Please fill in all required fields");
+                      } else {
+                        keepStatusRef.current = false;
+                        formik.handleSubmit();
+                      }
                     }}
                   >
                     📤 Re-Submit for Verification
@@ -1570,18 +1635,26 @@ function ReviseCustomerKyc() {
                 <button
                   type="button"
                   className="btn btn-success"
-                  onClick={() => {
-                    keepStatusRef.current = false;
-                    formik.handleSubmit();
-                  }}
-                >
-                  📤 Submit Revision
-                </button>
+                    onClick={async () => {
+                      const errors = await formik.validateForm();
+                      if (Object.keys(errors).length > 0) {
+                        formik.setTouched(setAllTouched(formik.values), true);
+                        showError("Please fill in all required fields");
+                      } else {
+                        keepStatusRef.current = false;
+                        formik.handleSubmit();
+                      }
+                    }}
+                  >
+                    📤 Submit Revision
+                  </button>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      <Preview open={previewOpen} handleClose={() => setPreviewOpen(false)} data={formik.values} />
 
       <CustomDialog
         open={dialogState.isOpen}

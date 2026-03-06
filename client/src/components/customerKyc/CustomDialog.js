@@ -5,8 +5,9 @@ import '../../index.css';
  * Custom Modal Dialog Component
  * Replaces standard browser alerts and Material UI dialogs
  */
-const CustomDialog = ({ isOpen, onClose, title, children, actions, severity = 'info' }) => {
-    if (!isOpen) return null;
+const CustomDialog = ({ isOpen, open, onClose, title, children, actions, severity = 'info' }) => {
+    const isDialogOpen = isOpen !== undefined ? isOpen : open;
+    if (!isDialogOpen) return null;
 
     // Header Color based on severity
     const getHeaderColor = () => {

@@ -33,6 +33,8 @@ function CustomerKycForm() {
     severity: "info",
   });
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
 
@@ -1622,12 +1624,7 @@ function CustomerKycForm() {
               <button
                 type="button"
                 className="btn btn-outline"
-                onClick={() => setDialogState({
-                  isOpen: true,
-                  title: "Preview Application",
-                  content: <Preview data={formik.values} />,
-                  severity: "info",
-                })}
+                onClick={() => setPreviewOpen(true)}
               >
                 👁 Preview
               </button>
@@ -1652,11 +1649,19 @@ function CustomerKycForm() {
               <button
                 type="button"
                 className="btn btn-success"
-                onClick={() => {
+                onClick={async () => {
                   console.log("submit");
                   setSubmitType("save");
                   setSubmissionAttempted(true);
-                  formik.handleSubmit();
+                  setTimeout(async () => {
+                    const errors = await formik.validateForm();
+                    if (Object.keys(errors).length > 0) {
+                      showError("Please fix the validation errors before submitting. Scroll up to see the issue.");
+                      formik.setTouched(Object.keys(errors).reduce((a, c) => ({...a, [c]: true}), {}));
+                    } else {
+                      formik.handleSubmit();
+                    }
+                  }, 0);
                 }}
               >
                 📤 Submit Application
@@ -1665,6 +1670,8 @@ function CustomerKycForm() {
           </div>
         </div>
       </div>
+
+      <Preview open={previewOpen} handleClose={() => setPreviewOpen(false)} data={formik.values} />
 
       <CustomDialog
         open={dialogState.isOpen}

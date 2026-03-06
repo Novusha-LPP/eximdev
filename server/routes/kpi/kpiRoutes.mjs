@@ -5,6 +5,7 @@ import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
 import KPISettings from "../../model/kpi/kpiSettingsModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import TeamModel from "../../model/teamModel.mjs";
+import translate from "google-translate-api-x";
 
 const router = express.Router();
 
@@ -548,6 +549,8 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
         const sheetRows = template.rows.map(r => ({
             row_id: r.id,
             label: r.label,
+            label_gu: r.label_gu || '',
+            label_hi: r.label_hi || '',
             type: r.type || 'numeric',
             weight: r.weight || 3,
             daily_values: {},
@@ -1458,6 +1461,7 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
                 },
                 department: currSheet.department,
                 current: {
+                    sheetId: currSheet._id,
                     total_quantity: currQty,
                     total_value_score: currScore,
                     average_complexity: currAvg,
@@ -1489,9 +1493,6 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
 // Get current submission deadline settings
 router.get("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ message: "Admin access required" });
-        }
 
         const setting = await KPISettings.findOne({ key: 'submission_deadline_override' });
 
@@ -1558,6 +1559,80 @@ router.post("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
     } catch (err) {
         console.error("POST /api/kpi/settings/deadline ERROR:", err);
         res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// ==========================================
+// TRANSLATION ROUTES
+// ==========================================
+
+// Translate an array of texts to a target language (gu = Gujarati, hi = Hindi)
+router.post("/api/kpi/translate", verifyToken, async (req, res) => {
+    try {
+        const { texts, targetLang } = req.body;
+        // Validate
+        if (!texts || !Array.isArray(texts) || texts.length === 0) {
+            return res.status(400).json({ message: "texts array is required" });
+        }
+        if (!targetLang || !['gu', 'hi'].includes(targetLang)) {
+            return res.status(400).json({ message: "targetLang must be 'gu' (Gujarati) or 'hi' (Hindi)" });
+        }
+
+        // Filter out empty strings, translate non-empty ones
+        const results = [];
+        for (let i = 0; i < texts.length; i++) {
+            const text = (texts[i] || '').trim();
+            if (!text) {
+                results.push('');
+                continue;
+            }
+            try {
+                const result = await translate(text, { to: targetLang });
+                results.push(result.text);
+            } catch (tErr) {
+                console.error(`Translation error for "${text}":`, tErr.message);
+                results.push(text); // fallback to original
+            }
+        }
+
+        res.json({ translations: results, targetLang });
+    } catch (err) {
+        console.error("POST /api/kpi/translate ERROR:", err);
+        res.status(500).json({ message: "Translation failed. Please try again." });
+    }
+});
+
+// Bulk translate all rows of a template and save translations
+router.post("/api/kpi/template/translate", verifyToken, async (req, res) => {
+    try {
+        const { templateId, targetLang } = req.body;
+        if (!templateId) return res.status(400).json({ message: "templateId is required" });
+        if (!targetLang || !['gu', 'hi'].includes(targetLang)) {
+            return res.status(400).json({ message: "targetLang must be 'gu' or 'hi'" });
+        }
+
+        const template = await KPITemplate.findById(templateId);
+        if (!template) return res.status(404).json({ message: "Template not found" });
+
+        const fieldKey = targetLang === 'gu' ? 'label_gu' : 'label_hi';
+
+        for (let i = 0; i < template.rows.length; i++) {
+            const label = (template.rows[i].label || '').trim();
+            if (!label) continue;
+            try {
+                const result = await translate(label, { to: targetLang });
+                template.rows[i][fieldKey] = result.text;
+            } catch (tErr) {
+                console.error(`Translation error for row "${label}":`, tErr.message);
+                template.rows[i][fieldKey] = label; // fallback
+            }
+        }
+
+        await template.save();
+        res.json({ message: `Template translated to ${targetLang === 'gu' ? 'Gujarati' : 'Hindi'} successfully`, template });
+    } catch (err) {
+        console.error("POST /api/kpi/template/translate ERROR:", err);
+        res.status(500).json({ message: "Translation failed. Please try again." });
     }
 });
 

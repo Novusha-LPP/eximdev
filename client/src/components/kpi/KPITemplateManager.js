@@ -74,6 +74,8 @@ const KPITemplateManager = () => {
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
     const [userDepartment, setUserDepartment] = useState(null);
+    const [translating, setTranslating] = useState(false);
+    const [translationLang, setTranslationLang] = useState(null); // 'gu' or 'hi'
 
     const showMessage = (text, type = 'success') => {
         setMessage({ show: true, text, type });
@@ -180,6 +182,38 @@ const KPITemplateManager = () => {
         setCurrentTemplate({ ...currentTemplate, department: selected });
     };
 
+    // ─── Translation Handler ─────────────────────────────────────────
+    const handleTranslate = async (lang) => {
+        if (!currentTemplate.rows || currentTemplate.rows.length === 0) {
+            showMessage('No rows to translate', 'error');
+            return;
+        }
+        setTranslating(true);
+        setTranslationLang(lang);
+        try {
+            const texts = currentTemplate.rows.map(r => r.label || '');
+            const res = await axios.post(
+                `${process.env.REACT_APP_API_STRING}/kpi/translate`,
+                { texts, targetLang: lang },
+                { withCredentials: true }
+            );
+            const translations = res.data.translations || [];
+            const fieldKey = lang === 'gu' ? 'label_gu' : 'label_hi';
+            const newRows = currentTemplate.rows.map((row, i) => ({
+                ...row,
+                [fieldKey]: translations[i] || row.label
+            }));
+            setCurrentTemplate({ ...currentTemplate, rows: newRows });
+            showMessage(`Translated to ${lang === 'gu' ? 'Gujarati' : 'Hindi'} successfully!`);
+        } catch (error) {
+            console.error('Translation error:', error);
+            showMessage('Translation failed. Please try again.', 'error');
+        } finally {
+            setTranslating(false);
+            setTranslationLang(null);
+        }
+    };
+
     // Editor View
     if (isEditing) {
         return (
@@ -195,7 +229,23 @@ const KPITemplateManager = () => {
                         <h1>{currentTemplate._id ? 'Edit Template' : 'Create New Template'}</h1>
                         <p>Design your KPI Sheet structure</p>
                     </div>
-                    <div className="header-actions">
+                    <div className="header-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                            className="modern-btn secondary"
+                            onClick={() => handleTranslate('gu')}
+                            disabled={translating}
+                            style={{ background: '#FFF7ED', color: '#C2410C', border: '1px solid #FDBA74', fontWeight: 600, opacity: translating && translationLang !== 'gu' ? 0.5 : 1 }}
+                        >
+                            {translating && translationLang === 'gu' ? '⏳ Translating...' : '🇮🇳 Translate → ગુજરાતી'}
+                        </button>
+                        <button
+                            className="modern-btn secondary"
+                            onClick={() => handleTranslate('hi')}
+                            disabled={translating}
+                            style={{ background: '#FFF1F2', color: '#BE123C', border: '1px solid #FDA4AF', fontWeight: 600, opacity: translating && translationLang !== 'hi' ? 0.5 : 1 }}
+                        >
+                            {translating && translationLang === 'hi' ? '⏳ Translating...' : '🇮🇳 Translate → हिंदी'}
+                        </button>
                         <button className="modern-btn secondary" onClick={() => setIsEditing(false)}>
                             <Icons.Close /> Cancel
                         </button>
@@ -317,7 +367,9 @@ const KPITemplateManager = () => {
                                 <table className="kpi-table" style={{ width: '100%', minWidth: 'auto', marginBottom: 0 }}>
                                     <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
                                         <tr>
-                                            <th style={{ minWidth: '300px', textAlign: 'left', paddingLeft: '8px' }}>KPI Metrics / Parameters</th>
+                                            <th style={{ minWidth: '250px', textAlign: 'left', paddingLeft: '8px' }}>KPI Metrics / Parameters</th>
+                                            <th style={{ minWidth: '180px', textAlign: 'left', paddingLeft: '8px', background: '#FFF7ED', color: '#C2410C' }}>ગુજરાતી</th>
+                                            <th style={{ minWidth: '180px', textAlign: 'left', paddingLeft: '8px', background: '#FFF1F2', color: '#BE123C' }}>हिंदी</th>
                                             <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Type</th>
                                             {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Weight</th>}
                                             {[1, 2, 3, 4].map(d => <th key={d} style={{ width: '40px' }}>{d}</th>)}
@@ -354,6 +406,46 @@ const KPITemplateManager = () => {
                                                                 fontFamily: 'inherit'
                                                             }}
                                                             autoFocus={row.label === 'New KPI' || row.label === ''}
+                                                        />
+                                                    </td>
+                                                    {/* Gujarati Translation */}
+                                                    <td style={{ padding: '0', background: '#FFFBF5' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.label_gu || ''}
+                                                            onChange={(e) => updateRow(idx, 'label_gu', e.target.value)}
+                                                            placeholder="ગુજરાતીમાં..."
+                                                            style={{
+                                                                width: '100%',
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                padding: '6px',
+                                                                fontWeight: 500,
+                                                                outline: 'none',
+                                                                fontSize: '11px',
+                                                                fontFamily: 'inherit',
+                                                                color: '#C2410C'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    {/* Hindi Translation */}
+                                                    <td style={{ padding: '0', background: '#FFF5F6' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.label_hi || ''}
+                                                            onChange={(e) => updateRow(idx, 'label_hi', e.target.value)}
+                                                            placeholder="हिंदी में..."
+                                                            style={{
+                                                                width: '100%',
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                padding: '6px',
+                                                                fontWeight: 500,
+                                                                outline: 'none',
+                                                                fontSize: '11px',
+                                                                fontFamily: 'inherit',
+                                                                color: '#BE123C'
+                                                            }}
                                                         />
                                                     </td>
                                                     <td style={{ padding: 0 }}>
@@ -429,7 +521,7 @@ const KPITemplateManager = () => {
                                         </AnimatePresence>
                                         {currentTemplate.rows.length === 0 && (
                                             <tr>
-                                                <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 12 : 11} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
+                                                <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 14 : 13} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
                                                     No KPI rows added. Click "+ Add New Row" to begin building your template.
                                                 </td>
                                             </tr>
@@ -536,6 +628,7 @@ const KPITemplateManager = () => {
                                             <th style={{ paddingLeft: '24px' }}>Template Name</th>
                                             <th>Departments</th>
                                             <th style={{ textAlign: 'center' }}>Metrics</th>
+                                            <th style={{ textAlign: 'center' }}>Languages</th>
                                             <th style={{ textAlign: 'center' }}>Version</th>
                                             <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                         </tr>
@@ -560,6 +653,17 @@ const KPITemplateManager = () => {
                                                         </span>
                                                     </td>
                                                     <td style={{ textAlign: 'center', color: '#64748b' }}>{tmpl.rows?.length || 0}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                            <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>EN</span>
+                                                            {tmpl.rows?.some(r => r.label_gu) && (
+                                                                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', background: '#FFF7ED', color: '#C2410C', border: '1px solid #FDBA74', fontWeight: 600 }}>GU</span>
+                                                            )}
+                                                            {tmpl.rows?.some(r => r.label_hi) && (
+                                                                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', background: '#FFF1F2', color: '#BE123C', border: '1px solid #FDA4AF', fontWeight: 600 }}>HI</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <span style={{
                                                             background: '#f1f5f9', color: '#64748b',

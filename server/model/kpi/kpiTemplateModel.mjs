@@ -8,8 +8,14 @@ const KPIRowSchema = new Schema({
         required: true, // e.g. 'billing_cc' - stable ID across versions
     },
     label: {
-        type: String, // Display Name
+        type: String, // Display Name (English)
         required: true,
+    },
+    label_gu: {
+        type: String, // Gujarati translated label
+    },
+    label_hi: {
+        type: String, // Hindi translated label
     },
     category: {
         type: String, // Grouping header if any

@@ -85,12 +85,39 @@ const KPIAdminDashboard = () => {
     const fetchDeadlineSettings = async () => {
         try {
             const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { withCredentials: true });
-            setDeadlineConfig(prev => ({ ...prev, currentOverride: res.data.override }));
+            const override = res.data.override;
+            setDeadlineConfig(prev => ({
+                ...prev,
+                currentOverride: override
+            }));
         } catch (err) {
             console.error("Error fetching deadline settings", err);
         }
     };
 
+    // Auto-update the deadline date input when month/year changes
+    useEffect(() => {
+        const { overrideMonth, overrideYear, currentOverride } = deadlineConfig;
+
+        // 1. Check if the current selection matches an active override
+        if (currentOverride &&
+            currentOverride.month === overrideMonth &&
+            currentOverride.year === overrideYear) {
+            const dateStr = new Date(currentOverride.deadline_date).toISOString().split('T')[0];
+            setDeadlineConfig(prev => ({ ...prev, deadlineDate: dateStr }));
+            return;
+        }
+
+        // 2. Otherwise default to 4th of the NEXT month
+        const nextMonthDate = new Date(overrideYear, overrideMonth, 4); // Date(year, monthIndex, day)
+        // Note: overrideMonth is 1-indexed. new Date(2026, 1, 4) is Feb 4th.
+        // If overrideMonth is 2 (Feb), new Date(2026, 2, 4) is March 4th. Correct.
+        const dateStr = nextMonthDate.toISOString().split('T')[0];
+        setDeadlineConfig(prev => ({ ...prev, deadlineDate: dateStr }));
+
+    }, [deadlineConfig.overrideMonth, deadlineConfig.overrideYear, deadlineConfig.currentOverride]);
+
+    // Initial fetch on mount
     useEffect(() => {
         if (user && user.role === 'Admin') fetchDeadlineSettings();
     }, []);

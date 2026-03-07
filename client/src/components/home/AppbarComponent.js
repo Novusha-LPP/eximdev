@@ -17,8 +17,6 @@ function AppbarComponent(props) {
   const navigate = useNavigate();
   const { selectedBranch, setSelectedBranch, branches } = useContext(BranchContext);
 
-
-
   return (
     <AppBar
       position="fixed"
@@ -61,7 +59,6 @@ function AppbarComponent(props) {
           />
         </div>
 
-        {/* Spacer to push the version text to the extreme right */}
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Global Branch Filter */}
@@ -74,7 +71,14 @@ function AppbarComponent(props) {
               sx={{
                 bgcolor: "white",
                 borderRadius: 1,
-                "& .MuiOutlinedInput-notchedOutline": { border: "none" }
+                color: "#000",
+                "& .MuiSelect-select": {
+                  color: "#000",
+                },
+                "& .MuiSvgIcon-root": {
+                  color: "#000",
+                },
+                "& .MuiOutlinedInput-notchedOutline": { border: "none" },
               }}
             >
               <MenuItem value="all">

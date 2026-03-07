@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 
 const router = express.Router();
 
@@ -15,7 +17,7 @@ const buildSearchQuery = (search) => {
   };
 };
 
-router.get("/api/get-jobs-overview/:year", async (req, res) => {
+router.get("/api/get-jobs-overview/:year", authMiddleware, applyUserBranchFilter, async (req, res) => {
   try {
     const { year } = req.params;
     const { status, search, branchId, category } = req.query;
@@ -26,7 +28,7 @@ router.get("/api/get-jobs-overview/:year", async (req, res) => {
     const matchQuery = {
       $and: [
         { year: year },
-        getBranchMatch(branchId, category)
+        getBranchMatch(branchId, category, req.authorizedBranchIds)
       ]
     };
 

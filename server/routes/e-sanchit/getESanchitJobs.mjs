@@ -100,7 +100,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
       });
     }
 
-    const branchMatch = getBranchMatch(branchId, category);
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
     baseQuery.$and.push(branchMatch);
 
     if (req.userIcdFilter) {

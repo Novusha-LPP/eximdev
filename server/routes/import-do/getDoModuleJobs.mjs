@@ -114,7 +114,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
-    const branchMatch = getBranchMatch(branchId, category);
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
     baseQuery.$and.push(branchMatch);
 
     // ✅ Apply ICD filter if provided
@@ -486,7 +486,7 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
-    const branchMatch = getBranchMatch(branchId, category);
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
     baseQuery.$and.push(branchMatch);
 
     // ✅ Apply ICD filter if provided
@@ -676,7 +676,7 @@ export async function getTodayJob(req, res) {
       });
     }
 
-    const branchMatch = getBranchMatch(branchId, category);
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
     baseQuery.$and.push(branchMatch);
 
     // ✅ If selectedICD is provided, filter by ICD Code

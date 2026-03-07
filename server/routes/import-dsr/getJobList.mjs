@@ -6,6 +6,8 @@ import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
 import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 
 const router = express.Router();
 
@@ -218,6 +220,8 @@ const buildSearchQuery = (search) => ({
 
 router.get(
   "/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer",
+  authMiddleware,
+  applyUserBranchFilter,
   applyUserImporterFilter,
   async (req, res) => {
     try {
@@ -293,7 +297,7 @@ router.get(
       }
 
       // 3.6) Branch, Trade Type, Mode
-      const branchMatch = getBranchMatch(branchId, category);
+      const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
       Object.assign(query, branchMatch);
 
       if (tradeType && tradeType.toLowerCase() !== "all") {

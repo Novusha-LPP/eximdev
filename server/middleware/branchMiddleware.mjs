@@ -6,7 +6,7 @@ import JobModel from "../model/jobModel.mjs";
  */
 export const verifyBranchAccess = async (req, res, next) => {
     try {
-        const userId = req.headers['user-id'] || req.user?.id; // Adjust based on how auth is handled
+        const userId = req.headers['user-id'] || req.user?.username || req.user?._id;
         const branchId = req.params.branchId || req.body.branch_id || req.query.branch_id;
 
         if (!userId) {
@@ -36,7 +36,7 @@ export const verifyBranchAccess = async (req, res, next) => {
  */
 export const verifyJobBranchAccess = async (req, res, next) => {
     try {
-        const userId = req.headers['user-id'] || req.user?.id;
+        const userId = req.headers['user-id'] || req.user?.username || req.user?._id;
         const jobId = req.params.id || req.params.jobId;
 
         if (!userId) {
@@ -68,5 +68,35 @@ export const verifyJobBranchAccess = async (req, res, next) => {
     } catch (error) {
         console.error("Error in verifyJobBranchAccess:", error);
         res.status(500).json({ message: "Internal server error in job branch access check" });
+    }
+};
+
+/**
+ * Middleware to apply branch filtering based on user assignments.
+ * Fetches assigned branch IDs and stores them in req.authorizedBranchIds.
+ */
+export const applyUserBranchFilter = async (req, res, next) => {
+    try {
+        const userId = req.headers['user-id'] || req.user?._id || req.user?.username;
+        const role = req.user?.role;
+
+        if (!userId) {
+            return next();
+        }
+
+        const assignments = await UserBranchModel.find({ user_id: { $in: [userId, req.user?.username].filter(Boolean) } });
+
+        if (assignments.length > 0) {
+            req.authorizedBranchIds = assignments.map(a => a.branch_id);
+        } else if (role === 'Admin') {
+            req.authorizedBranchIds = null; // Admin with no assignments sees all
+        } else {
+            req.authorizedBranchIds = []; // No assignments -> No access (empty list)
+        }
+
+        next();
+    } catch (error) {
+        console.error("Error in applyUserBranchFilter:", error);
+        next();
     }
 };

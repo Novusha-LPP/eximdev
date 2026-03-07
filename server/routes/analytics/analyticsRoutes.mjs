@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import mongoose from "mongoose";
+import UserBranchModel from "../../model/userBranchModel.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
@@ -11,7 +13,9 @@ const getBranchMatch = (branchId, category) => {
     let match = {};
 
     if (branchId && branchId.toString().toLowerCase() !== "all" && branchId !== "") {
-        if (mongoose.Types.ObjectId.isValid(branchId)) {
+        if (Array.isArray(branchId)) {
+            match.branch_id = { $in: branchId.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+        } else if (mongoose.Types.ObjectId.isValid(branchId)) {
             match.branch_id = new mongoose.Types.ObjectId(branchId);
         } else {
             match.branch_id = branchId;
@@ -84,10 +88,28 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer, b
     return result[0] || {};
 };
 
-router.get("/api/analytics/:module", async (req, res) => {
+router.get("/api/analytics/:module", authMiddleware, async (req, res) => {
     try {
         const { module } = req.params;
-        const { startDate, endDate, importer, branchId, category } = req.query;
+        const { startDate, endDate, importer, category } = req.query;
+        let { branchId } = req.query;
+
+        const userId = req.headers['user-id'] || req.user?.username || req.user?._id;
+        const role = req.user?.role;
+
+        // If 'all' is requested, filter by assignments
+        if (!branchId || branchId.toString().toLowerCase() === "all" || branchId === "") {
+            const assignments = await UserBranchModel.find({ user_id: userId });
+
+            if (assignments.length > 0) {
+                // Return array of assigned branch IDs
+                branchId = assignments.map(a => a.branch_id.toString());
+            } else if (role !== 'Admin') {
+                // Non-admin with no assignments sees nothing
+                return res.json({});
+            }
+            // else Admin with no assignments sees all (branchId remains 'all' / unspecified)
+        }
 
         const data = await fetchAnalyticsData(module, startDate, endDate, importer, branchId, category);
         res.json(data);

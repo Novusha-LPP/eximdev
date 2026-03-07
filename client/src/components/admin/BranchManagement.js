@@ -20,8 +20,14 @@ import {
     InputLabel,
     Switch,
     FormControlLabel,
-    Grid
+    Grid,
+    IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
 
 function BranchManagement() {
     const [branches, setBranches] = useState([]);
@@ -31,6 +37,12 @@ function BranchManagement() {
     const [branchCode, setBranchCode] = useState("");
     const [branchCategory, setBranchCategory] = useState("SEA");
     const [branchIsActive, setBranchIsActive] = useState(true);
+
+    // Edit states
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editingBranch, setEditingBranch] = useState(null);
+    const [editBranchName, setEditBranchName] = useState("");
+    const [editBranchIsActive, setEditBranchIsActive] = useState(true);
 
     // Form states for adding Port to a Branch
     const [selectedBranchId, setSelectedBranchId] = useState("");
@@ -88,6 +100,36 @@ function BranchManagement() {
             fetchBranches();
         } catch (error) {
             showSnackbar(error.response?.data?.error || "Error adding branch", "error");
+        }
+    };
+
+    const handleOpenEdit = (branch) => {
+        setEditingBranch(branch);
+        setEditBranchName(branch.branch_name);
+        setEditBranchIsActive(branch.is_active);
+        setEditDialogOpen(true);
+    };
+
+    const handleCloseEdit = () => {
+        setEditDialogOpen(false);
+        setEditingBranch(null);
+    };
+
+    const handleUpdateBranch = async () => {
+        try {
+            await axios.put(
+                `${process.env.REACT_APP_API_STRING}/admin/update-branch/${editingBranch._id}`,
+                {
+                    branch_name: editBranchName,
+                    is_active: editBranchIsActive
+                },
+                { withCredentials: true }
+            );
+            showSnackbar("Branch updated successfully!", "success");
+            handleCloseEdit();
+            fetchBranches();
+        } catch (error) {
+            showSnackbar(error.response?.data?.error || "Error updating branch", "error");
         }
     };
 
@@ -261,6 +303,7 @@ function BranchManagement() {
                             <TableCell><strong>Category</strong></TableCell>
                             <TableCell><strong>Status</strong></TableCell>
                             <TableCell><strong>Linked Ports</strong></TableCell>
+                            <TableCell align="center"><strong>Actions</strong></TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -283,16 +326,57 @@ function BranchManagement() {
                                         </Typography>
                                     )}
                                 </TableCell>
+                                <TableCell align="center">
+                                    <IconButton size="small" onClick={() => handleOpenEdit(b)} color="primary">
+                                        <EditIcon fontSize="small" />
+                                    </IconButton>
+                                </TableCell>
                             </TableRow>
                         ))}
                         {branches.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} align="center">No branches found.</TableCell>
+                                <TableCell colSpan={6} align="center">No branches found.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            {/* Edit Branch Dialog */}
+            <Dialog open={editDialogOpen} onClose={handleCloseEdit} fullWidth maxWidth="xs">
+                <DialogTitle>Edit Branch</DialogTitle>
+                <DialogContent>
+                    <Box display="flex" flexDirection="column" gap={2} mt={1}>
+                        <TextField
+                            label="Branch Name"
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            value={editBranchName}
+                            onChange={(e) => setEditBranchName(e.target.value)}
+                        />
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={editBranchIsActive}
+                                    onChange={(e) => setEditBranchIsActive(e.target.checked)}
+                                    color="primary"
+                                />
+                            }
+                            label="Is Active"
+                        />
+                        <Typography variant="caption" color="textSecondary">
+                            Note: Changes will apply to both SEA and AIR versions of this branch.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseEdit}>Cancel</Button>
+                    <Button onClick={handleUpdateBranch} variant="contained" color="primary">
+                        Save Changes
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Snackbar
                 open={snackbar.open}

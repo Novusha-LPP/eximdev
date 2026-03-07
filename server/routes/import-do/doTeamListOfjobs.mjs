@@ -124,7 +124,7 @@ router.get(
         });
       }
 
-      const branchMatch = getBranchMatch(branchId, category);
+      const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
       baseQuery.$and.push(branchMatch);
 
       if (req.userIcdFilter) {

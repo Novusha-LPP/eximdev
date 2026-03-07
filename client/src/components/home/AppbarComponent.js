@@ -29,6 +29,7 @@ function AppbarComponent(props) {
     selectedCategory,
     setSelectedCategory,
     branches,
+    isAdmin,
   } = useContext(BranchContext);
 
   // Get unique branch locations for the dropdown
@@ -43,6 +44,14 @@ function AppbarComponent(props) {
     });
     return result;
   }, [branches]);
+
+  // Check which categories are available for the selected branch group
+  const availableCategories = useMemo(() => {
+    if (selectedBranchGroup === 'all') return ['SEA', 'AIR'];
+    return branches
+      .filter(b => b.branch_code === selectedBranchGroup)
+      .map(b => b.category);
+  }, [branches, selectedBranchGroup]);
 
   return (
     <AppBar
@@ -110,9 +119,11 @@ function AppbarComponent(props) {
                 "& .MuiOutlinedInput-notchedOutline": { border: "none" },
               }}
             >
-              <MenuItem value="all">
-                <em>All Branches</em>
-              </MenuItem>
+              {(isAdmin || branches.length === 0) && (
+                <MenuItem value="all">
+                  <em>All Branches</em>
+                </MenuItem>
+              )}
               {uniqueBranches.map((b) => (
                 <MenuItem key={b.branch_code} value={b.branch_code}>
                   {b.branch_name} ({b.branch_code})
@@ -140,11 +151,14 @@ function AppbarComponent(props) {
                   color: "#000",
                   fontWeight: "bold",
                 },
+                "&.Mui-disabled": {
+                  opacity: 0.3
+                }
               },
             }}
           >
-            <ToggleButton value="SEA">SEA</ToggleButton>
-            <ToggleButton value="AIR">AIR</ToggleButton>
+            <ToggleButton value="SEA" disabled={!availableCategories.includes('SEA')}>SEA</ToggleButton>
+            <ToggleButton value="AIR" disabled={!availableCategories.includes('AIR')}>AIR</ToggleButton>
           </ToggleButtonGroup>
         </Box>
 

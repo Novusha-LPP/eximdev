@@ -1,4 +1,5 @@
 import UserModel from "../model/userModel.mjs";
+import UserBranchModel from "../model/userBranchModel.mjs";
 
 /**
  * Middleware to apply ICD code filtering based on user permissions
@@ -68,6 +69,10 @@ const applyUserIcdFilter = async (req, res, next) => {
       role: user.role,
       selectedIcdCodes: user.selected_icd_codes || []
     };
+
+    // Fetch assigned branches
+    const assignments = await UserBranchModel.find({ user_id: { $in: [user.username, user._id.toString()] } });
+    req.authorizedBranchIds = assignments.map(a => a.branch_id);
 
     next();
   } catch (error) {
@@ -165,6 +170,10 @@ export const applyUserImporterFilter = async (req, res, next) => {
       assignedImporterName: user.assigned_importer_name || [],
       role: user.role
     };
+
+    // Fetch assigned branches
+    const assignments = await UserBranchModel.find({ user_id: { $in: [user.username, user._id.toString()] } });
+    req.authorizedBranchIds = assignments.map(a => a.branch_id);
 
     next();
   } catch (error) {

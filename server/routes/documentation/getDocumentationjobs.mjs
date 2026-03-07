@@ -135,7 +135,7 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
       });
     }
 
-    const branchMatch = getBranchMatch(branchId, category);
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
     baseQuery.$and.push(branchMatch);
 
     // ✅ Apply user-based ICD filter from middleware

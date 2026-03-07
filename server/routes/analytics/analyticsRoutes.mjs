@@ -7,7 +7,16 @@ const router = express.Router();
 // Helper to parse dates
 const parseDate = (d) => new Date(d);
 
-export const fetchAnalyticsData = async (module, startDate, endDate, importer) => {
+const getBranchMatch = (branchId) => {
+    if (!branchId || branchId.toLowerCase() === 'all') return {};
+    try {
+        return { branch_id: new mongoose.Types.ObjectId(branchId) };
+    } catch (e) {
+        return { branch_id: branchId };
+    }
+};
+
+export const fetchAnalyticsData = async (module, startDate, endDate, importer, branchId) => {
     let start, end;
 
     if (!startDate || !endDate) {
@@ -26,37 +35,37 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer) =
 
     switch (module) {
         case "overview":
-            pipeline = getOverviewPipeline(start, end, importer);
+            pipeline = getOverviewPipeline(start, end, importer, branchId);
             break;
         case "movement":
-            pipeline = getMovementPipeline(start, end, importer);
+            pipeline = getMovementPipeline(start, end, importer, branchId);
             break;
         case "customs":
-            pipeline = getCustomsPipeline(start, end, importer);
+            pipeline = getCustomsPipeline(start, end, importer, branchId);
             break;
         case "documentation":
-            pipeline = getDocumentationPipeline(start, end, importer);
+            pipeline = getDocumentationPipeline(start, end, importer, branchId);
             break;
         case "do-management":
-            pipeline = getDoManagementPipeline(start, end, importer);
+            pipeline = getDoManagementPipeline(start, end, importer, branchId);
             break;
         case "esanchit":
-            pipeline = getESanchitPipeline(start, end, importer);
+            pipeline = getESanchitPipeline(start, end, importer, branchId);
             break;
         case "operations":
-            pipeline = getOperationsPipeline(start, end, importer);
+            pipeline = getOperationsPipeline(start, end, importer, branchId);
             break;
         case "submission":
-            pipeline = getSubmissionPipeline(start, end, importer);
+            pipeline = getSubmissionPipeline(start, end, importer, branchId);
             break;
         case "billing":
-            pipeline = getBillingPipeline(start, end, importer);
+            pipeline = getBillingPipeline(start, end, importer, branchId);
             break;
         case "exceptions":
-            pipeline = getExceptionsPipeline(start, end, importer);
+            pipeline = getExceptionsPipeline(start, end, importer, branchId);
             break;
         case "pulse":
-            pipeline = getPulsePipeline(start, end, importer);
+            pipeline = getPulsePipeline(start, end, importer, branchId);
             break;
         default:
             throw new Error("Invalid module");
@@ -69,9 +78,9 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer) =
 router.get("/api/analytics/:module", async (req, res) => {
     try {
         const { module } = req.params;
-        const { startDate, endDate, importer } = req.query;
+        const { startDate, endDate, importer, branchId } = req.query;
 
-        const data = await fetchAnalyticsData(module, startDate, endDate, importer);
+        const data = await fetchAnalyticsData(module, startDate, endDate, importer, branchId);
         res.json(data);
     } catch (error) {
         console.error("Analytics Error:", error);
@@ -80,7 +89,7 @@ router.get("/api/analytics/:module", async (req, res) => {
 });
 
 // 🔹 Overview Pipeline
-const getOverviewPipeline = (start, end, importer) => {
+const getOverviewPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -91,6 +100,8 @@ const getOverviewPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     return [
         {
@@ -99,7 +110,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             job_date: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -113,7 +124,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             completed_operation_date: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -121,75 +132,75 @@ const getOverviewPipeline = (start, end, importer) => {
                     }
                 ],
                 examination_planning: [
-                    { $match: { examination_planning_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+                    { $match: { examination_planning_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
                     { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
                 ],
                 jobs_trend: [
-                    { $match: { job_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { job_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$job_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 ops_trend: [
-                    { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$completed_operation_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 exam_trend: [
-                    { $match: { examination_planning_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { examination_planning_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$examination_planning_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 arrival_trend: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     { $match: { "container_nos.arrival_date": { $gte: sevenDaysAgoStr, $lte: todayStr } } },
                     { $group: { _id: { $substr: ["$container_nos.arrival_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 rail_out_trend: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     { $match: { "container_nos.container_rail_out_date": { $gte: sevenDaysAgoStr, $lte: todayStr } } },
                     { $group: { _id: { $substr: ["$container_nos.container_rail_out_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 be_trend: [
-                    { $match: { be_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { be_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$be_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 ooc_trend: [
-                    { $match: { out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$out_of_charge", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 do_trend: [
-                    { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$do_completed", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 billing_trend: [
-                    { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$bill_document_sent_to_accounts", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 eta_trend: [
-                    { $match: { vessel_berthing: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { vessel_berthing: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$vessel_berthing", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 gateway_igm_trend: [
-                    { $match: { gateway_igm_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { gateway_igm_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$gateway_igm_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 discharge_trend: [
-                    { $match: { discharge_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { discharge_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$discharge_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 arrivals_today: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     {
                         $match: {
@@ -205,7 +216,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     }
                 ],
                 rail_out_today: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     {
                         $match: {
@@ -224,7 +235,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             be_date: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -235,7 +246,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             out_of_charge: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -246,7 +257,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             do_completed: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -257,7 +268,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             bill_document_sent_to_accounts: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -268,7 +279,7 @@ const getOverviewPipeline = (start, end, importer) => {
                     {
                         $match: {
                             vessel_berthing: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     {
@@ -276,15 +287,15 @@ const getOverviewPipeline = (start, end, importer) => {
                     }
                 ],
                 gateway_igm_date: [
-                    { $match: { gateway_igm_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+                    { $match: { gateway_igm_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
                     { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$gateway_igm_date" } }
                 ],
                 discharge_date: [
-                    { $match: { discharge_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+                    { $match: { discharge_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
                     { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$discharge_date" } }
                 ],
                 empty_offload: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     { $match: { "container_nos.emptyContainerOffLoadDate": { $gte: toYMD(start), $lte: end.toISOString() } } },
                     {
@@ -347,7 +358,7 @@ const getOverviewPipeline = (start, end, importer) => {
 };
 
 // 🚢 Movement Pipeline
-const getMovementPipeline = (start, end, importer) => {
+const getMovementPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -358,10 +369,12 @@ const getMovementPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     // All metrics count containers
     const makeContainerFacet = (field) => [
-        { $match: { ...importerMatch } },
+        { $match: { ...baseMatch } },
         { $unwind: "$container_nos" },
         { $match: { [`container_nos.${field}`]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         {
@@ -382,7 +395,7 @@ const getMovementPipeline = (start, end, importer) => {
                 empty_offload: makeContainerFacet("emptyContainerOffLoadDate"),
                 by_road: makeContainerFacet("by_road_movement_date"),
                 detention_start: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     {
                         $match: {
@@ -404,7 +417,7 @@ const getMovementPipeline = (start, end, importer) => {
                 ],
                 // Trends
                 arrival_trend: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     { $match: { "container_nos.arrival_date": { $gte: sevenDaysAgoStr, $lte: todayStr } } },
                     { $group: { _id: { $substr: ["$container_nos.arrival_date", 0, 10] }, count: { $sum: 1 } } },
@@ -429,7 +442,7 @@ const getMovementPipeline = (start, end, importer) => {
 };
 
 // 🏛 Customs Pipeline
-const getCustomsPipeline = (start, end, importer) => {
+const getCustomsPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -440,9 +453,11 @@ const getCustomsPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
@@ -459,12 +474,12 @@ const getCustomsPipeline = (start, end, importer) => {
                 discharge: makeJobFacet("discharge_date"),
                 // Add trend data for BE and OOC
                 be_trend: [
-                    { $match: { be_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { be_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: "$be_date", count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
                 ooc_trend: [
-                    { $match: { out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$out_of_charge", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ]
@@ -493,7 +508,7 @@ const getCustomsPipeline = (start, end, importer) => {
 };
 
 // 📄 Documentation Pipeline
-const getDocumentationPipeline = (start, end, importer) => {
+const getDocumentationPipeline = (start, end, importer, branchId) => {
     // Calculate 7 days ago for trend
     // Note: Documentation fields are ISO-like timestamps (YYYY-MM-DDTHH:mm), so we use ISO strings for range.
     // However, for trends grouping, we need to extract YYYY-MM-DD.
@@ -514,16 +529,18 @@ const getDocumentationPipeline = (start, end, importer) => {
     todayEnd.setHours(23, 59, 59, 999);
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Pending Documentation Logic (Snapshot)
     const pendingDocsMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { status: { $regex: /^pending$/i } },
             { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
             { awb_bl_no: { $ne: null, $ne: "" } },
@@ -567,7 +584,7 @@ const getDocumentationPipeline = (start, end, importer) => {
                 documentation_completed: makeJobFacet("documentation_completed_date_time"),
                 // Trend
                 docs_trend: [
-                    { $match: { documentation_completed_date_time: { $gte: sevenDaysAgo.toISOString(), $lte: todayEnd.toISOString() }, ...importerMatch } },
+                    { $match: { documentation_completed_date_time: { $gte: sevenDaysAgo.toISOString(), $lte: todayEnd.toISOString() }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$documentation_completed_date_time", 0, 10] }, count: { $sum: 1 } } }, // Extract YYYY-MM-DD
                     { $sort: { _id: 1 } }
                 ]
@@ -590,7 +607,7 @@ const getDocumentationPipeline = (start, end, importer) => {
 };
 
 // 📦 DoManagement Pipeline
-const getDoManagementPipeline = (start, end, importer) => {
+const getDoManagementPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -601,15 +618,17 @@ const getDoManagementPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // special handling for container do expiry
     const containerExpiryFacet = [
-        { $match: { ...importerMatch } },
+        { $match: { ...baseMatch } },
         { $unwind: "$container_nos" },
         { $match: { "container_nos.do_validity_upto_container_level": { $gte: toYMD(start), $lte: end.toISOString() } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$container_nos.do_validity_upto_container_level", container_number: "$container_nos.container_number" } }
@@ -631,7 +650,7 @@ const getDoManagementPipeline = (start, end, importer) => {
     // Matches logic in `doTeamListOfjobs.mjs` - NO DATE FILTER applied to these metrics
     const pendingDoMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { job_no: { $ne: null } },
             { be_no: { $exists: true, $ne: "" } },
             { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
@@ -661,7 +680,7 @@ const getDoManagementPipeline = (start, end, importer) => {
                     {
                         $match: {
                             do_validity_upto_job_level: { $gte: toYMD(start), $lte: end.toISOString() },
-                            ...importerMatch,
+                            ...baseMatch,
                             $or: [
                                 { do_completed: { $exists: false } },
                                 { do_completed: "" },
@@ -682,7 +701,7 @@ const getDoManagementPipeline = (start, end, importer) => {
                 ],
                 // Trend
                 do_trend: [
-                    { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$do_completed", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ],
@@ -690,7 +709,7 @@ const getDoManagementPipeline = (start, end, importer) => {
                 in_do_planning: [
                     {
                         $match: {
-                            ...importerMatch,
+                            ...baseMatch,
                             status: { $regex: /^pending$/i },
                             $or: [{ doPlanning: true }, { doPlanning: "true" }],
                             $and: [
@@ -729,7 +748,7 @@ const getDoManagementPipeline = (start, end, importer) => {
 };
 
 // 💰 Billing Pipeline
-const getBillingPipeline = (start, end, importer) => {
+const getBillingPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -740,15 +759,17 @@ const getBillingPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Facet for nested invoice dates
     const makeInvoiceFacet = (field) => [
-        { $match: { ...importerMatch } },
+        { $match: { ...baseMatch } },
         { $unwind: "$do_shipping_line_invoice" },
         { $match: { [`do_shipping_line_invoice.${field}`]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$do_shipping_line_invoice.${field}` } }
@@ -762,7 +783,7 @@ const getBillingPipeline = (start, end, importer) => {
                 payment_made: makeInvoiceFacet("payment_made_date"),
                 // Trend
                 billing_trend: [
-                    { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { bill_document_sent_to_accounts: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$bill_document_sent_to_accounts", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ]
@@ -782,7 +803,7 @@ const getBillingPipeline = (start, end, importer) => {
 };
 
 // 🚨 Exceptions Pipeline
-const getExceptionsPipeline = (start, end, importer) => {
+const getExceptionsPipeline = (start, end, importer, branchId) => {
     // DO validity today/expired: do_validity_upto_job_level <= today (or selected range?)
     // "Show alerts using existing fields: DO validity today/expired"
     // I'll assume it matches the range (expired within this range).
@@ -790,6 +811,8 @@ const getExceptionsPipeline = (start, end, importer) => {
     const today = new Date().toISOString().split('T')[0];
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     return [
         {
@@ -798,13 +821,13 @@ const getExceptionsPipeline = (start, end, importer) => {
                     {
                         $match: {
                             do_validity_upto_job_level: { $lte: today, $ne: null }, // Expired
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     { $project: { job_no: 1, importer: 1, relevant_date: "$do_validity_upto_job_level" } }
                 ],
                 containers_in_detention: [
-                    { $match: { ...importerMatch } },
+                    { $match: { ...baseMatch } },
                     { $unwind: "$container_nos" },
                     {
                         $match: {
@@ -818,7 +841,7 @@ const getExceptionsPipeline = (start, end, importer) => {
                         $match: {
                             bill_document_sent_to_accounts: { $exists: false },
                             detailed_status: "Completed", // "status = Completed"
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     { $project: { job_no: 1, importer: 1 } }
@@ -831,7 +854,7 @@ const getExceptionsPipeline = (start, end, importer) => {
                         $match: {
                             detailed_status: { $ne: "Completed" },
                             job_date: { $lt: start.toISOString() },
-                            ...importerMatch
+                            ...baseMatch
                         }
                     },
                     { $project: { job_no: 1, importer: 1, relevant_date: "$job_date" } }
@@ -853,7 +876,7 @@ const getExceptionsPipeline = (start, end, importer) => {
 };
 
 // ⚡ E-Sanchit Pipeline
-const getESanchitPipeline = (start, end, importer) => {
+const getESanchitPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -873,16 +896,18 @@ const getESanchitPipeline = (start, end, importer) => {
     const monthStartStr = toYMD(monthStart);
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Pending Logic: Matches getESanchitJobs.mjs "current pending" state
     const pendingEsanchitMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { status: { $regex: /^pending$/i } },
             { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
             { job_no: { $ne: null } },
@@ -914,12 +939,12 @@ const getESanchitPipeline = (start, end, importer) => {
                 esanchit_completed: makeJobFacet("esanchit_completed_date_time"),
                 // This Week (Monday to Today)
                 esanchit_completed_this_week: [
-                    { $match: { esanchit_completed_date_time: { $gte: weekStartStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { esanchit_completed_date_time: { $gte: weekStartStr, $lte: todayStr }, ...baseMatch } },
                     { $project: { job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
                 ],
                 // This Month (1st to Today)
                 esanchit_completed_this_month: [
-                    { $match: { esanchit_completed_date_time: { $gte: monthStartStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { esanchit_completed_date_time: { $gte: monthStartStr, $lte: todayStr }, ...baseMatch } },
                     { $project: { job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
                 ]
             }
@@ -944,7 +969,7 @@ const getESanchitPipeline = (start, end, importer) => {
 };
 
 // ⚙️ Operations Pipeline
-const getOperationsPipeline = (start, end, importer) => {
+const getOperationsPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -955,9 +980,11 @@ const getOperationsPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
@@ -1015,7 +1042,7 @@ const getOperationsPipeline = (start, end, importer) => {
                 operations_completed: makeJobFacet("completed_operation_date"),
                 // Trend
                 ops_trend: [
-                    { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { completed_operation_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$completed_operation_date", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ]
@@ -1038,7 +1065,7 @@ const getOperationsPipeline = (start, end, importer) => {
 };
 
 // 📤 Submission Pipeline
-const getSubmissionPipeline = (start, end, importer) => {
+const getSubmissionPipeline = (start, end, importer, branchId) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -1049,9 +1076,11 @@ const getSubmissionPipeline = (start, end, importer) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
-        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...importerMatch } },
+        { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
         { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
@@ -1059,7 +1088,7 @@ const getSubmissionPipeline = (start, end, importer) => {
     // Matches logic in getSubmissionJobs.mjs
     const pendingSubmissionMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { status: { $regex: /^pending$/i } },
             { job_no: { $ne: null } },
             {
@@ -1109,7 +1138,7 @@ const getSubmissionPipeline = (start, end, importer) => {
                 submission_completed: makeJobFacet("submission_completed_date_time"),
                 // Trend
                 submission_trend: [
-                    { $match: { submission_completed_date_time: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...importerMatch } },
+                    { $match: { submission_completed_date_time: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
                     { $group: { _id: { $substr: ["$submission_completed_date_time", 0, 10] }, count: { $sum: 1 } } },
                     { $sort: { _id: 1 } }
                 ]
@@ -1132,13 +1161,15 @@ const getSubmissionPipeline = (start, end, importer) => {
 };
 
 // 💓 Pulse Combined Pipeline
-const getPulsePipeline = (start, end, importer) => {
+const getPulsePipeline = (start, end, importer, branchId) => {
     const importerMatch = importer ? { importer: importer } : {};
+    const branchMatch = getBranchMatch(branchId);
+    const baseMatch = { ...importerMatch, ...branchMatch };
 
     // E-Sanchit Pending
     const pendingEsanchitMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { status: { $regex: /^pending$/i } },
             { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
             { job_no: { $ne: null } },
@@ -1163,7 +1194,7 @@ const getPulsePipeline = (start, end, importer) => {
     // Documentation Pending
     const pendingDocsMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { status: { $regex: /^pending$/i } },
             { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
             { awb_bl_no: { $ne: null, $ne: "" } },
@@ -1200,7 +1231,7 @@ const getPulsePipeline = (start, end, importer) => {
     // Submission Pending
     const pendingSubmissionMatch = {
         $and: [
-            importerMatch,
+            baseMatch,
             { status: { $regex: /^pending$/i } },
             { job_no: { $ne: null } },
             {
@@ -1284,7 +1315,7 @@ const getPulsePipeline = (start, end, importer) => {
 
     // DO (In DO Planning)
     const inDoPlanningMatch = {
-        ...importerMatch,
+        ...baseMatch,
         status: { $regex: /^pending$/i },
         $or: [{ doPlanning: true }, { doPlanning: "true" }],
         $and: [

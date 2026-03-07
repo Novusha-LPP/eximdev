@@ -41,6 +41,7 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 function DoPlanning() {
   const [doDocCounts, setDoDocCounts] = useState({
@@ -94,6 +95,7 @@ function DoPlanning() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
@@ -244,7 +246,8 @@ function DoPlanning() {
           selectedICD,
           selectedImporter,
           selectedStatusFilter,
-          showUnresolvedOnly
+          showUnresolvedOnly,
+          selectedBranch
         );
       }
     },
@@ -257,6 +260,7 @@ function DoPlanning() {
       selectedImporter,
       selectedStatusFilter,
       showUnresolvedOnly,
+      selectedBranch,
     ]
   );
 
@@ -498,7 +502,8 @@ function DoPlanning() {
 
       statusFilter = "",
       unresolvedOnly = false,
-      doPlanningDateToday = false
+      doPlanningDateToday = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -519,6 +524,7 @@ function DoPlanning() {
 
             unresolvedOnly: unresolvedOnly.toString(),
             doPlanningDateToday: doPlanningDateToday.toString(),
+            branchId: selectedBranch || "all", // ✅ Add branchId parameter
           },
         });
 
@@ -679,7 +685,8 @@ function DoPlanning() {
         selectedImporter,
         selectedStatusFilter,
         showUnresolvedOnly,
-        showDoPlanningTodayOnly
+        showDoPlanningTodayOnly,
+        selectedBranch
       );
     }
   }, [
@@ -694,6 +701,7 @@ function DoPlanning() {
     showDoPlanningTodayOnly,
     showTodayJobs,
     fetchJobs,
+    selectedBranch,
   ]);
 
   // Handle search input change
@@ -1387,9 +1395,9 @@ function DoPlanning() {
                 >
                   {container.container_number}
                 </a>
-                <ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
                 <IconButton

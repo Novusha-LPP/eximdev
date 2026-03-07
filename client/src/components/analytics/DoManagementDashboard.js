@@ -15,8 +15,8 @@ const AnimatedNumber = ({ value }) => {
 
 const DoManagementDashboard = () => {
     const navigate = useNavigate();
-    const { startDate, endDate, importer } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('do-management', startDate, endDate, importer);
+    const { startDate, endDate, importer, selectedBranch } = useAnalytics();
+    const { data: rawData, loading } = useLiveAnalytics('do-management', startDate, endDate, importer, selectedBranch);
 
     const isDataLoaded = !loading && rawData && rawData.summary && Object.keys(rawData.summary).length > 0;
 

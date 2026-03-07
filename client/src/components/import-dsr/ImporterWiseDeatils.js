@@ -4,9 +4,11 @@ import Autocomplete from "@mui/material/Autocomplete";
 import axios from "axios";
 import ReactApexChart from "react-apexcharts";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function ImporterWiseDetails() {
   const { selectedYear } = useContext(SelectedYearContext);
+  const { selectedBranch } = useContext(BranchContext);
   const [importerData, setImporterData] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState(null);
   const [assignedUsers, setAssignedUsers] = useState([]);
@@ -38,7 +40,8 @@ function ImporterWiseDetails() {
     async function getImporterList() {
       if (selectedYear) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`,
+          { params: { branchId: selectedBranch } }
         );
         setImporterData(res.data);
         // Check if importerData is not empty before setting the selectedImporter
@@ -48,7 +51,7 @@ function ImporterWiseDetails() {
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYear, selectedBranch]);
 
   // Set selected importer on autocomplete onChange
   const handleImporterChange = (event, newValue) => {
@@ -72,14 +75,15 @@ function ImporterWiseDetails() {
             .replace(/\)/g, "")
             .replace(/\[/g, "")
             .replace(/\]/g, "")
-            .replace(/,/g, "")}/${selectedYear}`
+            .replace(/,/g, "")}/${selectedYear}`,
+          { params: { branchId: selectedBranch } }
         );
 
         setData(res.data);
       }
     }
     getImporterData();
-  }, [selectedImporter, selectedYear]);
+  }, [selectedImporter, selectedYear, selectedBranch]);
 
   // Fetch assigned users for the selected importer
   useEffect(() => {

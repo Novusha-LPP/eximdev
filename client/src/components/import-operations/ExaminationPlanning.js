@@ -33,6 +33,7 @@ import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
 import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
 import IndentForDeliveryPDF from "./ConcorJobOrderPDF.js";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -48,6 +49,7 @@ function ImportOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   const navigate = useNavigate();
   // Remove local page state and use persistent pagination from context
@@ -122,7 +124,8 @@ function ImportOperations() {
     currentStatus,
     currentICD,
     currentImporter,
-    unresolvedOnly = false
+    unresolvedOnly = false,
+    selectedBranch = "all"
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !yearState || !user?.username) {
@@ -147,7 +150,7 @@ function ImportOperations() {
             selectedICD: currentICD,
             importer: currentImporter?.trim() || "",
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
-
+            branchId: selectedBranch || "all", // ✅ Add branchId parameter
           },
           signal: controller.signal,
         }
@@ -273,7 +276,9 @@ function ImportOperations() {
           selectedYearState,
           location.state?.detailedStatusExPlan || "",
           location.state?.selectedICD || "",
-          location.state?.selectedImporter || ""
+          location.state?.selectedImporter || "",
+          false,
+          selectedBranch
         );
         isFromJobDetailsRef.current = false; // Reset flag
       }, 100);
@@ -288,7 +293,8 @@ function ImportOperations() {
         detailedStatusExPlan,
         selectedICD,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -302,6 +308,7 @@ function ImportOperations() {
     isInitialized,
     location.state,
     showUnresolvedOnly,
+    selectedBranch,
   ]);
 
   // Cleanup on unmount
@@ -472,9 +479,9 @@ function ImportOperations() {
                 >
                   {container.container_number}
                 </a>
-                <ContainerTrackButton 
-                  customHouse={row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                <ContainerTrackButton
+                  customHouse={row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
                 <IconButton

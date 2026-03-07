@@ -35,6 +35,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 const extractJobNo = (input) => {
   if (!input) return "";
@@ -55,6 +56,7 @@ function JobList(props) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
+  const { selectedBranch } = useContext(BranchContext);
   const {
     searchQuery,
     setSearchQuery,
@@ -66,8 +68,6 @@ function JobList(props) {
     setSelectedImporter,
     selectedBeType,
     setSelectedBeType,
-    selectedBranch,
-    setSelectedBranch,
     selectedMode,
     setSelectedMode,
   } = useSearchQuery();
@@ -110,6 +110,9 @@ function JobList(props) {
       if (detailedStatus && detailedStatus !== "all") {
         params.append("detailedStatus", detailedStatus);
       }
+      if (selectedBranch) {
+        params.append("branchId", selectedBranch);
+      }
       const queryString = params.toString();
       const url = `${process.env.REACT_APP_API_STRING
         }/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""
@@ -129,7 +132,7 @@ function JobList(props) {
       setImporters(fetchedImporters);
     }
     getImporterList();
-  }, [selectedYearState, detailedStatus, user]);
+  }, [selectedYearState, detailedStatus, user, selectedBranch]);
 
   const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];

@@ -24,6 +24,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext";
 import {
   getTableRowsClassname,
   getTableRowInlineStyle,
@@ -33,6 +34,7 @@ import InvoiceDisplay from "./InvoiceDisplay";
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
@@ -214,7 +216,8 @@ function BillingSheet() {
       currentICD,
       OBLvalue,
       selectedImporter,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -231,6 +234,7 @@ function BillingSheet() {
             importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
             username: user?.username || "", // ✅ Send username for ICD filtering
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+            branchId: selectedBranch || "all", // ✅ Add branchId parameter
           },
         });
 
@@ -269,7 +273,8 @@ function BillingSheet() {
         selectedICD,
         blValue,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -282,6 +287,7 @@ function BillingSheet() {
     user?.username,
     showUnresolvedOnly,
     fetchJobs,
+    selectedBranch,
   ]);
 
   const columns = [

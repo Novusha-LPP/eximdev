@@ -107,6 +107,14 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
       }
     }
 
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
+    }
+
     if (req.userIcdFilter) {
       baseQuery.$and.push(req.userIcdFilter);
     }

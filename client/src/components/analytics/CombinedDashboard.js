@@ -57,8 +57,8 @@ const PulseCard = ({ title, value, path }) => {
 
 const CombinedDashboard = () => {
     const navigate = useNavigate();
-    const { startDate, endDate, importer } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('pulse', startDate, endDate, importer);
+    const { startDate, endDate, importer, selectedBranch } = useAnalytics();
+    const { data: rawData, loading } = useLiveAnalytics('pulse', startDate, endDate, importer, selectedBranch);
 
     const summary = rawData?.summary || {};
     const isDataLoaded = !loading && Object.keys(summary).length > 0;

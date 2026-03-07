@@ -7,8 +7,8 @@ import ModalTable from './ModalTable';
 import useLiveAnalytics from '../../hooks/useLiveAnalytics';
 
 const ExceptionsDashboard = () => {
-    const { startDate, endDate, importer } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('exceptions', startDate, endDate, importer);
+    const { startDate, endDate, importer, selectedBranch } = useAnalytics();
+    const { data: rawData, loading } = useLiveAnalytics('exceptions', startDate, endDate, importer, selectedBranch);
     const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
 
     const [modalOpen, setModalOpen] = useState(false);

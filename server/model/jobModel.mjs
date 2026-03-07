@@ -648,7 +648,7 @@ jobSchema.pre("save", function (next) {
 
 // Existing indexes - keep for compatibility
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });
-jobSchema.index({ year: 1, job_no: 1 }, { unique: true });
+jobSchema.index({ branch_id: 1, year: 1, job_no: 1 }, { unique: true });
 
 // New indexes for structured job numbers and branch management
 jobSchema.index({ job_number: 1 }, { unique: true, sparse: true });

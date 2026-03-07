@@ -18,8 +18,8 @@ import {
 import useLiveAnalytics from '../../hooks/useLiveAnalytics';
 
 const BillingDashboard = () => {
-    const { startDate, endDate, importer } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('billing', startDate, endDate, importer);
+    const { startDate, endDate, importer, selectedBranch } = useAnalytics();
+    const { data: rawData, loading } = useLiveAnalytics('billing', startDate, endDate, importer, selectedBranch);
     const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
 
     const [modalOpen, setModalOpen] = useState(false);

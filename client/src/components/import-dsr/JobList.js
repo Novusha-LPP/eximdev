@@ -66,10 +66,15 @@ function JobList(props) {
     setSelectedImporter,
     selectedBeType,
     setSelectedBeType,
+    selectedBranch,
+    setSelectedBranch,
+    selectedMode,
+    setSelectedMode,
   } = useSearchQuery();
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [importers, setImporters] = useState("");
+  const [branches, setBranches] = useState([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
@@ -144,6 +149,19 @@ function JobList(props) {
     [importers, getUniqueImporterNames]
   );
 
+  // Fetch branches
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/get-branches`);
+        setBranches(response.data);
+      } catch (error) {
+        console.error("Error fetching branches:", error);
+      }
+    };
+    fetchBranches();
+  }, []);
+
   // Main jobs hook
   const {
     rows,
@@ -164,7 +182,9 @@ function JobList(props) {
     debouncedSearchQuery,
     selectedImporter,
     selectedBeType,
-    showUnresolvedOnly
+    showUnresolvedOnly,
+    selectedBranch,
+    selectedMode
   );
 
   // When unresolved toggle changes, re-fetch page 1
@@ -463,6 +483,37 @@ function JobList(props) {
           <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
         </TextField>
 
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="Branch"
+          value={selectedBranch}
+          onChange={(e) => setSelectedBranch(e.target.value)}
+          sx={{ width: "150px", marginRight: "10px" }}
+        >
+          <MenuItem value="all">All Branches</MenuItem>
+          {branches.map((b) => (
+            <MenuItem key={b._id} value={b._id}>
+              {b.branch_name}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="Mode"
+          value={selectedMode}
+          onChange={(e) => setSelectedMode(e.target.value)}
+          sx={{ width: "110px", marginRight: "10px" }}
+        >
+          <MenuItem value="all">All Modes</MenuItem>
+          <MenuItem value="SEA">Sea</MenuItem>
+          <MenuItem value="AIR">Air</MenuItem>
+        </TextField>
+
         <Autocomplete
           sx={{ width: "220px", marginRight: "10px" }}
           freeSolo
@@ -577,6 +628,8 @@ function JobList(props) {
           selectedICD,
           selectedImporter,
           selectedBeType, // persist
+          selectedBranch,
+          selectedMode
         },
       }),
     setRows, // <-- pass here

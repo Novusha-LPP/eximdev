@@ -21,7 +21,7 @@ import { faAnchor } from "@fortawesome/free-solid-svg-icons";
 const ContainerCellContent = ({ cell, handleCopy }) => {
   const [containerTrackOpen, setContainerTrackOpen] = useState(false);
   const [containerTrackContainers, setContainerTrackContainers] = useState([]);
-  
+
   const containerNos = cell.row.original.container_nos;
   const jobData = cell.row.original;
 
@@ -47,10 +47,10 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
 
   return (
     <React.Fragment>
-      <ContainerTrackDialog 
-        open={containerTrackOpen} 
-        onClose={() => setContainerTrackOpen(false)} 
-        containers={containerTrackContainers} 
+      <ContainerTrackDialog
+        open={containerTrackOpen}
+        onClose={() => setContainerTrackOpen(false)}
+        containers={containerTrackContainers}
       />
       {containerNos?.map((container, id) => {
         const weightShortage = parseFloat(container.weight_shortage) || 0;
@@ -84,8 +84,8 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
                 {container.container_number}
               </a>
             </Tooltip>
-            
-         
+
+
 
             | "{container.size}"
             <div
@@ -96,23 +96,23 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
               }}
             >
 
-                 {/* CONCOR Container Track Button */}
-            {jobData?.custom_house?.toUpperCase().includes("ICD KHODIYAR") && (
-              <Tooltip title="Track on CONCOR India">
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setContainerTrackContainers([container.container_number]);
-                    setContainerTrackOpen(true);
-                  }}
-                  style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
-                >
-                  <FontAwesomeIcon icon={faAnchor} style={{ fontSize: 12, color: "#7c3aed" }} />
-                </IconButton>
-              </Tooltip>
-            )}
+              {/* CONCOR Container Track Button */}
+              {jobData?.custom_house?.toUpperCase().includes("ICD KHODIYAR") && (
+                <Tooltip title="Track on CONCOR India">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContainerTrackContainers([container.container_number]);
+                      setContainerTrackOpen(true);
+                    }}
+                    style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
+                  >
+                    <FontAwesomeIcon icon={faAnchor} style={{ fontSize: 12, color: "#7c3aed" }} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title="Copy Container Number" arrow>
                 <IconButton
                   size="small"
@@ -236,6 +236,7 @@ function useJobColumns(
           const {
             job_no,
             year,
+            job_number,
             type_of_b_e,
             consignment_type,
             payment_method,
@@ -365,7 +366,7 @@ function useJobColumns(
                   textDecoration: "none",
                 }}
               >
-                {job_no} <br /> {type_of_b_e} <br /> {consignment_type}
+                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type}
                 <br /> {custom_house} <br /> {payment_method}
               </a>
 

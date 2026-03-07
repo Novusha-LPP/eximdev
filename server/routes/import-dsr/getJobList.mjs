@@ -134,7 +134,7 @@ const buildAllContainerDateExists = (field) => ({
 // ---------------- FIELD SELECTION ----------------
 
 const criticalFields = `
-  _id job_no cth_no year importer custom_house hawb_hbl_no awb_bl_no 
+  _id job_no job_number branch_id branch_code trade_type mode cth_no year importer custom_house hawb_hbl_no awb_bl_no 
   container_nos vessel_berthing detailed_status be_no be_date type_of_Do
   gateway_igm_date discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
@@ -175,6 +175,7 @@ const escapeRegex = (string) =>
 const buildSearchQuery = (search) => ({
   $or: [
     { job_no: { $regex: escapeRegex(search), $options: "i" } },
+    { job_number: { $regex: escapeRegex(search), $options: "i" } },
     { type_of_b_e: { $regex: escapeRegex(search), $options: "i" } },
     { supplier_exporter: { $regex: escapeRegex(search), $options: "i" } },
     { consignment_type: { $regex: escapeRegex(search), $options: "i" } },
@@ -226,6 +227,9 @@ router.get(
         search = "",
         unresolvedOnly,
         _nocache,
+        branchId,
+        tradeType,
+        mode,
       } = req.query;
 
       const searchTerm = String(search || "").trim();
@@ -283,6 +287,17 @@ router.get(
           $regex: `^${escapeRegex(typeOfBe)}$`,
           $options: "i",
         };
+      }
+
+      // 3.6) Branch, Trade Type, Mode
+      if (branchId && branchId.toLowerCase() !== "all") {
+        query.branch_id = branchId;
+      }
+      if (tradeType && tradeType.toLowerCase() !== "all") {
+        query.trade_type = tradeType.toUpperCase();
+      }
+      if (mode && mode.toLowerCase() !== "all") {
+        query.mode = mode.toUpperCase();
       }
 
       // 4) status

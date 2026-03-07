@@ -148,7 +148,14 @@ const ImportCreateJob = () => {
     bankName
     ,
     ie_code_no,
-    setIeCodeNo
+    setIeCodeNo,
+    branch_id,
+    setBranchId,
+    trade_type,
+    setTradeType,
+    mode,
+    setMode,
+    branches
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
@@ -290,6 +297,64 @@ const ImportCreateJob = () => {
         spacing={3}
         style={{ maxWidth: "1100px", margin: "0 auto" }}
       >
+        {/* Branch Selection */}
+        <Grid item xs={12} md={4}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Select Branch:
+          </Typography>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            value={branch_id}
+            onChange={(e) => setBranchId(e.target.value)}
+            variant="outlined"
+          >
+            {branches.map((b) => (
+              <MenuItem key={b._id} value={b._id}>
+                {b.branch_name} ({b.branch_code})
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        {/* Trade Type (Read-only or Disabled for Import Form) */}
+        <Grid item xs={12} md={4}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Trade Type:
+          </Typography>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            value={trade_type}
+            onChange={(e) => setTradeType(e.target.value)}
+            variant="outlined"
+            disabled
+          >
+            <MenuItem value="IMP">Import</MenuItem>
+            <MenuItem value="EXP">Export</MenuItem>
+          </TextField>
+        </Grid>
+
+        {/* Mode Selection */}
+        <Grid item xs={12} md={4}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Mode:
+          </Typography>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            variant="outlined"
+          >
+            <MenuItem value="SEA">Sea</MenuItem>
+            <MenuItem value="AIR">Air</MenuItem>
+          </TextField>
+        </Grid>
+
         {/* Custom House */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>

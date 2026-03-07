@@ -37,7 +37,7 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
 
         img.onload = () => {
           // Add "JOB NO. AMD/IMP/SEA/{job_no}/{year}" top-centered
-          const jobNumberText = `JOB NO. AMD/IMP/SEA/${data.job_no}/${data.year}`;
+          const jobNumberText = data.job_number || `JOB NO. AMD/IMP/SEA/${data.job_no}/${data.year}`;
           doc.setFontSize(16);
           doc.setFont("helvetica", "bold");
           const jobNumberWidth = doc.getTextWidth(jobNumberText);

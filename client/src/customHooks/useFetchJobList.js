@@ -10,7 +10,9 @@ function useFetchJobList(
   searchQuery,
   selectedImporter,
   selectedBeType = "all", // NEW: filtering by Type of BE
-  unresolvedOnly = false // NEW: unresolvedOnly toggle
+  unresolvedOnly = false, // NEW: unresolvedOnly toggle
+  selectedBranch = "all",
+  selectedMode = "all"
 ) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -31,7 +33,7 @@ function useFetchJobList(
   const CACHE_TTL = 1000 * 60 * 2; // 2 minutes
 
   const makeCacheKey = (page) =>
-    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${searchQuery}|${page}`;
+    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${selectedBranch}|${selectedMode}|${searchQuery}|${page}`;
 
   const getFromCache = (key) => {
     const e = queryCacheRef.current.get(key);
@@ -139,6 +141,12 @@ function useFetchJobList(
       if (unresolved) {
         apiUrl += `&unresolvedOnly=true`;
       }
+      if (selectedBranch && selectedBranch !== 'all') {
+        apiUrl += `&branchId=${encodeURIComponent(selectedBranch)}`;
+      }
+      if (selectedMode && selectedMode !== 'all') {
+        apiUrl += `&mode=${encodeURIComponent(selectedMode)}`;
+      }
       if (bypassCache) {
         apiUrl += `&_nocache=true`;
       }
@@ -241,14 +249,17 @@ function useFetchJobList(
     selectedImporter,
     user,
     unresolvedOnly,
+    unresolvedOnly,
     selectedBeType,
+    selectedBranch,
+    selectedMode,
   ]);
 
   // Auto-reset to page 1 when search query or major filters change
   // This ensures user doesn't stay on page 5 when filtering changes drastically
   useEffect(() => {
     setCurrentPage(1);
-  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType]);
+  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType, selectedBranch, selectedMode]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
 

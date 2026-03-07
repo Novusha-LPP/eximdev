@@ -64,6 +64,22 @@ const useImportJobForm = () => {
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
+  const [branch_id, setBranchId] = useState("");
+  const [trade_type, setTradeType] = useState("IMP");
+  const [mode, setMode] = useState("SEA");
+  const [branches, setBranches] = useState([]);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/get-branches`);
+        setBranches(response.data);
+      } catch (error) {
+        console.error("Error fetching branches:", error);
+      }
+    };
+    fetchBranches();
+  }, []);
 
   const [container_nos, setContainerNos] = useState([
     {
@@ -223,6 +239,9 @@ const useImportJobForm = () => {
     setSallerName("")
     setBankName("")
     setIeCodeNo("");
+    setBranchId("");
+    setTradeType("IMP");
+    setMode("SEA");
 
     // Reset any other states if necessary
   };
@@ -264,6 +283,9 @@ const useImportJobForm = () => {
           description,
           consignment_type,
           isDraftDoc,
+          branch_id,
+          trade_type,
+          mode,
           container_nos: container_nos.map((c) => ({
             ...c,
             // Copy seal_no into seal_number array so ViewJob can display it
@@ -552,7 +574,14 @@ const useImportJobForm = () => {
     setBankName
     ,
     ie_code_no,
-    setIeCodeNo
+    setIeCodeNo,
+    branch_id,
+    setBranchId,
+    trade_type,
+    setTradeType,
+    mode,
+    setMode,
+    branches
   };
 };
 

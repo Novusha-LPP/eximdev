@@ -119,6 +119,16 @@ const jobSchema = new mongoose.Schema({
   ////////////////////////////////////////////////// Excel sheet
   year: { type: String, trim: true },
   job_no: { type: String, trim: true },
+
+  // New Structured Fields
+  job_number: { type: String, trim: true, unique: true, sparse: true },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+  branch_code: { type: String, trim: true },
+  trade_type: { type: String, trim: true, enum: ["IMP", "EXP"] },
+  mode: { type: String, trim: true, enum: ["SEA", "AIR"] },
+  sequence_number: { type: Number },
+  financial_year: { type: String, trim: true },
+
   custom_house: { type: String, trim: true },
   job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
@@ -639,6 +649,12 @@ jobSchema.pre("save", function (next) {
 // Existing indexes - keep for compatibility
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });
 jobSchema.index({ year: 1, job_no: 1 }, { unique: true });
+
+// New indexes for structured job numbers and branch management
+jobSchema.index({ job_number: 1 }, { unique: true, sparse: true });
+jobSchema.index({ branch_id: 1 });
+jobSchema.index({ branch_id: 1, createdAt: 1 });
+jobSchema.index({ branch_code: 1, trade_type: 1, mode: 1, financial_year: 1 });
 
 // NEW: Indexes for primary search filters
 jobSchema.index({ year: 1, status: 1, detailed_status: 1 });

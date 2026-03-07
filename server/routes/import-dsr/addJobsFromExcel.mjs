@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { generateJobNumber } from "../../services/jobNumberService.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -69,8 +70,12 @@ router.post(
         awb_bl_no,
         custom_house,
         year,
-        job_date,
+        branch_id,
+        trade_type,
+        mode,
       } = req.body;
+
+      const financial_year = year;
 
       // ✅ Validate required fields
       if (!importer || !custom_house) {
@@ -105,13 +110,16 @@ router.post(
         }
       }
 
-      // ✅ Generate new job_no
-      const lastJob = await JobModel.findOne({ year }, { job_no: 1 })
-        .sort({ job_no: -1 })
-        .exec();
-      const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
-      const totalDigits = lastJob?.job_no?.length || 5;
-      const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
+      // ✅ Generate new structured job_number
+      const { job_number, branch_code, sequence_number } = await generateJobNumber({
+        branch_id,
+        trade_type,
+        mode,
+        financial_year
+      });
+
+      // ✅ Maintain backward compatibility for job_no (padded integer)
+      const newJobNo = sequence_number.toString().padStart(5, "0");
       const getTodayDate = () => {
         const today = new Date();
         const day = String(today.getDate()).padStart(2, "0");
@@ -125,8 +133,15 @@ router.post(
       // ✅ Create new job entry
       const newJob = new JobModel({
         job_no: newJobNo,
+        job_number,
+        branch_id,
+        branch_code,
+        trade_type,
+        mode,
+        sequence_number,
+        financial_year,
         ...req.body,
-        job_date: todayDate, // ← This line sets job_date to "now" if not provided
+        job_date: todayDate,
       });
 
       // ✅ Save to database
@@ -143,6 +158,7 @@ router.post(
         message: "Job successfully created.",
         job: {
           job_no: newJob.job_no,
+          job_number: newJob.job_number,
           custom_house: newJob.custom_house,
           importer: newJob.importer,
         },
@@ -226,8 +242,8 @@ router.post(
           typeof bill_date === "string"
             ? bill_date
             : bill_date != null
-            ? String(bill_date)
-            : "";
+              ? String(bill_date)
+              : "";
 
         // Define the filter to find existing jobs
         const filter = { year, job_no };
@@ -270,9 +286,9 @@ router.post(
 
               return newContainerData
                 ? {
-                    ...existingContainer,
-                    size: newContainerData.size,
-                  }
+                  ...existingContainer,
+                  size: newContainerData.size,
+                }
                 : existingContainer;
             }
           );

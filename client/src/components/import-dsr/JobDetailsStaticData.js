@@ -230,7 +230,7 @@ function JobDetailsStaticData(props) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center", flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Job Number</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529" }}>{props.params.job_no}</span>
+              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529" }}>{props.data?.job_number || props.params.job_no}</span>
             </div>
 
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
@@ -287,7 +287,7 @@ function JobDetailsStaticData(props) {
           <Row style={{ marginBottom: "15px", borderBottom: "1px solid #eee", paddingBottom: "10px", alignItems: "center" }}>
             <Col className="d-flex align-items-center justify-content-between">
               <h5 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>
-                Job Number: {props.params.job_no} | Custom House: {props.data?.custom_house}
+                Job Number: {props.data?.job_number || props.params.job_no} | Custom House: {props.data?.custom_house}
                 {props.data?.be_no ? null : props.data?.priorityJob &&
                   (props.data.priorityJob === "High Priority" ||
                     props.data.priorityJob === "Priority") && (

@@ -244,16 +244,28 @@ router.post('/api/mrm/import', async (req, res) => {
         // Safe bet: if import is requested, maybe they want to start fresh or fill gaps. 
         // Let's just append.
 
-        const sourceItems = await MRMItem.find({ month: sourceMonth, year: sourceYear });
+        const { userId } = req.body;
+        const sourceItems = await MRMItem.find({
+            month: sourceMonth,
+            year: sourceYear,
+            createdBy: userId
+        });
 
         if (sourceItems.length === 0) {
             return res.status(404).json({ error: "No data found in source month to import" });
         }
 
+        // Filter items that might be missing processDescription to avoid validation errors
+        const validSourceItems = sourceItems.filter(item => item.processDescription && item.processDescription.trim() !== "");
+
+        if (validSourceItems.length === 0) {
+            return res.status(400).json({ error: "Source month has no valid items with process descriptions" });
+        }
+
         let newItems = [];
 
         if (mode === 'as-is') {
-            newItems = sourceItems.map(item => ({
+            newItems = validSourceItems.map(item => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -268,10 +280,10 @@ router.post('/api/mrm/import', async (req, res) => {
                 targetDate: item.targetDate,
                 status: item.status,
                 remarks: item.remarks,
-                createdBy: req.body.userId // Assuming userId is passed or in session (simplified)
+                createdBy: userId
             }));
         } else if (mode === 'blank') {
-            newItems = sourceItems.map(item => ({
+            newItems = validSourceItems.map(item => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -287,7 +299,7 @@ router.post('/api/mrm/import', async (req, res) => {
                 targetDate: null,
                 status: "Gray",
                 remarks: "",
-                createdBy: req.body.userId
+                createdBy: userId
             }));
         }
 

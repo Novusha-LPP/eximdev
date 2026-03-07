@@ -81,13 +81,6 @@ import DrawerComponent from "../components/home/DrawerComponent.js";
 import ReleaseNotes from "../components/home/ReleaseNotes.js";
 import Feedback from "../components/home/Feedback.js";
 
-// Screens
-import Screen1 from "../components/Screens/Screen1.js";
-import Screen2 from "../components/Screens/Screen2.js";
-import Screen3 from "../components/Screens/Screen3.js";
-import Screen4 from "../components/Screens/Screen4.js";
-import Screen5 from "../components/Screens/Screen5.js";
-import Screen6 from "../components/Screens/Screen6.js";
 import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
@@ -555,55 +548,7 @@ function HomePage() {
                   }
                 />
 
-                {/* Screens */}
-                <Route
-                  path="/screen1"
-                  element={
-                    <ProtectedRoute requiredModule="Screen1">
-                      <Screen1 />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/screen2"
-                  element={
-                    <ProtectedRoute requiredModule="Screen2">
-                      <Screen2 />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/screen3"
-                  element={
-                    <ProtectedRoute requiredModule="Screen3">
-                      <Screen3 />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/screen4"
-                  element={
-                    <ProtectedRoute requiredModule="Screen4">
-                      <Screen4 />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/screen5"
-                  element={
-                    <ProtectedRoute requiredModule="Screen5">
-                      <Screen5 />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/screen6"
-                  element={
-                    <ProtectedRoute requiredModule="Screen6">
-                      <Screen6 />
-                    </ProtectedRoute>
-                  }
-                />
+
 
                 {/* Inward Register */}
                 <Route

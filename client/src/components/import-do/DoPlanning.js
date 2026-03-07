@@ -66,7 +66,7 @@ function DoPlanning() {
   const [loading, setLoading] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("");
 
-  // WebSocket states - Simple implementation like Screen1
+  // WebSocket states
   const [newJobsCount, setNewJobsCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
@@ -340,7 +340,7 @@ function DoPlanning() {
     }, 8000);
   };
 
-  // ✅ Simple WebSocket implementation - like your working Screen1
+  // ✅ Simple WebSocket implementation
   useEffect(() => {
     const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9006"
       }`;

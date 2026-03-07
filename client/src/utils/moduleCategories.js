@@ -18,12 +18,7 @@ export const moduleCategories = {
   "Outward Register": "Inward and Outward Register",
   "Exit Feedback": "HR & Management",
   Export: "Export",
-  Screen1: "Screens",
-  Screen2: "Screens",
-  Screen3: "Screens",
-  Screen4: "Screens",
-  Screen5: "Screens",
-  Screen6: "Screens",
+
   "DGFT": "DGFT",
   "Open Points": "Project Management",
   "KPI": "Project Management",

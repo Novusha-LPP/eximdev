@@ -21,12 +21,7 @@ const allModules = [
   "Exit Feedback",
   "e-Sanchit",
   "Documentation",
-  "Submission",
-  "Screen1",
-  "Screen2",
-  "Screen3",
-  "Screen4",
-  "Open Points",
+
   "KPI",
   "MRM",
   "DGFT",

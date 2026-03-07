@@ -111,15 +111,14 @@ router.post(
       }
 
       // ✅ Generate new structured job_number
-      const { job_number, branch_code, sequence_number } = await generateJobNumber({
+      const { job_number, branch_code, sequence_number, job_no: newJobNo } = await generateJobNumber({
         branch_id,
         trade_type,
         mode,
         financial_year
       });
 
-      // ✅ Maintain backward compatibility for job_no (padded integer)
-      const newJobNo = sequence_number.toString().padStart(5, "0");
+      console.log(`[AddJobRoute] Generated Job No: ${newJobNo}, Job Number: ${job_number}`);
       const getTodayDate = () => {
         const today = new Date();
         const day = String(today.getDate()).padStart(2, "0");

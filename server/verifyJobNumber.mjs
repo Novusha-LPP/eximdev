@@ -24,11 +24,12 @@ async function verify() {
         // 2. Generate a job number
         const tradeType = 'IMP';
         const mode = 'SEA';
-        const financialYear = '25-26';
+        const financialYear = '26-27'; // Targeted year
+        const targetBranchId = '69abeeae0a6647027c4a09a8'; // Targeted branch
 
-        console.log('Generating job number...');
+        console.log('Generating job number for target case...');
         const result = await generateJobNumber({
-            branch_id: branch._id,
+            branch_id: targetBranchId,
             trade_type: tradeType,
             mode: mode,
             financial_year: financialYear

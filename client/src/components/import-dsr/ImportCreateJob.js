@@ -310,11 +310,13 @@ const ImportCreateJob = () => {
             onChange={(e) => setBranchId(e.target.value)}
             variant="outlined"
           >
-            {branches.map((b) => (
-              <MenuItem key={b._id} value={b._id}>
-                {b.branch_name} ({b.branch_code})
-              </MenuItem>
-            ))}
+            {branches
+              .filter(b => b.category === mode) // Filter to match the selected Mode
+              .map((b) => (
+                <MenuItem key={b._id} value={b._id}>
+                  {b.branch_name} ({b.branch_code})
+                </MenuItem>
+              ))}
           </TextField>
         </Grid>
 
@@ -347,11 +349,28 @@ const ImportCreateJob = () => {
             fullWidth
             size="small"
             value={mode}
-            onChange={(e) => setMode(e.target.value)}
+            onChange={(e) => {
+              const newMode = e.target.value;
+              setMode(newMode);
+
+              const currentBranch = branches.find(b => b._id === branch_id);
+              const validBranches = branches.filter(b => b.category === newMode);
+
+              if (validBranches.length > 0) {
+                // Try to find the same branch location natively in the new mode
+                const matchingBranch = currentBranch
+                  ? validBranches.find(b => b.branch_code === currentBranch.branch_code)
+                  : null;
+
+                setBranchId(matchingBranch ? matchingBranch._id : validBranches[0]._id);
+              } else {
+                setBranchId(""); // Only clear if no valid branches exist
+              }
+            }}
             variant="outlined"
           >
-            <MenuItem value="SEA">Sea</MenuItem>
-            <MenuItem value="AIR">Air</MenuItem>
+            <MenuItem value="SEA">SEA</MenuItem>
+            <MenuItem value="AIR">AIR</MenuItem>
           </TextField>
         </Grid>
 

@@ -646,9 +646,10 @@ jobSchema.pre("save", function (next) {
 // ==================== PERFORMANCE OPTIMIZATION INDEXES ====================
 // These indexes dramatically improve search performance for the most common queries
 
-// Existing indexes - keep for compatibility
+// Existing indexes - keep for compatibility, but drop the overly restrictive duplicate key check
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });
-jobSchema.index({ branch_id: 1, year: 1, job_no: 1 }, { unique: true });
+// Allowed duplicate job_no across modes and trade types for the same branch and year
+jobSchema.index({ branch_id: 1, year: 1, trade_type: 1, mode: 1, job_no: 1 }, { unique: true });
 
 // New indexes for structured job numbers and branch management
 jobSchema.index({ job_number: 1 }, { unique: true, sparse: true });

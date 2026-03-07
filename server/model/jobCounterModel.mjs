@@ -6,6 +6,10 @@ const jobCounterSchema = new mongoose.Schema({
         ref: "Branch",
         required: true
     },
+    financial_year: {
+        type: String,
+        required: true
+    },
     trade_type: {
         type: String,
         required: true,
@@ -15,10 +19,6 @@ const jobCounterSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: ["SEA", "AIR"]
-    },
-    financial_year: {
-        type: String,
-        required: true
     },
     last_sequence: {
         type: Number,

@@ -36,7 +36,7 @@ const getMostRecentSendDate = (job) => {
 };
 
 router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 

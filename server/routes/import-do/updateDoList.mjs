@@ -5,8 +5,8 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, next) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+router.patch("/api/update-do-list", auditMiddleware("Job"), async (req, res) => {
+  const JobModel = req.JobModel;
 
   const {
     _id,
@@ -37,7 +37,7 @@ router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, nex
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-  
+
     // Create an object to hold the fields to update - INCLUDE ALL FIELDS
     const updateFields = {
       // ADD THE MISSING DOCUMENT FIELDS

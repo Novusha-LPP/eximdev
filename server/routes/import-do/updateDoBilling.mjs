@@ -6,12 +6,12 @@ const router = express.Router();
 
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
 
   try {
     if (req.params.id) {
       // Fetch job details to get job_no and year
-      const job = await JobModel.findOne({ _id: req.params.id }).lean();
+      const job = await req.JobModel.findOne({ _id: req.params.id }).lean();
       if (job) {
         req.jobInfo = {
           documentId: job._id,
@@ -30,73 +30,69 @@ const extractJobInfo = async (req, res, next) => {
 };
 
 // PATCH route for updating billing details
-router.patch(
-  "/api/update-do-billing/:id",
-  extractJobInfo,
-  auditMiddleware("Job"),
-  async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+router.patch("/api/update-do-billing", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
+  const JobModel = req.JobModel;
 
-    try {
-      const jobId = req.params.id;
-      const updateData = req.body;
+  try {
+    const jobId = req.params.id;
+    const updateData = req.body;
 
-      // ✅ Allowed fields for DO Billing update
-      const allowedUpdates = [
-        "icd_cfs_invoice",
-        "icd_cfs_invoice_img",
-        "other_invoices_img",
-        "shipping_line_invoice_imgs",
-        "bill_document_sent_to_accounts",
-        "dsr_queries", // ✅ allow updating dsr_queries from billing stage too
-        "thar_invoices",
-        "hasti_invoices",
-        "concor_invoice_and_receipt_copy",
+    // ✅ Allowed fields for DO Billing update
+    const allowedUpdates = [
+      "icd_cfs_invoice",
+      "icd_cfs_invoice_img",
+      "other_invoices_img",
+      "shipping_line_invoice_imgs",
+      "bill_document_sent_to_accounts",
+      "dsr_queries", // ✅ allow updating dsr_queries from billing stage too
+      "thar_invoices",
+      "hasti_invoices",
+      "concor_invoice_and_receipt_copy",
 
-      ];
+    ];
 
-      // Validate fields sent by client
-      const actualUpdates = Object.keys(updateData);
-      const isValidOperation = actualUpdates.every((field) =>
-        allowedUpdates.includes(field)
-      );
+    // Validate fields sent by client
+    const actualUpdates = Object.keys(updateData);
+    const isValidOperation = actualUpdates.every((field) =>
+      allowedUpdates.includes(field)
+    );
 
-      if (!isValidOperation) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid updates detected.",
-          invalidFields: actualUpdates.filter((f) => !allowedUpdates.includes(f))
-        });
-      }
-
-      // Perform update in one go
-      const updatedJob = await JobModel.findByIdAndUpdate(
-        jobId,
-        { $set: updateData },
-        { new: true, runValidators: true }
-      );
-
-      if (!updatedJob) {
-        return res.status(404).json({
-          success: false,
-          message: "Job not found",
-        });
-      }
-
-      res.status(200).json({
-        success: true,
-        message: "Billing details updated successfully",
-        updatedJob,
-      });
-    } catch (error) {
-      console.error("❌ Error updating billing details:", error);
-      res.status(500).json({
+    if (!isValidOperation) {
+      return res.status(400).json({
         success: false,
-        message: "Internal server error",
-        error: error.message,
+        message: "Invalid updates detected.",
+        invalidFields: actualUpdates.filter((f) => !allowedUpdates.includes(f))
       });
     }
+
+    // Perform update in one go
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      jobId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedJob) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Billing details updated successfully",
+      updatedJob,
+    });
+  } catch (error) {
+    console.error("❌ Error updating billing details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
+}
 );
 
 

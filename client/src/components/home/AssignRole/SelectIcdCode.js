@@ -14,6 +14,7 @@ import {
   Popconfirm
 } from "antd";
 import { UserContext } from "../../../contexts/UserContext";
+import { BranchContext } from "../../../contexts/BranchContext";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -23,14 +24,11 @@ function SelectIcdCode({ selectedUser }) {
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
   const { user } = useContext(UserContext);
+  const { availableIcds } = useContext(BranchContext);
   const [form] = Form.useForm();
 
   // ICD Code options
-  const icdCodeOptions = [
-    "ICD SACHANA",
-    "ICD SANAND",
-    "ICD KHODIYAR",
-  ];
+  const icdCodeOptions = availableIcds || [];
 
   useEffect(() => {
     // Reset form when selected user changes

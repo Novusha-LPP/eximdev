@@ -8,7 +8,7 @@ router.get(
   "/api/do-team-list-of-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     try {
       // Extract and validate query parameters

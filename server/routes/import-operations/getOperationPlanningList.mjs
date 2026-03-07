@@ -5,7 +5,7 @@ import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { username } = req.params;

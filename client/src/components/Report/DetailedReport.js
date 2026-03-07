@@ -43,11 +43,13 @@ import DownloadIcon from '@mui/icons-material/Download';
 import TableViewIcon from '@mui/icons-material/TableView';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import axios from "axios";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { UserContext } from "../../contexts/UserContext";
 import { useFetchYears } from "../../utils/useFetchYears";
+import { BranchContext } from "../../contexts/BranchContext";
 
 const columns = [
   { label: "Srl No.", key: "srlNo", minWidth: 50 },
@@ -75,6 +77,7 @@ const DetailedReport = () => {
   const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears();
   const [gradeFilter, setGradeFilter] = useState(""); // ✅ New Grade Filter
   const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const { activeBranch, activeCategory } = useContext(BranchContext);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportType, setExportType] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
@@ -124,10 +127,11 @@ const DetailedReport = () => {
       if (isSrManager && gradeFilter) {
         url.searchParams.append('grade', gradeFilter);
       }
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error("Failed to fetch data");
-      const json = await res.json();
-      setData(json);
+      if (isSrManager && gradeFilter) {
+        url.searchParams.append('grade', gradeFilter);
+      }
+      const res = await axios.get(url.toString(), { withCredentials: true });
+      setData(res.data);
     } catch (err) {
       setError("Failed to fetch import clearance data");
     } finally {
@@ -137,7 +141,7 @@ const DetailedReport = () => {
 
   useEffect(() => {
     fetchData();
-  }, [year, month, gradeFilter]); // ✅ Added gradeFilter dependency
+  }, [year, month, gradeFilter, activeBranch, activeCategory]); // ✅ Added branch/category dependencies
 
   const handlePreviousMonth = () => {
     const prev = parseInt(month) - 1;

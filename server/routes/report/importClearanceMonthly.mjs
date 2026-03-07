@@ -11,7 +11,7 @@ const SCRAP_HS_CODES = [
 ];
 
 router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   const { year, month } = req.params;
   const monthInt = parseInt(month, 10);

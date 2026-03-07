@@ -217,7 +217,7 @@ router.get(
   "/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer",
   applyUserImporterFilter,
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     try {
       const { year, status, detailedStatus, importer, selectedICD } =
@@ -384,6 +384,8 @@ router.get(
         page,
         limit,
         unresolvedOnly,
+        branch: req.headers["x-branch"] || "AHMEDABAD",
+        category: req.headers["x-category"] || "SEA",
         user: req.currentUser?.username || req.headers["x-username"] || null,
       });
 
@@ -847,7 +849,7 @@ const applyDotNotationToMerged = (merged, updateData) => {
 };
 
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { id } = req.params;
@@ -915,7 +917,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 // ---------------- SINGLE JOB FETCH ----------------
 
 router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { jobNo, year } = req.params;

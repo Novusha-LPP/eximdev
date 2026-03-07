@@ -8,7 +8,7 @@ const router = express.Router();
 // Create new branch
 router.post("/api/admin/branches", async (req, res) => {
     try {
-        const { branch_name, icd_list, categories } = req.body;
+        const { branch_name, categories, sea_icd_list, air_icd_list } = req.body;
 
         // Validate
         if (!branch_name) {
@@ -17,7 +17,8 @@ router.post("/api/admin/branches", async (req, res) => {
 
         const newBranch = new BranchModel({
             branch_name,
-            icd_list: icd_list || [],
+            sea_icd_list: sea_icd_list || [],
+            air_icd_list: air_icd_list || [],
             categories: categories || ["SEA"],
             sea_behavior: req.body.sea_behavior || "Other SEA",
         });
@@ -41,12 +42,13 @@ router.post("/api/admin/branches", async (req, res) => {
 // Update branch
 router.put("/api/admin/branches/:id", async (req, res) => {
     try {
-        const { icd_list, categories, isActive, branch_name } = req.body;
+        const { sea_icd_list, air_icd_list, categories, isActive, branch_name } = req.body;
 
         const branch = await BranchModel.findByIdAndUpdate(
             req.params.id,
             {
-                icd_list,
+                sea_icd_list,
+                air_icd_list,
                 categories,
                 isActive,
                 branch_name,

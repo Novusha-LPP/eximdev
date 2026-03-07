@@ -19,7 +19,7 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     // Extract and validate query parameters
@@ -405,7 +405,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   }
 });
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     // Extract and validate query parameters
@@ -785,7 +785,7 @@ export async function getTodayJob(req, res) {
 
 // Add this to your backend routes
 router.get('/get-new-do-billing-jobs', async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { since, username } = req.query;

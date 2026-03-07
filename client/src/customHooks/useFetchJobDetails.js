@@ -211,36 +211,49 @@ function useFetchJobDetails(
   // Fetch data
   useEffect(() => {
     async function getJobDetails() {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job/${params.selected_year}/${params.job_no}`
-      );
-      setData(response.data);
-      setSelectedDocuments(response.data.documents);
-      setSelectedChargesDocuments(response.data.DsrCharges || []);
+      try {
+        const branch = localStorage.getItem("activeBranch") || "AHMEDABAD";
+        const category = localStorage.getItem("activeCategory") || "SEA";
 
-      // Update DsrCharges to include custom charges from database
-      if (response.data.DsrCharges && response.data.DsrCharges.length > 0) {
-        const predefinedCharges = [
-          { document_name: "Notary" },
-          { document_name: "Duty" },
-          { document_name: "MISC" },
-          { document_name: "CE Certification Charges" },
-          { document_name: "ADC/NOC Charges" },
-        ];
-
-        // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = response.data.DsrCharges
-          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
-          .map(charge => ({ document_name: charge.document_name }));
-
-        // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
-          index === self.findIndex(c => c.document_name === charge.document_name)
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-job/${params.selected_year}/${params.job_no}`,
+          {
+            headers: {
+              "x-branch": branch,
+              "x-category": category,
+            }
+          }
         );
+        setData(response.data);
+        setSelectedDocuments(response.data.documents);
+        setSelectedChargesDocuments(response.data.DsrCharges || []);
 
-        // Combine predefined and unique custom charges
-        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setDsrCharges(allCharges);
+        // Update DsrCharges to include custom charges from database
+        if (response.data.DsrCharges && response.data.DsrCharges.length > 0) {
+          const predefinedCharges = [
+            { document_name: "Notary" },
+            { document_name: "Duty" },
+            { document_name: "MISC" },
+            { document_name: "CE Certification Charges" },
+            { document_name: "ADC/NOC Charges" },
+          ];
+
+          // Get unique custom charges from database (excluding predefined ones)
+          const customChargesFromDB = response.data.DsrCharges
+            .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
+            .map(charge => ({ document_name: charge.document_name }));
+
+          // Remove duplicates by document_name
+          const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
+            index === self.findIndex(c => c.document_name === charge.document_name)
+          );
+
+          // Combine predefined and unique custom charges
+          const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
+          setDsrCharges(allCharges);
+        }
+      } catch (error) {
+        console.error("Error fetching job details:", error);
       }
     }
 

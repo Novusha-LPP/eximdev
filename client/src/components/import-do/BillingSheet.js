@@ -23,6 +23,7 @@ import {
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import {
   getTableRowsClassname,
@@ -33,6 +34,7 @@ import InvoiceDisplay from "./InvoiceDisplay";
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { availableIcds } = useContext(BranchContext);
 
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
@@ -529,9 +531,11 @@ function BillingSheet() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {availableIcds?.map((icd) => (
+            <MenuItem key={icd} value={icd}>
+              {icd}
+            </MenuItem>
+          ))}
         </TextField>{" "}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"

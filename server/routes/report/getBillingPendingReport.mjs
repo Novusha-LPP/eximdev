@@ -6,7 +6,7 @@ const router = express.Router();
 
 // GET /api/report/billing-pending?year=22-23
 router.get("/api/report/billing-pending", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     // Get year from query params, default to "25-26" if not provided

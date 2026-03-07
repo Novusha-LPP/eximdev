@@ -13,6 +13,8 @@ export const BranchProvider = ({ children }) => {
         () => localStorage.getItem("activeCategory") || "SEA"
     );
 
+    const [isSwitching, setIsSwitching] = useState(false);
+
     useEffect(() => {
         if (user && user.assigned_branches && user.assigned_branches.length > 0) {
             const branchNames = user.assigned_branches.map(b => typeof b === 'object' ? b.branch_name : b);
@@ -41,13 +43,73 @@ export const BranchProvider = ({ children }) => {
         };
     }, [activeBranch, activeCategory]);
 
+    const handleBranchSwitch = (newBranch) => {
+        setIsSwitching(true);
+        setActiveBranch(newBranch);
+        localStorage.setItem("activeBranch", newBranch);
+
+        // Auto-correct category if it's not valid for the new branch
+        if (user && user.assigned_branches) {
+            const newBranchObj = user.assigned_branches.find(b =>
+                typeof b === 'object' ? b.branch_name === newBranch : b === newBranch
+            );
+            const branchCategories = newBranchObj?.categories || ["SEA", "AIR"];
+            if (!branchCategories.includes(activeCategory)) {
+                const fallbackCategory = branchCategories[0] || "SEA";
+                setActiveCategory(fallbackCategory);
+                localStorage.setItem("activeCategory", fallbackCategory);
+            }
+        }
+
+        // Give time for components to re-render with new context and trigger their loading states
+        setTimeout(() => {
+            setIsSwitching(false);
+        }, 500);
+    };
+
+    const handleCategorySwitch = (newCategory) => {
+        setIsSwitching(true);
+        setActiveCategory(newCategory);
+        localStorage.setItem("activeCategory", newCategory);
+
+        setTimeout(() => {
+            setIsSwitching(false);
+        }, 500);
+    };
+
     const availableIcds = React.useMemo(() => {
         if (!user || !user.assigned_branches) return [];
         const currentBranch = user.assigned_branches.find(b =>
             typeof b === 'object' ? b.branch_name === activeBranch : b === activeBranch
         );
-        return currentBranch?.icd_list || [];
-    }, [user, activeBranch]);
+
+        // Choose source based on category
+        let list = [];
+        if (activeCategory === "AIR") {
+            list = currentBranch?.air_icd_list || [];
+        } else {
+            list = currentBranch?.sea_icd_list || [];
+        }
+
+        return list.map(icd => typeof icd === 'object' ? icd.icd_name : icd);
+    }, [user, activeBranch, activeCategory]);
+
+    const availableIcdObjects = React.useMemo(() => {
+        if (!user || !user.assigned_branches) return [];
+        const currentBranch = user.assigned_branches.find(b =>
+            typeof b === 'object' ? b.branch_name === activeBranch : b === activeBranch
+        );
+
+        // Choose source based on category
+        let list = [];
+        if (activeCategory === "AIR") {
+            list = currentBranch?.air_icd_list || [];
+        } else {
+            list = currentBranch?.sea_icd_list || [];
+        }
+
+        return list;
+    }, [user, activeBranch, activeCategory]);
 
     const availableCategories = React.useMemo(() => {
         if (!user || !user.assigned_branches) return ["SEA", "AIR"];
@@ -70,12 +132,14 @@ export const BranchProvider = ({ children }) => {
         <BranchContext.Provider
             value={{
                 activeBranch,
-                setActiveBranch,
+                setActiveBranch: handleBranchSwitch,
                 activeCategory,
-                setActiveCategory,
+                setActiveCategory: handleCategorySwitch,
                 availableIcds,
+                availableIcdObjects,
                 availableCategories,
                 activeBranchBehavior,
+                isSwitching,
             }}
         >
             {children}

@@ -15,7 +15,7 @@ const buildSearchQuery = (search) => {
 };
 
 router.get("/api/get-jobs-overview/:year", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { year } = req.params;

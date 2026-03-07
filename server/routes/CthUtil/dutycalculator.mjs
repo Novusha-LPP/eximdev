@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Get all CTH entries (with pagination)
 router.get("/api/getallcth", async (req, res) => {
-  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const page = parseInt(req.query.page) || 1;
@@ -90,7 +90,7 @@ router.get("/api/getallcth", async (req, res) => {
 // Look up CTH by HS code
 // Look up CTH by HS code or by job number and year
 router.get("/api/lookup/:hsCode?/:jobNo/:year", async (req, res) => {
-  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { hsCode, jobNo, year } = req.params;

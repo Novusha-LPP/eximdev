@@ -7,7 +7,7 @@ const router = express.Router();
 // Helper to parse dates
 const parseDate = (d) => new Date(d);
 
-export const fetchAnalyticsData = async (module, startDate, endDate, importer) => {
+export const fetchAnalyticsData = async (JobModel, module, startDate, endDate, importer) => {
     let start, end;
 
     if (!startDate || !endDate) {
@@ -67,13 +67,13 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer) =
 };
 
 router.get("/api/analytics/:module", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     try {
         const { module } = req.params;
         const { startDate, endDate, importer } = req.query;
 
-        const data = await fetchAnalyticsData(module, startDate, endDate, importer);
+        const data = await fetchAnalyticsData(JobModel, module, startDate, endDate, importer);
         res.json(data);
     } catch (error) {
         console.error("Analytics Error:", error);

@@ -6,7 +6,7 @@ const router = express.Router();
 // GET suppliers/exporters by year + status + detailedStatus
 // Example: /api/get-supplier-exporter-list/25-26?status=Completed&detailedStatus=Discharged
 router.get("/api/get-supplier-exporter-list/:year", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const selectedYear = req.params.year;

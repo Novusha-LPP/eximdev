@@ -44,8 +44,17 @@ function useFetchOperationTeamJob(params) {
   useEffect(() => {
     async function getJobDetails() {
       try {
+        const branch = localStorage.getItem("activeBranch") || "AHMEDABAD";
+        const category = localStorage.getItem("activeCategory") || "SEA";
+
         const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job/${params.year}/${params.job_no}`
+          `${process.env.REACT_APP_API_STRING}/get-job/${params.year}/${params.job_no}`,
+          {
+            headers: {
+              "x-branch": branch,
+              "x-category": category,
+            }
+          }
         );
         setData(response.data);
       } catch (error) {

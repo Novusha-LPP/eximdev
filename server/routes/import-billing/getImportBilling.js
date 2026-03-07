@@ -139,7 +139,7 @@ router.get(
   "/api/get-billing-import-job",
   applyUserIcdFilter,
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     const {
       page = 1,
@@ -268,7 +268,7 @@ router.get(
   "/api/get-completed-billing-import-job",
   applyUserIcdFilter,
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     const {
       page = 1,
@@ -391,7 +391,7 @@ router.get(
 );
 
 router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   const {
     page = 1,
@@ -492,7 +492,7 @@ router.get(
   "/api/get-payment-requested-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     const {
       page = 1,

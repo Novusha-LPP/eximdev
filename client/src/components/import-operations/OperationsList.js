@@ -38,7 +38,7 @@ function OperationsList() {
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
-  const { availableIcds } = useContext(BranchContext);
+  const { availableIcds, availableIcdObjects } = useContext(BranchContext);
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -211,14 +211,16 @@ function OperationsList() {
   };
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "SACHANA ICD (INJKA6)",
-        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-      };
-      return houseMap[customHouse] || customHouse;
+      if (!availableIcdObjects || availableIcdObjects.length === 0) return customHouse;
+      const icdInfo = availableIcdObjects.find(
+        (icd) => icd.icd_name === customHouse
+      );
+      if (icdInfo && icdInfo.port_code) {
+        return `${customHouse} (${icdInfo.port_code})`;
+      }
+      return customHouse;
     },
-    []
+    [availableIcdObjects]
   );
 
   const handleCopy = (event, text) => {

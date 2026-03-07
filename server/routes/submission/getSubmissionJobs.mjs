@@ -18,7 +18,7 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     // Extract query parameters
@@ -197,7 +197,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
 
 
 router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     // Extract query parameters

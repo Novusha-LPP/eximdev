@@ -14,7 +14,7 @@ function formatImporter(importer) {
 
 // ✅ API Endpoint to get job counts for an importer
 router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { year, importerURL } = req.params;

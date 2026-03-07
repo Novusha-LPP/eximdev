@@ -5,12 +5,12 @@ const router = express.Router();
 
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
 
   try {
     if (req.body._id) {
       // Fetch job details to get job_no and year
-      const job = await JobModel.findOne({ _id: req.body._id }).lean();
+      const job = await req.JobModel.findOne({ _id: req.body._id }).lean();
       if (job) {
         req.jobInfo = {
           documentId: job._id,
@@ -28,8 +28,8 @@ const extractJobInfo = async (req, res, next) => {
   }
 };
 
-router.patch("/api/update-do-planning", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+router.patch("/api/update-do-list", auditMiddleware("Job"), async (req, res) => {
+  const JobModel = req.JobModel;
 
   try {
 

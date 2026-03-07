@@ -8,7 +8,7 @@ router.patch(
     "/api/update-advanced-payment/:id",
     auditMiddleware("Job"),
     async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+        const JobModel = req.JobModel;
 
         try {
             const { id } = req.params;

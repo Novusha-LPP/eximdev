@@ -7,10 +7,28 @@ const branchSchema = new mongoose.Schema({
         unique: true,
         trim: true,
     },
-    icd_list: [
+    sea_icd_list: [
         {
-            type: String,
-            trim: true,
+            icd_name: {
+                type: String,
+                trim: true,
+            },
+            port_code: {
+                type: String,
+                trim: true,
+            },
+        },
+    ],
+    air_icd_list: [
+        {
+            icd_name: {
+                type: String,
+                trim: true,
+            },
+            port_code: {
+                type: String,
+                trim: true,
+            },
         },
     ],
     categories: [

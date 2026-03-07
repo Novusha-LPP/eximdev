@@ -12,7 +12,7 @@ import {
     Card,
     Typography,
 } from "antd";
-import { PlusOutlined, EditOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, MinusCircleOutlined } from "@ant-design/icons";
 import axios from "axios";
 
 const { Title } = Typography;
@@ -44,13 +44,15 @@ function BranchManagement() {
 
     const handleOpenModal = (branch = null) => {
         setEditingBranch(branch);
-        if (branch) {
-            form.setFieldsValue(branch);
-        } else {
-            form.resetFields();
-            form.setFieldsValue({ isActive: true, categories: ["SEA"] });
-        }
         setIsModalVisible(true);
+        setTimeout(() => {
+            if (branch) {
+                form.setFieldsValue(branch);
+            } else {
+                form.resetFields();
+                form.setFieldsValue({ isActive: true, categories: ["SEA"] });
+            }
+        }, 0);
     };
 
     const handleCloseModal = () => {
@@ -101,10 +103,16 @@ function BranchManagement() {
             render: (behavior, record) => record.categories.includes("SEA") ? behavior : "-",
         },
         {
-            title: "ICD List",
-            dataIndex: "icd_list",
-            key: "icd_list",
-            render: (icds) => (icds.length > 0 ? icds.join(", ") : "-"),
+            title: "SEA ICDs",
+            dataIndex: "sea_icd_list",
+            key: "sea_icd_list",
+            render: (icds) => (icds && icds.length > 0 ? icds.map(icd => `${icd.icd_name} (${icd.port_code})`).join(", ") : "-"),
+        },
+        {
+            title: "AIR ICDs",
+            dataIndex: "air_icd_list",
+            key: "air_icd_list",
+            render: (icds) => (icds && icds.length > 0 ? icds.map(icd => `${icd.icd_name} (${icd.port_code})`).join(", ") : "-"),
         },
         {
             title: "Status",
@@ -212,12 +220,90 @@ function BranchManagement() {
                         }
                     </Form.Item>
 
+                    {/* SEA Ports Section */}
                     <Form.Item
-                        name="icd_list"
-                        label="Configured ICDs"
-                        help="Type an ICD name and press Enter to add."
+                        noStyle
+                        shouldUpdate={(prevValues, currentValues) => prevValues.categories !== currentValues.categories}
                     >
-                        <Select mode="tags" style={{ width: "100%" }} placeholder="e.g. MUNDRA, SANAND" />
+                        {({ getFieldValue }) =>
+                            getFieldValue('categories')?.includes('SEA') ? (
+                                <Card size="small" title="SEA Configured Ports" style={{ marginBottom: 16 }}>
+                                    <Form.List name="sea_icd_list">
+                                        {(fields, { add, remove }) => (
+                                            <>
+                                                {fields.map(({ key, name, ...restField }) => (
+                                                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                                                        <Form.Item
+                                                            {...restField}
+                                                            name={[name, 'icd_name']}
+                                                            rules={[{ required: true, message: 'Missing ICD Name' }]}
+                                                        >
+                                                            <Input placeholder="ICD Name" />
+                                                        </Form.Item>
+                                                        <Form.Item
+                                                            {...restField}
+                                                            name={[name, 'port_code']}
+                                                            rules={[{ required: true, message: 'Missing Port Code' }]}
+                                                        >
+                                                            <Input placeholder="Port Code" />
+                                                        </Form.Item>
+                                                        <MinusCircleOutlined onClick={() => remove(name)} style={{ color: 'red' }} />
+                                                    </Space>
+                                                ))}
+                                                <Form.Item>
+                                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                                        Add SEA Port
+                                                    </Button>
+                                                </Form.Item>
+                                            </>
+                                        )}
+                                    </Form.List>
+                                </Card>
+                            ) : null
+                        }
+                    </Form.Item>
+
+                    {/* AIR Ports Section */}
+                    <Form.Item
+                        noStyle
+                        shouldUpdate={(prevValues, currentValues) => prevValues.categories !== currentValues.categories}
+                    >
+                        {({ getFieldValue }) =>
+                            getFieldValue('categories')?.includes('AIR') ? (
+                                <Card size="small" title="AIR Configured Ports" style={{ marginBottom: 16 }}>
+                                    <Form.List name="air_icd_list">
+                                        {(fields, { add, remove }) => (
+                                            <>
+                                                {fields.map(({ key, name, ...restField }) => (
+                                                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                                                        <Form.Item
+                                                            {...restField}
+                                                            name={[name, 'icd_name']}
+                                                            rules={[{ required: true, message: 'Missing ICD Name' }]}
+                                                        >
+                                                            <Input placeholder="Airport Name" />
+                                                        </Form.Item>
+                                                        <Form.Item
+                                                            {...restField}
+                                                            name={[name, 'port_code']}
+                                                            rules={[{ required: true, message: 'Missing Port Code' }]}
+                                                        >
+                                                            <Input placeholder="Port Code" />
+                                                        </Form.Item>
+                                                        <MinusCircleOutlined onClick={() => remove(name)} style={{ color: 'red' }} />
+                                                    </Space>
+                                                ))}
+                                                <Form.Item>
+                                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                                        Add AIR Port
+                                                    </Button>
+                                                </Form.Item>
+                                            </>
+                                        )}
+                                    </Form.List>
+                                </Card>
+                            ) : null
+                        }
                     </Form.Item>
 
                     <Form.Item name="isActive" label="Status" valuePropName="checked">

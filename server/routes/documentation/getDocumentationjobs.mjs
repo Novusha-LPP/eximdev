@@ -20,7 +20,7 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
@@ -212,7 +212,7 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
   }
 });
 router.patch("/api/update-documentation-job/:job_no/:year", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   const { job_no, year } = req.params;
   const { documentation_completed_date_time, dsr_queries } = req.body;

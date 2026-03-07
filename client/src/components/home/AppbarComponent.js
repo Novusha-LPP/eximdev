@@ -80,9 +80,7 @@ function AppbarComponent(props) {
                 value={activeBranch || ""}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setActiveBranch(val);
-                  localStorage.setItem("activeBranch", val);
-                  window.location.reload();
+                  setActiveBranch(val); // This now handles localStorage and isSwitching
                 }}
                 displayEmpty
                 renderValue={(selected) => (
@@ -115,9 +113,7 @@ function AppbarComponent(props) {
                   value={activeCategory || ""}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setActiveCategory(val);
-                    localStorage.setItem("activeCategory", val);
-                    window.location.reload();
+                    setActiveCategory(val); // This now handles localStorage and isSwitching
                   }}
                   displayEmpty
                   renderValue={(selected) => (

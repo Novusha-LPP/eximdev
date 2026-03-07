@@ -4,7 +4,7 @@ import { getJobModel } from "../../model/jobModelFactory.mjs";
 const router = express.Router();
 
 router.get("/api/dsr/:year", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { year } = req.params;

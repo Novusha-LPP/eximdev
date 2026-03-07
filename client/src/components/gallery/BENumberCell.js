@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useEffect, useContext } from "react";
+import { BranchContext } from "../../contexts/BranchContext";
 import FileUpload from "./FileUpload";
 import { FaUpload } from "react-icons/fa";
 import axios from "axios";
@@ -34,16 +35,20 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
     return `${year}/${month}/${day}`; // Format as YYYY/MM/DD for display
   }, []);
 
+  const { availableIcdObjects } = useContext(BranchContext);
+
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "INJKA6",
-        "ICD SANAND": "INSAU6",
-        "ICD KHODIYAR": "INSBI6",
-      };
-      return houseMap[customHouse] || customHouse;
+      if (!availableIcdObjects || availableIcdObjects.length === 0) return customHouse;
+      const icdInfo = availableIcdObjects.find(
+        (icd) => icd.icd_name === customHouse
+      );
+      if (icdInfo && icdInfo.port_code) {
+        return icdInfo.port_code; // If not provided, it will fallback to customHouse
+      }
+      return customHouse;
     },
-    []
+    [availableIcdObjects]
   );
 
   // Sync BE Attachments

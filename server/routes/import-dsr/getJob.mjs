@@ -3,15 +3,14 @@ import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-job/:year/:jobNo", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+router.get("/api/get-job/:job_no", async (req, res) => {
+  const JobModel = req.JobModel;
 
   try {
-    const { jobNo, year } = req.params;
+    const { job_no } = req.params; // Changed from jobNo, year to job_no
 
     const job = await JobModel.findOne({
-      year,
-      job_no: jobNo,
+      job_no: job_no,
     });
 
     if (!job) {

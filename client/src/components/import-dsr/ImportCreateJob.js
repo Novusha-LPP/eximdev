@@ -37,14 +37,20 @@ import { UserContext } from "../../contexts/UserContext";
 
 const ImportCreateJob = () => {
   const { user } = React.useContext(UserContext);
-  const { activeBranch } = React.useContext(BranchContext);
+  const { activeBranch, activeCategory, activeBranchBehavior, availableIcds } = React.useContext(BranchContext);
 
   const currentBranchObj = user?.assigned_branches?.find(
     (b) => b.branch_name === activeBranch
   ) || user?.assigned_branches?.[0];
 
-  const branchCustomHouseOptions = currentBranchObj?.icd_list?.length > 0
-    ? currentBranchObj.icd_list
+  // Use the live activeCategory from context (reflects the user's dropdown selection)
+  const isAir = activeCategory === 'AIR';
+
+  // Use activeBranchBehavior from context (already computed, handles Ahmedabad detection)
+  const isAhmedabadSea = !isAir && activeBranchBehavior === 'HO SEA';
+
+  const branchCustomHouseOptions = availableIcds?.length > 0
+    ? availableIcds
     : customHouseOptions;
 
   // const [HSS, setHSS] = useState("");
@@ -137,6 +143,12 @@ const ImportCreateJob = () => {
     setNewDocumentCode,
     newDocumentName,
     setNewDocumentName,
+    igm_no,
+    setIgmNo,
+    gateway_igm,
+    setGatewayIgm,
+    no_of_pkgs,
+    setNoOfPkgs,
     fta_Benefit_date_time,
     setFtaBenefitDateTime,
     resetOtherDetails,
@@ -176,11 +188,15 @@ const ImportCreateJob = () => {
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
-        );
-        setImporters(res.data);
-        setSelectedImporter("Select Importer");
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          );
+          setImporters(res.data);
+          setSelectedImporter("Select Importer");
+        } catch (error) {
+          console.error("Error fetching importer list:", error);
+        }
       }
     }
     getImporterList();
@@ -427,18 +443,39 @@ const ImportCreateJob = () => {
             fullWidth
           />
         </Grid>
-        {/* <Grid item xs={12} md={4}>
+
+        {/* IGM Number - shown for all branches */}
+        <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-           bank:
+            IGM Number:
           </Typography>
           <TextField
-            value={adCode}
-            onChange={(e) => setAdCode(e.target.value)}
+            value={igm_no}
+            onChange={(e) => setIgmNo(e.target.value)}
             variant="outlined"
             size="small"
             fullWidth
+            placeholder="Enter IGM Number"
           />
-        </Grid> */}
+        </Grid>
+
+        {/* Gateway IGM - only for Ahmedabad / HO SEA branches */}
+        {isAhmedabadSea && (
+          <Grid item xs={12} md={6}>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              Gateway IGM:
+            </Typography>
+            <TextField
+              value={gateway_igm}
+              onChange={(e) => setGatewayIgm(e.target.value)}
+              variant="outlined"
+              size="small"
+              fullWidth
+              placeholder="Enter Gateway IGM"
+            />
+          </Grid>
+        )}
+
         {/* Exporter/Supplier */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -510,7 +547,7 @@ const ImportCreateJob = () => {
         {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            MAWB/BL Number:
+            {isAir ? "Airway BL:" : "MAWB/BL Number:"}
           </Typography>
           <TextField
             value={awb_bl_no}
@@ -525,7 +562,7 @@ const ImportCreateJob = () => {
         {/* BL Date */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            MAWB/BL Date:
+            {isAir ? "Airway Bill Date:" : "MAWB/BL Date:"}
           </Typography>
           <TextField
             type="date"
@@ -576,8 +613,8 @@ const ImportCreateJob = () => {
           />
         </Grid>
 
-        {/* Conditionally render HAWB/HBL fields when checkbox is true */}
-        {isCheckedHouse && (
+        {/* Conditionally render HAWB/HBL fields when checkbox is true and not AIR */}
+        {!isAir && isCheckedHouse && (
           <>
             <Grid item xs={12} md={6}>
               <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -633,10 +670,27 @@ const ImportCreateJob = () => {
             onChange={(e) => setJob_net_weight(e.target.value)}
             variant="outlined"
             size="small"
-            placeholder="Enter Gross Weight"
+            placeholder="Enter Net Weight"
             fullWidth
           />
         </Grid>
+
+        {isAir && (
+          <Grid item xs={12} md={6}>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              No Of Pkgs:
+            </Typography>
+            <TextField
+              value={no_of_pkgs}
+              onChange={(e) => setNoOfPkgs(e.target.value)}
+              variant="outlined"
+              size="small"
+              placeholder="Enter Number of Packages"
+              fullWidth
+            />
+          </Grid>
+        )}
+
         {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -1138,131 +1192,133 @@ const ImportCreateJob = () => {
           </Grid>
         </Grid>
 
-        <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Container Details:
-          </Typography>
+        {!isAir && (
+          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              Container Details:
+            </Typography>
 
-          {/* Parent container with spacing */}
-          <Grid container spacing={2} style={{ marginTop: "10px" }}>
-            {container_nos.map((container, index) => (
-              <Grid
-                container
-                item
-                xs={12}
-                alignItems="center"
-                key={`container-${index}`}
-                spacing={2} // Add spacing for child containers
-                style={{ marginTop: "10px" }}
+            {/* Parent container with spacing */}
+            <Grid container spacing={2} style={{ marginTop: "10px" }}>
+              {container_nos.map((container, index) => (
+                <Grid
+                  container
+                  item
+                  xs={12}
+                  alignItems="center"
+                  key={`container-${index}`}
+                  spacing={2} // Add spacing for child containers
+                  style={{ marginTop: "10px" }}
+                >
+                  {/* Container Number */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Container Number"
+                      value={container.container_number}
+                      onChange={(e) =>
+                        handleContainerChange(
+                          index,
+                          "container_number",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Grid>
+
+                  {/* Container Size */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Container Size"
+                      value={container.size}
+                      onChange={(e) =>
+                        handleContainerChange(index, "size", e.target.value)
+                      }
+                    />
+                  </Grid>
+
+                  {/* Seal No */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Seal No"
+                      value={container.seal_no}
+                      onChange={(e) =>
+                        handleContainerChange(index, "seal_no", e.target.value)
+                      }
+                    />
+                  </Grid>
+
+                  {/* Gross Wt */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Gross Wt"
+                      value={container.container_gross_weight}
+                      onChange={(e) =>
+                        handleContainerChange(
+                          index,
+                          "container_gross_weight",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Grid>
+
+                  {/* Net Wt */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Net Wt"
+                      value={container.net_weight_as_per_PL_document}
+                      onChange={(e) =>
+                        handleContainerChange(
+                          index,
+                          "net_weight_as_per_PL_document",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Grid>
+
+                  {/* Remove Container Button */}
+                  <Grid item xs={2}>
+                    <IconButton
+                      color="primary"
+                      onClick={() => handleRemoveContainer(index)}
+                      title="Remove Container"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Grid>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Add Container Button */}
+            <Grid container item xs={12} style={{ marginTop: "10px" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleAddContainer}
               >
-                {/* Container Number */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Container Number"
-                    value={container.container_number}
-                    onChange={(e) =>
-                      handleContainerChange(
-                        index,
-                        "container_number",
-                        e.target.value
-                      )
-                    }
-                  />
-                </Grid>
-
-                {/* Container Size */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Container Size"
-                    value={container.size}
-                    onChange={(e) =>
-                      handleContainerChange(index, "size", e.target.value)
-                    }
-                  />
-                </Grid>
-
-                {/* Seal No */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Seal No"
-                    value={container.seal_no}
-                    onChange={(e) =>
-                      handleContainerChange(index, "seal_no", e.target.value)
-                    }
-                  />
-                </Grid>
-
-                {/* Gross Wt */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Gross Wt"
-                    value={container.container_gross_weight}
-                    onChange={(e) =>
-                      handleContainerChange(
-                        index,
-                        "container_gross_weight",
-                        e.target.value
-                      )
-                    }
-                  />
-                </Grid>
-
-                {/* Net Wt */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Net Wt"
-                    value={container.net_weight_as_per_PL_document}
-                    onChange={(e) =>
-                      handleContainerChange(
-                        index,
-                        "net_weight_as_per_PL_document",
-                        e.target.value
-                      )
-                    }
-                  />
-                </Grid>
-
-                {/* Remove Container Button */}
-                <Grid item xs={2}>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleRemoveContainer(index)}
-                    title="Remove Container"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Grid>
-              </Grid>
-            ))}
+                Add Container
+              </Button>
+            </Grid>
           </Grid>
-
-          {/* Add Container Button */}
-          <Grid container item xs={12} style={{ marginTop: "10px" }}>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleAddContainer}
-            >
-              Add Container
-            </Button>
-          </Grid>
-        </Grid>
+        )}
 
         {/* test01 */}
         <Grid item xs={12} md={6} style={{ marginTop: "10px" }}>

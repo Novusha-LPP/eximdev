@@ -38,7 +38,7 @@ function CompletedOperations() {
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const { user } = useContext(UserContext);
-  const { availableIcds } = useContext(BranchContext);
+  const { availableIcds, availableIcdObjects } = useContext(BranchContext);
   const navigate = useNavigate();
 
   const [totalPages, setTotalPages] = useState(1);
@@ -358,14 +358,16 @@ function CompletedOperations() {
   // Function to get Custom House Location
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "SACHANA ICD (INJKA6)",
-        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-      };
-      return houseMap[customHouse] || customHouse;
+      if (!availableIcdObjects || availableIcdObjects.length === 0) return customHouse;
+      const icdInfo = availableIcdObjects.find(
+        (icd) => icd.icd_name === customHouse
+      );
+      if (icdInfo && icdInfo.port_code) {
+        return `${customHouse} (${icdInfo.port_code})`;
+      }
+      return customHouse;
     },
-    []
+    [availableIcdObjects]
   );
 
   // Function to format dates

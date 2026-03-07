@@ -4,6 +4,7 @@ import { TextField, MenuItem } from "@mui/material";
 import { FcCalendar } from "react-icons/fc";
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
+import { BranchContext } from "../../contexts/BranchContext";
 
 // ---------- Date helpers ----------
 const isDateOnly = (s) =>
@@ -95,6 +96,10 @@ const addDaysToDate = (dateString, days) => {
 
 // ---------- Component ----------
 const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
+  const { activeCategory, activeBranchBehavior } = React.useContext(BranchContext);
+  const isAir = activeCategory === 'AIR';
+  const isAhmedabadSea = !isAir && activeBranchBehavior === 'HO SEA';
+
   const rowData = cell.row.original || {};
   const {
     _id,
@@ -546,12 +551,16 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               "vessel_berthing"
             )}
             <br />
-            {renderRowDateEditor(
-              "GIGM",
-              dates.gateway_igm_date,
-              "gateway_igm_date"
+            {isAhmedabadSea && (
+              <>
+                {renderRowDateEditor(
+                  "GIGM",
+                  dates.gateway_igm_date,
+                  "gateway_igm_date"
+                )}
+                <br />
+              </>
             )}
-            <br />
             {renderRowDateEditor(
               "Discharge",
               dates.discharge_date,
@@ -561,6 +570,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
             {!isExBond &&
               !isLCL &&
+              isAhmedabadSea &&
               containers.map((c, i) =>
                 renderContainerEditor(
                   "Rail-out",

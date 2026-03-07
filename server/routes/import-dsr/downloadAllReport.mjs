@@ -20,7 +20,7 @@ const parseDate = (dateStr) => {
   return isNaN(date.getTime()) ? null : date;
 };
 router.get("/api/download-report/:years/:status", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     let { years, status } = req.params;

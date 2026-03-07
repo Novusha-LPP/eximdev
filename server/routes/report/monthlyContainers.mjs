@@ -1,11 +1,10 @@
 import express from "express";
-import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
 // Route: /api/report/monthly-containers/:year/:month
 router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   const { year, month } = req.params;
   const { custom_house } = req.query;

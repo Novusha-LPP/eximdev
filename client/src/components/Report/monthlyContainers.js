@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import React, { useState, useEffect } from "react";
+import { useFetchYears } from "../../utils/useFetchYears";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -46,15 +46,6 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 
-// Custom dot component with growth/decline indicators
-const CustomDot = ({ cx, cy, payload, dataKey, index, allData }) => {
-  if (index === 0) return null; // No comparison for first month
-
-  const prevValue = allData[index - 1][dataKey];
-  const currValue = payload[dataKey];
-  const isGrowth = currValue > prevValue;
-
-import { useFetchYears } from "../../utils/useFetchYears";
 // Custom dot component with growth/decline indicators
 const CustomDot = ({ cx, cy, payload, dataKey, index, allData }) => {
   if (index === 0) return null; // No comparison for first month
@@ -204,7 +195,6 @@ const TrendChart = ({ trendData }) => {
 
 const MonthlyContainers = () => {
   const theme = useTheme();
-  const [year, setYear] = useState("25-26");
   const { years, selectedYear: year, setSelectedYear: setYear } = useFetchYears();
   const currentMonth = String(new Date().getMonth() + 1);
   const [month, setMonth] = useState(currentMonth);
@@ -217,13 +207,7 @@ const MonthlyContainers = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
   const [selectedICD, setSelectedICD] = useState("");
-  const { availableIcds } = useContext(BranchContext);
-  const navigate = useNavigate();
-
-  const years = [
-    { value: "25-26", label: "25-26" },
-    { value: "24-25", label: "24-25" },
-  ];
+  const { availableIcds, activeBranch, activeCategory } = useContext(BranchContext);
   const navigate = useNavigate();
 
   // The years array is now fetched dynamically through the useFetchYears hook.
@@ -285,7 +269,7 @@ const MonthlyContainers = () => {
 
   useEffect(() => {
     fetchData();
-  }, [year, month, selectedICD]);
+  }, [year, month, selectedICD, activeBranch, activeCategory]);
 
   const handleSort = (column) => {
     const isAsc = sortColumn === column && sortDirection === 'asc';
@@ -526,9 +510,6 @@ const MonthlyContainers = () => {
                       {icd}
                     </MenuItem>
                   ))}
-                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
                 </Select>
               </FormControl>
 

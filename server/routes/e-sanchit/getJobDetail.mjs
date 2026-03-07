@@ -3,8 +3,8 @@ import { getJobModel } from "../../model/jobModelFactory.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-esanchit-job/:job_no/:year", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+router.get("/api/get-e-sanchit-job-detail/:id", async (req, res) => {
+  const JobModel = req.JobModel;
 
   const { job_no, year } = req.params;
   try {

@@ -19,7 +19,7 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   const { username } = req.params;
   const {

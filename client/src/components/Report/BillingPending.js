@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Box,
   Typography,
@@ -35,6 +35,7 @@ import {
 } from "@mui/icons-material";
 import axios from "axios";
 import { useFetchYears } from "../../utils/useFetchYears";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function BillingPending() {
   const [loading, setLoading] = useState(true);
@@ -46,10 +47,11 @@ function BillingPending() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears();
+  const { activeBranch, activeCategory } = useContext(BranchContext);
 
   useEffect(() => {
     fetchBillingPendingData();
-  }, [selectedYear]);
+  }, [selectedYear, activeBranch, activeCategory]);
 
   const fetchBillingPendingData = async () => {
     try {

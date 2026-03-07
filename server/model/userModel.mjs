@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-
+import "./branchModel.mjs";
+import "./importerSchemaModel.mjs";
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({

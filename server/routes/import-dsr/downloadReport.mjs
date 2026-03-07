@@ -24,7 +24,7 @@ const parseDate = (dateStr) => {
 router.get(
   "/api/download-report/:years/:importerURL/:status",
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     try {
       let { years, importerURL, status } = req.params;

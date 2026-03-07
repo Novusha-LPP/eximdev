@@ -9,7 +9,7 @@ router.get(
   "/api/get-completed-operations/:username",
   applyUserIcdFilter,
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     try {
       const { username } = req.params;

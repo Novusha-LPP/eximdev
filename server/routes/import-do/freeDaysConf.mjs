@@ -20,7 +20,7 @@ import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     // Extract and validate query parameters
@@ -133,7 +133,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 
 // PATCH API that updates only the free_time
 router.patch("/api/update-free-time/:id", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { id } = req.params; // Extract job ID from route parameters
@@ -170,7 +170,7 @@ router.patch("/api/update-free-time/:id", async (req, res) => {
 
 // PATCH API that updates free_time and all DO-related documents
 router.patch("/api/update-free-days-config", async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const {

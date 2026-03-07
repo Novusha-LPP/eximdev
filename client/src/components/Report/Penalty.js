@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import {
   parse, isValid, isWithinInterval, getYear, getMonth, getQuarter
@@ -6,8 +6,10 @@ import {
 import './Penalty.css';
 import BillingPending from './BillingPending'; // Importing the existing component
 import MonthlyContainers from './monthlyContainers';
+import { BranchContext } from '../../contexts/BranchContext';
 
 const Penalty = () => {
+  const { activeBranch, activeCategory } = useContext(BranchContext);
   // Basic state for the report tab
   const [activeReport, setActiveReport] = useState('monthly-container'); // Default to monthly container
 
@@ -56,7 +58,7 @@ const Penalty = () => {
     };
 
     fetchReports();
-  }, []);
+  }, [activeBranch, activeCategory]);
 
   const filterByTime = (items) => {
     return items.filter(item => {

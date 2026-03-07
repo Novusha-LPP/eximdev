@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { UserContext } from "../contexts/UserContext";
+import { BranchContext } from "../contexts/BranchContext";
 
 function useFetchJobList(
   detailedStatus,
@@ -20,6 +21,7 @@ function useFetchJobList(
   const [userImporters, setUserImporters] = useState([]);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
+  const { activeBranch, activeCategory } = useContext(BranchContext);
 
   // PERFORMANCE: AbortController to cancel previous requests
   // Prevents wasted API calls and stale data when user rapidly changes filters
@@ -31,7 +33,7 @@ function useFetchJobList(
   const CACHE_TTL = 1000 * 60 * 2; // 2 minutes
 
   const makeCacheKey = (page) =>
-    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${searchQuery}|${page}`;
+    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${activeBranch}|${activeCategory}|${searchQuery}|${page}`;
 
   const getFromCache = (key) => {
     const e = queryCacheRef.current.get(key);
@@ -147,6 +149,8 @@ function useFetchJobList(
       const response = await axios.get(apiUrl, {
         headers: {
           ...(user?.username ? { "x-username": user.username } : {}),
+          "x-branch": activeBranch || "AHMEDABAD",
+          "x-category": activeCategory || "SEA",
         },
         signal: signal, // Pass abort signal to cancel request if needed
       });
@@ -213,6 +217,8 @@ function useFetchJobList(
             {
               headers: {
                 ...(user?.username ? { "x-username": user.username } : {}),
+                "x-branch": activeBranch || "AHMEDABAD",
+                "x-category": activeCategory || "SEA",
               },
             }
           );
@@ -224,7 +230,17 @@ function useFetchJobList(
       }
     }
     fetchInitialUnresolvedCount();
-  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType]);
+  }, [
+    status,
+    selectedYearState,
+    user,
+    detailedStatus,
+    selectedICD,
+    selectedImporter,
+    selectedBeType,
+    activeBranch,
+    activeCategory
+  ]);
 
   // Auto-trigger search when filters change (including on page change)
   useEffect(() => {
@@ -242,13 +258,15 @@ function useFetchJobList(
     user,
     unresolvedOnly,
     selectedBeType,
+    activeBranch,
+    activeCategory,
   ]);
 
   // Auto-reset to page 1 when search query or major filters change
   // This ensures user doesn't stay on page 5 when filtering changes drastically
   useEffect(() => {
     setCurrentPage(1);
-  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType]);
+  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType, activeBranch, activeCategory]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
 

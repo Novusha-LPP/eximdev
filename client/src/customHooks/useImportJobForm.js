@@ -64,6 +64,9 @@ const useImportJobForm = () => {
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
+  const [igm_no, setIgmNo] = useState("");
+  const [gateway_igm, setGatewayIgm] = useState("");
+  const [no_of_pkgs, setNoOfPkgs] = useState("");
 
   const [container_nos, setContainerNos] = useState([
     {
@@ -180,6 +183,9 @@ const useImportJobForm = () => {
     setDescription("");
     setConsignmentType("");
     setIsDraftDoc(false);
+    setIgmNo("");
+    setGatewayIgm("");
+    setNoOfPkgs("");
     setContainerNos([
       {
         container_number: "",
@@ -264,6 +270,9 @@ const useImportJobForm = () => {
           description,
           consignment_type,
           isDraftDoc,
+          igm_no,
+          gateway_igm,
+          no_of_pkgs,
           container_nos: container_nos.map((c) => ({
             ...c,
             // Copy seal_no into seal_number array so ViewJob can display it
@@ -502,6 +511,12 @@ const useImportJobForm = () => {
     setConsignmentType,
     isDraftDoc,
     setIsDraftDoc,
+    igm_no,
+    setIgmNo,
+    gateway_igm,
+    setGatewayIgm,
+    no_of_pkgs,
+    setNoOfPkgs,
     container_nos,
     handleAddContainer,
     handleRemoveContainer,

@@ -5,7 +5,7 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 const router = express.Router();
 
 router.patch("/api/update-documentation-job/:id", auditMiddleware('Job'), async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+  const JobModel = req.JobModel;
 
   try {
     const { documentation_completed_date_time, documentationQueries } = req.body;

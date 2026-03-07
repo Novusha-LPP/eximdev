@@ -7,7 +7,7 @@ const router = express.Router();
 router.put("/api/update-job/:year/:jobNo",
   auditMiddleware('Job'),
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     const { jobNo, year } = req.params;
 
@@ -279,7 +279,7 @@ router.put("/api/update-job/:year/:jobNo",
 router.patch("/api/update-job/fields/:year/:jobNo",
   auditMiddleware('Job'),
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     const { year, jobNo } = req.params;
     const { vessel_berthing, arrival_date, container_index } = req.body;
@@ -319,7 +319,7 @@ router.patch("/api/update-job/fields/:year/:jobNo",
 router.put("/api/admin/update-job-static/:year/:jobNo",
   auditMiddleware('Job'),
   async (req, res) => {
-    const JobModel = getJobModel(req.headers['x-branch'], req.headers['x-category']);
+    const JobModel = req.JobModel;
 
     const { year, jobNo } = req.params;
     const updateData = req.body;

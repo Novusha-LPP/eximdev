@@ -2,13 +2,26 @@ import "./App.scss";
 import "./styles/job-details.scss";
 import axios from "axios";
 import { UserContext } from "./contexts/UserContext";
-import { BranchProvider } from "./contexts/BranchContext";
+import { BranchProvider, BranchContext } from "./contexts/BranchContext";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import LoadingOverlay from "./components/common/LoadingOverlay";
+
+// Inner component to access BranchContext for the loading overlay
+const AppContent = ({ user }) => {
+  const { isSwitching } = useContext(BranchContext);
+
+  return (
+    <>
+      <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+      <LoadingOverlay isVisible={isSwitching} message="Switching Branch..." />
+    </>
+  );
+};
 
 function App() {
   const [user, setUser] = useState(null);
@@ -63,19 +76,15 @@ function App() {
     }
   }, [user]);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
-
   return (
     <UserContext.Provider value={{ user, setUser }}>
       <BranchProvider>
         <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+          {loading ? (
+            <LoadingOverlay isVisible={true} message="Loading Alvision Pulse..." />
+          ) : (
+            <AppContent user={user} />
+          )}
         </LocalizationProvider>
       </BranchProvider>
     </UserContext.Provider>

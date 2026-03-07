@@ -12,7 +12,7 @@ import { BranchContext } from "../../contexts/BranchContext";
 import { useContext } from "react";
 
 function JobDetailsStaticData(props) {
-  const { activeBranchBehavior, activeBranch } = useContext(BranchContext);
+  const { activeBranchBehavior, activeBranch, availableIcdObjects } = useContext(BranchContext);
   const [expanded, setExpanded] = useState(false);
   const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
   const isAdmin = user?.role === "Admin";
@@ -176,14 +176,16 @@ function JobDetailsStaticData(props) {
 
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "SACHANA ICD (INJKA6)",
-        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-      };
-      return houseMap[customHouse] || customHouse;
+      if (!availableIcdObjects || availableIcdObjects.length === 0) return customHouse;
+      const icdInfo = availableIcdObjects.find(
+        (icd) => icd.icd_name === customHouse
+      );
+      if (icdInfo && icdInfo.port_code) {
+        return `${customHouse} (${icdInfo.port_code})`;
+      }
+      return customHouse;
     },
-    []
+    [availableIcdObjects]
   );
 
   const formatDate = useCallback((dateStr) => {

@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
-  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly, branchId } = req.query;
 
   // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -88,6 +89,14 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
       });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ Apply user-based ICD filter from middleware

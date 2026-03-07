@@ -17,6 +17,7 @@ const buildSearchQuery = (search) => ({
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
@@ -28,6 +29,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     const importer = req.query.importer ? decodeURIComponent(req.query.importer).trim() : "";
     const selectedICD = req.query.selectedICD ? decodeURIComponent(req.query.selectedICD).trim() : "";
     const selectedYear = req.query.year ? req.query.year.trim() : ""; // ✅ Extract and trim year
+    const branchId = req.query.branchId; // ✅ Extract branchId
 
     if (page < 1 || limit < 1) {
       return res.status(400).json({ message: "Invalid pagination parameters" });
@@ -82,9 +84,16 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${importer}$`, "i") } });
     }
 
-    // ✅ Apply ICD Code Filter if provided
     if (selectedICD && selectedICD !== "Select ICD") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ Apply user-based ICD filter from middleware

@@ -35,6 +35,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -60,6 +61,7 @@ function List() {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -178,7 +180,8 @@ function List() {
       selectedImporter,
       unresolvedOnly = false,
       emergencyOnly = false,
-      freeTimeFilter = ""
+      freeTimeFilter = "",
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -196,6 +199,7 @@ function List() {
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               emergency: emergencyOnly.toString(), // ✅ Add emergency parameter
               freeTimeFilter, // ✅ Add freeTimeFilter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -238,7 +242,8 @@ function List() {
         selectedImporter,
         showUnresolvedOnly,
         showEmergencyOnly,
-        freeTimeFilter
+        freeTimeFilter,
+        selectedBranch
       );
     }
   }, [
@@ -251,6 +256,7 @@ function List() {
     showUnresolvedOnly,
     showEmergencyOnly,
     freeTimeFilter,
+    selectedBranch,
     fetchJobs,
   ]);
 
@@ -721,9 +727,9 @@ function List() {
                 >
                   {container.container_number}
                 </a>
-                <ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
                 <IconButton

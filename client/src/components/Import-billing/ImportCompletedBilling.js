@@ -21,6 +21,7 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import InvoiceDisplay from "../import-do/InvoiceDisplay.js";
 import { TabContext } from "../import-do/ImportDO.js";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -31,6 +32,7 @@ function ImportCompletedBilling() {
     useSearchQuery();
   const [years, setYears] = useState([]);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
@@ -119,7 +121,8 @@ function ImportCompletedBilling() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -134,6 +137,7 @@ function ImportCompletedBilling() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -159,7 +163,7 @@ function ImportCompletedBilling() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, selectedBranch] // ✅ Add selectedYear as a dependency
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
@@ -171,7 +175,8 @@ function ImportCompletedBilling() {
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -181,6 +186,7 @@ function ImportCompletedBilling() {
     selectedYearState,
     fetchJobs,
     showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    selectedBranch,
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -401,11 +407,11 @@ function ImportCompletedBilling() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} <ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
-                />
-                | "{container.size}"
+                  {container.container_number} <ContainerTrackButton
+                    customHouse={cell?.row?.original?.custom_house}
+                    containerNo={container.container_number}
+                  />
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>
@@ -432,14 +438,14 @@ function ImportCompletedBilling() {
           return isNaN(date)
             ? value
             : date.toLocaleString("en-IN", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              });
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            });
         },
       },
 

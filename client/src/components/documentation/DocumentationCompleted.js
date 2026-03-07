@@ -21,6 +21,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -28,6 +29,7 @@ function DocumentationCompletedd() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -124,7 +126,8 @@ function DocumentationCompletedd() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -139,6 +142,7 @@ function DocumentationCompletedd() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -172,11 +176,11 @@ function DocumentationCompletedd() {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
       fetchJobs(
-        currentPage,
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -185,7 +189,8 @@ function DocumentationCompletedd() {
     selectedImporter,
     selectedYearState,
     user?.username,
-    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    showUnresolvedOnly,
+    selectedBranch,
     fetchJobs,
   ]);
 
@@ -229,8 +234,8 @@ function DocumentationCompletedd() {
           cell.row.original.priorityJob === "High Priority"
             ? "orange"
             : cell.row.original.priorityJob === "Priority"
-            ? "yellow"
-            : "transparent";
+              ? "yellow"
+              : "transparent";
         return (
           <a
             href={`/documentationJob/view-job/${job_no}/${year}`}
@@ -284,9 +289,9 @@ function DocumentationCompletedd() {
           <React.Fragment>
             {containerNos?.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}<ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                {container.container_number}<ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
               </div>

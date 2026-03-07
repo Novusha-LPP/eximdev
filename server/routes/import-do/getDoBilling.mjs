@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -30,6 +31,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       obl_telex_bl,
       year,
       unresolvedOnly,
+      branchId,
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -106,6 +108,14 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({
         obl_telex_bl: { $regex: new RegExp(`^${decodedOBL}$`, "i") },
       });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ Apply user-based ICD filter from middleware

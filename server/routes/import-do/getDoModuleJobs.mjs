@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly, branchId } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -110,6 +111,14 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // ✅ Apply importer filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ Apply ICD filter if provided
@@ -405,7 +414,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly, branchId } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -477,6 +486,14 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
     // ✅ Apply importer filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ Apply ICD filter if provided
@@ -600,6 +617,7 @@ export async function getTodayJob(req, res) {
       obl_telex_bl,
       year,
       unresolvedOnly,
+      branchId,
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -662,6 +680,14 @@ export async function getTodayJob(req, res) {
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
       });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ If selectedICD is provided, filter by ICD Code

@@ -216,6 +216,13 @@ function useFetchJobList(
             unresolvedOnly: true
           });
 
+          if (selectedBranch && selectedBranch !== 'all') {
+            queryParams.append('branchId', selectedBranch);
+          }
+          if (selectedMode && selectedMode !== 'all') {
+            queryParams.append('mode', selectedMode);
+          }
+
           const response = await axios.get(
             `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${selectedImporter || 'all'}?${queryParams}`,
             {
@@ -232,7 +239,7 @@ function useFetchJobList(
       }
     }
     fetchInitialUnresolvedCount();
-  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType]);
+  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType, selectedBranch, selectedMode]);
 
   // Auto-trigger search when filters change (including on page change)
   useEffect(() => {

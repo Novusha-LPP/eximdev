@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, async (req, res) => {
@@ -14,6 +15,7 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
       importer = "",
       selectedICD,
       year,
+      branchId,
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -64,6 +66,16 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
       };
     }
 
+    // ✅ Build Branch Condition
+    let branchCondition = {};
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        branchCondition = { branch_id: new mongoose.Types.ObjectId(branchId) };
+      } catch (e) {
+        branchCondition = { branch_id: branchId };
+      }
+    }
+
     // ✅ Build Final Query
     const filterConditions = {
       $and: [
@@ -71,6 +83,7 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
         importerCondition, // ✅ Importer Filter
         yearCondition, // ✅ Year Filter
         searchQuery, // ✅ Search Query
+        branchCondition, // ✅ Branch Filter
         {
           status: "Pending",
           be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },

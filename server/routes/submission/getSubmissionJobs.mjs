@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract query parameters
-    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly } = req.query;
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly, branchId } = req.query;
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
@@ -124,6 +125,14 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
+    }
+
     // ✅ Apply ICD Code Filter - User-based filtering takes precedence
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
@@ -197,7 +206,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract query parameters
-    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year } = req.query;
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, branchId } = req.query;
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
@@ -362,6 +371,14 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
     // ✅ Apply Importer Filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
 
     // ✅ Apply ICD Code Filter - User-based filtering takes precedence

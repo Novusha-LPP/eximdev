@@ -26,6 +26,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -35,6 +36,7 @@ function SubmissionCompleted() {
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = React.useState([]);
@@ -198,7 +200,8 @@ function SubmissionCompleted() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -213,6 +216,7 @@ function SubmissionCompleted() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -245,7 +249,7 @@ function SubmissionCompleted() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch);
     }
   }, [
     page,
@@ -254,6 +258,7 @@ function SubmissionCompleted() {
     selectedYearState,
     showUnresolvedOnly,
     user?.username,
+    selectedBranch,
     fetchJobs,
   ]);
   // Debounce search input
@@ -340,9 +345,9 @@ function SubmissionCompleted() {
           <React.Fragment>
             {containerNos?.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}<ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                {container.container_number}<ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
               </div>

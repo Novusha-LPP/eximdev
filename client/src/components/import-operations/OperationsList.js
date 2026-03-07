@@ -23,6 +23,7 @@ import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
@@ -39,6 +40,7 @@ function OperationsList() {
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -135,7 +137,8 @@ function OperationsList() {
       currentSearchQuery,
       currentYear,
       currentICD,
-      selectedImporter
+      selectedImporter,
+      selectedBranch = "all"
     ) => {
       // Don't make API calls if user not available or no username
       if (!user?.username) {
@@ -155,6 +158,7 @@ function OperationsList() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -185,7 +189,8 @@ function OperationsList() {
         debouncedSearchQuery,
         selectedYearState,
         selectedICD,
-        selectedImporter
+        selectedImporter,
+        selectedBranch
       );
     }
   }, [
@@ -195,6 +200,7 @@ function OperationsList() {
     selectedICD,
     selectedImporter,
     user?.username,
+    selectedBranch,
     fetchJobs,
   ]);
   // Remove the automatic clearing - we'll handle this from the tab component instead
@@ -354,9 +360,9 @@ function OperationsList() {
                 >
                   {container.container_number}
                 </a>
-                <ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
                 <IconButton

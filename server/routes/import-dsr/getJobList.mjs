@@ -4,6 +4,7 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -291,7 +292,11 @@ router.get(
 
       // 3.6) Branch, Trade Type, Mode
       if (branchId && branchId.toLowerCase() !== "all") {
-        query.branch_id = branchId;
+        try {
+          query.branch_id = new mongoose.Types.ObjectId(branchId);
+        } catch (e) {
+          query.branch_id = branchId;
+        }
       }
       if (tradeType && tradeType.toLowerCase() !== "all") {
         query.trade_type = tradeType.toUpperCase();
@@ -397,6 +402,9 @@ router.get(
         page,
         limit,
         unresolvedOnly,
+        branchId,
+        tradeType,
+        mode,
         user: req.currentUser?.username || req.headers["x-username"] || null,
       });
 

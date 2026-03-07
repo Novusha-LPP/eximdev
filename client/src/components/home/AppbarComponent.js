@@ -5,12 +5,19 @@ import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Select, MenuItem, FormControl } from "@mui/material";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import axios from "axios";
+import { useEffect, useState, useContext } from "react";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 const drawerWidth = 60;
 
 function AppbarComponent(props) {
   const navigate = useNavigate();
+  const { selectedBranch, setSelectedBranch, branches } = useContext(BranchContext);
+
+
 
   return (
     <AppBar
@@ -56,6 +63,31 @@ function AppbarComponent(props) {
 
         {/* Spacer to push the version text to the extreme right */}
         <Box sx={{ flexGrow: 1 }} />
+
+        {/* Global Branch Filter */}
+        <Box sx={{ mr: 3 }}>
+          <FormControl size="small" variant="outlined" sx={{ minWidth: 200 }}>
+            <Select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              displayEmpty
+              sx={{
+                bgcolor: "white",
+                borderRadius: 1,
+                "& .MuiOutlinedInput-notchedOutline": { border: "none" }
+              }}
+            >
+              <MenuItem value="all">
+                <em>All Branches</em>
+              </MenuItem>
+              {branches.map((b) => (
+                <MenuItem key={b._id} value={b._id}>
+                  {b.branch_name} ({b.branch_code})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
         <Box sx={{ textAlign: "center", mt: 2 }}>
           <Typography

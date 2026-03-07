@@ -21,16 +21,18 @@ import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-    const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
   const [years, setYears] = useState([]);
-    const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-    const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 0
@@ -110,13 +112,14 @@ function ESanchit() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
- const fetchJobs = useCallback(
+  const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -131,6 +134,7 @@ function ESanchit() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -162,7 +166,14 @@ function ESanchit() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        showUnresolvedOnly,
+        selectedBranch
+      );
     }
   }, [
     currentPage,
@@ -170,7 +181,8 @@ function ESanchit() {
     selectedImporter,
     selectedYearState,
     user?.username,
-    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    showUnresolvedOnly,
+    selectedBranch,
     fetchJobs,
   ]);
   // Debounce search input to avoid excessive API calls
@@ -186,7 +198,7 @@ function ESanchit() {
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
-        setCurrentPage(1); // Reset to first page when user types
+    setCurrentPage(1); // Reset to first page when user types
 
   };
 
@@ -255,8 +267,8 @@ function ESanchit() {
                   cell.row.original.priorityJob === "High Priority"
                     ? "orange"
                     : cell.row.original.priorityJob === "Priority"
-                    ? "yellow"
-                    : "transparent", // Dynamically set the background color
+                      ? "yellow"
+                      : "transparent", // Dynamically set the background color
                 padding: "10px", // Add padding for better visibility
                 borderRadius: "5px", // Optional: Add some styling for aesthetics
                 textDecoration: "none"
@@ -300,11 +312,11 @@ function ESanchit() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} <ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
-                />
-                | "{container.size}"
+                  {container.container_number} <ContainerTrackButton
+                    customHouse={cell?.row?.original?.custom_house}
+                    containerNo={container.container_number}
+                  />
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>
@@ -383,7 +395,7 @@ function ESanchit() {
           );
         },
       },
-    
+
     ],
     [navigate, handleCopy]
   );
@@ -481,10 +493,10 @@ function ESanchit() {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setCurrentPage(1);
-                  }}
+                <IconButton onClick={() => {
+                  setDebouncedSearchQuery(searchQuery);
+                  setCurrentPage(1);
+                }}
                 >
                   <SearchIcon />
                 </IconButton>
@@ -494,41 +506,41 @@ function ESanchit() {
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
 
-<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box sx={{ position: 'relative' }}>
             <Button
               variant="contained"
               size="small"
               onClick={() => setShowUnresolvedOnly((prev) => !prev)}
               sx={{
-                 borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              padding: '8px 20px',
-              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-              color: '#ffffff',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                transform: 'translateY(-1px)',
-              },
-              '&:active': {
-                transform: 'translateY(0px)',
-              },
+                borderRadius: 3,
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                padding: '8px 20px',
+                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
               }}
             >
               {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
             </Button>
-            <Badge 
-              badgeContent={unresolvedCount} 
-              color="error" 
-              overlap="circular" 
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              sx={{ 
+              sx={{
                 position: 'absolute',
                 top: 4,
                 right: 4,
@@ -542,7 +554,7 @@ function ESanchit() {
             />
           </Box>
         </Box>
-        
+
       </div>
     ),
   };
@@ -550,8 +562,8 @@ function ESanchit() {
   return (
     <div style={{ height: "80%" }}>
       <>
-        <MaterialReactTable {...tableConfig} />       
-         <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <MaterialReactTable {...tableConfig} />
+        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
           <Pagination
             count={totalPages}
             page={currentPage}

@@ -28,6 +28,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -61,6 +62,7 @@ function DoCompleted() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -195,7 +197,8 @@ function DoCompleted() {
       currentYear,
       currentICD,
       selectedImporter,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -211,6 +214,7 @@ function DoCompleted() {
               importer: selectedImporter?.trim() || "",
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -247,7 +251,8 @@ function DoCompleted() {
         selectedYearState,
         selectedICD,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -258,7 +263,7 @@ function DoCompleted() {
     selectedImporter,
     user?.username,
     showUnresolvedOnly,
-
+    selectedBranch,
     fetchJobs,
   ]);
 
@@ -689,9 +694,9 @@ function DoCompleted() {
                 >
                   {container.container_number}
                 </a>
-                <ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
                 <IconButton

@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ router.get(
         unresolvedOnly,
         emergency, // ✅ Extract emergency param
         freeTimeFilter, // ✅ Extract freeTimeFilter param
+        branchId, // ✅ Extract branchId param
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -118,6 +120,16 @@ router.get(
         baseQuery.$and.push({
           custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
         });
+      }
+
+      if (branchId && branchId.toLowerCase() !== "all") {
+        try {
+          baseQuery.$and.push({
+            branch_id: new mongoose.Types.ObjectId(branchId),
+          });
+        } catch (e) {
+          baseQuery.$and.push({ branch_id: branchId });
+        }
       }
 
       if (req.userIcdFilter) {

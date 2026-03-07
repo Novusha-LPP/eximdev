@@ -74,7 +74,6 @@ function JobList(props) {
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [importers, setImporters] = useState("");
-  const [branches, setBranches] = useState([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
@@ -148,19 +147,6 @@ function JobList(props) {
     () => [...getUniqueImporterNames(importers)],
     [importers, getUniqueImporterNames]
   );
-
-  // Fetch branches
-  useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/get-branches`);
-        setBranches(response.data);
-      } catch (error) {
-        console.error("Error fetching branches:", error);
-      }
-    };
-    fetchBranches();
-  }, []);
 
   // Main jobs hook
   const {
@@ -481,23 +467,6 @@ function JobList(props) {
           <MenuItem value="Home">Home</MenuItem>
           <MenuItem value="In-Bond">In-Bond</MenuItem>
           <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
-        </TextField>
-
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="Branch"
-          value={selectedBranch}
-          onChange={(e) => setSelectedBranch(e.target.value)}
-          sx={{ width: "150px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All Branches</MenuItem>
-          {branches.map((b) => (
-            <MenuItem key={b._id} value={b._id}>
-              {b.branch_name}
-            </MenuItem>
-          ))}
         </TextField>
 
         <TextField

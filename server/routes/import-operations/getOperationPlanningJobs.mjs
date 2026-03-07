@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -28,7 +29,8 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     importer = "", // NEW: Capture importer from query params
     detailedStatusExPlan = "all",
     year,
-    unresolvedOnly
+    unresolvedOnly,
+    branchId
   } = req.query;
 
   // Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
@@ -182,6 +184,14 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
+    }
+
+    if (branchId && branchId.toLowerCase() !== "all") {
+      try {
+        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
+      } catch (e) {
+        baseQuery.$and.push({ branch_id: branchId });
+      }
     }
     // **Fetch Jobs**
     const jobs = await JobModel.find(baseQuery).sort({

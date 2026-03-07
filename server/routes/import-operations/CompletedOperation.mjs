@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.get(
         importer,
         year,
         unresolvedOnly,
+        branchId,
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -89,11 +91,22 @@ router.get(
         };
       }
 
+      // Branch condition
+      let branchCondition = {};
+      if (branchId && branchId.toLowerCase() !== "all") {
+        try {
+          branchCondition = { branch_id: new mongoose.Types.ObjectId(branchId) };
+        } catch (e) {
+          branchCondition = { branch_id: branchId };
+        }
+      }
+
       // Base AND conditions
       const andConditions = [
         icdCondition,
         importerCondition,
         searchCondition,
+        branchCondition,
         {
           completed_operation_date: { $nin: [null, ""] },
           be_no: { $nin: [null, ""], $not: /cancelled/i },

@@ -23,12 +23,14 @@ import { UserContext } from "../../contexts/UserContext";
 import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -152,7 +154,8 @@ function Documentation() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
       try {
@@ -167,6 +170,7 @@ function Documentation() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
             },
           }
         );
@@ -203,7 +207,8 @@ function Documentation() {
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -212,7 +217,8 @@ function Documentation() {
     selectedImporter,
     selectedYearState,
     user?.username,
-    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    showUnresolvedOnly,
+    selectedBranch,
     fetchJobs,
   ]);
   // Remove the automatic clearing - we'll handle this from the tab component instead
@@ -260,8 +266,8 @@ function Documentation() {
                 cell.row.original.priorityJob === "High Priority"
                   ? "orange"
                   : cell.row.original.priorityJob === "Priority"
-                  ? "yellow"
-                  : "transparent", // Dynamically set the background color
+                    ? "yellow"
+                    : "transparent", // Dynamically set the background color
               padding: "10px", // Add padding for better visibility
               borderRadius: "5px", // Optional: Add some styling for aesthetics
               textDecoration: "none",
@@ -306,9 +312,9 @@ function Documentation() {
           <React.Fragment>
             {containerNos?.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}<ContainerTrackButton 
-                  customHouse={cell?.row?.original?.custom_house} 
-                  containerNo={container.container_number} 
+                {container.container_number}<ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
                 />
                 | "{container.size}"
               </div>

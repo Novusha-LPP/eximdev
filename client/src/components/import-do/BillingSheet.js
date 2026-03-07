@@ -25,6 +25,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 import {
   getTableRowsClassname,
   getTableRowInlineStyle,
@@ -35,6 +36,7 @@ function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   const { selectedBranch } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
@@ -535,9 +537,9 @@ function BillingSheet() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>{" "}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"

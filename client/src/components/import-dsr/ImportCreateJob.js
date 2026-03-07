@@ -167,6 +167,10 @@ const ImportCreateJob = () => {
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
   const [suppliers, setSuppliers] = useState([]);
 
+  // Compute dynamic ports based on the selected branch
+  const selectedBranchData = branches.find((b) => b._id === branch_id);
+  const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
+
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYear) {
@@ -381,7 +385,7 @@ const ImportCreateJob = () => {
           </Typography>
           <Autocomplete
             freeSolo
-            options={customHouseOptions}
+            options={dynamicPortOptions}
             value={custom_house}
             onInputChange={(event, newValue) => setCustomHouse(newValue)}
             renderInput={(params) => (
@@ -750,14 +754,13 @@ const ImportCreateJob = () => {
             )}
           />
         </Grid>
-        {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Port of Reporting:
           </Typography>
           <Autocomplete
             freeSolo
-            options={portOptions}
+            options={dynamicPortOptions}
             value={port_of_reporting}
             onInputChange={(event, newValue) => setPortOfReporting(newValue)}
             renderInput={(params) => (

@@ -36,6 +36,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -62,6 +63,7 @@ function List() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -1001,9 +1003,9 @@ function List() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>{" "}
         {/* Search Field */}
         <TextField

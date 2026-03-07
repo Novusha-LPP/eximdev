@@ -34,6 +34,7 @@ import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
 import IndentForDeliveryPDF from "./ConcorJobOrderPDF.js";
 import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -49,7 +50,8 @@ function ImportOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory, branches } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   const navigate = useNavigate();
   // Remove local page state and use persistent pagination from context
@@ -391,17 +393,19 @@ function ImportOperations() {
     ...getUniqueImporterNames(importers),
   ], [importers, getUniqueImporterNames]);
 
-  // Function to get Custom House Location
+  // Function to get Custom House Location from dynamic branch ports
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "SACHANA ICD (INJKA6)",
-        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-      };
-      return houseMap[customHouse] || customHouse;
+      for (const branch of branches || []) {
+        for (const port of branch.ports || []) {
+          if (port.port_name && port.port_name.toUpperCase() === (customHouse || "").toUpperCase()) {
+            return port.port_code || customHouse;
+          }
+        }
+      }
+      return customHouse;
     },
-    []
+    [branches]
   );
 
   // Function to format dates
@@ -814,9 +818,9 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
 
         <TextField

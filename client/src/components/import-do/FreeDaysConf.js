@@ -25,10 +25,12 @@ import BLTrackingCell from "../../customHooks/BLTrackingCell";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 const FreeDaysConf = () => {
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
 
   const [selectedICD, setSelectedICD] = useState("");
@@ -726,9 +728,9 @@ const FreeDaysConf = () => {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"

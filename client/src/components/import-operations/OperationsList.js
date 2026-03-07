@@ -24,6 +24,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
@@ -41,6 +42,7 @@ function OperationsList() {
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -637,9 +639,9 @@ function OperationsList() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
 
         <TextField

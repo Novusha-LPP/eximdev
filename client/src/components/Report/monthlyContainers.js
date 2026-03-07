@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -44,6 +44,8 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 import { useFetchYears } from "../../utils/useFetchYears";
+import { BranchContext } from "../../contexts/BranchContext";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 // Custom dot component with growth/decline indicators
 const CustomDot = ({ cx, cy, payload, dataKey, index, allData }) => {
   if (index === 0) return null; // No comparison for first month
@@ -205,6 +207,7 @@ const MonthlyContainers = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
   const [selectedICD, setSelectedICD] = useState("");
+  const dynamicICDs = useDynamicICDs();
   const navigate = useNavigate();
 
   // The years array is now fetched dynamically through the useFetchYears hook.
@@ -502,9 +505,9 @@ const MonthlyContainers = () => {
                   sx={{ borderRadius: 2 }}
                 >
                   <MenuItem value="">All ICDs</MenuItem>
-                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+                  {dynamicICDs.map((icd, index) => (
+                    <MenuItem key={index} value={icd}>{icd}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
 

@@ -36,6 +36,7 @@ import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 const extractJobNo = (input) => {
   if (!input) return "";
@@ -57,6 +58,7 @@ function JobList(props) {
   const { user } = useContext(UserContext);
 
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
   const {
     searchQuery,
     setSearchQuery,
@@ -456,9 +458,9 @@ function JobList(props) {
           sx={{ width: "135px", marginRight: "10px" }}
         >
           <MenuItem value="all">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
 
         <TextField
@@ -577,7 +579,8 @@ function JobList(props) {
       handleClearSearch,
       handleOpen,
       selectedBeType, // dependency
-      handleBeTypeChange // dependency
+      handleBeTypeChange, // dependency
+      dynamicICDs,
     ]
   );
 

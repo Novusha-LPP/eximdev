@@ -3,6 +3,7 @@ import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -30,7 +31,8 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     detailedStatusExPlan = "all",
     year,
     unresolvedOnly,
-    branchId
+    branchId,
+    category
   } = req.query;
 
   // Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
@@ -165,14 +167,7 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     }
 
     // **Branch condition**
-    let branchCondition = {};
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        branchCondition = { branch_id: new mongoose.Types.ObjectId(branchId) };
-      } catch (e) {
-        branchCondition = { branch_id: branchId };
-      }
-    }
+    const branchMatch = getBranchMatch(branchId, category);
 
     // **Final Query: Merge All Conditions**
     const baseQuery = {
@@ -182,7 +177,7 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
         statusExtraCondition,
         searchQuery,
         importerCondition, // NEW: Ensure importer filtering is applied
-        branchCondition, // NEW: Filter by branch
+        branchMatch, // NEW: Filter by branch
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
@@ -197,13 +192,6 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
       baseQuery.$and.push({ year: selectedYear });
     }
 
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
     // **Fetch Jobs**
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,

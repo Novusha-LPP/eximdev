@@ -29,7 +29,7 @@ function DocumentationCompletedd() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -127,7 +127,8 @@ function DocumentationCompletedd() {
       selectedImporter,
       selectedYearState,
       unresolvedOnly = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -143,6 +144,7 @@ function DocumentationCompletedd() {
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -180,7 +182,8 @@ function DocumentationCompletedd() {
         selectedImporter,
         selectedYearState,
         showUnresolvedOnly,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -191,6 +194,7 @@ function DocumentationCompletedd() {
     user?.username,
     showUnresolvedOnly,
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 

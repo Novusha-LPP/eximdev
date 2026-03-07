@@ -15,8 +15,8 @@ const AnimatedNumber = ({ value }) => {
 
 const ESanchitDashboard = () => {
     const navigate = useNavigate();
-    const { startDate, endDate, importer, selectedBranch } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('esanchit', startDate, endDate, importer, selectedBranch);
+    const { startDate, endDate, importer, selectedBranch, selectedCategory } = useAnalytics();
+    const { data: rawData, loading } = useLiveAnalytics('esanchit', startDate, endDate, importer, selectedBranch, selectedCategory);
 
     const isDataLoaded = !loading && rawData && rawData.summary && Object.keys(rawData.summary).length > 0;
 

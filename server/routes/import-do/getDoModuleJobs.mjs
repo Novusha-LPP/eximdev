@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly, branchId } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly, branchId, category } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -113,13 +114,8 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
 
     // ✅ Apply ICD filter if provided
     if (decodedICD && decodedICD !== "All ICDs") {
@@ -381,6 +377,8 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     };
     if (selectedYear) countQuery.$and.push({ year: selectedYear });
     if (req.userIcdFilter) countQuery.$and.push(req.userIcdFilter);
+    const countBranchMatch = getBranchMatch(branchId, category);
+    countQuery.$and.push(countBranchMatch);
     // Apply other current context filters if needed, but usually this badge is "How many jobs TODAY in this YEAR"
 
     const doPlanningTodayCount = await JobModel.countDocuments(countQuery);
@@ -414,7 +412,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly, branchId } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly, branchId, category } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -488,13 +486,8 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
 
     // ✅ Apply ICD filter if provided
     if (decodedICD && decodedICD !== "All ICDs") {
@@ -618,6 +611,7 @@ export async function getTodayJob(req, res) {
       year,
       unresolvedOnly,
       branchId,
+      category,
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -682,13 +676,8 @@ export async function getTodayJob(req, res) {
       });
     }
 
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
 
     // ✅ If selectedICD is provided, filter by ICD Code
     if (decodedICD && decodedICD !== "Select ICD") {

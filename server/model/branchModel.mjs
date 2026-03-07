@@ -14,7 +14,6 @@ const branchSchema = new mongoose.Schema({
     branch_code: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
         uppercase: true,
         minlength: 3,
@@ -40,6 +39,9 @@ const branchSchema = new mongoose.Schema({
         trim: true
     }
 });
+
+// Add a compound unique index for branch_code and category
+branchSchema.index({ branch_code: 1, category: 1 }, { unique: true });
 
 // Rules: branch_code must never be modified after creation
 branchSchema.pre('validate', function (next) {

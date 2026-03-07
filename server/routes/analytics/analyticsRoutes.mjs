@@ -7,16 +7,25 @@ const router = express.Router();
 // Helper to parse dates
 const parseDate = (d) => new Date(d);
 
-const getBranchMatch = (branchId) => {
-    if (!branchId || branchId.toLowerCase() === 'all') return {};
-    try {
-        return { branch_id: new mongoose.Types.ObjectId(branchId) };
-    } catch (e) {
-        return { branch_id: branchId };
+const getBranchMatch = (branchId, category) => {
+    let match = {};
+
+    if (branchId && branchId.toString().toLowerCase() !== "all" && branchId !== "") {
+        if (mongoose.Types.ObjectId.isValid(branchId)) {
+            match.branch_id = new mongoose.Types.ObjectId(branchId);
+        } else {
+            match.branch_id = branchId;
+        }
     }
+
+    if (category) {
+        match.mode = category;
+    }
+
+    return match;
 };
 
-export const fetchAnalyticsData = async (module, startDate, endDate, importer, branchId) => {
+export const fetchAnalyticsData = async (module, startDate, endDate, importer, branchId, category) => {
     let start, end;
 
     if (!startDate || !endDate) {
@@ -35,37 +44,37 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer, b
 
     switch (module) {
         case "overview":
-            pipeline = getOverviewPipeline(start, end, importer, branchId);
+            pipeline = getOverviewPipeline(start, end, importer, branchId, category);
             break;
         case "movement":
-            pipeline = getMovementPipeline(start, end, importer, branchId);
+            pipeline = getMovementPipeline(start, end, importer, branchId, category);
             break;
         case "customs":
-            pipeline = getCustomsPipeline(start, end, importer, branchId);
+            pipeline = getCustomsPipeline(start, end, importer, branchId, category);
             break;
         case "documentation":
-            pipeline = getDocumentationPipeline(start, end, importer, branchId);
+            pipeline = getDocumentationPipeline(start, end, importer, branchId, category);
             break;
         case "do-management":
-            pipeline = getDoManagementPipeline(start, end, importer, branchId);
+            pipeline = getDoManagementPipeline(start, end, importer, branchId, category);
             break;
         case "esanchit":
-            pipeline = getESanchitPipeline(start, end, importer, branchId);
+            pipeline = getESanchitPipeline(start, end, importer, branchId, category);
             break;
         case "operations":
-            pipeline = getOperationsPipeline(start, end, importer, branchId);
+            pipeline = getOperationsPipeline(start, end, importer, branchId, category);
             break;
         case "submission":
-            pipeline = getSubmissionPipeline(start, end, importer, branchId);
+            pipeline = getSubmissionPipeline(start, end, importer, branchId, category);
             break;
         case "billing":
-            pipeline = getBillingPipeline(start, end, importer, branchId);
+            pipeline = getBillingPipeline(start, end, importer, branchId, category);
             break;
         case "exceptions":
-            pipeline = getExceptionsPipeline(start, end, importer, branchId);
+            pipeline = getExceptionsPipeline(start, end, importer, branchId, category);
             break;
         case "pulse":
-            pipeline = getPulsePipeline(start, end, importer, branchId);
+            pipeline = getPulsePipeline(start, end, importer, branchId, category);
             break;
         default:
             throw new Error("Invalid module");
@@ -78,9 +87,9 @@ export const fetchAnalyticsData = async (module, startDate, endDate, importer, b
 router.get("/api/analytics/:module", async (req, res) => {
     try {
         const { module } = req.params;
-        const { startDate, endDate, importer, branchId } = req.query;
+        const { startDate, endDate, importer, branchId, category } = req.query;
 
-        const data = await fetchAnalyticsData(module, startDate, endDate, importer, branchId);
+        const data = await fetchAnalyticsData(module, startDate, endDate, importer, branchId, category);
         res.json(data);
     } catch (error) {
         console.error("Analytics Error:", error);
@@ -89,7 +98,7 @@ router.get("/api/analytics/:module", async (req, res) => {
 });
 
 // 🔹 Overview Pipeline
-const getOverviewPipeline = (start, end, importer, branchId) => {
+const getOverviewPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -100,7 +109,7 @@ const getOverviewPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     return [
@@ -358,7 +367,7 @@ const getOverviewPipeline = (start, end, importer, branchId) => {
 };
 
 // 🚢 Movement Pipeline
-const getMovementPipeline = (start, end, importer, branchId) => {
+const getMovementPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -369,7 +378,7 @@ const getMovementPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     // All metrics count containers
@@ -442,7 +451,7 @@ const getMovementPipeline = (start, end, importer, branchId) => {
 };
 
 // 🏛 Customs Pipeline
-const getCustomsPipeline = (start, end, importer, branchId) => {
+const getCustomsPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -453,7 +462,7 @@ const getCustomsPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -508,7 +517,7 @@ const getCustomsPipeline = (start, end, importer, branchId) => {
 };
 
 // 📄 Documentation Pipeline
-const getDocumentationPipeline = (start, end, importer, branchId) => {
+const getDocumentationPipeline = (start, end, importer, branchId, category) => {
     // Calculate 7 days ago for trend
     // Note: Documentation fields are ISO-like timestamps (YYYY-MM-DDTHH:mm), so we use ISO strings for range.
     // However, for trends grouping, we need to extract YYYY-MM-DD.
@@ -529,7 +538,7 @@ const getDocumentationPipeline = (start, end, importer, branchId) => {
     todayEnd.setHours(23, 59, 59, 999);
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -607,7 +616,7 @@ const getDocumentationPipeline = (start, end, importer, branchId) => {
 };
 
 // 📦 DoManagement Pipeline
-const getDoManagementPipeline = (start, end, importer, branchId) => {
+const getDoManagementPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -618,7 +627,7 @@ const getDoManagementPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -748,7 +757,7 @@ const getDoManagementPipeline = (start, end, importer, branchId) => {
 };
 
 // 💰 Billing Pipeline
-const getBillingPipeline = (start, end, importer, branchId) => {
+const getBillingPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -759,7 +768,7 @@ const getBillingPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -803,7 +812,7 @@ const getBillingPipeline = (start, end, importer, branchId) => {
 };
 
 // 🚨 Exceptions Pipeline
-const getExceptionsPipeline = (start, end, importer, branchId) => {
+const getExceptionsPipeline = (start, end, importer, branchId, category) => {
     // DO validity today/expired: do_validity_upto_job_level <= today (or selected range?)
     // "Show alerts using existing fields: DO validity today/expired"
     // I'll assume it matches the range (expired within this range).
@@ -811,7 +820,7 @@ const getExceptionsPipeline = (start, end, importer, branchId) => {
     const today = new Date().toISOString().split('T')[0];
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     return [
@@ -876,7 +885,7 @@ const getExceptionsPipeline = (start, end, importer, branchId) => {
 };
 
 // ⚡ E-Sanchit Pipeline
-const getESanchitPipeline = (start, end, importer, branchId) => {
+const getESanchitPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -896,7 +905,7 @@ const getESanchitPipeline = (start, end, importer, branchId) => {
     const monthStartStr = toYMD(monthStart);
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -969,7 +978,7 @@ const getESanchitPipeline = (start, end, importer, branchId) => {
 };
 
 // ⚙️ Operations Pipeline
-const getOperationsPipeline = (start, end, importer, branchId) => {
+const getOperationsPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -980,7 +989,7 @@ const getOperationsPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -1014,7 +1023,7 @@ const getOperationsPipeline = (start, end, importer, branchId) => {
     const inExamPlanningMatch = {
         status: { $regex: /^Pending$/i },
         be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-        ...importerMatch,
+        ...baseMatch,
         $and: [
             arrivalCondition,
             {
@@ -1065,7 +1074,7 @@ const getOperationsPipeline = (start, end, importer, branchId) => {
 };
 
 // 📤 Submission Pipeline
-const getSubmissionPipeline = (start, end, importer, branchId) => {
+const getSubmissionPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely
     const toYMD = (date) => date.toISOString().split('T')[0];
 
@@ -1076,7 +1085,7 @@ const getSubmissionPipeline = (start, end, importer, branchId) => {
     const todayStr = new Date().toISOString();
 
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     const makeJobFacet = (field) => [
@@ -1161,9 +1170,9 @@ const getSubmissionPipeline = (start, end, importer, branchId) => {
 };
 
 // 💓 Pulse Combined Pipeline
-const getPulsePipeline = (start, end, importer, branchId) => {
+const getPulsePipeline = (start, end, importer, branchId, category) => {
     const importerMatch = importer ? { importer: importer } : {};
-    const branchMatch = getBranchMatch(branchId);
+    const branchMatch = getBranchMatch(branchId, category);
     const baseMatch = { ...importerMatch, ...branchMatch };
 
     // E-Sanchit Pending
@@ -1295,7 +1304,7 @@ const getPulsePipeline = (start, end, importer, branchId) => {
     const inExamPlanningMatch = {
         status: { $regex: /^Pending$/i },
         be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-        ...importerMatch,
+        ...baseMatch,
         $and: [
             arrivalCondition,
             {

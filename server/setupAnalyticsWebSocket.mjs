@@ -20,10 +20,10 @@ export function setupAnalyticsWebSocket(server) {
                     throw new Error("Invalid payload structure");
                 }
 
-                const { module, startDate, endDate, importer, branchId } = payload;
-                connections.set(ws, { module, startDate, endDate, importer, branchId });
+                const { module, startDate, endDate, importer, branchId, category } = payload;
+                connections.set(ws, { module, startDate, endDate, importer, branchId, category });
 
-                const data = await fetchAnalyticsData(module, startDate, endDate, importer, branchId);
+                const data = await fetchAnalyticsData(module, startDate, endDate, importer, branchId, category);
                 ws.send(JSON.stringify({ type: 'init', data }));
             } catch (err) {
                 console.error('WebSocket Analytics message error:', err);
@@ -36,7 +36,7 @@ export function setupAnalyticsWebSocket(server) {
             const meta = connections.get(ws);
             if (ws.readyState === ws.OPEN && meta && meta.module) {
                 try {
-                    const data = await fetchAnalyticsData(meta.module, meta.startDate, meta.endDate, meta.importer, meta.branchId);
+                    const data = await fetchAnalyticsData(meta.module, meta.startDate, meta.endDate, meta.importer, meta.branchId, meta.category);
                     ws.send(JSON.stringify({ type: 'update', data }));
                 } catch (err) {
                     console.error('Error sending analytics update:', err);

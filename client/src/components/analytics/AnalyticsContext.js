@@ -6,7 +6,7 @@ const AnalyticsContext = createContext();
 export const useAnalytics = () => useContext(AnalyticsContext);
 
 export const AnalyticsProvider = ({ children }) => {
-    const { selectedBranch } = useBranch();
+    const { selectedBranch, selectedCategory } = useBranch();
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date());
     const [dateRangeLabel, setDateRangeLabel] = useState('Today');
@@ -20,7 +20,7 @@ export const AnalyticsProvider = ({ children }) => {
     };
 
     return (
-        <AnalyticsContext.Provider value={{ startDate, endDate, dateRangeLabel, setRange, importer, setImporter, selectedBranch }}>
+        <AnalyticsContext.Provider value={{ startDate, endDate, dateRangeLabel, setRange, importer, setImporter, selectedBranch, selectedCategory }}>
             {children}
         </AnalyticsContext.Provider>
     );

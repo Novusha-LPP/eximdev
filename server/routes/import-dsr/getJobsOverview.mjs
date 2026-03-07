@@ -18,7 +18,7 @@ const buildSearchQuery = (search) => {
 router.get("/api/get-jobs-overview/:year", async (req, res) => {
   try {
     const { year } = req.params;
-    const { status, search, branchId } = req.query;
+    const { status, search, branchId, category } = req.query;
 
     const statusLower = status ? status.toLowerCase() : null;
 
@@ -26,7 +26,7 @@ router.get("/api/get-jobs-overview/:year", async (req, res) => {
     const matchQuery = {
       $and: [
         { year: year },
-        getBranchMatch(branchId)
+        getBranchMatch(branchId, category)
       ]
     };
 

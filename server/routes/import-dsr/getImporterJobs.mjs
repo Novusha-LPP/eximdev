@@ -16,8 +16,8 @@ function formatImporter(importer) {
 // ✅ API Endpoint to get job counts for an importer
 router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
   try {
-    const { year, importerURL } = req.params;
-    const { branchId } = req.query;
+    const { importerURL, year } = req.params;
+    const { branchId, category } = req.query;
     const formattedImporter = formatImporter(importerURL);
 
     // 🚀 Aggregation to count jobs efficiently
@@ -26,7 +26,7 @@ router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
         $match: {
           year: year,
           importerURL: new RegExp(`^${formattedImporter}$`, "i"), // Case-insensitive matching
-          ...getBranchMatch(branchId)
+          ...getBranchMatch(branchId, category)
         },
       },
       {

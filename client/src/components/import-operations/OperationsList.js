@@ -40,7 +40,7 @@ function OperationsList() {
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -138,7 +138,8 @@ function OperationsList() {
       currentYear,
       currentICD,
       selectedImporter,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       // Don't make API calls if user not available or no username
       if (!user?.username) {
@@ -159,6 +160,7 @@ function OperationsList() {
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -190,7 +192,8 @@ function OperationsList() {
         selectedYearState,
         selectedICD,
         selectedImporter,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -201,6 +204,7 @@ function OperationsList() {
     selectedImporter,
     user?.username,
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
   // Remove the automatic clearing - we'll handle this from the tab component instead

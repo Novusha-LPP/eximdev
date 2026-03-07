@@ -9,13 +9,13 @@ const router = express.Router();
 router.get("/api/get-importer-list/:year", async (req, res) => {
   try {
     const selectedYear = req.params.year;
-    const { status, detailedStatus, branchId } = req.query;
+    const { status, detailedStatus, branchId, category } = req.query;
 
     // base match: empty object to fetch all importers irrespective of year, but filter out null/empty ones and exclude 24-25 as it had no IE codes
     const matchStage = {
       importer: { $nin: [null, ""] },
       year: { $ne: "24-25" },
-      ...getBranchMatch(branchId)
+      ...getBranchMatch(branchId, category)
     };
 
     // optional status filter (if provided and not "all")

@@ -56,7 +56,7 @@ function JobList(props) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const {
     searchQuery,
     setSearchQuery,
@@ -113,6 +113,9 @@ function JobList(props) {
       if (selectedBranch) {
         params.append("branchId", selectedBranch);
       }
+      if (selectedCategory) {
+        params.append("category", selectedCategory);
+      }
       const queryString = params.toString();
       const url = `${process.env.REACT_APP_API_STRING
         }/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""
@@ -132,7 +135,7 @@ function JobList(props) {
       setImporters(fetchedImporters);
     }
     getImporterList();
-  }, [selectedYearState, detailedStatus, user, selectedBranch]);
+  }, [selectedYearState, detailedStatus, user, selectedBranch, selectedCategory]);
 
   const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -173,7 +176,8 @@ function JobList(props) {
     selectedBeType,
     showUnresolvedOnly,
     selectedBranch,
-    selectedMode
+    selectedMode,
+    selectedCategory
   );
 
   // When unresolved toggle changes, re-fetch page 1

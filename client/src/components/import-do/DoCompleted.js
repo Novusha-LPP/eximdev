@@ -62,7 +62,7 @@ function DoCompleted() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -198,7 +198,8 @@ function DoCompleted() {
       currentICD,
       selectedImporter,
       unresolvedOnly = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -215,6 +216,7 @@ function DoCompleted() {
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -252,7 +254,8 @@ function DoCompleted() {
         selectedICD,
         selectedImporter,
         showUnresolvedOnly,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -264,6 +267,7 @@ function DoCompleted() {
     user?.username,
     showUnresolvedOnly,
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 

@@ -36,7 +36,7 @@ function SubmissionCompleted() {
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = React.useState([]);
@@ -201,7 +201,8 @@ function SubmissionCompleted() {
       selectedImporter,
       selectedYearState,
       unresolvedOnly = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -217,6 +218,7 @@ function SubmissionCompleted() {
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -249,7 +251,7 @@ function SubmissionCompleted() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
     }
   }, [
     page,
@@ -259,6 +261,7 @@ function SubmissionCompleted() {
     showUnresolvedOnly,
     user?.username,
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
   // Debounce search input

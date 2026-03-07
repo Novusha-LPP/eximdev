@@ -41,7 +41,7 @@ function PaymentRequested() {
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -126,7 +126,8 @@ function PaymentRequested() {
       selectedYearState,
       unresolvedOnly = false,
       username,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -142,6 +143,7 @@ function PaymentRequested() {
               username: username || "",
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -180,7 +182,8 @@ function PaymentRequested() {
         selectedYearState,
         showUnresolvedOnly,
         user.username,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -192,6 +195,7 @@ function PaymentRequested() {
     showUnresolvedOnly,
     fetchJobs,
     selectedBranch,
+    selectedCategory,
   ]);
 
   // Debounce search input to avoid excessive API calls

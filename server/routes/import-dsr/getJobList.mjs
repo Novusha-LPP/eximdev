@@ -5,6 +5,7 @@ import { applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
 import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -229,6 +230,7 @@ router.get(
         unresolvedOnly,
         _nocache,
         branchId,
+        category,
         tradeType,
         mode,
       } = req.query;
@@ -291,13 +293,9 @@ router.get(
       }
 
       // 3.6) Branch, Trade Type, Mode
-      if (branchId && branchId.toLowerCase() !== "all") {
-        try {
-          query.branch_id = new mongoose.Types.ObjectId(branchId);
-        } catch (e) {
-          query.branch_id = branchId;
-        }
-      }
+      const branchMatch = getBranchMatch(branchId, category);
+      Object.assign(query, branchMatch);
+
       if (tradeType && tradeType.toLowerCase() !== "all") {
         query.trade_type = tradeType.toUpperCase();
       }

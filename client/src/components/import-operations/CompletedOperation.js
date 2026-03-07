@@ -40,7 +40,7 @@ function CompletedOperations() {
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const navigate = useNavigate();
 
   const [totalPages, setTotalPages] = useState(1);
@@ -120,7 +120,8 @@ function CompletedOperations() {
     selectedICD,
     selectedImporter,
     unresolvedOnly = false,
-    selectedBranch = "all"
+    selectedBranch = "all",
+    selectedCategory = "all"
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !year || !user?.username) {
@@ -144,6 +145,7 @@ function CompletedOperations() {
             importer: selectedImporter?.trim() || "",
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             branchId: selectedBranch || "all", // ✅ Add branchId parameter
+            category: selectedCategory || "all", // ✅ Add category parameter
           },
           signal: controller.signal,
         }
@@ -276,7 +278,8 @@ function CompletedOperations() {
           location.state?.selectedICD || "",
           location.state?.selectedImporter || "",
           showUnresolvedOnly,
-          selectedBranch
+          selectedBranch,
+          selectedCategory
         );
         isFromJobDetailsRef.current = false; // Reset flag
       }, 100);
@@ -293,7 +296,8 @@ function CompletedOperations() {
         selectedICD,
         selectedImporter,
         showUnresolvedOnly,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -309,6 +313,7 @@ function CompletedOperations() {
     user?.username,
     showUnresolvedOnly,
     selectedBranch,
+    selectedCategory,
   ]);
 
   // Cleanup on unmount

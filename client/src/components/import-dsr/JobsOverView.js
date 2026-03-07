@@ -15,7 +15,7 @@ const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
 function JobsOverView() {
   const [data, setData] = useState("");
   const { selectedYear, setSelectedYear } = React.useContext(SelectedYearContext);
-  const { selectedBranch } = React.useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = React.useContext(BranchContext);
 
   useEffect(() => {
     // Determine the current date
@@ -52,13 +52,13 @@ function JobsOverView() {
       if (selectedYear) {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-jobs-overview/${selectedYear}`,
-          { params: { branchId: selectedBranch } }
+          { params: { branchId: selectedBranch, category: selectedCategory } }
         );
         setData(res.data);
       }
     }
     getData();
-  }, [selectedYear, selectedBranch]);
+  }, [selectedYear, selectedBranch, selectedCategory]);
 
   return (
     <>

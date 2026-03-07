@@ -3,6 +3,7 @@ import JobModel from "../../model/jobModel.mjs";
 import icdFilter from "../../middleware/icdFilter.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -148,6 +149,7 @@ router.get(
       year,
       unresolvedOnly,
       branchId,
+      category,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -211,13 +213,8 @@ router.get(
         });
       }
 
-      if (branchId && branchId.toLowerCase() !== "all") {
-        try {
-          baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-        } catch (e) {
-          baseQuery.$and.push({ branch_id: branchId });
-        }
-      }
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
 
       if (req.userIcdFilter) {
         baseQuery.$and.push(req.userIcdFilter);
@@ -284,6 +281,7 @@ router.get(
       year,
       unresolvedOnly,
       branchId,
+      category,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -329,13 +327,8 @@ router.get(
         });
       }
 
-      if (branchId && branchId.toLowerCase() !== "all") {
-        try {
-          baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-        } catch (e) {
-          baseQuery.$and.push({ branch_id: branchId });
-        }
-      }
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
 
       if (req.userIcdFilter) {
         baseQuery.$and.push(req.userIcdFilter);
@@ -414,6 +407,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     year,
     detailed_status,
     branchId,
+    category,
   } = req.query;
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -469,13 +463,8 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
       });
     }
 
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
@@ -522,6 +511,7 @@ router.get(
       year,
       unresolvedOnly,
       branchId,
+      category,
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -572,13 +562,8 @@ router.get(
         });
       }
 
-      if (branchId && branchId.toLowerCase() !== "all") {
-        try {
-          matchConditions.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-        } catch (e) {
-          matchConditions.$and.push({ branch_id: branchId });
-        }
-      }
+      const branchMatch = getBranchMatch(branchId, category);
+      matchConditions.$and.push(branchMatch);
 
       if (search && search.trim()) {
         matchConditions.$and.push({
@@ -918,7 +903,7 @@ router.get(
   "/api/get-payment-completed-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const { page = 1, limit = 100, search = "", importer, year } = req.query;
+    const { page = 1, limit = 100, search = "", importer, year, branchId, category } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const pageNumber = parseInt(page, 10);
@@ -968,6 +953,9 @@ router.get(
           importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
         });
       }
+
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
 
       const allJobsFromDB = await JobModel.find(baseQuery)
         .select(

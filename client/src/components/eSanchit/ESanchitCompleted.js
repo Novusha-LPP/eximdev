@@ -27,7 +27,7 @@ import ContainerTrackButton from '../ContainerTrackButton';
 function ESanchitCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext); const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
 
   const [rows, setRows] = useState([]);
@@ -118,7 +118,8 @@ function ESanchitCompleted() {
       selectedImporter,
       selectedYearState,
       unresolvedOnly = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -134,6 +135,7 @@ function ESanchitCompleted() {
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -165,7 +167,7 @@ function ESanchitCompleted() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch);
+      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
     }
   }, [
     currentPage,
@@ -175,6 +177,7 @@ function ESanchitCompleted() {
     user?.username,
     showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 

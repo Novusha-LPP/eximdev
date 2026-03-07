@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.get(
         emergency, // ✅ Extract emergency param
         freeTimeFilter, // ✅ Extract freeTimeFilter param
         branchId, // ✅ Extract branchId param
+        category, // ✅ Extract category param
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -122,15 +124,8 @@ router.get(
         });
       }
 
-      if (branchId && branchId.toLowerCase() !== "all") {
-        try {
-          baseQuery.$and.push({
-            branch_id: new mongoose.Types.ObjectId(branchId),
-          });
-        } catch (e) {
-          baseQuery.$and.push({ branch_id: branchId });
-        }
-      }
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
 
       if (req.userIcdFilter) {
         // User has specific ICD restrictions

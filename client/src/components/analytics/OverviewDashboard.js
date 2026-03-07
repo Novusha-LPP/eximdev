@@ -20,8 +20,8 @@ import './AnalyticsLayout.css'; // Inherits the theme
 import useLiveAnalytics from '../../hooks/useLiveAnalytics';
 
 const OverviewDashboard = () => {
-    const { startDate, endDate, importer, selectedBranch } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('overview', startDate, endDate, importer, selectedBranch);
+    const { startDate, endDate, importer, selectedBranch, selectedCategory } = useAnalytics();
+    const { data: rawData, loading } = useLiveAnalytics('overview', startDate, endDate, importer, selectedBranch, selectedCategory);
     const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
 
     const [modalOpen, setModalOpen] = useState(false);

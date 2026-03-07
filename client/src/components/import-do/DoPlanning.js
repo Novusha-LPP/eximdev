@@ -95,7 +95,7 @@ function DoPlanning() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
@@ -236,7 +236,6 @@ function DoPlanning() {
         showToastNotification(jobData);
       }
 
-      // Refresh data to show the new job if viewing today's jobs
       if (showTodayJobs) {
         console.log("🔄 Refreshing data for today's jobs");
         fetchJobs(
@@ -247,7 +246,9 @@ function DoPlanning() {
           selectedImporter,
           selectedStatusFilter,
           showUnresolvedOnly,
-          selectedBranch
+          showDoPlanningTodayOnly,
+          selectedBranch,
+          selectedCategory
         );
       }
     },
@@ -260,7 +261,9 @@ function DoPlanning() {
       selectedImporter,
       selectedStatusFilter,
       showUnresolvedOnly,
+      showDoPlanningTodayOnly,
       selectedBranch,
+      selectedCategory,
     ]
   );
 
@@ -503,7 +506,8 @@ function DoPlanning() {
       statusFilter = "",
       unresolvedOnly = false,
       doPlanningDateToday = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -525,6 +529,7 @@ function DoPlanning() {
             unresolvedOnly: unresolvedOnly.toString(),
             doPlanningDateToday: doPlanningDateToday.toString(),
             branchId: selectedBranch || "all", // ✅ Add branchId parameter
+            category: selectedCategory || "all", // ✅ Add category parameter
           },
         });
 
@@ -686,7 +691,8 @@ function DoPlanning() {
         selectedStatusFilter,
         showUnresolvedOnly,
         showDoPlanningTodayOnly,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -702,6 +708,7 @@ function DoPlanning() {
     showTodayJobs,
     fetchJobs,
     selectedBranch,
+    selectedCategory,
   ]);
 
   // Handle search input change

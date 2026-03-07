@@ -8,7 +8,7 @@ import { BranchContext } from "../../contexts/BranchContext";
 
 function ImporterWiseDetails() {
   const { selectedYear } = useContext(SelectedYearContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [importerData, setImporterData] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState(null);
   const [assignedUsers, setAssignedUsers] = useState([]);
@@ -41,7 +41,7 @@ function ImporterWiseDetails() {
       if (selectedYear) {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`,
-          { params: { branchId: selectedBranch } }
+          { params: { branchId: selectedBranch, category: selectedCategory } }
         );
         setImporterData(res.data);
         // Check if importerData is not empty before setting the selectedImporter
@@ -51,7 +51,7 @@ function ImporterWiseDetails() {
       }
     }
     getImporterList();
-  }, [selectedYear, selectedBranch]);
+  }, [selectedYear, selectedBranch, selectedCategory]);
 
   // Set selected importer on autocomplete onChange
   const handleImporterChange = (event, newValue) => {
@@ -76,14 +76,14 @@ function ImporterWiseDetails() {
             .replace(/\[/g, "")
             .replace(/\]/g, "")
             .replace(/,/g, "")}/${selectedYear}`,
-          { params: { branchId: selectedBranch } }
+          { params: { branchId: selectedBranch, category: selectedCategory } }
         );
 
         setData(res.data);
       }
     }
     getImporterData();
-  }, [selectedImporter, selectedYear, selectedBranch]);
+  }, [selectedImporter, selectedYear, selectedBranch, selectedCategory]);
 
   // Fetch assigned users for the selected importer
   useEffect(() => {

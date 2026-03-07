@@ -18,10 +18,10 @@ router.get("/get-branches", async (req, res) => {
 // Create a new branch
 router.post("/add-branch", async (req, res) => {
     try {
-        const { branch_name, branch_code, category, is_active } = req.body;
+        const { branch_name, branch_code, is_active } = req.body;
 
-        if (!branch_name || !branch_code || !category) {
-            return res.status(400).json({ error: "Branch name, code, and category are required." });
+        if (!branch_name || !branch_code) {
+            return res.status(400).json({ error: "Branch name and code are required." });
         }
 
         if (branch_code.length < 3 || branch_code.length > 5) {
@@ -30,22 +30,38 @@ router.post("/add-branch", async (req, res) => {
 
         const uppercaseCode = branch_code.toUpperCase();
 
-        // Check if code exists
+        // Check if either SEA or AIR already exists for this code
         const existingBranch = await BranchModel.findOne({ branch_code: uppercaseCode });
         if (existingBranch) {
             return res.status(400).json({ error: "Branch code already exists." });
         }
 
-        const newBranch = new BranchModel({
+        const creator = req.user?.id || null;
+        const activeStatus = is_active !== undefined ? is_active : true;
+
+        // Create both branches
+        const seaBranch = new BranchModel({
             branch_name,
             branch_code: uppercaseCode,
-            category,
-            is_active: is_active !== undefined ? is_active : true,
-            created_by: req.user?.id || null // Assuming user is in req
+            category: 'SEA',
+            is_active: activeStatus,
+            created_by: creator
         });
 
-        await newBranch.save();
-        res.status(201).json(newBranch);
+        const airBranch = new BranchModel({
+            branch_name,
+            branch_code: uppercaseCode,
+            category: 'AIR',
+            is_active: activeStatus,
+            created_by: creator
+        });
+
+        await Promise.all([seaBranch.save(), airBranch.save()]);
+
+        res.status(201).json({
+            message: "SEA and AIR branches created successfully.",
+            branches: [seaBranch, airBranch]
+        });
     } catch (error) {
         console.error("Error creating branch:", error);
         res.status(500).json({ error: "Internal Server Error" });

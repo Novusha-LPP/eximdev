@@ -153,18 +153,6 @@ function BranchManagement() {
                                     inputProps={{ minLength: 3, maxLength: 5 }}
                                 />
 
-                                <FormControl size="small">
-                                    <InputLabel>Category</InputLabel>
-                                    <Select
-                                        value={branchCategory}
-                                        label="Category"
-                                        onChange={(e) => setBranchCategory(e.target.value)}
-                                    >
-                                        <MenuItem value="SEA">SEA</MenuItem>
-                                        <MenuItem value="AIR">AIR</MenuItem>
-                                    </Select>
-                                </FormControl>
-
                                 <FormControlLabel
                                     control={
                                         <Switch
@@ -177,7 +165,7 @@ function BranchManagement() {
                                 />
 
                                 <Button type="submit" variant="contained" color="primary">
-                                    Create Branch
+                                    Create Branch (SEA & AIR)
                                 </Button>
                             </Box>
                         </form>

@@ -49,7 +49,7 @@ function ImportOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   const navigate = useNavigate();
   // Remove local page state and use persistent pagination from context
@@ -125,7 +125,8 @@ function ImportOperations() {
     currentICD,
     currentImporter,
     unresolvedOnly = false,
-    selectedBranch = "all"
+    selectedBranch = "all",
+    selectedCategory = "all"
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !yearState || !user?.username) {
@@ -151,6 +152,7 @@ function ImportOperations() {
             importer: currentImporter?.trim() || "",
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             branchId: selectedBranch || "all", // ✅ Add branchId parameter
+            category: selectedCategory || "all", // ✅ Add category parameter
           },
           signal: controller.signal,
         }
@@ -278,7 +280,8 @@ function ImportOperations() {
           location.state?.selectedICD || "",
           location.state?.selectedImporter || "",
           false,
-          selectedBranch
+          selectedBranch,
+          selectedCategory
         );
         isFromJobDetailsRef.current = false; // Reset flag
       }, 100);
@@ -294,7 +297,8 @@ function ImportOperations() {
         selectedICD,
         selectedImporter,
         showUnresolvedOnly,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -309,6 +313,7 @@ function ImportOperations() {
     location.state,
     showUnresolvedOnly,
     selectedBranch,
+    selectedCategory,
   ]);
 
   // Cleanup on unmount

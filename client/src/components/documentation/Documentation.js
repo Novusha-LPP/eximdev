@@ -30,7 +30,7 @@ import ContainerTrackButton from '../ContainerTrackButton';
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -155,7 +155,8 @@ function Documentation() {
       selectedImporter,
       selectedYearState,
       unresolvedOnly = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -171,6 +172,7 @@ function Documentation() {
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -208,7 +210,8 @@ function Documentation() {
         selectedImporter,
         selectedYearState,
         showUnresolvedOnly,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -219,6 +222,7 @@ function Documentation() {
     user?.username,
     showUnresolvedOnly,
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
   // Remove the automatic clearing - we'll handle this from the tab component instead

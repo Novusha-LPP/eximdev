@@ -28,7 +28,7 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 
 const FreeDaysConf = () => {
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
 
   const [selectedICD, setSelectedICD] = useState("");
@@ -121,7 +121,8 @@ const FreeDaysConf = () => {
       currentYear,
       currentICD,
       selectedImporter,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -137,6 +138,7 @@ const FreeDaysConf = () => {
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
               username: user?.username || "", // ✅ Send username for ICD filtering
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -173,7 +175,8 @@ const FreeDaysConf = () => {
         selectedYearState,
         selectedICD,
         selectedImporter,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -185,6 +188,7 @@ const FreeDaysConf = () => {
     user?.username,
     fetchJobs,
     selectedBranch,
+    selectedCategory,
   ]);
 
   // Debounce search input to avoid excessive API calls

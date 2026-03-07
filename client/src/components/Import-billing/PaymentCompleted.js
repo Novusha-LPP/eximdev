@@ -29,7 +29,7 @@ function PaymentCompleted() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -113,7 +113,8 @@ function PaymentCompleted() {
       selectedImporter,
       selectedYearState,
       username,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -128,6 +129,7 @@ function PaymentCompleted() {
               year: selectedYearState || "",
               username: username || "",
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -163,7 +165,8 @@ function PaymentCompleted() {
         selectedImporter,
         selectedYearState,
         user.username,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -174,6 +177,7 @@ function PaymentCompleted() {
     user?.username,
     fetchJobs,
     selectedBranch,
+    selectedCategory,
   ]);
 
   // Debounce search input to avoid excessive API calls

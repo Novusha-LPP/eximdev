@@ -3,6 +3,7 @@ import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -37,7 +38,7 @@ const getMostRecentSendDate = (job) => {
 };
 
 router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
-  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly, branchId } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly, branchId, category } = req.query;
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -99,21 +100,8 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
       });
     }
 
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
-
-    if (branchId && branchId.toLowerCase() !== "all") {
-      try {
-        baseQuery.$and.push({ branch_id: new mongoose.Types.ObjectId(branchId) });
-      } catch (e) {
-        baseQuery.$and.push({ branch_id: branchId });
-      }
-    }
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
 
     if (req.userIcdFilter) {
       baseQuery.$and.push(req.userIcdFilter);

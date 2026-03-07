@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const useLiveAnalytics = (module, startDate, endDate, importer, branchId) => {
+const useLiveAnalytics = (module, startDate, endDate, importer, branchId, category) => {
     const [data, setData] = useState({ summary: {}, details: {} });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -21,7 +21,7 @@ const useLiveAnalytics = (module, startDate, endDate, importer, branchId) => {
             const fetchData = async () => {
                 try {
                     const response = await axios.get(`${process.env.REACT_APP_API_STRING}/analytics/${module}`, {
-                        params: { startDate, endDate, importer, branchId }
+                        params: { startDate, endDate, importer, branchId, category }
                     });
                     setData(response.data);
                     setError(null);
@@ -50,7 +50,8 @@ const useLiveAnalytics = (module, startDate, endDate, importer, branchId) => {
                 startDate: startDate ? new Date(startDate).toISOString() : null,
                 endDate: endDate ? new Date(endDate).toISOString() : null,
                 importer,
-                branchId
+                branchId,
+                category
             };
             socket.send(JSON.stringify(payload));
         };
@@ -89,7 +90,7 @@ const useLiveAnalytics = (module, startDate, endDate, importer, branchId) => {
         return () => {
             socket.close();
         };
-    }, [module, startDate, endDate, importer, branchId]);
+    }, [module, startDate, endDate, importer, branchId, category]);
 
     return { data, loading, error };
 };

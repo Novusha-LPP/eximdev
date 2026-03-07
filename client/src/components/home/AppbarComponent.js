@@ -5,17 +5,44 @@ import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { Box, Typography, Select, MenuItem, FormControl } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  ToggleButton,
+  ToggleButtonGroup,
+} from "@mui/material";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import axios from "axios";
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 const drawerWidth = 60;
 
 function AppbarComponent(props) {
   const navigate = useNavigate();
-  const { selectedBranch, setSelectedBranch, branches } = useContext(BranchContext);
+  const {
+    selectedBranchGroup,
+    setSelectedBranchGroup,
+    selectedCategory,
+    setSelectedCategory,
+    branches,
+  } = useContext(BranchContext);
+
+  // Get unique branch locations for the dropdown
+  const uniqueBranches = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    branches.forEach((b) => {
+      if (!seen.has(b.branch_code)) {
+        seen.add(b.branch_code);
+        result.push(b);
+      }
+    });
+    return result;
+  }, [branches]);
 
   return (
     <AppBar
@@ -61,12 +88,13 @@ function AppbarComponent(props) {
 
         <Box sx={{ flexGrow: 1 }} />
 
-        {/* Global Branch Filter */}
-        <Box sx={{ mr: 3 }}>
-          <FormControl size="small" variant="outlined" sx={{ minWidth: 200 }}>
+        {/* Global Branch & Category Filter */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mr: 3 }}>
+          {/* Branch Selector */}
+          <FormControl size="small" variant="outlined" sx={{ minWidth: 150 }}>
             <Select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
+              value={selectedBranchGroup}
+              onChange={(e) => setSelectedBranchGroup(e.target.value)}
               displayEmpty
               sx={{
                 bgcolor: "white",
@@ -74,6 +102,7 @@ function AppbarComponent(props) {
                 color: "#000",
                 "& .MuiSelect-select": {
                   color: "#000",
+                  py: 1,
                 },
                 "& .MuiSvgIcon-root": {
                   color: "#000",
@@ -84,13 +113,39 @@ function AppbarComponent(props) {
               <MenuItem value="all">
                 <em>All Branches</em>
               </MenuItem>
-              {branches.map((b) => (
-                <MenuItem key={b._id} value={b._id}>
+              {uniqueBranches.map((b) => (
+                <MenuItem key={b.branch_code} value={b.branch_code}>
                   {b.branch_name} ({b.branch_code})
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
+
+          {/* Category Toggle */}
+          <ToggleButtonGroup
+            value={selectedCategory}
+            exclusive
+            onChange={(e, next) => next && setSelectedCategory(next)}
+            size="small"
+            sx={{
+              bgcolor: "white",
+              borderRadius: 1,
+              height: "40px",
+              "& .MuiToggleButton-root": {
+                border: "none",
+                px: 2,
+                color: "#666",
+                "&.Mui-selected": {
+                  bgcolor: "#f0f0f0",
+                  color: "#000",
+                  fontWeight: "bold",
+                },
+              },
+            }}
+          >
+            <ToggleButton value="SEA">SEA</ToggleButton>
+            <ToggleButton value="AIR">AIR</ToggleButton>
+          </ToggleButtonGroup>
         </Box>
 
         <Box sx={{ textAlign: "center", mt: 2 }}>
@@ -100,10 +155,10 @@ function AppbarComponent(props) {
           >
             Version: {process.env.REACT_APP_VERSION}
           </Typography>
-          {/* <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
+        </Box>
+        {/* <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
             {process.env.REACT_APP_VERSION_DATE}
           </Typography> */}
-        </Box>
       </Toolbar>
     </AppBar>
   );

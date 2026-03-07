@@ -61,7 +61,7 @@ function List() {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  const { selectedBranch } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -181,7 +181,8 @@ function List() {
       unresolvedOnly = false,
       emergencyOnly = false,
       freeTimeFilter = "",
-      selectedBranch = "all"
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -200,6 +201,7 @@ function List() {
               emergency: emergencyOnly.toString(), // ✅ Add emergency parameter
               freeTimeFilter, // ✅ Add freeTimeFilter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -243,7 +245,8 @@ function List() {
         showUnresolvedOnly,
         showEmergencyOnly,
         freeTimeFilter,
-        selectedBranch
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -257,6 +260,7 @@ function List() {
     showEmergencyOnly,
     freeTimeFilter,
     selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 

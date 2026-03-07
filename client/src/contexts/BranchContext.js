@@ -5,7 +5,8 @@ export const BranchContext = createContext();
 
 export const BranchProvider = ({ children }) => {
     const [branches, setBranches] = useState([]);
-    const [selectedBranch, setSelectedBranch] = useState(localStorage.getItem('selectedBranch') || 'all');
+    const [selectedBranchGroup, setSelectedBranchGroup] = useState(localStorage.getItem('selectedBranchGroup') || 'all');
+    const [selectedCategory, setSelectedCategory] = useState(localStorage.getItem('selectedCategory') || 'SEA');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -22,16 +23,32 @@ export const BranchProvider = ({ children }) => {
         fetchBranches();
     }, []);
 
-    const handleBranchChange = (branchId) => {
-        setSelectedBranch(branchId);
-        localStorage.setItem('selectedBranch', branchId);
+    const selectedBranch = React.useMemo(() => {
+        if (selectedBranchGroup === 'all') return 'all';
+        const branch = branches.find(
+            (b) => b.branch_code === selectedBranchGroup && b.category === selectedCategory
+        );
+        return branch ? branch._id : 'all';
+    }, [branches, selectedBranchGroup, selectedCategory]);
+
+    const handleBranchGroupChange = (group) => {
+        setSelectedBranchGroup(group);
+        localStorage.setItem('selectedBranchGroup', group);
+    };
+
+    const handleCategoryChange = (category) => {
+        setSelectedCategory(category);
+        localStorage.setItem('selectedCategory', category);
     };
 
     return (
         <BranchContext.Provider value={{
             branches,
-            selectedBranch,
-            setSelectedBranch: handleBranchChange,
+            selectedBranch, // Still exposed for compatibility
+            selectedBranchGroup,
+            setSelectedBranchGroup: handleBranchGroupChange,
+            selectedCategory,
+            setSelectedCategory: handleCategoryChange,
             loading
         }}>
             {children}

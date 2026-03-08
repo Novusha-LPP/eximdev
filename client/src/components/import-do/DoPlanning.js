@@ -95,7 +95,8 @@ function DoPlanning() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
@@ -1152,43 +1153,47 @@ function DoPlanning() {
               </IconButton>
             </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm_date)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM Date">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
             <div
               style={{

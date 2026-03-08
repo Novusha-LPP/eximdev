@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
+import { useBranch } from '../../contexts/BranchContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
 import {
@@ -21,6 +22,8 @@ import useLiveAnalytics from '../../hooks/useLiveAnalytics';
 
 const OverviewDashboard = () => {
     const { startDate, endDate, importer, selectedBranch, selectedCategory } = useAnalytics();
+    const { branches } = useBranch();
+    const activeBranchConfig = branches?.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
     const { data: rawData, loading } = useLiveAnalytics('overview', startDate, endDate, importer, selectedBranch, selectedCategory);
     const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
 
@@ -44,17 +47,17 @@ const OverviewDashboard = () => {
     const trendOptions = [
         { label: 'Jobs Created', value: 'jobs_trend', color: '#60a5fa' },
         { label: 'ETA', value: 'eta_trend', color: '#f472b6' },
-        { label: 'Gateway IGM', value: 'gateway_igm_trend', color: '#6366f1' },
+        ...(activeBranchConfig.gateway_igm_enabled || activeBranchConfig.gateway_igm_date_enabled ? [{ label: 'Gateway IGM', value: 'gateway_igm_trend', color: '#6366f1' }] : []),
         { label: 'Discharge', value: 'discharge_trend', color: '#14b8a6' },
         { label: 'Arrivals', value: 'arrival_trend', color: '#34d399' },
-        { label: 'Rail Out', value: 'rail_out_trend', color: '#818cf8' },
+        ...(activeBranchConfig.railout_enabled ? [{ label: 'Rail Out', value: 'rail_out_trend', color: '#818cf8' }] : []),
         { label: 'BE Filed', value: 'be_trend', color: '#a78bfa' },
         { label: 'OOC', value: 'ooc_trend', color: '#e879f9' },
         { label: 'DO Completed', value: 'do_trend', color: '#fb923c' },
         { label: 'Billing Sent', value: 'billing_trend', color: '#2dd4bf' }
     ];
 
-    const [selectedTrend, setSelectedTrend] = useState(trendOptions[0]);
+    const [selectedTrend, setSelectedTrend] = useState(trendOptions[0] || { label: 'Jobs Created', value: 'jobs_trend', color: '#60a5fa' });
     const currentTrendRaw = details?.[selectedTrend.value] || [];
     const chartData = currentTrendRaw.map(item => ({
         date: item._id,
@@ -65,10 +68,10 @@ const OverviewDashboard = () => {
     const cards = [
         { key: 'jobs_created_today', title: 'Jobs Created', label: 'Creation Date', color: 'blue' },
         { key: 'eta', title: 'ETA', label: 'ETA Date', color: 'pink' },
-        { key: 'gateway_igm_date', title: 'Gateway IGM', label: 'IGM Date', color: 'indigo' },
+        ...(activeBranchConfig.gateway_igm_date_enabled ? [{ key: 'gateway_igm_date', title: 'Gateway IGM', label: 'IGM Date', color: 'indigo' }] : []),
         { key: 'discharge_date', title: 'Discharge', label: 'Discharge Date', color: 'teal' },
         { key: 'arrivals_today', title: 'Arrivals', label: 'Arrival Date', color: 'cyan' },
-        { key: 'rail_out_today', title: 'Rail Out', label: 'Rail Out Date', color: 'blue' },
+        ...(activeBranchConfig.railout_enabled ? [{ key: 'rail_out_today', title: 'Rail Out', label: 'Rail Out Date', color: 'blue' }] : []),
         { key: 'be_filed', title: 'BE Filed', label: 'BE Date', color: 'purple' },
         { key: 'ooc', title: 'OOC', label: 'OOC Date', color: 'fuchsia' },
         { key: 'empty_offload', title: 'Empty Offload', label: 'Offload Date', color: 'rose' },

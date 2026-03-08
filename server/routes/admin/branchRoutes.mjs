@@ -8,7 +8,7 @@ const router = express.Router();
 // Get all branches
 router.get("/get-branches", async (req, res) => {
     try {
-        const branches = await BranchModel.find().select("branch_name branch_code category is_active ports _id");
+        const branches = await BranchModel.find().select("branch_name branch_code category is_active configuration ports _id");
         res.status(200).json(branches);
     } catch (error) {
         console.error("Error fetching branches:", error);
@@ -23,7 +23,7 @@ router.get("/my-branches", authMiddleware, async (req, res) => {
         const role = req.user.role;
 
         const assignments = await UserBranchModel.find({ user_id: userId })
-            .populate("branch_id", "branch_name branch_code category is_active ports _id");
+            .populate("branch_id", "branch_name branch_code category is_active configuration ports _id");
 
         if (assignments.length > 0) {
             const branches = assignments
@@ -33,7 +33,7 @@ router.get("/my-branches", authMiddleware, async (req, res) => {
         }
 
         if (role === 'Admin') {
-            const branches = await BranchModel.find({ is_active: true }).select("branch_name branch_code category is_active ports _id");
+            const branches = await BranchModel.find({ is_active: true }).select("branch_name branch_code category is_active configuration ports _id");
             return res.status(200).json(branches);
         }
 
@@ -48,7 +48,7 @@ router.get("/my-branches", authMiddleware, async (req, res) => {
 router.put("/update-branch/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { branch_name, is_active } = req.body;
+        const { branch_name, is_active, configuration } = req.body;
 
         const branch = await BranchModel.findById(id);
         if (!branch) {
@@ -61,7 +61,8 @@ router.put("/update-branch/:id", async (req, res) => {
             {
                 $set: {
                     branch_name: branch_name !== undefined ? branch_name : branch.branch_name,
-                    is_active: is_active !== undefined ? is_active : branch.is_active
+                    is_active: is_active !== undefined ? is_active : branch.is_active,
+                    configuration: configuration !== undefined ? configuration : branch.configuration
                 }
             }
         );
@@ -76,7 +77,7 @@ router.put("/update-branch/:id", async (req, res) => {
 // Create a new branch
 router.post("/add-branch", async (req, res) => {
     try {
-        const { branch_name, branch_code, is_active } = req.body;
+        const { branch_name, branch_code, is_active, configuration } = req.body;
 
         if (!branch_name || !branch_code) {
             return res.status(400).json({ error: "Branch name and code are required." });
@@ -103,7 +104,12 @@ router.post("/add-branch", async (req, res) => {
             branch_code: uppercaseCode,
             category: 'SEA',
             is_active: activeStatus,
-            created_by: creator
+            created_by: creator,
+            configuration: configuration || {
+                railout_enabled: true,
+                gateway_igm_enabled: true,
+                gateway_igm_date_enabled: true
+            }
         });
 
         const airBranch = new BranchModel({
@@ -111,7 +117,12 @@ router.post("/add-branch", async (req, res) => {
             branch_code: uppercaseCode,
             category: 'AIR',
             is_active: activeStatus,
-            created_by: creator
+            created_by: creator,
+            configuration: configuration || {
+                railout_enabled: true,
+                gateway_igm_enabled: true,
+                gateway_igm_date_enabled: true
+            }
         });
 
         await Promise.all([seaBranch.save(), airBranch.save()]);

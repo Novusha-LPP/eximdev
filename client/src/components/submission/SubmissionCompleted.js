@@ -36,7 +36,8 @@ function SubmissionCompleted() {
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
   const { user } = useContext(UserContext);
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = React.useState([]);
@@ -378,26 +379,34 @@ function SubmissionCompleted() {
 
         return (
           <div>
-            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm)}
-            >
-              <abbr title="Copy Gateway IGM">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm_date)}
-            >
-              <abbr title="Copy Gateway Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
+            {activeBranchConfig.gateway_igm_enabled && (
+              <>
+                <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                >
+                  <abbr title="Copy Gateway IGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+              </>
+            )}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <>
+                <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                >
+                  <abbr title="Copy Gateway Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+              </>
+            )}
             <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
             <IconButton
               size="small"

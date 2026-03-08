@@ -2,6 +2,7 @@
 import React from "react";
 import FileUpload from "../../gallery/FileUpload";
 import ImagePreview from "../../gallery/ImagePreview";
+import { BranchContext } from "../../../contexts/BranchContext";
 
 export default function TrackingTab({
   user,
@@ -141,6 +142,8 @@ export default function TrackingTab({
 
   // small helper
   const onlyAdmin = user?.role === "Admin";
+  const { branches, selectedBranch } = React.useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   return (
     <div style={containerStyle}>
@@ -203,28 +206,32 @@ export default function TrackingTab({
             }
           />
         </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>G-IGM No:</label>
-          <input
-            type="text"
-            style={inputStyle}
-            value={formik.values.gateway_igm || ""}
-            onChange={(e) =>
-              formik.setFieldValue("gateway_igm", e.target.value)
-            }
-          />
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>G-IGM Date:</label>
-          <input
-            type="datetime-local"
-            style={inputStyle}
-            value={formatDateForInput(formik.values.gateway_igm_date || "")}
-            onChange={(e) =>
-              formik.setFieldValue("gateway_igm_date", e.target.value)
-            }
-          />
-        </div>
+        {activeBranchConfig.gateway_igm_enabled && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>G-IGM No:</label>
+            <input
+              type="text"
+              style={inputStyle}
+              value={formik.values.gateway_igm || ""}
+              onChange={(e) =>
+                formik.setFieldValue("gateway_igm", e.target.value)
+              }
+            />
+          </div>
+        )}
+        {activeBranchConfig.gateway_igm_date_enabled && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>G-IGM Date:</label>
+            <input
+              type="datetime-local"
+              style={inputStyle}
+              value={formatDateForInput(formik.values.gateway_igm_date || "")}
+              onChange={(e) =>
+                formik.setFieldValue("gateway_igm_date", e.target.value)
+              }
+            />
+          </div>
+        )}
         <div style={fieldStyle}>
           <label style={labelStyle}>IGM No:</label>
           <input
@@ -414,38 +421,38 @@ export default function TrackingTab({
           {["FOB", "C&I"].includes(
             formik.values.import_terms || importTerms
           ) && (
-            <div style={fieldStyle}>
-              <label style={{ ...labelStyle, fontSize: "11px" }}>Freight:</label>
-              <input
-                type="number"
-                style={inputStyle}
-                value={formik.values.freight || ""}
-                onChange={(e) =>
-                  formik.setFieldValue("freight", e.target.value)
-                }
-                placeholder="₹"
-              />
-            </div>
-          )}
+              <div style={fieldStyle}>
+                <label style={{ ...labelStyle, fontSize: "11px" }}>Freight:</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={formik.values.freight || ""}
+                  onChange={(e) =>
+                    formik.setFieldValue("freight", e.target.value)
+                  }
+                  placeholder="₹"
+                />
+              </div>
+            )}
 
           {["FOB", "C&F"].includes(
             formik.values.import_terms || importTerms
           ) && (
-            <div style={fieldStyle}>
-              <label style={{ ...labelStyle, fontSize: "11px" }}>
-                Insurance:
-              </label>
-              <input
-                type="number"
-                style={inputStyle}
-                value={formik.values.insurance || ""}
-                onChange={(e) =>
-                  formik.setFieldValue("insurance", e.target.value)
-                }
-                placeholder="₹"
-              />
-            </div>
-          )}
+              <div style={fieldStyle}>
+                <label style={{ ...labelStyle, fontSize: "11px" }}>
+                  Insurance:
+                </label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={formik.values.insurance || ""}
+                  onChange={(e) =>
+                    formik.setFieldValue("insurance", e.target.value)
+                  }
+                  placeholder="₹"
+                />
+              </div>
+            )}
         </div>
       </div>
 

@@ -1,10 +1,13 @@
 // JobStickerPDF.js
-import React, { forwardRef, useImperativeHandle } from "react";
+import React, { forwardRef, useImperativeHandle, useContext } from "react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { BranchContext } from "../../contexts/BranchContext";
 import logo from "../../assets/images/srcc.png"; // Ensure this path is correct
 
 const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
+  const { branches, selectedBranch } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
   useImperativeHandle(ref, () => ({
     /**
      * Generates the PDF and opens it in a new browser tab.
@@ -170,12 +173,18 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
           );
 
           // Row: Gateway IGM & Date
-          addTwoColumnRow(
-            "Gateway IGM",
-            data.gateway_igm || "N/A",
-            "Gateway IGM Date",
-            data.gateway_igm_date || "N/A"
-          );
+          if (activeBranchConfig.gateway_igm_enabled && activeBranchConfig.gateway_igm_date_enabled) {
+            addTwoColumnRow(
+              "Gateway IGM",
+              data.gateway_igm || "N/A",
+              "Gateway IGM Date",
+              data.gateway_igm_date || "N/A"
+            );
+          } else if (activeBranchConfig.gateway_igm_enabled) {
+            addSingleColumnRow("Gateway IGM", data.gateway_igm || "N/A");
+          } else if (activeBranchConfig.gateway_igm_date_enabled) {
+            addSingleColumnRow("Gateway IGM Date", data.gateway_igm_date || "N/A");
+          }
 
           // Row: Local IGM No & Local IGM Date
           addTwoColumnRow(

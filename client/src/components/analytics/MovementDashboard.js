@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
+import { useBranch } from '../../contexts/BranchContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
 
@@ -19,6 +20,8 @@ import useLiveAnalytics from '../../hooks/useLiveAnalytics';
 
 const MovementDashboard = () => {
     const { startDate, endDate, importer, selectedBranch, selectedCategory } = useAnalytics();
+    const { branches } = useBranch();
+    const activeBranchConfig = branches?.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
     const { data: rawData, loading } = useLiveAnalytics('movement', startDate, endDate, importer, selectedBranch, selectedCategory);
     const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
 
@@ -42,7 +45,9 @@ const MovementDashboard = () => {
             <h2>Container Movement</h2>
             <div className="dashboard-grid">
                 <KPICard title="Arrived" count={summary.arrived || 0} color="blue" onClick={() => handleCardClick('arrived', 'Arrived', 'Arrival Date')} />
-                <KPICard title="Rail Out" count={summary.rail_out || 0} color="blue" onClick={() => handleCardClick('rail_out', 'Rail Out', 'Rail Out Date')} />
+                {activeBranchConfig.railout_enabled && (
+                    <KPICard title="Rail Out" count={summary.rail_out || 0} color="blue" onClick={() => handleCardClick('rail_out', 'Rail Out', 'Rail Out Date')} />
+                )}
                 <KPICard title="Delivered" count={summary.delivered || 0} color="blue" onClick={() => handleCardClick('delivered', 'Delivered', 'Delivery Date')} />
                 <KPICard title="Empty Offload" count={summary.empty_offload || 0} color="blue" onClick={() => handleCardClick('empty_offload', 'Empty Offload', 'Offload Date')} />
                 <KPICard title="By Road" count={summary.by_road || 0} color="blue" onClick={() => handleCardClick('by_road', 'By Road', 'Movement Date')} />

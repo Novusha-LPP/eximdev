@@ -37,6 +37,11 @@ const branchSchema = new mongoose.Schema({
     created_by: {
         type: String,
         trim: true
+    },
+    configuration: {
+        railout_enabled: { type: Boolean, default: true },
+        gateway_igm_enabled: { type: Boolean, default: true },
+        gateway_igm_date_enabled: { type: Boolean, default: true }
     }
 });
 

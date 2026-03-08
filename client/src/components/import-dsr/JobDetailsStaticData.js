@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState, useContext } from "react";
 import { Row, Col } from "react-bootstrap";
 import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -8,11 +8,14 @@ import EditIcon from "@mui/icons-material/Edit";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { BranchContext } from "../../contexts/BranchContext";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
   const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
   const isAdmin = user?.role === "Admin";
+  const { branches, selectedBranch } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -546,14 +549,18 @@ function JobDetailsStaticData(props) {
 
           {/* Row 8: G-IGM No, G-IGM Date, Line No, Bank Name */}
           <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM No: </span>
-              <span style={valueStyle}>{props.data.gateway_igm}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM Date: </span>
-              <span style={valueStyle}>{props.data.gateway_igm_date}</span>
-            </Col>
+            {activeBranchConfig.gateway_igm_enabled && (
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>G-IGM No: </span>
+                <span style={valueStyle}>{props.data.gateway_igm}</span>
+              </Col>
+            )}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>G-IGM Date: </span>
+                <span style={valueStyle}>{props.data.gateway_igm_date}</span>
+              </Col>
+            )}
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Line No: </span>
               <span style={valueStyle}>{props.data.line_no}</span>

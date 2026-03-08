@@ -4,6 +4,7 @@ import { TextField, MenuItem } from "@mui/material";
 import { FcCalendar } from "react-icons/fc";
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
+import { BranchContext, useContext } from "../../contexts/BranchContext";
 
 // ---------- Date helpers ----------
 const isDateOnly = (s) =>
@@ -142,6 +143,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [localStatus, setLocalStatus] = useState(detailed_status);
   const [containers, setContainers] = useState(() => [...container_nos]);
   const [editable, setEditable] = useState(null);
+  const { branches, selectedBranch } = React.useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
   const [dateError, setDateError] = useState("");
@@ -546,12 +549,16 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               "vessel_berthing"
             )}
             <br />
-            {renderRowDateEditor(
-              "GIGM",
-              dates.gateway_igm_date,
-              "gateway_igm_date"
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <>
+                {renderRowDateEditor(
+                  "GIGM",
+                  dates.gateway_igm_date,
+                  "gateway_igm_date"
+                )}
+                <br />
+              </>
             )}
-            <br />
             {renderRowDateEditor(
               "Discharge",
               dates.discharge_date,
@@ -561,6 +568,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
             {!isExBond &&
               !isLCL &&
+              activeBranchConfig.railout_enabled &&
               containers.map((c, i) =>
                 renderContainerEditor(
                   "Rail-out",

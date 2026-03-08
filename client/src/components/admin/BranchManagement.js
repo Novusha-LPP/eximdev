@@ -37,12 +37,22 @@ function BranchManagement() {
     const [branchCode, setBranchCode] = useState("");
     const [branchCategory, setBranchCategory] = useState("SEA");
     const [branchIsActive, setBranchIsActive] = useState(true);
+    const [branchConfig, setBranchConfig] = useState({
+        railout_enabled: true,
+        gateway_igm_enabled: true,
+        gateway_igm_date_enabled: true
+    });
 
     // Edit states
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingBranch, setEditingBranch] = useState(null);
     const [editBranchName, setEditBranchName] = useState("");
     const [editBranchIsActive, setEditBranchIsActive] = useState(true);
+    const [editBranchConfig, setEditBranchConfig] = useState({
+        railout_enabled: true,
+        gateway_igm_enabled: true,
+        gateway_igm_date_enabled: true
+    });
 
     // Form states for adding Port to a Branch
     const [selectedBranchId, setSelectedBranchId] = useState("");
@@ -88,7 +98,8 @@ function BranchManagement() {
                     branch_name: branchName,
                     branch_code: branchCode,
                     category: branchCategory,
-                    is_active: branchIsActive
+                    is_active: branchIsActive,
+                    configuration: branchConfig
                 },
                 { withCredentials: true }
             );
@@ -97,6 +108,11 @@ function BranchManagement() {
             setBranchCode("");
             setBranchCategory("SEA");
             setBranchIsActive(true);
+            setBranchConfig({
+                railout_enabled: true,
+                gateway_igm_enabled: true,
+                gateway_igm_date_enabled: true
+            });
             fetchBranches();
         } catch (error) {
             showSnackbar(error.response?.data?.error || "Error adding branch", "error");
@@ -107,6 +123,11 @@ function BranchManagement() {
         setEditingBranch(branch);
         setEditBranchName(branch.branch_name);
         setEditBranchIsActive(branch.is_active);
+        setEditBranchConfig(branch.configuration || {
+            railout_enabled: true,
+            gateway_igm_enabled: true,
+            gateway_igm_date_enabled: true
+        });
         setEditDialogOpen(true);
     };
 
@@ -121,7 +142,8 @@ function BranchManagement() {
                 `${process.env.REACT_APP_API_STRING}/admin/update-branch/${editingBranch._id}`,
                 {
                     branch_name: editBranchName,
-                    is_active: editBranchIsActive
+                    is_active: editBranchIsActive,
+                    configuration: editBranchConfig
                 },
                 { withCredentials: true }
             );
@@ -205,6 +227,41 @@ function BranchManagement() {
                                     }
                                     label="Is Active"
                                 />
+
+                                <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 1 }}>Feature Configuration</Typography>
+                                <Box display="flex" flexDirection="column" gap={1} pl={2}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={branchConfig.railout_enabled}
+                                                onChange={(e) => setBranchConfig(prev => ({ ...prev, railout_enabled: e.target.checked }))}
+                                                color="primary" size="small"
+                                            />
+                                        }
+                                        label="Enable Railout Fields"
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={branchConfig.gateway_igm_enabled}
+                                                onChange={(e) => setBranchConfig(prev => ({ ...prev, gateway_igm_enabled: e.target.checked }))}
+                                                color="primary" size="small"
+                                            />
+                                        }
+                                        label="Enable Gateway IGM"
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={branchConfig.gateway_igm_date_enabled}
+                                                onChange={(e) => setBranchConfig(prev => ({ ...prev, gateway_igm_date_enabled: e.target.checked }))}
+                                                color="primary" size="small"
+                                                disabled={!branchConfig.gateway_igm_enabled}
+                                            />
+                                        }
+                                        label="Enable Gateway IGM Date"
+                                    />
+                                </Box>
 
                                 <Button type="submit" variant="contained" color="primary">
                                     Create Branch (SEA & AIR)
@@ -365,6 +422,41 @@ function BranchManagement() {
                             }
                             label="Is Active"
                         />
+
+                        <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 1 }}>Feature Configuration</Typography>
+                        <Box display="flex" flexDirection="column" gap={1} pl={2} mb={1}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={editBranchConfig.railout_enabled}
+                                        onChange={(e) => setEditBranchConfig(prev => ({ ...prev, railout_enabled: e.target.checked }))}
+                                        color="primary" size="small"
+                                    />
+                                }
+                                label="Enable Railout Fields"
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={editBranchConfig.gateway_igm_enabled}
+                                        onChange={(e) => setEditBranchConfig(prev => ({ ...prev, gateway_igm_enabled: e.target.checked }))}
+                                        color="primary" size="small"
+                                    />
+                                }
+                                label="Enable Gateway IGM"
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={editBranchConfig.gateway_igm_date_enabled}
+                                        onChange={(e) => setEditBranchConfig(prev => ({ ...prev, gateway_igm_date_enabled: e.target.checked }))}
+                                        color="primary" size="small"
+                                        disabled={!editBranchConfig.gateway_igm_enabled}
+                                    />
+                                }
+                                label="Enable Gateway IGM Date"
+                            />
+                        </Box>
                         <Typography variant="caption" color="textSecondary">
                             Note: Changes will apply to both SEA and AIR versions of this branch.
                         </Typography>

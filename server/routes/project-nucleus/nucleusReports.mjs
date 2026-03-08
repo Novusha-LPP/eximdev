@@ -1,14 +1,18 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import UserModel from "../../model/userModel.mjs";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
 router.get("/reports", async (req, res) => {
     try {
+        const { branchId, category } = req.query;
+        const branchMatch = getBranchMatch(branchId, category);
+
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
-        const jobs = await JobModel.find({})
+        const jobs = await JobModel.find(branchMatch)
             .select("job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer consignment_type container_nos.size")
             .lean();
 
@@ -126,14 +130,16 @@ function parseAmount(amountStr) {
 // Top 10 Importers Report
 router.get("/top-importers", async (req, res) => {
     try {
-        const { filterType, month, year, quarter, startDate, endDate } = req.query;
+        const { filterType, month, year, quarter, startDate, endDate, branchId, category } = req.query;
+        const branchMatch = getBranchMatch(branchId, category);
 
         // Base Match Condition: Must have out_of_charge date and NOT be Ex-Bond
         const matchStage = {
             out_of_charge: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
             be_filing_type: { $ne: "Ex-Bond" },
-            type_of_b_e: { $ne: "Ex-Bond" }
+            type_of_b_e: { $ne: "Ex-Bond" },
+            ...branchMatch
         };
 
         const pipeline = [

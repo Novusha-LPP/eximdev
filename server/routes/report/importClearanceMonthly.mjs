@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -14,6 +15,8 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
   const { year, month } = req.params;
   const monthInt = parseInt(month, 10);
   const grade = req.query.grade || "";
+  const { branchId, category } = req.query;
+  const branchMatch = getBranchMatch(branchId, category);
 
   try {
     // build pipeline first
@@ -24,6 +27,7 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           out_of_charge: { $type: "string", $ne: "" },
           be_date: { $type: "string", $ne: "" },
           importer: { $ne: null, $ne: "" },
+          ...branchMatch,
         },
       },
       {

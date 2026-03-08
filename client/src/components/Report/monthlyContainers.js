@@ -208,6 +208,7 @@ const MonthlyContainers = () => {
   const [selectedRowData, setSelectedRowData] = useState(null);
   const [selectedICD, setSelectedICD] = useState("");
   const dynamicICDs = useDynamicICDs();
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const navigate = useNavigate();
 
   // The years array is now fetched dynamically through the useFetchYears hook.
@@ -256,9 +257,12 @@ const MonthlyContainers = () => {
     setError("");
     try {
       const apiBase = process.env.REACT_APP_API_STRING || "";
-      // Add ICD as query parameter if selected
-      const icdParam = selectedICD ? `?custom_house=${encodeURIComponent(selectedICD)}` : "";
-      const res = await axios.get(`${apiBase}/report/monthly-containers/${year}/${month}${icdParam}`);
+      const params = new URLSearchParams();
+      if (selectedICD) params.append("custom_house", selectedICD);
+      if (selectedBranch && selectedBranch !== "all") params.append("branchId", selectedBranch);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const res = await axios.get(`${apiBase}/report/monthly-containers/${year}/${month}${query}`);
       setData(res.data);
     } catch (err) {
       setError("Failed to fetch data");
@@ -269,7 +273,7 @@ const MonthlyContainers = () => {
 
   useEffect(() => {
     fetchData();
-  }, [year, month, selectedICD]);
+  }, [year, month, selectedICD, selectedBranch, selectedCategory]);
 
   const handleSort = (column) => {
     const isAsc = sortColumn === column && sortDirection === 'asc';

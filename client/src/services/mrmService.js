@@ -74,6 +74,16 @@ export const deleteMRMItem = async (id) => {
     }
 };
 
+export const bulkDeleteMRMItems = async (month, year, userId) => {
+    try {
+        const params = { month, year, userId };
+        const response = await axios.delete(`${API_URL}-bulk/delete`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const importMRMItems = async (data) => {
     try {
         const response = await axios.post(`${API_URL}/import`, data, getHeaders());

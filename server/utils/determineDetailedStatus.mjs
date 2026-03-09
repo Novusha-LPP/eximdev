@@ -2,6 +2,7 @@ export function determineDetailedStatus(job) {
   const {
     be_no,
     container_nos,
+    packages,
     out_of_charge,
     pcv_date,
     discharge_date,
@@ -19,23 +20,24 @@ export function determineDetailedStatus(job) {
     return !isNaN(d.getTime());
   };
 
-  const anyArrival = Array.isArray(container_nos)
-    ? container_nos.some((c) => isValidDate(c?.arrival_date))
-    : false;
+  const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
+  const hasPackages = Array.isArray(packages) && packages.length > 0;
 
-  const anyRailOut = Array.isArray(container_nos)
+  const anyArrival =
+    (hasContainers && container_nos.some((c) => isValidDate(c?.arrival_date))) ||
+    (hasPackages && packages.some((p) => isValidDate(p?.arrival_date)));
+
+  const anyRailOut = hasContainers
     ? container_nos.some((c) => isValidDate(c?.container_rail_out_date))
     : false;
 
-  const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
-
-  const allDelivered = hasContainers
-    ? container_nos.every((c) => isValidDate(c?.delivery_date))
-    : false;
+  const allDelivered =
+    (hasContainers && container_nos.every((c) => isValidDate(c?.delivery_date))) ||
+    (hasPackages && packages.every((p) => isValidDate(p?.delivery_date)));
 
   const allEmptyOffloaded = hasContainers
     ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
-    : false;
+    : (hasPackages ? true : false); // For packages, we treat empty offload as "not applicable but satisfied" if packages exist
 
   const validOOC = isValidDate(out_of_charge);
   const validPCV = isValidDate(pcv_date);

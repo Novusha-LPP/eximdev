@@ -225,6 +225,18 @@ const jobSchema = new mongoose.Schema({
       ],
     },
   ],
+  packages: [
+    {
+      package_number: { type: String, trim: true },
+      arrival_date: { type: String, trim: true },
+      gross_weight: { type: String, trim: true },
+      net_weight: { type: String, trim: true },
+      net_weight_as_per_PL_document: { type: String, trim: true },
+      package_damage_images: [{ type: String, trim: true }],
+      examination_videos: [{ type: String, trim: true }],
+      delivery_date: { type: String, trim: true },
+    },
+  ],
   lockBankDetails: { type: Boolean, default: false },
   is_checklist_aprroved: { type: Boolean, default: false },
   is_checklist_aprroved_date: { type: String, trim: true },

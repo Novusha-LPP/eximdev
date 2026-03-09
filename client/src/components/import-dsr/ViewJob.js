@@ -97,7 +97,9 @@ function JobDetails() {
 
   const { currentTab } = useContext(TabContext); // Access context
   const { branches, selectedBranch } = useContext(BranchContext);
-  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const activeBranch = branches.find(b => b._id === selectedBranch);
+  const activeBranchMode = activeBranch?.category || "SEA";
+  const activeBranchConfig = activeBranch?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -356,6 +358,7 @@ function JobDetails() {
     const {
       be_no,
       container_nos,
+      packages,
       out_of_charge,
       pcv_date,
       discharge_date,
@@ -373,24 +376,28 @@ function JobDetails() {
       return !isNaN(d.getTime());
     };
 
-    const anyArrival = Array.isArray(container_nos)
-      ? container_nos.some((c) => isValidDate(c?.arrival_date))
+    const hasPackages = Array.isArray(packages) && packages.length > 0;
+    const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
+
+    const anyArrival = activeBranchMode === "AIR"
+      ? (hasPackages ? packages.some((p) => isValidDate(p?.arrival_date)) : false)
+      : (hasContainers ? container_nos.some((c) => isValidDate(c?.arrival_date)) : false);
+
+    const anyRailOut = activeBranchMode === "SEA"
+      ? (hasContainers ? container_nos.some((c) => isValidDate(c?.container_rail_out_date)) : false)
       : false;
 
-    const anyRailOut = Array.isArray(container_nos)
-      ? container_nos.some((c) => isValidDate(c?.container_rail_out_date))
+    const hasUnits = activeBranchMode === "AIR" ? hasPackages : hasContainers;
+
+    const allDelivered = hasUnits
+      ? (activeBranchMode === "AIR"
+        ? packages.every((p) => isValidDate(p?.delivery_date))
+        : container_nos.every((c) => isValidDate(c?.delivery_date)))
       : false;
 
-    const hasContainers =
-      Array.isArray(container_nos) && container_nos.length > 0;
-
-    const allDelivered = hasContainers
-      ? container_nos.every((c) => isValidDate(c?.delivery_date))
-      : false;
-
-    const allEmptyOffloaded = hasContainers
-      ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
-      : false;
+    const allEmptyOffloaded = activeBranchMode === "AIR"
+      ? true
+      : (hasUnits ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate)) : false);
 
     const validOOC = isValidDate(out_of_charge);
     const validPCV = isValidDate(pcv_date);
@@ -435,7 +442,9 @@ function JobDetails() {
 
     // Non Ex-Bond (original import flow)
     let billingComplete = false;
-    if (isInBond) {
+    if (activeBranchMode === "AIR") {
+      billingComplete = allDelivered;
+    } else if (isInBond) {
       // In-Bond Logic
       if (isTypeDoIcd) {
         // In-Bond ICD: Needs Destuffing/EmptyOff
@@ -514,6 +523,7 @@ function JobDetails() {
     formik.values.emptyContainerOffLoadDate,
     formik.values.delivery_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
+    formik.values.packages,    // Include packages to track arrival/delivery for air jobs
   ]);
 
   // const handleRadioChange = (event) => {
@@ -542,6 +552,15 @@ function JobDetails() {
 
   // Helper to get the correct date for "Delivery Completed"
   const getDeliveryCompletedDate = () => {
+    if (activeBranchMode === "AIR") {
+      const pkgs = formik.values.packages || [];
+      if (!pkgs.length) return null;
+      const allHaveDate = pkgs.every((p) => p.delivery_date);
+      if (!allHaveDate) return null;
+      const lastDate = pkgs[pkgs.length - 1].delivery_date;
+      return lastDate || null;
+    }
+
     const containers = formik.values.container_nos || [];
     if (!containers.length) return null;
 
@@ -559,6 +578,32 @@ function JobDetails() {
   };
 
   const deliveryCompletedDate = getDeliveryCompletedDate();
+
+  const handleAddPackage = () => {
+    const newPackage = {
+      package_number: "",
+      arrival_date: "",
+      gross_weight: "",
+      net_weight: "",
+      net_weight_as_per_PL_document: "",
+      package_damage_images: [],
+      examination_videos: [],
+      delivery_date: "",
+    };
+    formik.setFieldValue("packages", [...(formik.values.packages || []), newPackage]);
+  };
+
+  const handlePackageChange = (index, field, value) => {
+    const updatedPackages = [...(formik.values.packages || [])];
+    updatedPackages[index][field] = value;
+    formik.setFieldValue("packages", updatedPackages);
+  };
+
+  const handleRemovePackage = (index) => {
+    const updatedPackages = [...(formik.values.packages || [])];
+    updatedPackages.splice(index, 1);
+    formik.setFieldValue("packages", updatedPackages);
+  };
 
   // ...existing code...
   const handleBlStatusChange = (event) => {
@@ -917,7 +962,7 @@ function JobDetails() {
             >
               <Tab label="Completion Status" />
               <Tab label="Tracking Status" />
-              <Tab label="Containers" />
+              <Tab label={activeBranchMode === "AIR" ? "Packages" : "Containers"} />
               <Tab label="Documents" />
               <Tab label="Charges" />
             </Tabs>
@@ -2535,7 +2580,7 @@ function JobDetails() {
             </div>
           )}
 
-          {viewJobTab === 2 && (
+          {viewJobTab === 2 && activeBranchMode === "SEA" && (
             <div className="job-details-container">
               <JobDetailsRowHeading heading="Container Details" />
               <Row>
@@ -3391,6 +3436,204 @@ function JobDetails() {
                       </div>
                     );
                   })()}
+                </Col>
+              </Row>
+            </div>
+          )}
+
+          {viewJobTab === 2 && activeBranchMode === "AIR" && (
+            <div className="job-details-container">
+              <JobDetailsRowHeading heading="Package Details" />
+              <Row>
+                <Col xs={12}>
+                  <div style={{ maxHeight: "80vh", overflowY: "auto", paddingRight: "5px" }}>
+                    {(formik.values.packages && formik.values.packages.length > 0
+                      ? formik.values.packages
+                      : [
+                        {
+                          package_number: "",
+                          arrival_date: "",
+                          gross_weight: "",
+                          net_weight: "",
+                          net_weight_as_per_PL_document: "",
+                          package_damage_images: [],
+                          examination_videos: [],
+                          delivery_date: "",
+                        },
+                      ]
+                    ).map((pkg, index) => {
+                      const labelStyle = {
+                        display: "block",
+                        marginBottom: "4px",
+                        fontSize: "0.9rem",
+                        fontWeight: "700",
+                        color: "#000000",
+                      };
+                      const readOnlyStyle = {
+                        padding: "8px",
+                        background: "#f8f9fa",
+                        borderRadius: "4px",
+                        border: "1px solid #ced4da",
+                        fontSize: "0.9rem",
+                        minHeight: "38px",
+                      };
+
+                      return (
+                        <div
+                          key={index}
+                          style={{
+                            marginBottom: "30px",
+                            background: "#fff",
+                            borderRadius: "8px",
+                            border: "1px solid #e0e0e0",
+                            overflow: "hidden",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: "#f8f9fa",
+                              padding: "12px 20px",
+                              borderBottom: "1px solid #e0e0e0",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <h6 style={{ margin: 0, fontWeight: "700", color: "#495057" }}>
+                              #{index + 1} Package Details
+                            </h6>
+                            <IconButton
+                              onClick={() => handleRemovePackage(index)}
+                              size="small"
+                              color="error"
+                              disabled={user?.role !== "Admin"}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </div>
+                          <div style={{ padding: "20px" }}>
+                            <Row className="mb-3">
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Package Number</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  value={pkg.package_number || ""}
+                                  onChange={(e) => handlePackageChange(index, "package_number", e.target.value)}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Arrival Date</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  InputLabelProps={{ shrink: true }}
+                                  value={pkg.arrival_date || ""}
+                                  onChange={(e) => handlePackageChange(index, "arrival_date", e.target.value)}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Delivery Date</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  InputLabelProps={{ shrink: true }}
+                                  value={pkg.delivery_date || ""}
+                                  onChange={(e) => handlePackageChange(index, "delivery_date", e.target.value)}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                            </Row>
+                            <Row className="mb-3">
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Gross Weight</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  value={pkg.gross_weight || ""}
+                                  onChange={(e) => handlePackageChange(index, "gross_weight", e.target.value)}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Net Weight</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  value={pkg.net_weight || ""}
+                                  onChange={(e) => handlePackageChange(index, "net_weight", e.target.value)}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Net Weight (PL)</label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  value={pkg.net_weight_as_per_PL_document || ""}
+                                  onChange={(e) => handlePackageChange(index, "net_weight_as_per_PL_document", e.target.value)}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                            </Row>
+                            <Row>
+                              <Col xs={12} md={6}>
+                                <div className="mb-3">
+                                  <label style={labelStyle}>Package Damage Images</label>
+                                  <ImagePreview
+                                    images={pkg?.package_damage_images || []}
+                                    onDeleteImage={(imageIndex) => {
+                                      const updatedPackages = [...(formik.values.packages || [])];
+                                      const imgs = [...(updatedPackages[index].package_damage_images || [])];
+                                      imgs.splice(imageIndex, 1);
+                                      updatedPackages[index].package_damage_images = imgs;
+                                      formik.setFieldValue("packages", updatedPackages);
+                                    }}
+                                  />
+                                </div>
+                              </Col>
+                              <Col xs={12} md={6}>
+                                <div className="mb-3">
+                                  <label style={labelStyle}>Examination Videos</label>
+                                  <ImagePreview
+                                    images={pkg?.examination_videos || []}
+                                    onDeleteImage={(imageIndex) => {
+                                      const updatedPackages = [...(formik.values.packages || [])];
+                                      const imgs = [...(updatedPackages[index].examination_videos || [])];
+                                      imgs.splice(imageIndex, 1);
+                                      updatedPackages[index].examination_videos = imgs;
+                                      formik.setFieldValue("packages", updatedPackages);
+                                    }}
+                                  />
+                                </div>
+                              </Col>
+                            </Row>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3" style={{ marginBottom: "30px" }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleAddPackage}
+                      startIcon={<AddIcon />}
+                    >
+                      Add Package
+                    </Button>
+                  </div>
                 </Col>
               </Row>
             </div>

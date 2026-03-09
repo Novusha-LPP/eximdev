@@ -15,7 +15,9 @@ function JobDetailsStaticData(props) {
   const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
   const isAdmin = user?.role === "Admin";
   const { branches, selectedBranch } = useContext(BranchContext);
-  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const activeBranch = branches.find(b => b._id === selectedBranch);
+  const activeBranchMode = activeBranch?.category || "SEA";
+  const activeBranchConfig = activeBranch?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -86,7 +88,12 @@ function JobDetailsStaticData(props) {
     var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
   }
 
-  if (props.container_nos) {
+  if (activeBranchMode === "AIR" && props.data?.packages) {
+    var net_weight = props.data.packages?.reduce((sum, pkg) => {
+      const weight = parseFloat(pkg.net_weight);
+      return sum + (isNaN(weight) ? 0 : weight);
+    }, 0);
+  } else if (props.container_nos) {
     var net_weight = props.container_nos?.reduce((sum, container) => {
       const weight = parseFloat(container.net_weight);
       return sum + (isNaN(weight) ? 0 : weight);
@@ -493,8 +500,8 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>BL No.: </span>
               <span style={valueStyle}>
                 <a
-                  href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
-                  target="_blank"
+                  href={activeBranchMode === "AIR" ? "#" : `https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
+                  target={activeBranchMode === "AIR" ? "_self" : "_blank"}
                   rel="noopener noreferrer"
                 >
                   {props.data.awb_bl_no}
@@ -502,34 +509,38 @@ function JobDetailsStaticData(props) {
               </span>
               {props.data.shipping_line_airline && (
                 <>
-                  <Tooltip title={`Track at ${props.data.shipping_line_airline}`}>
-                    <a
-                      href={
-                        getShippingLineUrl(
-                          props.data.shipping_line_airline,
-                          props.data.awb_bl_no,
-                          props.data.container_nos?.[0]?.container_number
-                        ) || "#"
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ marginLeft: "6px" }}
-                    >
-                      <FontAwesomeIcon icon={faShip} size="sm" color="blue" />
-                    </a>
-                  </Tooltip>
-                  <Tooltip title="Sea IGM Entry">
-                    <a
-                      href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${getPortLocation(
-                        props.data.port_of_reporting
-                      )}&MAWB_NO=${props.data.awb_bl_no}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ marginLeft: "6px" }}
-                    >
-                      <FontAwesomeIcon icon={faAnchor} size="sm" color="blue" />
-                    </a>
-                  </Tooltip>
+                  {activeBranchMode === "SEA" && (
+                    <Tooltip title={`Track at ${props.data.shipping_line_airline}`}>
+                      <a
+                        href={
+                          getShippingLineUrl(
+                            props.data.shipping_line_airline,
+                            props.data.awb_bl_no,
+                            props.data.container_nos?.[0]?.container_number
+                          ) || "#"
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ marginLeft: "6px" }}
+                      >
+                        <FontAwesomeIcon icon={faShip} size="sm" color="blue" />
+                      </a>
+                    </Tooltip>
+                  )}
+                  {activeBranchMode === "SEA" && (
+                    <Tooltip title="Sea IGM Entry">
+                      <a
+                        href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${getPortLocation(
+                          props.data.port_of_reporting
+                        )}&MAWB_NO=${props.data.awb_bl_no}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ marginLeft: "6px" }}
+                      >
+                        <FontAwesomeIcon icon={faAnchor} size="sm" color="blue" />
+                      </a>
+                    </Tooltip>
+                  )}
                 </>
               )}
             </Col>

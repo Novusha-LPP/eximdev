@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
@@ -23,15 +24,15 @@ const CLIENT_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_CLIENT_URI
     : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_CLIENT_URI
-    : process.env.DEV_CLIENT_URI;
+      ? process.env.SERVER_CLIENT_URI
+      : process.env.DEV_CLIENT_URI;
 
 // Create Nodemailer SES transporter
 let transporter = nodemailer.createTransport({
   SES: { ses: sesClient, aws: { SendRawEmailCommand } },
 });
 
-router.post("/api/onboard-employee", async (req, res) => {
+router.post("/api/onboard-employee", auditMiddleware("User"), async (req, res) => {
   try {
     const {
       first_name,

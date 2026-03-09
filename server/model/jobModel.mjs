@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 import { type } from "os";
 import { determineDetailedStatus } from "../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../utils/statusColorMapper.mjs";
@@ -689,6 +690,8 @@ jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 // NEW: Optimized indexes for Status Ranking and Sorting
 jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
 jobSchema.index({ year: 1, detailed_status: 1 });
+
+jobSchema.plugin(auditPlugin, { documentType: "Job" });
 
 const JobModel = new mongoose.model("Job", jobSchema);
 export default JobModel;

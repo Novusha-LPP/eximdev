@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const portSchema = new mongoose.Schema({
     port_name: { type: String, required: true, trim: true },
@@ -56,6 +57,8 @@ branchSchema.pre('validate', function (next) {
         next();
     }
 });
+
+branchSchema.plugin(auditPlugin, { documentType: "Branch" });
 
 const BranchModel = mongoose.model("Branch", branchSchema);
 export default BranchModel;

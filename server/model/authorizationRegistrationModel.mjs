@@ -49,6 +49,8 @@ const authorizationRegistrationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+authorizationRegistrationSchema.plugin(auditPlugin, { documentType: "AuthorizationRegistration" });
+
 const AuthorizationRegistrationModel = mongoose.model(
   "authorizationRegistration",
   authorizationRegistrationSchema

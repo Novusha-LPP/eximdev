@@ -1,10 +1,12 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 // Update user profile photo
-router.put("/api/update-profile-photo", async (req, res) => {
+router.put("/api/update-profile-photo", authMiddleware, auditMiddleware("User"), async (req, res) => {
     try {
         const { username, employee_photo } = req.body;
 

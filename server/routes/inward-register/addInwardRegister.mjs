@@ -1,9 +1,10 @@
 import express from "express";
 import InwardRegisterModel from "../../model/inwardRegisterModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/add-inward-register", async (req, res) => {
+router.post("/api/add-inward-register", auditMiddleware("inwardRegister"), async (req, res) => {
   try {
     const {
       time,
@@ -15,7 +16,7 @@ router.post("/api/add-inward-register", async (req, res) => {
       inward_consignment_photo,
     } = req.body;
 
-    await InwardRegisterModel.create({
+    const newEntry = await InwardRegisterModel.create({
       time,
       date,
       from,
@@ -25,7 +26,7 @@ router.post("/api/add-inward-register", async (req, res) => {
       inward_consignment_photo,
     });
 
-    res.status(201).json({ message: "Inward register added successfully" });
+    res.status(201).json({ message: "Inward register added successfully", _id: newEntry._id });
   } catch (error) {
     console.error(error);
     res.status(500).send("Internal Server Error");

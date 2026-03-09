@@ -4,6 +4,8 @@ import OpenPointProject from "../../model/openPoints/openPointProjectModel.mjs";
 import OpenPoint from "../../model/openPoints/openPointModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import mongoose from "mongoose";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -11,7 +13,7 @@ const router = express.Router();
 const verifyProjectAccess = async (req, res, next) => {
     try {
         const { projectId } = req.params;
-        const userId = req.headers['user-id']; // Assuming user-id is passed in headers
+        const userId = req.user._id;
 
 
 
@@ -44,7 +46,7 @@ const verifyProjectAccess = async (req, res, next) => {
 // Create Project (L3/L4 Only - simplified to anyone for now, restrict in UI or added middleware)
 
 // Create Project (L3/L4 Only - simplified to anyone for now, restrict in UI or added middleware)
-router.post("/api/open-points/projects", async (req, res) => {
+router.post("/api/open-points/projects", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         // console.log("Create Project Request Body:", req.body);
         const { name, description, ownerUsername, team_members } = req.body;
@@ -75,11 +77,11 @@ router.post("/api/open-points/projects", async (req, res) => {
 });
 
 // Update Project Details (Name, Description) - Owner Only
-router.put("/api/open-points/projects/:projectId", async (req, res) => {
+router.put("/api/open-points/projects/:projectId", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         const { projectId } = req.params;
         const { name, description } = req.body;
-        const requesterId = req.headers['user-id'];
+        const requesterId = req.user._id;
 
         if (!requesterId) return res.status(401).json({ error: "Unauthorized" });
 
@@ -102,10 +104,10 @@ router.put("/api/open-points/projects/:projectId", async (req, res) => {
     }
 });
 // Delete Project (Owner Only)
-router.delete("/api/open-points/projects/:projectId", async (req, res) => {
+router.delete("/api/open-points/projects/:projectId", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         const { projectId } = req.params;
-        const userId = req.headers['user-id'];
+        const userId = req.user._id;
 
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
@@ -133,7 +135,7 @@ router.delete("/api/open-points/projects/:projectId", async (req, res) => {
 });
 
 // Add Member to Project (and auto-assign Open Points module)
-router.post("/api/open-points/project/:projectId/add-member", async (req, res) => {
+router.post("/api/open-points/project/:projectId/add-member", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         const { username, role } = req.body;
         const project = await OpenPointProject.findById(req.params.projectId);
@@ -169,14 +171,14 @@ router.post("/api/open-points/project/:projectId/add-member", async (req, res) =
 });
 
 // Remove Member from Project (Owner only)
-router.post("/api/open-points/project/:projectId/remove-member", async (req, res) => {
+router.post("/api/open-points/project/:projectId/remove-member", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         const { username, userId } = req.body;
         const project = await OpenPointProject.findById(req.params.projectId);
         if (!project) return res.status(404).json({ error: "Project not found" });
 
         // requester must be owner
-        const requesterId = req.headers['user-id'];
+        const requesterId = req.user._id;
         if (!requesterId) return res.status(401).json({ error: "Unauthorized" });
         if (project.owner.toString() !== requesterId) return res.status(403).json({ error: "Only project owner can remove members" });
 
@@ -204,9 +206,9 @@ router.post("/api/open-points/project/:projectId/remove-member", async (req, res
 });
 
 // Get My Projects
-router.get("/api/open-points/my-projects", async (req, res) => {
+router.get("/api/open-points/my-projects", authMiddleware, async (req, res) => {
     try {
-        const username = req.headers['username'] || req.headers['x-username'];
+        const username = req.user.username;
 
         if (!username) {
             return res.status(401).json({ error: "Username not provided in headers" });
@@ -264,7 +266,7 @@ router.get("/api/open-points/my-projects", async (req, res) => {
 // --- Points ---
 
 // Get Project Details (including team members)
-router.get("/api/open-points/project/:projectId", verifyProjectAccess, async (req, res) => {
+router.get("/api/open-points/project/:projectId", authMiddleware, verifyProjectAccess, async (req, res) => {
     try {
         const project = await OpenPointProject.findById(req.params.projectId)
             .populate('owner', 'username first_name last_name')
@@ -278,7 +280,7 @@ router.get("/api/open-points/project/:projectId", verifyProjectAccess, async (re
 });
 
 // Get Points for Project
-router.get("/api/open-points/project/:projectId/points", verifyProjectAccess, async (req, res) => {
+router.get("/api/open-points/project/:projectId/points", authMiddleware, verifyProjectAccess, async (req, res) => {
     try {
         // Auto-update overdue points (target_date BEFORE today's date)
         const today = new Date();
@@ -303,7 +305,7 @@ router.get("/api/open-points/project/:projectId/points", verifyProjectAccess, as
 });
 
 // Create Point
-router.post("/api/open-points/points", async (req, res) => {
+router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoint"), async (req, res) => {
     try {
 
 
@@ -332,9 +334,10 @@ router.post("/api/open-points/points", async (req, res) => {
 });
 
 // Update Point (Generic)
-router.put("/api/open-points/points/:pointId", async (req, res) => {
+router.put("/api/open-points/points/:pointId", authMiddleware, auditMiddleware("OpenPoint"), async (req, res) => {
     try {
-        const { status, remarks, evidence, userId, ...otherFields } = req.body;
+        const { status, remarks, evidence, userId: bodyUserId, ...otherFields } = req.body;
+        const userId = req.user._id;
         const point = await OpenPoint.findById(req.params.pointId).populate('project_id');
 
         if (!point) return res.status(404).json({ error: "Point not found" });
@@ -403,7 +406,7 @@ router.put("/api/open-points/points/:pointId", async (req, res) => {
 });
 
 // Delete Point
-router.delete("/api/open-points/points/:pointId", async (req, res) => {
+router.delete("/api/open-points/points/:pointId", authMiddleware, auditMiddleware("OpenPoint"), async (req, res) => {
     try {
         const point = await OpenPoint.findByIdAndDelete(req.params.pointId);
         if (!point) return res.status(404).json({ error: "Point not found" });
@@ -414,9 +417,9 @@ router.delete("/api/open-points/points/:pointId", async (req, res) => {
 });
 
 // Analytics Endpoint
-router.get("/api/open-points/analytics/global", async (req, res) => {
+router.get("/api/open-points/analytics/global", authMiddleware, async (req, res) => {
     try {
-        const userId = req.headers['user-id'];
+        const userId = req.user._id;
 
         // Find projects user has access to
         const projects = await OpenPointProject.distinct('_id', {
@@ -474,7 +477,7 @@ router.get("/api/open-points/user/:username/assigned-projects", async (req, res)
 });
 
 // Assign Projects to User (Bulk Update)
-router.post("/api/open-points/user/:username/assign-projects", async (req, res) => {
+router.post("/api/open-points/user/:username/assign-projects", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         const { projectNames } = req.body; // Array of strings
         const user = await UserModel.findOne({ username: req.params.username });
@@ -512,10 +515,10 @@ router.post("/api/open-points/user/:username/assign-projects", async (req, res) 
 
 
 // Get All Open Points Assigned to Me (Across All Projects)
-router.get("/api/open-points/my-assigned-points", async (req, res) => {
+router.get("/api/open-points/my-assigned-points", authMiddleware, async (req, res) => {
     try {
-        const username = req.headers['username'] || req.headers['x-username'];
-        const userId = req.headers['user-id'];
+        const username = req.user.username;
+        const userId = req.user._id;
 
         if (!username && !userId) {
             return res.status(401).json({ error: "User identification not provided" });
@@ -616,11 +619,11 @@ router.get("/api/open-points/user/:username/points", async (req, res) => {
 });
 
 // Change Project Owner
-router.put("/api/open-points/projects/:projectId/change-owner", async (req, res) => {
+router.put("/api/open-points/projects/:projectId/change-owner", authMiddleware, auditMiddleware("OpenPointProject"), async (req, res) => {
     try {
         const { projectId } = req.params;
         const { newOwnerId } = req.body;
-        const requesterId = req.headers['user-id'];
+        const requesterId = req.user._id;
 
         if (!requesterId) return res.status(401).json({ error: "Unauthorized" });
 

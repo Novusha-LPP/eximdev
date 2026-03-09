@@ -1,10 +1,12 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
-// Route to assign ICD codes to a user
-router.post("/api/admin/assign-icd-code", async (req, res) => {
+// Route to assign ICD Code to a user
+router.post("/api/admin/assign-icd-code", authMiddleware, auditMiddleware("User"), async (req, res) => {
   const { username, selectedIcdCodes, adminUsername } = req.body;
 
   try {
@@ -62,8 +64,8 @@ router.post("/api/admin/assign-icd-code", async (req, res) => {
   }
 });
 
-// Route to remove ICD codes from a user
-router.post("/api/admin/remove-icd-code", async (req, res) => {
+// Route to remove ICD Code from a user
+router.post("/api/admin/remove-icd-code", authMiddleware, auditMiddleware("User"), async (req, res) => {
   const { username, adminUsername, icdCodesToRemove } = req.body;
 
   try {

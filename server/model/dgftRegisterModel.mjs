@@ -34,6 +34,8 @@ const dgftRegisterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+dgftRegisterSchema.plugin(auditPlugin, { documentType: "dgftRegister" });
+
 const DgftRegisterModel = mongoose.model(
   "dgftRegister",
   dgftRegisterSchema

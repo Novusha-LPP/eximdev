@@ -1,5 +1,6 @@
 import express from "express";
 import verifyToken from "../../middleware/authMiddleware.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 import KPITemplate from "../../model/kpi/kpiTemplateModel.mjs";
 import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
 import KPISettings from "../../model/kpi/kpiSettingsModel.mjs";
@@ -14,7 +15,7 @@ const router = express.Router();
 // ==========================================
 
 // Create or Update Template
-router.post("/api/kpi/template", verifyToken, async (req, res) => {
+router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), async (req, res) => {
     try {
         console.log("POST /api/kpi/template called", req.body);
         const { name, department, rows, id } = req.body;
@@ -183,7 +184,7 @@ router.get("/api/kpi/team-templates", verifyToken, async (req, res) => {
 });
 
 // Import a team member's template as own template
-router.post("/api/kpi/import-template", verifyToken, async (req, res) => {
+router.post("/api/kpi/import-template", verifyToken, auditMiddleware("KPI_Template"), async (req, res) => {
     try {
         const { templateId, customName } = req.body;
 
@@ -463,7 +464,7 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
 });
 
 // Delete a KPI Sheet (Owner or Admin only)
-router.delete("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
+router.delete("/api/kpi/sheet/:id", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
     try {
         console.log(`DELETE /api/kpi/sheet/${req.params.id} called by ${req.user.username}`);
         const sheet = await KPISheet.findById(req.params.id);
@@ -518,7 +519,7 @@ router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
     }
 });
 
-router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
+router.post("/api/kpi/sheet/generate", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
     try {
         console.log("POST /api/kpi/sheet/generate called", req.body);
         const { year, month, templateId, signatories, overwrite } = req.body;
@@ -618,7 +619,7 @@ router.post("/api/kpi/sheet/generate", verifyToken, async (req, res) => {
 });
 
 // Update Cell Value
-router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
+router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
     try {
         console.log("PUT /api/kpi/sheet/entry called", req.body);
         const { sheetId, rowId, day, value } = req.body;
@@ -753,7 +754,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, async (req, res) => {
 });
 
 // Toggle Holiday/Leave/Festival/HalfDay
-router.post("/api/kpi/sheet/holiday", verifyToken, async (req, res) => {
+router.post("/api/kpi/sheet/holiday", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
     try {
         console.log("POST /api/kpi/sheet/holiday called", req.body);
         const { sheetId, day, type = 'leave' } = req.body; // type: 'leave', 'festival', 'half_day'

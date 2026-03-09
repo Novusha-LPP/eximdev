@@ -1,9 +1,10 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/kyc-approval", async (req, res) => {
+router.post("/api/kyc-approval", auditMiddleware("User"), async (req, res) => {
   const { username, kyc_approval } = req.body;
 
   try {

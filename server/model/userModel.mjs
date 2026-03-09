@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const Schema = mongoose.Schema;
 
@@ -231,6 +232,8 @@ const userSchema = new Schema({
     },
   ],
 });
+
+userSchema.plugin(auditPlugin, { documentType: "User" });
 
 const UserModel = mongoose.model("User", userSchema);
 export default UserModel;

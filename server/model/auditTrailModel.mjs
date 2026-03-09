@@ -18,6 +18,14 @@ const auditTrailSchema = new mongoose.Schema(
     job_no: { type: String, index: true },
     year: { type: String, index: true },
 
+    // Branch information for isolation
+    branchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Branch",
+      index: true,
+    },
+    branch_code: { type: String, index: true },
+
     // User information
     userId: {
       type: String, // Changed from ObjectId to String to support username-based IDs
@@ -39,6 +47,8 @@ const auditTrailSchema = new mongoose.Schema(
       index: true,
     },
 
+    heading: { type: String, required: true }, // Proper heading for the audit entry
+
     // Change details
     changes: [
       {
@@ -57,7 +67,6 @@ const auditTrailSchema = new mongoose.Schema(
     // Request details
     endpoint: { type: String }, // API endpoint that made the change
     method: { type: String }, // HTTP method
-    ipAddress: { type: String },
     userAgent: { type: String },
 
     // Metadata
@@ -80,6 +89,8 @@ const auditTrailSchema = new mongoose.Schema(
 auditTrailSchema.index({ documentId: 1, timestamp: -1 });
 auditTrailSchema.index({ job_no: 1, year: 1, timestamp: -1 });
 auditTrailSchema.index({ username: 1, timestamp: -1 });
+auditTrailSchema.index({ branchId: 1, timestamp: -1 });
+auditTrailSchema.index({ branch_code: 1, timestamp: -1 });
 auditTrailSchema.index({ action: 1, timestamp: -1 });
 
 const AuditTrailModel = mongoose.model("AuditTrail", auditTrailSchema);

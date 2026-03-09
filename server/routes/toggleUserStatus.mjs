@@ -1,9 +1,11 @@
 import express from "express";
 import UserModel from "../model/userModel.mjs";
+import auditMiddleware from "../middleware/auditTrail.mjs";
+import authMiddleware from "../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
-router.post("/api/toggle-user-status", async (req, res) => {
+router.post("/api/toggle-user-status", authMiddleware, auditMiddleware("User"), async (req, res) => {
   const { username, isActive } = req.body;
 
   if (typeof isActive === "undefined") {

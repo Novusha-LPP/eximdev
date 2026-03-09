@@ -1,13 +1,15 @@
 
 import express from 'express';
-import MRMItem from '../../model/mrm/mrmItemModel.mjs';
 import MRMMetadata from '../../model/mrm/mrmMetadataModel.mjs';
+import MRMItem from '../../model/mrm/mrmItemModel.mjs';
+import auditMiddleware from '../../middleware/auditTrail.mjs';
+import authMiddleware from '../../middleware/authMiddleware.mjs';
 import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
 
 // Get users who have MRM module assigned
-router.get('/api/mrm/users', async (req, res) => {
+router.get('/api/mrm/users', authMiddleware, async (req, res) => {
     try {
         const users = await UserModel.find(
             { status: 'active' },
@@ -20,10 +22,10 @@ router.get('/api/mrm/users', async (req, res) => {
 });
 
 // Admin Dashboard - Get all users' MRM summary for a month/year
-router.get('/api/mrm/dashboard', async (req, res) => {
+router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
     try {
         const { month, year } = req.query;
-        const requestingRole = req.headers['user-role'];
+        const requestingRole = req.user.role;
 
         // Only admins can access dashboard
         if (requestingRole !== 'Admin') {
@@ -96,7 +98,7 @@ router.get('/api/mrm/dashboard', async (req, res) => {
 // --- Metadata Routes ---
 
 // Get Metadata
-router.get('/api/mrm/metadata', async (req, res) => {
+router.get('/api/mrm/metadata', authMiddleware, async (req, res) => {
     try {
         const { month, year, userId } = req.query;
         if (!month || !year) return res.status(400).json({ error: "Month/Year required" });
@@ -116,7 +118,7 @@ router.get('/api/mrm/metadata', async (req, res) => {
 });
 
 // Update/Create Metadata
-router.post('/api/mrm/metadata', async (req, res) => {
+router.post('/api/mrm/metadata', authMiddleware, auditMiddleware("MRM_Metadata"), async (req, res) => {
     try {
         const { month, year, userId } = req.body;
         let { meetingDate, reviewDate } = req.body;
@@ -139,10 +141,10 @@ router.post('/api/mrm/metadata', async (req, res) => {
 });
 
 // Toggle Meeting Done Status (Admin only)
-router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
+router.post('/api/mrm/metadata/toggle-meeting', authMiddleware, auditMiddleware("MRM_Metadata"), async (req, res) => {
     try {
         const { month, year, userId, meetingDone } = req.body;
-        const requestingRole = req.headers['user-role'];
+        const requestingRole = req.user.role;
 
         // Only admins can toggle meeting status
         if (requestingRole !== 'Admin') {
@@ -167,11 +169,11 @@ router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
 // --- Item Routes ---
 
 // Get MRM Items (with optional userId filter for admin view)
-router.get('/api/mrm', async (req, res) => {
+router.get('/api/mrm', authMiddleware, async (req, res) => {
     try {
         const { month, year, userId } = req.query;
-        const requestingRole = req.headers['user-role'];
-        const requestingUserId = req.headers['user-id'];
+        const requestingRole = req.user.role;
+        const requestingUserId = req.user._id;
 
         if (!month || !year) {
             return res.status(400).json({ error: "Month and Year are required" });
@@ -200,7 +202,7 @@ router.get('/api/mrm', async (req, res) => {
 });
 
 // Create MRM Item
-router.post('/api/mrm', async (req, res) => {
+router.post('/api/mrm', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         const item = new MRMItem(req.body);
         await item.save();
@@ -211,7 +213,7 @@ router.post('/api/mrm', async (req, res) => {
 });
 
 // Update MRM Item
-router.put('/api/mrm/:id', async (req, res) => {
+router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         const item = await MRMItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(item);
@@ -221,7 +223,7 @@ router.put('/api/mrm/:id', async (req, res) => {
 });
 
 // Delete MRM Item
-router.delete('/api/mrm/:id', async (req, res) => {
+router.delete('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         await MRMItem.findByIdAndDelete(req.params.id);
         res.json({ message: "Item deleted" });
@@ -231,7 +233,7 @@ router.delete('/api/mrm/:id', async (req, res) => {
 });
 
 // Import Items
-router.post('/api/mrm/import', async (req, res) => {
+router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         const { targetMonth, targetYear, sourceMonth, sourceYear, mode } = req.body;
 

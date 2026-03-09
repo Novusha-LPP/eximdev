@@ -1,5 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
@@ -91,7 +93,7 @@ router.get("/reports", async (req, res) => {
     }
 });
 
-router.post("/update-penalty-status", async (req, res) => {
+router.post("/update-penalty-status", authMiddleware, auditMiddleware("Job"), async (req, res) => {
     try {
         const { jobId, updates } = req.body;
 

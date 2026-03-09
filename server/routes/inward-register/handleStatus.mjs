@@ -1,9 +1,11 @@
 import express from "express";
 import InwardRegisterModel from "../../model/inwardRegisterModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
-router.post("/api/handle-status", async (req, res) => {
+router.post("/api/handle-status", authMiddleware, auditMiddleware("inwardRegister"), async (req, res) => {
   const { param, _id } = req.body;
 
   // Map `param` to the database field to update

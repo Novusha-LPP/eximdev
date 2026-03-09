@@ -6,6 +6,8 @@
     "app.mjs",
     "routes",
     "model",
+    "middleware",
+    "services",
     ".env",
     "logger.js"
   ],

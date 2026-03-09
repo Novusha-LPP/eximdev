@@ -546,7 +546,7 @@ if (cluster.isPrimary) {
       })
       .then(async () => {
         // initialize cron jobs only on the first worker to avoid duplicates
-        if (cluster.worker.id === 1) {
+        if (!cluster.worker || cluster.worker.id === 1) {
           cron.schedule(
             "1 0 * * *",
             async () => {

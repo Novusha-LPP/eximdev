@@ -1,9 +1,10 @@
 import express from "express";
 import ExitInteViewModel from "../../model/exitInterviewModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/add-exit-interview", async (req, res) => {
+router.post("/api/add-exit-interview", auditMiddleware("ExitInterview"), async (req, res) => {
   try {
     // Create a new instance of the model
     const exitInterview = new ExitInteViewModel();

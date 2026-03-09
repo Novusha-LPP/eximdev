@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const outwardRegisterSchema = new mongoose.Schema({
   bill_given_date: { type: String },
@@ -12,6 +13,8 @@ const outwardRegisterSchema = new mongoose.Schema({
   description: { type: String },
   kind_attention: { type: String },
 });
+
+outwardRegisterSchema.plugin(auditPlugin, { documentType: "outwardRegister" });
 
 const OutwardRegisterModel = mongoose.model(
   "outwardRegister",

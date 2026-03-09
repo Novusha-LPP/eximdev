@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const userBranchSchema = new mongoose.Schema({
     user_id: {
@@ -17,6 +18,8 @@ const userBranchSchema = new mongoose.Schema({
 });
 
 userBranchSchema.index({ user_id: 1, branch_id: 1 }, { unique: true });
+
+userBranchSchema.plugin(auditPlugin, { documentType: "UserBranch" });
 
 const UserBranchModel = mongoose.model("UserBranch", userBranchSchema);
 export default UserBranchModel;

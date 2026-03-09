@@ -1,10 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 router.put("/api/update-job/:year/:jobNo",
+  authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
     const { jobNo, year } = req.params;
@@ -275,6 +277,7 @@ router.put("/api/update-job/:year/:jobNo",
   });
 // PATCH route for updating only vessel_berthing and container arrival_date
 router.patch("/api/update-job/fields/:year/:jobNo",
+  authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
     const { year, jobNo } = req.params;
@@ -313,6 +316,7 @@ router.patch("/api/update-job/fields/:year/:jobNo",
   });
 // PUT route for admin to update any static job details
 router.put("/api/admin/update-job-static/:year/:jobNo",
+  authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
     const { year, jobNo } = req.params;

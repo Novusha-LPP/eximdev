@@ -1,10 +1,12 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 // Route to assign Department to a user
-router.post("/api/admin/assign-department", async (req, res) => {
+router.post("/api/admin/assign-department", authMiddleware, async (req, res) => {
     const { username, selectedDepartment, adminUsername } = req.body;
 
     try {
@@ -59,7 +61,7 @@ router.post("/api/admin/assign-department", async (req, res) => {
 });
 
 // Route to remove department from a user
-router.post("/api/admin/remove-department", async (req, res) => {
+router.post("/api/admin/remove-department", authMiddleware, async (req, res) => {
     const { username, adminUsername } = req.body;
 
     try {

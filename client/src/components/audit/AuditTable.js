@@ -123,8 +123,8 @@ const AuditTable = ({ auditData, loading, colorPalette, actionColors, expandedRo
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ color: colorPalette.textPrimary }}>
-                          {entry.changes[0]?.changeType} on {entry.changes[0]?.field}
+                        <Typography variant="body2" sx={{ color: colorPalette.textPrimary, fontWeight: entry.heading ? 'bold' : 'normal' }}>
+                          {entry.heading || (entry.changes[0] ? `${entry.changes[0].changeType} on ${entry.changes[0].field}` : 'No details')}
                         </Typography>
                         <Typography variant="caption" sx={{ color: colorPalette.textSecondary }}>
                           {entry.changes.length} change{entry.changes.length > 1 ? 's' : ''}

@@ -3,6 +3,8 @@ import BranchModel from "../../model/branchModel.mjs";
 import UserBranchModel from "../../model/userBranchModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+
 const router = express.Router();
 
 // Get all branches
@@ -45,7 +47,7 @@ router.get("/my-branches", authMiddleware, async (req, res) => {
 });
 
 // Update an existing branch
-router.put("/update-branch/:id", async (req, res) => {
+router.put("/update-branch/:id", authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
         const { branch_name, is_active, configuration } = req.body;
@@ -75,7 +77,7 @@ router.put("/update-branch/:id", async (req, res) => {
 });
 
 // Create a new branch
-router.post("/add-branch", async (req, res) => {
+router.post("/add-branch", authMiddleware, async (req, res) => {
     try {
         const { branch_name, branch_code, is_active, configuration } = req.body;
 
@@ -138,7 +140,7 @@ router.post("/add-branch", async (req, res) => {
 });
 
 // Add a port to a branch
-router.post("/add-branch-port", async (req, res) => {
+router.post("/add-branch-port", authMiddleware, async (req, res) => {
     try {
         const { branch_id, port_name, port_code } = req.body;
 
@@ -186,7 +188,7 @@ router.get("/user-branches/:userId", async (req, res) => {
 });
 
 // Assign a branch to a user
-router.post("/assign-branch", async (req, res) => {
+router.post("/assign-branch", authMiddleware, async (req, res) => {
     try {
         const { user_id, branch_id } = req.body;
 
@@ -214,7 +216,7 @@ router.post("/assign-branch", async (req, res) => {
 });
 
 // Unassign a branch from a user
-router.delete("/unassign-branch/:userBranchId", async (req, res) => {
+router.delete("/unassign-branch/:userBranchId", authMiddleware, async (req, res) => {
     try {
         const { userBranchId } = req.params;
         await UserBranchModel.findByIdAndDelete(userBranchId);

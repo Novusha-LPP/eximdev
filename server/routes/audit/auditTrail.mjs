@@ -3,10 +3,11 @@ import express from "express";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 const router = express.Router();
 
 // Admin-only: Get audit trail for a specific user by userId with filters and pagination
-router.get("/api/audit-trail/user-logs/:userId", async (req, res) => {
+router.get("/api/audit-trail/user-logs/:userId", authMiddleware, async (req, res) => {
   try {
 
 
@@ -21,6 +22,12 @@ router.get("/api/audit-trail/user-logs/:userId", async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const filter = { username: { $regex: `^${username}$`, $options: 'i' } };
+
+    // Branch Isolation
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) filter.branchId = req.user.branchId;
+      else if (req.user.branch_code) filter.branch_code = req.user.branch_code;
+    }
     if (actionType) filter.action = actionType;
     if (fromDate || toDate) {
       filter.timestamp = {};
@@ -40,11 +47,11 @@ router.get("/api/audit-trail/user-logs/:userId", async (req, res) => {
     const logs = auditTrail.map(entry => ({
       timestamp: entry.timestamp,
       action: entry.action,
+      heading: entry.heading, // include new heading
       performedBy: entry.username,
       details: entry.changes || [],
       job_no: entry.job_no,
       year: entry.year,
-      ipAddress: entry.ipAddress || null
     }));
 
     res.json({
@@ -65,10 +72,18 @@ router.get("/api/audit-trail/user-logs/:userId", async (req, res) => {
 
 
 // Get all users with details, assigned modules, and last activity date
-router.get("/api/audit-trail/all-users-with-activity", async (req, res) => {
+router.get("/api/audit-trail/all-users-with-activity", authMiddleware, async (req, res) => {
   try {
+    // Filter by branch if not Admin
+    const activityFilter = {};
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) activityFilter.branchId = req.user.branchId;
+      else if (req.user.branch_code) activityFilter.branch_code = req.user.branch_code;
+    }
+
     // Get all unique users from the audit trail with last activity
     const usersActivity = await AuditTrailModel.aggregate([
+      { $match: activityFilter },
       {
         $group: {
           _id: "$username",
@@ -112,7 +127,7 @@ router.get("/api/audit-trail/all-users-with-activity", async (req, res) => {
 });
 
 // Get audit trail for a specific job
-router.get("/api/audit-trail/job/:job_no/:year", async (req, res) => {
+router.get("/api/audit-trail/job/:job_no/:year", authMiddleware, async (req, res) => {
   try {
     const { job_no, year } = req.params;
     const { page = 1, limit = 50, action, username, field } = req.query;
@@ -121,6 +136,12 @@ router.get("/api/audit-trail/job/:job_no/:year", async (req, res) => {
 
     // Build filter query
     const filter = { job_no, year };
+
+    // Branch Isolation
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) filter.branchId = req.user.branchId;
+      else if (req.user.branch_code) filter.branch_code = req.user.branch_code;
+    }
     if (action) filter.action = action;
     if (username) filter.username = { $regex: username, $options: 'i' };
     if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
@@ -150,7 +171,7 @@ router.get("/api/audit-trail/job/:job_no/:year", async (req, res) => {
 });
 
 // Get audit trail for a specific user
-router.get("/api/audit-trail/user/:username", async (req, res) => {
+router.get("/api/audit-trail/user/:username", authMiddleware, async (req, res) => {
   try {
     const { username } = req.params;
     const { page = 1, limit = 50, action, documentType, fromDate, toDate } = req.query;
@@ -159,6 +180,12 @@ router.get("/api/audit-trail/user/:username", async (req, res) => {
 
     // Build filter query
     const filter = { username: { $regex: username, $options: 'i' } };
+
+    // Branch Isolation
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) filter.branchId = req.user.branchId;
+      else if (req.user.branch_code) filter.branch_code = req.user.branch_code;
+    }
     if (action) filter.action = action;
     if (documentType) filter.documentType = documentType;
 
@@ -194,20 +221,26 @@ router.get("/api/audit-trail/user/:username", async (req, res) => {
 });
 
 // Get audit trail for a specific document
-router.get("/api/audit-trail/document/:documentId", async (req, res) => {
+router.get("/api/audit-trail/document/:documentId", authMiddleware, async (req, res) => {
   try {
     const { documentId } = req.params;
     const { page = 1, limit = 50 } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const auditTrail = await AuditTrailModel.find({ documentId })
+    const filter = { documentId };
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) filter.branchId = req.user.branchId;
+      else if (req.user.branch_code) filter.branch_code = req.user.branch_code;
+    }
+
+    const auditTrail = await AuditTrailModel.find(filter)
       .sort({ timestamp: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
 
-    const total = await AuditTrailModel.countDocuments({ documentId });
+    const total = await AuditTrailModel.countDocuments(filter);
 
     res.json({
       auditTrail,
@@ -226,7 +259,7 @@ router.get("/api/audit-trail/document/:documentId", async (req, res) => {
 });
 
 // Get comprehensive audit trail with advanced filters
-router.get("/api/audit-trail", async (req, res) => {
+router.get("/api/audit-trail", authMiddleware, async (req, res) => {
   try {
     const {
       page = 1,
@@ -239,7 +272,6 @@ router.get("/api/audit-trail", async (req, res) => {
       field,
       fromDate,
       toDate,
-      ipAddress
     } = req.query;
 
     const { search } = req.query;
@@ -247,13 +279,22 @@ router.get("/api/audit-trail", async (req, res) => {
 
     // Build filter query
     const filter = {};
+
+    // Branch Isolation
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) filter.branchId = req.user.branchId;
+      else if (req.user.branch_code) filter.branch_code = req.user.branch_code;
+    } else {
+      // Admin can explicitly filter by branch
+      if (req.query.branchId) filter.branchId = req.query.branchId;
+      if (req.query.branch_code) filter.branch_code = req.query.branch_code;
+    }
     if (action) filter.action = action;
     if (username) filter.username = { $regex: username, $options: 'i' };
     if (documentType) filter.documentType = documentType;
     if (job_no) filter.job_no = { $regex: job_no, $options: 'i' }; // regex search on job_no for flexibility
     if (year) filter.year = year;
     if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
-    if (ipAddress) filter.ipAddress = { $regex: ipAddress, $options: 'i' };
     if (search) filter.job_no = { $regex: search, $options: 'i' };
 
     // Date range filter: default to current date if not provided

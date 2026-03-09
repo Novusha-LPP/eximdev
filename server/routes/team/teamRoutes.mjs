@@ -1,5 +1,7 @@
 import express from "express";
 import TeamModel from "../../model/teamModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 import UserModel from "../../model/userModel.mjs";
 
 const router = express.Router();
@@ -143,7 +145,7 @@ router.get("/api/teams/:teamId", async (req, res) => {
 });
 
 // Create a new team
-router.post("/api/teams", async (req, res) => {
+router.post("/api/teams", authMiddleware, auditMiddleware("Team"), async (req, res) => {
     try {
         const { name, description, department, hodUsername } = req.body;
 
@@ -190,7 +192,7 @@ router.post("/api/teams", async (req, res) => {
 });
 
 // Update a team
-router.put("/api/teams/:teamId", async (req, res) => {
+router.put("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), async (req, res) => {
     try {
         const { teamId } = req.params;
         const { name, description, department, hodUsername } = req.body;
@@ -229,7 +231,7 @@ router.put("/api/teams/:teamId", async (req, res) => {
 });
 
 // Delete a team (soft delete)
-router.delete("/api/teams/:teamId", async (req, res) => {
+router.delete("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), async (req, res) => {
     try {
         const { teamId } = req.params;
 
@@ -248,7 +250,7 @@ router.delete("/api/teams/:teamId", async (req, res) => {
 });
 
 // Add members to a team
-router.post("/api/teams/:teamId/members", async (req, res) => {
+router.post("/api/teams/:teamId/members", authMiddleware, auditMiddleware("Team"), async (req, res) => {
     try {
         const { teamId } = req.params;
         const { usernames } = req.body; // Array of usernames to add
@@ -297,7 +299,7 @@ router.post("/api/teams/:teamId/members", async (req, res) => {
 });
 
 // Remove a member from a team
-router.delete("/api/teams/:teamId/members/:username", async (req, res) => {
+router.delete("/api/teams/:teamId/members/:username", authMiddleware, auditMiddleware("Team"), async (req, res) => {
     try {
         const { teamId, username } = req.params;
 

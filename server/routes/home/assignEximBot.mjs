@@ -1,10 +1,12 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 // Assign or revoke Exim Bot access
-router.post("/api/assign-exim-bot", async (req, res) => {
+router.post("/api/assign-exim-bot", authMiddleware, auditMiddleware("User"), async (req, res) => {
     const { username, can_access_exim_bot } = req.body;
 
     try {

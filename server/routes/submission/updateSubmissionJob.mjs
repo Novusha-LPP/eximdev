@@ -1,11 +1,13 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 router.patch(
   "/api/update-submission-job/:id",
+  authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {

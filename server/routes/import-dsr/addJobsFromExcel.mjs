@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { generateJobNumber } from "../../services/jobNumberService.mjs";
 // Initialize the router
 const router = express.Router();
@@ -43,6 +44,7 @@ const currentTimeIST = formatDateToIST();
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post(
   "/api/jobs/add-job-all-In-bond",
+  authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {
@@ -61,6 +63,7 @@ router.post(
 // Route to add a new job
 router.post(
   "/api/jobs/add-job-imp-man",
+  authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {
@@ -175,7 +178,8 @@ router.post(
 
 router.post(
   "/api/jobs/add-job",
-  // auditMiddleware('Job'), // Disabled for bulk operations - causes performance issues with large datasets
+  authMiddleware,
+  auditMiddleware('Job'),
   async (req, res) => {
     const jsonData = req.body;
     const CHUNK_SIZE = 1000; // Process 1000 jobs at a time

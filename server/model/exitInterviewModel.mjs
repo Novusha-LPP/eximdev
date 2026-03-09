@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const ExitInterviewSchema = new mongoose.Schema({
   employee_name: String,
@@ -23,6 +24,8 @@ const ExitInterviewSchema = new mongoose.Schema({
   recommend_this_company: String,
   suggestions: String,
 });
+
+ExitInterviewSchema.plugin(auditPlugin, { documentType: "ExitInterview" });
 
 const ExitInterviewModel = new mongoose.model(
   "ExitInterview",

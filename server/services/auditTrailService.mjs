@@ -138,7 +138,14 @@ export function generateHeading(documentType, action, doc, changes) {
     if (doc?.branch_name) identifiers.push(`Branch '${doc.branch_name}'`);
     if (doc?.branch_code && !doc.branch_name) identifiers.push(`Branch '${doc.branch_code}'`);
     if (doc?.party_name) identifiers.push(`Party '${doc.party_name}'`);
+    if (doc?.companyName) identifiers.push(`Company '${doc.companyName}'`);
+    if (doc?.name_of_individual) identifiers.push(`Kyc '${doc.name_of_individual}'`);
     if (doc?.name && !doc.username && !doc.branch_name) identifiers.push(`'${doc.name}'`);
+
+    // KPI specific
+    if (doc?.month && doc?.year && !doc?.job_no) {
+        identifiers.push(`${doc.month}/${doc.year}`);
+    }
 
     if (identifiers.length === 0) {
         if (doc?.id_no) identifiers.push(`ID ${doc.id_no}`);

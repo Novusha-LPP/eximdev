@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const authorizationRegistrationSchema = new mongoose.Schema(
   {

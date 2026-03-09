@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const Schema = mongoose.Schema;
 
@@ -158,6 +159,8 @@ const KPISheetSchema = new Schema(
 
 // Ensure uniqueness: "Only one KPI sheet can exist for a given User + Department + Year + Month"
 KPISheetSchema.index({ user: 1, department: 1, year: 1, month: 1 }, { unique: true });
+
+KPISheetSchema.plugin(auditPlugin, { documentType: "KPI_Sheet" });
 
 const KPISheet = mongoose.model("KPISheet", KPISheetSchema);
 export default KPISheet;

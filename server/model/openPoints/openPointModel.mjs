@@ -1,5 +1,5 @@
-
 import mongoose from "mongoose";
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const pointSchema = new mongoose.Schema({
     project_id: { type: mongoose.Schema.Types.ObjectId, ref: 'OpenPointProject', required: true, index: true },
@@ -35,4 +35,7 @@ const pointSchema = new mongoose.Schema({
     }]
 });
 
-export default mongoose.model("OpenPoint", pointSchema);
+pointSchema.plugin(auditPlugin, { documentType: "OpenPoint" });
+
+const OpenPointModel = mongoose.model("OpenPoint", pointSchema);
+export default OpenPointModel;

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const { Schema } = mongoose;
 
@@ -452,6 +453,8 @@ customerKycSchema.pre('save', function (next) {
 
   next();
 });
+
+customerKycSchema.plugin(auditPlugin, { documentType: "CustomerKyc" });
 
 const CustomerKycModel = mongoose.model('CustomerKyc', customerKycSchema);
 

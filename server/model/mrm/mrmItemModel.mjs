@@ -1,5 +1,5 @@
-
 import mongoose from 'mongoose';
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const mrmItemSchema = new mongoose.Schema({
     month: { type: String, required: true }, // e.g., "01", "02"
@@ -21,6 +21,8 @@ const mrmItemSchema = new mongoose.Schema({
 
 // Compound index to ensure uniqueness if needed, or just for querying
 mrmItemSchema.index({ month: 1, year: 1 });
+
+mrmItemSchema.plugin(auditPlugin, { documentType: "MRM_Item" });
 
 const MRMItem = mongoose.model('MRMItem', mrmItemSchema);
 export default MRMItem;

@@ -1,4 +1,4 @@
-import { getModel, findChanges, generateHeading, logAuditTrail } from "../services/auditTrailService.mjs";
+import { getModel, findChanges, logAuditTrail, generateHeading } from "../services/auditTrailService.mjs";
 import mongoose from "mongoose";
 
 /**

@@ -1,5 +1,5 @@
-// model/accounts/MasterType.js
 import mongoose from 'mongoose';
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const masterTypeSchema = new mongoose.Schema({
   name: {
@@ -38,4 +38,7 @@ const masterTypeSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('MasterType', masterTypeSchema);
+masterTypeSchema.plugin(auditPlugin, { documentType: "MasterType" });
+
+const MasterTypeModel = mongoose.model('MasterType', masterTypeSchema);
+export default MasterTypeModel;

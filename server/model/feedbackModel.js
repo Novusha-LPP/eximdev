@@ -1,5 +1,5 @@
-// models/feedbackModel.js
 import mongoose from 'mongoose';
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const feedbackSchema = new mongoose.Schema({
   type: {
@@ -69,9 +69,12 @@ const feedbackSchema = new mongoose.Schema({
   }
 });
 
-feedbackSchema.pre('save', function(next) {
+feedbackSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-export default mongoose.model('Feedback', feedbackSchema);
+feedbackSchema.plugin(auditPlugin, { documentType: "Feedback" });
+
+const FeedbackModel = mongoose.model('Feedback', feedbackSchema);
+export default FeedbackModel;

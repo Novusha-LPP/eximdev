@@ -93,120 +93,53 @@ const buildValidDateExpression = (fieldPath) => ({
   ],
 });
 
-const buildAnyUnitDateExists = (field) => ({
-  $or: [
-    {
-      $anyElementTrue: {
-        $map: {
-          input: { $ifNull: ["$container_nos", []] },
-          as: "container",
-          in: {
-            $ne: [
-              {
-                $dateFromString: {
-                  dateString: `$$container.${field}`,
-                  onError: null,
-                  onNull: null,
-                },
-              },
-              null,
-            ],
+const buildAnyContainerDateExists = (field) => ({
+  $anyElementTrue: {
+    $map: {
+      input: { $ifNull: ["$container_nos", []] },
+      as: "container",
+      in: {
+        $ne: [
+          {
+            $dateFromString: {
+              dateString: `$$container.${field}`,
+              onError: null,
+              onNull: null,
+            },
           },
-        },
+          null,
+        ],
       },
     },
-    {
-      $anyElementTrue: {
-        $map: {
-          input: { $ifNull: ["$packages", []] },
-          as: "pkg",
-          in: {
-            $ne: [
-              {
-                $dateFromString: {
-                  dateString: `$$pkg.${field}`,
-                  onError: null,
-                  onNull: null,
-                },
-              },
-              null,
-            ],
-          },
-        },
-      },
-    },
-  ],
+  },
 });
 
-const buildAllUnitDateExists = (field) => ({
-  $and: [
-    {
-      $cond: [
-        { $gt: [{ $size: { $ifNull: ["$container_nos", []] } }, 0] },
-        {
-          $allElementsTrue: {
-            $map: {
-              input: "$container_nos",
-              as: "container",
-              in: {
-                $ne: [
-                  {
-                    $dateFromString: {
-                      dateString: `$$container.${field}`,
-                      onError: null,
-                      onNull: null,
-                    },
-                  },
-                  null,
-                ],
-              },
+const buildAllContainerDateExists = (field) => ({
+  $allElementsTrue: {
+    $map: {
+      input: { $ifNull: ["$container_nos", []] },
+      as: "container",
+      in: {
+        $ne: [
+          {
+            $dateFromString: {
+              dateString: `$$container.${field}`,
+              onError: null,
+              onNull: null,
             },
           },
-        },
-        true,
-      ],
+          null,
+        ],
+      },
     },
-    {
-      $cond: [
-        { $gt: [{ $size: { $ifNull: ["$packages", []] } }, 0] },
-        {
-          $allElementsTrue: {
-            $map: {
-              input: "$packages",
-              as: "pkg",
-              in: {
-                $ne: [
-                  {
-                    $dateFromString: {
-                      dateString: `$$pkg.${field}`,
-                      onError: null,
-                      onNull: null,
-                    },
-                  },
-                  null,
-                ],
-              },
-            },
-          },
-        },
-        true,
-      ],
-    },
-    // Ensure at least one units array is present if we are checking "all"
-    {
-      $or: [
-        { $gt: [{ $size: { $ifNull: ["$container_nos", []] } }, 0] },
-        { $gt: [{ $size: { $ifNull: ["$packages", []] } }, 0] },
-      ],
-    },
-  ],
+  },
 });
 
 // ---------------- FIELD SELECTION ----------------
 
 const criticalFields = `
   _id job_no job_number branch_id branch_code trade_type mode cth_no year importer custom_house hawb_hbl_no awb_bl_no 
-  container_nos packages vessel_berthing detailed_status be_no be_date type_of_Do
+  container_nos vessel_berthing detailed_status be_no be_date type_of_Do
   gateway_igm_date discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
@@ -276,18 +209,6 @@ const buildSearchQuery = (search) => ({
     },
     {
       "container_nos.detention_from": {
-        $regex: escapeRegex(search),
-        $options: "i",
-      },
-    },
-    {
-      "packages.package_number": {
-        $regex: escapeRegex(search),
-        $options: "i",
-      },
-    },
-    {
-      "packages.arrival_date": {
         $regex: escapeRegex(search),
         $options: "i",
       },
@@ -518,7 +439,6 @@ router.get(
       projection.gateway_igm_date = 1;
       projection.vessel_berthing = 1;
       projection.container_nos = 1;
-      projection.packages = 1;
 
       const preProjectStage = { $project: projection };
 
@@ -529,10 +449,10 @@ router.get(
             bePresent: {
               $gt: [{ $strLenCP: { $ifNull: ["$be_no", ""] } }, 0],
             },
-            anyArrival: buildAnyUnitDateExists("arrival_date"),
-            anyRailOut: buildAnyUnitDateExists("container_rail_out_date"),
-            allDelivery: buildAllUnitDateExists("delivery_date"),
-            allEmptyOffload: buildAllUnitDateExists(
+            anyArrival: buildAnyContainerDateExists("arrival_date"),
+            anyRailOut: buildAnyContainerDateExists("container_rail_out_date"),
+            allDelivery: buildAllContainerDateExists("delivery_date"),
+            allEmptyOffload: buildAllContainerDateExists(
               "emptyContainerOffLoadDate"
             ),
             validOutOfCharge: buildValidDateExpression("$out_of_charge"),
@@ -741,7 +661,6 @@ router.get(
           then: {
             $ifNull: [
               buildDateFromField(`$container_nos.0.${field}`),
-              buildDateFromField(`$packages.0.${field}`),
               buildDateFromField(`$${field}`),
             ],
           },
@@ -751,7 +670,6 @@ router.get(
       const defaultDateExpression = {
         $ifNull: [
           buildDateFromField("$container_nos.0.detention_from"),
-          buildDateFromField("$packages.0.detention_from"),
           buildDateFromField("$detention_from"),
         ],
       };
@@ -938,19 +856,6 @@ const applyDotNotationToMerged = (merged, updateData) => {
         ) {
           merged.container_nos[idx] = {
             ...merged.container_nos[idx],
-            [field]: value,
-          };
-        }
-      } else if (parts[0] === "packages") {
-        const idx = parseInt(parts[1], 10);
-        const field = parts[2];
-        if (
-          !Number.isNaN(idx) &&
-          merged.packages &&
-          merged.packages[idx]
-        ) {
-          merged.packages[idx] = {
-            ...merged.packages[idx],
             [field]: value,
           };
         }

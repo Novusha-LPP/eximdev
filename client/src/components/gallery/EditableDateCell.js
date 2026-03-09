@@ -116,12 +116,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     duty_paid_date,
     assessable_ammount,
     igst_ammount,
-    packages = [],
   } = rowData;
-
-  const { branches, selectedBranch } = React.useContext(BranchContext);
-  const activeBranch = branches.find(b => b._id === selectedBranch);
-  const activeBranchMode = activeBranch?.category || "SEA";
 
   const initialDates = useMemo(
     () => ({
@@ -147,9 +142,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [dates, setDates] = useState(initialDates);
   const [localStatus, setLocalStatus] = useState(detailed_status);
   const [containers, setContainers] = useState(() => [...container_nos]);
-  const [localPackages, setLocalPackages] = useState(() => [...packages]);
   const [editable, setEditable] = useState(null);
-  const activeBranchConfig = activeBranch?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const { branches, selectedBranch } = React.useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
   const [dateError, setDateError] = useState("");
@@ -165,13 +160,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           }|${c.by_road_movement_date || ""}`
       )
       .join("||");
-    const pKey = (packages || [])
-      .map((p) => `${p.package_number || ""}|${p.arrival_date || ""}|${p.delivery_date || ""}`)
-      .join("||");
-
     return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${gateway_igm_date || ""
       }|${discharge_date || ""}|${pcv_date || ""}|${out_of_charge || ""}|${duty_paid_date || ""
-      }|${detailed_status || ""}|${free_time || ""}|${cKey}|${pKey}`;
+      }|${detailed_status || ""}|${free_time || ""}|${cKey}`;
   }, [
     _id,
     assessment_date,
@@ -184,13 +175,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     detailed_status,
     free_time,
     container_nos,
-    packages,
   ]);
 
   useEffect(() => {
     setDates(initialDates);
     setContainers([...(container_nos || [])]);
-    setLocalPackages([...(packages || [])]);
     setLocalStatus(detailed_status);
     setLocalFreeTime(free_time);
     setEditable(null);
@@ -239,13 +228,12 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   const isArrivalDateDisabled = useCallback(
     (idx) => {
-      if (activeBranchMode === "AIR") return false;
       const c = containers[idx];
       if (isExBond) return true;
       if (isLCL) return !c?.by_road_movement_date;
       return !c?.container_rail_out_date;
     },
-    [containers, isExBond, isLCL, activeBranchMode]
+    [containers, isExBond, isLCL]
   );
 
   // Click: open editor blank
@@ -283,26 +271,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         }
 
 
-
-        const res = await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
-          payload,
-          { headers }
-        );
-        const serverJob = res?.data?.data || res?.data?.job || null;
-        if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, serverJob ? serverJob : payload);
-
-        setEditable(`${field}_${index}`);
-        setTempDateValue("");
-      } else if (activeBranchMode === "AIR" && index !== null) {
-        const updated = localPackages.map((p, i) => {
-          if (i !== index) return p;
-          return { ...p, [field]: "" };
-        });
-        setLocalPackages(updated);
-        const payload = {};
-        payload[`packages.${index}.${field}`] = "";
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
@@ -453,26 +421,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         const serverJob = res?.data?.data || res?.data?.job || null;
         if (typeof onRowDataUpdate === "function")
           onRowDataUpdate(_id, serverJob ? serverJob : payload);
-      } else if (activeBranchMode === "AIR" && index !== null) {
-        const updated = localPackages.map((p, i) => {
-          if (i !== index) return p;
-          const val = tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
-          return { ...p, [field]: val };
-        });
-        setLocalPackages(updated);
-
-        const fieldPath = `packages.${index}.${field}`;
-        const valForSave = tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
-        const payload = buildFieldPayload(fieldPath, valForSave);
-
-        const res = await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
-          payload,
-          { headers }
-        );
-        const serverJob = res?.data?.data || res?.data?.job || null;
-        if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, serverJob ? serverJob : payload);
       } else {
         const val =
           tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
@@ -589,43 +537,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     </div>
   );
 
-
-  const renderPackageEditor = (label, pValue, fieldKey, idx) => (
-    <div>
-      <strong>{label}:</strong> {formatDateDisplay(pValue)}{" "}
-      <FcCalendar
-        style={styles.icon}
-        onClick={() => startEditBlank(fieldKey, idx)}
-        onDoubleClick={() => clearAndEdit(fieldKey, idx)}
-        title="Click: edit • Double-click: clear"
-      />
-      {editable === `${fieldKey}_${idx}` && (
-        <div>
-          <input
-            type="datetime-local"
-            value={toInputDateTime(tempDateValue)}
-            onChange={(e) => {
-              setTempDateValue(e.target.value);
-              setDateError("");
-            }}
-            style={dateError ? styles.errorInput : {}}
-            autoFocus
-          />
-          <button
-            style={styles.submitButton}
-            onClick={() => handleDateSubmit(fieldKey, idx)}
-          >
-            ✓
-          </button>
-          <button style={styles.cancelButton} onClick={() => setEditable(null)}>
-            ✕
-          </button>
-          {dateError && <div style={styles.errorText}>{dateError}</div>}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div style={{ display: "flex", gap: 20 }}>
       {/* Left */}
@@ -655,80 +566,70 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             )}
             <br />
 
-            {activeBranchMode === "AIR" ? (
+            {!isExBond &&
+              !isLCL &&
+              activeBranchConfig.railout_enabled &&
+              containers.map((c, i) =>
+                renderContainerEditor(
+                  "Rail-out",
+                  c.container_rail_out_date,
+                  "container_rail_out_date",
+                  i
+                )
+              )}
+
+            {isLCL &&
+              containers.map((c, i) =>
+                renderContainerEditor(
+                  "ByRoad",
+                  c.by_road_movement_date,
+                  "by_road_movement_date",
+                  i
+                )
+              )}
+            <br />
+
+            {!isExBond &&
+              containers.map((c, i) =>
+                renderContainerEditor(
+                  "Arrival",
+                  c.arrival_date,
+                  "arrival_date",
+                  i,
+                  true
+                )
+              )}
+
+            <br />
+            {!isLCL && (
+              <div style={{ marginBottom: 10 }}>
+                <strong>Free time:</strong>{" "}
+                <TextField
+                  select
+                  size="small"
+                  variant="outlined"
+                  value={localFreeTime || 0}
+                  onChange={(e) => handleFreeTimeChange(e.target.value)}
+                  sx={{ width: 90, ml: 1 }}
+                >
+                  {options.map((n) => (
+                    <MenuItem key={n} value={n}>
+                      {n}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </div>
+            )}
+
+            <br />
+            {!isLCL && !isExBond && (
               <>
-                {localPackages.map((p, i) =>
-                  renderPackageEditor("Arrival", p.arrival_date, "arrival_date", i)
-                )}
-              </>
-            ) : (
-              <>
-                {!isExBond &&
-                  !isLCL &&
-                  activeBranchConfig.railout_enabled &&
-                  containers.map((c, i) =>
-                    renderContainerEditor(
-                      "Rail-out",
-                      c.container_rail_out_date,
-                      "container_rail_out_date",
-                      i
-                    )
-                  )}
-
-                {isLCL &&
-                  containers.map((c, i) =>
-                    renderContainerEditor(
-                      "ByRoad",
-                      c.by_road_movement_date,
-                      "by_road_movement_date",
-                      i
-                    )
-                  )}
-                <br />
-
-                {!isExBond &&
-                  containers.map((c, i) =>
-                    renderContainerEditor(
-                      "Arrival",
-                      c.arrival_date,
-                      "arrival_date",
-                      i,
-                      true
-                    )
-                  )}
-
-                <br />
-                {!isLCL && (
-                  <div style={{ marginBottom: 10 }}>
-                    <strong>Free time:</strong>{" "}
-                    <TextField
-                      select
-                      size="small"
-                      variant="outlined"
-                      value={localFreeTime || 0}
-                      onChange={(e) => handleFreeTimeChange(e.target.value)}
-                      sx={{ width: 90, ml: 1 }}
-                    >
-                      {options.map((n) => (
-                        <MenuItem key={n} value={n}>
-                          {n}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                <strong>Detention F.:</strong>
+                {containers.map((c, i) => (
+                  <div key={`det-${i}`}>
+                    {formatDateDisplay(c.detention_from)}
                   </div>
-                )}
-
-                <br />
-                {!isLCL && !isExBond && (
-                  <>
-                    <strong>Detention F.:</strong>
-                    {containers.map((c, i) => (
-                      <div key={`det-${i}`}>
-                        {formatDateDisplay(c.detention_from)}
-                      </div>
-                    ))}
-                  </>
-                )}
+                ))}
               </>
             )}
             <br />
@@ -805,13 +706,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         {renderRowDateEditor("OOC", dates.out_of_charge, "out_of_charge")}
         <br />
 
-        {activeBranchMode === "AIR" ? (
-          <>
-            {localPackages.map((p, i) =>
-              renderPackageEditor("Delivery", p.delivery_date, "delivery_date", i)
-            )}
-          </>
-        ) : isFactory ? (
+        {isFactory ? (
           <>
             {/* Delivery then EmptyOff */}
             <>

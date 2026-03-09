@@ -91,19 +91,6 @@ const useImportJobForm = () => {
     },
   ]);
 
-  const [packages, setPackages] = useState([
-    {
-      package_number: "",
-      arrival_date: "",
-      gross_weight: "",
-      net_weight: "",
-      net_weight_as_per_PL_document: "",
-      package_damage_images: [],
-      examination_videos: [],
-      delivery_date: "",
-    },
-  ]);
-
   const [fta_Benefit_date_time, setFtaBenefitDateTime] = useState("");
   const [exBondValue, setExBondValue] = useState("");
   const [jobDetails, setJobDetails] = useState([]);
@@ -218,18 +205,6 @@ const useImportJobForm = () => {
         net_weight_as_per_PL_document: "",
       },
     ]);
-    setPackages([
-      {
-        package_number: "",
-        arrival_date: "",
-        gross_weight: "",
-        net_weight: "",
-        net_weight_as_per_PL_document: "",
-        package_damage_images: [],
-        examination_videos: [],
-        delivery_date: "",
-      },
-    ]);
     setFtaBenefitDateTime("");
     setExBondValue("");
     setCthDocuments([
@@ -311,12 +286,11 @@ const useImportJobForm = () => {
           branch_id,
           trade_type,
           mode,
-          container_nos: mode === "SEA" ? container_nos.map((c) => ({
+          container_nos: container_nos.map((c) => ({
             ...c,
             // Copy seal_no into seal_number array so ViewJob can display it
             seal_number: c.seal_no ? [c.seal_no] : [],
-          })) : [],
-          packages: mode === "AIR" ? packages : [],
+          })),
           cth_documents: cthDocuments, // Renamed to match backend expectations
           scheme,
           in_bond_be_no,
@@ -416,34 +390,6 @@ const useImportJobForm = () => {
     const updatedContainers = [...container_nos];
     updatedContainers[index][field] = value;
     setContainerNos(updatedContainers);
-  };
-
-  // Package handlers
-  const handleAddPackage = () => {
-    setPackages([
-      ...packages,
-      {
-        package_number: "",
-        arrival_date: "",
-        gross_weight: "",
-        net_weight: "",
-        net_weight_as_per_PL_document: "",
-        package_damage_images: [],
-        examination_videos: [],
-        delivery_date: "",
-      },
-    ]);
-  };
-
-  const handleRemovePackage = (index) => {
-    const updatedPackages = packages.filter((_, i) => i !== index);
-    setPackages(updatedPackages);
-  };
-
-  const handlePackageChange = (index, field, value) => {
-    const updatedPackages = [...packages];
-    updatedPackages[index][field] = value;
-    setPackages(updatedPackages);
   };
 
   // CTH Document handlers
@@ -582,10 +528,6 @@ const useImportJobForm = () => {
     handleAddContainer,
     handleRemoveContainer,
     handleContainerChange,
-    packages,
-    handleAddPackage,
-    handleRemovePackage,
-    handlePackageChange,
     cthDocuments,
     setCthDocuments,
     scheme,

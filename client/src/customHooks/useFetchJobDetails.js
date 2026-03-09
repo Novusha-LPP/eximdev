@@ -344,7 +344,6 @@ function useFetchJobDetails(
     initialValues: {
       checkedDocs: [],
       container_nos: [],
-      packages: [],
       obl_telex_bl: "",
       is_obl_recieved: false,
       document_received_date: "",
@@ -511,7 +510,6 @@ function useFetchJobDetails(
           status: values.status,
           detailed_status: values.detailed_status,
           container_nos: values.container_nos,
-          packages: values.packages,
           arrival_date: values.arrival_date,
           do_validity_upto_job_level: values.do_validity_upto_job_level,
           do_revalidation_upto_job_level: values.do_revalidation_upto_job_level,
@@ -741,7 +739,6 @@ function useFetchJobDetails(
 
       formik.setValues({
         container_nos,
-        packages: safeValue(data.packages, []),
         checkedDocs: safeValue(data.checkedDocs, []),
         is_obl_recieved: safeValue(data.is_obl_recieved, false),
         document_received_date: safeValue(data.document_received_date),

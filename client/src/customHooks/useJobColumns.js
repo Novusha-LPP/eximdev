@@ -1,6 +1,5 @@
-import React, { useCallback, useMemo, useState, useContext } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { IconButton } from "@mui/material";
-import { BranchContext } from "../contexts/BranchContext";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate, useLocation } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
@@ -23,13 +22,7 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
   const [containerTrackOpen, setContainerTrackOpen] = useState(false);
   const [containerTrackContainers, setContainerTrackContainers] = useState([]);
 
-  const { branches, selectedBranch } = useContext(BranchContext);
-  const activeBranch = branches.find((b) => b._id === selectedBranch);
-  const activeBranchMode = activeBranch?.category || "SEA";
-
   const containerNos = cell.row.original.container_nos;
-  const packages = cell.row.original.packages;
-  const unitData = activeBranchMode === "AIR" ? packages : containerNos;
   const jobData = cell.row.original;
 
   // Helper function to get color based on shortage amount
@@ -59,10 +52,10 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
         onClose={() => setContainerTrackOpen(false)}
         containers={containerTrackContainers}
       />
-      {unitData?.map((unit, id) => {
-        const weightShortage = activeBranchMode === "AIR" ? 0 : (parseFloat(unit.weight_shortage) || 0);
+      {containerNos?.map((container, id) => {
+        const weightShortage = parseFloat(container.weight_shortage) || 0;
         const containerColor = getShortageColor(weightShortage);
-        const tooltipText = activeBranchMode === "AIR" ? `Package: ${unit.package_number}` : getShortageText(weightShortage);
+        const tooltipText = getShortageText(weightShortage);
 
         return (
           <div key={id} style={{ marginBottom: "4px" }}>
@@ -71,40 +64,30 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
               arrow
               placement="top"
             >
-              {activeBranchMode === "AIR" ? (
-                <span style={{ fontWeight: "bold", color: "#2e7d32" }}>
-                  {unit.package_number || "N/A"}
-                </span>
-              ) : (
-                <a
-                  href={`https://www.ldb.co.in/ldb/containersearch/39/${unit.container_number}/1726651147706`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: containerColor,
-                    fontWeight: "bold",
-                    textDecoration: "none",
-                    cursor: "pointer",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.target.style.textDecoration = "underline")
-                  }
-                  onMouseOut={(e) =>
-                    (e.target.style.textDecoration = "none")
-                  }
-                >
-                  {unit.container_number}
-                </a>
-              )}
+              <a
+                href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: containerColor,
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                  cursor: "pointer",
+                }}
+                onMouseOver={(e) =>
+                  (e.target.style.textDecoration = "underline")
+                }
+                onMouseOut={(e) =>
+                  (e.target.style.textDecoration = "none")
+                }
+              >
+                {container.container_number}
+              </a>
             </Tooltip>
 
-            {activeBranchMode === "AIR" ? (
-              <span style={{ fontSize: "0.85rem", color: "#666" }}>
-                {" "}| {unit.gross_weight || "0"} KGS
-              </span>
-            ) : (
-              ` | "${unit.size}"`
-            )}
+
+
+            | "{container.size}"
             <div
               style={{
                 display: "inline-flex",
@@ -121,7 +104,7 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setContainerTrackContainers([unit.container_number]);
+                      setContainerTrackContainers([container.container_number]);
                       setContainerTrackOpen(true);
                     }}
                     style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
@@ -130,33 +113,29 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
                   </IconButton>
                 </Tooltip>
               )}
-              <Tooltip title={activeBranchMode === "AIR" ? "Copy Package Number" : "Copy Container Number"} arrow>
+              <Tooltip title="Copy Container Number" arrow>
                 <IconButton
                   size="small"
                   onClick={(event) =>
-                    handleCopy(event, activeBranchMode === "AIR" ? unit.package_number : unit.container_number)
+                    handleCopy(event, container.container_number)
                   }
                 >
                   <ContentCopyIcon fontSize="inherit" />
                 </IconButton>
               </Tooltip>
-              {activeBranchMode === "SEA" && (
-                <>
-                  {/* Delivery Challan Download Icon */}
-                  <DeliveryChallanPdf
-                    year={jobData.year}
-                    jobNo={jobData.job_no}
-                    containerIndex={id}
-                    renderAsIcon={true}
-                  />
-                  <IgstCalculationPDF
-                    year={jobData.year}
-                    jobNo={jobData.job_no}
-                    containerIndex={id}
-                    renderAsIcon={true}
-                  />
-                </>
-              )}
+              {/* Delivery Challan Download Icon */}
+              <DeliveryChallanPdf
+                year={jobData.year}
+                jobNo={jobData.job_no}
+                containerIndex={id}
+                renderAsIcon={true}
+              />
+              <IgstCalculationPDF
+                year={jobData.year}
+                jobNo={jobData.job_no}
+                containerIndex={id}
+                renderAsIcon={true}
+              />
             </div>
           </div>
         );
@@ -175,10 +154,6 @@ function useJobColumns(
 ) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { branches, selectedBranch } = useContext(BranchContext);
-  const activeBranch = branches.find((b) => b._id === selectedBranch);
-  const activeBranchMode = activeBranch?.category || "SEA";
-
   const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
     useSearchQuery();
 
@@ -533,7 +508,7 @@ function useJobColumns(
       },
       {
         accessorKey: "container_numbers",
-        header: activeBranchMode === "AIR" ? "Package Numbers" : "Container Numbers and Size",
+        header: "Container Numbers and Size",
         size: 200,
         Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
       },

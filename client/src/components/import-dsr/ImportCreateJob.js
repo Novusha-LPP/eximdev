@@ -39,6 +39,7 @@ const ImportCreateJob = () => {
 
   const {
     formik,
+    // job_no,
     setJobNo,
     custom_house,
     setCustomHouse,
@@ -94,10 +95,6 @@ const ImportCreateJob = () => {
     handleAddContainer,
     handleRemoveContainer,
     handleContainerChange,
-    packages,
-    handleAddPackage,
-    handleRemovePackage,
-    handlePackageChange,
     cthDocuments,
     setCthDocuments,
     handleAddDocument,
@@ -148,7 +145,8 @@ const ImportCreateJob = () => {
     setHSS,
     setSallerName,
     setBankName,
-    bankName,
+    bankName
+    ,
     ie_code_no,
     setIeCodeNo,
     branch_id,
@@ -1214,272 +1212,131 @@ const ImportCreateJob = () => {
           </Grid>
         </Grid>
 
-        {mode === "SEA" && (
-          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              Container Details:
-            </Typography>
+        <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Container Details:
+          </Typography>
 
-            {/* Parent container with spacing */}
-            <Grid container spacing={2} style={{ marginTop: "10px" }}>
-              {container_nos.map((container, index) => (
-                <Grid
-                  container
-                  item
-                  xs={12}
-                  alignItems="center"
-                  key={`container-${index}`}
-                  spacing={2} // Add spacing for child containers
-                  style={{ marginTop: "10px" }}
-                >
-                  {/* Container Number */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Container Number"
-                      value={container.container_number}
-                      onChange={(e) =>
-                        handleContainerChange(
-                          index,
-                          "container_number",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {/* Container Size */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Container Size"
-                      value={container.size}
-                      onChange={(e) =>
-                        handleContainerChange(index, "size", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Seal No */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Seal No"
-                      value={container.seal_no}
-                      onChange={(e) =>
-                        handleContainerChange(index, "seal_no", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Gross Wt */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Gross Wt"
-                      value={container.container_gross_weight}
-                      onChange={(e) =>
-                        handleContainerChange(
-                          index,
-                          "container_gross_weight",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {/* Net Wt */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Net Wt"
-                      value={container.net_weight_as_per_PL_document}
-                      onChange={(e) =>
-                        handleContainerChange(
-                          index,
-                          "net_weight_as_per_PL_document",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {/* Remove Container Button */}
-                  <Grid item xs={2}>
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleRemoveContainer(index)}
-                      title="Remove Container"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Grid>
-                </Grid>
-              ))}
-            </Grid>
-
-            {/* Add Container Button */}
-            <Grid container item xs={12} style={{ marginTop: "10px" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleAddContainer}
+          {/* Parent container with spacing */}
+          <Grid container spacing={2} style={{ marginTop: "10px" }}>
+            {container_nos.map((container, index) => (
+              <Grid
+                container
+                item
+                xs={12}
+                alignItems="center"
+                key={`container-${index}`}
+                spacing={2} // Add spacing for child containers
+                style={{ marginTop: "10px" }}
               >
-                Add Container
-              </Button>
-            </Grid>
-          </Grid>
-        )}
-
-        {mode === "AIR" && (
-          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              Package Details:
-            </Typography>
-
-            <Grid container spacing={2} style={{ marginTop: "10px" }}>
-              {packages.map((pkg, index) => (
-                <Grid
-                  container
-                  item
-                  xs={12}
-                  alignItems="center"
-                  key={`package-${index}`}
-                  spacing={2}
-                  style={{ marginTop: "10px", borderBottom: "1px solid #eee", pb: 2 }}
-                >
-                  {/* Package Number */}
-                  <Grid item xs={12} md={1.5}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Package Number"
-                      value={pkg.package_number}
-                      onChange={(e) =>
-                        handlePackageChange(index, "package_number", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Arrival Date */}
-                  <Grid item xs={12} md={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Arrival Date"
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={pkg.arrival_date}
-                      onChange={(e) =>
-                        handlePackageChange(index, "arrival_date", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Gross Weight */}
-                  <Grid item xs={12} md={1.5}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Gross Weight"
-                      value={pkg.gross_weight}
-                      onChange={(e) =>
-                        handlePackageChange(index, "gross_weight", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Net Weight */}
-                  <Grid item xs={12} md={1.5}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Net Weight"
-                      value={pkg.net_weight}
-                      onChange={(e) =>
-                        handlePackageChange(index, "net_weight", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Net Weight (PL) */}
-                  <Grid item xs={12} md={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Net Wt (as per PL)"
-                      value={pkg.net_weight_as_per_PL_document}
-                      onChange={(e) =>
-                        handlePackageChange(
-                          index,
-                          "net_weight_as_per_PL_document",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {/* Delivery Date */}
-                  <Grid item xs={12} md={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Delivery Date"
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={pkg.delivery_date}
-                      onChange={(e) =>
-                        handlePackageChange(index, "delivery_date", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Damage Images / Examination Videos would go here, but omitted for brevity in first pass or added as file uploads */}
-
-                  {/* Remove Package Button */}
-                  <Grid item xs={12} md={1.5}>
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleRemovePackage(index)}
-                      title="Remove Package"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Grid>
+                {/* Container Number */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Container Number"
+                    value={container.container_number}
+                    onChange={(e) =>
+                      handleContainerChange(
+                        index,
+                        "container_number",
+                        e.target.value
+                      )
+                    }
+                  />
                 </Grid>
-              ))}
-            </Grid>
 
-            {/* Add Package Button */}
-            <Grid container item xs={12} style={{ marginTop: "10px" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleAddPackage}
-              >
-                Add Package
-              </Button>
-            </Grid>
+                {/* Container Size */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Container Size"
+                    value={container.size}
+                    onChange={(e) =>
+                      handleContainerChange(index, "size", e.target.value)
+                    }
+                  />
+                </Grid>
+
+                {/* Seal No */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Seal No"
+                    value={container.seal_no}
+                    onChange={(e) =>
+                      handleContainerChange(index, "seal_no", e.target.value)
+                    }
+                  />
+                </Grid>
+
+                {/* Gross Wt */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Gross Wt"
+                    value={container.container_gross_weight}
+                    onChange={(e) =>
+                      handleContainerChange(
+                        index,
+                        "container_gross_weight",
+                        e.target.value
+                      )
+                    }
+                  />
+                </Grid>
+
+                {/* Net Wt */}
+                <Grid item xs={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Net Wt"
+                    value={container.net_weight_as_per_PL_document}
+                    onChange={(e) =>
+                      handleContainerChange(
+                        index,
+                        "net_weight_as_per_PL_document",
+                        e.target.value
+                      )
+                    }
+                  />
+                </Grid>
+
+                {/* Remove Container Button */}
+                <Grid item xs={2}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => handleRemoveContainer(index)}
+                    title="Remove Container"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Grid>
+              </Grid>
+            ))}
           </Grid>
-        )}
+
+          {/* Add Container Button */}
+          <Grid container item xs={12} style={{ marginTop: "10px" }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleAddContainer}
+            >
+              Add Container
+            </Button>
+          </Grid>
+        </Grid>
 
         {/* test01 */}
         <Grid item xs={12} md={6} style={{ marginTop: "10px" }}>

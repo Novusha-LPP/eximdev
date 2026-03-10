@@ -253,6 +253,15 @@ const customerKycSchema = new Schema({
     type: Boolean,
     default: false
   },
+  financial_details_approved: {
+    type: Boolean,
+    default: false
+  },
+  financial_details_approved_by: {
+    type: String,
+    required: false,
+    trim: true
+  },
 
 
 

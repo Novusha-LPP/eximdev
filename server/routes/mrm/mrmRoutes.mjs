@@ -192,7 +192,7 @@ router.get('/api/mrm', async (req, res) => {
             query.createdBy = userId;
         }
 
-        const items = await MRMItem.find(query).sort({ createdAt: 1 });
+        const items = await MRMItem.find(query).sort({ seq: 1, createdAt: 1 });
         res.json(items);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -202,7 +202,19 @@ router.get('/api/mrm', async (req, res) => {
 // Create MRM Item
 router.post('/api/mrm', async (req, res) => {
     try {
-        const item = new MRMItem(req.body);
+        const { month, year, createdBy } = req.body;
+
+        // Find the highest sequence number for this user/month/year
+        const lastItem = await MRMItem.findOne({ month, year, createdBy })
+            .sort({ seq: -1 });
+
+        const nextSeq = lastItem && lastItem.seq !== undefined ? lastItem.seq + 1 : 0;
+
+        const item = new MRMItem({
+            ...req.body,
+            seq: nextSeq
+        });
+
         await item.save();
         res.status(201).json(item);
     } catch (error) {
@@ -230,6 +242,32 @@ router.delete('/api/mrm/:id', async (req, res) => {
     }
 });
 
+// Bulk Delete MRM Items for a month
+router.delete('/api/mrm-bulk/delete', async (req, res) => {
+    try {
+        const { month, year, userId } = req.query;
+        const requestingRole = req.headers['user-role'];
+        const requestingUserId = req.headers['user-id'];
+
+        if (!month || !year || !userId) {
+            return res.status(400).json({ error: "Month, Year and UserId are required" });
+        }
+
+        // Authorization check
+        const isOwnData = userId === requestingUserId;
+        const isAdmin = requestingRole === 'Admin';
+
+        if (!isOwnData && !isAdmin) {
+            return res.status(403).json({ error: "Not authorized to delete this data" });
+        }
+
+        const result = await MRMItem.deleteMany({ month, year, createdBy: userId });
+        res.json({ message: `${result.deletedCount} items deleted`, count: result.deletedCount });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Import Items
 router.post('/api/mrm/import', async (req, res) => {
     try {
@@ -244,16 +282,23 @@ router.post('/api/mrm/import', async (req, res) => {
         // Safe bet: if import is requested, maybe they want to start fresh or fill gaps. 
         // Let's just append.
 
-        const sourceItems = await MRMItem.find({ month: sourceMonth, year: sourceYear });
+        const { userId } = req.body;
+        const sourceItems = await MRMItem.find({
+            month: sourceMonth,
+            year: sourceYear,
+            createdBy: userId
+        });
 
         if (sourceItems.length === 0) {
             return res.status(404).json({ error: "No data found in source month to import" });
         }
 
+        const validSourceItems = sourceItems.sort((a, b) => (a.seq || 0) - (b.seq || 0));
+
         let newItems = [];
 
         if (mode === 'as-is') {
-            newItems = sourceItems.map(item => ({
+            newItems = validSourceItems.map(item => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -268,10 +313,11 @@ router.post('/api/mrm/import', async (req, res) => {
                 targetDate: item.targetDate,
                 status: item.status,
                 remarks: item.remarks,
-                createdBy: req.body.userId // Assuming userId is passed or in session (simplified)
+                createdBy: userId,
+                seq: item.seq || 0
             }));
         } else if (mode === 'blank') {
-            newItems = sourceItems.map(item => ({
+            newItems = validSourceItems.map(item => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -287,7 +333,8 @@ router.post('/api/mrm/import', async (req, res) => {
                 targetDate: null,
                 status: "Gray",
                 remarks: "",
-                createdBy: req.body.userId
+                createdBy: userId,
+                seq: item.seq || 0
             }));
         }
 

@@ -33,6 +33,8 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "./ImportDoChargesTable";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function EditDoCompleted() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -589,6 +591,10 @@ function EditDoCompleted() {
                 >
                   {container.container_number || "N/A"}{" "}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={data?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
               </span>
             </strong>

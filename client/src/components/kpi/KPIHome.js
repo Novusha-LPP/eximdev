@@ -93,12 +93,14 @@ const KPIHome = () => {
     const [importNameError, setImportNameError] = useState('');
     const [importTemplateName, setImportTemplateName] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [extendedDeadline, setExtendedDeadline] = useState(null);
 
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
         fetchPendingCount();
         fetchTeamTemplates();
+        fetchExtendedDeadline();
     }, []);
 
     useEffect(() => {
@@ -108,6 +110,17 @@ const KPIHome = () => {
     useEffect(() => {
         fetchSheets();
     }, [filterYear]);
+
+    const fetchExtendedDeadline = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/settings/deadline`, { withCredentials: true });
+            if (res.data && res.data.override) {
+                setExtendedDeadline(res.data.override);
+            }
+        } catch (error) {
+            console.error("Error fetching deadline override", error);
+        }
+    };
 
     const fetchPendingCount = async () => {
         try {
@@ -333,6 +346,28 @@ const KPIHome = () => {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
             >
+                {extendedDeadline && (
+                    <div style={{
+                        background: 'linear-gradient(to right, #fff7ed, #ffedd5)',
+                        borderLeft: '4px solid #f97316',
+                        padding: '12px 20px',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                    }}>
+                        <span style={{ fontSize: '1.4rem' }}>📢</span>
+                        <div>
+                            <strong style={{ color: '#c2410c', display: 'block', fontSize: '0.95rem' }}>Important Update</strong>
+                            <span style={{ color: '#9a3412', fontSize: '0.85rem' }}>
+                                The KPI submission deadline for <strong>{months[extendedDeadline.month - 1]} {extendedDeadline.year}</strong> has been extended until <strong>{new Date(extendedDeadline.deadline_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>. You can now edit your sheets until this date.
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="modern-header" style={{ marginBottom: '24px' }}>
                     <div className="header-title">

@@ -29,6 +29,7 @@
     "dotenv": "^16.6.1",
     "exceljs": "^4.3.0",
     "express": "^4.21.2",
+    "google-translate-api-x": "^10.7.2",
     "http": "^0.0.1-security",
     "imap-simple": "^1.6.3",
     "jsonwebtoken": "^9.0.3",

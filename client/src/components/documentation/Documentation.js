@@ -24,6 +24,8 @@ import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
@@ -304,7 +306,11 @@ function Documentation() {
           <React.Fragment>
             {containerNos?.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}| "{container.size}"
+                {container.container_number}<ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
+                | "{container.size}"
               </div>
             ))}
           </React.Fragment>

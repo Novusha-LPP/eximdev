@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
-import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers } from '../../services/mrmService';
+import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers } from '../../services/mrmService';
 import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,6 +42,9 @@ const MRMHome = () => {
         itemId: null,
         itemName: ''
     });
+
+    // Bulk Delete Dialog
+    const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
 
     // Load MRM users for admin dropdown
     // Load MRM users for dropdowns
@@ -206,6 +209,22 @@ const MRMHome = () => {
         }
     };
 
+    const handleBulkDelete = async () => {
+        setBulkDeleteDialog(false);
+        setLoading(true);
+        try {
+            const monthStr = String(selectedMonth).padStart(2, '0');
+            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+            await bulkDeleteMRMItems(monthStr, selectedYear, targetUserId);
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to delete month data: " + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Helper for labels
     const getMonthName = (m) => new Date(0, m - 1).toLocaleString('default', { month: 'short' });
     const getYearShort = (y) => String(y).slice(-2);
@@ -338,6 +357,15 @@ const MRMHome = () => {
                     </select>
 
                     <button className="secondary" onClick={() => setShowImportModal(true)}>Import / Copy</button>
+                    {items.length > 0 && (
+                        <button
+                            className="danger-btn-outline"
+                            onClick={() => setBulkDeleteDialog(true)}
+                            title="Delete all rows for this month"
+                        >
+                            🗑️ Delete Month
+                        </button>
+                    )}
                     <button onClick={handleAddItem}>+ Add Row</button>
                 </div>
             </div>
@@ -658,6 +686,32 @@ const MRMHome = () => {
                         }}
                     >
                         Delete
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Bulk Delete Confirmation */}
+            <Dialog
+                open={bulkDeleteDialog}
+                onClose={() => setBulkDeleteDialog(false)}
+            >
+                <DialogTitle sx={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WarningAmberIcon /> Delete Entire Month
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Are you sure you want to delete <strong>ALL</strong> entries for <strong>{currentMonthName} {selectedYear}</strong>?
+                        This action is irreversible and will remove all rows for this user in this month.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '16px 24px' }}>
+                    <Button onClick={() => setBulkDeleteDialog(false)} variant="outlined">Cancel</Button>
+                    <Button
+                        onClick={handleBulkDelete}
+                        variant="contained"
+                        sx={{ backgroundColor: '#dc2626', '&:hover': { backgroundColor: '#b91c1c' } }}
+                    >
+                        Delete Everything
                     </Button>
                 </DialogActions>
             </Dialog>

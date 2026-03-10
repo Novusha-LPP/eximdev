@@ -22,6 +22,8 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -298,7 +300,11 @@ function ESanchit() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} | "{container.size}"
+                  {container.container_number} <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
+                | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>

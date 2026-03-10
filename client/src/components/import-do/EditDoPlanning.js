@@ -31,6 +31,8 @@ import { useSearchParams } from "react-router-dom";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "./ImportDoChargesTable";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 
 const doListOptions = [
   { value: "", label: "Select DO List" },
@@ -616,6 +618,10 @@ function EditDoPlanning() {
                 >
                   {container.container_number || "N/A"}{" "}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={data?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
               </span>
             </strong>

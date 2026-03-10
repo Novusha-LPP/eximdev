@@ -36,6 +36,8 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function List() {
   const { job_no, year } = useParams();
   const bl_no_ref = useRef();
@@ -719,6 +721,10 @@ function List() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

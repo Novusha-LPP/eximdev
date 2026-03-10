@@ -23,6 +23,8 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext.js";
 import DocsCell from "../gallery/DocsCell.js";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function PaymentRequested() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -369,7 +371,11 @@ function PaymentRequested() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} | "{container.size}"
+                  {container.container_number} <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
+                | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>

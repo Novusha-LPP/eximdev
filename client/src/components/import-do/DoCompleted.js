@@ -29,6 +29,8 @@ import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function DoCompleted() {
   const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
@@ -687,6 +689,10 @@ function DoCompleted() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

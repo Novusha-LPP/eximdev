@@ -168,6 +168,57 @@ const useImportJobForm = () => {
     fetchJobDetails();
   }, []);
   //
+  const [description_details, setDescriptionDetails] = useState([
+    {
+      description: "",
+      cth_no: "",
+      clearance_under: "",
+      sr_no_invoice: "",
+      sr_no_lic: "",
+      quantity: "",
+      unit: "",
+    },
+  ]);
+
+  const updateDescriptionRow = (rowIndex, field, value) => {
+    const updatedRows = [...description_details];
+    updatedRows[rowIndex] = {
+      ...updatedRows[rowIndex],
+      [field]: value,
+    };
+    setDescriptionDetails(updatedRows);
+
+    if (rowIndex === 0) {
+      if (field === "description") setDescription(value);
+      if (field === "cth_no") setCthNo(value);
+      if (field === "clearance_under") setClearanceValue(value);
+      if (field === "sr_no_invoice") setInvoiceNumber(value);
+      if (field === "quantity") setGrossWeight(value); // Approximating ViewJob logic mapping quantity
+      if (field === "unit") { /* We don't have unit state in CreateJob, ignoring for top-level */ }
+    }
+  };
+
+  const addDescriptionRow = () => {
+    setDescriptionDetails([
+      ...description_details,
+      {
+        description: "",
+        cth_no: "",
+        clearance_under: clearanceValue || "",
+        sr_no_invoice: "",
+        sr_no_lic: "",
+        quantity: "",
+        unit: "",
+      },
+    ]);
+  };
+
+  const removeDescriptionRow = (rowIndex) => {
+    if (description_details.length <= 1) return;
+    const updatedRows = description_details.filter((_, index) => index !== rowIndex);
+    setDescriptionDetails(updatedRows);
+  };
+
   // Reset form function
   const resetForm = () => {
     // setYear(defaultYearPair);
@@ -194,6 +245,17 @@ const useImportJobForm = () => {
     setInvoiceNumber("");
     setInvoiceDate("");
     setDescription("");
+    setDescriptionDetails([
+      {
+        description: "",
+        cth_no: "",
+        clearance_under: "",
+        sr_no_invoice: "",
+        sr_no_lic: "",
+        quantity: "",
+        unit: "",
+      },
+    ]);
     setConsignmentType("");
     setIsDraftDoc(false);
     setContainerNos([
@@ -246,6 +308,8 @@ const useImportJobForm = () => {
     // Reset any other states if necessary
   };
   //
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+
   const formik = useFormik({
     initialValues: {
       all_documents: [],
@@ -281,6 +345,7 @@ const useImportJobForm = () => {
           invoice_number,
           invoice_date,
           description,
+          description_details,
           consignment_type,
           isDraftDoc,
           branch_id,
@@ -325,9 +390,11 @@ const useImportJobForm = () => {
         );
 
         // Show success alert
-        alert(
-          `✅ Job successfully created! \nJob No: ${response.data.job?.job_no}`
-        );
+        setSnackbar({
+          open: true,
+          message: `Job successfully created! Job No: ${response.data.job?.job_number || response.data.job?.job_no}`,
+          severity: "success"
+        });
 
         // Reset the form after successful submission
         resetForm();
@@ -344,7 +411,11 @@ const useImportJobForm = () => {
           errorMessage = error.message;
         }
 
-        alert(`❌ ${errorMessage}`); // Show alert with the exact error message
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: "error"
+        });
       }
     },
   });
@@ -447,7 +518,7 @@ const useImportJobForm = () => {
         setNewDocumentName("");
         setNewDocumentCode("");
       } else {
-        alert("Please enter valid document details.");
+        setSnackbar({ open: true, message: "Please enter valid document details.", severity: "warning" });
       }
     } else if (selectedDocument) {
       // Adding a document from the dropdown
@@ -461,10 +532,10 @@ const useImportJobForm = () => {
         ]);
         setSelectedDocument("");
       } else {
-        alert("Invalid document selected.");
+        setSnackbar({ open: true, message: "Invalid document selected.", severity: "warning" });
       }
     } else {
-      alert("Please select or enter document details.");
+      setSnackbar({ open: true, message: "Please select or enter document details.", severity: "warning" });
     }
   };
 
@@ -571,8 +642,7 @@ const useImportJobForm = () => {
     sallerName,
     setSallerName,
     bankName,
-    setBankName
-    ,
+    setBankName,
     ie_code_no,
     setIeCodeNo,
     branch_id,
@@ -581,7 +651,13 @@ const useImportJobForm = () => {
     setTradeType,
     mode,
     setMode,
-    branches
+    branches,
+    description_details,
+    addDescriptionRow,
+    updateDescriptionRow,
+    removeDescriptionRow,
+    snackbar,
+    setSnackbar
   };
 };
 

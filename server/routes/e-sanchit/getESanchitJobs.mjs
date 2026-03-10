@@ -109,7 +109,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries"
       )
       .sort({ gateway_igm_date: 1 });
 

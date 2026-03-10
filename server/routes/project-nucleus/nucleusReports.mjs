@@ -15,7 +15,7 @@ router.get("/reports", async (req, res) => {
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
         const jobs = await JobModel.find(branchMatch)
-            .select("job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer consignment_type container_nos.size")
+            .select("job_number job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer consignment_type container_nos.size")
             .lean();
 
         // 2. Fetch all users for handler mapping
@@ -105,7 +105,7 @@ router.post("/update-penalty-status", authMiddleware, auditMiddleware("Job"), as
             jobId,
             { $set: updates },
             { new: true }
-        ).select("job_no penalty_by_us penalty_by_importer");
+        ).select("job_number job_no penalty_by_us penalty_by_importer");
 
         if (!updatedJob) {
             return res.status(404).json({ error: "Job not found" });

@@ -40,6 +40,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/documentation");
     case "Submission":
       return navigate("/submission");
+    case "DGFT":
+      return navigate("/dgft");
 
     case "Open Points":
       return navigate("/open-points");

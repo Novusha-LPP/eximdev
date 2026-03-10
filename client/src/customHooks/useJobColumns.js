@@ -228,9 +228,9 @@ function useJobColumns(
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const row = cell.row.original;
           const {
@@ -364,6 +364,7 @@ function useJobColumns(
                   textAlign: "center",
                   display: "inline-block",
                   textDecoration: "none",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type}

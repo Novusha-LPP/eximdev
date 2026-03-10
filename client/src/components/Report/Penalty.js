@@ -549,7 +549,7 @@ const Penalty = () => {
               {dataToShow.length > 0 ? (
                 dataToShow.map((item) => (
                   <tr key={item._id}>
-                    <td style={{ fontWeight: 500 }}>{item.job_no}</td>
+                    <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{item.job_number || item.job_no}</td>
                     <td>{item.be_no}</td>
                     <td>{item.be_date}</td>
                     <td className={`amount-cell ${activeReport === 'fine' ? 'fine-amount' : 'penalty-amount'}`}>

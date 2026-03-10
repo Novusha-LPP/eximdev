@@ -142,7 +142,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "is_checklist_aprroved_date is_checklist_aprroved submission_completed_date_time be_filing_type priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation"
+        "is_checklist_aprroved_date is_checklist_aprroved submission_completed_date_time be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation"
       )
       .lean();
 
@@ -385,7 +385,7 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "submission_completed_date_time submission_completed_date_time be_no be_date is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation"
+        "submission_completed_date_time submission_completed_date_time be_no be_date is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation"
       )
       .lean();
 

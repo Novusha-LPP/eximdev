@@ -9,6 +9,8 @@ import {
   Button,
   Switch,
   Checkbox,
+  Snackbar,
+  Alert
 } from "@mui/material";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
@@ -155,7 +157,13 @@ const ImportCreateJob = () => {
     setTradeType,
     mode,
     setMode,
-    branches
+    branches,
+    description_details,
+    addDescriptionRow,
+    updateDescriptionRow,
+    removeDescriptionRow,
+    snackbar,
+    setSnackbar
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
@@ -1210,306 +1218,429 @@ const ImportCreateJob = () => {
                 : "Benefit not enabled"}
             </Typography>
           </Grid>
-        </Grid>
-
-        <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Container Details:
-          </Typography>
-
-          {/* Parent container with spacing */}
-          <Grid container spacing={2} style={{ marginTop: "10px" }}>
-            {container_nos.map((container, index) => (
-              <Grid
-                container
-                item
-                xs={12}
-                alignItems="center"
-                key={`container-${index}`}
-                spacing={2} // Add spacing for child containers
-                style={{ marginTop: "10px" }}
+          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <Typography variant="body1" style={{ fontWeight: 600 }}>
+                Description Details:
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={addDescriptionRow}
               >
-                {/* Container Number */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Container Number"
-                    value={container.container_number}
-                    onChange={(e) =>
-                      handleContainerChange(
-                        index,
-                        "container_number",
-                        e.target.value
-                      )
-                    }
-                  />
-                </Grid>
+                Add Row
+              </Button>
+            </div>
 
-                {/* Container Size */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Container Size"
-                    value={container.size}
-                    onChange={(e) =>
-                      handleContainerChange(index, "size", e.target.value)
-                    }
-                  />
-                </Grid>
-
-                {/* Seal No */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Seal No"
-                    value={container.seal_no}
-                    onChange={(e) =>
-                      handleContainerChange(index, "seal_no", e.target.value)
-                    }
-                  />
-                </Grid>
-
-                {/* Gross Wt */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Gross Wt"
-                    value={container.container_gross_weight}
-                    onChange={(e) =>
-                      handleContainerChange(
-                        index,
-                        "container_gross_weight",
-                        e.target.value
-                      )
-                    }
-                  />
-                </Grid>
-
-                {/* Net Wt */}
-                <Grid item xs={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="Net Wt"
-                    value={container.net_weight_as_per_PL_document}
-                    onChange={(e) =>
-                      handleContainerChange(
-                        index,
-                        "net_weight_as_per_PL_document",
-                        e.target.value
-                      )
-                    }
-                  />
-                </Grid>
-
-                {/* Remove Container Button */}
-                <Grid item xs={2}>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleRemoveContainer(index)}
-                    title="Remove Container"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Grid>
-              </Grid>
-            ))}
+            <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px", marginBottom: "20px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
+                <thead>
+                  <tr style={{ background: "#f8f9fa" }}>
+                    {["Description", "CTH", "Clearance Under", "SR No Invoice", "SR No LIC", "Quantity", "Unit", "Action"].map((h) => (
+                      <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {description_details?.map((row, rowIndex) => (
+                    <tr key={`desc-row-${rowIndex}`}>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={row.description || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
+                        />
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={row.cth_no || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                        />
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          select
+                          size="small"
+                          fullWidth
+                          value={row.clearance_under || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
+                        >
+                          <MenuItem value="">Select</MenuItem>
+                          {filteredClearanceOptions.map((option, index) => (
+                            <MenuItem key={index} value={option.value || ""}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={row.sr_no_invoice || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
+                        />
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={row.sr_no_lic || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
+                        />
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={row.quantity || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
+                        />
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={row.unit || ""}
+                          onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
+                        />
+                      </td>
+                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={description_details.length <= 1}
+                          onClick={() => removeDescriptionRow(rowIndex)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Grid>
 
-          {/* Add Container Button */}
-          <Grid container item xs={12} style={{ marginTop: "10px" }}>
+          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              Container Details:
+            </Typography>
+
+            {/* Parent container with spacing */}
+            <Grid container spacing={2} style={{ marginTop: "10px" }}>
+              {container_nos.map((container, index) => (
+                <Grid
+                  container
+                  item
+                  xs={12}
+                  alignItems="center"
+                  key={`container-${index}`}
+                  spacing={2} // Add spacing for child containers
+                  style={{ marginTop: "10px" }}
+                >
+                  {/* Container Number */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Container Number"
+                      value={container.container_number}
+                      onChange={(e) =>
+                        handleContainerChange(
+                          index,
+                          "container_number",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Grid>
+
+                  {/* Container Size */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Container Size"
+                      value={container.size}
+                      onChange={(e) =>
+                        handleContainerChange(index, "size", e.target.value)
+                      }
+                    />
+                  </Grid>
+
+                  {/* Seal No */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Seal No"
+                      value={container.seal_no}
+                      onChange={(e) =>
+                        handleContainerChange(index, "seal_no", e.target.value)
+                      }
+                    />
+                  </Grid>
+
+                  {/* Gross Wt */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Gross Wt"
+                      value={container.container_gross_weight}
+                      onChange={(e) =>
+                        handleContainerChange(
+                          index,
+                          "container_gross_weight",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Grid>
+
+                  {/* Net Wt */}
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      label="Net Wt"
+                      value={container.net_weight_as_per_PL_document}
+                      onChange={(e) =>
+                        handleContainerChange(
+                          index,
+                          "net_weight_as_per_PL_document",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Grid>
+
+                  {/* Remove Container Button */}
+                  <Grid item xs={2}>
+                    <IconButton
+                      color="primary"
+                      onClick={() => handleRemoveContainer(index)}
+                      title="Remove Container"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Grid>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Add Container Button */}
+            <Grid container item xs={12} style={{ marginTop: "10px" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleAddContainer}
+              >
+                Add Container
+              </Button>
+            </Grid>
+          </Grid>
+
+          {/* test01 */}
+          <Grid item xs={12} md={6} style={{ marginTop: "10px" }}>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              Clearance Under:
+            </Typography>
+            <FormControl
+              fullWidth
+              size="small"
+              variant="outlined"
+              style={{ marginTop: "8px" }}
+            >
+              <Select
+                value={clearanceValue}
+                onChange={(e) => {
+                  if (canChangeClearance()) {
+                    setClearanceValue(e.target.value);
+                  } else {
+                    alert(
+                      "Please clear Ex-Bond details before changing Clearance Under."
+                    );
+                  }
+                }}
+                displayEmpty
+              >
+                <MenuItem value="" disabled>
+                  Select Clearance Type
+                </MenuItem>
+                {filteredClearanceOptions.map((option, index) => (
+                  <MenuItem key={index} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {/* Scheme Selection */}
+              <Grid item xs={12}>
+                <FormControl fullWidth size="small" variant="outlined">
+                  <Select
+                    value={scheme}
+                    onChange={(e) => setScheme(e.target.value)}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select Scheme
+                    </MenuItem>
+                    {schemeOptions.map((schemeOption, index) => (
+                      <MenuItem key={index} value={schemeOption}>
+                        {schemeOption}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </FormControl>
+
+            {clearanceValue === "Ex-Bond" && (
+              <Grid container spacing={2} style={{ marginTop: "10px" }}>
+                <FormControl fullWidth size="small" variant="outlined">
+                  <Select
+                    value={exBondValue}
+                    onChange={(e) => setExBondValue(e.target.value)}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select In-Bond Type
+                    </MenuItem>
+                    {/* Static "Other" option at the top */}
+                    <MenuItem value="other">Other</MenuItem>
+                    {/* Dynamically generate MenuItem components */}
+                    {jobDetails.map((job) => (
+                      <MenuItem key={job.job_no} value={job.job_no}>
+                        {`${job.job_no} - ${job.importer}`}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+
+            {exBondValue === "other" && (
+              <Grid container spacing={2} style={{ marginTop: "10px" }}>
+                {/* BE Number */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="InBond BE Number"
+                    value={in_bond_be_no}
+                    onChange={(e) => setBeNo(e.target.value)}
+                  />
+                </Grid>
+
+                {/* BE Date */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="InBond BE Date"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={in_bond_be_date}
+                    onChange={(e) => setBeDate(e.target.value)}
+                  />
+                </Grid>
+
+                {/* File Upload for OOC Copies */}
+                <Grid item xs={12}>
+                  <FileUpload
+                    label="Upload InBond BE Copy"
+                    bucketPath="ex_be_copy_documents"
+                    onFilesUploaded={(newFiles) =>
+                      setOocCopies([...in_bond_ooc_copies, ...newFiles])
+                    }
+                    multiple={true}
+                  />
+                  <ImagePreview
+                    images={in_bond_ooc_copies || []}
+                    onDeleteImage={(index) => {
+                      const updatedFiles = [...in_bond_ooc_copies];
+                      updatedFiles.splice(index, 1);
+                      setOocCopies(updatedFiles);
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            )}
+
+            {/* Reset Button */}
+            {clearanceValue === "Ex-Bond" && (
+              <Grid item xs={12} style={{ marginTop: "10px" }}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={resetOtherDetails}
+                >
+                  Reset Ex-Bond Details
+                </Button>
+              </Grid>
+            )}
+          </Grid>
+
+          {/* test 02 */}
+          <Grid item xs={12}>
             <Button
               variant="contained"
               color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleAddContainer}
+              style={{ marginTop: "20px" }}
+              onClick={formik.handleSubmit}
             >
-              Add Container
+              Submit
             </Button>
           </Grid>
         </Grid>
 
-        {/* test01 */}
-        <Grid item xs={12} md={6} style={{ marginTop: "10px" }}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Clearance Under:
-          </Typography>
-          <FormControl
-            fullWidth
-            size="small"
-            variant="outlined"
-            style={{ marginTop: "8px" }}
+        {/* Confirm Delete Dialog */}
+        <ConfirmDialog
+          open={confirmDialogOpen}
+          handleClose={() => setConfirmDialogOpen(false)}
+          handleConfirm={handleDeleteDocument}
+          message="Are you sure you want to delete this document?"
+        />
+
+        {/* Edit Document Dialog */}
+        <ConfirmDialog
+          open={editDialogOpen}
+          handleClose={() => setEditDialogOpen(false)}
+          handleConfirm={handleSaveEdit}
+          isEdit
+          editValues={editValues}
+          onEditChange={setEditValues}
+        />
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity || "info"}
+            sx={{ width: "100%" }}
           >
-            <Select
-              value={clearanceValue}
-              onChange={(e) => {
-                if (canChangeClearance()) {
-                  setClearanceValue(e.target.value);
-                } else {
-                  alert(
-                    "Please clear Ex-Bond details before changing Clearance Under."
-                  );
-                }
-              }}
-              displayEmpty
-            >
-              <MenuItem value="" disabled>
-                Select Clearance Type
-              </MenuItem>
-              {filteredClearanceOptions.map((option, index) => (
-                <MenuItem key={index} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            {/* Scheme Selection */}
-            <Grid item xs={12}>
-              <FormControl fullWidth size="small" variant="outlined">
-                <Select
-                  value={scheme}
-                  onChange={(e) => setScheme(e.target.value)}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select Scheme
-                  </MenuItem>
-                  {schemeOptions.map((schemeOption, index) => (
-                    <MenuItem key={index} value={schemeOption}>
-                      {schemeOption}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </FormControl>
-
-          {clearanceValue === "Ex-Bond" && (
-            <Grid container spacing={2} style={{ marginTop: "10px" }}>
-              <FormControl fullWidth size="small" variant="outlined">
-                <Select
-                  value={exBondValue}
-                  onChange={(e) => setExBondValue(e.target.value)}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select In-Bond Type
-                  </MenuItem>
-                  {/* Static "Other" option at the top */}
-                  <MenuItem value="other">Other</MenuItem>
-                  {/* Dynamically generate MenuItem components */}
-                  {jobDetails.map((job) => (
-                    <MenuItem key={job.job_no} value={job.job_no}>
-                      {`${job.job_no} - ${job.importer}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          )}
-
-          {exBondValue === "other" && (
-            <Grid container spacing={2} style={{ marginTop: "10px" }}>
-              {/* BE Number */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="InBond BE Number"
-                  value={in_bond_be_no}
-                  onChange={(e) => setBeNo(e.target.value)}
-                />
-              </Grid>
-
-              {/* BE Date */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="InBond BE Date"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={in_bond_be_date}
-                  onChange={(e) => setBeDate(e.target.value)}
-                />
-              </Grid>
-
-              {/* File Upload for OOC Copies */}
-              <Grid item xs={12}>
-                <FileUpload
-                  label="Upload InBond BE Copy"
-                  bucketPath="ex_be_copy_documents"
-                  onFilesUploaded={(newFiles) =>
-                    setOocCopies([...in_bond_ooc_copies, ...newFiles])
-                  }
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={in_bond_ooc_copies || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...in_bond_ooc_copies];
-                    updatedFiles.splice(index, 1);
-                    setOocCopies(updatedFiles);
-                  }}
-                />
-              </Grid>
-            </Grid>
-          )}
-
-          {/* Reset Button */}
-          {clearanceValue === "Ex-Bond" && (
-            <Grid item xs={12} style={{ marginTop: "10px" }}>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={resetOtherDetails}
-              >
-                Reset Ex-Bond Details
-              </Button>
-            </Grid>
-          )}
-        </Grid>
-
-        {/* test 02 */}
-        <Grid item xs={12}>
-          <Button
-            variant="contained"
-            color="primary"
-            style={{ marginTop: "20px" }}
-            onClick={formik.handleSubmit}
-          >
-            Submit
-          </Button>
-        </Grid>
-      </Grid>
-
-      {/* Confirm Delete Dialog */}
-      <ConfirmDialog
-        open={confirmDialogOpen}
-        handleClose={() => setConfirmDialogOpen(false)}
-        handleConfirm={handleDeleteDocument}
-        message="Are you sure you want to delete this document?"
-      />
-
-      {/* Edit Document Dialog */}
-      <ConfirmDialog
-        open={editDialogOpen}
-        handleClose={() => setEditDialogOpen(false)}
-        handleConfirm={handleSaveEdit}
-        isEdit
-        editValues={editValues}
-        onEditChange={setEditValues}
-      />
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
     </div>
   );
 };

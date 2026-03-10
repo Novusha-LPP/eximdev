@@ -145,7 +145,7 @@ router.get(
       // Projection to shrink sort payload
       // Projection to shrink sort payload and response
       const projection = {
-        job_no: 1,
+        job_number: 1, job_no: 1,
         importer: 1,
         custom_house: 1,
         be_no: 1,

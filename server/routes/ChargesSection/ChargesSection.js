@@ -21,7 +21,7 @@ router.get('/api/charges-section/job-details', async (req, res) => {
         insurance_copy: 1,
         other_do_documents: 1,
         security_deposit: 1,
-        job_no: 1,
+        job_number: 1, job_no: 1,
         year: 1,
         importer: 1, // Add importer field
         shipping_line_airline: 1, // Add shipping line field

@@ -320,8 +320,8 @@ function BillingPending() {
                       }}
                     >
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                          {row.job_no}
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', whiteSpace: 'nowrap' }}>
+                          {row.job_number || row.job_no}
                         </Typography>
                       </TableCell>
                       <TableCell>

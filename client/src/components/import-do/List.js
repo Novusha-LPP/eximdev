@@ -385,10 +385,11 @@ function List() {
     {
       accessorKey: "job_no",
       header: "Job No ",
-      size: 120,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
+          job_number,
           custom_house,
           _id,
           type_of_b_e,
@@ -411,9 +412,10 @@ function List() {
               borderRadius: "5px",
               display: "inline-block",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </a>
         );

@@ -50,7 +50,7 @@ router.post(
     try {
       const jobs = await JobModel.find(
         { type_of_b_e: "In-Bond" },
-        { job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
+        { job_number: 1, job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
       );
       res.status(200).json(jobs);
     } catch (error) {

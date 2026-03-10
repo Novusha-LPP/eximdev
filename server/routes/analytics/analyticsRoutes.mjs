@@ -146,7 +146,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                     },
                     {
                         $project: {
-                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1,
                             relevant_date: "$job_date"
                         }
                     }
@@ -159,12 +159,12 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                         }
                     },
                     {
-                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$completed_operation_date" }
+                        $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$completed_operation_date" }
                     }
                 ],
                 examination_planning: [
                     { $match: { examination_planning_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
                 ],
                 jobs_trend: [
                     { $match: { job_date: { $gte: sevenDaysAgoStr, $lte: todayStr }, ...baseMatch } },
@@ -240,7 +240,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                     },
                     {
                         $project: {
-                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1,
                             relevant_date: "$container_nos.arrival_date",
                             container_number: "$container_nos.container_number"
                         }
@@ -256,7 +256,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                     },
                     {
                         $project: {
-                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1,
                             relevant_date: "$container_nos.container_rail_out_date",
                             container_number: "$container_nos.container_number"
                         }
@@ -270,7 +270,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                         }
                     },
                     {
-                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$be_date", processed_be_attachment: 1 }
+                        $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$be_date", processed_be_attachment: 1 }
                     }
                 ],
                 ooc: [
@@ -281,7 +281,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                         }
                     },
                     {
-                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$out_of_charge", ooc_copies: 1 }
+                        $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$out_of_charge", ooc_copies: 1 }
                     }
                 ],
                 do_completed: [
@@ -292,7 +292,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                         }
                     },
                     {
-                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_completed" }
+                        $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_completed" }
                     }
                 ],
                 billing_sent: [
@@ -303,7 +303,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                         }
                     },
                     {
-                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$bill_document_sent_to_accounts" }
+                        $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$bill_document_sent_to_accounts" }
                     }
                 ],
                 eta: [
@@ -314,16 +314,16 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                         }
                     },
                     {
-                        $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$vessel_berthing" }
+                        $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$vessel_berthing" }
                     }
                 ],
                 gateway_igm_date: [
                     { $match: { gateway_igm_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$gateway_igm_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$gateway_igm_date" } }
                 ],
                 discharge_date: [
                     { $match: { discharge_date: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$discharge_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$discharge_date" } }
                 ],
                 empty_offload: [
                     { $match: { ...baseMatch } },
@@ -331,7 +331,7 @@ const getOverviewPipeline = (start, end, importer, branchId, category) => {
                     { $match: { "container_nos.emptyContainerOffLoadDate": { $gte: toYMD(start), $lte: end.toISOString() } } },
                     {
                         $project: {
-                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1,
                             relevant_date: "$container_nos.emptyContainerOffLoadDate",
                             container_number: "$container_nos.container_number"
                         }
@@ -410,7 +410,7 @@ const getMovementPipeline = (start, end, importer, branchId, category) => {
         { $match: { [`container_nos.${field}`]: { $gte: toYMD(start), $lte: end.toISOString() } } },
         {
             $project: {
-                job_no: 1, importer: 1, shipping_line_airline: 1,
+                job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1,
                 relevant_date: `$container_nos.${field}`,
                 container_number: "$container_nos.container_number"
             }
@@ -440,7 +440,7 @@ const getMovementPipeline = (start, end, importer, branchId, category) => {
                     },
                     {
                         $project: {
-                            job_no: 1, importer: 1, shipping_line_airline: 1,
+                            job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1,
                             relevant_date: `$container_nos.detention_from`,
                             container_number: "$container_nos.container_number"
                         }
@@ -489,7 +489,7 @@ const getCustomsPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     return [
@@ -565,7 +565,7 @@ const getDocumentationPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Pending Documentation Logic (Snapshot)
@@ -610,7 +610,7 @@ const getDocumentationPipeline = (start, end, importer, branchId, category) => {
             $facet: {
                 documentation_pending: [
                     { $match: pendingDocsMatch },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 documentation_completed: makeJobFacet("documentation_completed_date_time"),
                 // Trend
@@ -654,7 +654,7 @@ const getDoManagementPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // special handling for container do expiry
@@ -662,7 +662,7 @@ const getDoManagementPipeline = (start, end, importer, branchId, category) => {
         { $match: { ...baseMatch } },
         { $unwind: "$container_nos" },
         { $match: { "container_nos.do_validity_upto_container_level": { $gte: toYMD(start), $lte: end.toISOString() } } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$container_nos.do_validity_upto_container_level", container_number: "$container_nos.container_number" } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$container_nos.do_validity_upto_container_level", container_number: "$container_nos.container_number" } }
     ];
 
     // Invoice Criteria (Same as DO List)
@@ -719,16 +719,16 @@ const getDoManagementPipeline = (start, end, importer, branchId, category) => {
                             ]
                         }
                     },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_validity_upto_job_level" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_validity_upto_job_level" } }
                 ],
                 // New Facets - using strict "In List" logic without date range
                 jobs_with_invoices: [
                     { $match: { $and: [...pendingDoMatch.$and, invoiceCriteria] } },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 jobs_without_invoices: [
                     { $match: { $and: [...pendingDoMatch.$and, { $nor: invoiceCriteria.$or }] } },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 // Trend
                 do_trend: [
@@ -756,7 +756,7 @@ const getDoManagementPipeline = (start, end, importer, branchId, category) => {
                             ]
                         }
                     },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_planning_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$do_planning_date" } }
                 ]
             }
         },
@@ -795,7 +795,7 @@ const getBillingPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Facet for nested invoice dates
@@ -803,7 +803,7 @@ const getBillingPipeline = (start, end, importer, branchId, category) => {
         { $match: { ...baseMatch } },
         { $unwind: "$do_shipping_line_invoice" },
         { $match: { [`do_shipping_line_invoice.${field}`]: { $gte: toYMD(start), $lte: end.toISOString() } } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$do_shipping_line_invoice.${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$do_shipping_line_invoice.${field}` } }
     ];
 
     return [
@@ -855,7 +855,7 @@ const getExceptionsPipeline = (start, end, importer, branchId, category) => {
                             ...baseMatch
                         }
                     },
-                    { $project: { job_no: 1, importer: 1, relevant_date: "$do_validity_upto_job_level" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, relevant_date: "$do_validity_upto_job_level" } }
                 ],
                 containers_in_detention: [
                     { $match: { ...baseMatch } },
@@ -865,7 +865,7 @@ const getExceptionsPipeline = (start, end, importer, branchId, category) => {
                             "container_nos.detention_from": { $lte: today, $ne: null }
                         }
                     },
-                    { $project: { job_no: 1, container_number: "$container_nos.container_number", relevant_date: "$container_nos.detention_from" } }
+                    { $project: { job_number: 1, job_no: 1, container_number: "$container_nos.container_number", relevant_date: "$container_nos.detention_from" } }
                 ],
                 pending_billing: [
                     {
@@ -875,7 +875,7 @@ const getExceptionsPipeline = (start, end, importer, branchId, category) => {
                             ...baseMatch
                         }
                     },
-                    { $project: { job_no: 1, importer: 1 } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1 } }
                 ],
                 // Jobs with status != Completed beyond selected range?
                 // The logic "Jobs with status != Completed beyond selected range" is tricky.
@@ -888,7 +888,7 @@ const getExceptionsPipeline = (start, end, importer, branchId, category) => {
                             ...baseMatch
                         }
                     },
-                    { $project: { job_no: 1, importer: 1, relevant_date: "$job_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, relevant_date: "$job_date" } }
                 ]
             }
         },
@@ -932,7 +932,7 @@ const getESanchitPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Pending Logic: Matches getESanchitJobs.mjs "current pending" state
@@ -965,18 +965,18 @@ const getESanchitPipeline = (start, end, importer, branchId, category) => {
             $facet: {
                 esanchit_pending: [
                     { $match: pendingEsanchitMatch },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 esanchit_completed: makeJobFacet("esanchit_completed_date_time"),
                 // This Week (Monday to Today)
                 esanchit_completed_this_week: [
                     { $match: { esanchit_completed_date_time: { $gte: weekStartStr, $lte: todayStr }, ...baseMatch } },
-                    { $project: { job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
                 ],
                 // This Month (1st to Today)
                 esanchit_completed_this_month: [
                     { $match: { esanchit_completed_date_time: { $gte: monthStartStr, $lte: todayStr }, ...baseMatch } },
-                    { $project: { job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, relevant_date: "$esanchit_completed_date_time" } }
                 ]
             }
         },
@@ -1016,7 +1016,7 @@ const getOperationsPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Pending "Examination Planning" Logic
@@ -1068,7 +1068,7 @@ const getOperationsPipeline = (start, end, importer, branchId, category) => {
             $facet: {
                 in_examination_planning: [
                     { $match: inExamPlanningMatch },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$examination_planning_date" } }
                 ],
                 operations_completed: makeJobFacet("completed_operation_date"),
                 // Trend
@@ -1112,7 +1112,7 @@ const getSubmissionPipeline = (start, end, importer, branchId, category) => {
 
     const makeJobFacet = (field) => [
         { $match: { [field]: { $gte: toYMD(start), $lte: end.toISOString() }, ...baseMatch } },
-        { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
+        { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: `$${field}` } }
     ];
 
     // Pending Submission Logic (Snapshot)
@@ -1164,7 +1164,7 @@ const getSubmissionPipeline = (start, end, importer, branchId, category) => {
             $facet: {
                 submission_pending: [
                     { $match: pendingSubmissionMatch },
-                    { $project: { job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
+                    { $project: { job_number: 1, job_no: 1, importer: 1, shipping_line_airline: 1, relevant_date: "$job_date" } }
                 ],
                 submission_completed: makeJobFacet("submission_completed_date_time"),
                 // Trend

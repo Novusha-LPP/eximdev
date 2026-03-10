@@ -284,11 +284,11 @@ function OperationsList() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ row }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
+        const { job_no, job_number, year, type_of_b_e, consignment_type, custom_house } =
           row.original;
 
         return (
@@ -306,9 +306,10 @@ function OperationsList() {
               borderRadius: "5px",
               textAlign: "center",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
           </Link>
         );

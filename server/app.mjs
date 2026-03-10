@@ -198,6 +198,7 @@ import auditTrail from "./routes/audit/auditTrail.mjs";
 //import utility tool
 import getCthSearch from "./routes/CthUtil/getChtSearch.js";
 import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
+import syncDataRouter from "./routes/utility/syncData.mjs";
 
 //proxy apis
 import icegateProxy from "./routes/icegateProxy.js";
@@ -444,6 +445,7 @@ app.use(getImportBilling);
 // import cth search
 app.use(getCthSearch);
 app.use(dutyCalculator);
+app.use("/api", syncDataRouter);
 
 // Inward Register
 app.use(addInwardRegister);

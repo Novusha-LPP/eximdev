@@ -478,19 +478,6 @@ function JobList(props) {
           <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
         </TextField>
 
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="Mode"
-          value={selectedMode}
-          onChange={(e) => setSelectedMode(e.target.value)}
-          sx={{ width: "110px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All Modes</MenuItem>
-          <MenuItem value="SEA">Sea</MenuItem>
-          <MenuItem value="AIR">Air</MenuItem>
-        </TextField>
 
         <Autocomplete
           sx={{ width: "220px", marginRight: "10px" }}

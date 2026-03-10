@@ -15,11 +15,117 @@ import CalculateIcon from "@mui/icons-material/Calculate";
 import BuildIcon from "@mui/icons-material/Build";
 import SpeedIcon from "@mui/icons-material/Speed";
 import StarIcon from "@mui/icons-material/Star";
+import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  CircularProgress,
+  LinearProgress,
+  Snackbar,
+  Alert
+} from "@mui/material";
+import axios from "axios";
 
 const UtilityParent = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [syncDialogOpen, setSyncDialogOpen] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [syncProgress, setSyncProgress] = React.useState({
+    phase: "",
+    current: 0,
+    total: 0,
+    percent: 0
+  });
+  const [migrationOptions, setMigrationOptions] = React.useState({
+    runSync: true,
+    runMigrateJobs: true,
+    runMigrateGandhidham: false,
+  });
+  const [notification, setNotification] = React.useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const apiBase = process.env.REACT_APP_API_STRING;
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncProgress({ phase: "Initializing...", current: 0, total: 100, percent: 0 });
+
+    try {
+      // Use fetch instead of axios for easier SSE handling with POST
+      const response = await fetch(`${apiBase}/utility/sync-production`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(migrationOptions),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // Keep partial line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.success) {
+                const percent = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+                setSyncProgress({
+                  phase: data.phase || "Processing...",
+                  current: data.current,
+                  total: data.total,
+                  percent: percent
+                });
+
+                if (data.done) {
+                  setNotification({
+                    open: true,
+                    message: "Database synchronization completed successfully!",
+                    severity: "success",
+                  });
+                  setSyncDialogOpen(false);
+                }
+              } else {
+                throw new Error(data.message || "Sync failed");
+              }
+            } catch (e) {
+              console.error("Error parsing SSE data", e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+      setNotification({
+        open: true,
+        message: error.message || "Failed to synchronize database.",
+        severity: "error",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const cardStyles = {
     p: 4,
@@ -76,6 +182,17 @@ const UtilityParent = () => {
       path: "/duty-calculator",
       features: ["Real-time rates", "Multiple currencies", "Tax breakdown"],
     },
+    ...(isLocal ? [{
+      title: "Database Synchronization",
+      description: "Sync production data to local database and run migrations",
+      icon: (
+        <CloudDownloadIcon
+          sx={{ fontSize: 45, color: theme.palette.success.main }}
+        />
+      ),
+      action: () => setSyncDialogOpen(true),
+      features: ["Fetch latest data", "Run migrations", "Local dev only"],
+    }] : []),
   ];
 
   return (
@@ -193,15 +310,114 @@ const UtilityParent = () => {
                 <Button
                   fullWidth
                   variant="contained"
-                  startIcon={index === 0 ? <BuildIcon /> : <CalculateIcon />}
+                  startIcon={card.title === "CTH Directory Search" ? <BuildIcon /> : card.title === "Import Duty Calculator" ? <CalculateIcon /> : <CloudDownloadIcon />}
                   sx={buttonStyles}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (card.action) card.action();
+                    else navigate(card.path);
+                  }}
                 >
-                  Get Started
+                  {card.title === "Database Synchronization" ? "Sync Now" : "Get Started"}
                 </Button>
               </Paper>
             </Grow>
           ))}
         </Box>
+
+        {/* Sync Confirmation Dialog */}
+        <Dialog open={syncDialogOpen} onClose={() => !isSyncing && setSyncDialogOpen(false)}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Database Synchronization</DialogTitle>
+          <DialogContent>
+            {migrationOptions.runSync && (
+              <Typography variant="body2" color="error" sx={{ mb: 2, fontWeight: 500 }}>
+                WARNING: This will overwrite your local database collections with production data. Use with caution.
+              </Typography>
+            )}
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              Select Actions:
+            </Typography>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={migrationOptions.runSync}
+                    onChange={(e) => setMigrationOptions({ ...migrationOptions, runSync: e.target.checked })}
+                    disabled={isSyncing}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Fetch Data from Production (Overwrites Local)
+                  </Typography>
+                }
+              />
+              <Divider sx={{ my: 1 }} />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={migrationOptions.runMigrateJobs}
+                    onChange={(e) => setMigrationOptions({ ...migrationOptions, runMigrateJobs: e.target.checked })}
+                    disabled={isSyncing}
+                  />
+                }
+                label="Run Jobs Migration (Standard)"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={migrationOptions.runMigrateGandhidham}
+                    onChange={(e) => setMigrationOptions({ ...migrationOptions, runMigrateGandhidham: e.target.checked })}
+                    disabled={isSyncing}
+                  />
+                }
+                label="Run Gandhidham Jobs Migration"
+              />
+            </FormGroup>
+            {isSyncing && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3 }}>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, textAlign: 'center' }}>
+                  {syncProgress.phase} ({syncProgress.percent}%)
+                </Typography>
+                <LinearProgress variant="determinate" value={syncProgress.percent} sx={{ height: 10, borderRadius: 5 }} />
+                <Typography variant="caption" sx={{ mt: 0.5, textAlign: 'center', color: 'text.secondary' }}>
+                  {syncProgress.current} / {syncProgress.total} items
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setSyncDialogOpen(false)} disabled={isSyncing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSync}
+              variant="contained"
+              color="primary"
+              disabled={isSyncing || (!migrationOptions.runSync && !migrationOptions.runMigrateJobs && !migrationOptions.runMigrateGandhidham)}
+              sx={{ fontWeight: 600 }}
+            >
+              Start Selected Actions
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={6000}
+          onClose={() => setNotification({ ...notification, open: false })}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Alert
+            onClose={() => setNotification({ ...notification, open: false })}
+            severity={notification.severity}
+            sx={{ width: "100%" }}
+            variant="filled"
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Container>
   );

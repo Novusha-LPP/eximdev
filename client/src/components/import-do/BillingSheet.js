@@ -295,9 +295,9 @@ function BillingSheet() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
@@ -398,11 +398,11 @@ function BillingSheet() {
               padding: "10px",
               borderRadius: "5px",
               textAlign: "center",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
               border: bgColor ? "1px solid #ccc" : "none",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </Link>
         );

@@ -248,12 +248,13 @@ function Documentation() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
+          job_number,
           year,
           type_of_b_e,
           consignment_type,
@@ -275,10 +276,11 @@ function Documentation() {
               padding: "10px", // Add padding for better visibility
               borderRadius: "5px", // Optional: Add some styling for aesthetics
               textDecoration: "none",
+              whiteSpace: "nowrap", textAlign: "center", display: "inline-block", width: "100%",
             }}
             target="_blank" // Open in a new tab
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
             <br />
           </a>

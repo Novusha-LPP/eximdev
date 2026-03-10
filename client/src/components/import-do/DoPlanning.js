@@ -807,8 +807,8 @@ function DoPlanning() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
-      size: 120,
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
@@ -835,10 +835,10 @@ function DoPlanning() {
               display: "inline-block",
               width: "100%",
               padding: "5px",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
           </Link>
         );

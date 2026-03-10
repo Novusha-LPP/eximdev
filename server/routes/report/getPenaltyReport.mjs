@@ -21,8 +21,8 @@ router.get("/api/report/penalty", async (req, res) => {
     };
 
     const jobs = await JobModel.find(baseFilter)
-      .select("job_no year importer intrest_ammount fine_amount penalty_amount")
-      .sort({ job_no: 1 });
+      .select("job_number job_no year importer intrest_ammount fine_amount penalty_amount")
+      .sort({ job_number: 1, job_no: 1 });
 
     // Filter out jobs where all penalty fields are "0" or empty
     const filteredJobs = jobs.filter(job => {

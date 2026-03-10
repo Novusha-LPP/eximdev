@@ -253,12 +253,13 @@ function ImportBilling() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const {
             job_no,
+            job_number,
             year,
             _id,
             type_of_b_e,
@@ -357,9 +358,10 @@ function ImportBilling() {
                 borderRadius: "5px",
                 textAlign: "center",
                 textDecoration: "none",
+                whiteSpace: "nowrap",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </a>
           ) : (
@@ -369,12 +371,12 @@ function ImportBilling() {
                 cursor: "default",
                 color: textColor,
                 backgroundColor: bgColor || "transparent",
-                padding: "10px",
                 borderRadius: "5px",
                 textAlign: "center",
+                whiteSpace: "nowrap",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </div>
           );

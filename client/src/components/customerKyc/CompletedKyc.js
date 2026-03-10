@@ -126,17 +126,33 @@ function CompletedKyc() {
       Cell: ({ cell }) => getStatusChip(cell.getValue()),
     },
     {
+      accessorKey: "financial_details_approved",
+      header: "Financial Appr.",
+      size: 180,
+      Cell: ({ cell }) => (
+        <span
+          className={`status-pill ${
+            cell.getValue() ? "success" : "warning"
+          }`}
+          style={{ fontSize: "0.8rem", padding: "2px 8px" }}
+        >
+          {cell.getValue() ? "Approved" : "Pending"}
+        </span>
+      ),
+    },
+    {
       accessorKey: "approved_by",
       header: "Approved By",
-      size: 250,
+      size: 200,
       Cell: ({ cell }) => (
         <span
           style={{
             fontStyle: cell.getValue() ? "normal" : "italic",
             color: "var(--slate-500)",
+            fontSize: "0.85rem"
           }}
         >
-          {cell.getValue() || "Not Assigned"}
+          {cell.getValue() || (cell.row.original.financial_details_approved_by ? `Fin: ${cell.row.original.financial_details_approved_by}` : "Not Assigned")}
         </span>
       ),
     },

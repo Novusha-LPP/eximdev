@@ -13,6 +13,7 @@ import { useSnackbar } from "../../contexts/SnackbarContext";
 import { UserContext } from "../../contexts/UserContext";
 import CustomDialog from "./CustomDialog";
 import { getCityAndStateByPinCode } from "../../utils/getCityAndStateByPinCode";
+import { FormControlLabel, Checkbox } from "@mui/material";
 
 function ReviseCustomerKyc() {
   const { _id } = useParams();
@@ -130,6 +131,8 @@ function ReviseCustomerKyc() {
       quotation: "No",
       outstanding_limit: "",
       advance_payment: false,
+      financial_details_approved: false,
+      financial_details_approved_by: "",
 
       other_documents: [],
       spcb_reg: [],
@@ -235,6 +238,8 @@ function ReviseCustomerKyc() {
             quotation: res.data.quotation || "No",
             outstanding_limit: res.data.outstanding_limit || "",
             advance_payment: res.data.advance_payment || false,
+            financial_details_approved: res.data.financial_details_approved || false,
+            financial_details_approved_by: res.data.financial_details_approved_by || "",
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -247,6 +252,33 @@ function ReviseCustomerKyc() {
     if (_id) getData();
     // eslint-disable-next-line
   }, [_id]);
+
+  const canApproveFinance =
+    user?.role === "Admin" ||
+    user?.role === "HOD" ||
+    (Array.isArray(user?.modules) && user.modules.includes("Accounts"));
+
+  const handleFinancialApprovalChange = async (event) => {
+    const isChecked = event.target.checked;
+    const approved_by = isChecked ? `${user.first_name} ${user.last_name}` : "";
+
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/customer-kyc-financial-approval/${_id}`,
+        {
+          financial_details_approved: isChecked,
+          financial_details_approved_by: approved_by,
+        }
+      );
+      
+      formik.setFieldValue("financial_details_approved", isChecked);
+      formik.setFieldValue("financial_details_approved_by", approved_by);
+      showSuccess(isChecked ? "Financial details approved" : "Financial approval removed");
+    } catch (error) {
+      console.error("Error updating financial approval", error);
+      showError("Failed to update financial approval");
+    }
+  };
 
   const { getSupportingDocs, fileSnackbar } = useSupportingDocuments(formik);
 
@@ -1456,6 +1488,37 @@ function ReviseCustomerKyc() {
                             No
                           </label>
                         </div>
+                      </div>
+                    </div>
+                    
+                    <div className="row">
+                      <div className="field">
+                        <label className="field-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={formik.values.financial_details_approved}
+                            onChange={handleFinancialApprovalChange}
+                            disabled={!canApproveFinance}
+                          />
+                          <span style={{ color: '#334155', fontWeight: 600 }}>
+                            FINANCIAL DETAILS APPROVED (VERIFIED BY ACCOUNT TEAM)
+                          </span>
+                          
+                          {formik.values.financial_details_approved && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginLeft: '20px' }}>
+                              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Approved by:</span>
+                              <span className="code-chip" style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', fontSize: '12px', padding: '3px 8px' }}>
+                                {formik.values.financial_details_approved_by}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {!canApproveFinance && !formik.values.financial_details_approved && (
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', marginLeft: '10px' }}>
+                              (Only Accounts team or HOD/Admin can approve)
+                            </span>
+                          )}
+                        </label>
                       </div>
                     </div>
                     <div className="row">

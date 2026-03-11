@@ -121,14 +121,14 @@ function CompletedKyc() {
     },
     {
       accessorKey: "approval",
-      header: "Approval Status",
-      size: 250,
+      header: <>Approval <br /> Status</>,
+      size: 200,
       Cell: ({ cell }) => getStatusChip(cell.getValue()),
     },
     {
       accessorKey: "financial_details_approved",
-      header: "Financial Appr.",
-      size: 180,
+      header: <>Financial <br /> Approval</>,
+      size: 200,
       Cell: ({ cell }) => (
         <span
           className={`status-pill ${

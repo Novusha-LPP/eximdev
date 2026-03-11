@@ -441,6 +441,67 @@
             outline: none;
         }
     }
+    // Media Queries for Responsiveness
+    @media (max-width: 1200px) {
+        .header-actions {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 15px;
+
+            .date-controls {
+                flex-wrap: wrap;
+                width: 100%;
+            }
+
+            .action-controls {
+                flex-wrap: wrap;
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+
+        .data-grid-container {
+            height: calc(100vh - 280px);
+            margin: 10px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .title-bar {
+            flex-direction: column;
+            padding: 15px;
+            
+            .title-buttons {
+                position: static;
+                transform: none;
+                margin-top: 15px;
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .header-actions {
+            .date-controls {
+                flex-direction: column;
+                gap: 10px;
+
+                .status-filter {
+                    margin-left: 0;
+                    padding-left: 0;
+                    border-left: none;
+                    border-top: 1px solid #c8e6c9;
+                    padding-top: 10px;
+                    width: 100%;
+                    overflow-x: auto;
+                }
+            }
+        }
+
+        .data-grid-container {
+            height: calc(100vh - 380px);
+        }
+    }
 }
 
 // Modern Modal

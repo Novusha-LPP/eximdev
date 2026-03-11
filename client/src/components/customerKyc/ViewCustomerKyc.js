@@ -524,18 +524,14 @@ function ViewCustomerKyc() {
                   label={
                     <span style={{ fontWeight: 600, color: '#334155', fontSize: '14px' }}>
                       Financial Details Approved
+                      {data.financial_details_approved && (
+                        <span style={{ marginLeft: '8px', color: '#0369a1', fontWeight: 500 }}>
+                          ({data.financial_details_approved_by})
+                        </span>
+                      )}
                     </span>
                   }
                 />
-                
-                {data.financial_details_approved && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Approved by:</span>
-                    <span className="code-chip" style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' }}>
-                      {data.financial_details_approved_by}
-                    </span>
-                  </div>
-                )}
                 
                 {!canApproveFinance && !data.financial_details_approved && (
                   <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>

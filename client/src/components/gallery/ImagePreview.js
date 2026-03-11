@@ -24,13 +24,14 @@ const ImagePreview = ({
   const { user } = useContext(UserContext);
 
   // Ensure `images` is always an array and handle both string URLs and object URLs
-  const imageArray = Array.isArray(images)
+  const imageArray = (Array.isArray(images)
     ? images.map((img) =>
       typeof img === "object" && img !== null ? img.url : img
     )
     : images
       ? [typeof images === "object" && images !== null ? images.url : images]
-      : [];
+      : []
+  ).filter((link) => link && typeof link === "string" && link.trim() !== "");
 
   // Function to extract the file name from the URL, with error handling
   const extractFileName = (url) => {
@@ -126,9 +127,7 @@ const ImagePreview = ({
             ))}
           </TableBody>
         </Table>
-      ) : (
-        <p style={{ fontSize: "0.8rem", color: "#6c757d", margin: 0 }}>No files.</p>
-      )}
+      ) : null}
       {!readOnly && (
         <ConfirmDialog
           open={openDeleteDialog}

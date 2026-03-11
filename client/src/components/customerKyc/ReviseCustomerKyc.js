@@ -1502,16 +1502,12 @@ function ReviseCustomerKyc() {
                           />
                           <span style={{ color: '#334155', fontWeight: 600 }}>
                             FINANCIAL DETAILS APPROVED (VERIFIED BY ACCOUNT TEAM)
-                          </span>
-                          
-                          {formik.values.financial_details_approved && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginLeft: '20px' }}>
-                              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Approved by:</span>
-                              <span className="code-chip" style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', fontSize: '12px', padding: '3px 8px' }}>
-                                {formik.values.financial_details_approved_by}
+                            {formik.values.financial_details_approved && (
+                              <span style={{ marginLeft: '8px', color: '#0369a1', fontWeight: 500 }}>
+                                ({formik.values.financial_details_approved_by})
                               </span>
-                            </div>
-                          )}
+                            )}
+                          </span>
                           
                           {!canApproveFinance && !formik.values.financial_details_approved && (
                             <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', marginLeft: '10px' }}>

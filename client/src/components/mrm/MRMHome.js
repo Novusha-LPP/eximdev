@@ -415,16 +415,16 @@ const MRMHome = () => {
                     <table>
                         <thead>
                             <tr>
-                                <th style={{ width: '250px' }} title="Process Description">Process Desc.</th>
+                                <th style={{ width: '250px' }} title="Process Description">Process<br />Description</th>
                                 <th style={{ width: '180px' }} title="Objective">Objective</th>
                                 <th style={{ width: '70px' }} title="Target">Target</th>
-                                <th style={{ width: '80px' }} title="Monitoring Frequency">Freq.</th>
+                                <th style={{ width: '80px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
                                 <th style={{ width: '90px' }} title="Responsibility">Resp.</th>
-                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act. ({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
-                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan ({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
-                                <th style={{ width: '220px' }} title="Action Plan">Action Plan</th>
-                                <th style={{ width: '80px' }} title="Action Responsibility">Act. Resp.</th>
-                                <th style={{ width: '95px' }} title="Target Date">Date</th>
+                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
+                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
+                                <th style={{ width: '220px' }} title="Action Plan">Action<br />Plan</th>
+                                <th style={{ width: '80px' }} title="Action Responsibility">Act.<br />Resp.</th>
+                                <th style={{ width: '95px' }} title="Target Date">Target<br />Date</th>
                                 <th style={{ width: '75px' }} title="Status">Status</th>
                                 <th style={{ width: '200px' }} title="Remarks">Remarks</th>
                                 <th style={{ width: '60px', textAlign: 'center' }} title="Actions">Act.</th>
@@ -442,20 +442,25 @@ const MRMHome = () => {
                             ) : (
                                 filteredItems.map(item => (
                                     <tr key={item._id} className={item.isDirty ? 'row-dirty' : ''}>
-                                        <td><textarea
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
                                             value={item.processDescription || ''}
                                             onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value, e)}
                                             onFocus={autoResizeTextarea}
                                             onInput={autoResizeTextarea}
                                         /></td>
-                                        <td><textarea
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
                                             value={item.objective || ''}
                                             onChange={e => handleFieldChange(item._id, 'objective', e.target.value, e)}
                                             onFocus={autoResizeTextarea}
                                             onInput={autoResizeTextarea}
                                         /></td>
-                                        <td><input value={item.target || ''} onChange={e => handleFieldChange(item._id, 'target', e.target.value)} /></td>
-                                        <td>
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
+                                            value={item.target || ''}
+                                            onChange={e => handleFieldChange(item._id, 'target', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td onClick={e => e.currentTarget.querySelector('select')?.focus()} style={{ cursor: 'pointer' }}>
                                             <select
                                                 value={item.monitoringFrequency || ''}
                                                 onChange={e => handleFieldChange(item._id, 'monitoringFrequency', e.target.value)}
@@ -469,16 +474,31 @@ const MRMHome = () => {
                                                 <option value="Year">Year</option>
                                             </select>
                                         </td>
-                                        <td><input value={item.responsibility || ''} onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value)} /></td>
-                                        <td><input value={item.actual || ''} onChange={e => handleFieldChange(item._id, 'actual', e.target.value)} /></td>
-                                        <td><input value={item.plan || ''} onChange={e => handleFieldChange(item._id, 'plan', e.target.value)} /></td>
-                                        <td><textarea
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
+                                            value={item.responsibility || ''}
+                                            onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
+                                            value={item.actual || ''}
+                                            onChange={e => handleFieldChange(item._id, 'actual', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
+                                            value={item.plan || ''}
+                                            onChange={e => handleFieldChange(item._id, 'plan', e.target.value, e)}
+                                            onFocus={autoResizeTextarea}
+                                            onInput={autoResizeTextarea}
+                                        /></td>
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
                                             value={item.actionPlan || ''}
                                             onChange={e => handleFieldChange(item._id, 'actionPlan', e.target.value, e)}
                                             onFocus={autoResizeTextarea}
                                             onInput={autoResizeTextarea}
                                         /></td>
-                                        <td>
+                                        <td onClick={() => {}} style={{ cursor: 'pointer' }}>
                                             <Autocomplete
                                                 size="small"
                                                 options={mrmUsers}
@@ -520,14 +540,14 @@ const MRMHome = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td>
+                                        <td onClick={e => e.currentTarget.querySelector('input')?.focus()} style={{ cursor: 'pointer' }}>
                                             <input
                                                 type="date"
                                                 value={item.targetDate ? new Date(item.targetDate).toISOString().split('T')[0] : ''}
                                                 onChange={e => handleFieldChange(item._id, 'targetDate', e.target.value)}
                                             />
                                         </td>
-                                        <td>
+                                        <td onClick={e => e.currentTarget.querySelector('select')?.focus()} style={{ cursor: 'pointer' }}>
                                             <select
                                                 value={item.status || 'Green'}
                                                 onChange={e => handleFieldChange(item._id, 'status', e.target.value)}
@@ -539,7 +559,7 @@ const MRMHome = () => {
                                                 <option value="Red" style={{ background: 'white', color: '#dc2626' }}>Red</option>
                                             </select>
                                         </td>
-                                        <td><textarea
+                                        <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}><textarea
                                             value={item.remarks || ''}
                                             onChange={e => handleFieldChange(item._id, 'remarks', e.target.value, e)}
                                             onFocus={autoResizeTextarea}

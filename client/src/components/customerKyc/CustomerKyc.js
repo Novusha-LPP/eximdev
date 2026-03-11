@@ -89,49 +89,11 @@ function CustomerKyc() {
     return baseTabs;
   }, [isAdmin, isHOD, isAccounts]);
 
-  // Sub-tab state for Pending Approval
-  const [pendingSubTab, setPendingSubTab] = React.useState(0);
 
   const renderPendingApproval = () => {
     return (
-      <div className="sub-tabs-container">
-        <div className="sub-tabs-header" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '0' }}>
-          <button 
-            className={`sub-tab-btn ${pendingSubTab === 0 ? 'active' : ''}`}
-            onClick={() => setPendingSubTab(0)}
-            style={{ 
-              padding: '10px 5px', 
-              background: 'none', 
-              border: 'none', 
-              borderBottom: pendingSubTab === 0 ? '2px solid var(--primary-600)' : '2px solid transparent',
-              color: pendingSubTab === 0 ? 'var(--primary-700)' : 'var(--slate-500)',
-              fontWeight: pendingSubTab === 0 ? 600 : 500,
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            HOD Approval
-          </button>
-          <button 
-            className={`sub-tab-btn ${pendingSubTab === 1 ? 'active' : ''}`}
-            onClick={() => setPendingSubTab(1)}
-            style={{ 
-              padding: '10px 5px', 
-              background: 'none', 
-              border: 'none', 
-              borderBottom: pendingSubTab === 1 ? '2px solid var(--primary-600)' : '2px solid transparent',
-              color: pendingSubTab === 1 ? 'var(--primary-700)' : 'var(--slate-500)',
-              fontWeight: pendingSubTab === 1 ? 600 : 500,
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            Financial Approval
-          </button>
-        </div>
-        <div className="sub-tab-content">
-          {pendingSubTab === 0 ? <HodApprovalPending /> : <FinancialApprovalPending />}
-        </div>
+      <div className="sub-tab-content">
+        <HodApprovalPending />
       </div>
     );
   };

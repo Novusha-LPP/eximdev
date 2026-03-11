@@ -702,13 +702,13 @@ function HomePage() {
 
                 {/* DGFT Module */}
                 <Route path="/dgft" element={<DgftTabs />} />
+                <Route path="/dgft/:tab" element={<DgftTabs />} />
+                <Route
+                  path="/dgft/authorization-details/:id"
+                  element={<ViewAuthorizationDetails />}
+                />
               </Routes>
             </Box>
-              {/* DGFT Module */}
-              <Route path="/dgft" element={<DgftTabs />} />
-              <Route path="/dgft/:tab" element={<DgftTabs />} />
-              <Route path="/dgft/authorization-details/:id" element={<ViewAuthorizationDetails />} />
-            </Routes>
           </Box>
         </SearchQueryProvider>
       </TabValueContext.Provider>

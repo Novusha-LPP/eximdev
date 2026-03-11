@@ -103,9 +103,13 @@ function DoPlanningContainerTable(props) {
 
   useEffect(() => {
     async function getData() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-job/${props.year}/${props.job_no}`
-      );
+      let url;
+      if (props.branch_code && props.trade_type && props.mode) {
+        url = `${process.env.REACT_APP_API_STRING}/get-job/${props.branch_code}/${props.trade_type}/${props.mode}/${props.year}/${props.job_no}`;
+      } else {
+        url = `${process.env.REACT_APP_API_STRING}/get-job/${props.year}/${props.job_no}`;
+      }
+      const res = await axios(url);
       setRows(res.data.container_nos);
     }
 

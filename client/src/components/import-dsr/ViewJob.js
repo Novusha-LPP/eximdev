@@ -59,6 +59,13 @@ import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import { BranchContext } from "../../contexts/BranchContext";
+import {
+  getContainerOrPackageLabel,
+  getAwbOrBlLabel,
+  getAirlineOrShippingLineLabel,
+  isAirMode,
+  shouldHideField,
+} from "../../utils/modeLogic";
 
 const compactInputSx = {
   "& .MuiOutlinedInput-root": { height: "32px" },
@@ -917,7 +924,7 @@ function JobDetails() {
             >
               <Tab label="Completion Status" />
               <Tab label="Tracking Status" />
-              <Tab label="Containers" />
+              <Tab label={getContainerOrPackageLabel(data?.mode)} />
               <Tab label="Documents" />
               <Tab label="Charges" />
             </Tabs>
@@ -1509,23 +1516,23 @@ function JobDetails() {
                   </h6>
                   <Row>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BL Number</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>{getAwbOrBlLabel(data?.mode)} Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="awb_bl_no" name="awb_bl_no" value={formik.values.awb_bl_no || ""}
                         onChange={formik.handleChange} placeholder="Enter BL No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>BL Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>{getAwbOrBlLabel(data?.mode)} Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="awb_bl_date" name="awb_bl_date"
                         value={formik.values.awb_bl_date ? (formik.values.awb_bl_date.length === 10 ? `${formik.values.awb_bl_date}T00:00` : formik.values.awb_bl_date) : ""}
                         onChange={formik.handleChange} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HAWBL Number</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>H{getAwbOrBlLabel(data?.mode)} Number</label>
                       <TextField fullWidth size="small" variant="outlined" id="hawb_hbl_no" name="hawb_hbl_no" value={formik.values.hawb_hbl_no || ""}
                         onChange={formik.handleChange} placeholder="Enter HAWBL No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HAWBL Date</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>H{getAwbOrBlLabel(data?.mode)} Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="hawb_hbl_date" name="hawb_hbl_date"
                         value={formik.values.hawb_hbl_date ? (formik.values.hawb_hbl_date.length === 10 ? `${formik.values.hawb_hbl_date}T00:00` : formik.values.hawb_hbl_date) : ""}
                         onChange={formik.handleChange} sx={compactInputSx} />
@@ -2113,7 +2120,7 @@ function JobDetails() {
                   </h6>
                   <Row>
                     <Col xs={12} md={6} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>OBL / Document Status</label>
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>O{getAwbOrBlLabel(data?.mode).charAt(0)}BL / Document Status</label>
                       <RadioGroup row name="radio-buttons-group" value={formik.values.obl_telex_bl} onChange={handleBlStatusChange}>
                         <FormControlLabel value="OBL" control={<Radio checked={formik.values.obl_telex_bl === "OBL"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Original</span>} />
                         <FormControlLabel value="Telex" control={<Radio checked={formik.values.obl_telex_bl === "Telex"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Telex</span>} />
@@ -2537,7 +2544,7 @@ function JobDetails() {
 
           {viewJobTab === 2 && (
             <div className="job-details-container">
-              <JobDetailsRowHeading heading="Container Details" />
+              <JobDetailsRowHeading heading={`${getContainerOrPackageLabel(data?.mode)} Details`} />
               <Row>
                 <Col md={2} style={{ borderRight: "1px solid #e0e0e0" }}>
                   <div style={{ maxHeight: "80vh", overflowY: "auto", paddingRight: "5px" }}>
@@ -2567,9 +2574,9 @@ function JobDetails() {
                         }}
                       >
                         <div style={{ fontWeight: "600", color: "#495057", fontSize: "0.9rem" }}>
-                          {container.container_number || `Container ${i + 1}`}
+                          {container.container_number || `${getContainerOrPackageLabel(data?.mode)} ${i + 1}`}
                         </div>
-                        {container.size && (
+                        {container.size && !isAirMode(data?.mode) && (
                           <div style={{ fontSize: "0.9rem", color: "#000000" }}>
                             Size: {container.size}
                           </div>
@@ -2583,7 +2590,7 @@ function JobDetails() {
                       // Switch to the newly added container (next index)
                       setSelectedContainerIndex(formik.values.container_nos.length);
                     }} startIcon={<AddIcon />}>
-                      Add Container
+                      Add {getContainerOrPackageLabel(data?.mode)}
                     </Button>
                   </div>
                 </Col>
@@ -2666,7 +2673,7 @@ function JobDetails() {
                                 gap: "8px",
                               }}
                             >
-                              #{index + 1} Container:
+                              #{index + 1} {getContainerOrPackageLabel(data?.mode)}:
                               <span
                                 style={{ color: "#007bff", minWidth: "150px" }}
                                 ref={(el) => (container_number_ref.current[index] = el)}
@@ -2713,24 +2720,26 @@ function JobDetails() {
                         <div style={{ padding: "20px" }}>
                           {/* Row 1: Basic Info */}
                           <Row className="mb-3">
+                            {!isAirMode(data?.mode) && (
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Size</label>
+                                <TextField
+                                  select
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].size`}
+                                  value={container.size}
+                                  onChange={formik.handleChange}
+                                  sx={compactInputSx}
+                                >
+                                  <MenuItem value="20">20</MenuItem>
+                                  <MenuItem value="40">40</MenuItem>
+                                </TextField>
+                              </Col>
+                            )}
                             <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Size</label>
-                              <TextField
-                                select
-                                fullWidth
-                                size="small"
-                                variant="outlined"
-                                name={`container_nos[${index}].size`}
-                                value={container.size}
-                                onChange={formik.handleChange}
-                                sx={compactInputSx}
-                              >
-                                <MenuItem value="20">20</MenuItem>
-                                <MenuItem value="40">40</MenuItem>
-                              </TextField>
-                            </Col>
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Seal Number</label>
+                              <label style={labelStyle}>{isAirMode(data?.mode) ? "Seal Number" : "Seal Number"}</label>
                               {(() => {
                                 const seals = Array.isArray(container.seal_number) ? container.seal_number : [];
                                 const isExpanded = expandedSealIndices[index];
@@ -2924,7 +2933,7 @@ function JobDetails() {
 
                           {/* Row 2: Dates */}
                           <Row className="mb-3">
-                            {activeBranchConfig.railout_enabled && (
+                            {activeBranchConfig.railout_enabled && !isAirMode(data?.mode) && (
                               <Col xs={12} md={3} lg={2} className="mb-3">
                                 <label style={labelStyle}>Railout Date</label>
                                 <TextField
@@ -2960,6 +2969,7 @@ function JobDetails() {
                                   value={container.arrival_date}
                                   disabled={
                                     !(user?.role === "Admin") &&
+                                    !isAirMode(data?.mode) &&
                                     (ExBondflag ||
                                       (LCLFlag
                                         ? !container.by_road_movement_date
@@ -2971,7 +2981,7 @@ function JobDetails() {
                                 />
                               )}
                             </Col>
-                            {LCLFlag && (
+                            {LCLFlag && !isAirMode(data?.mode) && (
                               <Col xs={12} md={3} lg={2} className="mb-3">
                                 <label style={labelStyle}>
                                   By Road Movement Date
@@ -3008,6 +3018,7 @@ function JobDetails() {
                                 />
                               </Col>
                             )}
+                            {!isAirMode(data?.mode) && (
                             <Col xs={12} md={3} lg={2} className="mb-3">
                               <label style={labelStyle}>
                                 {InBondflag
@@ -3029,9 +3040,11 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </Col>
+                            )}
                           </Row>
 
-                          {/* Row 3: DO & Detention */}
+                          {/* Row 3: DO & Detention (hidden for AIR) */}
+                          {!isAirMode(data?.mode) && (
                           <Row className="mb-3">
                             <Col xs={12} md={3} lg={2} className="mb-3">
                               <label style={labelStyle}>Detention From</label>
@@ -3076,15 +3089,22 @@ function JobDetails() {
                               <DeliveryChallanPdf
                                 year={params.selected_year}
                                 jobNo={params.job_no}
+                                branch_code={params.branch_code}
+                                trade_type={params.trade_type}
+                                mode={params.mode}
                                 containerIndex={index}
                               />
                               <IgstCalculationPDF
                                 year={params.selected_year}
                                 jobNo={params.job_no}
+                                branch_code={params.branch_code}
+                                trade_type={params.trade_type}
+                                mode={params.mode}
                                 containerIndex={index}
                               />
                             </Col>
                           </Row>
+                          )}
 
                           {/* Row 4: DO Revalidations */}
                           {container.do_revalidation?.map((item, id) => (

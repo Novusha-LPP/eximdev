@@ -46,7 +46,7 @@ const SubmissionJobSchema = Yup.object().shape({
 });
 
 const SubmissionJob = () => {
-  const { job_no, year } = useParams();
+  const { branch_code, trade_type, mode, job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const [verifiedChecklistUploads, setVerifiedChecklistUploads] = useState([]);
@@ -118,7 +118,7 @@ const SubmissionJob = () => {
   const fetchJobDetails = async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+        `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`
       );
       setData(response.data);
       // Initialize uploads if data exists
@@ -152,7 +152,7 @@ const SubmissionJob = () => {
       const userData = JSON.parse(localStorage.getItem("exim_user")) || {};
 
       await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
+        `${process.env.REACT_APP_API_STRING}/update-submission-job/${mode}/${data.job_no}/${data.year}`,
         payload,
         {
           headers: {
@@ -292,7 +292,7 @@ const SubmissionJob = () => {
               <JobDetailsStaticData
                 data={data}
                 bl_no_ref={bl_no_ref}
-                params={{ job_no, year }}
+                params={{ branch_code, trade_type, mode, job_no, year }}
               />
 
               <div>

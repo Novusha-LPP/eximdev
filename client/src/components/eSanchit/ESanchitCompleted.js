@@ -253,7 +253,7 @@ function ESanchitCompleted() {
           } = cell.row.original;
           return (
             <a
-              href={`/esanchit-job/${job_no}/${year}`}
+              href={`/esanchit-job/${cell.row.original.mode}/${job_no}/${year}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{

@@ -42,7 +42,7 @@ function EditDoCompleted() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
 
   const params = useParams();
-  const { job_no, year } = params;
+  const { branch_code, trade_type, mode, job_no, year } = params;
 
   // Modal and other states
   const [currentField, setCurrentField] = useState(null);
@@ -701,7 +701,7 @@ function EditDoCompleted() {
         </Button>
       </Box>
 
-      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
       {data && data.dsr_queries && (
         <div>

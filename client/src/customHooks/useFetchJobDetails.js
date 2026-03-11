@@ -211,9 +211,15 @@ function useFetchJobDetails(
   // Fetch data
   useEffect(() => {
     async function getJobDetails() {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job/${params.selected_year}/${params.job_no}`
-      );
+      const yearValue = params.selected_year || params.year;
+      let url;
+      if (params.branch_code && params.trade_type) {
+        url = `${process.env.REACT_APP_API_STRING}/get-job/${params.branch_code}/${params.trade_type}/${params.mode}/${yearValue}/${params.job_no}`;
+      } else {
+        url = `${process.env.REACT_APP_API_STRING}/get-job/${params.mode}/${yearValue}/${params.job_no}`;
+      }
+
+      const response = await axios.get(url);
       setData(response.data);
       setSelectedDocuments(response.data.documents);
       setSelectedChargesDocuments(response.data.DsrCharges || []);
@@ -245,7 +251,7 @@ function useFetchJobDetails(
     }
 
     getJobDetails();
-  }, [params.importer, params.job_no, params.selected_year]);
+  }, [params.job_no, params.selected_year, params.year, params.mode, params.branch_code, params.trade_type]);
 
   // Fetch documents
   useEffect(() => {
@@ -494,7 +500,7 @@ function useFetchJobDetails(
 
       // Update the payload with the modified cthDocuments and other values
       await axios.put(
-        `${process.env.REACT_APP_API_STRING}/update-job/${params.selected_year}/${params.job_no}`,
+        `${process.env.REACT_APP_API_STRING}/update-job/${params.mode}/${params.selected_year}/${params.job_no}`,
         {
           description_details: values.description_details,
           cth_documents: updatedCthDocuments,

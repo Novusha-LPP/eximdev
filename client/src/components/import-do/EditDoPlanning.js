@@ -69,11 +69,11 @@ const doListOptions = [
 ];
 
 function EditDoPlanning() {
-  const param = useParams();
-  const [params] = useSearchParams();
+  const params = useParams();
+  const [searchParams] = useSearchParams();
 
   const [data, setData] = useState(null);
-  const { job_no, year } = param;
+  const { branch_code, trade_type, mode, job_no, year } = params;
   const [loading, setLoading] = useState(true); // Loading state
   const [kycData, setKycData] = useState("");
   const [fileSnackbar, setFileSnackbar] = useState(false);
@@ -90,7 +90,7 @@ function EditDoPlanning() {
 
   // This might be the job you're editing...
 
-  const jobId = params.get("jobId");
+  const jobId = searchParams.get("jobId");
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   // Helper function to get local datetime string in 'YYYY-MM-DDTHH:MM' format
@@ -737,7 +737,7 @@ function EditDoPlanning() {
         </Button>
       </Box>
 
-      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
       <div>
         <QueriesComponent

@@ -4,6 +4,7 @@ import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { generateJobNumber } from "../../services/jobNumberService.mjs";
+import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -142,7 +143,7 @@ router.post(
         mode,
         sequence_number,
         financial_year,
-        ...req.body,
+        ...sanitizeJobPayload(req.body),
         job_date: todayDate,
       });
 
@@ -238,7 +239,7 @@ router.post(
           container_nos,
           hss_name,
           total_inv_value,
-        } = data;
+        } = sanitizeJobPayload(data);
 
         // Sanitize bill_date before using it
         const sanitizedBillDate =

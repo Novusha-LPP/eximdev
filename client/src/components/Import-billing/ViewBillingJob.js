@@ -3,7 +3,6 @@ import {
   TextField,
   Box,
   FormControlLabel,
-  Typography,
   Button,
 } from "@mui/material";
 import { useFormik } from "formik";
@@ -17,7 +16,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
-import ImagePreview from "../gallery/ImagePreview";
+// import ImagePreview from "../gallery/ImagePreview";
 import Charges from "../Charges/Charges";
 import QueriesComponent from "../../utils/QueriesComponent";
 import AttachFileIcon from '@mui/icons-material/AttachFile';
@@ -68,7 +67,7 @@ const excelStyles = {
 
 const ViewBillingJob = () => {
   const routeLocation = useLocation();
-  const { job_no, year } = useParams();
+  const { branch_code, trade_type, mode, job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const [fileSnackbar, setFileSnackbar] = useState(false);
@@ -111,7 +110,7 @@ const ViewBillingJob = () => {
   const fetchJobDetails = async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+        `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`
       );
       setData(response.data);
     } catch (error) {
@@ -406,7 +405,7 @@ const ViewBillingJob = () => {
             <JobDetailsStaticData
               data={data}
               bl_no_ref={bl_no_ref}
-              params={{ job_no, year }}
+              params={{ mode, job_no, year }}
             />
             {data && data.dsr_queries && (
               <div>

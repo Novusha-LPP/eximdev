@@ -286,7 +286,7 @@ const FreeDaysConf = () => {
       header: "Job No ",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id } =
+        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id, mode } =
           cell.row.original;
 
         // Debug log to check if year is available
@@ -296,7 +296,7 @@ const FreeDaysConf = () => {
 
         return (
           <Link
-            to={`/edit-free-days-conf/${job_no}/${year || 'unknown'}?jobId=${_id}`}
+            to={`/edit-free-days-conf/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

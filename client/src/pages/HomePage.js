@@ -95,7 +95,7 @@ import CustomsDashboard from "../components/analytics/CustomsDashboard";
 import DocumentationDashboard from "../components/analytics/DocumentationDashboard";
 import DoManagementDashboard from "../components/analytics/DoManagementDashboard";
 import BillingDashboard from "../components/analytics/BillingDashboard";
-import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
+// import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
 import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
@@ -203,7 +203,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/documentationJob/view-job/:job_no/:year"
+                  path="/documentationJob/view-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Documentation">
                       <DocumentationJob />
@@ -221,7 +221,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/submission-job/:job_no/:year"
+                  path="/submission-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Submission">
                       <SubmissionJob />
@@ -317,7 +317,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/esanchit-job/:job_no/:year"
+                  path="/esanchit-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="e-Sanchit">
                       <ViewESanchitJob />
@@ -345,7 +345,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/edit-do-list/:job_no/:year"
+                  path="/edit-do-list/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - DO">
                       <EditDoList />
@@ -353,7 +353,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/edit-do-planning/:job_no/:year"
+                  path="/edit-do-planning/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - DO">
                       <EditDoPlanning />
@@ -361,7 +361,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/edit-do-completed/:job_no/:year"
+                  path="/edit-do-completed/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - DO">
                       <EditDoCompleted />
@@ -369,7 +369,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/edit-billing-sheet/:job_no/:year"
+                  path="/edit-billing-sheet/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - DO">
                       <EditBillingSheet />
@@ -377,7 +377,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/edit-free-days-conf/:job_no/:year"
+                  path="/edit-free-days-conf/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - DO">
                       <EditFreeDaysConf />
@@ -404,7 +404,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/import-dsr/job/:job_no/:selected_year"
+                  path="/import-dsr/job/:branch_code/:trade_type/:mode/:job_no/:selected_year"
                   element={
                     <ProtectedRoute requiredModule="Import - DSR">
                       <ViewJob />
@@ -412,7 +412,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/job/:job_no/:selected_year"
+                  path="/job/:branch_code/:trade_type/:mode/:job_no/:selected_year"
                   element={
                     <ProtectedRoute requiredModule="Import - DSR">
                       <ViewJob />
@@ -430,7 +430,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/import-operations/view-job/:job_no/:year"
+                  path="/import-operations/view-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - Operations">
                       <ViewOperationsJob />
@@ -438,7 +438,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/import-operations/list-operation-job/:job_no/:year"
+                  path="/import-operations/list-operation-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - Operations">
                       <OperationListJob />
@@ -533,7 +533,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/view-billing-job/:job_no/:year"
+                  path="/view-billing-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - Billing">
                       <ViewBillingJob />
@@ -541,7 +541,7 @@ function HomePage() {
                   }
                 />
                 <Route
-                  path="/view-payment-request-job/:job_no/:year"
+                  path="/view-payment-request-job/:branch_code/:trade_type/:mode/:job_no/:year"
                   element={
                     <ProtectedRoute requiredModule="Import - Billing">
                       <EditPaymentRequest />

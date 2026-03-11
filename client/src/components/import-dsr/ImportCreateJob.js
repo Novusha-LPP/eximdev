@@ -51,6 +51,13 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import useImportJobForm from "../../customHooks/useImportJobForm.js";
 import axios from "axios";
+import { 
+  getContainerOrPackageLabel, 
+  getAwbOrBlLabel, 
+  getAirlineOrShippingLineLabel,
+  isAirMode,
+  shouldHideField
+} from "../../utils/modeLogic";
 
 const steps = [
   { label: 'General Info', icon: <BusinessIcon /> },
@@ -714,7 +721,7 @@ const ImportCreateJob = () => {
                   activeStep={activeStep}
                 >
                   <Grid container spacing={2}>
-                    <FormField label="Shipping Line/Airline">
+                    <FormField label={getAirlineOrShippingLineLabel(mode)}>
                       <Autocomplete
                         freeSolo
                         options={shippingLineOptions}
@@ -747,19 +754,19 @@ const ImportCreateJob = () => {
                       />
                     </FormField>
 
-                    <FormField label="MAWB/BL Number">
+                    <FormField label={`${getAwbOrBlLabel(mode)} Number`}>
                       <TextField
                         value={awb_bl_no}
                         onChange={(e) => setAwbBlNo(e.target.value)}
                         variant="outlined"
                         size="small"
-                        placeholder="MAWB/BL No"
+                        placeholder={`${getAwbOrBlLabel(mode)} No`}
                         fullWidth
                         sx={compactInput}
                       />
                     </FormField>
 
-                    <FormField label="MAWB/BL Date">
+                    <FormField label={`${getAwbOrBlLabel(mode)} Date`}>
                       <TextField
                         type="date"
                         value={awb_bl_date}
@@ -799,25 +806,25 @@ const ImportCreateJob = () => {
                             color="primary"
                           />
                         }
-                        label="Is House BL"
+                        label={`Is House ${getAwbOrBlLabel(mode)}`}
                       />
                     </FormField>
 
                     {isCheckedHouse && (
                       <>
-                        <FormField label="HAWB/HBL No">
+                        <FormField label={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL No`}>
                           <TextField
                             value={hawb_hbl_no}
                             onChange={(e) => setHawb_hbl_no(e.target.value)}
                             variant="outlined"
                             size="small"
                             fullWidth
-                            placeholder="HAWB/HBL No"
+                            placeholder={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL No`}
                             sx={compactInput}
                           />
                         </FormField>
 
-                        <FormField label="HAWB/HBL Date">
+                        <FormField label={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL Date`}>
                           <TextField
                             type="date"
                             value={hawb_hbl_date}
@@ -985,20 +992,22 @@ const ImportCreateJob = () => {
                       />
                     </FormField>
 
-                    <FormField label="Consignment Type">
-                      <TextField
-                        select
-                        value={consignment_type}
-                        onChange={(e) => setConsignmentType(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        sx={compactInput}
-                      >
-                        <MenuItem value="FCL">FCL</MenuItem>
-                        <MenuItem value="LCL">LCL</MenuItem>
-                      </TextField>
-                    </FormField>
+                    {!isAirMode(mode) && (
+                      <FormField label="Consignment Type">
+                        <TextField
+                          select
+                          value={consignment_type}
+                          onChange={(e) => setConsignmentType(e.target.value)}
+                          variant="outlined"
+                          size="small"
+                          fullWidth
+                          sx={compactInput}
+                        >
+                          <MenuItem value="FCL">FCL</MenuItem>
+                          <MenuItem value="LCL">LCL</MenuItem>
+                        </TextField>
+                      </FormField>
+                    )}
 
                     <FormField label="CTH No">
                       <TextField
@@ -1193,7 +1202,7 @@ const ImportCreateJob = () => {
               <Grid item xs={12}>
                 <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: '12px', border: '1px solid #eaedf2' }}>
                   <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Container Details
+                    {getContainerOrPackageLabel(mode)} Details
                   </Typography>
 
                   <Grid container spacing={2}>
@@ -1204,34 +1213,38 @@ const ImportCreateJob = () => {
                             fullWidth
                             size="small"
                             variant="outlined"
-                            label="Container No"
+                            label={`${getContainerOrPackageLabel(mode)} No`}
                             value={container.container_number}
                             onChange={(e) => handleContainerChange(index, "container_number", e.target.value)}
                             sx={compactInput}
                           />
                         </Grid>
-                        <Grid item xs={12} md={2}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            label="Size"
-                            value={container.size}
-                            onChange={(e) => handleContainerChange(index, "size", e.target.value)}
-                            sx={compactInput}
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={2}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            label="Seal No"
-                            value={container.seal_no}
-                            onChange={(e) => handleContainerChange(index, "seal_no", e.target.value)}
-                            sx={compactInput}
-                          />
-                        </Grid>
+                        {!shouldHideField('size', mode) && (
+                          <Grid item xs={12} md={2}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              label="Size"
+                              value={container.size}
+                              onChange={(e) => handleContainerChange(index, "size", e.target.value)}
+                              sx={compactInput}
+                            />
+                          </Grid>
+                        )}
+                        {!shouldHideField('seal_no', mode) && (
+                          <Grid item xs={12} md={2}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              label="Seal No"
+                              value={container.seal_no}
+                              onChange={(e) => handleContainerChange(index, "seal_no", e.target.value)}
+                              sx={compactInput}
+                            />
+                          </Grid>
+                        )}
                         <Grid item xs={12} md={2}>
                           <TextField
                             fullWidth
@@ -1254,11 +1267,11 @@ const ImportCreateJob = () => {
                             sx={compactInput}
                           />
                         </Grid>
-                        <Grid item xs={12} md={2} sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Grid item xs={12} md={shouldHideField('size', mode) && shouldHideField('seal_no', mode) ? 6 : 2} sx={{ display: 'flex', alignItems: 'center' }}>
                           <IconButton
                             color="error"
                             onClick={() => handleRemoveContainer(index)}
-                            title="Remove Container"
+                            title={`Remove ${getContainerOrPackageLabel(mode)}`}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -1275,7 +1288,7 @@ const ImportCreateJob = () => {
                     onClick={handleAddContainer}
                     sx={{ mt: 1, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
                   >
-                    Add Container
+                    Add {getContainerOrPackageLabel(mode)}
                   </Button>
                 </Paper>
               </Grid>

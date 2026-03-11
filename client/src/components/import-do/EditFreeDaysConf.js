@@ -92,8 +92,7 @@ function EditFreeDaysConf() {
     }
   `;
 
-    const param = useParams();
-    const { job_no, year } = param;
+    const { branch_code, trade_type, mode, job_no, year } = useParams();
 
     const [fileSnackbar, setFileSnackbar] = React.useState(false);
     const [snackbar, setSnackbar] = React.useState(false);
@@ -139,11 +138,11 @@ function EditFreeDaysConf() {
                 setLoading(true);
                 setError(null);
 
-                console.log("Fetching job data:", `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`);
+                console.log("Fetching job data:", `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`);
 
                 // Fetch job data
                 const jobRes = await axios.get(
-                    `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+                    `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`
                 );
 
                 const jobData = {
@@ -374,7 +373,7 @@ function EditFreeDaysConf() {
             </Box>
 
             {/* Static Job Details */}
-            {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+            {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
             {/* Form */}
             <form onSubmit={formik.handleSubmit}>

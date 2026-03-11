@@ -263,8 +263,8 @@ function ESanchit() {
             priorityColor, // Add priorityColor from API response
           } = cell.row.original;
           return (
-            <a
-              href={`/esanchit-job/${job_no}/${year}`}
+              <a
+                href={`/esanchit-job/${cell.row.original.mode}/${job_no}/${year}`}
               style={{
                 cursor: "pointer",
                 color: "blue",

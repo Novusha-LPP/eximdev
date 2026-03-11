@@ -8,6 +8,7 @@ import {
   cth_Dropdown,
 } from "../components/MasterLists/MasterLists";
 import { set } from "date-fns";
+import { sanitizeContainerPayload } from "../utils/modeLogic";
 
 const useImportJobForm = () => {
   // Get the current date
@@ -365,11 +366,14 @@ const useImportJobForm = () => {
           branch_id,
           trade_type,
           mode,
-          container_nos: container_nos.map((c) => ({
-            ...c,
-            // Copy seal_no into seal_number array so ViewJob can display it
-            seal_number: c.seal_no ? [c.seal_no] : [],
-          })),
+          container_nos: container_nos.map((c) => {
+            const sanitized = sanitizeContainerPayload(c, mode);
+            return {
+              ...sanitized,
+              // Copy seal_no into seal_number array so ViewJob can display it
+              seal_number: sanitized.seal_no ? [sanitized.seal_no] : [],
+            };
+          }),
           cth_documents: cthDocuments, // Renamed to match backend expectations
           scheme,
           in_bond_be_no,
@@ -454,15 +458,16 @@ const useImportJobForm = () => {
 
   // Container handlers
   const handleAddContainer = () => {
+    const newContainer = sanitizeContainerPayload({
+      container_number: "",
+      size: "",
+      seal_no: "",
+      container_gross_weight: "",
+      net_weight_as_per_PL_document: "",
+    }, mode);
     setContainerNos([
       ...container_nos,
-      {
-        container_number: "",
-        size: "",
-        seal_no: "",
-        container_gross_weight: "",
-        net_weight_as_per_PL_document: "",
-      },
+      newContainer
     ]);
   };
 

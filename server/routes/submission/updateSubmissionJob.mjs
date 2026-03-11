@@ -6,12 +6,12 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 const router = express.Router();
 
 router.patch(
-  "/api/update-submission-job/:id",
+  "/api/update-submission-job/:mode/:job_no/:year",
   authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {
-      const jobId = req.params.id;
+      const { mode, job_no, year } = req.params;
       const updateData = req.body; // Data coming from frontend
 
       // Allowed fields in this route
@@ -40,8 +40,8 @@ router.patch(
       }
 
       // Perform update with only allowed fields
-      const updatedJob = await JobModel.findByIdAndUpdate(
-        jobId,
+      const updatedJob = await JobModel.findOneAndUpdate(
+        { mode: mode.toUpperCase(), job_no, year },
         { $set: updateData },
         { new: true, runValidators: true }
       );

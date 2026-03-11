@@ -48,7 +48,7 @@ function EditPaymentRequest() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
 
   const params = useParams();
-  const { job_no, year } = params;
+  const { mode, job_no, year } = params;
   const container_number_ref = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -673,7 +673,7 @@ function EditPaymentRequest() {
         </Button>
       </Box>
 
-      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && <JobDetailsStaticData data={data} params={{ mode, job_no, year }} />}
       {data && data.dsr_queries && (
         <div>
           <QueriesComponent

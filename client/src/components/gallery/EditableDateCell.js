@@ -5,6 +5,7 @@ import { FcCalendar } from "react-icons/fc";
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 import { BranchContext, useContext } from "../../contexts/BranchContext";
+import { isAirMode } from "../../utils/modeLogic";
 
 // ---------- Date helpers ----------
 const isDateOnly = (s) =>
@@ -116,6 +117,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     duty_paid_date,
     assessable_ammount,
     igst_ammount,
+    mode,
   } = rowData;
 
   const initialDates = useMemo(
@@ -230,10 +232,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     (idx) => {
       const c = containers[idx];
       if (isExBond) return true;
+      if (isAirMode(mode)) return false; // AIR: arrival always enabled
       if (isLCL) return !c?.by_road_movement_date;
       return !c?.container_rail_out_date;
     },
-    [containers, isExBond, isLCL]
+    [containers, isExBond, isLCL, mode]
   );
 
   // Click: open editor blank
@@ -568,6 +571,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
             {!isExBond &&
               !isLCL &&
+              !isAirMode(mode) &&
               activeBranchConfig.railout_enabled &&
               containers.map((c, i) =>
                 renderContainerEditor(
@@ -579,6 +583,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               )}
 
             {isLCL &&
+              !isAirMode(mode) &&
               containers.map((c, i) =>
                 renderContainerEditor(
                   "ByRoad",
@@ -601,7 +606,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               )}
 
             <br />
-            {!isLCL && (
+            {!isLCL && !isAirMode(mode) && (
               <div style={{ marginBottom: 10 }}>
                 <strong>Free time:</strong>{" "}
                 <TextField
@@ -622,7 +627,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             )}
 
             <br />
-            {!isLCL && !isExBond && (
+            {!isLCL && !isExBond && !isAirMode(mode) && (
               <>
                 <strong>Detention F.:</strong>
                 {containers.map((c, i) => (
@@ -726,6 +731,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
             {!isLCL &&
               !isExBond &&
+              !isAirMode(mode) &&
               containers.map((c, i) =>
                 renderContainerEditor(
                   "EmptyOff",
@@ -739,6 +745,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           <>
             {!isLCL &&
               !isExBond &&
+              !isAirMode(mode) &&
               containers.map((c, i) =>
                 renderContainerEditor(
                   "Destuffing Date / EmptyOff",

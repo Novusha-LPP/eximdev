@@ -169,7 +169,7 @@ function ViewESanchitJob() {
     async function getData() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-esanchit-job/${params.job_no}/${params.year}`
+          `${process.env.REACT_APP_API_STRING}/get-esanchit-job/${params.mode}/${params.job_no}/${params.year}`
         );
         const jobData = res.data || { cth_documents: [], esanchitCharges: [] };
         setData(jobData);
@@ -216,7 +216,7 @@ function ViewESanchitJob() {
         };
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
+          `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.mode}/${params.job_no}/${params.year}`,
           formattedData,
           { headers }
         );

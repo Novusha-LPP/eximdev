@@ -5,14 +5,18 @@ import axios from 'axios';
 import { IconButton, Button, Box } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 
-const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = false }) => {
+const IgstCalculationPDF = ({ year, jobNo, branch_code, trade_type, mode, containerIndex = 0, renderAsIcon = false }) => {
   
   const generateIgstCalculationPdf = async () => {
     try {
       // Fetch job data from API
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job/${year}/${jobNo}`
-      );
+      let url;
+      if (branch_code && trade_type && mode) {
+        url = `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${jobNo}`;
+      } else {
+        url = `${process.env.REACT_APP_API_STRING}/get-job/${year}/${jobNo}`;
+      }
+      const response = await axios.get(url);
       
       const jobData = response.data;
       

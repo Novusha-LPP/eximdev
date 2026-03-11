@@ -9,6 +9,12 @@ import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import { BranchContext } from "../../contexts/BranchContext";
+import {
+  getContainerOrPackageLabel,
+  getAwbOrBlLabel,
+  getAirlineOrShippingLineLabel,
+  isAirMode,
+} from "../../utils/modeLogic";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
@@ -73,7 +79,7 @@ function JobDetailsStaticData(props) {
     try {
       setIsSaving(true);
       setErrorMsg("");
-      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.year}/${props.params.job_no}`, editFormData);
+      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.mode}/${props.data?.year}/${props.params.job_no}`, editFormData);
       window.location.reload();
     } catch (err) {
       console.error(err);
@@ -253,7 +259,7 @@ function JobDetailsStaticData(props) {
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>BL No</span>
+              <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>{getAwbOrBlLabel(props.data?.mode)} No</span>
               <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.awb_bl_no}</span>
             </div>
 
@@ -415,9 +421,9 @@ function JobDetailsStaticData(props) {
               <span style={valueStyle}>{props.data.port_of_reporting}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Shipping Line: </span>
+              <span style={labelStyle}>{getAirlineOrShippingLineLabel(props.data?.mode)}: </span>
               <span style={valueStyle}>{props.data.shipping_line_airline}</span>
-              <Tooltip title="Copy Shipping Line">
+              <Tooltip title={`Copy ${getAirlineOrShippingLineLabel(props.data?.mode)}`}>
                 <IconButton
                   size="small"
                   onClick={(e) => handleCopy(e, props.data.shipping_line_airline)}
@@ -490,7 +496,7 @@ function JobDetailsStaticData(props) {
           {/* Row 7: BL No with icons, BL Date, HWBL No, HWBL Date */}
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>BL No.: </span>
+              <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} No.: </span>
               <span style={valueStyle}>
                 <a
                   href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
@@ -534,15 +540,15 @@ function JobDetailsStaticData(props) {
               )}
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>BL Date: </span>
+              <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} Date: </span>
               <span style={valueStyle}>{props.data.awb_bl_date}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>HWBL No: </span>
+              <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} No: </span>
               <span style={valueStyle}>{props.data.hawb_hbl_no}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>HWBL Date: </span>
+              <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} Date: </span>
               <span style={valueStyle}>{props.data.hawb_hbl_date}</span>
             </Col>
           </Row>

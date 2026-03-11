@@ -16,6 +16,7 @@ import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
 import ContainerTrackDialog from "../components/ContainerTrackDialog";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { isAirMode, getContainerOrPackageLabel } from "../utils/modeLogic";
 
 // Helper components that need internal state
 const ContainerCellContent = ({ cell, handleCopy }) => {
@@ -86,8 +87,11 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
             </Tooltip>
 
 
-
-            | "{container.size}"
+            {!isAirMode(jobData?.mode) && container.size && (
+              <>
+                | "{container.size}"
+              </>
+            )}
             <div
               style={{
                 display: "inline-flex",
@@ -113,7 +117,7 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
                   </IconButton>
                 </Tooltip>
               )}
-              <Tooltip title="Copy Container Number" arrow>
+              <Tooltip title={`Copy ${getContainerOrPackageLabel(jobData?.mode)} Number`} arrow>
                 <IconButton
                   size="small"
                   onClick={(event) =>
@@ -127,12 +131,18 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
               <DeliveryChallanPdf
                 year={jobData.year}
                 jobNo={jobData.job_no}
+                branch_code={jobData.branch_code}
+                trade_type={jobData.trade_type}
+                mode={jobData.mode}
                 containerIndex={id}
                 renderAsIcon={true}
               />
               <IgstCalculationPDF
                 year={jobData.year}
                 jobNo={jobData.job_no}
+                branch_code={jobData.branch_code}
+                trade_type={jobData.trade_type}
+                mode={jobData.mode}
                 containerIndex={id}
                 renderAsIcon={true}
               />
@@ -237,6 +247,8 @@ function useJobColumns(
             job_no,
             year,
             job_number,
+            branch_code,
+            trade_type,
             type_of_b_e,
             consignment_type,
             payment_method,
@@ -329,7 +341,7 @@ function useJobColumns(
             e.stopPropagation();
             try {
               const res = await axios.get(
-                `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+                `${process.env.REACT_APP_API_STRING}/get-job/${row.branch_code}/${row.trade_type}/${row.mode}/${year}/${job_no}`
               );
               const updatedJob = res.data;
 
@@ -352,7 +364,7 @@ function useJobColumns(
           return (
             <div style={{ textAlign: "center" }}>
               <a
-                href={`/import-dsr/job/${job_no}/${year}`}
+                href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -509,7 +521,7 @@ function useJobColumns(
       },
       {
         accessorKey: "container_numbers",
-        header: "Container Numbers and Size",
+        header: "Container/Package Numbers",
         size: 200,
         Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
       },
@@ -620,9 +632,11 @@ function useJobColumns(
                   <span style={{ color: "gray" }}>No DO copies</span>
                 </div>
               )}
+              {!isAirMode(row.original?.mode) && (
               <div>
                 <strong>EmptyOff LOC:</strong> {do_list}
               </div>
+              )}
 
               <div style={{ marginTop: "8px" }}>
                 <InvoiceDisplay row={row.original} showOOC={false} />

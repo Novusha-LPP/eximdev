@@ -44,9 +44,13 @@ function useFetchOperationTeamJob(params) {
   useEffect(() => {
     async function getJobDetails() {
       try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job/${params.year}/${params.job_no}`
-        );
+        let url;
+        if (params.branch_code && params.trade_type) {
+          url = `${process.env.REACT_APP_API_STRING}/get-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.year}/${params.job_no}`;
+        } else {
+          url = `${process.env.REACT_APP_API_STRING}/get-job/${params.mode}/${params.year}/${params.job_no}`;
+        }
+        const response = await axios.get(url);
         setData(response.data);
       } catch (error) {
         console.error("Error fetching job details:", error);
@@ -105,7 +109,7 @@ function useFetchOperationTeamJob(params) {
 
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
+          `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.mode}/${params.year}/${params.job_no}`,
           values,
           {
             headers: {

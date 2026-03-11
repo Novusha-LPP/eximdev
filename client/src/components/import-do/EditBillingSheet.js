@@ -88,7 +88,7 @@ function EditBillingSheet() {
   const [openAlert, setOpenAlert] = React.useState(false); // State for Alert Dialog
   const [openAdminConfirm, setOpenAdminConfirm] = React.useState(false); // State for Admin Confirm Dialog
 
-  const { job_no, year } = params;
+  const { branch_code, trade_type, mode, job_no, year } = params;
   const { user } = useContext(UserContext); // Access user from context
   const navigate = useNavigate();
   const location = useLocation();
@@ -387,7 +387,7 @@ function EditBillingSheet() {
         </Button>
       </Box>
 
-      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
       {data && data.dsr_queries && (
         <div>

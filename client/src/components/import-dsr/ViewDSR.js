@@ -9,6 +9,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
+import { isAirMode } from "../../utils/modeLogic";
 
 function ViewDSR() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -116,17 +117,21 @@ function ViewDSR() {
       size: 250,
 
       Cell: ({ cell }) =>
-        cell.row.original.container_nos?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.detention_from}
-            <br />
-          </React.Fragment>
-        )),
+        isAirMode(cell.row.original.mode)
+          ? null
+          : cell.row.original.container_nos?.map((container, id) => (
+              <React.Fragment key={id}>
+                {container.detention_from}
+                <br />
+              </React.Fragment>
+            )),
       filterFn: "includes",
       accessorFn: (row) =>
-        row.container_nos
-          ?.map((container) => container.detention_from)
-          .join(", "),
+        isAirMode(row.mode)
+          ? ""
+          : row.container_nos
+              ?.map((container) => container.detention_from)
+              .join(", "),
     },
     {
       accessorKey: "shipping_line_airline",
@@ -136,7 +141,7 @@ function ViewDSR() {
     },
     {
       accessorKey: "container_no",
-      header: "Container Number",
+      header: "Container/Package Number",
       enableSorting: false,
       size: 250,
 
@@ -160,15 +165,19 @@ function ViewDSR() {
       size: 250,
 
       Cell: ({ cell }) =>
-        cell.row.original.container_nos?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.size}
-            <br />
-          </React.Fragment>
-        )),
+        isAirMode(cell.row.original.mode)
+          ? null
+          : cell.row.original.container_nos?.map((container, id) => (
+              <React.Fragment key={id}>
+                {container.size}
+                <br />
+              </React.Fragment>
+            )),
       filterFn: "includes",
       accessorFn: (row) =>
-        row.container_nos?.map((container) => container.size).join(", "),
+        isAirMode(row.mode)
+          ? ""
+          : row.container_nos?.map((container) => container.size).join(", "),
     },
     {
       accessorKey: "remarks",

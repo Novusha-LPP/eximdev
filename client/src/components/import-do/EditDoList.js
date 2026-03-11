@@ -89,8 +89,7 @@ function EditDoList() {
     }
   `;
 
-  const param = useParams();
-  const { job_no, year } = param;
+  const { branch_code, trade_type, mode, job_no, year } = useParams();
 
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState(false);
@@ -176,7 +175,7 @@ function EditDoList() {
 
         // Fetch data from both APIs in parallel
         const [jobRes, kycRes] = await Promise.all([
-          axios.get(`${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${jobId}`)
         ]);
 

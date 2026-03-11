@@ -311,6 +311,7 @@ function BillingSheet() {
           container_nos,
           colorPriority, // ✅ USE THIS FROM BACKEND
           daysDifference, // ✅ USE THIS FROM BACKEND
+          mode,
         } = cell.row.original;
 
         // Color-coding logic - NOW USES BACKEND DATA
@@ -387,7 +388,7 @@ function BillingSheet() {
 
         return (
           <Link
-            to={`/edit-billing-sheet/${job_no}/${year}?${queryParams}`}
+            to={`/edit-billing-sheet/${mode}/${job_no}/${year}?${queryParams}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

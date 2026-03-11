@@ -429,11 +429,12 @@ function ImportOperations() {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
+        const mode = row.original.mode;
         // Build query string for context passing
 
         return (
           <Link
-            to={`/import-operations/view-job/${jobNo}/${year}`}
+            to={`/import-operations/view-job/${mode}/${jobNo}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

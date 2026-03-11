@@ -191,12 +191,26 @@ const useImportJobForm = () => {
     if (rowIndex === 0) {
       if (field === "description") setDescription(value);
       if (field === "cth_no") setCthNo(value);
-      if (field === "clearance_under") setClearanceValue(value);
+      if (field === "clearance_under") {
+        setClearanceValue(value);
+        setScheme(value);
+      }
       if (field === "sr_no_invoice") setInvoiceNumber(value);
       if (field === "quantity") setGrossWeight(value); // Approximating ViewJob logic mapping quantity
       if (field === "unit") { /* We don't have unit state in CreateJob, ignoring for top-level */ }
     }
   };
+
+  useEffect(() => {
+    if (scheme) {
+      setDescriptionDetails((prev) =>
+        prev.map((row) => ({
+          ...row,
+          clearance_under: row.clearance_under || scheme,
+        }))
+      );
+    }
+  }, [scheme]);
 
   const addDescriptionRow = () => {
     setDescriptionDetails([
@@ -204,7 +218,7 @@ const useImportJobForm = () => {
       {
         description: "",
         cth_no: "",
-        clearance_under: clearanceValue || "",
+        clearance_under: scheme || clearanceValue || "",
         sr_no_invoice: "",
         sr_no_lic: "",
         quantity: "",

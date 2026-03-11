@@ -10,14 +10,24 @@ import {
   Switch,
   Checkbox,
   Snackbar,
-  Alert
+  Alert,
+  Paper,
+  Divider,
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  Stepper,
+  Step,
+  StepLabel,
+  Fade
 } from "@mui/material";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import FileUpload from "../../components/gallery/FileUpload";
 import ImagePreview from "../../components/gallery/ImagePreview";
-import ConfirmDialog from "../../components/gallery/ConfirmDialog"; // Import ConfirmDialog
+import ConfirmDialog from "../../components/gallery/ConfirmDialog";
 import {
   customHouseOptions,
   importerOptions,
@@ -32,16 +42,101 @@ import {
 import { useFormik } from "formik";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import BusinessIcon from "@mui/icons-material/Business";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import DescriptionIcon from "@mui/icons-material/Description";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import useImportJobForm from "../../customHooks/useImportJobForm.js";
 import axios from "axios";
 
-const ImportCreateJob = () => {
-  // const [HSS, setHSS] = useState("");
-  // const [sallerName, setSallerName] = useState("");
+const steps = [
+  { label: 'General Info', icon: <BusinessIcon /> },
+  { label: 'Importer & Supplier', icon: <BusinessIcon /> },
+  { label: 'Shipping Details', icon: <LocalShippingIcon /> },
+  { label: 'Cargo Details', icon: <InventoryIcon /> },
+  { label: 'Documents', icon: <DescriptionIcon /> },
+  { label: 'Clearance', icon: <AssessmentIcon /> },
+];
 
+const SectionCard = ({ title, icon, children, stepIndex, activeStep }) => (
+  <Fade in={true} timeout={300 + (stepIndex * 100)}>
+    <Card
+      elevation={0}
+      sx={{
+        mb: 2,
+        borderRadius: '12px',
+        border: '1px solid',
+        borderColor: activeStep === stepIndex ? 'primary.light' : '#eaedf2',
+        background: activeStep === stepIndex ? '#ffffff' : '#f9fbff',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflow: 'hidden',
+        '&:hover': {
+          borderColor: 'primary.main',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+          transform: 'translateY(-2px)'
+        }
+      }}
+    >
+      <Box sx={{
+        px: 2,
+        py: 1.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        borderBottom: '1px solid #eaedf2',
+        background: activeStep === stepIndex ? 'linear-gradient(45deg, #ffffff 30%, #f0f7ff 90%)' : 'transparent'
+      }}>
+        <Box sx={{
+          color: activeStep === stepIndex ? 'primary.main' : 'text.secondary',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          {React.cloneElement(icon, { sx: { fontSize: 20 } })}
+        </Box>
+        <Typography variant="subtitle1" fontWeight={700} sx={{
+          color: activeStep === stepIndex ? 'primary.main' : 'text.primary',
+          letterSpacing: '0.02em',
+          fontSize: '0.95rem'
+        }}>
+          {title}
+        </Typography>
+      </Box>
+      <CardContent sx={{ p: '20px !important' }}>
+        {children}
+      </CardContent>
+    </Card>
+  </Fade>
+);
+
+const compactInput = {
+  '& .MuiInputBase-root': { height: '32px', fontSize: '0.8rem' },
+  '& .MuiOutlinedInput-input': { padding: '4px 8px !important' },
+  '& .MuiAutocomplete-input': { padding: '0px 8px !important' },
+  '& .MuiInputLabel-root': { fontSize: '0.8rem', top: '-4px' }
+};
+
+const FormField = ({ label, children, xs = 12, md = 3 }) => (
+  <Grid item xs={xs} md={md}>
+    <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{
+      mb: 0.3,
+      display: 'block',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      fontSize: '0.65rem',
+      opacity: 0.8
+    }}>
+      {label}
+    </Typography>
+    {children}
+  </Grid>
+);
+
+const ImportCreateJob = () => {
   const {
     formik,
-    // job_no,
     setJobNo,
     custom_house,
     setCustomHouse,
@@ -147,8 +242,7 @@ const ImportCreateJob = () => {
     setHSS,
     setSallerName,
     setBankName,
-    bankName
-    ,
+    bankName,
     ie_code_no,
     setIeCodeNo,
     branch_id,
@@ -169,13 +263,13 @@ const ImportCreateJob = () => {
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
-  const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
+  const years = ["24-25", "25-26", "26-27"];
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState([]);
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
   const [suppliers, setSuppliers] = useState([]);
+  const [activeStep, setActiveStep] = useState(0);
 
-  // Compute dynamic ports based on the selected branch
   const selectedBranchData = branches.find((b) => b._id === branch_id);
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
 
@@ -208,8 +302,6 @@ const ImportCreateJob = () => {
     }
     getSupplierExporterList();
   }, [selectedYear]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -238,26 +330,21 @@ const ImportCreateJob = () => {
   }, [importerNames]);
 
   useEffect(() => {
-    // Determine the current date
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
-    const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
-    const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0"); // Last two digits of next year
-    const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0"); // Last two digits of previous year
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentTwoDigits = String(currentYear).slice(-2);
+    const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+    const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
 
     let defaultYearPair;
 
-    // Determine the financial year
     if (currentMonth >= 4) {
-      // From April of the current year to March of the next year
       defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
     } else {
-      // From January to March, use the previous financial year
       defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
     }
 
-    // Set default year pair if not already selected
     if (!selectedYear) {
       if (years.includes(defaultYearPair)) {
         setSelectedYear(defaultYearPair);
@@ -284,1364 +371,1244 @@ const ImportCreateJob = () => {
     "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
   };
   const filteredClearanceOptions = clearanceOptionsMapping[type_of_b_e] || [];
+
+  const handleStepClick = (step) => {
+    setActiveStep(step);
+  };
+
   return (
-    <div style={{ padding: "20px" }}>
-      <Typography variant="h4" gutterBottom style={{ marginBottom: "20px" }}>
-        Create Import Job
-      </Typography>
-
-      <TextField
-        select
-        size="small"
-        value={selectedYear}
-        onChange={(e) => setSelectedYear(e.target.value)}
-        sx={{ width: "200px", marginRight: "20px" }}
+    <Box sx={{
+      minHeight: '100vh',
+      bgcolor: '#f0f2f5',
+      p: { xs: 1, md: 3 },
+      display: 'flex',
+      justifyContent: 'center'
+    }}>
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: '20px',
+          overflow: 'hidden',
+          width: '100%',
+          maxWidth: '100%',
+          bgcolor: 'transparent',
+        }}
       >
-        {years.map((year, index) => (
-          <MenuItem key={`year-${year}-${index}`} value={year}>
-            {year}
-          </MenuItem>
-        ))}
-      </TextField>
-
-      <Grid
-        container
-        spacing={3}
-        style={{ maxWidth: "1100px", margin: "0 auto" }}
-      >
-        {/* Branch Selection */}
-        <Grid item xs={12} md={4}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Select Branch:
-          </Typography>
-          <TextField
-            select
-            fullWidth
-            size="small"
-            value={branch_id}
-            onChange={(e) => setBranchId(e.target.value)}
-            variant="outlined"
-          >
-            {branches
-              .filter(b => b.category === mode) // Filter to match the selected Mode
-              .map((b) => (
-                <MenuItem key={b._id} value={b._id}>
-                  {b.branch_name} ({b.branch_code})
-                </MenuItem>
-              ))}
-          </TextField>
-        </Grid>
-
-        {/* Trade Type (Read-only or Disabled for Import Form) */}
-        <Grid item xs={12} md={4}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Trade Type:
-          </Typography>
-          <TextField
-            select
-            fullWidth
-            size="small"
-            value={trade_type}
-            onChange={(e) => setTradeType(e.target.value)}
-            variant="outlined"
-            disabled
-          >
-            <MenuItem value="IMP">Import</MenuItem>
-            <MenuItem value="EXP">Export</MenuItem>
-          </TextField>
-        </Grid>
-
-        {/* Mode Selection */}
-        <Grid item xs={12} md={4}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Mode:
-          </Typography>
-          <TextField
-            select
-            fullWidth
-            size="small"
-            value={mode}
-            onChange={(e) => {
-              const newMode = e.target.value;
-              setMode(newMode);
-
-              const currentBranch = branches.find(b => b._id === branch_id);
-              const validBranches = branches.filter(b => b.category === newMode);
-
-              if (validBranches.length > 0) {
-                // Try to find the same branch location natively in the new mode
-                const matchingBranch = currentBranch
-                  ? validBranches.find(b => b.branch_code === currentBranch.branch_code)
-                  : null;
-
-                setBranchId(matchingBranch ? matchingBranch._id : validBranches[0]._id);
-              } else {
-                setBranchId(""); // Only clear if no valid branches exist
-              }
-            }}
-            variant="outlined"
-          >
-            <MenuItem value="SEA">SEA</MenuItem>
-            <MenuItem value="AIR">AIR</MenuItem>
-          </TextField>
-        </Grid>
-
-        {/* Custom House */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Select Custom House:
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={dynamicPortOptions}
-            value={custom_house}
-            onInputChange={(event, newValue) => setCustomHouse(newValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                helperText="Start typing to see suggestions"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-
-        {/* Importer */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Importer:
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={importerNames.map((option) => option.label)}
-            value={importer || ""} // Controlled value
-            onInputChange={(event, newValue, reason) => {
-              if (reason === "input") {
-                setImporter(newValue);
-                // clear IE code while user types
-                setIeCodeNo("");
-              } else if (reason === "clear") {
-                setImporter("");
-                setIeCodeNo("");
-              }
-            }} // Handles input change
-            onChange={(event, newValue) => {
-              // when user selects from list, set importer and IE code
-              const sel = newValue || "";
-              setImporter(sel);
-              const found = Array.isArray(importers)
-                ? importers.find((it) => it.importer === sel)
-                : null;
-              if (found) {
-                // prefer server field name ie_code_no, support other variants
-                const code = found.ie_code_no || found.ieCode || found.iecode || found.ie_code || "";
-                setIeCodeNo(code || "");
-              } else {
-                setIeCodeNo("");
-              }
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                fullWidth
-                helperText="Start typing to see suggestions"
-              />
-            )}
-          />
-        </Grid>
-
-        {/* IE Code (display-only) */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            IE Code:
-          </Typography>
-          <TextField
-            value={ie_code_no || ""}
-            variant="outlined"
-            size="small"
-            fullWidth
-            InputProps={{ readOnly: true }}
-            helperText={ie_code_no ? "IE Code loaded from database" : "Select importer to populate IE Code"}
-          />
-        </Grid>
-
-        {/* Branch SR No */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Branch SR No:
-          </Typography>
-          <TextField
-            value={branchSrNo}
-            onChange={(e) => setBranchSrNo(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-          />
-        </Grid>
-
-        {/* AD Code */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            AD Code:
-          </Typography>
-          <TextField
-            value={adCode}
-            onChange={(e) => setAdCode(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-          />
-        </Grid>
-        <Grid item xs={12} md={6}></Grid>
-
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Bank Name:
-          </Typography>
-          <TextField
-            value={bankName}
-            onChange={(e) => setBankName(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-          />
-        </Grid>
-        {/* <Grid item xs={12} md={4}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-           bank:
-          </Typography>
-          <TextField
-            value={adCode}
-            onChange={(e) => setAdCode(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-          />
-        </Grid> */}
-        {/* Exporter/Supplier */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Supplier/Exporter
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={suppliers
-              .map((item) => item.supplier_exporter)
-              .filter((name) => name && name.trim() !== "")
-              .sort()}
-            value={supplier_exporter || ""}
-            onInputChange={(event, newValue) => {
-              setSupplierExporter(newValue);
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                placeholder="Enter or select Supplier/Exporter"
-                helperText="Start typing to see suggestions or enter a new name"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-
-        {/* Shipping Line/Airline */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Shipping Line/Airline:
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={shippingLineOptions}
-            value={shipping_line_airline}
-            onInputChange={(event, newValue) =>
-              setShippingLineAirline(newValue)
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                helperText="Start typing to see suggestions"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-        {/* test01-02 */}
-        {/* BL Date */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            ETA Date:
-          </Typography>
-          <TextField
-            type="date"
-            value={vessel_berthing}
-            onChange={(e) => setVesselberthing(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-          />
-        </Grid>
-
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            MAWB/BL Number:
-          </Typography>
-          <TextField
-            value={awb_bl_no}
-            onChange={(e) => setAwbBlNo(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter BL Number"
-            fullWidth
-          />
-        </Grid>
-
-        {/* BL Date */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            MAWB/BL Date:
-          </Typography>
-          <TextField
-            type="date"
-            value={awb_bl_date}
-            onChange={(e) => setAwbBlDate(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Type Of B/E:
-          </Typography>
-          <Autocomplete
-            options={beTypeOptions}
-            value={type_of_b_e}
-            onChange={(event, newValue) => setTypeOfBE(newValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                placeholder="Enter Type Of B/E"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-        {/* BL Number */}
-
-        {/* FCL/LCL Selector */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            House:
-          </Typography>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={isCheckedHouse}
-                onChange={(e) => setIsCheckedHouse(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="House"
-          />
-        </Grid>
-
-        {/* Conditionally render HAWB/HBL fields when checkbox is true */}
-        {isCheckedHouse && (
-          <>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body1" style={{ fontWeight: 600 }}>
-                HAWB/HBL No:
-              </Typography>
-              <TextField
-                value={hawb_hbl_no}
-                onChange={(e) => setHawb_hbl_no(e.target.value)}
-                variant="outlined"
-                size="small"
-                fullWidth
-                placeholder="Enter HAWB/HBL Number"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Typography variant="body1" style={{ fontWeight: 600 }}>
-                HAWB/HBL Date:
-              </Typography>
-              <TextField
-                type="date"
-                value={hawb_hbl_date}
-                onChange={(e) => setHawb_hbl_date(e.target.value)}
-                variant="outlined"
-                size="small"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </>
-        )}
-
-
-        <Grid item xs={12} md={3}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Gross Weight:
-          </Typography>
-          <TextField
-            value={gross_weight}
-            onChange={(e) => setGrossWeight(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Gross Weight"
-            fullWidth
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Net Weight:
-          </Typography>
-          <TextField
-            value={job_net_weight}
-            onChange={(e) => setJob_net_weight(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Gross Weight"
-            fullWidth
-          />
-        </Grid>
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Loading Port:
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={portOfLoadingOptions}
-            value={loading_port}
-            onInputChange={(event, newValue) => setLoadingPort(newValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                helperText="Start typing to see suggestions"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Origin Country:
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={countryOptions}
-            value={origin_country}
-            onInputChange={(event, newValue) => setOriginCountry(newValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                helperText="Start typing to see suggestions"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Port of Reporting:
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={dynamicPortOptions}
-            value={port_of_reporting}
-            onInputChange={(event, newValue) => setPortOfReporting(newValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                size="small"
-                helperText="Start typing to see suggestions"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Total Inv Value:
-          </Typography>
-          <TextField
-            value={total_inv_value}
-            onChange={(e) => setTotalInvValue(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Total Inv Value"
-            fullWidth
-          />
-        </Grid>
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Inv Currency:
-          </Typography>
-          <TextField
-            value={inv_currency}
-            onChange={(e) => setInvCurrency(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Inv Currency"
-            fullWidth
-          />
-        </Grid>
-
-        {/* Invoice Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Invoice Number:
-          </Typography>
-          <TextField
-            value={invoice_number}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Invoice Number"
-            fullWidth
-          />
-        </Grid>
-
-        {/* Invoice Date */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Invoice Date:
-          </Typography>
-          <TextField
-            type="date"
-            value={invoice_date}
-            onChange={(e) => setInvoiceDate(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-          />
-        </Grid>
-
-        {/* Description */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Description:
-          </Typography>
-          <TextField
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Description"
-            fullWidth
-          />
-        </Grid>
-        {/* FCL/LCL Selector */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Consignment Type:
-          </Typography>
-          <TextField
-            select
-            value={consignment_type}
-            onChange={(e) => setConsignmentType(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-          >
-            <MenuItem value="FCL">FCL</MenuItem>
-            <MenuItem value="LCL">LCL</MenuItem>
-          </TextField>
-        </Grid>
-
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            CTH No:
-          </Typography>
-          <TextField
-            value={cth_no}
-            onChange={(e) => setCthNo(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter CTH No"
-            fullWidth
-          />
-        </Grid>
-
-        {/* FCL/LCL Selector */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Draft Document:
-          </Typography>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={isDraftDoc}
-                onChange={(e) => setIsDraftDoc(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Is Draft Document"
-          />
-          <Typography variant="body2" style={{ marginTop: "8px" }}>
-            {isDraftDoc
-              ? "This document is a draft."
-              : "This document is finalized."}
-          </Typography>
-        </Grid>
-
-        {/* HSS */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            HSS:
-          </Typography>
-          <TextField
-            select // This is the key missing part!
-            variant="outlined"
-            size="small"
-            value={HSS}
-            id="hss"
-            name="hss"
-            onChange={(e) => setHSS(e.target.value)}
-            helperText="Start typing to see suggestions"
-            fullWidth
-          >
-            {hssOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-
-
-        {/* conditionallyy render this saller name */}
-
-        {HSS && HSS == "Yes" && (
-          <Grid item xs={12} md={6}>
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              Saller Name:
+        <Box sx={{
+          background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+          color: 'white',
+          p: { xs: 2.5, md: 3.5 },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderRadius: '20px 20px 0 0',
+          boxShadow: '0 10px 30px rgba(30, 58, 138, 0.25)'
+        }}>
+          <Box>
+            <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: '-0.02em', mb: 0.5 }}>
+              Create Import Job
             </Typography>
-            <TextField
-              value={sallerName}
-              onChange={(e) => setSallerName(e.target.value)}
-              variant="outlined"
-              size="small"
-              placeholder="Enter Saller Name"
-              fullWidth
-            />
-          </Grid>
-        )}
-
-        {/*  */}
-        {!isDraftDoc && (
-          <>
-            {/* CTH Documents Section */}
-            <Grid
-              container
-              // spacing={3}
-              style={{ marginTop: "20px", padding: "0 20px" }}
-            >
-              {cthDocuments.map((doc, index) => (
-                <Grid
-                  item
-                  xs={12}
-                  md={6}
-                  gap={1}
-                  key={`cth-${index}`}
-                  style={{
-                    position: "relative",
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    padding: "16px",
-                    backgroundColor: "#f9f9f9",
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4ade80', boxShadow: '0 0 10px #4ade80' }} />
+              <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
+                System Ready • New Job Entry
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box sx={{ textAlign: 'right', display: { xs: 'none', md: 'block' } }}>
+              <Typography variant="caption" sx={{ opacity: 0.7, textTransform: 'uppercase', fontWeight: 700 }}>
+                Financial Year
+              </Typography>
+              <Box sx={{ mt: 0.5 }}>
+                <TextField
+                  select
+                  size="small"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  sx={{
+                    width: 120,
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: 'rgba(255,255,255,0.1)',
+                      color: 'white',
+                      borderRadius: '8px',
+                      fontWeight: 600,
+                      '& fieldset': { border: 'none' },
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                    },
+                    '& .MuiSelect-icon': { color: 'white' }
                   }}
                 >
-                  {/* Document Name and Code */}
-                  <Typography
-                    variant="body1"
-                    style={{
-                      fontWeight: 600,
-                      marginBottom: "8px",
-                      color: "#333",
-                    }}
-                  >
-                    {doc.document_name}{" "}
-                    <span style={{ color: "#666", fontWeight: 400 }}>
-                      ({doc.document_code})
-                    </span>
-                  </Typography>
-
-                  {/* File Upload Component */}
-                  <FileUpload
-                    label="Upload Files"
-                    bucketPath={`cth-documents/${doc.document_name}`}
-                    onFilesUploaded={(urls) => {
-                      const updatedDocuments = [...cthDocuments];
-                      updatedDocuments[index].url = [
-                        ...(updatedDocuments[index].url || []),
-                        ...urls,
-                      ];
-                      setCthDocuments(updatedDocuments);
-                    }}
-                    multiple
-                  />
-
-                  {/* Uploaded Images Preview */}
-                  <ImagePreview
-                    images={doc.url || []}
-                    onDeleteImage={(deleteIndex) => {
-                      const updatedDocuments = [...cthDocuments];
-                      updatedDocuments[index].url = updatedDocuments[
-                        index
-                      ].url.filter((_, i) => i !== deleteIndex);
-                      setCthDocuments(updatedDocuments);
-                    }}
-                  />
-
-                  {/* Message for No Uploaded Files */}
-                  {(!doc.url || doc.url.length === 0) && (
-                    <Typography
-                      variant="body2"
-                      style={{ color: "#999", marginTop: "8px" }}
-                    >
-                      No files uploaded yet.
-                    </Typography>
-                  )}
-
-                  {/* Action Buttons */}
-                  {!doc.isDefault && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "10px",
-                        right: "10px",
-                        display: "flex",
-                        gap: "10px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          cursor: "pointer",
-                          color: "#007bff",
-                          fontSize: "18px",
-                        }}
-                        onClick={() => handleOpenEditDialog(index)}
-                        title="Edit"
-                      >
-                        <i className="fas fa-edit"></i>
-                      </span>
-                      <span
-                        style={{
-                          cursor: "pointer",
-                          color: "#dc3545",
-                          fontSize: "18px",
-                        }}
-                        onClick={() => confirmDeleteDocument(index)}
-                        title="Delete"
-                      >
-                        <i className="fas fa-trash-alt"></i>
-                      </span>
-                    </div>
-                  )}
-                </Grid>
-              ))}
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body1" style={{ fontWeight: 600 }}>
-                Add CTH Document:
-              </Typography>
-              <FormControl fullWidth size="small" variant="outlined">
-                <Select
-                  value={selectedDocument}
-                  onChange={(e) => setSelectedDocument(e.target.value)}
-                >
-                  {cth_Dropdown.map((doc) => (
-                    <MenuItem key={doc.document_code} value={doc.document_code}>
-                      {doc.document_name}
+                  {years.map((yr, index) => (
+                    <MenuItem key={`year-${yr}-${index}`} value={yr}>
+                      {yr}
                     </MenuItem>
                   ))}
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            {selectedDocument === "other" && (
-              <>
-                <Grid
-                  item
-                  xs={12}
-                  md={6}
-                  style={{
-                    position: "relative",
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    padding: "16px",
-                    backgroundColor: "#f9f9f9",
+                </TextField>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+
+        <Box sx={{
+          px: 3,
+          py: 1.5,
+          bgcolor: 'white',
+          borderBottom: '1px solid #eaedf2',
+          display: 'flex',
+          justifyContent: 'center'
+        }}>
+          <Stepper
+            activeStep={activeStep}
+            sx={{
+              width: '100%',
+              maxWidth: 1000,
+              '& .MuiStepConnector-line': { borderColor: '#eaedf2' }
+            }}
+          >
+            {steps.map((step, index) => (
+              <Step
+                key={step.label}
+                onClick={() => handleStepClick(index)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <StepLabel
+                  StepIconProps={{
+                    sx: {
+                      '&.Mui-active': { color: 'primary.main' },
+                      '&.Mui-completed': { color: '#4ade80' }
+                    }
                   }}
                 >
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="New Document Name"
-                    value={newDocumentName}
-                    onChange={(e) => setNewDocumentName(e.target.value)}
-                    style={{ marginBottom: "16px" }} // Add margin to create a gap
-                  />
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="New Document Code"
-                    value={newDocumentCode}
-                    onChange={(e) => setNewDocumentCode(e.target.value)}
-                  />
-                </Grid>
-              </>
-            )}
-            <Grid item xs={12} md={6}>
-              <Button
-                variant="contained"
-                color="primary"
-                style={{ marginTop: "25px" }}
-                onClick={handleAddDocument}
-              >
-                Add Document
-              </Button>
-            </Grid>{" "}
-          </>
-        )}
+                  <Typography variant="caption" fontWeight={activeStep === index ? 700 : 500} color={activeStep === index ? 'primary.main' : 'text.secondary'}>
+                    {step.label}
+                  </Typography>
+                </StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
 
-        {/*  */}
+        <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#ffffff' }}>
+          <Grid container spacing={3} alignItems="flex-start">
+            <Grid container item xs={12} md={9} spacing={2}>
+              {/* Section 1: General Info */}
+              <Grid item xs={12}>
+                <SectionCard
+                  title="1. General Information"
+                  icon={<BusinessIcon />}
+                  stepIndex={0}
+                  activeStep={activeStep}
+                >
+                  <Grid container spacing={2}>
+                    <FormField label="Select Branch">
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        value={branch_id}
+                        onChange={(e) => setBranchId(e.target.value)}
+                        variant="outlined"
+                        sx={compactInput}
+                      >
+                        {branches
+                          .filter(b => b.category === mode)
+                          .map((b) => (
+                            <MenuItem key={b._id} value={b._id}>
+                              {b.branch_name} ({b.branch_code})
+                            </MenuItem>
+                          ))}
+                      </TextField>
+                    </FormField>
 
-        <Grid
-          container
-          style={{ marginTop: "20px", padding: "0 20px" }}
-          spacing={2}
-        >
-          <Grid
-            item
-            xs={12}
-            md={6}
-            style={{
-              position: "relative",
-              border: "1px solid #ddd",
-              borderRadius: "8px",
-              padding: "16px",
-              backgroundColor: "#f9f9f9",
-            }}
-          >
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              All Documents
-            </Typography>
-            <FileUpload
-              label="All Documents"
-              bucketPath="all_documents"
-              onFilesUploaded={(newFiles) => {
-                const existingFiles = formik.values.all_documents || [];
-                const updatedFiles = [...existingFiles, ...newFiles];
-                formik.setFieldValue("all_documents", updatedFiles);
-              }}
-              multiple={true}
-            />
-            <ImagePreview
-              images={formik.values.all_documents || []}
-              onDeleteImage={(index) => {
-                const updatedFiles = [...formik.values.all_documents];
-                updatedFiles.splice(index, 1);
-                formik.setFieldValue("all_documents", updatedFiles);
-              }}
-            />
-          </Grid>
-          <Grid
-            container
-            item
-            xs={12}
-            md={6}
-            // spacing={2} // Apply spacing only when the container prop is present
-            style={{
-              position: "relative",
-              border: "1px solid #ddd",
-              borderRadius: "8px",
-              padding: "16px",
-              backgroundColor: "#f9f9f9",
-            }}
-          >
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              FTA Benefit
-            </Typography>
-            <Switch
-              checked={!!fta_Benefit_date_time}
-              onChange={() => {
-                if (fta_Benefit_date_time) {
-                  setFtaBenefitDateTime(null); // Disable the benefit
-                } else {
-                  const currentDateTime = new Date(
-                    Date.now() - new Date().getTimezoneOffset() * 60000
-                  )
-                    .toISOString()
-                    .slice(0, 16); // Adjusted to conform to the yyyy-MM-ddTHH:mm format
-                  setFtaBenefitDateTime(currentDateTime); // Enable the benefit with the formatted date-time
-                }
-              }}
-              color="primary"
-            />
-            <Typography variant="body2" style={{ marginTop: "8px" }}>
-              {fta_Benefit_date_time
-                ? `Benefit enabled on ${new Date(
-                  fta_Benefit_date_time
-                ).toLocaleString("en-US", {
-                  timeZone: "Asia/Kolkata",
-                  hour12: true,
-                })}`
-                : "Benefit not enabled"}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <Typography variant="body1" style={{ fontWeight: 600 }}>
-                Description Details:
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={addDescriptionRow}
-              >
-                Add Row
-              </Button>
-            </div>
+                    <FormField label="Trade Type">
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        value={trade_type}
+                        onChange={(e) => setTradeType(e.target.value)}
+                        variant="outlined"
+                        disabled
+                        sx={compactInput}
+                      >
+                        <MenuItem value="IMP">Import</MenuItem>
+                        <MenuItem value="EXP">Export</MenuItem>
+                      </TextField>
+                    </FormField>
 
-            <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px", marginBottom: "20px" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
-                <thead>
-                  <tr style={{ background: "#f8f9fa" }}>
-                    {["Description", "CTH", "Clearance Under", "SR No Invoice", "SR No LIC", "Quantity", "Unit", "Action"].map((h) => (
-                      <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                        {h}
-                      </th>
+                    <FormField label="Mode">
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        value={mode}
+                        onChange={(e) => {
+                          const newMode = e.target.value;
+                          setMode(newMode);
+                          const currentBranch = branches.find(b => b._id === branch_id);
+                          const validBranches = branches.filter(b => b.category === newMode);
+                          if (validBranches.length > 0) {
+                            const matchingBranch = currentBranch
+                              ? validBranches.find(b => b.branch_code === currentBranch.branch_code)
+                              : null;
+                            setBranchId(matchingBranch ? matchingBranch._id : validBranches[0]._id);
+                          } else {
+                            setBranchId("");
+                          }
+                        }}
+                        variant="outlined"
+                        sx={compactInput}
+                      >
+                        <MenuItem value="SEA">SEA</MenuItem>
+                        <MenuItem value="AIR">AIR</MenuItem>
+                      </TextField>
+                    </FormField>
+
+                    <FormField label="Custom House">
+                      <Autocomplete
+                        freeSolo
+                        options={dynamicPortOptions}
+                        value={custom_house}
+                        onInputChange={(event, newValue) => setCustomHouse(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+                  </Grid>
+                </SectionCard>
+              </Grid>
+
+              {/* Section 2: Importer & Supplier */}
+              <Grid item xs={12}>
+                <SectionCard
+                  title="2. Importer & Supplier Details"
+                  icon={<BusinessIcon />}
+                  stepIndex={1}
+                  activeStep={activeStep}
+                >
+                  <Grid container spacing={2}>
+                    <FormField label="Importer Name">
+                      <Autocomplete
+                        freeSolo
+                        options={importerNames.map((option) => option.label)}
+                        value={importer || ""}
+                        onInputChange={(event, newValue, reason) => {
+                          if (reason === "input") {
+                            setImporter(newValue);
+                            setIeCodeNo("");
+                          } else if (reason === "clear") {
+                            setImporter("");
+                            setIeCodeNo("");
+                          }
+                        }}
+                        onChange={(event, newValue) => {
+                          const sel = newValue || "";
+                          setImporter(sel);
+                          const found = Array.isArray(importers)
+                            ? importers.find((it) => it.importer === sel)
+                            : null;
+                          if (found) {
+                            const code = found.ie_code_no || found.ieCode || found.iecode || found.ie_code || "";
+                            setIeCodeNo(code || "");
+                          } else {
+                            setIeCodeNo("");
+                          }
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="IE Code">
+                      <TextField
+                        value={ie_code_no || ""}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        InputProps={{ readOnly: true }}
+                        sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}
+                      />
+                    </FormField>
+
+                    <FormField label="Branch SR No">
+                      <TextField
+                        value={branchSrNo}
+                        onChange={(e) => setBranchSrNo(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="AD Code">
+                      <TextField
+                        value={adCode}
+                        onChange={(e) => setAdCode(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Bank Name">
+                      <TextField
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Supplier/Exporter">
+                      <Autocomplete
+                        freeSolo
+                        options={suppliers
+                          .map((item) => item.supplier_exporter)
+                          .filter((name) => name && name.trim() !== "")
+                          .sort()}
+                        value={supplier_exporter || ""}
+                        onInputChange={(event, newValue) => {
+                          setSupplierExporter(newValue);
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Supplier"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+                  </Grid>
+                </SectionCard>
+              </Grid>
+
+              {/* Section 3: Shipping Details */}
+              <Grid item xs={12}>
+                <SectionCard
+                  title="3. Shipping & Transport Details"
+                  icon={<LocalShippingIcon />}
+                  stepIndex={2}
+                  activeStep={activeStep}
+                >
+                  <Grid container spacing={2}>
+                    <FormField label="Shipping Line/Airline">
+                      <Autocomplete
+                        freeSolo
+                        options={shippingLineOptions}
+                        value={shipping_line_airline}
+                        onInputChange={(event, newValue) =>
+                          setShippingLineAirline(newValue)
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="ETA Date">
+                      <TextField
+                        type="date"
+                        value={vessel_berthing}
+                        onChange={(e) => setVesselberthing(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="MAWB/BL Number">
+                      <TextField
+                        value={awb_bl_no}
+                        onChange={(e) => setAwbBlNo(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="MAWB/BL No"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="MAWB/BL Date">
+                      <TextField
+                        type="date"
+                        value={awb_bl_date}
+                        onChange={(e) => setAwbBlDate(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Type Of B/E">
+                      <Autocomplete
+                        options={beTypeOptions}
+                        value={type_of_b_e}
+                        onChange={(event, newValue) => setTypeOfBE(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Type"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="House">
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={isCheckedHouse}
+                            onChange={(e) => setIsCheckedHouse(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label="Is House BL"
+                      />
+                    </FormField>
+
+                    {isCheckedHouse && (
+                      <>
+                        <FormField label="HAWB/HBL No">
+                          <TextField
+                            value={hawb_hbl_no}
+                            onChange={(e) => setHawb_hbl_no(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            placeholder="HAWB/HBL No"
+                            sx={compactInput}
+                          />
+                        </FormField>
+
+                        <FormField label="HAWB/HBL Date">
+                          <TextField
+                            type="date"
+                            value={hawb_hbl_date}
+                            onChange={(e) => setHawb_hbl_date(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            sx={compactInput}
+                          />
+                        </FormField>
+                      </>
+                    )}
+                  </Grid>
+                </SectionCard>
+              </Grid>
+
+              {/* Section 4: Cargo Details */}
+              <Grid item xs={12}>
+                <SectionCard
+                  title="4. Cargo & Invoice Details"
+                  icon={<InventoryIcon />}
+                  stepIndex={3}
+                  activeStep={activeStep}
+                >
+                  <Grid container spacing={2}>
+                    <FormField label="Gross Weight">
+                      <TextField
+                        value={gross_weight}
+                        onChange={(e) => setGrossWeight(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Weight"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Net Weight">
+                      <TextField
+                        value={job_net_weight}
+                        onChange={(e) => setJob_net_weight(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Net Weight"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Loading Port">
+                      <Autocomplete
+                        freeSolo
+                        options={portOfLoadingOptions}
+                        value={loading_port}
+                        onInputChange={(event, newValue) => setLoadingPort(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Origin Country">
+                      <Autocomplete
+                        freeSolo
+                        options={countryOptions}
+                        value={origin_country}
+                        onInputChange={(event, newValue) => setOriginCountry(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Port of Reporting">
+                      <Autocomplete
+                        freeSolo
+                        options={dynamicPortOptions}
+                        value={port_of_reporting}
+                        onInputChange={(event, newValue) => setPortOfReporting(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Total Inv Value">
+                      <TextField
+                        value={total_inv_value}
+                        onChange={(e) => setTotalInvValue(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Value"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Inv Currency">
+                      <TextField
+                        value={inv_currency}
+                        onChange={(e) => setInvCurrency(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Currency"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Invoice Number">
+                      <TextField
+                        value={invoice_number}
+                        onChange={(e) => setInvoiceNumber(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Inv No"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Invoice Date">
+                      <TextField
+                        type="date"
+                        value={invoice_date}
+                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Description">
+                      <TextField
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Description"
+                        fullWidth
+                        multiline
+                        rows={1}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Consignment Type">
+                      <TextField
+                        select
+                        value={consignment_type}
+                        onChange={(e) => setConsignmentType(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      >
+                        <MenuItem value="FCL">FCL</MenuItem>
+                        <MenuItem value="LCL">LCL</MenuItem>
+                      </TextField>
+                    </FormField>
+
+                    <FormField label="CTH No">
+                      <TextField
+                        value={cth_no}
+                        onChange={(e) => setCthNo(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="CTH No"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Document Status">
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isDraftDoc}
+                              onChange={(e) => setIsDraftDoc(e.target.checked)}
+                              color="primary"
+                            />
+                          }
+                          label="Is Draft Document"
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          {isDraftDoc ? "This document is a draft." : "This document is finalized."}
+                        </Typography>
+                      </Box>
+                    </FormField>
+
+                    <FormField label="HSS">
+                      <TextField
+                        select
+                        variant="outlined"
+                        size="small"
+                        value={HSS}
+                        id="hss"
+                        name="hss"
+                        onChange={(e) => setHSS(e.target.value)}
+                        fullWidth
+                        sx={compactInput}
+                      >
+                        {hssOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </FormField>
+
+                    {HSS && HSS == "Yes" && (
+                      <FormField label="Seller Name">
+                        <TextField
+                          value={sallerName}
+                          onChange={(e) => setSallerName(e.target.value)}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Seller Name"
+                          fullWidth
+                          sx={compactInput}
+                        />
+                      </FormField>
+                    )}
+                  </Grid>
+                </SectionCard>
+              </Grid>
+
+
+              {/* Section 6: Description Details */}
+              <Grid item xs={12}>
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" color="primary.main">
+                      Description Details
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={addDescriptionRow}
+                    >
+                      Add Row
+                    </Button>
+                  </Box>
+
+                  <Box sx={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: '#f8f9fa' }}>
+                          {["Description", "CTH", "Clearance", "Inv SR", "LIC SR", "Qty", "Unit", "Action"].map((h) => (
+                            <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {description_details?.map((row, rowIndex) => (
+                          <tr key={`desc-row-${rowIndex}`}>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.description || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
+                                sx={compactInput}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.cth_no || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                sx={compactInput}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                value={row.clearance_under || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
+                                sx={compactInput}
+                              >
+                                <MenuItem value="">Select</MenuItem>
+                                {filteredClearanceOptions.map((option, index) => (
+                                  <MenuItem key={index} value={option.value || ""}>
+                                    {option.label}
+                                  </MenuItem>
+                                ))}
+                              </TextField>
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.sr_no_invoice || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
+                                sx={compactInput}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.sr_no_lic || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
+                                sx={compactInput}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.quantity || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
+                                sx={compactInput}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.unit || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
+                                sx={compactInput}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', textAlign: 'center' }}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={description_details.length <= 1}
+                                onClick={() => removeDescriptionRow(rowIndex)}
+                                sx={{ p: 0.5 }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Section 7: Container Details */}
+              <Grid item xs={12}>
+                <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: '12px', border: '1px solid #eaedf2' }}>
+                  <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Container Details
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    {container_nos.map((container, index) => (
+                      <Grid container item xs={12} key={`container-${index}`} spacing={1} sx={{ mb: 1, p: 1.5, bgcolor: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f3f5' }}>
+                        <Grid item xs={12} md={2}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            label="Container No"
+                            value={container.container_number}
+                            onChange={(e) => handleContainerChange(index, "container_number", e.target.value)}
+                            sx={compactInput}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            label="Size"
+                            value={container.size}
+                            onChange={(e) => handleContainerChange(index, "size", e.target.value)}
+                            sx={compactInput}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            label="Seal No"
+                            value={container.seal_no}
+                            onChange={(e) => handleContainerChange(index, "seal_no", e.target.value)}
+                            sx={compactInput}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            label="Gross Wt"
+                            value={container.container_gross_weight}
+                            onChange={(e) => handleContainerChange(index, "container_gross_weight", e.target.value)}
+                            sx={compactInput}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            label="Net Wt"
+                            value={container.net_weight_as_per_PL_document}
+                            onChange={(e) => handleContainerChange(index, "net_weight_as_per_PL_document", e.target.value)}
+                            sx={compactInput}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={2} sx={{ display: 'flex', alignItems: 'center' }}>
+                          <IconButton
+                            color="error"
+                            onClick={() => handleRemoveContainer(index)}
+                            title="Remove Container"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Grid>
+                      </Grid>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {description_details?.map((row, rowIndex) => (
-                    <tr key={`desc-row-${rowIndex}`}>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={row.description || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
-                        />
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={row.cth_no || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
-                        />
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          select
-                          size="small"
-                          fullWidth
-                          value={row.clearance_under || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
+                  </Grid>
+
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddContainer}
+                    sx={{ mt: 1, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Add Container
+                  </Button>
+                </Paper>
+              </Grid>
+
+              {/* Section 8: Clearance Details */}
+              <Grid item xs={12}>
+                <SectionCard
+                  title="6. Clearance & Scheme Details"
+                  icon={<AssessmentIcon />}
+                  stepIndex={5}
+                  activeStep={activeStep}
+                >
+                  <Grid container spacing={2}>
+                    <FormField label="Clearance Under">
+                      <FormControl fullWidth size="small" variant="outlined">
+                        <Select
+                          value={clearanceValue}
+                          onChange={(e) => {
+                            if (canChangeClearance()) {
+                              setClearanceValue(e.target.value);
+                            } else {
+                              alert("Please clear Ex-Bond details before changing Clearance Under.");
+                            }
+                          }}
+                          displayEmpty
+                          sx={compactInput}
                         >
-                          <MenuItem value="">Select</MenuItem>
+                          <MenuItem value="" disabled>
+                            Select Clearance Type
+                          </MenuItem>
                           {filteredClearanceOptions.map((option, index) => (
-                            <MenuItem key={index} value={option.value || ""}>
+                            <MenuItem key={index} value={option.value}>
                               {option.label}
                             </MenuItem>
                           ))}
-                        </TextField>
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={row.sr_no_invoice || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
-                        />
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={row.sr_no_lic || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
-                        />
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={row.quantity || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
-                        />
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={row.unit || ""}
-                          onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
-                        />
-                      </td>
-                      <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          disabled={description_details.length <= 1}
-                          onClick={() => removeDescriptionRow(rowIndex)}
+                        </Select>
+                      </FormControl>
+                    </FormField>
+
+                    <FormField label="Scheme">
+                      <FormControl fullWidth size="small" variant="outlined">
+                        <Select
+                          value={scheme}
+                          onChange={(e) => setScheme(e.target.value)}
+                          displayEmpty
+                          sx={compactInput}
                         >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Grid>
+                          <MenuItem value="" disabled>
+                            Select Scheme
+                          </MenuItem>
+                          {schemeOptions.map((schemeOption, index) => (
+                            <MenuItem key={index} value={schemeOption}>
+                              {schemeOption}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </FormField>
 
-          <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              Container Details:
-            </Typography>
+                    {clearanceValue === "Ex-Bond" && (
+                      <Grid item xs={12}>
+                        <Paper elevation={1} sx={{ p: 2, mt: 2, borderRadius: 2, bgcolor: '#fffde7' }}>
+                          <Typography variant="caption" fontWeight={700} sx={{ mb: 1, display: 'block', textTransform: 'uppercase' }}>
+                            Ex-Bond Details
+                          </Typography>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={6}>
+                              <FormControl fullWidth size="small" variant="outlined">
+                                <Select
+                                  value={exBondValue}
+                                  onChange={(e) => setExBondValue(e.target.value)}
+                                  displayEmpty
+                                  sx={compactInput}
+                                >
+                                  <MenuItem value="" disabled>
+                                    Select In-Bond Type
+                                  </MenuItem>
+                                  <MenuItem value="other">Other</MenuItem>
+                                  {jobDetails.map((job) => (
+                                    <MenuItem key={job.job_no} value={job.job_no}>
+                                      {`${job.job_no} - ${job.importer}`}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Grid>
 
-            {/* Parent container with spacing */}
-            <Grid container spacing={2} style={{ marginTop: "10px" }}>
-              {container_nos.map((container, index) => (
-                <Grid
-                  container
-                  item
-                  xs={12}
-                  alignItems="center"
-                  key={`container-${index}`}
-                  spacing={2} // Add spacing for child containers
-                  style={{ marginTop: "10px" }}
-                >
-                  {/* Container Number */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Container Number"
-                      value={container.container_number}
-                      onChange={(e) =>
-                        handleContainerChange(
-                          index,
-                          "container_number",
-                          e.target.value
-                        )
-                      }
-                    />
+                            {exBondValue === "other" && (
+                              <>
+                                <Grid item xs={12} md={6}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    variant="outlined"
+                                    label="InBond BE Number"
+                                    value={in_bond_be_no}
+                                    onChange={(e) => setBeNo(e.target.value)}
+                                    sx={compactInput}
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    variant="outlined"
+                                    label="InBond BE Date"
+                                    type="date"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={in_bond_be_date}
+                                    onChange={(e) => setBeDate(e.target.value)}
+                                    sx={compactInput}
+                                  />
+                                </Grid>
+                                <Grid item xs={12}>
+                                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                    Upload InBond BE Copy:
+                                  </Typography>
+                                  <FileUpload
+                                    label="Upload InBond BE Copy"
+                                    bucketPath="ex_be_copy_documents"
+                                    onFilesUploaded={(newFiles) =>
+                                      setOocCopies([...in_bond_ooc_copies, ...newFiles])
+                                    }
+                                    multiple={true}
+                                  />
+                                  <ImagePreview
+                                    images={in_bond_ooc_copies || []}
+                                    onDeleteImage={(index) => {
+                                      const updatedFiles = [...in_bond_ooc_copies];
+                                      updatedFiles.splice(index, 1);
+                                      setOocCopies(updatedFiles);
+                                    }}
+                                  />
+                                </Grid>
+                              </>
+                            )}
+                          </Grid>
+                          {clearanceValue === "Ex-Bond" && (
+                            <Button
+                              variant="outlined"
+                              color="secondary"
+                              size="small"
+                              onClick={resetOtherDetails}
+                              sx={{ mt: 1.5, borderRadius: '8px', textTransform: 'none' }}
+                            >
+                              Reset Ex-Bond Details
+                            </Button>
+                          )}
+                        </Paper>
+                      </Grid>
+                    )}
                   </Grid>
-
-                  {/* Container Size */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Container Size"
-                      value={container.size}
-                      onChange={(e) =>
-                        handleContainerChange(index, "size", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Seal No */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Seal No"
-                      value={container.seal_no}
-                      onChange={(e) =>
-                        handleContainerChange(index, "seal_no", e.target.value)
-                      }
-                    />
-                  </Grid>
-
-                  {/* Gross Wt */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Gross Wt"
-                      value={container.container_gross_weight}
-                      onChange={(e) =>
-                        handleContainerChange(
-                          index,
-                          "container_gross_weight",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {/* Net Wt */}
-                  <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="Net Wt"
-                      value={container.net_weight_as_per_PL_document}
-                      onChange={(e) =>
-                        handleContainerChange(
-                          index,
-                          "net_weight_as_per_PL_document",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {/* Remove Container Button */}
-                  <Grid item xs={2}>
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleRemoveContainer(index)}
-                      title="Remove Container"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Grid>
-                </Grid>
-              ))}
+                </SectionCard>
+              </Grid>
             </Grid>
 
-            {/* Add Container Button */}
-            <Grid container item xs={12} style={{ marginTop: "10px" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleAddContainer}
+            {/* Document Side Bar - Restored to right side with Modern Styling */}
+            <Grid item xs={12} md={3} sx={{ position: { md: 'sticky' }, top: 20 }}>
+              <SectionCard
+                title="Documents & FTA"
+                icon={<DescriptionIcon />}
+                stepIndex={4}
+                activeStep={activeStep}
               >
-                Add Container
-              </Button>
+                {!isDraftDoc && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Required Documents
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {cthDocuments.map((doc, index) => (
+                        <Paper
+                          key={`cth-${index}`}
+                          elevation={0}
+                          sx={{
+                            p: 2,
+                            border: '1px solid #eaedf2',
+                            borderRadius: '12px',
+                            bgcolor: '#f8fafc',
+                            '&:hover': { bgcolor: '#fff', borderColor: 'primary.light', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="caption" fontWeight={700}>{doc.document_name}</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+                              {doc.document_code}
+                            </Typography>
+                          </Box>
+                          <FileUpload
+                            label="Upload"
+                            size="small"
+                            bucketPath={`cth-documents/${doc.document_name}`}
+                            onFilesUploaded={(urls) => {
+                              const updatedDocuments = [...cthDocuments];
+                              updatedDocuments[index].url = [...(updatedDocuments[index].url || []), ...urls];
+                              setCthDocuments(updatedDocuments);
+                            }}
+                            multiple
+                          />
+                          <ImagePreview
+                            images={doc.url || []}
+                            onDeleteImage={(deleteIndex) => {
+                              const updatedDocuments = [...cthDocuments];
+                              updatedDocuments[index].url = updatedDocuments[index].url.filter((_, i) => i !== deleteIndex);
+                              setCthDocuments(updatedDocuments);
+                            }}
+                          />
+                          {!doc.isDefault && (
+                            <IconButton size="small" color="error" onClick={() => confirmDeleteDocument(index)} sx={{ mt: 1, alignSelf: 'flex-end' }}>
+                              <DeleteIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          )}
+                        </Paper>
+                      ))}
+                    </Box>
+
+                    <Box sx={{ mt: 1, p: 1.5, border: '1px dashed #cbd5e1', borderRadius: '12px' }}>
+                      <FormControl fullWidth size="small" variant="outlined" sx={{ mb: 1 }}>
+                        <Select
+                          value={selectedDocument}
+                          onChange={(e) => setSelectedDocument(e.target.value)}
+                          displayEmpty
+                          sx={{ borderRadius: '8px', fontSize: '0.75rem' }}
+                        >
+                          <MenuItem value="" disabled>Add Document</MenuItem>
+                          {cth_Dropdown.map((doc) => (
+                            <MenuItem key={doc.document_code} value={doc.document_code}>{doc.document_name}</MenuItem>
+                          ))}
+                          <MenuItem value="other">Other</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <Button fullWidth variant="outlined" size="small" onClick={handleAddDocument} startIcon={<AddIcon />} sx={{ borderRadius: '8px', fontSize: '0.7rem' }}>
+                        Add Section
+                      </Button>
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                  </Box>
+                )}
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                  <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', bgcolor: '#f8fafc', border: '1px solid #eaedf2' }}>
+                    <Typography variant="caption" fontWeight={700} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloudUploadIcon color="primary" sx={{ fontSize: 16 }} /> All Documents
+                    </Typography>
+                    <FileUpload
+                      label="Upload Files"
+                      bucketPath="all_documents"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles = formik.values.all_documents || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue("all_documents", updatedFiles);
+                      }}
+                      multiple={true}
+                    />
+                    <ImagePreview
+                      images={formik.values.all_documents || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [...formik.values.all_documents];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue("all_documents", updatedFiles);
+                      }}
+                    />
+                  </Paper>
+
+                  <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #eaedf2', bgcolor: fta_Benefit_date_time ? 'rgba(74, 222, 128, 0.05)' : '#f8fafc' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption" fontWeight={700}>FTA Benefit</Typography>
+                      <Switch
+                        size="small"
+                        checked={!!fta_Benefit_date_time}
+                        onChange={() => {
+                          if (fta_Benefit_date_time) setFtaBenefitDateTime(null);
+                          else setFtaBenefitDateTime(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+                        }}
+                        color="primary"
+                      />
+                    </Box>
+                    {fta_Benefit_date_time && (
+                      <Typography variant="caption" sx={{ mt: 1, display: 'block', fontSize: '0.65rem' }}>
+                        Captured: {new Date(fta_Benefit_date_time).toLocaleTimeString()}
+                      </Typography>
+                    )}
+                  </Paper>
+                </Box>
+              </SectionCard>
+            </Grid>
+
+            {/* Submit Button Section */}
+            <Grid item xs={12}>
+              <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', bgcolor: 'rgba(30, 58, 138, 0.02)', border: '1px dashed #1e3a8a33', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Button variant="text" color="inherit" onClick={() => window.location.reload()} sx={{ fontWeight: 600, textTransform: 'none' }}>Discard & Reset</Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button variant="contained" size="large" onClick={formik.handleSubmit} sx={{ px: 8, py: 1.5, borderRadius: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 8px 25px rgba(29, 78, 216, 0.3)' }}>
+                    Finalize & Create Job
+                  </Button>
+                </Box>
+              </Paper>
             </Grid>
           </Grid>
+        </Box>
+      </Paper >
 
-          {/* test01 */}
-          <Grid item xs={12} md={6} style={{ marginTop: "10px" }}>
-            <Typography variant="body1" style={{ fontWeight: 600 }}>
-              Clearance Under:
-            </Typography>
-            <FormControl
-              fullWidth
-              size="small"
-              variant="outlined"
-              style={{ marginTop: "8px" }}
-            >
-              <Select
-                value={clearanceValue}
-                onChange={(e) => {
-                  if (canChangeClearance()) {
-                    setClearanceValue(e.target.value);
-                  } else {
-                    alert(
-                      "Please clear Ex-Bond details before changing Clearance Under."
-                    );
-                  }
-                }}
-                displayEmpty
-              >
-                <MenuItem value="" disabled>
-                  Select Clearance Type
-                </MenuItem>
-                {filteredClearanceOptions.map((option, index) => (
-                  <MenuItem key={index} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-              {/* Scheme Selection */}
-              <Grid item xs={12}>
-                <FormControl fullWidth size="small" variant="outlined">
-                  <Select
-                    value={scheme}
-                    onChange={(e) => setScheme(e.target.value)}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      Select Scheme
-                    </MenuItem>
-                    {schemeOptions.map((schemeOption, index) => (
-                      <MenuItem key={index} value={schemeOption}>
-                        {schemeOption}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </FormControl>
+      <ConfirmDialog
+        open={confirmDialogOpen}
+        handleClose={() => setConfirmDialogOpen(false)}
+        handleConfirm={handleDeleteDocument}
+        message="Are you sure you want to delete this document?"
+      />
 
-            {clearanceValue === "Ex-Bond" && (
-              <Grid container spacing={2} style={{ marginTop: "10px" }}>
-                <FormControl fullWidth size="small" variant="outlined">
-                  <Select
-                    value={exBondValue}
-                    onChange={(e) => setExBondValue(e.target.value)}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      Select In-Bond Type
-                    </MenuItem>
-                    {/* Static "Other" option at the top */}
-                    <MenuItem value="other">Other</MenuItem>
-                    {/* Dynamically generate MenuItem components */}
-                    {jobDetails.map((job) => (
-                      <MenuItem key={job.job_no} value={job.job_no}>
-                        {`${job.job_no} - ${job.importer}`}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            )}
+      <ConfirmDialog
+        open={editDialogOpen}
+        handleClose={() => setEditDialogOpen(false)}
+        handleConfirm={handleSaveEdit}
+        isEdit
+        editValues={editValues}
+        onEditChange={setEditValues}
+      />
 
-            {exBondValue === "other" && (
-              <Grid container spacing={2} style={{ marginTop: "10px" }}>
-                {/* BE Number */}
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="InBond BE Number"
-                    value={in_bond_be_no}
-                    onChange={(e) => setBeNo(e.target.value)}
-                  />
-                </Grid>
-
-                {/* BE Date */}
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="InBond BE Date"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    value={in_bond_be_date}
-                    onChange={(e) => setBeDate(e.target.value)}
-                  />
-                </Grid>
-
-                {/* File Upload for OOC Copies */}
-                <Grid item xs={12}>
-                  <FileUpload
-                    label="Upload InBond BE Copy"
-                    bucketPath="ex_be_copy_documents"
-                    onFilesUploaded={(newFiles) =>
-                      setOocCopies([...in_bond_ooc_copies, ...newFiles])
-                    }
-                    multiple={true}
-                  />
-                  <ImagePreview
-                    images={in_bond_ooc_copies || []}
-                    onDeleteImage={(index) => {
-                      const updatedFiles = [...in_bond_ooc_copies];
-                      updatedFiles.splice(index, 1);
-                      setOocCopies(updatedFiles);
-                    }}
-                  />
-                </Grid>
-              </Grid>
-            )}
-
-            {/* Reset Button */}
-            {clearanceValue === "Ex-Bond" && (
-              <Grid item xs={12} style={{ marginTop: "10px" }}>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={resetOtherDetails}
-                >
-                  Reset Ex-Bond Details
-                </Button>
-              </Grid>
-            )}
-          </Grid>
-
-          {/* test 02 */}
-          <Grid item xs={12}>
-            <Button
-              variant="contained"
-              color="primary"
-              style={{ marginTop: "20px" }}
-              onClick={formik.handleSubmit}
-            >
-              Submit
-            </Button>
-          </Grid>
-        </Grid>
-
-        {/* Confirm Delete Dialog */}
-        <ConfirmDialog
-          open={confirmDialogOpen}
-          handleClose={() => setConfirmDialogOpen(false)}
-          handleConfirm={handleDeleteDocument}
-          message="Are you sure you want to delete this document?"
-        />
-
-        {/* Edit Document Dialog */}
-        <ConfirmDialog
-          open={editDialogOpen}
-          handleClose={() => setEditDialogOpen(false)}
-          handleConfirm={handleSaveEdit}
-          isEdit
-          editValues={editValues}
-          onEditChange={setEditValues}
-        />
-
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          severity={snackbar.severity || "info"}
+          sx={{ width: "100%" }}
         >
-          <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity || "info"}
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-    </div>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box >
   );
 };
 

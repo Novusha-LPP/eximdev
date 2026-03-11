@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Dialog,
@@ -123,23 +124,22 @@ const FIELDS = [
 
 // Table columns — per image 1 (no Sr No, actions first)
 const TABLE_COLUMNS = [
-  { key: "_expand",      label: "",                    width: 28 },
-  { key: "_actions",     label: "Actions",             width: 90 },
-  { key: "job_no",       label: "Job Number",          width: 100 },
-  { key: "date",         label: "Date",                width: 90 },
-  { key: "job_type",     label: "Job Category",        width: 160 },
-  { key: "party_name",   label: "Firm Name",           width: 180 },
-  { key: "iec_no",       label: "IEC Number",          width: 120 },
-  { key: "licence_no",   label: "Authorization Number",width: 150 },
-  { key: "licence_date", label: "Auth Date",           width: 90 },
-  { key: "bg_number",    label: "BG Number",           width: 110 },
-  { key: "bg_amount",    label: "BG Amt",              width: 90 },
-  { key: "bg_date",      label: "BG Date",             width: 90 },
-  { key: "bg_expiry_date","label": "BG Expiry Date",   width: 110 },
-  { key: "bond_number",  label: "Bond Number",         width: 110 },
-  { key: "bond_date",    label: "Bond Date",           width: 90 },
-  { key: "port_code",    label: "Port Code",           width: 90 },
-  { key: "job_status",   label: "Job Status",          width: 120 },
+  { key: "_actions",     label: "ACTIONS",             width: 100 },
+  { key: "job_no",       label: "NUMBER",              width: 100 },
+  { key: "date",         label: "DATE",                width: 90 },
+  { key: "job_type",     label: "JOB CATEGORY",        width: 160 },
+  { key: "party_name",   label: "FIRM NAME",           width: 180 },
+  { key: "iec_no",       label: "IEC NUMBER",          width: 120 },
+  { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 150 },
+  { key: "licence_date", label: "AUTH DATE",           width: 90 },
+  { key: "bg_number",    label: "BG NUMBER",           width: 110 },
+  { key: "bg_amount",    label: "BG AMT",              width: 90 },
+  { key: "bg_date",      label: "BG DATE",             width: 90 },
+  { key: "bg_expiry_date","label": "BG EXPIRY DATE",   width: 110 },
+  { key: "bond_number",  label: "BOND NUMBER",         width: 110 },
+  { key: "bond_date",    label: "BOND DATE",           width: 90 },
+  { key: "port_code",    label: "PORT CODE",           width: 90 },
+  { key: "job_status",   label: "JOB STATUS",          width: 120 },
 ];
 
 
@@ -208,80 +208,7 @@ function CustomSelectField({ label, fieldKey, value, options, onChange, inputVal
   );
 }
 
-// ===================== SubRow — reference UI (ar-* CSS classes) =====================
-function SubRow({ row, colSpan, onSave, showToast }) {
-  const [subData, setSubData] = useState(() => {
-    const d = {};
-    SUBROW_FIELDS.forEach((f) => { d[f.key] = row[f.key] || ""; });
-
-    // Auto-calc import_validity (+12 mo) and export_validity (+18 mo) from licence_date (DD/MM/YYYY)
-    const authDateStr = row.licence_date || "";
-    if (authDateStr) {
-      const parts = authDateStr.split("/");
-      if (parts.length === 3) {
-        const [dd, mm, yyyy] = parts;
-        const authDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-        if (!isNaN(authDate.getTime())) {
-          const fmt = (date) => `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-          if (!d.import_validity) { const imp = new Date(authDate); imp.setMonth(imp.getMonth() + 12); d.import_validity = fmt(imp); }
-          if (!d.export_validity) { const exp = new Date(authDate); exp.setMonth(exp.getMonth() + 18); d.export_validity = fmt(exp); }
-        }
-      }
-    }
-    return d;
-  });
-
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${row._id}`, subData);
-      showToast("Details updated successfully", "success");
-      onSave(row._id, subData);
-    } catch (err) {
-      console.error(err);
-      showToast("Update failed", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <tr>
-      <td className="ar-subrow-cell" colSpan={colSpan}>
-        <div className="ar-subrow-inner">
-          <div className="ar-subrow-header">
-            <div className="ar-subrow-title">
-              Licence Details — <span>{row.job_no || ""}</span>
-            </div>
-            <button
-              className={`ar-btn ar-btn-save ar-btn-sm${saving ? "" : ""}`}
-              onClick={handleSave}
-              disabled={saving}
-              style={{ opacity: saving ? 0.55 : 1, cursor: saving ? "not-allowed" : "pointer" }}
-            >
-              {saving ? "Saving…" : "Save Details"}
-            </button>
-          </div>
-          <div className="ar-subrow-grid">
-            {SUBROW_FIELDS.map((f) => (
-              <div key={f.key} className="ar-subrow-field">
-                <label>{f.label}</label>
-                <input
-                  type="text"
-                  value={subData[f.key]}
-                  onChange={(e) => setSubData((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder="—"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-}
+// SubRow removed in favor of separate page view
 
 
 
@@ -308,8 +235,8 @@ function AuthorizationRegistrationList({ onCountChange }) {
   const [categoryInput, setCategoryInput]                 = useState("");
   const [availableJobTypeOptions, setAvailableJobTypeOptions] = useState(DEFAULT_JOB_TYPE_OPTIONS);
   const [jobTypeInput, setJobTypeInput] = useState("");
-  const [expandedRowId, setExpandedRowId] = useState(null);
   const fileInput = React.useRef(null);
+  const navigate = React.useCallback(useNavigate(), []);
 
   const getData = useCallback(async () => {
     try {
@@ -388,7 +315,6 @@ function AuthorizationRegistrationList({ onCountChange }) {
     try {
       await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-authorization-registration/${id}`);
       showToast("Record deleted", "success");
-      if (expandedRowId === id) setExpandedRowId(null);
       getData();
     } catch (err) { console.error(err); showToast("Delete failed", "error"); }
   };
@@ -472,52 +398,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
   const totalPages  = Math.ceil(displayed.length / rowsPerPage) || 1;
   const paginatedRows = displayed.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const renderDataRow = (row) => {
-    const isExpanded = expandedRowId === row._id;
-    const dataRow = (
-      <tr
-        key={row._id}
-        className={`ar-data-row${isExpanded ? " ar-expanded" : ""}`}
-        onClick={() => setExpandedRowId((p) => (p === row._id ? null : row._id))}
-      >
-        {TABLE_COLUMNS.map((col) => {
-          if (col.key === "_expand") {
-            return (
-              <td key="_expand" className="ar-td-sticky ar-td-expand" style={{ textAlign: "center", width: 36 }}>
-                <span className="ar-expand-icon">▶</span>
-              </td>
-            );
-          }
-          if (col.key === "_actions") {
-            return (
-              <td key="_actions" className="ar-td-sticky ar-td-actions" onClick={(e) => e.stopPropagation()}>
-                <div className="ar-actions-cell">
-                  <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
-                  <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
-                </div>
-              </td>
-            );
-          }
-          if (col.key === "job_status") {
-            return <td key={col.key}><StatusBadge value={row[col.key]} /></td>;
-          }
-          if (col.key === "party_name") {
-            return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{row[col.key] || ""}</td>;
-          }
-          return <td key={col.key}>{row[col.key] || ""}</td>;
-        })}
-      </tr>
-    );
-    return (
-      <React.Fragment key={`frag-${row._id}`}>
-        {dataRow}
-        {isExpanded && (
-          <SubRow key={`sub-${row._id}`} row={row} colSpan={TABLE_COLUMNS.length} onSave={handleSubRowSave} showToast={showToast} />
-        )}
-      </React.Fragment>
-    );
-  };
-
+  const containerRef = React.useRef(null);
 
   return (
     <div>
@@ -564,14 +445,43 @@ function AuthorizationRegistrationList({ onCountChange }) {
 
       {/* ── Table card ── */}
       <div className="ar-table-outer">
-        <div className="ar-table-scroll">
+        <div 
+          ref={containerRef}
+          className="ar-table-scroll"
+          onMouseDown={(e) => {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "BUTTON") return;
+            const el = containerRef.current;
+            el.dataset.isDown = "true";
+            el.dataset.startX = e.pageX - el.offsetLeft;
+            el.dataset.scrollLeft = el.scrollLeft;
+            el.dataset.dragged = "false";
+          }}
+          onMouseLeave={() => {
+            const el = containerRef.current;
+            el.dataset.isDown = "false";
+          }}
+          onMouseUp={() => {
+            const el = containerRef.current;
+            el.dataset.isDown = "false";
+          }}
+          onMouseMove={(e) => {
+            const el = containerRef.current;
+            if (el.dataset.isDown !== "true") return;
+            const x = e.pageX - el.offsetLeft;
+            const walk = (x - Number(el.dataset.startX)) * 2;
+            if (Math.abs(walk) > 5) {
+              el.dataset.dragged = "true";
+              e.preventDefault();
+              el.scrollLeft = Number(el.dataset.scrollLeft) - walk;
+            }
+          }}
+        >
           <table className="ar-table">
             <thead>
               <tr>
                 {TABLE_COLUMNS.map((col) => {
                   const sorted = sort.key === col.key;
-                  if (col.key === "_expand") return <th key="_expand" className="ar-th-sticky ar-th-expand" />;
-                  if (col.key === "_actions") return <th key="_actions" className="ar-th-sticky ar-th-actions">Actions</th>;
+                  if (col.key === "_actions") return <th key="_actions" className="ar-th-sticky ar-th-actions">ACTIONS</th>;
                   return (
                     <th
                       key={col.key}
@@ -593,7 +503,39 @@ function AuthorizationRegistrationList({ onCountChange }) {
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row) => renderDataRow(row))
+                paginatedRows.map((row) => (
+                  <tr key={row._id} className="ar-data-row">
+                    {TABLE_COLUMNS.map((col) => {
+                      if (col.key === "_actions") {
+                        return (
+                          <td key="_actions" className="ar-td-sticky ar-td-actions" onClick={(e) => e.stopPropagation()}>
+                            <div className="ar-actions-cell">
+                              <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
+                              <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
+                            </div>
+                          </td>
+                        );
+                      }
+                      const val = row[col.key] || "";
+                      if (col.key === "job_no") {
+                        const sVal = String(val);
+                        const displayVal = sVal.includes("/") ? sVal : `LIC/${sVal}`;
+                        return (
+                          <td key={col.key} onClick={(e) => { e.stopPropagation(); navigate(`/dgft/authorization-details/${row._id}`); }}>
+                            <span className="ar-job-link">{displayVal}</span>
+                          </td>
+                        );
+                      }
+                      if (col.key === "job_status") {
+                        return <td key={col.key}><StatusBadge value={val} /></td>;
+                      }
+                      if (col.key === "party_name") {
+                        return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{val}</td>;
+                      }
+                      return <td key={col.key}>{val}</td>;
+                    })}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

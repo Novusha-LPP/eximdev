@@ -129,6 +129,7 @@ import HodManagement from "../components/home/HodManagement.js";
 
 // DGFT Module
 import DgftTabs from "../components/dgft/DgftTabs.js";
+import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 
 const drawerWidth = 60;
 
@@ -703,6 +704,11 @@ function HomePage() {
                 <Route path="/dgft" element={<DgftTabs />} />
               </Routes>
             </Box>
+              {/* DGFT Module */}
+              <Route path="/dgft" element={<DgftTabs />} />
+              <Route path="/dgft/:tab" element={<DgftTabs />} />
+              <Route path="/dgft/authorization-details/:id" element={<ViewAuthorizationDetails />} />
+            </Routes>
           </Box>
         </SearchQueryProvider>
       </TabValueContext.Provider>

@@ -2,6 +2,7 @@ import React, { useState,  useCallback } from "react";
 import "./dgft.scss";
 import DgftRegisterList from "./DgftRegisterList";
 import AuthorizationRegistrationList from "./AuthorizationRegistrationList";
+import { useParams, useNavigate } from "react-router-dom";
 
 // --- Clean Enterprise Styles ---
 const s = {
@@ -69,23 +70,30 @@ const s = {
 };
 
 const TABS = [
-  { label: "Authorization Registration", key: "register" },
-  { label: "Register Format ", key: "authorization" },
+  { label: "Authorization Registration", key: "auth-reg" },
+  { label: "Register Format", key: "reg-format" },
 ];
 
 function DgftTabs() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [counts, setCounts] = useState({ register: 0, authorization: 0 });
+  const { tab } = useParams();
+  const navigate = useNavigate();
+  
+  // Default to first tab if none specified in URL
+  const activeTabKey = tab || TABS[0].key;
+  const activeIdx = TABS.findIndex(t => t.key === activeTabKey);
+  const validIdx = activeIdx === -1 ? 0 : activeIdx;
 
-  const handleCountUpdate = useCallback((tab, count) => {
+  const [counts, setCounts] = useState({ "auth-reg": 0, "reg-format": 0 });
+
+  const handleCountUpdate = useCallback((tabKey, count) => {
     setCounts((prev) => {
-      if (prev[tab] === count) return prev;
-      return { ...prev, [tab]: count };
+      if (prev[tabKey] === count) return prev;
+      return { ...prev, [tabKey]: count };
     });
   }, []);
 
-  const handleRegisterCount = useCallback((c) => handleCountUpdate("register", c), [handleCountUpdate]);
-  const handleAuthCount = useCallback((c) => handleCountUpdate("authorization", c), [handleCountUpdate]);
+  const handleAuthRegCount = useCallback((c) => handleCountUpdate("auth-reg", c), [handleCountUpdate]);
+  const handleRegFormatCount = useCallback((c) => handleCountUpdate("reg-format", c), [handleCountUpdate]);
 
   return (
     <div style={s.wrapper}>
@@ -96,37 +104,37 @@ function DgftTabs() {
 
         {/* Tabs */}
         <div style={s.tabContainer}>
-          {TABS.map((tab, idx) => (
+          {TABS.map((tabItem, idx) => (
             <button
-              key={tab.key}
+              key={tabItem.key}
               style={{
                 ...s.tab,
-                ...(activeTab === idx ? s.activeTab : {}),
+                ...(validIdx === idx ? s.activeTab : {}),
               }}
-              onClick={() => setActiveTab(idx)}
+              onClick={() => navigate(`/dgft/${tabItem.key}`)}
             >
-              {tab.label}
+              {tabItem.label}
               <span
                 style={{
                   ...s.badge,
-                  ...(activeTab === idx ? s.activeBadge : {}),
+                  ...(validIdx === idx ? s.activeBadge : {}),
                 }}
               >
-                {tab.key === "register" ? counts.register : counts.authorization}
+                {counts[tabItem.key]}
               </span>
             </button>
           ))}
         </div>
 
         {/* Tab Content */}
-        {activeTab === 0 && (
+        {validIdx === 0 && (
           <DgftRegisterList
-            onCountChange={handleRegisterCount}
+            onCountChange={handleAuthRegCount}
           />
         )}
-        {activeTab === 1 && (
+        {validIdx === 1 && (
           <AuthorizationRegistrationList
-            onCountChange={handleAuthCount}
+            onCountChange={handleRegFormatCount}
           />
         )}
       </div>

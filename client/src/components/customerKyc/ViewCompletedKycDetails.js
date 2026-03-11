@@ -434,6 +434,27 @@ function ViewCompletedKycDetails() {
                     <Field label="Quotation Given?" value={data.quotation} />
                     <Field label="Advance Payment" value={data.advance_payment ? "Yes" : "No"} />
                 </div>
+                
+                <div style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontWeight: 600, color: '#334155', fontSize: '14px' }}>
+                        Financial Details Approval Status:
+                        {data.financial_details_approved && (
+                          <span style={{ marginLeft: '8px', color: '#0369a1', fontWeight: 500 }}>
+                            ({data.financial_details_approved_by})
+                          </span>
+                        )}
+                      </span>
+                      <span 
+                        className={`status-pill ${data.financial_details_approved ? "success" : "warning"}`}
+                        style={{ fontSize: '12px', padding: '4px 12px' }}
+                      >
+                        {data.financial_details_approved ? "Approved" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
             </div>
         </div>
 

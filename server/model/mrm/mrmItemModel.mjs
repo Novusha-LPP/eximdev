@@ -4,7 +4,7 @@ import auditPlugin from "../../plugins/auditPlugin.mjs";
 const mrmItemSchema = new mongoose.Schema({
     month: { type: String, required: true }, // e.g., "01", "02"
     year: { type: Number, required: true }, // e.g., 2026
-    processDescription: { type: String, required: true },
+    processDescription: { type: String },
     objective: { type: String },
     target: { type: String },
     monitoringFrequency: { type: String },
@@ -17,6 +17,7 @@ const mrmItemSchema = new mongoose.Schema({
     status: { type: String, default: 'Gray' }, // Green, Red, Yellow
     remarks: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    seq: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Compound index to ensure uniqueness if needed, or just for querying

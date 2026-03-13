@@ -352,6 +352,10 @@ const UserProfile = ({ username: propUsername }) => {
                                 <span className="value">{profileData.employment_type || 'N/A'}</span>
                             </div>
                             <div className="info-row">
+                                <span className="label">Department</span>
+                                <span className="value strong" style={{ color: '#1a73e8' }}>{profileData.department || 'N/A'}</span>
+                            </div>
+                            <div className="info-row">
                                 <span className="label">Date of Birth</span>
                                 <span className="value">{formatDate(profileData.dob || profileData.date_of_birth)}</span>
                             </div>

@@ -127,6 +127,7 @@ import assignEximBot from "./routes/home/assignEximBot.mjs";
 import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
 import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
 import toggleUserStatus from "./routes/toggleUserStatus.mjs";
+import assignDepartment from "./routes/home/assignDepartment.mjs";
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -389,6 +390,7 @@ app.use(updateESanchitJob);
 // Home
 app.use(assignModules);
 app.use(assignRole);
+app.use("/api", assignDepartment);
 app.use(unassignModule);
 app.use(changePassword);
 app.use(assignIcdCode);

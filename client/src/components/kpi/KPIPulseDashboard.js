@@ -289,28 +289,40 @@ const KPIPulseDashboard = () => {
     const [year, setYear] = useState(new Date().getFullYear());
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [department, setDepartment] = useState('');
+    const [team, setTeam] = useState('');
+    const [teams, setTeams] = useState([]);
     const [data, setData] = useState({ pulseData: [], stats: { totalUsers: 0, stars: 0, specialists: 0, engines: 0, drainers: 0 } });
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSheetId, setSelectedSheetId] = useState(null);
 
-    const departments = [
-        'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
-        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs', 'Admin'
-    ];
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     useEffect(() => {
         if (user && (user.role === 'Admin' || user.role === 'Head_of_Department')) {
             fetchPulseData();
         }
-    }, [year, month, department, user]);
+    }, [year, month, department, team, user]);
+
+    useEffect(() => {
+        fetchTeams();
+    }, []);
+
+    const fetchTeams = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/teams/all`, { withCredentials: true });
+            setTeams(res.data?.teams || []);
+        } catch (err) {
+            console.error("Error fetching teams", err);
+        }
+    };
 
     const fetchPulseData = async () => {
         try {
             setLoading(true);
             let url = `${process.env.REACT_APP_API_STRING}/kpi/analytics/pulse?year=${year}&month=${month}`;
-            if (department) url += `&department=${department}`;
+            if (team) url += `&team=${encodeURIComponent(team)}`;
+            else if (department) url += `&department=${encodeURIComponent(department)}`;
             const res = await axios.get(url, { withCredentials: true });
 
             let stars = 0, specialists = 0, engines = 0, drainers = 0;
@@ -338,9 +350,10 @@ const KPIPulseDashboard = () => {
         return arr.filter(item => {
             const name = `${item.user?.first_name} ${item.user?.last_name}`.toLowerCase();
             const dept = (item.department || '').toLowerCase();
+            const teamName = (item.team || '').toLowerCase();
             const insight = (item.delta?.insight || '').toLowerCase();
             const quadrant = (item.current?.quadrant || '').toLowerCase();
-            return name.includes(q) || dept.includes(q) || insight.includes(q) || quadrant.includes(q);
+            return name.includes(q) || dept.includes(q) || teamName.includes(q) || insight.includes(q) || quadrant.includes(q);
         });
     }, [data.pulseData, searchQuery]);
 
@@ -438,7 +451,7 @@ const KPIPulseDashboard = () => {
                                         <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
                                             <span style={{ color: q.color, fontWeight: 600 }}>{q.label}</span>
                                             <span>•</span>
-                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.department}</span>
+                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.team || item.department}</span>
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0F172A', background: '#FFFFFF', padding: '4px 8px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
@@ -497,11 +510,22 @@ const KPIPulseDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Department Selectors */}
+                    {/* Team Selectors (Primary Focus) */}
                     <div style={S.deptBar}>
-                        <button onClick={() => setDepartment('')} style={S.deptBtn(department === '')}>All Departments</button>
-                        {departments.map(d => (
-                            <button key={d} onClick={() => setDepartment(d)} style={S.deptBtn(department === d)}>{d}</button>
+                        <button 
+                            onClick={() => { setTeam(''); setDepartment(''); }} 
+                            style={S.deptBtn(team === '' && department === '')}
+                        >
+                            All Teams
+                        </button>
+                        {teams.map(t => (
+                            <button 
+                                key={t._id} 
+                                onClick={() => { setTeam(t.name); setDepartment(''); }} 
+                                style={S.deptBtn(team === t.name)}
+                            >
+                                {t.name}
+                            </button>
                         ))}
                     </div>
 
@@ -523,7 +547,7 @@ const KPIPulseDashboard = () => {
                         </div>
                         <div style={S.summaryItem}>
                             <span style={S.summaryLabel}>View Focus</span>
-                            <span style={S.summaryVal}>{department || 'Global'}</span>
+                            <span style={S.summaryVal}>{team || department || 'Global'}</span>
                         </div>
                     </div>
 
@@ -631,7 +655,7 @@ const KPIPulseDashboard = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                 <div>
                                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0F172A', display: 'block' }}>{item.user?.first_name} {item.user?.last_name}</span>
-                                                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{item.department}</span>
+                                                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{item.team || item.department}</span>
                                                 </div>
                                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '4px 10px', borderRadius: '99px', background: q.bg, color: q.color, border: `1px solid ${q.border}` }}>
                                                     {q.label}

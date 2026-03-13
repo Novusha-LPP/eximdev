@@ -18,6 +18,8 @@ const mrmItemSchema = new mongoose.Schema({
     remarks: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     seq: { type: Number, default: 0 },
+    isTitleRow: { type: Boolean, default: false },
+    bgColor: { type: String, default: '#ffffff' },
 }, { timestamps: true });
 
 // Compound index to ensure uniqueness if needed, or just for querying

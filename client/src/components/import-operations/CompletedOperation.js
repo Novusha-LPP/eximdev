@@ -417,6 +417,8 @@ function CompletedOperations() {
     {
       accessorKey: "job_no",
       header: "Job No & ICD Code",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
       size: 150,
       Cell: ({ cell, row }) => {

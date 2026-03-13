@@ -20,6 +20,8 @@ function ViewDSR() {
     {
       accessorKey: "job_no",
       header: "Job Number",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
       size: 100,
     },

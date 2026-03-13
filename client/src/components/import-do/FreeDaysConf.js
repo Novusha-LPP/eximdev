@@ -284,6 +284,8 @@ const FreeDaysConf = () => {
     {
       accessorKey: "job_no",
       header: "Job No ",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       size: 120,
       Cell: ({ cell }) => {
         const { job_no, year, custom_house, type_of_b_e, consignment_type, _id, mode } =

@@ -124,22 +124,17 @@ const FIELDS = [
 
 // Table columns — per image 1 (no Sr No, actions first)
 const TABLE_COLUMNS = [
+  { key: "job_no",       label: "JOB NUMBER",          width: 120 },
+  { key: "date",         label: "DATE",                width: 100 },
+  { key: "party_name",   label: "FIRM NAME",           width: 200 },
+  { key: "iec_no",       label: "IEC NAME",            width: 150 },
+  { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 180 },
+  { key: "licence_date", label: "AUTHORIZATION DATE",  width: 110 },
+  { key: "bg_number",    label: "BG NUMBER",           width: 130 },
+  { key: "port_code",    label: "PORT CODE",           width: 100 },
+  { key: "job_status",   label: "JOB STATUS",          width: 140 },
+  { key: "documents_send_to_accounts", label: "DOCUMENTS DATE SEND TO ACCOUNTS", width: 220 },
   { key: "_actions",     label: "ACTIONS",             width: 100 },
-  { key: "job_no",       label: "NUMBER",              width: 100 },
-  { key: "date",         label: "DATE",                width: 90 },
-  { key: "job_type",     label: "JOB CATEGORY",        width: 160 },
-  { key: "party_name",   label: "FIRM NAME",           width: 180 },
-  { key: "iec_no",       label: "IEC NUMBER",          width: 120 },
-  { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 150 },
-  { key: "licence_date", label: "AUTH DATE",           width: 90 },
-  { key: "bg_number",    label: "BG NUMBER",           width: 110 },
-  { key: "bg_amount",    label: "BG AMT",              width: 90 },
-  { key: "bg_date",      label: "BG DATE",             width: 90 },
-  { key: "bg_expiry_date","label": "BG EXPIRY DATE",   width: 110 },
-  { key: "bond_number",  label: "BOND NUMBER",         width: 110 },
-  { key: "bond_date",    label: "BOND DATE",           width: 90 },
-  { key: "port_code",    label: "PORT CODE",           width: 90 },
-  { key: "job_status",   label: "JOB STATUS",          width: 120 },
 ];
 
 
@@ -317,6 +312,14 @@ function AuthorizationRegistrationList({ onCountChange }) {
       showToast("Record deleted", "success");
       getData();
     } catch (err) { console.error(err); showToast("Delete failed", "error"); }
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${id}`, { job_status: newStatus });
+      setRows((prev) => prev.map((r) => (r._id === id ? { ...r, job_status: newStatus } : r)));
+      showToast("Status updated", "success");
+    } catch (err) { console.error(err); showToast("Failed to update status", "error"); }
   };
 
   const handleSubmit = async () => {
@@ -527,7 +530,20 @@ function AuthorizationRegistrationList({ onCountChange }) {
                         );
                       }
                       if (col.key === "job_status") {
-                        return <td key={col.key}><StatusBadge value={val} /></td>;
+                        return (
+                          <td key={col.key} onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={val}
+                              onChange={(e) => handleStatusChange(row._id, e.target.value)}
+                              style={{ padding: "4px 8px", borderRadius: "3px", border: "1px solid #d0d7e2", width: "100%", fontSize: "11px", outline: "none", background: "#fff" }}
+                            >
+                              <option value="">-- Select --</option>
+                              {JOB_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          </td>
+                        );
                       }
                       if (col.key === "party_name") {
                         return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{val}</td>;

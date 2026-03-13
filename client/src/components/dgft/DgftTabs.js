@@ -1,4 +1,6 @@
-import React, { useState,  useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import axios from "axios";
+
 import "./dgft.scss";
 import DgftRegisterList from "./DgftRegisterList";
 import AuthorizationRegistrationList from "./AuthorizationRegistrationList";
@@ -85,15 +87,33 @@ function DgftTabs() {
 
   const [counts, setCounts] = useState({ "auth-reg": 0, "reg-format": 0 });
 
-  const handleCountUpdate = useCallback((tabKey, count) => {
-    setCounts((prev) => {
-      if (prev[tabKey] === count) return prev;
-      return { ...prev, [tabKey]: count };
-    });
+  const fetchCounts = useCallback(async () => {
+    try {
+      const api = process.env.REACT_APP_API_STRING;
+      const [res1, res2] = await Promise.all([
+        axios.get(`${api}/get-dgft-registers`),
+        axios.get(`${api}/get-authorization-registrations`)
+      ]);
+      setCounts({
+        "auth-reg": res1.data.length,
+        "reg-format": res2.data.length
+      });
+    } catch (err) {
+      console.error("Error fetching DGFT counts:", err);
+    }
   }, []);
 
-  const handleAuthRegCount = useCallback((c) => handleCountUpdate("auth-reg", c), [handleCountUpdate]);
-  const handleRegFormatCount = useCallback((c) => handleCountUpdate("reg-format", c), [handleCountUpdate]);
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
+
+  const handleAuthRegCount = useCallback((c) => {
+    setCounts(prev => ({ ...prev, "auth-reg": c }));
+  }, []);
+
+  const handleRegFormatCount = useCallback((c) => {
+    setCounts(prev => ({ ...prev, "reg-format": c }));
+  }, []);
 
   return (
     <div style={s.wrapper}>

@@ -1,0 +1,178 @@
+import React, { useState } from 'react';
+import TabBar from './TabBar';
+import Toolbar from './Toolbar';
+import ChargesTable from './ChargesTable';
+import AddChargeModal from './AddChargeModal';
+import EditChargeModal from './EditChargeModal';
+import FileUploadModal from './FileUploadModal';
+import ConfirmDialog from './ConfirmDialog';
+import { useCharges } from './useCharges';
+import './charges.css';
+
+const ChargesGrid = ({ parentId, parentModule, readOnly = false }) => {
+  const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
+  
+  const [activeTab, setActiveTab] = useState('particulars');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingCharges, setEditingCharges] = useState([]);
+  
+  const [fileModalCharge, setFileModalCharge] = useState(null); // { charge: object, tab: 'revenue' | 'cost' | 'particulars' }
+  const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
+
+  const handleSelectCharge = (id) => {
+    const newSel = new Set(selectedIds);
+    if (newSel.has(id)) newSel.delete(id);
+    else newSel.add(id);
+    setSelectedIds(newSel);
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(new Set(charges.map(c => c._id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleAddSelected = async (selectedHeads) => {
+    const newCharges = selectedHeads.map(head => ({
+      parentId,
+      parentModule,
+      chargeHead: head.name,
+      category: head.category,
+      revenue: {},
+      cost: {},
+      copyToCost: true
+    }));
+    await addChargesBulk(newCharges);
+    setIsAddOpen(false);
+  };
+
+  const handleSaveEdit = async (updatedCharges) => {
+    for (const charge of updatedCharges) {
+      await updateCharge(charge._id, charge);
+    }
+    setEditingCharges([]);
+    setSelectedIds(new Set());
+  };
+
+  const handleDeleteSelected = async () => {
+    setConfirmState({
+      open: true,
+      title: 'Delete Charges',
+      message: `Are you sure you want to delete ${selectedIds.size} selected charges? This action cannot be undone.`,
+      onConfirm: async () => {
+        for (const id of selectedIds) {
+          await deleteCharge(id);
+        }
+        setSelectedIds(new Set());
+        setConfirmState(prev => ({ ...prev, open: false }));
+      }
+    });
+  };
+
+  const handleAttachFiles = async (url) => {
+    if (fileModalCharge) {
+      const { charge, tab } = fileModalCharge;
+      const updateData = {};
+      
+      if (tab === 'revenue' || tab === 'particulars') {
+        updateData.revenue = { ...(charge.revenue || {}), url };
+      } else if (tab === 'cost') {
+        updateData.cost = { ...(charge.cost || {}), url };
+      }
+      
+      await updateCharge(charge._id, updateData);
+      setFileModalCharge(null);
+    }
+  };
+
+  const handleRemoveAttachment = async (charge, tab) => {
+    setConfirmState({
+      open: true,
+      title: 'Remove Attachment',
+      message: 'Are you sure you want to remove this attachment?',
+      onConfirm: async () => {
+        const updateData = {};
+        if (tab === 'revenue' || tab === 'particulars') {
+          updateData.revenue = { ...(charge.revenue || {}), url: null };
+        } else if (tab === 'cost') {
+          updateData.cost = { ...(charge.cost || {}), url: null };
+        }
+        await updateCharge(charge._id, updateData);
+        setConfirmState(prev => ({ ...prev, open: false }));
+      }
+    });
+  };
+
+  const isDeleteDisabled = selectedIds.size === 0 || readOnly;
+
+  return (
+    <div className="charges-comp-wrapper">
+      {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
+      
+      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      <Toolbar 
+         onAddCharge={() => setIsAddOpen(true)}
+         onDeleteSelected={handleDeleteSelected}
+         readOnly={readOnly}
+         isDeleteDisabled={isDeleteDisabled}
+      />
+      
+      <div style={{ position: 'relative' }}>
+        {loading && <div style={{ position:'absolute', top: 0, left: 0, right: 0, height: '2px', background: '#5580a8', zIndex: 10 }} />}
+        <ChargesTable 
+          charges={charges}
+          activeTab={activeTab}
+          selectedIds={selectedIds}
+          onSelectCharge={handleSelectCharge}
+          onSelectAll={handleSelectAll}
+          onOpenFileModal={(charge) => setFileModalCharge({ charge, tab: activeTab })}
+          onRemoveAttachment={handleRemoveAttachment}
+          onEditCharge={(charge) => setEditingCharges([charge])}
+          readOnly={readOnly}
+        />
+      </div>
+
+      <AddChargeModal 
+        isOpen={isAddOpen} 
+        onClose={() => setIsAddOpen(false)} 
+        onAddSelected={handleAddSelected}
+      />
+
+      <EditChargeModal 
+        isOpen={editingCharges.length > 0} 
+        onClose={() => setEditingCharges([])}
+        selectedCharges={editingCharges}
+        onSave={handleSaveEdit}
+      />
+
+      {fileModalCharge && (
+        <FileUploadModal 
+          isOpen={!!fileModalCharge}
+          onClose={() => setFileModalCharge(null)}
+          chargeLabel={`${fileModalCharge.charge.chargeHead} (${fileModalCharge.tab})`}
+          initialUrl={
+            fileModalCharge.tab === 'cost' 
+              ? fileModalCharge.charge.cost?.url 
+              : fileModalCharge.charge.revenue?.url
+          }
+          onAttach={handleAttachFiles}
+        />
+      )}
+
+      <ConfirmDialog 
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState(prev => ({ ...prev, open: false }))}
+      />
+    </div>
+  );
+};
+
+export default ChargesGrid;

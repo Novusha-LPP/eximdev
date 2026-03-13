@@ -101,6 +101,77 @@ const descriptionDetailsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ChargeLineSchema = new mongoose.Schema({
+  chargeDescription: String,
+  basis: {
+    type: String,
+    enum: [
+      "Per Package", "By Gross Wt", "By Chg Wt", "By Volume",
+      "Per Container", "Per TEU", "Per FEU", "% of Other Charges",
+      "% of Assessable Value", "% of AV+Duty", "% of CIF Value",
+      "Per Vehicle", "% of Invoice Value", "Per License",
+      "Per B/E - Per Shp", "% of Product Value", "Per Labour",
+      "Per Product", "By Net Wt", "Per Invoice"
+    ],
+    default: "Per B/E - Per Shp"
+  },
+  qty: { type: Number, default: 1 },
+  unit: { type: String, default: "" },
+  currency: { type: String, default: "INR" },
+  rate: { type: Number, default: 0 },
+  amount: { type: Number, default: 0 },
+  amountINR: { type: Number, default: 0 },
+  exchangeRate: { type: Number, default: 1 },
+  overrideAutoRate: { type: Boolean, default: false },
+  isPosted: { type: Boolean, default: false },
+  party: { type: mongoose.Schema.Types.ObjectId },
+  partyName: { type: String },
+  partyType: { type: String },
+  branchCode: { type: String },
+  url: { type: String }
+}, { _id: false });
+
+const ChargeSchema = new mongoose.Schema({
+  chargeHead: { type: String, required: true },
+  chargeHeadRef: { type: mongoose.Schema.Types.ObjectId, ref: "ChargeHead" },
+  category: { type: String },
+  costCenter: { type: String },
+  remark: { type: String },
+
+  revenue: ChargeLineSchema,
+  cost: ChargeLineSchema,
+  copyToCost: { type: Boolean, default: true },
+
+
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+ChargeSchema.pre("save", function (next) {
+  if (this.revenue) {
+    this.revenue.amount = (this.revenue.rate || 0) * (this.revenue.qty || 0);
+    this.revenue.amountINR = this.revenue.amount * (this.revenue.exchangeRate || 1);
+  }
+  if (this.cost) {
+    this.cost.amount = (this.cost.rate || 0) * (this.cost.qty || 0);
+    this.cost.amountINR = this.cost.amount * (this.cost.exchangeRate || 1);
+  }
+
+  if (this.isNew && this.copyToCost && this.revenue && this.cost) {
+    this.cost.rate = this.revenue.rate;
+    this.cost.amount = this.revenue.amount;
+    this.cost.amountINR = this.revenue.amountINR;
+    this.cost.currency = this.revenue.currency;
+    this.cost.basis = this.revenue.basis;
+  }
+
+  this.updatedAt = Date.now();
+  next();
+});
+
 const jobSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
@@ -500,6 +571,7 @@ const jobSchema = new mongoose.Schema({
 
   /////////////////////////////////// Charges Details
   DsrCharges: [DsrchargesSchema],
+  charges: [ChargeSchema],
 
   /////////////////////////////////// esanchit Charges Details
   esanchitCharges: [esanchitChargesSchema],

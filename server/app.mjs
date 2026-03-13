@@ -68,6 +68,7 @@ import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 
 // charges
 import Charges from "./routes/ChargesSection/ChargesSection.js";
+import chargesRoutes from "./routes/charges/chargesRoutes.mjs";
 
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
@@ -345,6 +346,7 @@ app.use(handleS3Deletation);
 
 // charges
 app.use(Charges);
+app.use("/api", chargesRoutes);
 
 // Accounts
 app.use("/api", Accounts);

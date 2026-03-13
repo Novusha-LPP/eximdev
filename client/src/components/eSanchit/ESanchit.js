@@ -249,7 +249,7 @@ function ESanchit() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { align: "center" },
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
         size: 250,
         Cell: ({ cell }) => {

@@ -18,6 +18,7 @@ const pointSchema = new mongoose.Schema({
     priority: { type: String, enum: ['Low', 'Medium', 'High', 'Emergency', 'P1', 'P2', 'P3', 'P4'], default: 'Low' },
     status: { type: String, enum: ['Green', 'Yellow', 'Red', 'Orange'], default: 'Red' },
     target_date: { type: Date }, // Can be optional if not always known
+    completion_date: { type: Date }, // Automatically set when status is Green
 
     responsible_person: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Opsional link to system user
     reviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

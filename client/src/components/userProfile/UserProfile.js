@@ -19,6 +19,7 @@ import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from "@mui/icons-material/Delete";
 import ImagePreview from "../gallery/ImagePreview";
 import FileUpload from "../gallery/FileUpload";
+import kpiPioneerBadge from "../../assets/images/kpi-pioneer-badge.png";
 
 
 
@@ -350,6 +351,10 @@ const UserProfile = ({ username: propUsername }) => {
                             <div className="info-row">
                                 <span className="label">Employment Type</span>
                                 <span className="value">{profileData.employment_type || 'N/A'}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Department</span>
+                                <span className="value strong" style={{ color: '#1a73e8' }}>{profileData.department || 'N/A'}</span>
                             </div>
                             <div className="info-row">
                                 <span className="label">Date of Birth</span>
@@ -761,6 +766,9 @@ const UserProfile = ({ username: propUsername }) => {
                         <div className="header-badges">
                             <span className="badge role">{profileData.role || 'User'}</span>
                             <span className="badge emp-id">ID: {profileData.username}</span>
+                            {(profileData.department === 'Export' || profileData.department === 'Exports') && (
+                                <img src={kpiPioneerBadge} alt="KPI Pioneer" className="kpi-pioneer-img-badge" />
+                            )}
                         </div>
                     </div>
                 </div>

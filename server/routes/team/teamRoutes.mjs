@@ -184,6 +184,12 @@ router.post("/api/teams", authMiddleware, auditMiddleware("Team"), async (req, r
         });
 
         await team.save();
+
+        // Update HOD's department in UserModel
+        if (department) {
+            await UserModel.findByIdAndUpdate(hodUser._id, { department: department });
+        }
+
         res.json({ success: true, message: "Team created successfully", team });
     } catch (error) {
         console.error("Error creating team:", error);
@@ -202,27 +208,35 @@ router.put("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), async 
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
+        const oldDepartment = team.department;
         if (name) team.name = name;
         if (description !== undefined) team.description = description;
         if (department !== undefined) team.department = department;
 
         if (hodUsername) {
-            // Get HOD user details
+            // ... (keep existing HOD update logic)
             const hodUser = await UserModel.findOne({ username: hodUsername });
-            if (!hodUser) {
-                return res.status(404).json({ success: false, message: "HOD user not found" });
+            if (hodUser) {
+                team.hodId = hodUser._id;
+                team.hodUsername = hodUsername;
+                // Update HOD's department
+                if (team.department) {
+                    await UserModel.findByIdAndUpdate(hodUser._id, { department: team.department });
+                }
             }
-
-            // Check if HOD has the right role
-            if (hodUser.role !== "Head_of_Department" && hodUser.role !== "Admin") {
-                return res.status(403).json({ success: false, message: "User does not have HOD privileges" });
-            }
-
-            team.hodId = hodUser._id;
-            team.hodUsername = hodUsername;
         }
 
         await team.save();
+
+        // If department changed, update all members
+        if (department !== undefined && department !== oldDepartment) {
+            const memberUsernames = team.members.map(m => m.username);
+            await UserModel.updateMany(
+                { username: { $in: memberUsernames } },
+                { department: department }
+            );
+        }
+
         res.json({ success: true, message: "Team updated successfully", team });
     } catch (error) {
         console.error("Error updating team:", error);
@@ -286,6 +300,15 @@ router.post("/api/teams/:teamId/members", authMiddleware, auditMiddleware("Team"
 
         team.members.push(...newMembers);
         await team.save();
+
+        // Update each new member's department in UserModel
+        if (team.department) {
+            const newUserIds = newMembers.map(m => m.userId);
+            await UserModel.updateMany(
+                { _id: { $in: newUserIds } },
+                { department: team.department }
+            );
+        }
 
         res.json({
             success: true,

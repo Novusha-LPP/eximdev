@@ -93,6 +93,16 @@ export const importMRMItems = async (data) => {
     }
 };
 
+// Bulk reorder MRM items
+export const reorderMRMItems = async (items) => {
+    try {
+        const response = await axios.put(`${API_URL}-bulk/reorder`, { items }, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Fetch users who have MRM module assigned
 export const fetchMRMUsers = async () => {
     try {

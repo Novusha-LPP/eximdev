@@ -70,9 +70,12 @@ const KPITemplateManager = () => {
         rows: []
     });
 
+    const [searchQuery, setSearchQuery] = useState('');
+
 
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
+    const [weightModal, setWeightModal] = useState({ open: false, template: null });
     const [userDepartment, setUserDepartment] = useState(null);
     const [translating, setTranslating] = useState(false);
     const [translationLang, setTranslationLang] = useState(null); // 'gu' or 'hi'
@@ -182,6 +185,30 @@ const KPITemplateManager = () => {
         setCurrentTemplate({ ...currentTemplate, department: selected });
     };
 
+    const handleWeightUpdate = async () => {
+        if (!weightModal.template) return;
+        try {
+            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/template`, {
+                id: weightModal.template._id,
+                name: weightModal.template.name,
+                department: weightModal.template.department,
+                rows: weightModal.template.rows
+            }, { withCredentials: true });
+
+            showMessage("Weights updated successfully!");
+            setWeightModal({ open: false, template: null });
+            fetchTemplates();
+        } catch (error) {
+            showMessage("Failed to update weights", "error");
+        }
+    };
+
+    const updateWeightInModal = (idx, weight) => {
+        const updatedTemplate = { ...weightModal.template };
+        updatedTemplate.rows[idx].weight = weight;
+        setWeightModal({ ...weightModal, template: updatedTemplate });
+    };
+
     // ─── Translation Handler ─────────────────────────────────────────
     const handleTranslate = async (lang) => {
         if (!currentTemplate.rows || currentTemplate.rows.length === 0) {
@@ -213,6 +240,30 @@ const KPITemplateManager = () => {
             setTranslationLang(null);
         }
     };
+
+    // ─── Filter & Grouping Logic ──────────────────────────────────────────
+    const filteredTemplates = templates.filter(tmpl => {
+        const q = searchQuery.toLowerCase();
+        const name = (tmpl.name || '').toLowerCase();
+        const owner = `${tmpl.owner?.first_name || ''} ${tmpl.owner?.last_name || ''}`.toLowerCase();
+        const team = (tmpl.teamName || '').toLowerCase();
+        const dept = (tmpl.department || '').toLowerCase();
+        return name.includes(q) || owner.includes(q) || team.includes(q) || dept.includes(q);
+    });
+
+    const groupedTemplates = filteredTemplates.reduce((groups, tmpl) => {
+        const team = tmpl.teamName || 'General';
+        if (!groups[team]) groups[team] = [];
+        groups[team].push(tmpl);
+        return groups;
+    }, {});
+
+    // Sort teams: General last, others alphabetical
+    const sortedTeams = Object.keys(groupedTemplates).sort((a, b) => {
+        if (a === 'General') return 1;
+        if (b === 'General') return -1;
+        return a.localeCompare(b);
+    });
 
     // Editor View
     if (isEditing) {
@@ -576,6 +627,27 @@ const KPITemplateManager = () => {
                                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Overview</span>
                             </div>
 
+                            <div style={{ marginBottom: '20px' }}>
+                                <div style={{ position: 'relative' }}>
+                                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>🔍</span>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search members or templates..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px 12px 10px 36px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            fontSize: '0.85rem',
+                                            outline: 'none',
+                                            background: '#fff'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                                 <div style={{ width: 40, height: 40, fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', background: '#e0f2fe', color: '#0284c7' }}>
                                     <Icons.Category />
@@ -613,11 +685,12 @@ const KPITemplateManager = () => {
                 >
                     <div className="section-header" style={{ justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h2>Available Templates</h2>
+                            <h2>{user?.role === 'Admin' ? 'All Templates' : (user?.role === 'Head_of_Department' ? 'My & Team Templates' : 'My Templates')}</h2>
                             <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', color: '#64748b' }}>
                                 {templates.length} items
                             </span>
                         </div>
+                        {/* Optional Toggle for Future: My vs Shared */}
                     </div>
                     <div className="section-body" style={{ padding: 0 }}>
                         {templates.length > 0 ? (
@@ -626,6 +699,7 @@ const KPITemplateManager = () => {
                                     <thead style={{ background: '#f8fafc' }}>
                                         <tr>
                                             <th style={{ paddingLeft: '24px' }}>Template Name</th>
+                                            <th>Owner</th>
                                             <th>Departments</th>
                                             <th style={{ textAlign: 'center' }}>Metrics</th>
                                             <th style={{ textAlign: 'center' }}>Languages</th>
@@ -634,64 +708,94 @@ const KPITemplateManager = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <AnimatePresence>
-                                            {templates.map((tmpl, i) => (
-                                                <motion.tr
-                                                    key={tmpl._id}
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ delay: i * 0.05 }}
-                                                    style={{ borderBottom: '1px solid #f1f5f9' }}
-                                                >
-                                                    <td style={{ paddingLeft: '24px', fontWeight: 600, color: '#334155' }}>{tmpl.name}</td>
-                                                    <td>
-                                                        <span style={{
-                                                            background: '#eef2ff', color: '#4f46e5',
-                                                            padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500
-                                                        }}>
-                                                            {Array.isArray(tmpl.department) ? (tmpl.department[0] || '-') : (tmpl.department || '-')}
-                                                        </span>
+                                        {sortedTeams.map(teamName => (
+                                            <React.Fragment key={teamName}>
+                                                {/* Team Header Row */}
+                                                <tr style={{ background: '#f1f5f9' }}>
+                                                    <td colSpan="7" style={{ padding: '8px 24px', fontWeight: 800, fontSize: '0.75rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                        <Icons.Category style={{ width: 14, height: 14, marginRight: 8, verticalAlign: 'middle' }} />
+                                                        {teamName}
                                                     </td>
-                                                    <td style={{ textAlign: 'center', color: '#64748b' }}>{tmpl.rows?.length || 0}</td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                                            <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>EN</span>
-                                                            {tmpl.rows?.some(r => r.label_gu) && (
-                                                                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', background: '#FFF7ED', color: '#C2410C', border: '1px solid #FDBA74', fontWeight: 600 }}>GU</span>
-                                                            )}
-                                                            {tmpl.rows?.some(r => r.label_hi) && (
-                                                                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', background: '#FFF1F2', color: '#BE123C', border: '1px solid #FDA4AF', fontWeight: 600 }}>HI</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <span style={{
-                                                            background: '#f1f5f9', color: '#64748b',
-                                                            padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontFamily: 'monospace'
-                                                        }}>v{tmpl.version}</span>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', paddingRight: '24px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                                            <button
-                                                                className="modern-btn icon-only"
-                                                                onClick={() => handleEdit(tmpl)}
-                                                                title="Edit"
-                                                                style={{ color: '#0ea5e9' }}
-                                                            >
-                                                                <Icons.Edit />
-                                                            </button>
-                                                            <button
-                                                                className="modern-btn icon-only danger"
-                                                                onClick={() => handleDeleteClick(tmpl)}
-                                                                title="Delete"
-                                                            >
-                                                                <Icons.Delete />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </motion.tr>
-                                            ))}
-                                        </AnimatePresence>
+                                                </tr>
+                                                <AnimatePresence>
+                                                    {groupedTemplates[teamName].map((tmpl, i) => (
+                                                        <motion.tr
+                                                            key={tmpl._id}
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            transition={{ delay: i * 0.05 }}
+                                                            style={{ borderBottom: '1px solid #f1f5f9' }}
+                                                        >
+                                                            <td style={{ paddingLeft: '24px', fontWeight: 600, color: '#334155' }}>{tmpl.name}</td>
+                                                            <td style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                                                                {tmpl.owner?._id === user?._id ? (
+                                                                    <span style={{ color: '#0ea5e9', fontWeight: 600 }}>Me</span>
+                                                                ) : (
+                                                                    `${tmpl.owner?.first_name || ''} ${tmpl.owner?.last_name || ''}`
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                <span style={{
+                                                                    background: '#eef2ff', color: '#4f46e5',
+                                                                    padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500
+                                                                }}>
+                                                                    {Array.isArray(tmpl.department) ? (tmpl.department[0] || '-') : (tmpl.department || '-')}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', color: '#64748b' }}>{tmpl.rows?.length || 0}</td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                    <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>EN</span>
+                                                                    {tmpl.rows?.some(r => r.label_gu) && (
+                                                                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', background: '#FFF7ED', color: '#C2410C', border: '1px solid #FDBA74', fontWeight: 600 }}>GU</span>
+                                                                    )}
+                                                                    {tmpl.rows?.some(r => r.label_hi) && (
+                                                                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', background: '#FFF1F2', color: '#BE123C', border: '1px solid #FDA4AF', fontWeight: 600 }}>HI</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <span style={{
+                                                                    background: '#f1f5f9', color: '#64748b',
+                                                                    padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontFamily: 'monospace'
+                                                                }}>v{tmpl.version}</span>
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', paddingRight: '24px' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                                    {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && (
+                                                                        <button
+                                                                            className="modern-btn icon-only"
+                                                                            onClick={() => setWeightModal({ open: true, template: JSON.parse(JSON.stringify(tmpl)) })}
+                                                                            title="Edit Weights"
+                                                                            style={{ color: '#8b5cf6' }}
+                                                                        >
+                                                                            <Icons.Settings />
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        className="modern-btn icon-only"
+                                                                        onClick={() => handleEdit(tmpl)}
+                                                                        title="Edit"
+                                                                        style={{ color: '#0ea5e9' }}
+                                                                    >
+                                                                        <Icons.Edit />
+                                                                    </button>
+                                                                    <button
+                                                                        className="modern-btn icon-only danger"
+                                                                        onClick={() => handleDeleteClick(tmpl)}
+                                                                        disabled={user?.role !== 'Admin' && user?.role !== 'Head_of_Department' && tmpl.owner?._id !== user?._id}
+                                                                        style={{ opacity: (user?.role !== 'Admin' && user?.role !== 'Head_of_Department' && tmpl.owner?._id !== user?._id) ? 0.3 : 1 }}
+                                                                        title="Delete"
+                                                                    >
+                                                                        <Icons.Delete />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </motion.tr>
+                                                    ))}
+                                                </AnimatePresence>
+                                            </React.Fragment>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -721,6 +825,63 @@ const KPITemplateManager = () => {
                 }}>
                     {message.text}
                 </div>
+            )}
+
+            {/* Weight Edit Modal */}
+            {weightModal.open && createPortal(
+                <div className="kpi-confirm-overlay" onClick={() => setWeightModal({ open: false, template: null })}>
+                    <motion.div
+                        className="kpi-confirm-modal"
+                        onClick={(e) => e.stopPropagation()}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        style={{ maxWidth: '600px', width: '90%' }}
+                    >
+                        <div className="kpi-confirm-header" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <h3 style={{ margin: 0 }}>Edit KPI Weights</h3>
+                                <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0 0 0' }}>Template: {weightModal.template?.name}</p>
+                            </div>
+                            <button className="close-btn" onClick={() => setWeightModal({ open: false, template: null })}>
+                                <Icons.Close />
+                            </button>
+                        </div>
+                        <div className="kpi-confirm-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {weightModal.template?.rows.map((row, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                        <div style={{ flex: 1, paddingRight: '16px' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>{row.label}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{row.type === 'checkbox' ? 'Checkbox Type' : 'Numeric Type'}</div>
+                                        </div>
+                                        <div style={{ width: '140px' }}>
+                                            <select
+                                                value={row.weight || 3}
+                                                onChange={(e) => updateWeightInModal(idx, Number(e.target.value))}
+                                                style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                                            >
+                                                <option value={5}>5 (Critical)</option>
+                                                <option value={4}>4 (Complex)</option>
+                                                <option value={3}>3 (Standard)</option>
+                                                <option value={2}>2 (Routine)</option>
+                                                <option value={1}>1 (Admin)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="kpi-confirm-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                            <button className="modern-btn secondary" onClick={() => setWeightModal({ open: false, template: null })}>
+                                Cancel
+                            </button>
+                            <button className="modern-btn primary" style={{ backgroundColor: '#8b5cf6' }} onClick={handleWeightUpdate}>
+                                <Icons.Save /> Update Weights
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>,
+                document.body
             )}
 
             {/* Delete Modal */}

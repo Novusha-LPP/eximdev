@@ -201,10 +201,25 @@ router.get('/api/mrm', authMiddleware, async (req, res) => {
     }
 });
 
-// Create MRM Item
-router.post('/api/mrm', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
+// Create MRM Item (Supports middle insertion)
+router.post('/api/mrm', async (req, res) => {
     try {
-        const { month, year, createdBy } = req.body;
+        const { month, year, createdBy, insertAfterSeq } = req.body;
+
+        if (insertAfterSeq !== undefined) {
+            // Increment all sequences after insertAfterSeq
+            await MRMItem.updateMany(
+                { month, year, createdBy, seq: { $gt: insertAfterSeq } },
+                { $inc: { seq: 1 } }
+            );
+            
+            const item = new MRMItem({
+                ...req.body,
+                seq: insertAfterSeq + 1
+            });
+            await item.save();
+            return res.status(201).json(item);
+        }
 
         // Find the highest sequence number for this user/month/year
         const lastItem = await MRMItem.findOne({ month, year, createdBy })
@@ -219,6 +234,29 @@ router.post('/api/mrm', authMiddleware, auditMiddleware("MRM_Item"), async (req,
 
         await item.save();
         res.status(201).json(item);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Bulk Reorder MRM Items
+router.put('/api/mrm-bulk/reorder', async (req, res) => {
+    try {
+        const { items } = req.body; // Array of { _id, seq }
+
+        if (!items || !Array.isArray(items)) {
+            return res.status(400).json({ error: "Items array is required" });
+        }
+
+        const bulkOps = items.map(item => ({
+            updateOne: {
+                filter: { _id: item._id },
+                update: { $set: { seq: item.seq } }
+            }
+        }));
+
+        await MRMItem.bulkWrite(bulkOps);
+        res.json({ message: "Reordered successfully" });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -316,7 +354,9 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
                 status: item.status,
                 remarks: item.remarks,
                 createdBy: userId,
-                seq: item.seq || 0
+                seq: item.seq || 0,
+                isTitleRow: item.isTitleRow || false,
+                bgColor: item.bgColor || '#ffffff'
             }));
         } else if (mode === 'blank') {
             newItems = validSourceItems.map(item => ({

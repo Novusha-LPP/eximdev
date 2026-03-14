@@ -11,14 +11,95 @@ import translate from "google-translate-api-x";
 const router = express.Router();
 
 // ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+const calculateKPIMetrics = (sheet) => {
+    let totalValueScore = 0;
+    let totalQuantity = 0;
+
+    const currentYear = Number(sheet.year);
+    const currentMonth = Number(sheet.month) - 1;
+
+    // Holidays, Festivals, Working Sundays
+    // Ensure we handle Mongoose arrays/maps correctly
+    const holidays = Array.isArray(sheet.holidays) ? sheet.holidays.map(Number) : [];
+    const festivals = Array.isArray(sheet.festivals) ? sheet.festivals.map(Number) : [];
+    const workingSundays = Array.isArray(sheet.working_sundays) ? sheet.working_sundays.map(Number) : [];
+
+    if (!sheet.rows || !Array.isArray(sheet.rows)) return {
+        total_value_score: 0,
+        average_complexity: 0,
+        total_quantity: 0,
+        performance_quadrant: "Drainer"
+    };
+
+    sheet.rows.forEach(row => {
+        let rowSum = 0;
+        
+        // Handle Map or Object
+        let dailyValues = row.daily_values;
+        if (dailyValues) {
+            const keys = dailyValues instanceof Map ? Array.from(dailyValues.keys()) : Object.keys(dailyValues);
+            
+            for (const d of keys) {
+                const dNum = Number(d);
+                if (isNaN(dNum)) continue;
+
+                const val = dailyValues instanceof Map ? dailyValues.get(d) : dailyValues[d];
+                const valNum = Number(val) || 0;
+
+                const dDate = new Date(currentYear, currentMonth, dNum);
+                const dayOfWeek = dDate.getDay(); // 0 is Sunday
+
+                // SKIP LOGIC
+                if (dayOfWeek === 0 && !workingSundays.includes(dNum)) continue;
+                if (holidays.includes(dNum)) continue;
+                if (festivals.includes(dNum)) continue;
+
+                rowSum += valNum;
+            }
+        }
+        
+        row.total = rowSum;
+        const rowWeight = Number(row.weight) || 3;
+        totalValueScore += (rowSum * rowWeight);
+        totalQuantity += rowSum;
+    });
+
+    const averageComplexity = totalQuantity > 0 ? (totalValueScore / totalQuantity) : 0;
+
+    // Thresholds
+    const WEIGHT_THRESHOLD = 3.0;
+    const VOLUME_THRESHOLD = 100;
+
+    let quadrant = "Drainer";
+    if (averageComplexity >= WEIGHT_THRESHOLD && totalQuantity >= VOLUME_THRESHOLD) quadrant = "Star";
+    else if (averageComplexity >= WEIGHT_THRESHOLD && totalQuantity < VOLUME_THRESHOLD) quadrant = "Specialist";
+    else if (averageComplexity < WEIGHT_THRESHOLD && totalQuantity >= VOLUME_THRESHOLD) quadrant = "Engine";
+
+    return {
+        total_value_score: totalValueScore,
+        average_complexity: Number(averageComplexity.toFixed(2)),
+        total_quantity: totalQuantity,
+        performance_quadrant: quadrant
+    };
+};
+
+// ==========================================
 // TEMPLATE ROUTES
 // ==========================================
 
 // Create or Update Template
 router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), async (req, res) => {
     try {
+        const { id, name, department, rows } = req.body;
         console.log("POST /api/kpi/template called", req.body);
-        const { name, department, rows, id } = req.body;
+        let targetDept = department;
+        if (Array.isArray(targetDept)) targetDept = targetDept[0];
+        if (!targetDept && !id) {
+            return res.status(400).json({ message: "Department is required" });
+        }
 
         if (id) {
             // Update existing logic (creates new version concept ideally, but for now simple update)
@@ -27,17 +108,35 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
             const existing = await KPITemplate.findById(id);
             if (!existing) return res.status(404).json({ message: "Template not found" });
 
+            // Authorization: Owner, Admin, or HOD of the owner
+            const isOwner = existing.owner.toString() === req.user._id.toString();
+            const isAdmin = req.user.role === 'Admin';
+            let isTeamHOD = false;
+            
+            if (!isOwner && !isAdmin && req.user.role === 'Head_of_Department') {
+                const team = await TeamModel.findOne({ 
+                    hodId: req.user._id, 
+                    'members.userId': existing.owner 
+                });
+                if (team) isTeamHOD = true;
+            }
+
+            if (!isOwner && !isAdmin && !isTeamHOD) {
+                return res.status(403).json({ message: "You are not authorized to edit this template" });
+            }
+
             // Deactivate old one
             existing.is_active = false;
-            await existing.save();
+            // Use findByIdAndUpdate for deactivation to bypass potential validation issues with legacy data
+            await KPITemplate.findByIdAndUpdate(existing._id, { is_active: false });
 
             // Create new version
             const newTemplate = new KPITemplate({
-                owner: req.user._id,
+                owner: existing.owner, // Keep original owner
                 name: name || existing.name,
-                department: department || existing.department,
+                department: targetDept || (Array.isArray(existing.department) ? existing.department[0] : existing.department) || "General",
                 rows: rows,
-                version: existing.version + 1,
+                version: (existing.version || 1) + 1,
                 parent_template: existing._id
             });
             await newTemplate.save();
@@ -48,7 +147,7 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
             const newTemplate = new KPITemplate({
                 owner: req.user._id,
                 name,
-                department,
+                department: targetDept || "General",
                 rows
             });
             await newTemplate.save();
@@ -60,14 +159,46 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
     }
 });
 
-// Get User's Templates
+// Get User's Templates (Admin/HOD see relevant shared templates)
 router.get("/api/kpi/templates", verifyToken, async (req, res) => {
     try {
-        // console.log("GET /api/kpi/templates called for user:", req.user._id);
-        // Get active templates for this user
-        const templates = await KPITemplate.find({ owner: req.user._id, is_active: true });
-        // console.log(`GET /api/kpi/templates found ${templates.length} templates`);
-        res.json(templates);
+        const isAdmin = req.user.role === 'Admin';
+        const isHOD = req.user.role === 'Head_of_Department';
+
+        let query = { is_active: true };
+
+        if (isAdmin) {
+            // Admin sees all active templates
+        } else if (isHOD) {
+            // HOD sees their own templates OR templates from their team members
+            const teams = await TeamModel.find({ hodId: req.user._id });
+            const memberIds = new Set([req.user._id.toString()]);
+            teams.forEach(t => {
+                t.members.forEach(m => memberIds.add(m.userId.toString()));
+            });
+            query.owner = { $in: Array.from(memberIds) };
+        } else {
+            // Regular user only sees their own
+            query.owner = req.user._id;
+        }
+
+        const templates = await KPITemplate.find(query).populate('owner', 'first_name last_name username').lean();
+        
+        // Enrich with team info
+        const teams = await TeamModel.find({ isActive: true }).lean();
+        const enrichedTemplates = templates.map(tmpl => {
+            const ownerId = tmpl.owner?._id?.toString();
+            const userTeam = teams.find(t => 
+                t.hodId?.toString() === ownerId || 
+                t.members.some(m => m.userId?.toString() === ownerId)
+            );
+            return {
+                ...tmpl,
+                teamName: userTeam ? userTeam.name : 'General'
+            };
+        });
+
+        res.json(enrichedTemplates);
     } catch (err) {
         console.error("GET /api/kpi/templates ERROR:", err);
         res.status(500).json({ message: "Server Error" });
@@ -303,7 +434,7 @@ router.get("/api/kpi/admin/all-sheets", verifyToken, async (req, res) => {
     }
 });
 
-// Admin: Get Stats (Submission Rates per Dept)
+// Admin: Get Stats (Submission Rates per Team)
 router.get("/api/kpi/admin/stats", verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'Admin') {
@@ -313,31 +444,41 @@ router.get("/api/kpi/admin/stats", verifyToken, async (req, res) => {
         const { year, month } = req.query;
         if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
 
-        const stats = await KPISheet.aggregate([
-            {
-                $match: {
-                    year: parseInt(year),
-                    month: parseInt(month)
-                }
-            },
-            {
-                $unwind: "$department" // Deconstruct array fields
-            },
-            {
-                $group: {
-                    _id: "$department",
-                    total: { $sum: 1 },
-                    submitted: { $sum: { $cond: [{ $eq: ["$status", "SUBMITTED"] }, 1, 0] } },
-                    approved: { $sum: { $cond: [{ $eq: ["$status", "APPROVED"] }, 1, 0] } },
-                    rejected: { $sum: { $cond: [{ $eq: ["$status", "REJECTED"] }, 1, 0] } },
-                    draft: { $sum: { $cond: [{ $eq: ["$status", "DRAFT"] }, 1, 0] } }
-                }
-            }
-        ]);
+        const iYear = parseInt(year);
+        const iMonth = parseInt(month);
+
+        // Fetch all active teams
+        const teams = await TeamModel.find({ isActive: true });
+        
+        const stats = [];
+
+        for (const team of teams) {
+            // Get all member IDs including HOD
+            const memberIds = team.members.map(m => m.userId.toString());
+            if (team.hodId) memberIds.push(team.hodId.toString());
+            
+            const uniqueMemberIds = [...new Set(memberIds)];
+
+            // Find sheets for these users
+            const sheets = await KPISheet.find({
+                year: iYear,
+                month: iMonth,
+                user: { $in: uniqueMemberIds }
+            });
+
+            stats.push({
+                _id: team.name,
+                total: uniqueMemberIds.length,
+                submitted: sheets.filter(s => ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"].includes(s.status)).length,
+                approved: sheets.filter(s => s.status === "APPROVED").length,
+                rejected: sheets.filter(s => s.status === "REJECTED").length,
+                draft: sheets.filter(s => s.status === "DRAFT").length
+            });
+        }
 
         res.json(stats);
     } catch (err) {
-        // console.error("GET /api/kpi/admin/stats ERROR:", err);
+        console.error("GET /api/kpi/admin/stats ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });
@@ -349,23 +490,41 @@ router.get("/api/kpi/admin/submission-status", verifyToken, async (req, res) => 
             return res.status(403).json({ message: "Admin access required" });
         }
 
-        const { year, month, department } = req.query;
+        const { year, month, department, team: teamName } = req.query;
         if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
 
         const iYear = parseInt(year);
         const iMonth = parseInt(month);
 
-        // 1. Get all active users
+        let targetUserIds = null;
+
+        // If team is specified, get members of that team
+        if (teamName) {
+            const team = await TeamModel.findOne({ name: teamName, isActive: true });
+            if (team) {
+                targetUserIds = team.members.map(m => m.userId.toString());
+                if (team.hodId) targetUserIds.push(team.hodId.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
+        }
+
+        // 1. Get users based on team, department, or all
         let userQuery = { isActive: { $ne: false } };
-        if (department) userQuery.department = department;
+        if (targetUserIds) {
+            userQuery._id = { $in: targetUserIds };
+        } else if (department) {
+            userQuery.department = department;
+        }
 
         const allUsers = await UserModel.find(userQuery, 'first_name last_name email department');
+        const allUserIdsFound = allUsers.map(u => u._id);
 
-        // 2. Get all KPI sheets for this month/year
-        let sheetQuery = { year: iYear, month: iMonth };
-        if (department) sheetQuery.department = department;
-        const sheets = await KPISheet.find(sheetQuery)
-            .populate('user', 'first_name last_name email');
+        // 2. Get all KPI sheets for these users in this month/year
+        const sheets = await KPISheet.find({
+            year: iYear,
+            month: iMonth,
+            user: { $in: allUserIdsFound }
+        }).populate('user', 'first_name last_name email');
 
         // 3. Get deadline for this month
         const getSubmissionDeadline = async (y, m) => {
@@ -451,9 +610,13 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
             .populate('assigned_signatories.verified_by', 'first_name last_name')
             .populate('assigned_signatories.approved_by', 'first_name last_name');
 
-        if (!sheet) {
-            console.log(`GET /api/kpi/sheet/${req.params.id} - Not Found`);
-            return res.status(404).json({ message: "Sheet not found" });
+        if (sheet.status !== 'DRAFT' && (!sheet.summary?.total_value_score || sheet.summary?.total_value_score === 0)) {
+            console.log(`GET /api/kpi/sheet/${req.params.id} - Fixing missing metrics for ${sheet.status} sheet`);
+            const metrics = calculateKPIMetrics(sheet);
+            sheet.summary = Object.assign({}, sheet.summary?.toObject() || {}, metrics);
+            sheet.markModified('summary');
+            sheet.markModified('rows');
+            await sheet.save();
         }
         console.log(`GET /api/kpi/sheet/${req.params.id} - Success`);
         return res.json(sheet);
@@ -903,24 +1066,10 @@ router.post("/api/kpi/sheet/holiday", verifyToken, auditMiddleware("KPI_Sheet"),
         const currentYear = sheet.year;
         const currentMonth = sheet.month - 1;
 
-        sheet.rows.forEach(row => {
-            let sum = 0;
-            for (let [d, val] of row.daily_values.entries()) {
-                const dNum = Number(d);
-                const dDate = new Date(currentYear, currentMonth, dNum);
-                // Skip Sundays
-                if (dDate.getDay() === 0) continue;
-                // Skip Leaves (Full Day)
-                if (sheet.holidays.includes(dNum)) continue;
-                // Skip Festivals
-                if (sheet.festivals.includes(dNum)) continue;
-
-                // Half Days: We DO NOT skip. They count towards total (as they are not "Leaves")
-                // Code continues here implies adding value
-                sum += val;
-            }
-            row.total = sum;
-        });
+        // Use centralized helper to recalculate everything
+        const metrics = calculateKPIMetrics(sheet);
+        // Only update row totals in this route, metrics will be updated on submit
+        // However, calculateKPIMetrics ALREADY updated row.total in-memory
 
         await sheet.save();
         console.log("POST /api/kpi/sheet/holiday - Success, Type:", type);
@@ -982,6 +1131,14 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
         if (summary) {
             sheet.summary = { ...sheet.summary, ...summary, submission_date: new Date() };
         }
+
+        // Always recalculate metrics to ensure they are present and correct
+        const metrics = calculateKPIMetrics(sheet);
+        sheet.summary = Object.assign({}, sheet.summary?.toObject() || {}, metrics, {
+            submission_date: sheet.summary?.submission_date || new Date()
+        });
+        sheet.markModified('summary');
+        sheet.markModified('rows'); // Ensure row total changes are detected
 
         sheet.status = "SUBMITTED";
         sheet.approval_history.push({
@@ -1144,8 +1301,15 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             if (sheet.status !== "SUBMITTED") return res.status(400).json({ message: "Sheet is not in Submitted state" });
 
             // Validate User - Admin, Shalini, Suraj, or assigned checker can check
+            // Also allow HOD to check any of their team members' sheets
+            let isTeamHOD = false;
+            if (req.user.role === 'Head_of_Department') {
+                const team = await TeamModel.findOne({ hodId: req.user._id, 'members.userId': sheet.user });
+                if (team) isTeamHOD = true;
+            }
+
             const isAssignedChecker = sheet.assigned_signatories?.checked_by?.toString() === currentUserId;
-            if (!isAdmin && !isShalini && !isSuraj && !isAssignedChecker) {
+            if (!isAdmin && !isShalini && !isSuraj && !isAssignedChecker && !isTeamHOD) {
                 return res.status(403).json({ message: "You are not authorized to Check this sheet" });
             }
 
@@ -1158,37 +1322,11 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
                 });
             }
 
-            // Calculate Performance Metrics
-            let totalValueScore = 0;
-            let totalQuantity = 0;
-
-            sheet.rows.forEach(row => {
-                const rowTotal = Number(row.total) || 0;
-                const rowWeight = Number(row.weight) || 3;
-                totalValueScore += (rowTotal * rowWeight);
-                totalQuantity += rowTotal;
-            });
-
-            const averageComplexity = totalQuantity > 0 ? (totalValueScore / totalQuantity) : 0;
-
-            // Basic Thresholds for Quadrant Calculation
-            const WEIGHT_THRESHOLD = 3.0; // Needs >= 3 to be "High weight"
-            const VOLUME_THRESHOLD = 100; // Subjective threshold for "High Volume"
-
-            let quadrant = "";
-            if (averageComplexity >= WEIGHT_THRESHOLD && totalQuantity >= VOLUME_THRESHOLD) quadrant = "Star";
-            else if (averageComplexity >= WEIGHT_THRESHOLD && totalQuantity < VOLUME_THRESHOLD) quadrant = "Specialist";
-            else if (averageComplexity < WEIGHT_THRESHOLD && totalQuantity >= VOLUME_THRESHOLD) quadrant = "Engine";
-            else quadrant = "Drainer";
-
-            const existingSummary = sheet.summary ? sheet.summary.toObject() : {};
-            sheet.summary = {
-                ...existingSummary,
-                total_value_score: totalValueScore,
-                average_complexity: Number(averageComplexity.toFixed(2)),
-                total_quantity: totalQuantity,
-                performance_quadrant: quadrant
-            };
+            // Calculate Performance Metrics using helper
+            const metrics = calculateKPIMetrics(sheet);
+            sheet.summary = Object.assign({}, sheet.summary?.toObject() || {}, metrics);
+            sheet.markModified('summary');
+            sheet.markModified('rows');
 
             sheet.status = "CHECKED";
             sheet.signatures.checked_by = `${req.user.first_name} ${req.user.last_name || ''}`;
@@ -1202,6 +1340,12 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
                 return res.status(403).json({ message: "You are not authorized to Verify this sheet" });
             }
 
+            // Ensure metrics are calculated
+            const metrics = calculateKPIMetrics(sheet);
+            sheet.summary = Object.assign({}, sheet.summary?.toObject() || {}, metrics);
+            sheet.markModified('summary');
+            sheet.markModified('rows');
+
             sheet.status = "VERIFIED";
             sheet.signatures.verified_by = `${req.user.first_name} ${req.user.last_name || ''}`;
         }
@@ -1213,6 +1357,12 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             if (!isAdmin && !isSuraj && !isAssignedApprover) {
                 return res.status(403).json({ message: "You are not authorized to Approve this sheet" });
             }
+
+            // Ensure metrics are calculated
+            const metrics = calculateKPIMetrics(sheet);
+            sheet.summary = Object.assign({}, sheet.summary?.toObject() || {}, metrics);
+            sheet.markModified('summary');
+            sheet.markModified('rows');
 
             sheet.status = "APPROVED";
             sheet.is_fully_locked = true;
@@ -1355,18 +1505,24 @@ router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
             return res.status(404).json({ message: "Template not found" });
         }
 
-        // Allow Admin or Owner
+        // Allow Admin, Owner, or HOD of the Owner
         const isOwner = template.owner.toString() === req.user._id.toString();
         const isAdmin = req.user.role === 'Admin';
-        const isHOD = req.user.role === 'Head_of_Department'; // Optional: allow any HOD to delete? Maybe stick to owner/admin for safety.
+        let isTeamHOD = false;
 
-        // Let's stick to Owner or Admin. If HOD created it, they are owner.
-        if (!isAdmin && !isOwner) {
+        if (!isOwner && !isAdmin && req.user.role === 'Head_of_Department') {
+            const team = await TeamModel.findOne({ 
+                hodId: req.user._id, 
+                'members.userId': template.owner 
+            });
+            if (team) isTeamHOD = true;
+        }
+
+        if (!isAdmin && !isOwner && !isTeamHOD) {
             return res.status(403).json({ message: "Not authorized to delete this template" });
         }
 
-        template.is_active = false;
-        await template.save();
+        await KPITemplate.findByIdAndUpdate(req.params.id, { is_active: false });
         res.json({ message: "Template deleted" });
     } catch (err) {
         console.error("DELETE /api/kpi/template ERROR:", err);
@@ -1381,11 +1537,7 @@ router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
 // Get Pulse Analytics (Delta Variation & 2x2 Matrix)
 router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
-            return res.status(403).json({ message: "Admin or HOD access required" });
-        }
-
-        const { year, month, department } = req.query; // Current month
+        const { year, month, department, team: teamName } = req.query; // Current month
 
         if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
 
@@ -1399,22 +1551,42 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
             previousYear -= 1;
         }
 
-        let queryCurrent = { year: currentYear, month: currentMonth, status: { $in: ["CHECKED", "VERIFIED", "APPROVED"] } };
-        let queryPrev = { year: previousYear, month: previousMonth, status: { $in: ["CHECKED", "VERIFIED", "APPROVED"] } };
+        let queryCurrent = { year: currentYear, month: currentMonth, status: { $in: ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"] } };
+        let queryPrev = { year: previousYear, month: previousMonth, status: { $in: ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"] } };
 
-        // HODs should only see their own department unless Admin
-        let effectiveDepartment = department;
-        if (!effectiveDepartment && req.user.role === 'Head_of_Department' && req.user.department) {
-            effectiveDepartment = req.user.department;
+        let targetUserIds = null;
+
+        // Determine users to filter by
+        if (teamName) {
+            const team = await TeamModel.findOne({ name: teamName, isActive: true });
+            if (team) {
+                targetUserIds = team.members.map(m => m.userId.toString());
+                if (team.hodId) targetUserIds.push(team.hodId.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
+        } else if (req.user.role === 'Head_of_Department') {
+            // Default HOD to their team
+            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: true });
+            if (hodTeam) {
+                targetUserIds = hodTeam.members.map(m => m.userId.toString());
+                targetUserIds.push(req.user._id.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
         }
 
-        if (effectiveDepartment) {
-            queryCurrent.department = effectiveDepartment;
-            queryPrev.department = effectiveDepartment;
+        if (targetUserIds) {
+            queryCurrent.user = { $in: targetUserIds };
+            queryPrev.user = { $in: targetUserIds };
+        } else if (department) {
+            queryCurrent.department = department;
+            queryPrev.department = department;
         }
 
         const currentSheets = await KPISheet.find(queryCurrent).populate('user', 'first_name last_name username role');
         const prevSheets = await KPISheet.find(queryPrev).populate('user', 'first_name last_name username role');
+
+        // Fetch all teams to map users to teams
+        const allTeams = await TeamModel.find({ isActive: true });
 
         const pulseData = [];
 
@@ -1453,6 +1625,23 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
                 deltaInsight = "Consistent High Performer";
             }
 
+            // Find team for this user, prioritizing the filtered team if provided
+            let userTeam = null;
+            if (teamName) {
+                userTeam = allTeams.find(t => 
+                    t.name === teamName && 
+                    (t.hodId?.toString() === userId || t.members.some(m => m.userId.toString() === userId))
+                );
+            }
+            
+            // If not found in filtered team or no filter, find first team
+            if (!userTeam) {
+                userTeam = allTeams.find(t => 
+                    t.hodId?.toString() === userId || 
+                    t.members.some(m => m.userId.toString() === userId)
+                );
+            }
+
             pulseData.push({
                 user: {
                     _id: currSheet.user._id,
@@ -1461,6 +1650,7 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
                     username: currSheet.user.username
                 },
                 department: currSheet.department,
+                team: userTeam ? userTeam.name : 'No Team',
                 current: {
                     sheetId: currSheet._id,
                     total_quantity: currQty,
@@ -1559,6 +1749,87 @@ router.post("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
         });
     } catch (err) {
         console.error("POST /api/kpi/settings/deadline ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// ==========================================
+// ANNOUNCEMENT ROUTES
+// ==========================================
+
+// Get active announcements
+router.get("/api/kpi/announcements", verifyToken, async (req, res) => {
+    try {
+        const announcement = await KPISettings.findOne({ key: 'active_announcement' });
+        
+        if (!announcement || !announcement.value) {
+            return res.json({ hasAnnouncement: false });
+        }
+
+        const { message, expiry_date, type } = announcement.value;
+        const now = new Date();
+        const expiry = new Date(expiry_date);
+
+        if (now > expiry) {
+            // Automatically clear expired announcement from DB if we encounter it
+            await KPISettings.findOneAndDelete({ key: 'active_announcement' });
+            return res.json({ hasAnnouncement: false });
+        }
+
+        res.json({
+            hasAnnouncement: true,
+            message,
+            expiry_date,
+            type: type || 'info',
+            updatedAt: announcement.updatedAt
+        });
+    } catch (err) {
+        console.error("GET /api/kpi/announcements ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Create/Update announcement (Admin Only)
+router.post("/api/kpi/announcements", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        const { message, expiry_days, type, clear } = req.body;
+
+        if (clear) {
+            await KPISettings.findOneAndDelete({ key: 'active_announcement' });
+            return res.json({ message: "Announcement cleared" });
+        }
+
+        if (!message || !expiry_days) {
+            return res.status(400).json({ message: "Message and expiry_days are required" });
+        }
+
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + parseInt(expiry_days));
+
+        const announcement = await KPISettings.findOneAndUpdate(
+            { key: 'active_announcement' },
+            {
+                key: 'active_announcement',
+                value: {
+                    message,
+                    expiry_date: expiryDate.toISOString(),
+                    type: type || 'info'
+                },
+                updated_by: req.user._id
+            },
+            { upsert: true, new: true }
+        );
+
+        res.json({
+            message: "Announcement posted successfully",
+            announcement: announcement.value
+        });
+    } catch (err) {
+        console.error("POST /api/kpi/announcements ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });

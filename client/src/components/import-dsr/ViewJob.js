@@ -1995,6 +1995,9 @@ function JobDetails() {
                                   {new Date(formik.values.is_checklist_aprroved_date).toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true })}
                                 </div>
                               )}
+                              <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "4px" }}>
+                                Remark: {formik.values.client_remark || " - "}
+                              </div>
                               {!formik.values.is_checklist_clicked && <div style={{ fontSize: "0.7rem", color: "#dc3545" }}>(View file to enable)</div>}
                             </div>
                           </div>

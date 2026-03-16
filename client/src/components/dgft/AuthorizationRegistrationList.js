@@ -44,6 +44,7 @@ const INITIAL_FORM = {
 const DATE_FIELDS = new Set([
   "date", "licence_date", "date_send_to_icd_ports",
   "registration_date", "bg_date", "bg_expiry_date", "bond_date",
+  "lic_recd_from_party", "completed", "billing_done_or_not",
 ]);
 
 const CATEGORY_OPTIONS = [
@@ -108,16 +109,16 @@ const FIELDS = [
   { key: "bond_number",          label: "Bond Number" },
   { key: "bond_date",            label: "Bond Date", type: "date" },
   { key: "job_status",           label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
-  { key: "port_name",            label: "Port Name" },
-  { key: "category",             label: "Category", select: true, allowCustom: true },
+  // { key: "port_name",            label: "Port Name" },
+  // { key: "category",             label: "Category", select: true, allowCustom: true },
   { key: "licence_amount",       label: "Licence Amount" },
-  { key: "lic_recd_from_party",  label: "Lic. Recd From Party" },
+  { key: "lic_recd_from_party",  label: "Lic. Recd From Party", type: "date" },
   { key: "date_send_to_icd_ports", label: "Send to ICDs/Ports", type: "date" },
   { key: "bond_challan_no",      label: "Bond / Challan No" },
-  { key: "completed",            label: "Completed" },
+  { key: "completed",            label: "Completed", type: "date" },
   { key: "registration_date",    label: "Registration Date", type: "date" },
-  { key: "month",                label: "Month" },
-  { key: "billing_done_or_not",  label: "Billing Done" },
+  // { key: "month",                label: "Month" },
+  { key: "billing_done_or_not",  label: "Billing Done", type: "date" },
   { key: "bill_number",          label: "Bill Number" },
   { key: "port_code",            label: "Port Code", select: true, options: PORT_CODE_OPTIONS },
 ];
@@ -314,6 +315,16 @@ function AuthorizationRegistrationList({ onCountChange }) {
     } catch (err) { console.error(err); showToast("Delete failed", "error"); }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm("ARE YOU SURE? This will permanently delete ALL records in this tab.")) return;
+    if (!window.confirm("Final confirmation: This action cannot be undone. Delete all?")) return;
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-all-authorization-registrations`);
+      showToast("All records deleted", "success");
+      getData();
+    } catch (err) { console.error(err); showToast("Bulk delete failed", "error"); }
+  };
+
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${id}`, { job_status: newStatus });
@@ -418,7 +429,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
           </div>
           <select className="ar-filter-select" value={filterJobType}  onChange={(e) => setFilterJobType(e.target.value)}>
             <option value="">All Job Categories</option>
-            {filterOptions.job_type.map((o) => <option key={o} value={o}>{o}</option>)}
+            {availableJobTypeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <select className="ar-filter-select" value={filterFirmName} onChange={(e) => setFilterFirmName(e.target.value)}>
             <option value="">All Firms</option>
@@ -443,6 +454,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
             ↑ Upload Excel
             <input ref={fileInput} type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} style={{ display: "none" }} />
           </label>
+          <button className="ar-btn ar-btn-danger" onClick={handleDeleteAll}>🗑 Delete All</button>
         </div>
       </div>
 

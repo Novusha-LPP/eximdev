@@ -24,6 +24,7 @@ import EmployeeKYC from "../components/employeeKyc/EmployeeKYC.js";
 import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
+import UpdateEmployeeData from "../components/hr/UpdateEmployeeData.js";
 
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
@@ -303,6 +304,14 @@ function HomePage() {
                   element={
                     <ProtectedRoute requiredModule="Employee Onboarding">
                       <EmployeeOnboarding />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/update-employee-data"
+                  element={
+                    <ProtectedRoute requiredModule="Update Employee Data">
+                      <UpdateEmployeeData />
                     </ProtectedRoute>
                   }
                 />

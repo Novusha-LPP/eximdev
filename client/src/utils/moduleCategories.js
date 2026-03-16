@@ -3,6 +3,7 @@ export const moduleCategories = {
   "Import - Billing": "Accounts",
   "Employee Onboarding": "HR & Management",
   "Employee KYC": "HR & Management",
+  "Update Employee Data": "HR & Management",
   "Customer KYC": "Customer KYC",
   "Import - DSR": "DSR Module",
   "Audit Trail": "DSR Module",

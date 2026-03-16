@@ -315,6 +315,16 @@ function AuthorizationRegistrationList({ onCountChange }) {
     } catch (err) { console.error(err); showToast("Delete failed", "error"); }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm("ARE YOU SURE? This will permanently delete ALL records in this tab.")) return;
+    if (!window.confirm("Final confirmation: This action cannot be undone. Delete all?")) return;
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-all-authorization-registrations`);
+      showToast("All records deleted", "success");
+      getData();
+    } catch (err) { console.error(err); showToast("Bulk delete failed", "error"); }
+  };
+
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${id}`, { job_status: newStatus });
@@ -444,6 +454,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
             ↑ Upload Excel
             <input ref={fileInput} type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} style={{ display: "none" }} />
           </label>
+          <button className="ar-btn ar-btn-danger" onClick={handleDeleteAll}>🗑 Delete All</button>
         </div>
       </div>
 

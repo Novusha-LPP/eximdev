@@ -6,7 +6,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 const router = express.Router();
 
 // Route to assign Department to a user
-router.post("/api/admin/assign-department", authMiddleware, async (req, res) => {
+router.post("/admin/assign-department", async (req, res) => {
     const { username, selectedDepartment, adminUsername } = req.body;
 
     try {
@@ -36,7 +36,7 @@ router.post("/api/admin/assign-department", authMiddleware, async (req, res) => 
         const validDepartments = [
             "Export", "Import", "Operation-Khodiyar", "Operation-Sanand",
             "Feild", "Accounts", "SRCC", "Gandhidham", "DGFT",
-            "Software", "Marketing", "Paramount", "Rabs"
+            "Software", "Marketing", "Paramount", "Rabs", "Admin"
         ];
 
         // Validate selected department
@@ -61,7 +61,7 @@ router.post("/api/admin/assign-department", authMiddleware, async (req, res) => 
 });
 
 // Route to remove department from a user
-router.post("/api/admin/remove-department", authMiddleware, async (req, res) => {
+router.post("/admin/remove-department", async (req, res) => {
     const { username, adminUsername } = req.body;
 
     try {

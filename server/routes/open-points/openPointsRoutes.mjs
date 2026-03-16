@@ -359,7 +359,11 @@ router.put("/api/open-points/points/:pointId", authMiddleware, auditMiddleware("
         // 1. Handle Status Change Logic
         if (status && status !== point.status) {
             point.status = status;
-            if (status === 'Green') point.completion_date = new Date();
+            if (status === 'Green') {
+                point.completion_date = new Date();
+            } else {
+                point.completion_date = null;
+            }
 
             point.history.push({
                 action: `Status changed to ${status}`,

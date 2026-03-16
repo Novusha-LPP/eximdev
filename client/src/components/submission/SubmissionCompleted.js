@@ -292,6 +292,9 @@ function SubmissionCompleted() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
+          branch_code,
+          trade_type,
+          mode,
         } = cell.row.original;
         const textColor = "blue";
         const bgColor = cell.row.original.priorityJob === "High Priority"
@@ -301,7 +304,7 @@ function SubmissionCompleted() {
             : "transparent";
         return (
           <a
-            href={`/submission-job/${job_no}/${year}`}
+            href={`/submission-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

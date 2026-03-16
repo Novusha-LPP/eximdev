@@ -222,7 +222,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode"
         )
         .lean();
 
@@ -336,7 +336,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode"
         )
         .lean();
 
@@ -468,7 +468,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob _id eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing"
+        "priorityJob _id eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing branch_code trade_type mode"
       )
       .lean();
 
@@ -731,6 +731,9 @@ router.get(
             other_do_documents: 1,
             dsr_queries: 1,
             vessel_berthing: 1,
+            branch_code: 1,
+            trade_type: 1,
+            mode: 1,
           },
         },
       ];

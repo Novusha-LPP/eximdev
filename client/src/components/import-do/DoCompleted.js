@@ -308,6 +308,8 @@ function DoCompleted() {
           custom_house,
           priorityColor,
           mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
         const textColor = "blue";
         const bgColor =
@@ -321,7 +323,7 @@ function DoCompleted() {
         // ...existing code...
         return (
           <Link
-            to={`/edit-do-completed/${mode}/${job_no}/${year}?jobId=${_id}`}
+            to={`/edit-do-completed/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setSelectedJobId(_id)}

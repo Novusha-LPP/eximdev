@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useContext } from "react";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid } from "@mui/material";
+import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, Autocomplete } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -623,18 +623,49 @@ function JobDetailsStaticData(props) {
           <DialogContent dividers>
             {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
             <Grid container spacing={2} style={{ marginTop: '5px' }}>
-              {Object.keys(editFormData).map((key) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    name={key}
-                    value={editFormData[key] || ""}
-                    onChange={handleEditChange}
-                  />
-                </Grid>
-              ))}
+              {Object.keys(editFormData).map((key) => {
+                if (key === "port_of_reporting") {
+                  const portReportingOptionsSet = [
+                    "(INMUN1) Mundra Sea",
+                    "(INNSA1) Nhava Sheva Sea",
+                    "(INPAV1) Pipavav",
+                    "(INPAV6) Pipavav (Victor) Port",
+                    "(INHZA1) Hazira"
+                  ];
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        freeSolo
+                        options={portReportingOptionsSet}
+                        value={editFormData[key] || ""}
+                        onInputChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Port of Reporting"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                return (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      name={key}
+                      value={editFormData[key] || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Grid>
+                );
+              })}
             </Grid>
           </DialogContent>
           <DialogActions>

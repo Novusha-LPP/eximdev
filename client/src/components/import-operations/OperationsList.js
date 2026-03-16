@@ -288,12 +288,12 @@ function OperationsList() {
       enableSorting: false,
       size: 250,
       Cell: ({ row }) => {
-        const { mode, job_no, job_number, year, type_of_b_e, consignment_type, custom_house } =
+        const { mode, job_no, job_number, year, type_of_b_e, consignment_type, custom_house, branch_code, trade_type } =
           row.original;
 
         return (
           <Link
-            to={`/import-operations/list-operation-job/${mode}/${job_no}/${year}`}
+            to={`/import-operations/list-operation-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -302,7 +302,7 @@ function OperationsList() {
                 selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
-              padding: "10px",
+              padding: "5px",
               borderRadius: "5px",
               textAlign: "center",
               textDecoration: "none",

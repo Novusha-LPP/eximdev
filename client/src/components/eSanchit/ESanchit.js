@@ -261,10 +261,12 @@ function ESanchit() {
             consignment_type,
             custom_house,
             priorityColor, // Add priorityColor from API response
-          } = cell.row.original;
+          branch_code,
+          trade_type,
+        } = cell.row.original;
           return (
               <a
-                href={`/esanchit-job/${cell.row.original.mode}/${job_no}/${year}`}
+                href={`/esanchit-job/${branch_code}/${trade_type}/${cell.row.original.mode}/${job_no}/${year}`}
               style={{
                 cursor: "pointer",
                 color: "blue",

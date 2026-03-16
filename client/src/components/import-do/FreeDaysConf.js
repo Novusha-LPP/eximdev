@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import {
   IconButton,
@@ -41,7 +41,6 @@ const FreeDaysConf = () => {
   const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total pages
   const [totalJobs, setTotalJobs] = React.useState(0);
-  const [loading, setLoading] = useState(false); // Loading state
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const limit = 100; // Items per page
@@ -126,7 +125,6 @@ const FreeDaysConf = () => {
       selectedBranch = "all",
       selectedCategory = "all"
     ) => {
-      setLoading(true);
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-free-days`,
@@ -161,7 +159,6 @@ const FreeDaysConf = () => {
         setRows([]); // Reset data on failure
         setTotalPages(1);
       } finally {
-        setLoading(false);
       }
     },
     [limit, user?.username] // Dependencies - add username
@@ -288,7 +285,7 @@ const FreeDaysConf = () => {
       muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id, mode } =
+        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id, mode, branch_code, trade_type } =
           cell.row.original;
 
         // Debug log to check if year is available
@@ -298,7 +295,7 @@ const FreeDaysConf = () => {
 
         return (
           <Link
-            to={`/edit-free-days-conf/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
+            to={`/edit-free-days-conf/${branch_code}/${trade_type}/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

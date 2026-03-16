@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -45,9 +45,9 @@ function BillingSheet() {
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(1);
   // Use context for search functionality and pagination for BillingSheet tab
   const {
     searchQuery,
@@ -60,7 +60,6 @@ function BillingSheet() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
-  const navigate = useNavigate();
   const location = useLocation();
   const listRef = useRef(null);
   const [selectedJobId, setSelectedJobId] = useState(
@@ -222,6 +221,7 @@ function BillingSheet() {
       selectedBranch = "all"
     ) => {
       setLoading(true);
+      setError(null);
       try {
         const apiString =
           process.env.REACT_APP_API_STRING
@@ -252,11 +252,9 @@ function BillingSheet() {
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
         setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
-        setTotalPages(1);
-        setUnresolvedCount(0);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+        setError("Error fetching jobs. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -298,7 +296,7 @@ function BillingSheet() {
       header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
       size: 250,
-      Cell: ({ cell }) => {
+      Cell: ({ row }) => {
         const {
           job_no,
           year,
@@ -307,12 +305,12 @@ function BillingSheet() {
           consignment_type,
           custom_house,
           detailed_status,
-          vessel_berthing,
           container_nos,
           colorPriority, // ✅ USE THIS FROM BACKEND
-          daysDifference, // ✅ USE THIS FROM BACKEND
           mode,
-        } = cell.row.original;
+          branch_code,
+          trade_type,
+        } = row.original;
 
         // Color-coding logic - NOW USES BACKEND DATA
         let bgColor = "";
@@ -388,7 +386,7 @@ function BillingSheet() {
 
         return (
           <Link
-            to={`/edit-billing-sheet/${mode}/${job_no}/${year}?${queryParams}`}
+            to={`/edit-billing-sheet/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?${queryParams}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -403,7 +401,7 @@ function BillingSheet() {
               border: bgColor ? "1px solid #ccc" : "none",
             }}
           >
-            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </Link>
         );

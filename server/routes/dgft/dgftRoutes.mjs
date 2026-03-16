@@ -579,6 +579,28 @@ router.delete(
   }
 );
 
+// DELETE all DGFT registers
+router.delete("/api/delete-all-dgft-registers", async (req, res) => {
+  try {
+    await DgftRegisterModel.deleteMany({});
+    res.status(200).json({ message: "All DGFT registers deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// DELETE all authorization registrations
+router.delete("/api/delete-all-authorization-registrations", async (req, res) => {
+  try {
+    await AuthorizationRegistrationModel.deleteMany({});
+    res.status(200).json({ message: "All authorization registrations deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 // GET distinct categories for Authorization Registration
 router.get("/api/get-auth-reg-categories", async (req, res) => {
   try {

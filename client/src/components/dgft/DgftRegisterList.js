@@ -409,6 +409,16 @@ function DgftRegisterList({ onCountChange }) {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm("ARE YOU SURE? This will permanently delete ALL records in this tab.")) return;
+    if (!window.confirm("Final confirmation: This action cannot be undone. Delete all?")) return;
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-all-dgft-registers`);
+      showToast("All records deleted", "success");
+      getData();
+    } catch (err) { console.error(err); showToast("Bulk delete failed", "error"); }
+  };
+
   const handleSubmit = async () => {
     if (!validate()) return;
     try {
@@ -579,6 +589,9 @@ function DgftRegisterList({ onCountChange }) {
               onChange={handleExcelUpload}
             />
           </label>
+          <button style={s.btnDelete} onClick={handleDeleteAll}>
+            🗑 Delete All
+          </button>
         </div>
       </div>
 

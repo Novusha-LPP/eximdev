@@ -5,7 +5,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu } from '@mui/material';
 import './kpi.scss';
 
-const KPISheet = ({ sheetId: propSheetId }) => {
+const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
     const { user } = React.useContext(UserContext);
     const { sheetId: paramSheetId } = useParams();
     const sheetId = propSheetId || paramSheetId;
@@ -124,33 +124,46 @@ const KPISheet = ({ sheetId: propSheetId }) => {
         }
     };
 
+    const recalculateTotals = (currentSheet) => {
+        if (!currentSheet || !currentSheet.rows) return currentSheet;
+        const newRows = currentSheet.rows.map(row => {
+            let sum = 0;
+            // daily_values could be a Map from backend or plain object from optimistic update
+            const entries = row.daily_values instanceof Map ? row.daily_values.entries() : Object.entries(row.daily_values || {});
+            
+            for (let [d, val] of entries) {
+                const dNum = Number(d);
+                // 1. Skip Sundays UNLESS it's a Working Sunday
+                if (isSunday(dNum, currentSheet) && !isWorkingSunday(dNum, currentSheet)) continue;
+                // 2. Skip Holidays (Leaves)
+                if (isHoliday(dNum, currentSheet)) continue;
+                // 3. Skip Festival Holidays
+                if (isFestival(dNum, currentSheet)) continue;
+
+                sum += (Number(val) || 0);
+            }
+            return { ...row, total: sum };
+        });
+        return { ...currentSheet, rows: newRows };
+    };
+
     const handleCellChange = async (rowId, day, value) => {
         if (value < 0) return;
-        console.log(`KPISheet - Cell Change: Row=${rowId}, Day=${day}, Value=${value}`);
-        // Optimistic UI update
-        const newRows = [...sheet.rows];
-        const rowIndex = newRows.findIndex(r => r.row_id === rowId);
-        if (rowIndex === -1) return;
-
-        // Update local state
-        const row = newRows[rowIndex];
-        const oldVal = row.daily_values[day] || 0;
-        row.daily_values[day] = value;
-
-        // Recalc local total
-        // Note: daily_values is an object now
-        let sum = 0;
-        Object.entries(row.daily_values).forEach(([d, val]) => {
-            // Logic must match backend
-            if (isSunday(Number(d)) && !isWorkingSunday(Number(d))) return;
-            if (isHoliday(Number(d))) return;
-            sum += Number(val);
+        
+        // Update local state first
+        const newRows = sheet.rows.map(r => {
+            if (r.row_id === rowId) {
+                const newDailyValues = { ...(r.daily_values instanceof Map ? Object.fromEntries(r.daily_values) : r.daily_values) };
+                newDailyValues[day] = value;
+                return { ...r, daily_values: newDailyValues };
+            }
+            return r;
         });
-        row.total = sum;
 
-        setSheet({ ...sheet, rows: newRows });
+        const updatedSheet = recalculateTotals({ ...sheet, rows: newRows });
+        setSheet(updatedSheet);
 
-        // API Call (Debounce could be added here)
+        // API Call
         try {
             await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/entry`, {
                 sheetId,
@@ -164,26 +177,26 @@ const KPISheet = ({ sheetId: propSheetId }) => {
         }
     };
 
-    const isSunday = (day) => {
-        if (!sheet) return false;
-        const date = new Date(sheet.year, sheet.month - 1, day);
+    const isSunday = (day, currentSheet = sheet) => {
+        if (!currentSheet) return false;
+        const date = new Date(currentSheet.year, currentSheet.month - 1, day);
         return date.getDay() === 0;
     };
 
-    const isHoliday = (day) => {
-        return sheet && sheet.holidays && sheet.holidays.includes(day);
+    const isHoliday = (day, currentSheet = sheet) => {
+        return currentSheet && currentSheet.holidays && currentSheet.holidays.includes(day);
     };
 
-    const isFestival = (day) => {
-        return sheet && sheet.festivals && sheet.festivals.includes(day);
+    const isFestival = (day, currentSheet = sheet) => {
+        return currentSheet && currentSheet.festivals && currentSheet.festivals.includes(day);
     };
 
-    const isHalfDay = (day) => {
-        return sheet && sheet.half_days && sheet.half_days.includes(day);
+    const isHalfDay = (day, currentSheet = sheet) => {
+        return currentSheet && currentSheet.half_days && currentSheet.half_days.includes(day);
     };
 
-    const isWorkingSunday = (day) => {
-        return sheet && sheet.working_sundays && sheet.working_sundays.includes(day);
+    const isWorkingSunday = (day, currentSheet = sheet) => {
+        return currentSheet && currentSheet.working_sundays && currentSheet.working_sundays.includes(day);
     };
 
     const getSubmissionDeadline = (year, month) => {
@@ -556,7 +569,7 @@ const KPISheet = ({ sheetId: propSheetId }) => {
 
 
     return (
-        <div className="kpi-sheet-page">
+        <div className={`kpi-sheet-page ${isPopup ? 'popup-view' : ''}`} style={isPopup ? { padding: '10px', maxWidth: '100%', margin: 0, boxShadow: 'none' } : {}}>
             {/* Centered Header - Excel Style */}
             <div className="kpi-sheet-header" style={{ position: 'relative' }}>
                 <div className="header-main">
@@ -740,7 +753,7 @@ const KPISheet = ({ sheetId: propSheetId }) => {
                                 </td>
                                 {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && (
                                     <td style={{ textAlign: 'center', padding: '0 4px', backgroundColor: '#f9fafb' }}>
-                                        {sheet.status === 'SUBMITTED' && (user?.role === 'Admin' || sheet.assigned_signatories?.checked_by?._id === user?._id) ? (
+                                        {sheet.status === 'SUBMITTED' && (user?.role === 'Admin' || user?.role === 'Head_of_Department' || sheet.assigned_signatories?.checked_by?._id === user?._id) ? (
                                             <select
                                                 value={rowWeights[row.row_id] || 3}
                                                 onChange={(e) => setRowWeights({ ...rowWeights, [row.row_id]: Number(e.target.value) })}

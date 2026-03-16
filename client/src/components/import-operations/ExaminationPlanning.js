@@ -426,17 +426,20 @@ function ImportOperations() {
       muiTableHeadCellProps: { align: "center" },
       muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell, row }) => {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
         const mode = row.original.mode;
+        const branch_code = row.original.branch_code;
+        const trade_type = row.original.trade_type;
+        const job_number = row.original.job_number;
         // Build query string for context passing
 
         return (
           <Link
-            to={`/import-operations/view-job/${mode}/${jobNo}/${year}`}
+            to={`/import-operations/view-job/${branch_code}/${trade_type}/${mode}/${jobNo}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -445,12 +448,13 @@ function ImportOperations() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-              padding: "10px",
+              padding: "5px",
               borderRadius: "5px",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
-            {jobNo}
+            {job_number || jobNo}
             <br />
             <small>{icdCode}</small>
           </Link>

@@ -156,6 +156,9 @@ router.get(
         pcv_date: 1,
         out_of_charge: 1,
         dsr_queries: 1,
+        branch_code: 1,
+        trade_type: 1,
+        mode: 1,
         // only needed container fields
         "container_nos.container_number": 1,
         "container_nos.size": 1,

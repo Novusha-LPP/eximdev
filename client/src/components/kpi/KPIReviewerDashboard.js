@@ -10,6 +10,7 @@ import {
 
 
 import './kpi.scss';
+import KPISheet from './KPISheet';
 
 const Icons = {
     Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>,
@@ -58,6 +59,11 @@ const KPIReviewerDashboard = () => {
         sheetId: null,
         action: '',
         comments: ''
+    });
+
+    const [viewDialog, setViewDialog] = useState({
+        open: false,
+        sheetId: null
     });
 
     const [bulkDialog, setBulkDialog] = useState({
@@ -537,7 +543,7 @@ const KPIReviewerDashboard = () => {
                                                             <button
                                                                 className="modern-btn icon-only"
                                                                 title="View Sheet"
-                                                                onClick={() => navigate(`/kpi/sheet/${sheet._id}`)}
+                                                                onClick={() => setViewDialog({ open: true, sheetId: sheet._id })}
                                                             >
                                                                 <Icons.Eye />
                                                             </button>
@@ -639,6 +645,39 @@ const KPIReviewerDashboard = () => {
                         Confirm Action
                     </Button>
                 </DialogActions>
+            </Dialog>
+
+            {/* View Sheet Dialog */}
+            <Dialog 
+                open={viewDialog.open} 
+                onClose={() => setViewDialog({ open: false, sheetId: null })} 
+                fullWidth 
+                maxWidth="xl"
+                PaperProps={{
+                    style: {
+                        background: '#f8fafc',
+                        borderRadius: '12px'
+                    }
+                }}
+            >
+                <DialogTitle style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    borderBottom: '1px solid #e2e8f0',
+                    padding: '12px 24px'
+                }}>
+                    <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#1e293b' }}>KPI Sheet Details</span>
+                    <Button 
+                        onClick={() => setViewDialog({ open: false, sheetId: null })}
+                        style={{ minWidth: 'auto', padding: '4px', color: '#64748b' }}
+                    >
+                        <Icons.Reject /> {/* Using Reject as a Close icon */}
+                    </Button>
+                </DialogTitle>
+                <DialogContent style={{ padding: 0 }}>
+                    {viewDialog.sheetId && <KPISheet sheetId={viewDialog.sheetId} isPopup={true} />}
+                </DialogContent>
             </Dialog>
 
             {/* Toast Message */}

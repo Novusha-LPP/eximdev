@@ -268,6 +268,9 @@ function ImportCompletedBilling() {
             vessel_berthing,
             colorPriority, // ✅ USE THIS FROM BACKEND
             container_nos,
+            branch_code,
+            trade_type,
+            mode,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
@@ -345,7 +348,7 @@ function ImportCompletedBilling() {
 
           return currentTab === 0 ? (
             <a
-              href={`/view-billing-job/${job_no}/${year}`}
+              href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{

@@ -28,6 +28,8 @@ const ProjectWorkspace = () => {
     const [projectOwnerId, setProjectOwnerId] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
     const [filters, setFilters] = useState({ status: '', priority: '', responsibility: '' });
+    const [monthFilter, setMonthFilter] = useState('');
+    const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
     const [hideGreen, setHideGreen] = useState(true); // Hide completed points by default
 
     // Quick Add State (Row at bottom)
@@ -485,15 +487,63 @@ const ProjectWorkspace = () => {
                                 <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
                             ))}
                         </select>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px', marginLeft: '4px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Finished:</span>
+                            <select 
+                                className="form-control" 
+                                style={{ width: '100px', height: '32px', fontSize: '12px', padding: '0 8px' }} 
+                                value={monthFilter} 
+                                onChange={e => {
+                                    setMonthFilter(e.target.value);
+                                    if (e.target.value) setHideGreen(false); // Auto show green if filtering by month
+                                }}
+                            >
+                                <option value="">Any Month</option>
+                                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+                                    <option key={m} value={i + 1}>{m}</option>
+                                ))}
+                            </select>
+                            <select 
+                                className="form-control" 
+                                style={{ width: '80px', height: '32px', fontSize: '12px', padding: '0 8px' }} 
+                                value={yearFilter} 
+                                onChange={e => setYearFilter(Number(e.target.value))}
+                            >
+                                {[2024, 2025, 2026, 2027].map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        </div>
                         {/* Toggle for showing/hiding completed points */}
-                        <button
-                            className={`btn btn-sm ${hideGreen ? 'btn-success' : 'btn-secondary'}`}
-                            style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}
-                            onClick={() => setHideGreen(!hideGreen)}
-                            title={hideGreen ? 'Click to show completed points' : 'Click to hide completed points'}
-                        >
-                            {hideGreen ? `✅ Show Closed (${points.filter(p => p.status === 'Green').length})` : '✅ Hide Closed'}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                                className={`btn btn-sm ${hideGreen ? 'btn-success' : 'btn-secondary'}`}
+                                style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}
+                                onClick={() => setHideGreen(!hideGreen)}
+                                title={hideGreen ? 'Click to show completed points' : 'Click to hide completed points'}
+                            >
+                                {hideGreen ? `✅ Show Closed (${points.filter(p => p.status === 'Green').length})` : '✅ Hide Closed'}
+                            </button>
+                            {monthFilter && (
+                                <span style={{ 
+                                    fontSize: '12px', 
+                                    fontWeight: 'bold', 
+                                    background: '#dcfce7', 
+                                    color: '#166534', 
+                                    padding: '4px 10px', 
+                                    borderRadius: '15px',
+                                    border: '1px solid #bbf7d0'
+                                }}>
+                                    Completed: {
+                                        points.filter(p => {
+                                            if (p.status !== 'Green' || !p.completion_date) return false;
+                                            const compDate = new Date(p.completion_date);
+                                            return compDate.getMonth() + 1 === Number(monthFilter) && compDate.getFullYear() === Number(yearFilter);
+                                        }).length
+                                    }
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Actions Group */}
@@ -678,8 +728,19 @@ const ProjectWorkspace = () => {
                             if (filters.status && p.status !== filters.status) return false;
                             if (filters.priority && p.priority !== filters.priority) return false;
                             if (filters.responsibility && p.responsibility !== filters.responsibility) return false;
-                            // Hide green points by default unless toggle is off or specific status is selected
-                            if (hideGreen && !filters.status && p.status === 'Green') return false;
+
+                            // Month/Year Filter (Applies to Green items only)
+                            if (monthFilter) {
+                                if (p.status !== 'Green') return false;
+                                if (!p.completion_date) return false;
+                                const compDate = new Date(p.completion_date);
+                                if (compDate.getMonth() + 1 !== Number(monthFilter) || compDate.getFullYear() !== Number(yearFilter)) {
+                                    return false;
+                                }
+                            }
+
+                            // Hide green points by default unless toggle is off, specific status is selected, or month filter is on
+                            if (hideGreen && !filters.status && !monthFilter && p.status === 'Green') return false;
                             return true;
                         }).map((point, index) => (
                             <tr key={point._id}>
@@ -734,16 +795,48 @@ const ProjectWorkspace = () => {
                                 </td>
 
                                 {/* Color Coded Status Cell */}
-                                <td className={`status-cell-${point.status}`}>
+                                <td className={`status-cell-${point.status}`} style={{ position: 'relative', textAlign: 'center' }}>
                                     <select
                                         value={point.status || 'Red'}
                                         onChange={(e) => handleUpdate(point._id, 'status', e.target.value)}
+                                        style={{ marginBottom: point.status === 'Green' ? '2px' : '0' }}
                                     >
                                         <option value="Red">Red</option>
                                         <option value="Yellow">Yellow</option>
                                         <option value="Green">Green</option>
                                         <option value="Orange">Orange</option>
                                     </select>
+                                    {!point.completion_date && (
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            top: '50%', 
+                                            left: '50%', 
+                                            transform: 'translate(-50%, -50%)',
+                                            fontSize: '10px', 
+                                            color: point.status === 'Red' ? 'white' : 'black', 
+                                            pointerEvents: 'none',
+                                            opacity: 0.7
+                                        }}>
+                                            ▼
+                                        </div>
+                                    )}
+                                    {point.status === 'Green' && point.completion_date && (
+                                        <div style={{ 
+                                            position: 'absolute',
+                                            top: '50%',
+                                            left: '50%',
+                                            transform: 'translate(-50%, -50%)',
+                                            fontSize: '9px', 
+                                            fontWeight: 'bold', 
+                                            color: '#166534',
+                                            lineHeight: '1',
+                                            pointerEvents: 'none',
+                                            width: '100%',
+                                            textAlign: 'center'
+                                        }}>
+                                            {new Date(point.completion_date).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                        </div>
+                                    )}
                                 </td>
 
                                 <td>
@@ -1035,7 +1128,7 @@ const ProjectWorkspace = () => {
                     </div>
                 </>
             )}
-        </div >
+        </div>
     );
 };
 

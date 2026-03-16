@@ -259,11 +259,14 @@ function Documentation() {
           type_of_b_e,
           consignment_type,
           custom_house,
-          priorityColor, // Add priorityColor from API response
+          priorityColor, // Add priorityColor
+          branch_code,
+          trade_type,
+          mode,
         } = cell.row.original;
         return (
           <a
-            href={`/documentationJob/view-job/${job_no}/${year}`}
+            href={`/documentationJob/view-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
             style={{
               cursor: "pointer",
               color: "blue",

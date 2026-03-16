@@ -3,7 +3,9 @@ import axios from 'axios';
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Dialog, DialogTitle, DialogContent, Button } from '@mui/material';
 import './kpi.scss';
+import KPISheet from './KPISheet';
 
 // Reuse Icons
 const Icons = {
@@ -31,6 +33,10 @@ const KPIAdminDashboard = () => {
     const [sheets, setSheets] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
+    const [viewDialog, setViewDialog] = useState({
+        open: false,
+        sheetId: null
+    });
 
     // Deadline Config
     const [deadlineConfig, setDeadlineConfig] = useState({
@@ -45,6 +51,7 @@ const KPIAdminDashboard = () => {
     const [detailModal, setDetailModal] = useState({
         show: false,
         department: '',
+        team: '',
         data: null,
         loading: false
     });
@@ -153,11 +160,20 @@ const KPIAdminDashboard = () => {
         setTimeout(() => setMessage({ show: false, text: '', type: '' }), 4000);
     };
 
-    const fetchSubmissionDetails = async (dept = '') => {
+    const fetchSubmissionDetails = async (teamName = '', dept = '') => {
         try {
-            setDetailModal(prev => ({ ...prev, show: true, department: dept || 'Global', loading: true, data: null }));
+            setDetailModal(prev => ({ 
+                ...prev, 
+                show: true, 
+                team: teamName || '',
+                department: dept || (teamName ? '' : 'Global'), 
+                loading: true, 
+                data: null 
+            }));
+            
             let url = `${process.env.REACT_APP_API_STRING}/kpi/admin/submission-status?year=${year}&month=${month}`;
-            if (dept) url += `&department=${dept}`;
+            if (teamName) url += `&team=${encodeURIComponent(teamName)}`;
+            else if (dept) url += `&department=${encodeURIComponent(dept)}`;
 
             const res = await axios.get(url, { withCredentials: true });
             setDetailModal(prev => ({ ...prev, data: res.data, loading: false }));
@@ -404,7 +420,7 @@ const KPIAdminDashboard = () => {
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
-                        Department Pulse <span style={{ fontWeight: 400, color: '#64748b', fontSize: '0.9rem' }}>({months[month - 1]} {year})</span>
+                        Team Pulse <span style={{ fontWeight: 400, color: '#64748b', fontSize: '0.9rem' }}>({months[month - 1]} {year})</span>
                     </h3>
                 </div>
                 <div className="modern-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
@@ -554,7 +570,7 @@ const KPIAdminDashboard = () => {
                                                         <button
                                                             className="modern-btn icon-only"
                                                             title="View"
-                                                            onClick={(e) => { e.stopPropagation(); navigate(`/kpi/sheet/${sheet._id}`); }}
+                                                            onClick={(e) => { e.stopPropagation(); setViewDialog({ open: true, sheetId: sheet._id }); }}
                                                         >
                                                             <Icons.Eye />
                                                         </button>
@@ -604,7 +620,7 @@ const KPIAdminDashboard = () => {
                             <div className="modal-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
-                                        Submission Details: {detailModal.department}
+                                        Submission Details: {detailModal.team || detailModal.department}
                                     </h2>
                                     <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
                                         KPI period: {months[month - 1]} {year}
@@ -706,6 +722,39 @@ const KPIAdminDashboard = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* View Sheet Dialog */}
+            <Dialog 
+                open={viewDialog.open} 
+                onClose={() => setViewDialog({ open: false, sheetId: null })} 
+                fullWidth 
+                maxWidth="xl"
+                PaperProps={{
+                    style: {
+                        background: '#f8fafc',
+                        borderRadius: '12px'
+                    }
+                }}
+            >
+                <DialogTitle style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    borderBottom: '1px solid #e2e8f0',
+                    padding: '12px 24px'
+                }}>
+                    <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#1e293b' }}>KPI Sheet Details</span>
+                    <Button 
+                        onClick={() => setViewDialog({ open: false, sheetId: null })}
+                        style={{ minWidth: 'auto', padding: '4px', color: '#64748b' }}
+                    >
+                        <Icons.Cancel />
+                    </Button>
+                </DialogTitle>
+                <DialogContent style={{ padding: 0 }}>
+                    {viewDialog.sheetId && <KPISheet sheetId={viewDialog.sheetId} isPopup={true} />}
+                </DialogContent>
+            </Dialog>
 
             {message.show && (
                 <div style={{

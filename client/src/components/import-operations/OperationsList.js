@@ -302,7 +302,7 @@ function OperationsList() {
                 selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
-              padding: "10px",
+              padding: "5px",
               borderRadius: "5px",
               textAlign: "center",
               textDecoration: "none",

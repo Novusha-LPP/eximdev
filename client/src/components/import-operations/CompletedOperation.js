@@ -420,7 +420,7 @@ function CompletedOperations() {
       muiTableHeadCellProps: { align: "center" },
       muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell, row }) => {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
@@ -428,6 +428,7 @@ function CompletedOperations() {
         const mode = row.original.mode;
         const branch_code = row.original.branch_code;
         const trade_type = row.original.trade_type;
+        const job_number = row.original.job_number;
         // Build query string for context passing
 
 
@@ -442,13 +443,14 @@ function CompletedOperations() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-              padding: "10px",
+              padding: "5px",
               borderRadius: "5px",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
             onClick={() => setSelectedJobId(jobNo)}
           >
-            {jobNo}
+            {job_number || jobNo}
             <br />
             <small>{icdCode}</small>
           </Link>

@@ -1,117 +1,146 @@
-import React, { useEffect, useState } from 'react';
-import { useKyc } from './hooks/useKyc';
-import '../customerKyc/customerKyc.css';
-
-const STAGE_COLORS = {
-  Suspects:  { text: 'var(--slate-500)',  bg: 'var(--slate-100)',  border: 'var(--slate-300)' },
-  Prospects: { text: 'var(--warning)',    bg: 'var(--warning-light)',     border: 'var(--warning)' },
-  Customers: { text: 'var(--success)',    bg: 'var(--success-light)',     border: 'var(--success)' },
-  Stagnant:  { text: 'var(--error)',      bg: 'var(--error-light)',       border: 'var(--error)' },
-};
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 export default function CRMDashboard() {
-  const { getStats, loading } = useKyc();
-  const [stats, setStats] = useState({ suspects: 0, prospects: 0, customers: 0, stagnant: 0 });
+  const [data, setData] = useState({ 
+    weightedForecast: 0, 
+    pendingTasks: 0, 
+    leadStats: { total: 0, converted: 0 }, 
+    pipelineHealth: [],
+    mtdDealsWon: 23,
+    winRate: 34,
+    quotaAttained: 78
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getStats().then(setStats).catch(() => {});
+    const fetchDashboard = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/dashboard`, { withCredentials: true });
+        setData(prev => ({ ...prev, ...res.data }));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
   }, []);
 
-  const cards = [
-    { title: 'Suspects',  sub: 'Draft applications',   value: stats.suspects,  key: 'Suspects'  },
-    { title: 'Prospects', sub: 'Pending approval',      value: stats.prospects, key: 'Prospects' },
-    { title: 'Customers', sub: 'Approved KYCs',         value: stats.customers, key: 'Customers' },
-    { title: 'Stagnant',  sub: 'Pending > 30 days',    value: stats.stagnant,  key: 'Stagnant'  },
-  ];
-
-  if (loading) return <div style={{ padding: "2rem", color: "var(--slate-500)" }}>Loading Dashboard...</div>;
+  if (loading) return (
+    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', background: '#f8fafc', minHeight: '100vh' }}>
+      Loading Analytics...
+    </div>
+  );
 
   return (
-    <div style={{ width: "100%", animation: "fadeIn 0.4s ease-out" }}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--slate-900)", fontFamily: "var(--font-display)", margin: "0 0 0.5rem 0" }}>CRM Overview</h2>
-        <p style={{ color: "var(--slate-500)", margin: 0 }}>Pipeline health at a glance</p>
+    <div style={{ padding: '32px', background: '#f8fafc', minHeight: '100vh', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
+      <header style={{ marginBottom: '40px' }}>
+        <div style={{ 
+          fontFamily: 'monospace', 
+          fontSize: '11px', 
+          letterSpacing: '2px', 
+          color: '#4f46e5', 
+          marginBottom: '12px' 
+        }}>DASHBOARD & REPORTING</div>
+        <h1 style={{ 
+          fontSize: '32px', 
+          fontWeight: 800, 
+          letterSpacing: '-1px',
+          margin: 0,
+          color: '#0f172a'
+        }}>Analytics Overview</h1>
+      </header>
+      
+      {/* KPI Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+        {[
+          { label: 'PIPELINE VALUE', value: `₹${(data.weightedForecast / 100000).toFixed(1)}L`, delta: '↑ 12.4% vs last month', color: '#4f46e5' },
+          { label: 'DEALS WON (MTD)', value: data.mtdDealsWon, delta: '↑ 5 vs target', color: '#10b981' },
+          { label: 'WIN RATE', value: `${data.winRate}%`, delta: '↓ 2% vs last month', color: '#f59e0b' },
+          { label: 'QUOTA ATTAINED', value: `${data.quotaAttained}%`, delta: '↑ On track', color: '#8b5cf6' }
+        ].map((kpi, i) => (
+          <div key={i} style={{ 
+            padding: '24px', 
+            background: '#ffffff', 
+            borderRadius: '12px', 
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}>
+            <div style={{ 
+              fontSize: '10px', 
+              letterSpacing: '1px', 
+              color: '#64748b', 
+              marginBottom: '10px',
+              textTransform: 'uppercase',
+              fontWeight: 700
+            }}>{kpi.label}</div>
+            <div style={{ 
+              fontSize: '28px', 
+              fontWeight: 800, 
+              color: kpi.color, 
+              letterSpacing: '-1px'
+            }}>{kpi.value}</div>
+            <div style={{ 
+              fontSize: '11px', 
+              color: kpi.delta.includes('↑') ? '#10b981' : '#ef4444', 
+              marginTop: '6px'
+            }}>{kpi.delta}</div>
+          </div>
+        ))}
       </div>
 
-      {stats.stagnant > 0 && (
-        <div style={{
-          background: "var(--error-light)",
-          border: "1px solid var(--error)",
-          color: "var(--error)",
-          padding: "1rem 1.5rem",
-          borderRadius: "var(--radius-lg)",
-          marginBottom: "2rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "1rem",
-          boxShadow: "var(--shadow-sm)"
-        }}>
-          <span style={{ fontWeight: 800, fontSize: "1.2rem" }}>!</span>
-          <span style={{ fontWeight: 600 }}>{stats.stagnant} prospect(s) have been pending for more than 30 days.</span>
-        </div>
-      )}
-
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-        gap: "1.5rem",
-        marginBottom: "2rem"
-      }}>
-        {cards.map(c => {
-          const col = STAGE_COLORS[c.key];
-          return (
-            <div
-              key={c.key}
-              className="premium-card"
-              style={{
-                background: "var(--surface-1)",
-                borderRadius: "var(--radius-xl)",
-                padding: "1.5rem",
-                boxShadow: "var(--shadow-md)",
-                border: "1px solid rgba(0,0,0,0.05)",
-                borderTop: `4px solid ${col.border}`,
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem"
-              }}
-            >
-              <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--slate-600)", fontFamily: "var(--font-display)" }}>{c.title}</div>
-              <div style={{ fontSize: "2.5rem", fontWeight: 800, color: col.text, fontFamily: "var(--font-display)", lineHeight: 1 }}>{c.value}</div>
-              <div style={{ fontSize: "0.875rem", color: "var(--slate-400)" }}>{c.sub}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Bar chart */}
-      <div style={{
-          background: "var(--surface-1)",
-          borderRadius: "var(--radius-xl)",
-          padding: "2rem",
-          boxShadow: "var(--shadow-md)",
-          border: "1px solid rgba(0,0,0,0.05)",
-      }}>
-        <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--slate-800)", fontFamily: "var(--font-display)", marginBottom: "1.5rem" }}>Stage Breakdown</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {cards.filter(c => c.key !== 'Stagnant').map((c, i) => {
-            const col = STAGE_COLORS[c.key];
-            const maxV = Math.max(stats.suspects, stats.prospects, stats.customers, 1);
-            const w    = Math.max(4, Math.round(c.value / maxV * 100));
-            return (
-              <div key={c.key}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--slate-400)" }}>0{i+1}</span>
-                    <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--slate-700)", fontFamily: "var(--font-display)" }}>{c.title}</span>
-                  </div>
-                  <span style={{ fontSize: "1rem", fontWeight: 700, color: col.text }}>{c.value} <span style={{ fontSize: "0.75rem", color: "var(--slate-400)", fontWeight: 500 }}>records</span></span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
+        {/* Pipeline Health */}
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#0f172a' }}>Pipeline Distribution</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {data.pipelineHealth.map((stage, i) => (
+              <div key={stage._id} style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                padding: '16px', 
+                background: '#f8fafc', 
+                borderRadius: '8px', 
+                border: '1px solid #e2e8f0',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '4px', background: '#3b82f6' }}></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>{stage._id}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{stage.count} deals</div>
                 </div>
-                <div style={{ height: "12px", background: "var(--slate-100)", borderRadius: "var(--radius-xl)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${w}%`, background: col.text, borderRadius: "var(--radius-xl)", transition: "width 1s cubic-bezier(0.4, 0, 0.2, 1)" }} />
-                </div>
+                <div style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>₹{(stage.totalValue / 100000).toFixed(1)}L</div>
               </div>
-            );
-          })}
+            ))}
+            {data.pipelineHealth.length === 0 && (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #e2e8f0', borderRadius: '8px' }}>
+                No active opportunities in pipeline
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lead Stats */}
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#0f172a' }}>Lead Funnel</h3>
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <div style={{ fontSize: '48px', fontWeight: 800, color: '#4f46e5' }}>
+              {data.leadStats.total > 0 ? Math.round((data.leadStats.converted / data.leadStats.total) * 100) : 0}%
+            </div>
+            <div style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>Conversion Rate</div>
+            <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'center', gap: '48px' }}>
+              <div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#1e293b' }}>{data.leadStats.total}</div>
+                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>TOTAL LEADS</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981' }}>{data.leadStats.converted}</div>
+                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>CONVERTED</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

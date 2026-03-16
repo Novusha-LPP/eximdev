@@ -1,14 +1,38 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { 
+  Table, 
+  Tag, 
+  Button, 
+  Input, 
+  Space, 
+  Typography, 
+  Card, 
+  Avatar, 
+  Select, 
+  Divider,
+  Tooltip
+} from 'antd';
+import { 
+  SearchOutlined, 
+  UserOutlined, 
+  CheckCircleOutlined, 
+  DollarCircleOutlined,
+  ExportOutlined,
+  GlobalOutlined
+} from '@ant-design/icons';
 import { useKyc } from './hooks/useKyc';
 import dayjs from 'dayjs';
 import '../customerKyc/customerKyc.css';
+
+const { Text, Title } = Typography;
+const { Option } = Select;
 
 const CATEGORIES = ['All', 'Individual/ Proprietary Firm', 'Partnership Firm', 'Company', 'Trust Foundations'];
 
 export default function CustomerList({ onNavigate }) {
   const { getCustomers, loading } = useKyc();
-  const [data,     setData]     = useState([]);
-  const [search,   setSearch]   = useState('');
+  const [data, setData] = useState([]);
+  const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
 
   const load = useCallback(() => {
@@ -20,119 +44,114 @@ export default function CustomerList({ onNavigate }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const columns = [
+    {
+      title: 'Customer Entity',
+      dataIndex: 'name_of_individual',
+      key: 'name',
+      fixed: 'left',
+      render: (text, record) => (
+        <Space onClick={() => onNavigate('completeCustomer', record)} style={{ cursor: 'pointer' }}>
+          <Avatar style={{ backgroundColor: '#f0fdf4', color: '#22c55e' }} icon={<GlobalOutlined />} />
+          <div>
+            <div style={{ fontWeight: 700, color: '#1e293b' }}>{text}</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>IEC: {record.iec_no}</div>
+          </div>
+        </Space>
+      )
+    },
+    {
+      title: 'Tax Identity (PAN)',
+      dataIndex: 'pan_no',
+      key: 'pan',
+      render: (pan) => <Text style={{ fontFamily: 'monospace' }}>{pan || '—'}</Text>
+    },
+    {
+      title: 'Business Category',
+      dataIndex: 'category',
+      key: 'category',
+      render: (tag) => <Tag color="blue" style={{ borderRadius: '4px' }}>{tag}</Tag>
+    },
+    {
+      title: 'Risk Approval',
+      dataIndex: 'approval',
+      key: 'approval',
+      render: (status) => (
+        <Tag icon={<CheckCircleOutlined />} color="success" style={{ fontWeight: 600, borderRadius: '4px' }}>
+          {status.toUpperCase()}
+        </Tag>
+      )
+    },
+    {
+      title: 'Credit Exposure',
+      dataIndex: 'outstanding_limit',
+      key: 'limit',
+      render: (limit) => limit ? (
+        <Text strong style={{ color: '#059669' }}>
+          ₹{Number(limit).toLocaleString()}
+        </Text>
+      ) : <Text type="secondary">—</Text>
+    },
+    {
+      title: 'Last Activity',
+      dataIndex: 'updatedAt',
+      key: 'updated',
+      render: (date) => dayjs(date).format('DD MMM YYYY')
+    },
+    {
+      title: 'View',
+      key: 'action',
+      fixed: 'right',
+      width: 80,
+      render: (_, record) => (
+        <Tooltip title="View Full KYC Profile">
+          <Button 
+            shape="circle" 
+            icon={<ExportOutlined />} 
+            onClick={() => onNavigate('completeCustomer', record)}
+          />
+        </Tooltip>
+      )
+    }
+  ];
+
   return (
-    <div style={{ width: "100%", animation: "fadeIn 0.4s ease-out" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2rem" }}>
+    <div style={{ animation: "fadeIn 0.5s ease" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--slate-900)", fontFamily: "var(--font-display)", margin: "0 0 0.5rem 0" }}>Customers</h2>
-          <p style={{ color: "var(--slate-500)", margin: 0 }}>{data.length} approved KYC records</p>
+          <Title level={3} style={{ margin: 0, fontWeight: 800 }}>Approved Customers</Title>
+          <Text type="secondary">Onboarded entities with cleared KYC and risk profiles</Text>
         </div>
-        <div style={{ display: "flex", gap: "1rem" }}>
-          
-          <div style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            background: "var(--surface-1)",
-            border: "1px solid var(--slate-200)",
-            borderRadius: "var(--radius-lg)",
-            padding: "0.2rem 1rem",
-            boxShadow: "var(--shadow-sm)",
-          }}>
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              style={{ border: "none", outline: "none", background: "transparent", fontSize: "0.875rem", color: "var(--slate-700)", cursor: "pointer", appearance: "none", paddingRight: "1.5rem" }}
-            >
-              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-            </select>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: "0.5rem", pointerEvents: "none", color: "var(--slate-500)" }}>
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-
-          <div style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            background: "var(--surface-1)",
-            border: "1px solid var(--slate-200)",
-            borderRadius: "var(--radius-lg)",
-            padding: "0.4rem 1rem",
-            boxShadow: "var(--shadow-sm)",
-            width: "280px"
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--slate-400)", marginRight: "8px" }}>
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              style={{ border: "none", outline: "none", background: "transparent", width: "100%", fontSize: "0.875rem", color: "var(--slate-700)" }}
-              placeholder="Search IEC, Name, PAN..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && load()}
-            />
-          </div>
-          <button 
-            onClick={load}
-            style={{ background: "var(--slate-800)", color: "white", padding: "0.4rem 1.25rem", borderRadius: "var(--radius-md)", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.875rem", transition: "background 0.2s" }}
-            onMouseOver={e=>e.currentTarget.style.background="var(--slate-900)"}
-            onMouseOut={e=>e.currentTarget.style.background="var(--slate-800)"}
+        <Space size="middle">
+          <Select 
+            value={category} 
+            onChange={setCategory} 
+            style={{ width: 220 }}
+            size="large"
           >
-            Search
-          </button>
-        </div>
+            {CATEGORIES.map(c => <Option key={c} value={c}>{c}</Option>)}
+          </Select>
+          <Input.Search
+            placeholder="Search IEC, Name, PAN..."
+            size="large"
+            style={{ width: 300 }}
+            onSearch={load}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </Space>
       </div>
 
-      <div style={{ background: "var(--surface-1)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-md)", border: "1px solid rgba(0,0,0,0.05)", overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem", fontFamily: "var(--font-body)" }}>
-            <thead>
-              <tr style={{ background: "var(--slate-50)", borderBottom: "1px solid var(--slate-200)" }}>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>#</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Company / Individual</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>IEC No.</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>PAN</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Category</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Approval</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Approved By</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Credit Limit</th>
-                <th style={{ padding: "1rem 1.5rem", color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td colSpan={10} style={{ textAlign:'center', padding:"3rem 1.5rem", color:'var(--slate-400)' }}>Loading...</td></tr>}
-              {!loading && data.length === 0 && <tr><td colSpan={10} style={{ textAlign:'center', padding:"3rem 1.5rem", color:'var(--slate-400)' }}>No approved customers found.</td></tr>}
-              {data.map((r, i) => (
-                <tr key={r._id} style={{ borderBottom: "1px solid var(--slate-100)", transition: "background 0.2s ease" }} onMouseOver={e => e.currentTarget.style.background = "var(--slate-50)"} onMouseOut={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "1rem 1.5rem", color:"var(--slate-400)", fontWeight: 500 }}>{i+1}</td>
-                  <td style={{ padding: "1rem 1.5rem", fontWeight:600 }}>
-                    <button onClick={() => onNavigate('completeCustomer', r)} style={{ background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', color: 'var(--blue)', fontWeight: 600, fontSize: '0.875rem' }} onMouseOver={e=>e.currentTarget.style.textDecoration="underline"} onMouseOut={e=>e.currentTarget.style.textDecoration="none"}>
-                      {r.name_of_individual}
-                    </button>
-                  </td>
-                  <td style={{ padding: "1rem 1.5rem", fontFamily:'monospace', color: "var(--slate-600)" }}>
-                    <span style={{ padding: "4px 8px", background: "var(--slate-100)", border: "1px solid var(--slate-200)", borderRadius: "var(--radius-md)", fontSize: "0.75rem" }}>{r.iec_no}</span>
-                  </td>
-                  <td style={{ padding: "1rem 1.5rem", fontFamily:'monospace', color: "var(--slate-600)" }}>{r.pan_no || '—'}</td>
-                  <td style={{ padding: "1rem 1.5rem", color:'var(--slate-600)' }}>{r.category}</td>
-                  <td style={{ padding: "1rem 1.5rem" }}>
-                    <span style={{ padding: "4px 8px", background: r.approval === 'Approved by HOD' ? "var(--primary-100)" : "var(--success-light)", color: r.approval === 'Approved by HOD' ? "var(--primary-700)" : "var(--success)", border: `1px solid ${r.approval === 'Approved by HOD' ? 'var(--primary-300)' : 'var(--success)'}`, borderRadius: "var(--radius-full)", fontSize: "0.75rem", fontWeight: 600 }}>
-                      {r.approval}
-                    </span>
-                  </td>
-                  <td style={{ padding: "1rem 1.5rem", color:'var(--slate-600)' }}>{r.approved_by || '—'}</td>
-                  <td style={{ padding: "1rem 1.5rem", fontWeight:600, color: "var(--slate-800)" }}>
-                    {r.outstanding_limit ? `INR ${Number(r.outstanding_limit).toLocaleString()}` : '—'}
-                  </td>
-                  <td style={{ padding: "1rem 1.5rem", color:'var(--slate-400)' }}>{dayjs(r.updatedAt).format('DD MMM YY')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Card bordered={false} bodyStyle={{ padding: 0 }} style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+        <Table
+          columns={columns}
+          dataSource={data}
+          loading={loading}
+          rowKey="_id"
+          pagination={{ pageSize: 12, position: ['bottomRight'] }}
+          scroll={{ x: 1000 }}
+          className="premium-table"
+        />
+      </Card>
     </div>
   );
 }

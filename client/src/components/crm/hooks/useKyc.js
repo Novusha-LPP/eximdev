@@ -60,6 +60,21 @@ export function useKyc() {
   const addOpenPoint     = useCallback((id, data) => request('POST',  `/customers/${id}/open-points`, data),                [request]);
   const resolveOpenPoint = useCallback((id, idx, data) => request('PATCH', `/customers/${id}/open-points/${idx}/resolve`, data), [request]);
 
+  // ─── Pipeline (New V2 Flows) ────────────────────────────────
+  const getPipelineStage = useCallback((stage) => {
+    // Stage must be 'suspects', 'prospects', 'qualified-leads', 'opportunities'
+    return request('GET', `/pipeline/${stage}`);
+  }, [request]);
+
+  const advancePipeline = useCallback((id, payload) => {
+    return request('POST', `/pipeline/${id}/advance`, payload);
+  }, [request]);
+
+  const getKanbanData = useCallback(() => request('GET', '/pipeline/kanban'), [request]);
+  const logActivity   = useCallback((id, payload) => request('POST', `/pipeline/${id}/activity`, payload), [request]);
+  const getActivities = useCallback((id) => request('GET', `/pipeline/${id}/activities`), [request]);
+  const patchLead     = useCallback((id, payload) => request('PATCH', `/pipeline/${id}/stage`, payload), [request]);
+
   return {
     loading,
     getStats,
@@ -67,5 +82,7 @@ export function useKyc() {
     getProspects, getProspect, updateProspect, approveProspect, revisionProspect, escalateProspect, hodApproveProspect,
     getCustomers, getCustomer, updateCustomer,
     getOpenPoints, addOpenPoint, resolveOpenPoint,
+    getPipelineStage, advancePipeline,
+    getKanbanData, logActivity, getActivities, patchLead
   };
 }

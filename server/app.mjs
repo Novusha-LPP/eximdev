@@ -298,6 +298,8 @@ app.use(
       "username",
       "user-role",
       "x-username",
+      "x-tenant-id",
+      "x-tenant-slug",
     ],
   })
 );

@@ -1,36 +1,33 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  Form, Input, Select, Button, Card, Space, Typography, Collapse,
-  Row, Col, Divider, message, Spin, Tag, Checkbox, Steps, Alert,
-  Tooltip, Badge
+  Form, Input, Select, Button, Card, Space, Typography, 
+  Row, Col, Divider, message, Spin, Tag, Steps, 
+  Tooltip, Badge, Avatar, InputNumber, DatePicker
 } from 'antd';
 import {
   SaveOutlined, SendOutlined, ArrowLeftOutlined, CheckCircleOutlined,
-  ExclamationCircleOutlined, InfoCircleOutlined
+  ExclamationCircleOutlined, InfoCircleOutlined,
+  GlobalOutlined, IdcardOutlined, ContactsOutlined,
+  FileTextOutlined, ThunderboltOutlined, UserOutlined
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useKyc } from './hooks/useKyc';
 import ContactManager from './components/ContactManager';
 import FileUpload from './components/FileUpload';
 import '../customerKyc/KycForm.scss';
 
-const { Title, Text } = Typography;
-const { Panel } = Collapse;
+const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 
-/* ─── Indian States & UTs ─────────────────────────────────────────────────── */
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
   'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
   'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
   'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana',
   'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  // UTs
-  'Andaman and Nicobar Islands', 'Chandigarh',
-  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
-  'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh'
 ];
 
-/* ─── Completion checker ─────────────────────────────────────────────────── */
 function checkCompletion(data, files) {
   const pa = data || {};
   const hasPermAddress =
@@ -48,393 +45,268 @@ function checkCompletion(data, files) {
   };
 }
 
-/* ─── Address sub-form ───────────────────────────────────────────────────── */
-function AddressFields({ prefix, disabled }) {
+function SectionHeader({ icon, title, sub }) {
   return (
-    <div className="fields">
-      <div className="row">
-        <div className="field w-full">
-          <label>Address Line 1 <span className="req">*</span></label>
-          <Form.Item name={`${prefix}_line_1`} style={{ marginBottom: 0 }}>
-            <Input placeholder="Building name, street, area" disabled={disabled} />
-          </Form.Item>
-        </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem' }}>
+      <div style={{ 
+        width: '40px', height: '40px', background: '#f0f9ff', color: '#3b82f6', 
+        borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' 
+      }}>
+        {icon}
       </div>
-      <div className="row">
-        <div className="field w-full">
-          <label>Address Line 2</label>
-          <Form.Item name={`${prefix}_line_2`} style={{ marginBottom: 0 }}>
-            <Input placeholder="Locality, landmark" disabled={disabled} />
-          </Form.Item>
-        </div>
+      <div>
+        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#1e293b' }}>{title}</div>
+        <div style={{ fontSize: '12px', color: '#94a3b8' }}>{sub}</div>
       </div>
-      <div className="row">
-        <div className="field w-third">
-          <label>City <span className="req">*</span></label>
-          <Form.Item name={`${prefix}_city`} style={{ marginBottom: 0 }}>
-            <Input placeholder="City" disabled={disabled} />
-          </Form.Item>
-        </div>
-        <div className="field w-third">
-          <label>State / UT <span className="req">*</span></label>
-          <Form.Item name={`${prefix}_state`} style={{ marginBottom: 0 }}>
-            <Select placeholder="Select state" disabled={disabled} showSearch optionFilterProp="children" style={{ width: '100%', height: '28px' }}>
-              {INDIAN_STATES.map(s => <Option key={s} value={s}>{s}</Option>)}
-            </Select>
-          </Form.Item>
-        </div>
-        <div className="field w-third">
-          <label>PIN Code <span className="req">*</span></label>
-          <Form.Item
-            name={`${prefix}_pin_code`}
-            rules={[{ pattern: /^\d{6}$/, message: 'Enter valid 6-digit PIN' }]}
-            style={{ marginBottom: 0 }}
-          >
-            <Input placeholder="6 digits" maxLength={6} disabled={disabled} />
-          </Form.Item>
-        </div>
-      </div>
-      <div className="row">
-        <div className="field w-half">
-          <label>Phone <span className="req">*</span></label>
-          <Form.Item name={`${prefix === 'permanent_address' ? 'permanent_address_telephone' : 'principle_business_telephone'}`} style={{ marginBottom: 0 }}>
-            <Input placeholder="Landline or mobile" disabled={disabled} />
-          </Form.Item>
-        </div>
-        <div className="field w-half">
-          <label>Email <span className="req">*</span></label>
-          <Form.Item
-            name={`${prefix === 'permanent_address' ? 'permanent_address_email' : 'principle_address_email'}`}
-            rules={[{ type: 'email', message: 'Invalid email' }]}
-            style={{ marginBottom: 0 }}
-          >
-            <Input placeholder="email@company.com" disabled={disabled} />
-          </Form.Item>
-        </div>
-      </div>
-      {prefix !== 'permanent_address' && (
-        <div className="row">
-          <div className="field w-full">
-            <label>Website</label>
-            <Form.Item name="principle_business_website" style={{ marginBottom: 0 }}>
-              <Input placeholder="https://example.com" disabled={disabled} />
-            </Form.Item>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-/* ─── Main Component ─────────────────────────────────────────────────────── */
-function EditProspectKYC({ onNavigate, record: initialRecord }) {
+export default function EditProspectKYC({ onNavigate, record: initialRecord }) {
   const [form] = Form.useForm();
   const { getProspect, updateProspect, loading } = useKyc();
-  const [record, setRecord]         = useState(initialRecord);
-  const [fetching, setFetching]     = useState(false);
-  const [sameAddr, setSameAddr]     = useState(false);
+  const [record, setRecord] = useState(initialRecord);
+  const [fetching, setFetching] = useState(false);
 
-  // File arrays
-  const [panCopy,    setPanCopy]    = useState([]);
-  const [iecCopy,    setIecCopy]    = useState([]);
-  const [authSig,    setAuthSig]    = useState([]);
+  const [panCopy, setPanCopy] = useState([]);
+  const [iecCopy, setIecCopy] = useState([]);
+  const [authSig, setAuthSig] = useState([]);
   const [authLetter, setAuthLetter] = useState([]);
-
-  // Contacts
   const [contacts, setContacts] = useState([]);
 
-  /* ── Load full record ────────────────────────────────────────────────── */
   useEffect(() => {
     if (!initialRecord?._id) return;
     setFetching(true);
     getProspect(initialRecord._id)
       .then(full => {
         setRecord(full);
-        form.setFieldsValue(full);
+        form.setFieldsValue({
+            ...full,
+            expected_closure_date: full.expected_closure_date ? dayjs(full.expected_closure_date) : null
+        });
         setContacts(full.contacts || []);
-        setPanCopy(full.pan_copy        || []);
-        setIecCopy(full.iec_copy        || []);
+        setPanCopy(full.pan_copy || []);
+        setIecCopy(full.iec_copy || []);
         setAuthSig(full.authorised_signatories || []);
         setAuthLetter(full.authorisation_letter || []);
       })
       .catch(() => {})
       .finally(() => setFetching(false));
-  }, [initialRecord?._id]);
+  }, [initialRecord?._id, form]);
 
-  /* ── sameAsPermanentAddress handler ─────────────────────────────────── */
-  const handleSameAddr = (checked) => {
-    setSameAddr(checked);
-    if (checked) {
-      const vals = form.getFieldsValue();
-      form.setFieldsValue({
-        principle_business_address_line_1:   vals.permanent_address_line_1   || '',
-        principle_business_address_line_2:   vals.permanent_address_line_2   || '',
-        principle_business_address_city:     vals.permanent_address_city     || '',
-        principle_business_address_state:    vals.permanent_address_state    || '',
-        principle_business_address_pin_code: vals.permanent_address_pin_code || '',
-        principle_business_telephone:        vals.permanent_address_telephone || '',
-        principle_address_email:             vals.permanent_address_email    || '',
-      });
-    }
+  const loadCompletion = useMemo(() => {
+    const vals = form.getFieldsValue(true) || {};
+    return checkCompletion({ ...vals, contacts }, { panCopy, iecCopy });
+  }, [form.getFieldsValue(true), contacts, panCopy, iecCopy]);
+
+  const buildPayload = () => {
+    const vals = form.getFieldsValue(true);
+    return {
+        ...vals,
+        contacts,
+        pan_copy: panCopy,
+        iec_copy: iecCopy,
+        authorised_signatories: authSig,
+        authorisation_letter: authLetter,
+        expected_closure_date: vals.expected_closure_date ? vals.expected_closure_date.toDate() : undefined
+    };
   };
 
-  /* ── Build payload ───────────────────────────────────────────────────── */
-  const buildPayload = () => ({
-    ...form.getFieldsValue(true),
-    contacts,
-    pan_copy:              panCopy,
-    iec_copy:              iecCopy,
-    authorised_signatories: authSig,
-    authorisation_letter:   authLetter,
-    sameAsPermanentAddress: sameAddr,
-  });
-
-  /* ── Save ──────────────────────────────────────────────────────────────  */
   const handleSave = async () => {
     try {
       const updated = await updateProspect(record._id, buildPayload());
       setRecord(updated?.data || record);
-      message.success('Progress saved successfully.');
+      message.success('Lead progress saved');
     } catch (_) {}
   };
 
-  /* ── Submit for approval ─────────────────────────────────────────────── */
   const handleSubmit = async () => {
-    // Client-side gate checks
-    const vals  = form.getFieldsValue(true);
-    const files = { panCopy, iecCopy };
-    const done  = checkCompletion({ ...vals, contacts }, files);
-
-    if (!done.address) {
-      message.error('Please complete at least one full address (Line 1, City, State, PIN).');
-      return;
-    }
-    if (!done.contacts) {
-      message.error('Please add at least one contact person.');
-      return;
-    }
-    if (!done.pan) {
-      message.error('PAN number and PAN copy document are required.');
-      return;
-    }
-    if (!done.iec) {
-      message.error('IEC copy document is required.');
-      return;
+    const payload = buildPayload();
+    const done = checkCompletion(payload, { panCopy, iecCopy });
+    
+    if (!done.address || !done.contacts || !done.pan || !done.iec) {
+        message.warning('KYC documentation requirements not fully met. Progress saved, but cannot submit for final approval yet.');
+        handleSave();
+        return;
     }
 
     try {
-      // Save first, then submit
-      await updateProspect(record._id, buildPayload());
-      // Call the submit endpoint
+      await updateProspect(record._id, payload);
       const { default: axios } = await import('axios');
-      await axios.post(
-        `${process.env.REACT_APP_API_STRING}/crm/prospects/${record._id}/submit`,
-        {},
-        { withCredentials: true }
-      );
-      message.success('Submitted for approval!');
+      await axios.post(`${process.env.REACT_APP_API_STRING}/crm/prospects/${record._id}/submit`, {}, { withCredentials: true });
+      message.success('Lead submitted to Compliance for final onboarding!');
       onNavigate('prospects');
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to submit. Please try again.';
-      message.error(msg);
+      message.error(err?.response?.data?.message || 'Submission failed');
     }
   };
-
-  // ─── Completion status for the progress panel ──────────────────────────
-  const vals  = form.getFieldsValue(true) || {};
-  const done  = checkCompletion({ ...vals, contacts }, { panCopy, iecCopy });
-  const completedCount = Object.values(done).filter(Boolean).length;
-
-  const stepItems = [
-    { title: 'Address',   description: 'At least 1 full address', status: done.address   ? 'finish' : 'wait' },
-    { title: 'Contacts',  description: 'Min. 1 contact',          status: done.contacts  ? 'finish' : 'wait' },
-    { title: 'PAN',       description: 'PAN No. + document',      status: done.pan       ? 'finish' : 'wait' },
-    { title: 'IEC Copy',  description: 'IEC certificate upload',  status: done.iec       ? 'finish' : 'wait' },
-  ];
 
   if (!record) return null;
 
   return (
     <Spin spinning={fetching}>
-      <div className="app customer-kyc-wrapper" style={{ minHeight: 'auto', padding: 0, background: 'transparent' }}>
-        <div className="page" style={{ padding: 0 }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: 12 }}>
-            <button
-              onClick={() => onNavigate('prospects')}
-              style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: 0, fontWeight: 600 }}
-            >
-              ← Back
-            </button>
-            <h2 className="page-title" style={{ margin: 0, textTransform: 'uppercase' }}>
+      <div style={{ animation: "fadeIn 0.5s ease", maxWidth: '1200px', margin: '0 auto' }}>
+        
+        {/* Header Block */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+          <Space direction="vertical" size={0}>
+            <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => onNavigate('prospects')} style={{ padding: 0 }}>
+              Back to Pipeline
+            </Button>
+            <Title level={2} style={{ margin: 0, fontWeight: 800 }}>
               {record.name_of_individual}
-              <Tag color="orange" style={{ marginLeft: 8, fontWeight: 'normal', fontSize: 11, verticalAlign: 'middle' }}>{record.approval}</Tag>
-            </h2>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', fontSize: '12px', alignItems: 'center' }}>
-               <Text type="secondary" style={{ fontSize: 11 }}>IEC: <strong>{record.iec_no}</strong></Text>
-               {record.category && <Tag color="blue" style={{ fontSize: 10 }}>{record.category}</Tag>}
-               {record.status   && <Tag color="cyan" style={{ fontSize: 10 }}>{record.status}</Tag>}
-            </div>
-          </div>
-
-
-
-          {/* ─── Progress tracker ────────────────────────────────────────────── */}
-          <Card size="small" style={{ marginBottom: 16, borderRadius: '4px', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text strong style={{ color: 'var(--text)' }}>Phase 2 Completion</Text>
-              <Text type={completedCount === 4 ? 'success' : 'secondary'} style={{ fontSize: 12 }}>{completedCount}/4 requirements met</Text>
-            </div>
-            <Steps
-              size="small"
-              items={stepItems.map(s => ({
-                title: s.title,
-                description: <span style={{ fontSize: 10 }}>{s.description}</span>,
-                status: s.status,
-                icon: s.status === 'finish' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <ExclamationCircleOutlined style={{ color: '#d9d9d9' }} />,
-              }))}
-            />
-          </Card>
-
-          <Form form={form} layout="vertical" onValuesChange={() => {/* triggers re-render for done */}}>
-            <div className="kyc-card">
-              <div className="panels">
-                
-                {/* ── LEFT PANEL ───────────────────────────────────────────────── */}
-                <div className="panel">
-                  {/* Permanent Address */}
-                  <div className="section">
-                    <div className="section-header">
-                      <span className="section-title section-title-accent">Permanent Address</span>
-                      {done.address && <CheckCircleOutlined style={{ color: '#fff', fontSize: 12 }} />}
-                    </div>
-                    <AddressFields prefix="permanent_address" disabled={false} />
-                  </div>
-                  
-                  {/* Principal Business Address */}
-                  <div className="section" style={{ borderBottom: 'none' }}>
-                    <div className="section-header">
-                      <span className="section-title section-title-accent">Principal Business Address</span>
-                      <label className="field-checkbox" style={{ margin: 0, color: '#fff', fontSize: 10 }}>
-                        <input
-                          type="checkbox"
-                          checked={sameAddr}
-                          onChange={e => handleSameAddr(e.target.checked)}
-                          style={{ margin: 0, width: 11, height: 11 }}
-                        />
-                        Same as Permanent
-                      </label>
-                    </div>
-                    <AddressFields prefix="principle_business_address" disabled={sameAddr} />
-                  </div>
-                </div>
-
-                {/* ── RIGHT PANEL ──────────────────────────────────────────────── */}
-                <div className="panel">
-                  {/* Contacts */}
-                  <div className="section">
-                    <div className="section-header">
-                      <span className="section-title section-title-accent">Contact Information</span>
-                      <Space>
-                        <Badge count={contacts.length} style={{ backgroundColor: contacts.length > 0 ? '#52c41a' : '#faad14', transform: 'scale(0.8)' }} />
-                        {contacts.length === 0 && <Tooltip title="At least 1 contact required"><ExclamationCircleOutlined style={{ color: '#faad14' }} /></Tooltip>}
-                      </Space>
-                    </div>
-                    <div className="fields">
-                      <ContactManager value={contacts} onChange={setContacts} />
-                      {contacts.length === 0 && (
-                        <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-                          Add at least 1 contact to submit for approval.
-                        </Text>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Documents */}
-                  <div className="section" style={{ borderBottom: 'none' }}>
-                    <div className="section-header">
-                      <span className="section-title section-title-accent">Documents</span>
-                      {done.pan && done.iec && <CheckCircleOutlined style={{ color: '#fff', fontSize: 12 }} />}
-                    </div>
-                    <div className="fields">
-                      <div className="finance-divider" style={{ marginTop: 0 }}>PAN Details</div>
-                      <div className="row">
-                        <div className="field w-full">
-                          <label>PAN Number <span className="req">*</span></label>
-                          <Form.Item
-                            name="pan_no"
-                            rules={[{ pattern: /^[A-Z]{5}[0-9]{4}[A-Z]$/, message: 'Format: AAAAA9999A' }]}
-                            style={{ marginBottom: 0 }}
-                          >
-                            <Input placeholder="AAAAA9999A" maxLength={10} style={{ textTransform: 'uppercase', fontFamily: 'monospace', letterSpacing: '0.08em' }} />
-                          </Form.Item>
-                        </div>
-                      </div>
-                      <div className="row" style={{ marginTop: 4 }}>
-                        <div className="field w-full">
-                          <FileUpload
-                            label={<>PAN Copy <span style={{ color: '#ff4d4f' }}>*</span></>}
-                            value={panCopy}
-                            onChange={setPanCopy}
-                            bucketPath="crm-docs/pan"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="finance-divider" style={{ marginTop: 8 }}>IEC Details</div>
-                      <div className="row">
-                        <div className="field w-full">
-                          <FileUpload
-                            label={<>IEC Copy <span style={{ color: '#ff4d4f' }}>*</span></>}
-                            value={iecCopy}
-                            onChange={setIecCopy}
-                            bucketPath="crm-docs/iec"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="finance-divider" style={{ marginTop: 8 }}>Authorisation Details</div>
-                      <div className="row">
-                        <div className="field w-half">
-                          <FileUpload
-                            label="Authorised Signatories"
-                            value={authSig}
-                            onChange={setAuthSig}
-                            bucketPath="crm-docs/signatories"
-                          />
-                        </div>
-                        <div className="field w-half">
-                          <FileUpload
-                            label="Authorisation Letter"
-                            value={authLetter}
-                            onChange={setAuthLetter}
-                            bucketPath="crm-docs/auth-letter"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Form Footer ── */}
-              <div className="form-footer">
-                <div className="footer-info">
-                  <InfoCircleOutlined style={{ marginRight: 4 }} />
-                  Required to submit: 1 address · 1 contact · PAN + copy · IEC copy
-                </div>
-                <div className="footer-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => onNavigate('prospects')}>Cancel</button>
-                  <button type="button" className="btn btn-draft" onClick={handleSave} disabled={loading}>{loading ? 'Saving...' : 'Save Progress'}</button>
-                  <button type="button" className="btn btn-success" onClick={handleSubmit} disabled={loading}>{loading ? 'Submitting...' : 'Submit for Approval'}</button>
-                </div>
-              </div>
-            </div>
-          </Form>
+              <Tag color="processing" style={{ marginLeft: '12px', verticalAlign: 'middle', borderRadius: '4px' }}>{record.crm_stage?.toUpperCase()}</Tag>
+            </Title>
+            <Text type="secondary">Enterprise ID: {record.iec_no} • Created {dayjs(record.createdAt).fromNow()}</Text>
+          </Space>
+          <Space size="middle">
+             <Button icon={<SaveOutlined />} onClick={handleSave} loading={loading}>Save Progress</Button>
+             <Button type="primary" icon={<SendOutlined />} onClick={handleSubmit} loading={loading}>Submit for Onboarding</Button>
+          </Space>
         </div>
+
+        <Row gutter={[24, 24]}>
+          {/* Main Form Left Column */}
+          <Col xs={24} lg={16}>
+            <Form form={form} layout="vertical">
+              
+              {/* Sales Intelligence Card */}
+              <Card bordered={false} style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+                <SectionHeader icon={<ThunderboltOutlined />} title="Sales Intelligence" sub="Deal mechanics and revenue forecasting" />
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item name="estimated_revenue" label={<Text strong>Deal Value (₹)</Text>}>
+                      <InputNumber style={{ width: '100%' }} size="large" prefix="₹" formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="deal_probability" label={<Text strong>Win Probability (%)</Text>}>
+                      <Select size="large">
+                        <Option value={10}>10% - Cold Discovery</Option>
+                        <Option value={30}>30% - Needs Discovery</Option>
+                        <Option value={50}>50% - Proposal Sent</Option>
+                        <Option value={75}>75% - Negotiation</Option>
+                        <Option value={90}>90% - Verball Agreement</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="service_interest" label={<Text strong>Service Interest</Text>}>
+                      <Select mode="multiple" size="large" placeholder="Select products">
+                        <Option value="CHA">Customs Clearance (CHA)</Option>
+                        <Option value="Freight">Freight Forwarding</Option>
+                        <Option value="Transport">Surface Transport</Option>
+                        <Option value="Warehouse">Warehousing</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="expected_closure_date" label={<Text strong>Expected Close Date</Text>}>
+                      <DatePicker size="large" style={{ width: '100%' }} format="DD MMM YYYY" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* Physical Addresses */}
+              <Card bordered={false} style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+                <SectionHeader icon={<GlobalOutlined />} title="Office Locations" sub="Regulatory and business addresses" />
+                
+                <Title level={5}>Permanent Address</Title>
+                <Row gutter={16}>
+                  <Col span={24}>
+                    <Form.Item name="permanent_address_line_1" label="Address Line 1"><Input placeholder="Building/Street" /></Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="permanent_address_city" label="City"><Input /></Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item name="permanent_address_state" label="State">
+                       <Select showSearch>
+                         {INDIAN_STATES.map(s => <Option key={s} value={s}>{s}</Option>)}
+                       </Select>
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item name="permanent_address_pin_code" label="PIN Code"><Input maxLength={6} /></Form.Item>
+                  </Col>
+                </Row>
+
+                <Divider />
+
+                <Title level={5}>Business Communication Contact</Title>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item name="permanent_address_telephone" label="Phone/Mobile"><Input prefix="+91" /></Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="permanent_address_email" label="Official Email"><Input /></Form.Item>
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* Contact Personnel */}
+              <Card bordered={false} style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+                <SectionHeader icon={<ContactsOutlined />} title="Key Relationships" sub="Stakeholders and decision makers" />
+                <ContactManager value={contacts} onChange={setContacts} />
+              </Card>
+
+              {/* Statutory Documents */}
+              <Card bordered={false} style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                <SectionHeader icon={<FileTextOutlined />} title="Compliance Dossier" sub="Mandatory regulatory documentation" />
+                <Row gutter={24}>
+                    <Col span={12}>
+                        <Form.Item name="pan_no" label={<Text strong>PAN Number</Text>} rules={[{ pattern: /^[A-Z]{5}[0-9]{4}[A-Z]$/, message: 'Invalid PAN' }]}>
+                            <Input size="large" maxLength={10} style={{ textTransform: 'uppercase', fontFamily: 'monospace' }} />
+                        </Form.Item>
+                        <FileUpload label="PAN Card Copy" value={panCopy} onChange={setPanCopy} bucketPath="crm/pan" />
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item label={<Text strong>IEC Registration</Text>}>
+                            <Input size="large" disabled value={record.iec_no} style={{ fontFamily: 'monospace' }} />
+                        </Form.Item>
+                        <FileUpload label="IEC Certificate Copy" value={iecCopy} onChange={setIecCopy} bucketPath="crm/iec" />
+                    </Col>
+                </Row>
+              </Card>
+            </Form>
+          </Col>
+
+          {/* Side Info Column */}
+          <Col xs={24} lg={8}>
+            <Card title="KYC Progress Tracker" bordered={false} style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', position: 'sticky', top: '24px' }}>
+                <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                    <Badge count={`${Object.values(loadCompletion).filter(Boolean).length}/4`} color="#52c41a" offset={[10, 0]}>
+                        <Avatar size={64} style={{ backgroundColor: '#f0f9ff', color: '#3b82f6' }} icon={<ThunderboltOutlined />} />
+                    </Badge>
+                </div>
+                <Steps
+                    direction="vertical"
+                    size="small"
+                    items={[
+                        { title: 'Physical Presence', sub: 'Address Details', status: loadCompletion.address ? 'finish' : 'wait' },
+                        { title: 'Stakeholders', sub: 'Contact Manager', status: loadCompletion.contacts ? 'finish' : 'wait' },
+                        { title: 'Tax Identity', sub: 'PAN Identification', status: loadCompletion.pan ? 'finish' : 'wait' },
+                        { title: 'Import Logic', sub: 'IEC Verification', status: loadCompletion.iec ? 'finish' : 'wait' },
+                    ]}
+                />
+                
+                <Divider />
+                
+                <div style={{ padding: '12px', background: '#fff7e6', borderRadius: '8px', border: '1px solid #ffe7ba' }}>
+                    <Space align="start">
+                        <InfoCircleOutlined style={{ color: '#faad14', marginTop: '4px' }} />
+                        <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
+                            <Text strong>Onboarding Policy:</Text>
+                            <br />
+                            A lead cannot be converted to a "Customer" until all 4 verification pillars are completed and documents are uploaded.
+                        </div>
+                    </Space>
+                </div>
+            </Card>
+          </Col>
+        </Row>
       </div>
     </Spin>
   );
 }
-
-export default React.memo(EditProspectKYC);

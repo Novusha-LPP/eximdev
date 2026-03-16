@@ -121,30 +121,30 @@ function DocumentationCompletedd() {
 
   // Fetch jobs with pagination and se
   const fetchJobs = useCallback(
-    async (
-      currentPage,
-      currentSearchQuery,
-      selectedImporter,
-      selectedYearState,
+    async ({
+      page,
+      search,
+      importer,
+      year,
       unresolvedOnly = false,
-      selectedBranch = "all",
-      selectedCategory = "all"
-    ) => {
+      branchId = "all",
+      category = "all"
+    }) => {
       setLoading(true);
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-documentation-completed-jobs`,
           {
             params: {
-              page: currentPage,
+              page,
               limit,
-              search: currentSearchQuery,
-              importer: selectedImporter?.trim() || "",
-              year: selectedYearState || "", // ✅ Ensure year is sent
+              search,
+              importer: importer?.trim() || "",
+              year: year || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
-              branchId: selectedBranch || "all", // ✅ Add branchId parameter
-              category: selectedCategory || "all", // ✅ Add category parameter
+              branchId: branchId || "all", // ✅ Add branchId parameter
+              category: category || "all", // ✅ Add category parameter
             },
           }
         );
@@ -170,21 +170,22 @@ function DocumentationCompletedd() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
+    [limit, user?.username] // ✅ Add username as a dependency
   );
 
   // Fetch jobs when page or debounced search query changes
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(
-        debouncedSearchQuery,
-        selectedImporter,
-        selectedYearState,
-        showUnresolvedOnly,
-        selectedBranch,
-        selectedCategory
-      );
+      fetchJobs({
+        page: currentPage,
+        search: debouncedSearchQuery,
+        importer: selectedImporter,
+        year: selectedYearState,
+        unresolvedOnly: showUnresolvedOnly,
+        branchId: selectedBranch,
+        category: selectedCategory
+      });
     }
   }, [
     currentPage,

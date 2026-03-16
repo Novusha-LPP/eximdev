@@ -269,6 +269,13 @@ const ImportCreateJob = () => {
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const portReportingOptionsSet = [
+    "(INMUN1) Mundra Sea",
+    "(INNSA1) Nhava Sheva Sea",
+    "(INPAV1) Pipavav",
+    "(INPAV6) Pipavav (Victor) Port",
+    "(INHZA1) Hazira"
+  ];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"];
   const [selectedImporter, setSelectedImporter] = useState("");
@@ -914,7 +921,7 @@ const ImportCreateJob = () => {
                     <FormField label="Port of Reporting">
                       <Autocomplete
                         freeSolo
-                        options={dynamicPortOptions}
+                        options={portReportingOptionsSet}
                         value={port_of_reporting}
                         onInputChange={(event, newValue) => setPortOfReporting(newValue)}
                         renderInput={(params) => (

@@ -62,6 +62,10 @@ const useImportJobForm = () => {
   const [inv_currency, setInvCurrency] = useState("");
   const [invoice_number, setInvoiceNumber] = useState("");
   const [invoice_date, setInvoiceDate] = useState("");
+  const [import_terms, setImportTerms] = useState("CIF");
+  const [freight, setFreight] = useState("");
+  const [insurance, setInsurance] = useState("");
+  const [term_value, setTermValue] = useState("");
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
@@ -69,6 +73,17 @@ const useImportJobForm = () => {
   const [trade_type, setTradeType] = useState("IMP");
   const [mode, setMode] = useState("SEA");
   const [branches, setBranches] = useState([]);
+  const [invoice_details, setInvoiceDetails] = useState([
+    {
+      invoice_number: "",
+      invoice_date: "",
+      total_inv_value: "",
+      inv_currency: "",
+      toi: "CIF",
+      freight: "",
+      insurance: "",
+    },
+  ]);
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -181,6 +196,50 @@ const useImportJobForm = () => {
     },
   ]);
 
+  const updateInvoiceRow = (rowIndex, field, value) => {
+    const updatedRows = [...invoice_details];
+    updatedRows[rowIndex] = {
+      ...updatedRows[rowIndex],
+      [field]: value,
+    };
+    setInvoiceDetails(updatedRows);
+
+    // Sync first row with single fields for backward compatibility
+    if (rowIndex === 0) {
+      if (field === "invoice_number") setInvoiceNumber(value);
+      if (field === "invoice_date") setInvoiceDate(value);
+      if (field === "total_inv_value") {
+        setTotalInvValue(value);
+        setTermValue(value);
+      }
+      if (field === "inv_currency") setInvCurrency(value);
+      if (field === "toi") setImportTerms(value);
+      if (field === "freight") setFreight(value);
+      if (field === "insurance") setInsurance(value);
+    }
+  };
+
+  const addInvoiceRow = () => {
+    setInvoiceDetails([
+      ...invoice_details,
+      {
+        invoice_number: "",
+        invoice_date: "",
+        total_inv_value: "",
+        inv_currency: invoice_details[0]?.inv_currency || "",
+        toi: "CIF",
+        freight: "",
+        insurance: "",
+      },
+    ]);
+  };
+
+  const removeInvoiceRow = (rowIndex) => {
+    if (invoice_details.length <= 1) return;
+    const updatedRows = invoice_details.filter((_, index) => index !== rowIndex);
+    setInvoiceDetails(updatedRows);
+  };
+
   const updateDescriptionRow = (rowIndex, field, value) => {
     const updatedRows = [...description_details];
     updatedRows[rowIndex] = {
@@ -196,7 +255,6 @@ const useImportJobForm = () => {
         setClearanceValue(value);
         setScheme(value);
       }
-      if (field === "sr_no_invoice") setInvoiceNumber(value);
       if (field === "quantity") setGrossWeight(value); // Approximating ViewJob logic mapping quantity
       if (field === "unit") { /* We don't have unit state in CreateJob, ignoring for top-level */ }
     }
@@ -214,13 +272,14 @@ const useImportJobForm = () => {
   }, [scheme]);
 
   const addDescriptionRow = () => {
+    const defaultSrNo = invoice_details.length > 0 ? String(invoice_details.length) : "";
     setDescriptionDetails([
       ...description_details,
       {
         description: "",
         cth_no: "",
         clearance_under: scheme || clearanceValue || "",
-        sr_no_invoice: "",
+        sr_no_invoice: defaultSrNo,
         sr_no_lic: "",
         quantity: "",
         unit: "",
@@ -269,6 +328,14 @@ const useImportJobForm = () => {
         sr_no_lic: "",
         quantity: "",
         unit: "",
+      },
+    ]);
+    setInvoiceDetails([
+      {
+        invoice_number: "",
+        invoice_date: "",
+        total_inv_value: "",
+        inv_currency: "",
       },
     ]);
     setConsignmentType("");
@@ -359,6 +426,11 @@ const useImportJobForm = () => {
           inv_currency,
           invoice_number,
           invoice_date,
+          invoice_details,
+          import_terms,
+          freight,
+          insurance,
+          cifValue: term_value,
           description,
           description_details,
           consignment_type,
@@ -675,6 +747,18 @@ const useImportJobForm = () => {
     addDescriptionRow,
     updateDescriptionRow,
     removeDescriptionRow,
+    invoice_details,
+    addInvoiceRow,
+    updateInvoiceRow,
+    removeInvoiceRow,
+    import_terms,
+    setImportTerms,
+    freight,
+    setFreight,
+    insurance,
+    setInsurance,
+    term_value,
+    setTermValue,
     snackbar,
     setSnackbar
   };

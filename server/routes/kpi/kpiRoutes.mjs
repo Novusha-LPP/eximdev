@@ -1164,6 +1164,33 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
     }
 });
 
+// Update Summary (Partial save without submission)
+router.put("/api/kpi/sheet/summary", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
+    try {
+        const { sheetId, summary } = req.body;
+        const sheet = await KPISheet.findById(sheetId);
+        if (!sheet) return res.status(404).json({ message: "Sheet not found" });
+
+        if (sheet.user.toString() !== req.user._id.toString()) return res.status(403).json({ message: "Unauthorized" });
+
+        if (sheet.status !== "DRAFT" && sheet.status !== "REJECTED") {
+            return res.status(400).json({ message: "Sheet is locked due to status" });
+        }
+
+        // Update Summary if provided
+        if (summary) {
+            sheet.summary = { ...sheet.summary?.toObject(), ...summary };
+            sheet.markModified('summary');
+        }
+
+        await sheet.save();
+        res.json(sheet);
+    } catch (err) {
+        console.error("PUT /api/kpi/sheet/summary ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 // ==========================================
 // REVIEWER DASHBOARD - Get sheets pending review for current user
 // ==========================================
@@ -1260,6 +1287,55 @@ router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
         });
     } catch (err) {
         console.error("GET /api/kpi/reviewer/pending ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get Team KPI History (HOD only)
+router.get("/api/kpi/hod/team-sheets", verifyToken, async (req, res) => {
+    try {
+        const isAdmin = req.user.role === 'Admin';
+        const isHOD = req.user.role === 'Head_of_Department';
+
+        if (!isAdmin && !isHOD) {
+            return res.status(403).json({ message: "HOD or Admin access required" });
+        }
+
+        const { year, month, userId } = req.query;
+        let query = {};
+
+        if (isHOD && !isAdmin) {
+            const teams = await TeamModel.find({ hodId: req.user._id, isActive: true });
+            let memberIds = [];
+            teams.forEach(t => {
+                t.members.forEach(m => memberIds.push(m.userId.toString()));
+                memberIds.push(t.hodId.toString());
+            });
+            memberIds = [...new Set(memberIds)];
+            
+            if (userId) {
+                if (!memberIds.includes(userId)) {
+                    return res.status(403).json({ message: "User not in your team" });
+                }
+                query.user = userId;
+            } else {
+                query.user = { $in: memberIds };
+            }
+        } else if (isAdmin && userId) {
+            query.user = userId;
+        }
+
+        if (year) query.year = parseInt(year);
+        if (month) query.month = parseInt(month);
+
+        const sheets = await KPISheet.find(query)
+            .populate('user', 'first_name last_name email department')
+            .populate('template_version', 'name')
+            .sort({ year: -1, month: -1, updatedAt: -1 });
+
+        res.json(sheets);
+    } catch (err) {
+        console.error("GET /api/kpi/hod/team-sheets ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });
@@ -1674,6 +1750,121 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
         res.json(pulseData);
     } catch (err) {
         console.error("GET /api/kpi/analytics/pulse ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get Monthly Blocker and Business Loss Report
+router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) => {
+    try {
+        const { year, month, department, team: teamName } = req.query;
+
+        if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
+
+        const currentYear = parseInt(year);
+        const currentMonth = parseInt(month);
+
+        let query = { 
+            year: currentYear, 
+            month: currentMonth, 
+            status: { $in: ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"] },
+            $or: [
+                { "summary.blockers": { $ne: "" } },
+                { "summary.business_loss": { $gt: 0 } }
+            ]
+        };
+
+        let targetUserIds = null;
+
+        if (teamName) {
+            const team = await TeamModel.findOne({ name: teamName, isActive: true });
+            if (team) {
+                targetUserIds = team.members.map(m => m.userId.toString());
+                if (team.hodId) targetUserIds.push(team.hodId.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
+        } else if (req.user.role === 'Head_of_Department') {
+            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: true });
+            if (hodTeam) {
+                targetUserIds = hodTeam.members.map(m => m.userId.toString());
+                targetUserIds.push(req.user._id.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
+        }
+
+        if (targetUserIds) {
+            query.user = { $in: targetUserIds };
+        } else if (department) {
+            query.department = department;
+        }
+
+        const sheets = await KPISheet.find(query)
+            .populate('user', 'first_name last_name username role')
+            .sort({ "summary.business_loss": -1 });
+
+        const allTeams = await TeamModel.find({ isActive: true });
+
+        const reportData = [];
+        const blockerStats = {}; // Category -> count
+
+        sheets.forEach(sheet => {
+            const userId = sheet.user?._id.toString();
+            let userTeam = allTeams.find(t => 
+                t.hodId?.toString() === userId || 
+                t.members.some(m => m.userId.toString() === userId)
+            );
+
+            // Process Blocker Categories
+            if (sheet.summary?.blockers) {
+                const individualBlockers = sheet.summary.blockers.split(' | ').filter(b => b);
+                individualBlockers.forEach(b => {
+                    let category = "Others";
+                    if (b.includes(":")) {
+                        category = b.split(":")[0].trim();
+                    }
+                    blockerStats[category] = (blockerStats[category] || 0) + 1;
+                });
+            }
+
+            // Get first category for primary display in table
+            let primaryBlockerCategory = "Others";
+            if (sheet.summary?.blockers && sheet.summary.blockers.includes(":")) {
+                primaryBlockerCategory = sheet.summary.blockers.split(":")[0].trim();
+            }
+
+            reportData.push({
+                user: {
+                    name: `${sheet.user?.first_name} ${sheet.user?.last_name}`,
+                    username: sheet.user?.username
+                },
+                team: userTeam ? userTeam.name : (sheet.department || 'N/A'),
+                blocker: sheet.summary?.blockers || "",
+                blockerCategory: sheet.summary?.blockers ? primaryBlockerCategory : "",
+                businessLoss: sheet.summary?.business_loss || 0,
+                lossCategory: sheet.summary?.root_cause || (sheet.summary?.business_loss > 0 ? "Others" : ""),
+                lossDescription: sheet.summary?.loss_description || sheet.summary?.root_cause_other || ""
+            });
+        });
+
+        // Convert blocker stats to array and sort
+        const aggregatedBlockers = Object.entries(blockerStats)
+            .map(([category, count]) => ({ category, count }))
+            .sort((a, b) => b.count - a.count);
+
+        // Sort records by category for better grouping in the table
+        reportData.sort((a, b) => a.blockerCategory.localeCompare(b.blockerCategory));
+
+        res.json({
+            records: reportData,
+            stats: {
+                totalValueAtLoss: reportData.reduce((sum, r) => sum + r.businessLoss, 0),
+                highestBlocker: aggregatedBlockers[0] || null,
+                blockerDistribution: aggregatedBlockers
+            }
+        });
+
+    } catch (err) {
+        console.error("GET /api/kpi/analytics/blockers-losses ERROR:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });

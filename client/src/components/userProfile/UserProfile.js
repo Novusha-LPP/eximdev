@@ -17,7 +17,6 @@ import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from "@mui/icons-material/Delete";
-import ImagePreview from "../gallery/ImagePreview";
 import FileUpload from "../gallery/FileUpload";
 import kpiPioneerBadge from "../../assets/images/kpi-pioneer-badge.png";
 

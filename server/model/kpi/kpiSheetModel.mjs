@@ -119,7 +119,11 @@ const KPISheetSchema = new Schema(
             overall_percentage: { type: Number, default: 0 },
             blockers: { type: String, default: "" },
             blockers_root_cause: { type: String, default: "" }, // Rootcause for blockers
+            blockers_other: { type: String, default: "" },
             can_hod_solve: { type: String, enum: ["Yes", "No", ""], default: "" },
+            root_cause_other: { type: String, default: "" },
+            loss_description: { type: String, default: "" },
+            loss_trigger: { type: String, default: "" },
             total_workload_percentage: { type: Number, default: 0 },
             submission_date: Date,
             total_value_score: { type: Number, default: 0 },

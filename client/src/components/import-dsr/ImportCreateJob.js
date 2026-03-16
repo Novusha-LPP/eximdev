@@ -63,7 +63,7 @@ const steps = [
   { label: 'General Info', icon: <BusinessIcon /> },
   { label: 'Importer & Supplier', icon: <BusinessIcon /> },
   { label: 'Shipping Details', icon: <LocalShippingIcon /> },
-  { label: 'Cargo Details', icon: <InventoryIcon /> },
+  { label: 'Invoice Details', icon: <InventoryIcon /> },
   { label: 'Documents', icon: <DescriptionIcon /> },
   { label: 'Clearance', icon: <AssessmentIcon /> },
 ];
@@ -263,9 +263,15 @@ const ImportCreateJob = () => {
     addDescriptionRow,
     updateDescriptionRow,
     removeDescriptionRow,
+    invoice_details,
+    addInvoiceRow,
+    updateInvoiceRow,
+    removeInvoiceRow,
     snackbar,
     setSnackbar
   } = useImportJobForm();
+
+  const currencyOptions = ["USD", "EUR", "GBP", "JPY", "INR", "AUD", "CAD", "CHF", "CNY", "HKD", "SGD"];
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
@@ -715,6 +721,40 @@ const ImportCreateJob = () => {
                         )}
                       />
                     </FormField>
+
+                    <FormField label="HSS">
+                      <TextField
+                        select
+                        variant="outlined"
+                        size="small"
+                        value={HSS}
+                        id="hss"
+                        name="hss"
+                        onChange={(e) => setHSS(e.target.value)}
+                        fullWidth
+                        sx={compactInput}
+                      >
+                        {hssOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </FormField>
+
+                    {HSS && HSS == "Yes" && (
+                      <FormField label="Seller Name">
+                        <TextField
+                          value={sallerName}
+                          onChange={(e) => setSallerName(e.target.value)}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Seller Name"
+                          fullWidth
+                          sx={compactInput}
+                        />
+                      </FormField>
+                    )}
                   </Grid>
                 </SectionCard>
               </Grid>
@@ -845,19 +885,7 @@ const ImportCreateJob = () => {
                         </FormField>
                       </>
                     )}
-                  </Grid>
-                </SectionCard>
-              </Grid>
 
-              {/* Section 4: Cargo Details */}
-              <Grid item xs={12}>
-                <SectionCard
-                  title="4. Cargo & Invoice Details"
-                  icon={<InventoryIcon />}
-                  stepIndex={3}
-                  activeStep={activeStep}
-                >
-                  <Grid container spacing={2}>
                     <FormField label="Gross Weight">
                       <TextField
                         value={gross_weight}
@@ -936,68 +964,6 @@ const ImportCreateJob = () => {
                       />
                     </FormField>
 
-                    <FormField label="Total Inv Value">
-                      <TextField
-                        value={total_inv_value}
-                        onChange={(e) => setTotalInvValue(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        placeholder="Value"
-                        fullWidth
-                        sx={compactInput}
-                      />
-                    </FormField>
-
-                    <FormField label="Inv Currency">
-                      <TextField
-                        value={inv_currency}
-                        onChange={(e) => setInvCurrency(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        placeholder="Currency"
-                        fullWidth
-                        sx={compactInput}
-                      />
-                    </FormField>
-
-                    <FormField label="Invoice Number">
-                      <TextField
-                        value={invoice_number}
-                        onChange={(e) => setInvoiceNumber(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        placeholder="Inv No"
-                        fullWidth
-                        sx={compactInput}
-                      />
-                    </FormField>
-
-                    <FormField label="Invoice Date">
-                      <TextField
-                        type="date"
-                        value={invoice_date}
-                        onChange={(e) => setInvoiceDate(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                        sx={compactInput}
-                      />
-                    </FormField>
-
-                    <FormField label="Description">
-                      <TextField
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        placeholder="Description"
-                        fullWidth
-                        multiline
-                        rows={1}
-                        sx={compactInput}
-                      />
-                    </FormField>
 
                     {!isAirMode(mode) && (
                       <FormField label="Consignment Type">
@@ -1016,69 +982,150 @@ const ImportCreateJob = () => {
                       </FormField>
                     )}
 
-                    <FormField label="CTH No">
-                      <TextField
-                        value={cth_no}
-                        onChange={(e) => setCthNo(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        placeholder="CTH No"
-                        fullWidth
-                        sx={compactInput}
-                      />
-                    </FormField>
+                  </Grid>
+                </SectionCard>
+              </Grid>
 
-                    <FormField label="Document Status">
-                      <Box>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={isDraftDoc}
-                              onChange={(e) => setIsDraftDoc(e.target.checked)}
-                              color="primary"
-                            />
-                          }
-                          label="Is Draft Document"
-                        />
-                        <Typography variant="body2" color="text.secondary">
-                          {isDraftDoc ? "This document is a draft." : "This document is finalized."}
+              <Grid item xs={12}>
+                <SectionCard
+                  title="4. Invoice & Documentation Details"
+                  icon={<InventoryIcon />}
+                  stepIndex={3}
+                  activeStep={activeStep}
+                >
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                          Invoice Details
                         </Typography>
-                      </Box>
-                    </FormField>
-
-                    <FormField label="HSS">
-                      <TextField
-                        select
-                        variant="outlined"
-                        size="small"
-                        value={HSS}
-                        id="hss"
-                        name="hss"
-                        onChange={(e) => setHSS(e.target.value)}
-                        fullWidth
-                        sx={compactInput}
-                      >
-                        {hssOptions.map((option) => (
-                          <MenuItem key={option} value={option}>
-                            {option}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </FormField>
-
-                    {HSS && HSS == "Yes" && (
-                      <FormField label="Seller Name">
-                        <TextField
-                          value={sallerName}
-                          onChange={(e) => setSallerName(e.target.value)}
+                        <Button
                           variant="outlined"
                           size="small"
-                          placeholder="Seller Name"
-                          fullWidth
-                          sx={compactInput}
-                        />
-                      </FormField>
-                    )}
+                          startIcon={<AddIcon />}
+                          onClick={addInvoiceRow}
+                          sx={{ fontSize: '0.65rem', py: 0.5 }}
+                        >
+                          Add Invoice
+                        </Button>
+                      </Box>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f8fafc' }}>
+                            {['Sr', 'Invoice Number', 'Invoice Date', 'Value', 'Currency', 'TOI', 'Freight', 'Insurance', ''].map((h) => (
+                              <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {invoice_details?.map((row, rowIndex) => (
+                            <tr key={`inv-row-${rowIndex}`}>
+                               <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', fontSize: '0.75rem', width: '30px', textAlign: 'center' }}>
+                                {rowIndex + 1}
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '130px' }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="Inv No"
+                                  value={row.invoice_number || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                                <TextField
+                                  type="date"
+                                  size="small"
+                                  fullWidth
+                                  value={row.invoice_date || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="Value"
+                                  value={row.total_inv_value || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "total_inv_value", e.target.value)}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                <TextField
+                                  select
+                                  size="small"
+                                  fullWidth
+                                  value={row.inv_currency || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
+                                  sx={compactInput}
+                                >
+                                  <MenuItem value="">Select</MenuItem>
+                                  {currencyOptions.map((curr) => (
+                                    <MenuItem key={curr} value={curr}>{curr}</MenuItem>
+                                  ))}
+                                </TextField>
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                <TextField
+                                  select
+                                  size="small"
+                                  fullWidth
+                                  value={row.toi || "CIF"}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                  sx={compactInput}
+                                >
+                                  <MenuItem value="CIF">CIF</MenuItem>
+                                  <MenuItem value="FOB">FOB</MenuItem>
+                                  <MenuItem value="CF">C&F</MenuItem>
+                                  <MenuItem value="CI">C&I</MenuItem>
+                                </TextField>
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="Freight"
+                                  value={row.freight || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                  sx={compactInput}
+                                  disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="Insurance"
+                                  value={row.insurance || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                  sx={compactInput}
+                                  disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '40px' }}>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => removeInvoiceRow(rowIndex)}
+                                  disabled={invoice_details.length <= 1}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Grid>
+
+
+
                   </Grid>
                 </SectionCard>
               </Grid>
@@ -1105,7 +1152,7 @@ const ImportCreateJob = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ background: '#f8f9fa' }}>
-                          {["Description", "CTH", "Clearance", "Inv SR", "LIC SR", "Qty", "Unit", "Action"].map((h) => (
+                          {["Inv SR", "Description", "CTH", "Clearance", "LIC SR", "Qty", "Unit", "Action"].map((h) => (
                             <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
                               {h}
                             </th>
@@ -1117,11 +1164,33 @@ const ImportCreateJob = () => {
                           <tr key={`desc-row-${rowIndex}`}>
                             <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
                               <TextField
+                                select
                                 size="small"
                                 fullWidth
+                                value={row.sr_no_invoice || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
+                                sx={compactInput}
+                              >
+                                <MenuItem value="">Select</MenuItem>
+                                {invoice_details.map((_, idx) => (
+                                  <MenuItem key={idx + 1} value={String(idx + 1)}>
+                                    {idx + 1}
+                                  </MenuItem>
+                                ))}
+                              </TextField>
+                            </td>
+                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', verticalAlign: 'top' }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                multiline
+                                rows={2}
                                 value={row.description || ""}
                                 onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
-                                sx={compactInput}
+                                sx={{ 
+                                  ...compactInput, 
+                                  '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], height: 'auto' } 
+                                }}
                               />
                             </td>
                             <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
@@ -1143,21 +1212,12 @@ const ImportCreateJob = () => {
                                 sx={compactInput}
                               >
                                 <MenuItem value="">Select</MenuItem>
-                                {filteredClearanceOptions.map((option, index) => (
-                                  <MenuItem key={index} value={option.value || ""}>
-                                    {option.label}
+                                {schemeOptions.map((option, index) => (
+                                  <MenuItem key={index} value={option}>
+                                    {option}
                                   </MenuItem>
                                 ))}
                               </TextField>
-                            </td>
-                            <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={row.sr_no_invoice || ""}
-                                onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
-                                sx={compactInput}
-                              />
                             </td>
                             <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
                               <TextField
@@ -1460,6 +1520,26 @@ const ImportCreateJob = () => {
                 stepIndex={4}
                 activeStep={activeStep}
               >
+                <Box sx={{ mb: 3, p: 2, bgcolor: '#f0f9ff', borderRadius: '12px', border: '1px solid #bae6fd' }}>
+                  <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 1, display: 'block', textTransform: 'uppercase' }}>
+                    Document Status
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={isDraftDoc}
+                        onChange={(e) => setIsDraftDoc(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={<Typography variant="body2" fontWeight={500}>Is Draft Document</Typography>}
+                  />
+                  <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {isDraftDoc ? "This document is a draft." : "This document is finalized."}
+                  </Typography>
+                </Box>
+
                 {!isDraftDoc && (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>

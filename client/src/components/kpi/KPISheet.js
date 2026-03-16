@@ -2,7 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { UserContext } from "../../contexts/UserContext";
-import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu, Autocomplete, Checkbox, IconButton, Divider, Chip } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import SpeedIcon from '@mui/icons-material/Speed';
+import { ALL_BLOCKERS, ALL_BUSINESS_LOSS_TYPES } from './KPIConstants';
 import './kpi.scss';
 
 const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
@@ -18,9 +24,13 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
     const [summary, setSummary] = useState({
         business_loss: 0,
         root_cause: '',
+        root_cause_other: '',
+        loss_description: '',
+        loss_trigger: '',
         action_plan: '',
         overall_percentage: 0,
         blockers: '',
+        blockers_other: '',
         blockers_root_cause: '',
         can_hod_solve: 'No',
         total_workload_percentage: 0,
@@ -30,6 +40,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
 
     // Review Dialog State
     const [reviewDialog, setReviewDialog] = useState({ open: false, action: '', comments: '' });
+    const [lossDialogOpen, setLossDialogOpen] = useState(false);
 
     // Row Weights State
     const [rowWeights, setRowWeights] = useState({});
@@ -388,8 +399,21 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                 day,
                 type: 'working_sunday'
             }, { withCredentials: true });
-        } catch (e) {
-            console.error("Error toggling working sunday", e);
+        } catch (err) {
+            console.error(err);
+            showMessage("Failed to update entry", "error");
+        }
+    };
+
+    const saveSummaryField = async (updatedSummary) => {
+        try {
+            await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/summary`, {
+                sheetId: sheet._id,
+                summary: updatedSummary
+            });
+        } catch (err) {
+            console.error("Failed to save summary field:", err);
+            showMessage("Failed to auto-save changes", "error");
         }
     };
 
@@ -464,7 +488,10 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
             missingFields.push('Business Loss amount in Rupees (INR)');
         }
         if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
-            missingFields.push('Rootcause for business loss');
+            missingFields.push('Business Loss Type');
+        }
+        if (summary.root_cause?.includes('OTHERS: Others') && (!summary.root_cause_other || !summary.root_cause_other.trim())) {
+            missingFields.push('Specific details for "Others" business loss');
         }
         if (summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '') {
             missingFields.push('Action plan for business loss');
@@ -474,6 +501,9 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         }
         if (summary.blockers === undefined || summary.blockers === null || summary.blockers === '') {
             missingFields.push('Blockers');
+        }
+        if (summary.blockers?.includes('OTHERS: Others') && (!summary.blockers_other || !summary.blockers_other.trim())) {
+            missingFields.push('Specific details for "Others" blocker');
         }
         if (summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '') {
             missingFields.push('Rootcause (for blockers)');
@@ -888,48 +918,42 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                     <table className="kpi-table" style={{ width: '100%', minWidth: 'auto' }}>
                         <tbody>
                             <tr>
-                                <td style={{ width: '25%', textAlign: 'left', padding: '5px', backgroundColor: '#5baf62ff' }}>
-                                    {displayLang === 'gu' ? 'બિઝનેસ લોસ રકમ (રૂપિયામાં)' : displayLang === 'hi' ? 'व्यवसाय हानि राशि (रुपये में)' : 'Business Loss amount in Rupees (INR)'} <span style={{ color: 'red' }}>*</span>
-                                </td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસ (INR)' : displayLang === 'hi' ? 'व्यवसाय हानि (INR)' : 'Business Loss amount in Rupees (INR)'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={summary.business_loss}
-                                        onChange={(e) => setSummary({ ...summary, business_loss: e.target.value })}
-                                        disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                        required
-                                        placeholder="Required field"
-                                        style={{
-                                            width: '100%',
-                                            minHeight: '30px',
-                                            border: 'none',
-                                            outline: 'none',
-                                            padding: '5px',
-                                            boxSizing: 'border-box'
-                                        }}
-                                    />
+                                    <Box sx={{ display: 'flex', alignItems: 'center', p: '2px' }}>
+                                        <input
+                                            type="number"
+                                            value={summary.business_loss}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setSummary({ ...summary, business_loss: val });
+                                                saveSummaryField({ business_loss: val });
+                                            }}
+                                            disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                            style={{ width: '100px', border: 'none', outline: 'none', padding: '5px' }}
+                                        />
+                                        <Button 
+                                            size="small" 
+                                            variant="outlined" 
+                                            onClick={() => setLossDialogOpen(true)}
+                                            sx={{ ml: 2, textTransform: 'none', fontSize: '0.75rem' }}
+                                        >
+                                            {summary.root_cause ? 'Edit Loss Details' : 'Add Loss Details'}
+                                        </Button>
+                                    </Box>
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસનું મૂળ કારણ' : displayLang === 'hi' ? 'व्यवसाय हानि का मूल कारण' : 'Rootcause for business loss'} <span style={{ color: 'red' }}>*</span></td>
-                                <td>
-                                    <input
-                                        type="text"
-                                        value={summary.root_cause}
-                                        onChange={(e) => setSummary({ ...summary, root_cause: e.target.value })}
-                                        disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                        style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસ માટે કાર્યયોજના' : displayLang === 'hi' ? 'व्यवसाय हानि के लिए कार्ययोजना' : 'Action plan for business loss'} <span style={{ color: 'red' }}>*</span></td>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસ માટે કાર્યયોજના' : displayLang === 'hi' ? 'व्यवसाय हानि के लिए કાર્યયોજના' : 'Action plan for business loss'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
                                     <textarea
                                         rows={3}
                                         value={summary.action_plan}
-                                        onChange={(e) => setSummary({ ...summary, action_plan: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSummary({ ...summary, action_plan: val });
+                                            saveSummaryField({ action_plan: val });
+                                        }}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         style={{ width: '100%', minHeight: '60px', border: 'none', outline: 'none', padding: '5px', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
                                     />
@@ -941,7 +965,11 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     <input
                                         type="number"
                                         value={summary.overall_percentage}
-                                        onChange={(e) => setSummary({ ...summary, overall_percentage: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSummary({ ...summary, overall_percentage: val });
+                                            saveSummaryField({ overall_percentage: val });
+                                        }}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', boxSizing: 'border-box' }}
                                     />
@@ -950,13 +978,69 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                             <tr>
                                 <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'અવરોધો' : displayLang === 'hi' ? 'अवरोधक' : 'Blockers'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
-                                    <input
-                                        type="text"
-                                        value={summary.blockers}
-                                        onChange={(e) => setSummary({ ...summary, blockers: e.target.value })}
+                                    <Autocomplete
+                                        multiple
+                                        disableCloseOnSelect
+                                        options={ALL_BLOCKERS}
+                                        value={summary.blockers ? summary.blockers.split(' | ').filter(b => b) : []}
+                                        isOptionEqualToValue={(option, value) => option === value}
+                                        onChange={(event, newValue) => {
+                                            const newBlockers = newValue.join(' | ');
+                                            const updatedSummary = { ...summary, blockers: newBlockers };
+                                            setSummary(updatedSummary);
+                                            saveSummaryField({ blockers: newBlockers });
+                                        }}
+                                        getOptionLabel={(option) => option.includes(': ') ? option.split(': ')[1] : option}
+                                        groupBy={(option) => option.split(': ')[0]}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                placeholder="Select Blockers"
+                                                variant="standard"
+                                                sx={{
+                                                    padding: '2px 5px',
+                                                    '& .MuiInput-root': {
+                                                        '&:before, &:after': { display: 'none' }
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                        renderOption={(props, option, { selected }) => (
+                                            <li {...props} style={{ fontSize: '0.85rem', padding: '4px 8px' }}>
+                                                <Checkbox
+                                                    size="small"
+                                                    style={{ marginRight: 4 }}
+                                                    checked={selected}
+                                                />
+                                                {option.includes(': ') ? option.split(': ')[1] : option}
+                                            </li>
+                                        )}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                        style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                        sx={{
+                                            width: '100%',
+                                            '& .MuiAutocomplete-tag': {
+                                                height: '24px',
+                                                fontSize: '0.75rem'
+                                            }
+                                        }}
                                     />
+                                    {summary.blockers?.includes('OTHERS: Others') && (
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            placeholder="Specify other blocker (max 100 chars)"
+                                            value={summary.blockers_other || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value.substring(0, 100);
+                                                setSummary({ ...summary, blockers_other: val });
+                                                saveSummaryField({ blockers_other: val });
+                                            }}
+                                            disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                            variant="standard"
+                                            sx={{ mt: 1, px: 1 }}
+                                            inputProps={{ maxLength: 100 }}
+                                        />
+                                    )}
                                 </td>
                             </tr>
                             <tr>
@@ -965,7 +1049,11 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     <input
                                         type="text"
                                         value={summary.blockers_root_cause || ''}
-                                        onChange={(e) => setSummary({ ...summary, blockers_root_cause: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSummary({ ...summary, blockers_root_cause: val });
+                                            saveSummaryField({ blockers_root_cause: val });
+                                        }}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                     />
@@ -976,7 +1064,11 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                 <td>
                                     <select
                                         value={summary.can_hod_solve || 'No'}
-                                        onChange={(e) => setSummary({ ...summary, can_hod_solve: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSummary({ ...summary, can_hod_solve: val });
+                                            saveSummaryField({ can_hod_solve: val });
+                                        }}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', boxSizing: 'border-box' }}
                                     >
@@ -991,7 +1083,11 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     <input
                                         type="number"
                                         value={summary.total_workload_percentage}
-                                        onChange={(e) => setSummary({ ...summary, total_workload_percentage: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSummary({ ...summary, total_workload_percentage: val });
+                                            saveSummaryField({ total_workload_percentage: val });
+                                        }}
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', boxSizing: 'border-box' }}
                                     />
@@ -1092,6 +1188,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '' ||
                         summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '' ||
                         summary.blockers === undefined || summary.blockers === null || summary.blockers === '' ||
+                        (summary.blockers?.includes('OTHERS: Others') && !summary.blockers_other?.trim()) ||
                         summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '' ||
                         summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') && (
                             <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 600, backgroundColor: '#ffebee', padding: '8px', borderRadius: '4px' }}>
@@ -1146,6 +1243,247 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         {reviewDialog.action === 'CHECK' ? 'Check' :
                             reviewDialog.action === 'VERIFY' ? 'Verify' :
                                 reviewDialog.action === 'APPROVE' ? 'Approve' : 'Reject'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Business Loss Details Dialog */}
+            <Dialog 
+                open={lossDialogOpen} 
+                onClose={() => setLossDialogOpen(false)} 
+                fullWidth 
+                maxWidth="sm"
+                className="modern-kpi-dialog"
+                PaperProps={{
+                    sx: {
+                        borderRadius: '16px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        overflow: 'hidden'
+                    }
+                }}
+            >
+                <DialogTitle sx={{ 
+                    p: 0, 
+                    background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                    color: 'white',
+                    height: '80px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    px: 3
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ 
+                            width: 36, 
+                            height: 36, 
+                            bgcolor: 'rgba(255,255,255,0.1)', 
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backdropFilter: 'blur(4px)'
+                        }}>
+                            <BusinessCenterIcon sx={{ fontSize: 20 }} />
+                        </Box>
+                        <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, fontSize: '1.1rem' }}>
+                                Business Loss Details
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 500 }}>
+                                Analyze and document operational leaks
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <IconButton 
+                        onClick={() => setLossDialogOpen(false)}
+                        sx={{ color: 'white', opacity: 0.8, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+                    >
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+                
+                <DialogContent sx={{ p: 0 }}>
+                    <Box sx={{ p: 3 }}>
+                        {/* Section: Loss Type */}
+                        <Box className="dialog-field-section">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                <AssessmentIcon sx={{ color: '#10b981', fontSize: 18 }} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+                                    Business Loss Type <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
+                            </Box>
+                            
+                            <Autocomplete
+                                multiple
+                                disableCloseOnSelect
+                                options={ALL_BUSINESS_LOSS_TYPES}
+                                value={summary.root_cause ? summary.root_cause.split(' | ').filter(b => b) : []}
+                                isOptionEqualToValue={(option, value) => option === value}
+                                onChange={(event, newValue) => {
+                                    const newLosses = newValue.join(' | ');
+                                    const updatedSummary = { ...summary, root_cause: newLosses };
+                                    setSummary(updatedSummary);
+                                    saveSummaryField({ root_cause: newLosses });
+                                }}
+                                getOptionLabel={(option) => option.includes(': ') ? option.split(': ')[1] : option}
+                                groupBy={(option) => option.split(': ')[0]}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder="Select Loss Types"
+                                        variant="outlined"
+                                        size="small"
+                                        className="modern-input"
+                                    />
+                                )}
+                                renderOption={(props, option, { selected }) => (
+                                    <li {...props} style={{ fontSize: '0.85rem', padding: '4px 8px' }}>
+                                        <Checkbox
+                                            size="small"
+                                            style={{ marginRight: 4 }}
+                                            checked={selected}
+                                        />
+                                        {option.includes(': ') ? option.split(': ')[1] : option}
+                                    </li>
+                                )}
+                                renderTags={(value, getTagProps) =>
+                                    value.map((option, index) => (
+                                        <Chip
+                                            label={option.includes(': ') ? option.split(': ')[1] : option}
+                                            {...getTagProps({ index })}
+                                            size="small"
+                                            sx={{ 
+                                                bgcolor: '#f1f5f9', 
+                                                fontWeight: 600, 
+                                                fontSize: '0.7rem',
+                                                border: '1px solid #e2e8f0',
+                                                height: '24px'
+                                            }}
+                                        />
+                                    ))
+                                }
+                                disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                sx={{ width: '100%' }}
+                            />
+
+                            {summary.root_cause?.includes('OTHERS: Others') && (
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Specify other business loss"
+                                    placeholder="max 100 characters"
+                                    value={summary.root_cause_other || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value.substring(0, 100);
+                                        setSummary({ ...summary, root_cause_other: val });
+                                        saveSummaryField({ root_cause_other: val });
+                                    }}
+                                    disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                    variant="outlined"
+                                    sx={{ mt: 2 }}
+                                    className="modern-input"
+                                    inputProps={{ maxLength: 100 }}
+                                />
+                            )}
+                        </Box>
+
+                        <Divider sx={{ my: 3, opacity: 0.6 }} />
+
+                        <Divider sx={{ my: 3, opacity: 0.6 }} />
+                        
+                        {/* Section: Loss Amount */}
+                        <Box className="dialog-field-section">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+                                    Loss Amount (INR) <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
+                            </Box>
+                            <TextField
+                                fullWidth
+                                type="number"
+                                size="small"
+                                placeholder="Enter amount in Rupees"
+                                value={summary.business_loss}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSummary({ ...summary, business_loss: val });
+                                    saveSummaryField({ business_loss: val });
+                                }}
+                                disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                variant="outlined"
+                                className="modern-input"
+                                InputProps={{
+                                    startAdornment: <Typography sx={{ mr: 1, color: '#64748B', fontWeight: 700 }}>₹</Typography>,
+                                }}
+                            />
+                        </Box>
+
+                        <Divider sx={{ my: 3, opacity: 0.6 }} />
+
+                        {/* Section: Description */}
+                        <Box className="dialog-field-section">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                <DescriptionIcon sx={{ color: '#3b82f6', fontSize: 18 }} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+                                    Loss Description
+                                </Typography>
+                            </Box>
+                            <textarea
+                                className="modern-textarea"
+                                rows={3}
+                                value={summary.loss_description || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSummary({ ...summary, loss_description: val });
+                                    saveSummaryField({ loss_description: val });
+                                }}
+                                disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                placeholder="When & How This Loss Occurs..."
+                            />
+                        </Box>
+
+                        <Divider sx={{ my: 3, opacity: 0.6 }} />
+
+                        {/* Section: Triggers */}
+                        <Box className="dialog-field-section" sx={{ mb: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                <SpeedIcon sx={{ color: '#f59e0b', fontSize: 18 }} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+                                    What Triggers This Loss?
+                                </Typography>
+                            </Box>
+                            <textarea
+                                className="modern-textarea"
+                                rows={3}
+                                value={summary.loss_trigger || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSummary({ ...summary, loss_trigger: val });
+                                    saveSummaryField({ loss_trigger: val });
+                                }}
+                                disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                placeholder="Specific events or driver actions..."
+                            />
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 3, pt: 0, justifyContent: 'center' }}>
+                    <Button 
+                        onClick={() => setLossDialogOpen(false)} 
+                        variant="contained"
+                        fullWidth
+                        sx={{ 
+                            bgcolor: '#0f172a', 
+                            '&:hover': { bgcolor: '#1e293b' },
+                            height: '48px',
+                            borderRadius: '12px',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '1rem',
+                            boxShadow: '0 10px 15px -3px rgba(15, 23, 42, 0.4)'
+                        }}
+                    >
+                        Done & Save
                     </Button>
                 </DialogActions>
             </Dialog>

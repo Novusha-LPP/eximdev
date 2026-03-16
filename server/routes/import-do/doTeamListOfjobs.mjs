@@ -208,7 +208,7 @@ router.get(
       // 🔍 **Step 1: Fetch Jobs After Applying Filters**
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "job_number job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time"
+          "job_number job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time branch_code trade_type mode"
         )
         .lean();
 

@@ -426,12 +426,14 @@ function CompletedOperations() {
         const icdCode = row.original.custom_house;
         const year = row.original.year;
         const mode = row.original.mode;
+        const branch_code = row.original.branch_code;
+        const trade_type = row.original.trade_type;
         // Build query string for context passing
 
 
         return (
           <Link
-            to={`/import-operations/view-job/${mode}/${jobNo}/${year}`}
+            to={`/import-operations/view-job/${branch_code}/${trade_type}/${mode}/${jobNo}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

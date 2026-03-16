@@ -272,6 +272,9 @@ function PaymentRequested() {
             vessel_berthing,
             colorPriority,      // ✅ USE THIS FROM BACKEND
             container_nos,
+            branch_code,
+            trade_type,
+            mode,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
@@ -344,7 +347,7 @@ function PaymentRequested() {
           }).toString();
           return (
             <Link
-              to={`/view-payment-request-job/${job_no}/${year}?${queryParams}`}
+              to={`/view-payment-request-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?${queryParams}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{

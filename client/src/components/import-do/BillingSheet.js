@@ -46,8 +46,6 @@ function BillingSheet() {
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   // Use context for search functionality and pagination for BillingSheet tab
   const {
     searchQuery,
@@ -60,7 +58,6 @@ function BillingSheet() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
-  const navigate = useNavigate();
   const location = useLocation();
   const listRef = useRef(null);
   const [selectedJobId, setSelectedJobId] = useState(
@@ -221,7 +218,6 @@ function BillingSheet() {
       unresolvedOnly = false,
       selectedBranch = "all"
     ) => {
-      setLoading(true);
       try {
         const apiString =
           process.env.REACT_APP_API_STRING
@@ -258,7 +254,6 @@ function BillingSheet() {
         setTotalPages(1);
         setUnresolvedCount(0);
       } finally {
-        setLoading(false);
       }
     },
     [limit, user?.username] // Dependencies - add username
@@ -310,8 +305,9 @@ function BillingSheet() {
           vessel_berthing,
           container_nos,
           colorPriority, // ✅ USE THIS FROM BACKEND
-          daysDifference, // ✅ USE THIS FROM BACKEND
           mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
 
         // Color-coding logic - NOW USES BACKEND DATA
@@ -388,7 +384,7 @@ function BillingSheet() {
 
         return (
           <Link
-            to={`/edit-billing-sheet/${mode}/${job_no}/${year}?${queryParams}`}
+            to={`/edit-billing-sheet/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?${queryParams}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

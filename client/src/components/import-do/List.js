@@ -398,12 +398,14 @@ function List() {
           year,
           consignment_type,
           mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
         const textColor = "blue";
         const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
         return (
           <a
-            href={`/edit-do-list/${mode}/${job_no}/${year}?jobId=${_id}`}
+            href={`/edit-do-list/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

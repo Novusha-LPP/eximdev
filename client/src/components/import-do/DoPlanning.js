@@ -818,13 +818,15 @@ function DoPlanning() {
           consignment_type,
           year,
           mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
 
         const isSelected = selectedJobId === _id;
 
         return (
           <Link
-            to={`/edit-do-planning/${mode}/${job_no}/${year}?jobId=${_id}`}
+            to={`/edit-do-planning/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setSelectedJobId(_id)}

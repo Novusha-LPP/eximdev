@@ -11,6 +11,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import "./dgft.scss";
 
 // ===================== Constants =====================
+export const unitCodes = [
+  "BAG", "BGS", "BLS", "BRL", "BTL", "BOX", "BLK", "CAN", "CAR", "CRY", "CTN", "CMS", "CHI", "COL", "CON", "CRI", "CCM", "CFT", "CBI", "CBM", "CYL", "DOZ", "DRM", "FLK", "FOT", "FUT", "GMS", "GRS", "FBK", "INC", "NGT", "JTA", "JAL", "KEG", "KLT", "KGS", "KME", "KIT", "LTR", "LOG", "TON", "MTR", "MTS", "MGS", "MOU", "NOS", "NHM", "THD", "PKG", "PAC", "PAI", "PRS", "PLT", "PCS", "PNT", "PND", "QDS", "QTL", "REL", "ROL", "SET", "SKD", "SLB", "SQF", "SQM", "SQY", "BLO", "BUL", "ENV", "TBL", "TNK", "TGM", "TIN", "TRK", "UNT", "UGS", "CSK", "YDS",
+];
 
 const INITIAL_FORM = {
   job_no: "",
@@ -27,6 +30,34 @@ const INITIAL_FORM = {
   date_send_to_icd_ports: "",
   bond_challan_amount: "",
   iec_no: "",
+  
+  // Details fields (synced with ViewAuthorizationDetails)
+  import_validity: "",
+  export_validity: "",
+  hs_code_import: "",
+  export_hs_code: "",
+  import_item_description: "",
+  export_item_description: "",
+  import_qty: "",
+  import_unit: "",
+  export_qty: "",
+  export_unit: "",
+  balance_qty_import: "",
+  balance_import_unit: "",
+  balance_qty_export: "",
+  balance_export_unit: "",
+  utilisation_details_import: "",
+  utilisation_details_export: "",
+  import_value_usd: "",
+  import_value_rs: "",
+  export_value_usd: "",
+  export_value_rs: "",
+  bg_expiry_date: "",
+  bond_expiry_date: "",
+  documents_received_date: "",
+  documents_send_to_icd: "",
+  documents_send_to_accounts: "",
+
   completed: "",
   registration_date: "",
   month: "",
@@ -35,7 +66,6 @@ const INITIAL_FORM = {
   bg_number: "",
   bg_amount: "",
   bg_date: "",
-  bg_expiry_date: "",
   bond_number: "",
   bond_date: "",
   port_code: "",
@@ -45,6 +75,7 @@ const DATE_FIELDS = new Set([
   "date", "licence_date", "date_send_to_icd_ports",
   "registration_date", "bg_date", "bg_expiry_date", "bond_date",
   "lic_recd_from_party", "completed", "billing_done_or_not",
+  "import_validity", "export_validity",
 ]);
 
 const CATEGORY_OPTIONS = [
@@ -236,6 +267,18 @@ function AuthorizationRegistrationList({ onCountChange }) {
   const fileInput = React.useRef(null);
   const navigate = React.useCallback(useNavigate(), []);
 
+  // Helper to convert DD/MM/YYYY (from server) to YYYY-MM-DD (for native date input)
+  const toNativeDate = (val) => {
+    if (!val || typeof val !== "string") return val;
+    if (val.includes("-")) return val; // Already YYYY-MM-DD
+    const parts = val.split("/");
+    if (parts.length === 3) {
+      const [d, m, y] = parts;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    return val;
+  };
+
   const getData = useCallback(async () => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-registrations`);
@@ -303,9 +346,16 @@ function AuthorizationRegistrationList({ onCountChange }) {
 
   const handleOpenEdit = (row) => {
     setEditingId(row._id);
-    const data = {};
-    FIELDS.forEach((f) => { data[f.key] = row[f.key] || ""; });
-    setFormData(data); setErrors({}); setCategoryInput(""); setJobTypeInput(""); setDialogOpen(true);
+    // Initialize with INITIAL_FORM to ensure all expected keys exist, then merge row data
+    const data = { ...INITIAL_FORM, ...row };
+    // Convert dates for native input
+    Object.keys(data).forEach(key => {
+      if (DATE_FIELDS.has(key) && data[key]) {
+        data[key] = toNativeDate(data[key]);
+      }
+    });
+    setFormData(data);
+    setErrors({}); setCategoryInput(""); setJobTypeInput(""); setDialogOpen(true);
   };
 
   const handleDelete = async (id) => {

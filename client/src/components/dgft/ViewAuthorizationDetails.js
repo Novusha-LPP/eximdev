@@ -103,6 +103,77 @@ function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy" }) {
   );
 }
 
+// ── Unit Autocomplete ──────────────────────────────────────────
+export const unitCodes = [
+  "BAG", "BGS", "BLS", "BRL", "BTL", "BOX", "BLK", "CAN", "CAR", "CRY", "CTN", "CMS", "CHI", "COL", "CON", "CRI", "CCM", "CFT", "CBI", "CBM", "CYL", "DOZ", "DRM", "FLK", "FOT", "FUT", "GMS", "GRS", "FBK", "INC", "NGT", "JTA", "JAL", "KEG", "KLT", "KGS", "KME", "KIT", "LTR", "LOG", "TON", "MTR", "MTS", "MGS", "MOU", "NOS", "NHM", "THD", "PKG", "PAC", "PAI", "PRS", "PLT", "PCS", "PNT", "PND", "QDS", "QTL", "REL", "ROL", "SET", "SKD", "SLB", "SQF", "SQM", "SQY", "BLO", "BUL", "ENV", "TBL", "TNK", "TGM", "TIN", "TRK", "UNT", "UGS", "CSK", "YDS",
+];
+
+function UnitAutocomplete({ value, onChange }) {
+  const [query, setQuery] = useState(value || "");
+  const [results, setResults] = useState([]);
+  const [showResults, setShowResults] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => { setQuery(value || ""); }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowResults(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value.toUpperCase();
+    setQuery(val);
+    onChange(val);
+    if (val.trim()) {
+      const filtered = unitCodes.filter(c => c.includes(val)).slice(0, 10);
+      setResults(filtered);
+      setShowResults(true);
+    } else {
+      const first10 = unitCodes.slice(0, 10);
+      setResults(first10);
+      setShowResults(true);
+    }
+  };
+
+  const handleSelect = (code) => {
+    setQuery(code);
+    onChange(code);
+    setShowResults(false);
+  };
+
+  return (
+    <div className="ap-autocomplete-wrapper" ref={wrapperRef}>
+      <input
+        type="text"
+        className="ap-field-input"
+        value={query}
+        onChange={handleInputChange}
+        onFocus={() => {
+          const val = query.trim().toUpperCase();
+          const filtered = val ? unitCodes.filter(c => c.includes(val)).slice(0, 10) : unitCodes.slice(0, 10);
+          setResults(filtered);
+          setShowResults(true);
+        }}
+        placeholder="Unit"
+      />
+      {showResults && results.length > 0 && (
+        <ul className="ap-autocomplete-results">
+          {results.map((code, idx) => (
+            <li key={idx} onClick={() => handleSelect(code)}>
+              <div className="ap-res-code">{code}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+
 // ── HS Code Autocomplete ──────────────────────────────────────────
 function HSCodeAutocomplete({ value, onChange }) {
   const [query, setQuery] = useState(value || "");
@@ -210,13 +281,18 @@ function ViewAuthorizationDetails() {
         let sub = {
           import_validity:            safeStr(found.import_validity),
           export_validity:            safeStr(found.export_validity),
-          hs_code:                    safeStr(found.hs_code),
+          hs_code_import:             safeStr(found.hs_code_import || found.hs_code),
+          export_hs_code:             safeStr(found.export_hs_code),
           import_item_description:    safeStr(found.import_item_description || found.item_description),
           export_item_description:    safeStr(found.export_item_description),
           import_qty:                 safeStr(found.import_qty || found.qty),
+          import_unit:                safeStr(found.import_unit),
           export_qty:                 safeStr(found.export_qty),
+          export_unit:                safeStr(found.export_unit),
           balance_qty_import:         safeStr(found.balance_qty_import || found.balance_qty),
+          balance_import_unit:        safeStr(found.balance_import_unit),
           balance_qty_export:         safeStr(found.balance_qty_export),
+          balance_export_unit:        safeStr(found.balance_export_unit),
           utilisation_details_import: safeStr(found.utilisation_details_import || found.boe_details),
           utilisation_details_export: safeStr(found.utilisation_details_export || found.sb_details),
           import_value_usd:           safeStr(found.import_value_usd || found.value_usd),
@@ -292,13 +368,13 @@ function ViewAuthorizationDetails() {
             Authorization Details — <span>{jobNoClean}</span>
           </h1>
         </div>
-        <div className="ap-subheader-right">
+        {/* <div className="ap-subheader-right">
           <span className="ap-last-saved">{lastSaved ? `Saved at ${lastSaved}` : ""}</span>
           <button className="ap-btn primary" onClick={handleSave} disabled={saving}>
             <IconCheck />
             {saving ? "Saving..." : "Save Changes"}
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* ── CONTENT ───────────────────────────── */}
@@ -338,7 +414,7 @@ function ViewAuthorizationDetails() {
             <div className="ap-card-title">Validity, Item &amp; HS Code</div>
           </div>
           <div className="ap-card-body">
-            <div className="ap-fields-grid cols-3">
+            <div className="ap-fields-grid cols-2">
               <div className="ap-field-group">
                 <label className="ap-field-label">Import Validity (12 months auto)</label>
                 <DatePickerInput value={subData.import_validity} onChange={v => hc("import_validity", v)} />
@@ -347,23 +423,31 @@ function ViewAuthorizationDetails() {
                 <label className="ap-field-label">Export Validity (18 months auto)</label>
                 <DatePickerInput value={subData.export_validity} onChange={v => hc("export_validity", v)} />
               </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">HS Code</label>
-                <HSCodeAutocomplete value={subData.hs_code} onChange={v => hc("hs_code", v)} />
-              </div>
             </div>
+            
             <div className="ap-fields-grid cols-2" style={{ marginTop: 16 }}>
+              <div className="ap-field-group">
+                <label className="ap-field-label">HS Code (Import)</label>
+                <HSCodeAutocomplete value={subData.hs_code_import} onChange={v => hc("hs_code_import", v)} />
+              </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Item Description (Import)</label>
                 <textarea className="ap-field-textarea" value={subData.import_item_description}
                   onChange={e => hc("import_item_description", e.target.value)}
-                  placeholder="Enter import item description..." rows={2} />
+                  placeholder="Enter import item description..." rows={1} />
+              </div>
+            </div>
+
+            <div className="ap-fields-grid cols-2" style={{ marginTop: 16 }}>
+              <div className="ap-field-group">
+                <label className="ap-field-label">HS Code (Export)</label>
+                <HSCodeAutocomplete value={subData.export_hs_code} onChange={v => hc("export_hs_code", v)} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Item Description (Export)</label>
                 <textarea className="ap-field-textarea" value={subData.export_item_description}
                   onChange={e => hc("export_item_description", e.target.value)}
-                  placeholder="Enter export item description..." rows={2} />
+                  placeholder="Enter export item description..." rows={1} />
               </div>
             </div>
           </div>
@@ -379,13 +463,23 @@ function ViewAuthorizationDetails() {
             <div className="ap-fields-grid cols-4">
               <div className="ap-field-group">
                 <label className="ap-field-label">Qty (Import)</label>
-                <input type="text" className="ap-field-input" value={subData.import_qty}
-                  onChange={e => hc("import_qty", e.target.value)} placeholder="0.00" />
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <input type="text" className="ap-field-input" value={subData.import_qty}
+                    onChange={e => hc("import_qty", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <UnitAutocomplete value={subData.import_unit} onChange={v => hc("import_unit", v)} />
+                  </div>
+                </div>
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Balance Qty (DSR Import)</label>
-                <input type="text" className="ap-field-input" value={subData.balance_qty_import}
-                  onChange={e => hc("balance_qty_import", e.target.value)} placeholder="0.00" />
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <input type="text" className="ap-field-input" value={subData.balance_qty_import}
+                    onChange={e => hc("balance_qty_import", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <UnitAutocomplete value={subData.balance_import_unit} onChange={v => hc("balance_import_unit", v)} />
+                  </div>
+                </div>
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Import Value (CIF USD)</label>
@@ -408,13 +502,23 @@ function ViewAuthorizationDetails() {
             <div className="ap-fields-grid cols-4">
               <div className="ap-field-group">
                 <label className="ap-field-label">Qty (Export)</label>
-                <input type="text" className="ap-field-input" value={subData.export_qty}
-                  onChange={e => hc("export_qty", e.target.value)} placeholder="0.00" />
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <input type="text" className="ap-field-input" value={subData.export_qty}
+                    onChange={e => hc("export_qty", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <UnitAutocomplete value={subData.export_unit} onChange={v => hc("export_unit", v)} />
+                  </div>
+                </div>
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Balance Qty (DSR Export)</label>
-                <input type="text" className="ap-field-input" value={subData.balance_qty_export}
-                  onChange={e => hc("balance_qty_export", e.target.value)} placeholder="0.00" />
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <input type="text" className="ap-field-input" value={subData.balance_qty_export}
+                    onChange={e => hc("balance_qty_export", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <UnitAutocomplete value={subData.balance_export_unit} onChange={v => hc("balance_export_unit", v)} />
+                  </div>
+                </div>
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Export Value (FOB USD)</label>

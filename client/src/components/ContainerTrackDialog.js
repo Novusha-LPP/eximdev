@@ -102,171 +102,240 @@ function ContainerTrackDialog({ open, onClose, containers }) {
         const originName = start.terminal_name || track.CONTAINER_ORIGNATING_STATION || track.TRAIN_ORIGNATING_STATION || "";
         const destName = end.terminal_name || track.CONTAINER_DESTINATION_STATION || track.TRAIN_DESTINATION_STATION || "";
 
-        // Fields to exclude from the dynamic loop (already handled UI-wise or displayed specifically)
-        const excludedFromDynamic = [
-            "SHIPPING_LINE",
-            "DETAILS", 
-            "LAST_REPORTED_STATION", 
-            "CONTAINER_SIZE", 
-            "SIZE", 
-            "CONTAINER_TYPE", 
-            "TYPE", 
-            "CONTAINER_ORIGNATING_STATION",
-            "TRAIN_ORIGNATING_STATION",
-            "CONTAINER_DESTINATION_STATION",
-            "TRAIN_DESTINATION_STATION",
-            "CONTAIN_SIZE" // Potential typo in API
-        ];
+        // Fields to exclude from the grid (already handled UI-wise or headers)
+        const headerInfoFields = ["CONTAIN_SIZE", "SIZE", "CONTAINER_SIZE", "TYPE", "CONTAINER_TYPE", "CONTAINER_CATEGORY"];
+        const statusKeys = ["DETAILS", "LAST_REPORTED_STATION"];
+
+        const getMetadataFields = () => {
+            const fields = [];
+            const seen = new Set([...headerInfoFields, ...statusKeys]);
+            
+            // Preferred order for common keys
+            const preferredOrder = [
+                "SHIPPING_LINE", "TRAIN_NUMBER", "WAGON_NUMBER", "DEPARTURE_DATE_&_TIME",
+                "TRAIN_ORIGNATING_STATION", "TRAIN_DESTINATION_STATION", 
+                "CONTAINER_ORIGNATING_STATION", "CONTAINER_DESTINATION_STATION"
+            ];
+            
+            preferredOrder.forEach(key => {
+                if (track[key]) {
+                    fields.push({ key, value: track[key] });
+                    seen.add(key);
+                }
+            });
+
+            // Catch any other API fields
+            Object.keys(track).forEach(key => {
+                if (!seen.has(key) && track[key]) {
+                    fields.push({ key, value: track[key] });
+                }
+            });
+            return fields;
+        };
+
+        const metadataFields = getMetadataFields();
+
+        // Helper for icons mapping based on field name
+        const getFieldIcon = (key) => {
+            const k = key.toUpperCase();
+            if (k.includes("SHIPPING")) return <span role="img" aria-label="ship" style={{ fontSize: "20px" }}>🚢</span>;
+            if (k.includes("TRAIN")) return <span role="img" aria-label="train" style={{ fontSize: "20px" }}>🚂</span>;
+            if (k.includes("WAGON")) return <span role="img" aria-label="wagon" style={{ fontSize: "18px" }}>🚃</span>;
+            if (k.includes("STATION") || k.includes("LOCATION") || k.includes("POINT")) 
+                return <LocationOnIcon sx={{ fontSize: 18, color: "#64748b" }} />;
+            if (k.includes("DATE") || k.includes("TIME")) 
+                return <span role="img" aria-label="clock" style={{ fontSize: "18px" }}>🕒</span>;
+            return null;
+        };
 
         return (
             <Box
                 key={containerNo}
                 sx={{
-                    mb: 2,
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 2,
+                    mb: 4,
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 3,
                     overflow: "hidden",
+                    backgroundColor: "#fff",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.05)"
                 }}
             >
-                {/* Container Header */}
+                {/* Header Section */}
                 <Box
                     sx={{
-                        background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)",
+                        background: "#2563eb",
                         color: "#fff",
-                        px: 2,
-                        py: 1,
+                        px: 2.5,
+                        py: 2,
                         display: "flex",
                         alignItems: "center",
-                        gap: 1,
+                        gap: 2,
                     }}
                 >
                     <LocalShippingIcon fontSize="small" />
-                    <Typography fontWeight={700} fontSize={14}>
+                    <Typography fontSize={16} fontWeight={900} sx={{ letterSpacing: 0.5 }}>
                         {containerNo}
                     </Typography>
-                    {(track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE) && (
-                        <Chip
-                            label={`${track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE}ft`}
-                            size="small"
-                            sx={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff", fontWeight: 700, fontSize: 11 }}
-                        />
-                    )}
-                    {(track.CONTAINER_TYPE || track.TYPE || track.CONTAINER_CATEGORY) && (
-                        <Chip
-                            label={track.CONTAINER_TYPE || track.TYPE || track.CONTAINER_CATEGORY}
-                            size="small"
-                            sx={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 11 }}
-                        />
-                    )}
+                    
+                    <Box sx={{ display: "flex", gap: 1, ml: "auto" }}>
+                        {(track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE) && (
+                            <Chip
+                                label={`${track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE}ft`}
+                                size="small"
+                                sx={{ backgroundColor: "rgba(255,255,255,0.25)", color: "#fff", fontWeight: 800, px: 0.5 }}
+                            />
+                        )}
+                        {(track.CONTAINER_TYPE || track.TYPE || track.CONTAINER_CATEGORY) && (
+                            <Chip
+                                label={track.CONTAINER_TYPE || track.TYPE || track.CONTAINER_CATEGORY}
+                                size="small"
+                                sx={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 700 }}
+                            />
+                        )}
+                    </Box>
                 </Box>
 
-                {/* Details */}
-                <Box sx={{ px: 2, py: 1.5 }}>
-                    {/* Highlight pill */}
-                    {highlight && (
+                <Box sx={{ p: 2.5 }}>
+                    {/* Metadata Grid */}
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" },
+                            gap: 2,
+                        }}
+                    >
+                        {metadataFields.map((field) => (
+                            <Box
+                                key={field.key}
+                                sx={{
+                                    p: 2.5,
+                                    border: "1px solid #f1f5f9",
+                                    borderRadius: 3,
+                                    backgroundColor: "#fff",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 1.5,
+                                    minHeight: "110px",
+                                    transition: "all 0.2s",
+                                    "&:hover": { borderColor: "#cbd5e1", backgroundColor: "#fafafa" }
+                                }}
+                            >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    {getFieldIcon(field.key)}
+                                    <Typography
+                                        sx={{
+                                            fontSize: "11px",
+                                            fontWeight: 700,
+                                            color: "#64748b",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.05em"
+                                        }}
+                                    >
+                                        {field.key.replace(/_/g, " ")}
+                                    </Typography>
+                                </Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "16px",
+                                        fontWeight: 900,
+                                        color: "#0f172a",
+                                        lineHeight: 1.2
+                                    }}
+                                >
+                                    {String(field.value)}
+                                </Typography>
+                            </Box>
+                        ))}
+                    </Box>
+
+                    {/* Prominent Status Fields */}
+                    {statusKeys.map(key => track[key] && (
                         <Box
+                            key={key}
                             sx={{
-                                background: "#f0fdf4",
-                                border: "1px solid #86efac",
-                                borderRadius: 1.5,
-                                px: 1.5,
-                                py: 0.75,
-                                mb: 1.5,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
+                                mt: 2.5,
+                                p: 3,
+                                backgroundColor: key === "LAST_REPORTED_STATION" ? "#fff1f2" : "#fff",
+                                borderRadius: 4,
+                                border: `1px solid ${key === "LAST_REPORTED_STATION" ? "#ffe4e6" : "#f1f5f9"}`,
                             }}
                         >
-                            <LocationOnIcon sx={{ color: "#16a34a", fontSize: 16 }} />
-                            <Typography fontSize={12} fontWeight={600} color="#166534">
-                                {highlight}
-                            </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+                                <LocationOnIcon sx={{ fontSize: 20, color: "#64748b" }} />
+                                <Typography sx={{ fontSize: "12px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    {key.replace(/_/g, " ")}
+                                </Typography>
+                            </Box>
+                            <Typography
+                                sx={{
+                                    fontSize: "17px",
+                                    fontWeight: 700,
+                                    color: "#1e293b",
+                                    lineHeight: 1.6,
+                                    "& b": { 
+                                        color: "#2563eb", 
+                                        fontWeight: 900,
+                                        backgroundColor: "#eff6ff",
+                                        px: 0.8,
+                                        py: 0.2,
+                                        borderRadius: 1,
+                                        display: "inline-block",
+                                        mx: 0.2,
+                                        textTransform: "uppercase"
+                                    }
+                                }}
+                                dangerouslySetInnerHTML={{ __html: track[key] }}
+                            />
                         </Box>
-                    )}
+                    ))}
 
-                    <TableContainer component={Paper} variant="outlined" sx={{ mb: 1.5 }}>
-                        <Table size="small">
-                            <TableBody>
-                                {/* Core fields first */}
-                                {track.SHIPPING_LINE && (
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, width: "40%", fontSize: 12 }}>Shipping Line</TableCell>
-                                        <TableCell sx={{ fontSize: 12 }}>{track.SHIPPING_LINE}</TableCell>
-                                    </TableRow>
-                                )}
-                                {(track.CONTAINER_TYPE || track.TYPE) && (
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Container Type</TableCell>
-                                        <TableCell sx={{ fontSize: 12 }}>{track.CONTAINER_TYPE || track.TYPE}</TableCell>
-                                    </TableRow>
-                                )}
-                                {(track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE) && (
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Container Size</TableCell>
-                                        <TableCell sx={{ fontSize: 12 }}>{track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE} ft</TableCell>
-                                    </TableRow>
-                                )}
-                                
-                                {/* Dynamically render other fields from containerTrack */}
-                                {Object.entries(track).map(([key, value]) => {
-                                    if (excludedFromDynamic.includes(key) || !value) return null;
-                                    
-                                    // Format key for display (e.g. TRAIN_NUMBER -> Train Number)
-                                    const displayKey = key.split('_').map(word => 
-                                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                                    ).join(' ');
-
-                                    return (
-                                        <TableRow key={key}>
-                                            <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>{displayKey}</TableCell>
-                                            <TableCell sx={{ fontSize: 12 }}>{String(value)}</TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-
-                                {details && (
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Last Status</TableCell>
-                                        <TableCell sx={{ fontSize: 12 }}>{details}</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-
-                    {/* Route info */}
+                    {/* Dynamic Route Map Summary */}
                     {(originName || destName) && (
                         <Box
                             sx={{
+                                mt: 3,
+                                p: 3.5,
+                                backgroundColor: "#f8fafc",
+                                borderRadius: 4,
+                                border: "1px solid #e2e8f0",
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 1,
-                                background: "#f8fafc",
-                                borderRadius: 1.5,
-                                px: 1.5,
-                                py: 0.75,
-                                border: "1px solid #e2e8f0",
+                                gap: 2,
+                                position: "relative",
+                                borderLeft: "6px solid #2563eb"
                             }}
                         >
-                            {originName && (
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                    <LocationOnIcon sx={{ fontSize: 13, color: "#2563eb" }} />
-                                    <Typography fontSize={11} fontWeight={600} color="#1e3a5f">
+                            <Box sx={{ flex: 1.2 }}>
+                                <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, textTransform: "uppercase", mb: 1, display: "block", letterSpacing: "0.05em" }}>
+                                    Origin Station
+                                </Typography>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                    <LocationOnIcon sx={{ color: "#64748b", fontSize: 24 }} />
+                                    <Typography sx={{ fontSize: "18px", fontWeight: 900, color: "#0f172a" }}>
                                         {originName}
                                     </Typography>
                                 </Box>
-                            )}
-                            {originName && destName && (
-                                <Typography fontSize={12} color="#9ca3af" sx={{ mx: 0.5 }}>→</Typography>
-                            )}
-                            {destName && (
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                    <LocationOnIcon sx={{ fontSize: 13, color: "#dc2626" }} />
-                                    <Typography fontSize={11} fontWeight={600} color="#7f1d1d">
+                            </Box>
+
+                            <Box sx={{ flex: 1, display: "flex", alignItems: "center", position: "relative", px: 1 }}>
+                                <Box sx={{ flex: 1, height: "1px", backgroundColor: "#cbd5e1" }} />
+                                <LocalShippingIcon sx={{ mx: 1.5, color: "#64748b", fontSize: 26 }} />
+                                <Box sx={{ flex: 1, height: "1px", backgroundColor: "#cbd5e1", position: "relative" }}>
+                                    <Box sx={{ position: "absolute", right: -5, top: -4, width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "10px solid #cbd5e1" }} />
+                                </Box>
+                            </Box>
+
+                            <Box sx={{ flex: 1.2, textAlign: "right" }}>
+                                <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, textTransform: "uppercase", mb: 1, display: "block", letterSpacing: "0.05em" }}>
+                                    Destination Station
+                                </Typography>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, justifyContent: "flex-end" }}>
+                                    <Typography sx={{ fontSize: "18px", fontWeight: 900, color: "#991b1b" }}>
                                         {destName}
                                     </Typography>
+                                    <LocationOnIcon sx={{ color: "#dc2626", fontSize: 24 }} />
                                 </Box>
-                            )}
+                            </Box>
                         </Box>
                     )}
                 </Box>
@@ -282,7 +351,7 @@ function ContainerTrackDialog({ open, onClose, containers }) {
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth="sm"
+            maxWidth="md"
             fullWidth
             PaperProps={{ sx: { minHeight: "40vh" } }}
         >

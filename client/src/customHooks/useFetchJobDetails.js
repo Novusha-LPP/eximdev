@@ -357,7 +357,6 @@ function useFetchJobDetails(
       hawb_hbl_no: "",
       hawb_hbl_date: "",
       awb_bl_date: "",
-      awb_bl_date: "",
       gateway_igm_date: "",
       gateway_igm: "",
       igm_date: "",

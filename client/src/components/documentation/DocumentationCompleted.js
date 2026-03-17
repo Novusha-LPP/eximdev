@@ -233,10 +233,11 @@ function DocumentationCompletedd() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
-          branch_code,
-          trade_type,
-          mode,
         } = cell.row.original;
+        const branch_code = cell.row.original.branch_code;
+        const trade_type = cell.row.original.trade_type;
+        const mode = cell.row.original.mode;
+
         const textColor = "blue";
         const bgColor =
           cell.row.original.priorityJob === "High Priority"
@@ -246,7 +247,7 @@ function DocumentationCompletedd() {
               : "transparent";
         return (
           <a
-            href={`/documentationJob/view-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+            href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

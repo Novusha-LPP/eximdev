@@ -20,7 +20,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
-import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
@@ -260,13 +259,14 @@ function Documentation() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor
-          branch_code,
-          trade_type,
-          mode,
         } = cell.row.original;
+        const branch_code = cell.row.original.branch_code;
+        const trade_type = cell.row.original.trade_type;
+        const mode = cell.row.original.mode;
+
         return (
           <a
-            href={`/documentationJob/view-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+            href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
             style={{
               cursor: "pointer",
               color: "blue",

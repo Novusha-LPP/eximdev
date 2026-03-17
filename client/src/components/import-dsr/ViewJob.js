@@ -1605,11 +1605,57 @@ function JobDetails() {
                       </TextField>
                     </Col>
                     {formik.values.hss === "Yes" && (
-                      <Col xs={12} md={4} lg={3} className="mb-3">
-                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Seller Name</label>
-                        <TextField fullWidth size="small" variant="outlined" id="saller_name" name="saller_name"
-                          disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.saller_name || ""} onChange={formik.handleChange} sx={compactInputSx} />
-                      </Col>
+                      <>
+                        <Col xs={12} md={4} lg={3} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Seller Name</label>
+                          <TextField fullWidth size="small" variant="outlined" id="saller_name" name="saller_name"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.saller_name || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Address Type</label>
+                          <TextField fullWidth select size="small" variant="outlined" id="hss_address" name="hss_address"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_address || ""} onChange={formik.handleChange} sx={compactInputSx}>
+                            <MenuItem value="Office">Office</MenuItem>
+                            <MenuItem value="Warehouse">Warehouse</MenuItem>
+                            <MenuItem value="Factory">Factory</MenuItem>
+                          </TextField>
+                        </Col>
+                        <Col xs={12} md={12} lg={12} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Address Details</label>
+                          <TextField fullWidth multiline rows={2} size="small" variant="outlined" id="hss_address_details" name="hss_address_details"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_address_details || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={6} md={2} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Branch SNo</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_branch_id" name="hss_branch_id"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_branch_id || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={6} md={2} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>IE Code No</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_ie_code_no" name="hss_ie_code_no"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_ie_code_no || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={6} md={2} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>City</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_city" name="hss_city"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_city || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={6} md={2} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Postal Code</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_postal_code" name="hss_postal_code"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_postal_code || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Country</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_country" name="hss_country"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_country || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_ad_code" name="hss_ad_code"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_ad_code || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                      </>
                     )}
 
                     {formik.values.consignment_type !== "LCL" && (

@@ -148,6 +148,7 @@ const criticalFields = `
   pcv_date out_of_charge free_time loading_port RMS do_validity_upto_job_level 
   bill_amount processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time 
   origin_country hss saller_name adCode by_road_movement_date description 
+  hss_address hss_address_details hss_branch_id hss_city hss_ie_code_no hss_postal_code hss_country hss_ad_code
   invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount

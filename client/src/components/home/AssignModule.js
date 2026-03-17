@@ -26,7 +26,8 @@ const allModules = [
   "KPI",
   "MRM",
   "DGFT",
-  "Pulse"
+  "Pulse",
+  "MasterDirectory"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

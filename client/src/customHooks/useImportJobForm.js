@@ -155,6 +155,14 @@ const useImportJobForm = () => {
   const [sallerName, setSallerName] = useState("");
   const [bankName, setBankName] = useState("")
   const [ie_code_no, setIeCodeNo] = useState("");
+  const [hss_address, setHssAddress] = useState("");
+  const [hss_address_details, setHssAddressDetails] = useState("");
+  const [hss_branch_id, setHssBranchId] = useState("");
+  const [hss_city, setHssCity] = useState("");
+  const [hss_ie_code_no, setHssIeCodeNo] = useState("");
+  const [hss_postal_code, setHssPostalCode] = useState("");
+  const [hss_country, setHssCountry] = useState("");
+  const [hss_ad_code, setHssAdCode] = useState("");
 
   useEffect(() => {
     if (importer) {
@@ -383,6 +391,14 @@ const useImportJobForm = () => {
     setSallerName("")
     setBankName("")
     setIeCodeNo("");
+    setHssAddress("");
+    setHssAddressDetails("");
+    setHssBranchId("");
+    setHssCity("");
+    setHssIeCodeNo("");
+    setHssPostalCode("");
+    setHssCountry("");
+    setHssAdCode("");
     setBranchId("");
     setTradeType("IMP");
     setMode("SEA");
@@ -458,9 +474,17 @@ const useImportJobForm = () => {
           clearanceValue,
           ie_code_no,
           saller_name: sallerName,
-          hss: HSS,
-          bank_name: bankName,
-          detailed_status: "ETA Date Pending",
+           hss: HSS,
+           bank_name: bankName,
+           hss_address,
+           hss_address_details,
+           hss_branch_id,
+           hss_city,
+           hss_ie_code_no: hss_ie_code_no,
+           hss_postal_code,
+           hss_country,
+           hss_ad_code,
+           detailed_status: "ETA Date Pending",
         };
 
         // Get user info from localStorage for audit trail
@@ -732,9 +756,25 @@ const useImportJobForm = () => {
     setHSS,
     sallerName,
     setSallerName,
-    bankName,
-    setBankName,
-    ie_code_no,
+     bankName,
+     setBankName,
+     hss_address,
+     setHssAddress,
+     hss_address_details,
+     setHssAddressDetails,
+     hss_branch_id,
+     setHssBranchId,
+     hss_city,
+     setHssCity,
+     hss_ie_code_no,
+     setHssIeCodeNo,
+     hss_postal_code,
+     setHssPostalCode,
+     hss_country,
+     setHssCountry,
+     hss_ad_code,
+     setHssAdCode,
+     ie_code_no,
     setIeCodeNo,
     branch_id,
     setBranchId,

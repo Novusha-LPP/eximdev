@@ -53,6 +53,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/mrm");
     case "Pulse":
       return navigate("/pulse");
+    case "MasterDirectory":
+      return navigate("/master-directory");
     default:
       return navigate("/home");
   }

@@ -268,7 +268,23 @@ const ImportCreateJob = () => {
     updateInvoiceRow,
     removeInvoiceRow,
     snackbar,
-    setSnackbar
+    setSnackbar,
+    hss_address,
+    setHssAddress,
+    hss_address_details,
+    setHssAddressDetails,
+    hss_branch_id,
+    setHssBranchId,
+    hss_city,
+    setHssCity,
+    hss_ie_code_no,
+    setHssIeCodeNo,
+    hss_postal_code,
+    setHssPostalCode,
+    hss_country,
+    setHssCountry,
+    hss_ad_code,
+    setHssAdCode,
   } = useImportJobForm();
 
   const currencyOptions = ["USD", "EUR", "GBP", "JPY", "INR", "AUD", "CAD", "CHF", "CNY", "HKD", "SGD"];
@@ -742,18 +758,125 @@ const ImportCreateJob = () => {
                       </TextField>
                     </FormField>
 
-                    {HSS && HSS == "Yes" && (
-                      <FormField label="Seller Name">
-                        <TextField
-                          value={sallerName}
-                          onChange={(e) => setSallerName(e.target.value)}
-                          variant="outlined"
-                          size="small"
-                          placeholder="Seller Name"
-                          fullWidth
-                          sx={compactInput}
-                        />
-                      </FormField>
+                    {HSS && HSS === "Yes" && (
+                      <Grid container item xs={12} spacing={2} sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eaedf2' }}>
+                        <FormField label="Seller Name" md={6}>
+                          <TextField
+                            value={sallerName}
+                            onChange={(e) => setSallerName(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Seller Name"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+
+                        <FormField label="Address" md={6}>
+                          <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            value={hss_address}
+                            onChange={(e) => setHssAddress(e.target.value)}
+                            variant="outlined"
+                            sx={compactInput}
+                          >
+                            <MenuItem value="Office">Office</MenuItem>
+                            <MenuItem value="Warehouse">Warehouse</MenuItem>
+                            <MenuItem value="Factory">Factory</MenuItem>
+                          </TextField>
+                        </FormField>
+
+                        <FormField label="Address Details" md={12}>
+                          <TextField
+                            multiline
+                            rows={3}
+                            fullWidth
+                            value={hss_address_details}
+                            onChange={(e) => setHssAddressDetails(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            sx={{
+                              '& .MuiInputBase-root': { fontSize: '0.8rem', bgcolor: '#fdfceb' },
+                              '& .MuiOutlinedInput-input': { padding: '4px 8px !important' },
+                            }}
+                          />
+                        </FormField>
+
+                        <FormField label="Branch SNo" md={3}>
+                          <TextField
+                            value={hss_branch_id}
+                            onChange={(e) => setHssBranchId(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+
+                        <FormField label="IE Code No" md={3}>
+                          <TextField
+                            value={hss_ie_code_no}
+                            onChange={(e) => setHssIeCodeNo(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+
+                        <FormField label="City" md={3}>
+                          <TextField
+                            value={hss_city}
+                            onChange={(e) => setHssCity(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+
+                        <FormField label="Postal Code" md={3}>
+                          <TextField
+                            value={hss_postal_code}
+                            onChange={(e) => setHssPostalCode(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+
+                        <FormField label="Country" md={6}>
+                          <Autocomplete
+                            freeSolo
+                            options={countryOptions}
+                            value={hss_country || ""}
+                            onInputChange={(event, newValue) => setHssCountry(newValue)}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                sx={compactInput}
+                              />
+                            )}
+                          />
+                        </FormField>
+
+                        <FormField label="AD Code" md={6}>
+                          <TextField
+                            value={hss_ad_code}
+                            onChange={(e) => setHssAdCode(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+                      </Grid>
                     )}
                   </Grid>
                 </SectionCard>

@@ -24,6 +24,7 @@ const importPriority = [
 
   "DGFT",
   "Open Points",
+  "MasterDirectory",
 ];
 
 function Home() {

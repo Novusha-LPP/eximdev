@@ -25,5 +25,6 @@ export const moduleCategories = {
   "KPI": "Project Management",
   "MRM": "Project Management",
   "Pulse": "Analytics & Reports",
+  "MasterDirectory": "Masters",
 };
 

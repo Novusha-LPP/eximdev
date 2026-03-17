@@ -15,7 +15,7 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     licence_amount: { type: String },
     lic_recd_from_party: { type: String },
     date_send_to_icd_ports: { type: String },
-    bond_challan_no: { type: String },
+    bond_challan_amount: { type: String },
     bg_number: { type: String },
     bg_amount: { type: String },
     bg_date: { type: String },
@@ -33,7 +33,8 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     // Details fields
     import_validity: { type: String },
     export_validity: { type: String },
-    hs_code: { type: String },
+    hs_code_import: { type: String },
+    export_hs_code: { type: String },
     import_item_description: { type: String },
     export_item_description: { type: String },
     import_qty: { type: String },
@@ -53,6 +54,8 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     documents_send_to_accounts: { type: String },
 
     // Legacy/Unused (Keeping for backward compatibility if any)
+    bond_challan_no: { type: String },
+    hs_code: { type: String },
     item_description: { type: String },
     value_usd: { type: String },
     value_rs: { type: String },

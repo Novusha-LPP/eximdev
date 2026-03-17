@@ -210,7 +210,8 @@ function ViewAuthorizationDetails() {
         let sub = {
           import_validity:            safeStr(found.import_validity),
           export_validity:            safeStr(found.export_validity),
-          hs_code:                    safeStr(found.hs_code),
+          hs_code_import:             safeStr(found.hs_code_import || found.hs_code),
+          export_hs_code:             safeStr(found.export_hs_code),
           import_item_description:    safeStr(found.import_item_description || found.item_description),
           export_item_description:    safeStr(found.export_item_description),
           import_qty:                 safeStr(found.import_qty || found.qty),
@@ -338,7 +339,7 @@ function ViewAuthorizationDetails() {
             <div className="ap-card-title">Validity, Item &amp; HS Code</div>
           </div>
           <div className="ap-card-body">
-            <div className="ap-fields-grid cols-3">
+            <div className="ap-fields-grid cols-2">
               <div className="ap-field-group">
                 <label className="ap-field-label">Import Validity (12 months auto)</label>
                 <DatePickerInput value={subData.import_validity} onChange={v => hc("import_validity", v)} />
@@ -347,23 +348,31 @@ function ViewAuthorizationDetails() {
                 <label className="ap-field-label">Export Validity (18 months auto)</label>
                 <DatePickerInput value={subData.export_validity} onChange={v => hc("export_validity", v)} />
               </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">HS Code</label>
-                <HSCodeAutocomplete value={subData.hs_code} onChange={v => hc("hs_code", v)} />
-              </div>
             </div>
+            
             <div className="ap-fields-grid cols-2" style={{ marginTop: 16 }}>
+              <div className="ap-field-group">
+                <label className="ap-field-label">HS Code (Import)</label>
+                <HSCodeAutocomplete value={subData.hs_code_import} onChange={v => hc("hs_code_import", v)} />
+              </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Item Description (Import)</label>
                 <textarea className="ap-field-textarea" value={subData.import_item_description}
                   onChange={e => hc("import_item_description", e.target.value)}
-                  placeholder="Enter import item description..." rows={2} />
+                  placeholder="Enter import item description..." rows={1} />
+              </div>
+            </div>
+
+            <div className="ap-fields-grid cols-2" style={{ marginTop: 16 }}>
+              <div className="ap-field-group">
+                <label className="ap-field-label">HS Code (Export)</label>
+                <HSCodeAutocomplete value={subData.export_hs_code} onChange={v => hc("export_hs_code", v)} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Item Description (Export)</label>
                 <textarea className="ap-field-textarea" value={subData.export_item_description}
                   onChange={e => hc("export_item_description", e.target.value)}
-                  placeholder="Enter export item description..." rows={2} />
+                  placeholder="Enter export item description..." rows={1} />
               </div>
             </div>
           </div>

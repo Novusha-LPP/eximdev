@@ -25,7 +25,7 @@ const INITIAL_FORM = {
   licence_amount: "",
   lic_recd_from_party: "",
   date_send_to_icd_ports: "",
-  bond_challan_no: "",
+  bond_challan_amount: "",
   iec_no: "",
   completed: "",
   registration_date: "",
@@ -102,6 +102,8 @@ const FIELDS = [
   { key: "iec_no",               label: "IEC Number" },
   { key: "licence_no",           label: "Authorization Number" },
   { key: "licence_date",         label: "Auth Date", type: "date" },
+  { key: "import_validity",      label: "Import Validity", type: "date" },
+  { key: "export_validity",      label: "Export Validity", type: "date" },
   { key: "bg_number",            label: "BG Number" },
   { key: "bg_amount",            label: "BG Amount" },
   { key: "bg_date",              label: "BG Date", type: "date" },
@@ -114,7 +116,7 @@ const FIELDS = [
   { key: "licence_amount",       label: "Licence Amount" },
   { key: "lic_recd_from_party",  label: "Lic. Recd From Party", type: "date" },
   { key: "date_send_to_icd_ports", label: "Send to ICDs/Ports", type: "date" },
-  { key: "bond_challan_no",      label: "Bond / Challan No" },
+  { key: "bond_challan_amount",   label: "Bond / Challan Amount" },
   { key: "completed",            label: "Completed", type: "date" },
   { key: "registration_date",    label: "Registration Date", type: "date" },
   // { key: "month",                label: "Month" },
@@ -348,7 +350,35 @@ function AuthorizationRegistrationList({ onCountChange }) {
   };
 
   const handleChange = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [key]: value };
+      
+      // Auto-fill validity from licence_date (Auth Date)
+      if (key === "licence_date" && value) {
+        try {
+          // Assuming date format is YYYY-MM-DD from the input type="date"
+          const authDate = new Date(value);
+          if (!isNaN(authDate.getTime())) {
+            // Helper to format Date to YYYY-MM-DD
+            const fmt = (d) => d.toISOString().split("T")[0];
+            
+            // Add 12 months for import, 18 months for export
+            const impDate = new Date(authDate);
+            impDate.setMonth(impDate.getMonth() + 12);
+            
+            const expDate = new Date(authDate);
+            expDate.setMonth(expDate.getMonth() + 18);
+            
+            updated.import_validity = fmt(impDate);
+            updated.export_validity = fmt(expDate);
+          }
+        } catch (e) {
+          console.error("Validity calculation error:", e);
+        }
+      }
+      
+      return updated;
+    });
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 

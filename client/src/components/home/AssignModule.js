@@ -24,6 +24,7 @@ const allModules = [
   "Documentation",
 
   "KPI",
+  "Open Points",
   "MRM",
   "DGFT",
   "Pulse",

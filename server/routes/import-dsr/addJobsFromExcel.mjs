@@ -182,30 +182,30 @@ router.post(
   authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
-    const jsonData = req.body;
+    const { jobs: jsonData, branch_id, branch_code, mode } = req.body;
     const CHUNK_SIZE = 1000; // Process 1000 jobs at a time
 
-    console.log(`📊 [Backend] Starting to process ${jsonData.length} jobs...`);
+    console.log(`📊 [Backend] Starting to process ${jsonData.length} jobs for branch ${branch_code} and mode ${mode}...`);
     const startTime = Date.now();
 
     try {
-      // OPTIMIZATION: Batch fetch all existing jobs in one query
-      console.log(`🔍 [Backend] Fetching existing jobs from database...`);
-      const jobKeys = jsonData.map((d) => ({ year: d.year, job_no: d.job_no }));
-
-      // Get unique year values for the query
+      // Get unique year and job_no values for the batch query
       const years = [...new Set(jsonData.map((d) => d.year))];
       const jobNos = [...new Set(jsonData.map((d) => d.job_no))];
 
+      console.log(`🔍 [Backend] Fetching existing jobs from database for ${years.length} years and ${jobNos.length} job numbers...`);
+      
       const existingJobs = await JobModel.find({
         year: { $in: years },
         job_no: { $in: jobNos },
+        branch_id: branch_id,
+        mode: mode
       }).lean();
 
       // Create a Map for O(1) lookup
       const existingJobsMap = new Map();
       existingJobs.forEach((job) => {
-        existingJobsMap.set(`${job.year}_${job.job_no}`, job);
+        existingJobsMap.set(`${job.year}_${job.job_no}_${job.branch_id}_${job.mode}`, job);
       });
 
       console.log(
@@ -216,6 +216,7 @@ router.post(
       let processedCount = 0;
 
       for (const data of jsonData) {
+        const sanitizedData = sanitizeJobPayload(data);
         const {
           year,
           job_no,
@@ -239,7 +240,7 @@ router.post(
           container_nos,
           hss_name,
           total_inv_value,
-        } = sanitizeJobPayload(data);
+        } = sanitizedData;
 
         // Sanitize bill_date before using it
         const sanitizedBillDate =
@@ -250,10 +251,11 @@ router.post(
               : "";
 
         // Define the filter to find existing jobs
-        const filter = { year, job_no };
+        const filter = { year, job_no, branch_id, mode };
 
         // OPTIMIZATION: Use Map lookup instead of database query
-        const existingJob = existingJobsMap.get(`${year}_${job_no}`);
+        const lookupKey = `${year}_${job_no}_${branch_id}_${mode}`;
+        const existingJob = existingJobsMap.get(lookupKey);
         let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
         let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
         let lineNoUpdate = existingJob?.line_no || "";
@@ -279,6 +281,19 @@ router.post(
           iceCodeUpdate = ie_code_no;
         }
 
+        // Apply selected branch and mode
+        const trade_type = sanitizedData.trade_type || "IMP";
+        const seqNum = parseInt(job_no, 10);
+        const paddedSeq = !isNaN(seqNum) ? seqNum.toString().padStart(5, "0") : "00000";
+        const financial_year = year || "24-25";
+        
+        // Re-generate job_number for consistency if branch/mode is provided
+        const finalBranchCode = branch_code || existingJob?.branch_code || "AMD";
+        const finalMode = mode || existingJob?.mode || "SEA";
+        const finalBranchId = branch_id || existingJob?.branch_id;
+        
+        const job_number = `${finalBranchCode}/${trade_type}/${finalMode}/${paddedSeq}/${financial_year}`;
+
         if (existingJob) {
           // Logic to merge or update container sizes
           const existingContainers = existingJob.container_nos || [];
@@ -299,7 +314,13 @@ router.post(
 
           const update = {
             $set: {
-              ...data,
+              ...sanitizedData,
+              job_number,
+              branch_id: finalBranchId,
+              branch_code: finalBranchCode,
+              mode: finalMode,
+              sequence_number: seqNum,
+              financial_year,
               vessel_berthing: vesselBerthingToUpdate,
               gateway_igm_date: gateway_igm_dateUpdate,
               line_no: lineNoUpdate,
@@ -335,7 +356,13 @@ router.post(
         } else {
           const update = {
             $set: {
-              ...data,
+              ...sanitizedData,
+              job_number,
+              branch_id: finalBranchId,
+              branch_code: finalBranchCode,
+              mode: finalMode,
+              sequence_number: seqNum,
+              financial_year,
               vessel_berthing: vesselBerthingToUpdate,
               gateway_igm_date: gateway_igm_dateUpdate,
               status: computeStatus(sanitizedBillDate),
@@ -402,7 +429,7 @@ router.post(
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(
-        `🎉 [Backend] All jobs processed successfully! Total: ${jsonData.length} jobs in ${totalTime} seconds`
+        `🎉 [Backend] All jobs processed successfully! Total: ${jsonData.length} jobs for branch ${branch_code} in ${totalTime} seconds`
       );
 
       res.status(200).json({ message: "Jobs added/updated successfully" });

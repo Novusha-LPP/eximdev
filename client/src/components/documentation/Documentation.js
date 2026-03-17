@@ -9,27 +9,24 @@ import {
   Box,
   Badge,
   Pagination,
-  CircularProgress,
   Typography,
   InputAdornment,
   MenuItem,
   Autocomplete,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useContext } from "react";
+import { useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
-import ChecklistCell from "../gallery/ChecklistCell.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
 function Documentation() {
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { user } = useContext(UserContext);
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { selectedYearState, setSelectedYearState } = React.useContext(YearContext);
+  const { user } = React.useContext(UserContext);
+  const { selectedBranch, selectedCategory } = React.useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -38,7 +35,6 @@ function Documentation() {
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
   const limit = 100; // Number of items per page
 
@@ -66,8 +62,6 @@ function Documentation() {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -85,6 +79,7 @@ function Documentation() {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
+
   useEffect(() => {
     async function getYears() {
       try {
@@ -125,7 +120,7 @@ function Documentation() {
       setSearchQuery("");
       setSelectedImporter("");
     }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+  }, [setSearchQuery, setSelectedImporter, location.state]);
 
   // Handle search state restoration when returning from job details
   React.useEffect(() => {
@@ -224,7 +219,6 @@ function Documentation() {
     selectedCategory,
     fetchJobs,
   ]);
-  // Remove the automatic clearing - we'll handle this from the tab component instead
 
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
@@ -253,39 +247,41 @@ function Documentation() {
       Cell: ({ cell }) => {
         const {
           job_no,
-          job_number,
           year,
           type_of_b_e,
           consignment_type,
           custom_house,
-          priorityColor, // Add priorityColor
+          priorityColor, // Add priorityColor from API response
         } = cell.row.original;
         const branch_code = cell.row.original.branch_code;
         const trade_type = cell.row.original.trade_type;
         const mode = cell.row.original.mode;
 
+        const textColor = "blue";
+        const bgColor =
+          cell.row.original.priorityJob === "High Priority"
+            ? "orange"
+            : cell.row.original.priorityJob === "Priority"
+              ? "yellow"
+              : "transparent";
         return (
           <a
             href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               cursor: "pointer",
-              color: "blue",
-              backgroundColor:
-                cell.row.original.priorityJob === "High Priority"
-                  ? "orange"
-                  : cell.row.original.priorityJob === "Priority"
-                    ? "yellow"
-                    : "transparent", // Dynamically set the background color
-              padding: "10px", // Add padding for better visibility
-              borderRadius: "5px", // Optional: Add some styling for aesthetics
-              textDecoration: "none",
-              whiteSpace: "nowrap", textAlign: "center", display: "inline-block", width: "100%",
+              color: textColor,
+              backgroundColor: bgColor,
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              display: "inline-block",
+              textDecoration: "none", whiteSpace: "nowrap",
             }}
-            target="_blank" // Open in a new tab
           >
-            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
-            <br />
           </a>
         );
       },
@@ -332,7 +328,6 @@ function Documentation() {
         );
       },
     },
-
     {
       accessorKey: "Doc",
       header: "Docs",
@@ -384,13 +379,6 @@ function Documentation() {
           </div>
         );
       },
-    },
-    {
-      accessorKey: "checklist",
-      header: "Checklist",
-      enableSorting: false,
-      size: 150,
-      Cell: ChecklistCell,
     },
   ];
 
@@ -494,6 +482,7 @@ function Documentation() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box sx={{ position: "relative" }}>
             <Button

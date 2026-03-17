@@ -10,7 +10,6 @@ import {
   Pagination,
   Button,
   Badge,
-  CircularProgress,
   Typography,
   InputAdornment,
   MenuItem,
@@ -49,7 +48,6 @@ function DocumentationCompletedd() {
     React.useState(searchQuery);
 
   const [loading, setLoading] = React.useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
   const limit = 100; // Number of items per page
 
@@ -65,8 +63,6 @@ function DocumentationCompletedd() {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -199,7 +195,13 @@ function DocumentationCompletedd() {
     fetchJobs,
   ]);
 
-  // Remove the automatic clearing - we'll handle this from the tab component instead
+  // Clear search state when this component becomes active, unless coming from job details
+  React.useEffect(() => {
+    if (!(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state]);
 
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {

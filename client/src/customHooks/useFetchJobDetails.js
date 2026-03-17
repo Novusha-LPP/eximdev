@@ -453,7 +453,6 @@ function useFetchJobDetails(
       is_checklist_clicked: false,
       client_remark: "",
       DsrCharges: [],
-      import_terms: "",
       cifValue: "",
       freight: "",
       insurance: "",

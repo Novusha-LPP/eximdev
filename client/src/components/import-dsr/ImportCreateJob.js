@@ -296,7 +296,8 @@ const ImportCreateJob = () => {
     "(INNSA1) Nhava Sheva Sea",
     "(INPAV1) Pipavav",
     "(INPAV6) Pipavav (Victor) Port",
-    "(INHZA1) Hazira"
+    "(INHZA1) Hazira",
+    "(INAMD4) Ahmedabad"
   ];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"];

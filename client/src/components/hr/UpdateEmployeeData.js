@@ -162,7 +162,7 @@ const UpdateEmployeeData = () => {
         }, {});
     }, [employeesByCompany, searchQuery]);
 
-    if (user.department !== 'Marketing' && user.role !== 'Admin') {
+    if (user.role !== 'Admin' && user.department !== 'Marketing' && !user.modules?.includes('Update Employee Data')) {
         return (
             <Box sx={{ 
                 minHeight: '100vh', 
@@ -173,7 +173,7 @@ const UpdateEmployeeData = () => {
             }}>
                 <Card sx={{ p: 5, textAlign: 'center', maxWidth: 500, borderRadius: 4, boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: '#ef4444', mb: 2 }}>Access Denied</Typography>
-                    <Typography variant="body1" color="textSecondary">Only the Marketing team can access this module.</Typography>
+                    <Typography variant="body1" color="textSecondary">You do not have permission to access this module. Please contact your administrator if you believe this is an error.</Typography>
                 </Card>
             </Box>
         );

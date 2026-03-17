@@ -23,12 +23,28 @@ const s3Client = new S3Client({
     },
 });
 
-// Middleware to check if user is in Marketing department OR Admin
+// Middleware to check if user has access to HR/Marketing data
 const marketingOnly = async (req, res, next) => {
-    if (req.user.role === 'Admin' || req.user.department === 'Marketing') {
-        next();
-    } else {
-        return res.status(403).json({ message: "Access restricted to Marketing team only" });
+    try {
+        // Since JWT might not have latest modules/department, fetch from DB
+        const user = await UserModel.findById(req.user._id).select('role department modules');
+        
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const isAdmin = user.role === 'Admin';
+        const isMarketing = user.department === 'Marketing';
+        const hasModuleAccess = user.modules && user.modules.includes('Update Employee Data');
+
+        if (isAdmin || isMarketing || hasModuleAccess) {
+            next();
+        } else {
+            return res.status(403).json({ message: "Access restricted. Module not assigned." });
+        }
+    } catch (err) {
+        logger.error(`Permission check error: ${err.message}`);
+        return res.status(500).json({ message: "Internal Server Error" });
     }
 };
 

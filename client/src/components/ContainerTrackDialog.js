@@ -78,11 +78,45 @@ function ContainerTrackDialog({ open, onClose, containers }) {
         const start = mapData.startPoint || {};
         const end = mapData.endPoint || {};
 
-        // Strip HTML tags from DETAILS for clean display
-        const details = track.DETAILS ? track.DETAILS.replace(/<[^>]*>/g, "") : "";
-        // Extract bold portion (inside <b>...</b>) for highlight
-        const highlightMatch = track.DETAILS ? track.DETAILS.match(/<b>(.*?)<\/b>/) : null;
-        const highlight = highlightMatch ? highlightMatch[1] : null;
+        // Handle multiple tracking formats (old vs new API structure)
+        const rawStatus = track.DETAILS || track.LAST_REPORTED_STATION || "";
+        const details = rawStatus ? rawStatus.replace(/<[^>]*>/g, "") : "";
+        
+        // Extract bold portion (inside <b>...</b>) for highlight - compatible way
+        let highlight = null;
+        if (rawStatus.includes("<b>")) {
+            const bolds = [];
+            const regex = /<b>(.*?)<\/b>/g;
+            let m;
+            while ((m = regex.exec(rawStatus)) !== null) {
+                bolds.push(m[1]);
+            }
+            if (bolds.length > 1) {
+                highlight = `${bolds[0]} @ ${bolds[1]}`;
+            } else if (bolds.length === 1) {
+                highlight = bolds[0];
+            }
+        }
+
+        // Determine Origin and Destination Display
+        const originName = start.terminal_name || track.CONTAINER_ORIGNATING_STATION || track.TRAIN_ORIGNATING_STATION || "";
+        const destName = end.terminal_name || track.CONTAINER_DESTINATION_STATION || track.TRAIN_DESTINATION_STATION || "";
+
+        // Fields to exclude from the dynamic loop (already handled UI-wise or displayed specifically)
+        const excludedFromDynamic = [
+            "SHIPPING_LINE",
+            "DETAILS", 
+            "LAST_REPORTED_STATION", 
+            "CONTAINER_SIZE", 
+            "SIZE", 
+            "CONTAINER_TYPE", 
+            "TYPE", 
+            "CONTAINER_ORIGNATING_STATION",
+            "TRAIN_ORIGNATING_STATION",
+            "CONTAINER_DESTINATION_STATION",
+            "TRAIN_DESTINATION_STATION",
+            "CONTAIN_SIZE" // Potential typo in API
+        ];
 
         return (
             <Box
@@ -110,16 +144,16 @@ function ContainerTrackDialog({ open, onClose, containers }) {
                     <Typography fontWeight={700} fontSize={14}>
                         {containerNo}
                     </Typography>
-                    {track.CONTAINER_SIZE && (
+                    {(track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE) && (
                         <Chip
-                            label={`${track.CONTAINER_SIZE}ft`}
+                            label={`${track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE}ft`}
                             size="small"
                             sx={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff", fontWeight: 700, fontSize: 11 }}
                         />
                     )}
-                    {track.CONTAINER_TYPE && (
+                    {(track.CONTAINER_TYPE || track.TYPE || track.CONTAINER_CATEGORY) && (
                         <Chip
-                            label={track.CONTAINER_TYPE}
+                            label={track.CONTAINER_TYPE || track.TYPE || track.CONTAINER_CATEGORY}
                             size="small"
                             sx={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 11 }}
                         />
@@ -153,28 +187,55 @@ function ContainerTrackDialog({ open, onClose, containers }) {
                     <TableContainer component={Paper} variant="outlined" sx={{ mb: 1.5 }}>
                         <Table size="small">
                             <TableBody>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, width: "35%", fontSize: 12 }}>Shipping Line</TableCell>
-                                    <TableCell sx={{ fontSize: 12 }}>{track.SHIPPING_LINE || "N/A"}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Container Type</TableCell>
-                                    <TableCell sx={{ fontSize: 12 }}>{track.CONTAINER_TYPE || "N/A"}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Container Size</TableCell>
-                                    <TableCell sx={{ fontSize: 12 }}>{track.CONTAINER_SIZE ? `${track.CONTAINER_SIZE} ft` : "N/A"}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Status</TableCell>
-                                    <TableCell sx={{ fontSize: 12 }}>{details || "N/A"}</TableCell>
-                                </TableRow>
+                                {/* Core fields first */}
+                                {track.SHIPPING_LINE && (
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, width: "40%", fontSize: 12 }}>Shipping Line</TableCell>
+                                        <TableCell sx={{ fontSize: 12 }}>{track.SHIPPING_LINE}</TableCell>
+                                    </TableRow>
+                                )}
+                                {(track.CONTAINER_TYPE || track.TYPE) && (
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Container Type</TableCell>
+                                        <TableCell sx={{ fontSize: 12 }}>{track.CONTAINER_TYPE || track.TYPE}</TableCell>
+                                    </TableRow>
+                                )}
+                                {(track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE) && (
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Container Size</TableCell>
+                                        <TableCell sx={{ fontSize: 12 }}>{track.CONTAINER_SIZE || track.SIZE || track.CONTAIN_SIZE} ft</TableCell>
+                                    </TableRow>
+                                )}
+                                
+                                {/* Dynamically render other fields from containerTrack */}
+                                {Object.entries(track).map(([key, value]) => {
+                                    if (excludedFromDynamic.includes(key) || !value) return null;
+                                    
+                                    // Format key for display (e.g. TRAIN_NUMBER -> Train Number)
+                                    const displayKey = key.split('_').map(word => 
+                                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                                    ).join(' ');
+
+                                    return (
+                                        <TableRow key={key}>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>{displayKey}</TableCell>
+                                            <TableCell sx={{ fontSize: 12 }}>{String(value)}</TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+
+                                {details && (
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Last Status</TableCell>
+                                        <TableCell sx={{ fontSize: 12 }}>{details}</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>
 
                     {/* Route info */}
-                    {(start.terminal_name || end.terminal_name) && (
+                    {(originName || destName) && (
                         <Box
                             sx={{
                                 display: "flex",
@@ -187,22 +248,22 @@ function ContainerTrackDialog({ open, onClose, containers }) {
                                 border: "1px solid #e2e8f0",
                             }}
                         >
-                            {start.terminal_name && (
+                            {originName && (
                                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                     <LocationOnIcon sx={{ fontSize: 13, color: "#2563eb" }} />
                                     <Typography fontSize={11} fontWeight={600} color="#1e3a5f">
-                                        {start.terminal_name}
+                                        {originName}
                                     </Typography>
                                 </Box>
                             )}
-                            {start.terminal_name && end.terminal_name && (
+                            {originName && destName && (
                                 <Typography fontSize={12} color="#9ca3af" sx={{ mx: 0.5 }}>→</Typography>
                             )}
-                            {end.terminal_name && (
+                            {destName && (
                                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                     <LocationOnIcon sx={{ fontSize: 13, color: "#dc2626" }} />
                                     <Typography fontSize={11} fontWeight={600} color="#7f1d1d">
-                                        {end.terminal_name}
+                                        {destName}
                                     </Typography>
                                 </Box>
                             )}

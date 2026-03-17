@@ -7,13 +7,18 @@ router.get("/api/get-job/:branch_code/:trade_type/:mode/:year/:jobNo", async (re
   try {
     const { branch_code, trade_type, mode, jobNo, year } = req.params;
 
-    const job = await JobModel.findOne({
-      branch_code: branch_code.toUpperCase(),
-      trade_type: trade_type.toUpperCase(),
-      mode: mode.toUpperCase(),
-      year,
-      job_no: jobNo,
-    });
+    const query = { year, job_no: jobNo };
+    if (branch_code && branch_code.toLowerCase() !== "all" && branch_code.toLowerCase() !== "undefined") {
+      query.branch_code = branch_code.toUpperCase();
+    }
+    if (trade_type && trade_type.toLowerCase() !== "all" && trade_type.toLowerCase() !== "undefined") {
+      query.trade_type = trade_type.toUpperCase();
+    }
+    if (mode && mode.toLowerCase() !== "all" && mode.toLowerCase() !== "undefined") {
+      query.mode = mode.toUpperCase();
+    }
+
+    const job = await JobModel.findOne(query);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });

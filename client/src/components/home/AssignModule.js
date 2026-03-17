@@ -19,6 +19,7 @@ const allModules = [
   "Outward Register",
   "Customer KYC",
   "Exit Feedback",
+  "Update Employee Data",
   "e-Sanchit",
   "Documentation",
 

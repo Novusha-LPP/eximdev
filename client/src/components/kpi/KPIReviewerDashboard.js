@@ -34,9 +34,9 @@ const KPIReviewerDashboard = () => {
         pending_check: [],
         pending_verify: [],
         pending_approve: [],
-        recently_processed: [],
         counts: { check: 0, verify: 0, approve: 0 }
     });
+    const [teamHistory, setTeamHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('check');
     const [message, setMessage] = useState({ show: false, text: '', type: '' });
@@ -79,6 +79,11 @@ const KPIReviewerDashboard = () => {
             setLoading(true);
             const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/reviewer/pending`, { withCredentials: true });
             setData(res.data);
+            
+            // If HOD or Admin, also fetch team history
+            if (user?.role === 'Head_of_Department' || user?.role === 'Admin') {
+                fetchTeamHistory();
+            }
         } catch (error) {
             console.error("Failed to fetch pending sheets", error);
             showMessage("Failed to load pending sheets", "error");
@@ -86,6 +91,21 @@ const KPIReviewerDashboard = () => {
             setLoading(false);
         }
     };
+
+    const fetchTeamHistory = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/hod/team-sheets?year=${filterYear}&month=${filterMonth}`, { withCredentials: true });
+            setTeamHistory(res.data);
+        } catch (error) {
+            console.error("Failed to fetch team history", error);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'team_history') {
+            fetchTeamHistory();
+        }
+    }, [filterMonth, filterYear, activeTab]);
 
 
 
@@ -133,7 +153,7 @@ const KPIReviewerDashboard = () => {
             case 'check': sheets = data.pending_check; break;
             case 'verify': sheets = data.pending_verify; break;
             case 'approve': sheets = data.pending_approve; break;
-            case 'history': sheets = data.recently_processed; break;
+            case 'team_history': sheets = teamHistory; break;
             default: sheets = [];
         }
 
@@ -151,7 +171,7 @@ const KPIReviewerDashboard = () => {
         // Filter by date for all tabs
         sheets = sheets.filter(s => s.month === filterMonth && s.year === filterYear);
 
-        if (activeTab === 'history') {
+        if (activeTab === 'team_history') {
             return sheets.sort((a, b) => b.year - a.year || b.month - a.month); // Newest first
         }
 
@@ -183,8 +203,8 @@ const KPIReviewerDashboard = () => {
     const handleBulkAction = async () => {
         if (selectedSheets.length === 0) return;
 
-        // Disable "Bulk" in history tab
-        if (activeTab === 'history') return;
+        // Disable "Bulk" in team history tab
+        if (activeTab === 'team_history') return;
 
         setBulkDialog({ open: true });
     };
@@ -235,8 +255,7 @@ const KPIReviewerDashboard = () => {
         const check = data.pending_check.filter(s => s.month === filterMonth && s.year === filterYear).length;
         const verify = data.pending_verify.filter(s => s.month === filterMonth && s.year === filterYear).length;
         const approve = data.pending_approve.filter(s => s.month === filterMonth && s.year === filterYear).length;
-        const history = data.recently_processed.filter(s => s.month === filterMonth && s.year === filterYear).length;
-        return { check, verify, approve, history, total: check + verify + approve };
+        return { check, verify, approve, total: check + verify + approve };
     }, [data, filterMonth, filterYear]);
 
     const formatCurrency = (value) => {
@@ -331,19 +350,21 @@ const KPIReviewerDashboard = () => {
                     </div>
                 </div>
 
-                <div
-                    className={`modern-stat-card ${activeTab === 'history' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('history')}
-                    style={{ cursor: 'pointer', border: activeTab === 'history' ? '2px solid #64748b' : '1px solid #e2e8f0' }}
-                >
-                    <div className="icon-box" style={{ background: '#f1f5f9', color: '#64748b' }}>
-                        <Icons.Eye />
+                {(user?.role === 'Head_of_Department' || user?.role === 'Admin') && (
+                    <div
+                        className={`modern-stat-card ${activeTab === 'team_history' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('team_history')}
+                        style={{ cursor: 'pointer', border: activeTab === 'team_history' ? '2px solid #8b5cf6' : '1px solid #e2e8f0' }}
+                    >
+                        <div className="icon-box" style={{ background: '#f5f3ff', color: '#8b5cf6' }}>
+                            <Icons.Trend />
+                        </div>
+                        <div className="stat-content">
+                            <h3>{teamHistory.length}</h3>
+                            <p>Team History</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <h3>{filteredCounts.history}</h3>
-                        <p>Recently Reviewed</p>
-                    </div>
-                </div>
+                )}
 
             </div>
 
@@ -358,7 +379,7 @@ const KPIReviewerDashboard = () => {
                         {activeTab === 'check' && 'Sheets Pending Check'}
                         {activeTab === 'verify' && 'Sheets Pending Verification'}
                         {activeTab === 'approve' && 'Sheets Pending Approval'}
-                        {activeTab === 'history' && 'Recently Reviewed'}
+                        {activeTab === 'team_history' && 'All Team KPI History'}
                     </h2>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                         {selectedSheets.length > 0 && activeTab !== 'history' && (
@@ -384,7 +405,7 @@ const KPIReviewerDashboard = () => {
                         <button
                             className="modern-btn icon-only"
                             title="Refresh Data"
-                            onClick={fetchPendingSheets}
+                            onClick={() => { fetchPendingSheets(); if (activeTab === 'team_history') fetchTeamHistory(); }}
                             style={{ marginRight: 8, background: 'white', border: '1px solid #e2e8f0', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, cursor: 'pointer' }}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -431,7 +452,7 @@ const KPIReviewerDashboard = () => {
                             <table className="modern-table" style={{ border: 'none' }}>
                                 <thead style={{ background: '#f8fafc' }}>
                                     <tr>
-                                        {activeTab !== 'history' && (
+                                        {activeTab !== 'team_history' && (
                                             <th style={{ paddingLeft: '24px', width: '40px' }}>
                                                 <input
                                                     type="checkbox"
@@ -441,7 +462,7 @@ const KPIReviewerDashboard = () => {
                                                 />
                                             </th>
                                         )}
-                                        <th style={{ paddingLeft: activeTab !== 'history' ? '12px' : '24px' }}>Employee</th>
+                                        <th style={{ paddingLeft: activeTab !== 'team_history' ? '12px' : '24px' }}>Employee</th>
                                         <th>Department</th>
                                         <th>Period</th>
                                         <th>Check Date</th>
@@ -451,7 +472,7 @@ const KPIReviewerDashboard = () => {
                                         <th style={{ textAlign: 'center' }}>Score</th>
                                         <th style={{ textAlign: 'center' }}>Value</th>
                                         <th style={{ textAlign: 'center' }}>Quadrant</th>
-                                        {activeTab === 'history' && <th>Last Action</th>}
+                                        {activeTab === 'team_history' && <th>Last Action</th>}
                                         <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                     </tr>
                                 </thead>
@@ -468,7 +489,7 @@ const KPIReviewerDashboard = () => {
                                                     transition={{ delay: i * 0.03 }}
                                                     style={{ borderBottom: '1px solid #f1f5f9', background: selectedSheets.includes(sheet._id) ? '#f8fafc' : 'transparent' }}
                                                 >
-                                                    {activeTab !== 'history' && (
+                                                    {activeTab !== 'team_history' && (
                                                         <td style={{ paddingLeft: '24px' }}>
                                                             <input
                                                                 type="checkbox"
@@ -478,7 +499,7 @@ const KPIReviewerDashboard = () => {
                                                             />
                                                         </td>
                                                     )}
-                                                    <td style={{ paddingLeft: activeTab !== 'history' ? '12px' : '24px' }}>
+                                                    <td style={{ paddingLeft: activeTab !== 'team_history' ? '12px' : '24px' }}>
                                                         <div style={{ fontWeight: 600, color: '#334155' }}>
                                                             {sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}` : 'Unknown'}
                                                         </div>
@@ -533,7 +554,7 @@ const KPIReviewerDashboard = () => {
                                                             {sheet.summary?.performance_quadrant || 'N/A'}
                                                         </span>
                                                     </td>
-                                                    {activeTab === 'history' && (
+                                                    {activeTab === 'team_history' && (
                                                         <td style={{ fontSize: '0.75rem', color: '#64748b' }}>
                                                             {sheet.approval_history?.slice(-1)[0]?.action || '-'}
                                                         </td>
@@ -547,7 +568,7 @@ const KPIReviewerDashboard = () => {
                                                             >
                                                                 <Icons.Eye />
                                                             </button>
-                                                            {activeTab !== 'history' && (
+                                                            {activeTab !== 'team_history' && (
                                                                 <>
                                                                     <button
                                                                         className="modern-btn icon-only"

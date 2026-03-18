@@ -24,6 +24,7 @@ import EmployeeKYC from "../components/employeeKyc/EmployeeKYC.js";
 import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
+import UpdateEmployeeData from "../components/hr/UpdateEmployeeData.js";
 
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
@@ -59,6 +60,12 @@ import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 
 // Import Utility Tool
 import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
+
+// Master Directory
+import MasterDirectory from "../components/master-directory/MasterDirectory.js";
+import CountryDirectory from "../components/master-directory/CountryDirectory.js";
+import AirlinesDirectory from "../components/master-directory/AirlinesDirectory.js";
+import UnitDirectory from "../components/master-directory/UnitDirectory.js";
 
 //import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
@@ -306,6 +313,14 @@ function HomePage() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/update-employee-data"
+                  element={
+                    <ProtectedRoute requiredModule="Update Employee Data">
+                      <UpdateEmployeeData />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* ESanchit */}
                 <Route
@@ -461,6 +476,42 @@ function HomePage() {
                   element={
                     <ProtectedRoute requiredModule="Import Utility Tool">
                       <ImportUtilityTool />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/master-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <MasterDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/country-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <CountryDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/airlines-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <AirlinesDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/unit-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <UnitDirectory />
                     </ProtectedRoute>
                   }
                 />

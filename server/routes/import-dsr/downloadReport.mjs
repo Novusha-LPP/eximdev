@@ -46,6 +46,8 @@ router.get(
         .replace(/pvt/g, 'pvt[._]?')
         .replace(/ltd/g, 'ltd[._]?');
 
+      const branchId = req.query.branchId;
+
       // MongoDB query with multiple pattern options
       const query = {
         year: { $in: yearArray },
@@ -56,6 +58,10 @@ router.get(
         ],
         status,
       };
+
+      if (branchId && branchId !== 'all') {
+        query.branch_id = branchId;
+      }
 
       console.log('Search patterns:', {
         exactPattern,

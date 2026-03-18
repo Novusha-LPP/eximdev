@@ -240,6 +240,14 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 
+// HR Asset Module
+import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+
+// Master Directory
+import countryRoutes from "./routes/master-directory/countryRoutes.mjs";
+import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
+import unitRoutes from "./routes/master-directory/unitRoutes.mjs";
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -518,6 +526,13 @@ app.use(dgftRoutes);
 
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
+
+app.use(userAssetsRoutes);
+
+// Master Directory
+app.use("/api", countryRoutes);
+app.use("/api", airlineRoutes);
+app.use("/api", unitRoutes);
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

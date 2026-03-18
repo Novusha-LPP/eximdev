@@ -407,24 +407,26 @@ const KPIHome = () => {
                                 <Icons.Dashboard /> Admin View
                             </button>
                         )}
-                        {pendingReviewCount > 0 && (
+                        {(pendingReviewCount > 0 || user?.role === 'Head_of_Department' || user?.role === 'Admin') && (
                             <button className="modern-btn secondary" onClick={() => navigate('/kpi/reviews')} style={{ position: 'relative' }}>
-                                <Icons.Pending /> Pending Reviews
-                                <span style={{
-                                    position: 'absolute',
-                                    top: '-6px',
-                                    right: '-6px',
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 700,
-                                    padding: '2px 6px',
-                                    borderRadius: '10px',
-                                    minWidth: '18px',
-                                    textAlign: 'center'
-                                }}>
-                                    {pendingReviewCount}
-                                </span>
+                                <Icons.Pending /> {pendingReviewCount > 0 ? 'Pending Reviews' : 'Review Dashboard'}
+                                {pendingReviewCount > 0 && (
+                                    <span style={{
+                                        position: 'absolute',
+                                        top: '-6px',
+                                        right: '-6px',
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 700,
+                                        padding: '2px 6px',
+                                        borderRadius: '10px',
+                                        minWidth: '18px',
+                                        textAlign: 'center'
+                                    }}>
+                                        {pendingReviewCount}
+                                    </span>
+                                )}
                             </button>
                         )}
                         <button className="modern-btn secondary" onClick={() => navigate('/kpi/templates')}>

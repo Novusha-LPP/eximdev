@@ -227,6 +227,7 @@ function useJobColumns(
         "(INPAV6) Pipavav (Victor) Port":
           "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
         "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
+        "(INAMD4) Ahmedabad": "AHMEDABAD (INAMD4)",
       };
       return portMap[portOfReporting] || "";
     },

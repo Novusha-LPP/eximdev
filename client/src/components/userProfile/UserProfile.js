@@ -17,7 +17,6 @@ import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from "@mui/icons-material/Delete";
-import ImagePreview from "../gallery/ImagePreview";
 import FileUpload from "../gallery/FileUpload";
 import kpiPioneerBadge from "../../assets/images/kpi-pioneer-badge.png";
 
@@ -36,6 +35,7 @@ const UserProfile = ({ username: propUsername }) => {
     const fileInputRef = useRef(null);
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
+    const [globalAssets, setGlobalAssets] = useState([]);
     const openMenu = Boolean(anchorEl);
 
     // Date formatter helper
@@ -142,6 +142,18 @@ const UserProfile = ({ username: propUsername }) => {
             activePoints: total - completed
         };
     };
+
+    useEffect(() => {
+        const fetchGlobalAssets = async () => {
+            try {
+                const res = await axios.get(`${process.env.REACT_APP_API_STRING}/hr/global-assets`, { withCredentials: true });
+                setGlobalAssets(res.data);
+            } catch (err) {
+                console.error("Failed to fetch global assets", err);
+            }
+        };
+        fetchGlobalAssets();
+    }, []);
 
 
     const handlePhotoClick = (event) => {
@@ -714,6 +726,65 @@ const UserProfile = ({ username: propUsername }) => {
         );
     };
 
+    const MarketingAssetsTab = () => (
+        <motion.div
+            className="tab-content fade-in"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+        >
+            <div className="info-section">
+                <div className="section-header">Marketing Assets & Variables</div>
+                <div className="info-table">
+                    {profileData.email_signature && (
+                        <div className="info-row">
+                            <span className="label">Email Signature</span>
+                            <span className="value">
+                                <a href={profileData.email_signature} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1a73e8', fontWeight: 600 }}>
+                                    <OpenInNewIcon fontSize="small" sx={{ fontSize: '0.9rem' }} /> View Signature
+                                </a>
+                            </span>
+                        </div>
+                    )}
+                    
+                    {/* User Specific Assets */}
+                    {profileData.marketing_assets?.map((asset, i) => (
+                        <div key={`personal-${i}`} className="info-row">
+                            <span className="label">{asset.name}</span>
+                            <span className="value">
+                                <a href={asset.link} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1a73e8', fontWeight: 600 }}>
+                                    <OpenInNewIcon fontSize="small" sx={{ fontSize: '0.9rem' }} /> {asset.link.startsWith('http') ? 'View Asset' : asset.link}
+                                </a>
+                            </span>
+                        </div>
+                    ))}
+
+                    {/* Global Shared Assets */}
+                    {globalAssets.length > 0 && (
+                        <>
+                            <div className="section-subheader" style={{ padding: '15px 20px', background: '#f8fafc', fontWeight: 700, fontSize: '0.85rem', color: '#64748b', borderBottom: '1px solid #e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Global Shared Assets
+                            </div>
+                            {globalAssets.map((asset, i) => (
+                                <div key={`global-${i}`} className="info-row">
+                                    <span className="label">{asset.name}</span>
+                                    <span className="value">
+                                        <a href={asset.link} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1a73e8', fontWeight: 600 }}>
+                                            <OpenInNewIcon fontSize="small" sx={{ fontSize: '0.9rem' }} /> View Linked File
+                                        </a>
+                                    </span>
+                                </div>
+                            ))}
+                        </>
+                    )}
+
+                    {!profileData.email_signature && profileData.marketing_assets?.length === 0 && globalAssets.length === 0 && (
+                        <div className="empty-message" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No marketing assets or variables assigned to this profile.</div>
+                    )}
+                </div>
+            </div>
+        </motion.div>
+    );
+
     return (
         <div className="user-profile-container">
             <input
@@ -799,6 +870,9 @@ const UserProfile = ({ username: propUsername }) => {
                     <Tab label={`Modules (${profileData.modules?.length || 0})`} />
                     <Tab label={`Importers (${profileData.assigned_importer_name?.length || 0})`} />
                     <Tab label={`Open Points (${openPointsCount})`} />
+                    {(profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) && (
+                        <Tab label="Marketing Assets" />
+                    )}
                 </Tabs>
             </div>
 
@@ -809,6 +883,7 @@ const UserProfile = ({ username: propUsername }) => {
                     {activeTab === 1 && <ModulesTab key="modules" />}
                     {activeTab === 2 && <ImportersTab key="importers" />}
                     {activeTab === 3 && <OpenPointsTab key="openpoints" />}
+                    {activeTab === 4 && <MarketingAssetsTab key="marketing" />}
                 </AnimatePresence>
             </div>
 

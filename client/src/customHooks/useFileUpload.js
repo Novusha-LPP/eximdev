@@ -2,7 +2,7 @@ import * as xlsx from "xlsx";
 import axios from "axios";
 import { useState } from "react";
 
-function useFileUpload(inputRef, alt, setAlt) {
+function useFileUpload(inputRef, alt, setAlt, selectedBranchId, selectedMode, branches) {
   const [snackbar, setSnackbar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -42,19 +42,43 @@ function useFileUpload(inputRef, alt, setAlt) {
         return;
       }
 
-      // Check for AHMEDABAD in the second row
-      const secondRow = allData[1];
-      const containsAhmedabad = secondRow.some((cell) =>
-        String(cell || "")
-          .toUpperCase()
-          .includes("AHMEDABAD")
-      );
+      // Scan first 5 rows for branch information to be safe
+      const headerRows = allData.slice(0, 5).flat();
+      
+      const selectedBranch = branches.find(b => b._id === selectedBranchId);
+      
+      if (selectedBranch) {
+        const branchName = selectedBranch.branch_name.toUpperCase().trim();
+        const branchCode = selectedBranch.branch_code.toUpperCase().trim();
+        
+        console.log(`Checking file for branch: ${branchName} (${branchCode})`);
 
-      if (!containsAhmedabad) {
-        setError("Error: The provided data is not valid for this import DSR.");
-        setLoading(false);
-        if (inputRef.current) inputRef.current.value = null;
-        return;
+        const branchMatch = headerRows.some((cell) => {
+          if (!cell) return false;
+          const cellText = String(cell).toUpperCase();
+          
+          // 1. Direct includes (most common)
+          if (cellText.includes(branchName)) return true;
+          if (cellText.includes(branchCode)) return true;
+          
+          // 2. Fuzzy match for AHEMDABAD variants
+          const isAmdInDB = branchName.includes("AHEMDABAD") || branchName.includes("AHMEDABAD") || branchCode === "AMD";
+          const isAmdInCell = cellText.includes("AHEMDABAD") || cellText.includes("AHMEDABAD");
+          
+          if (isAmdInDB && isAmdInCell) return true;
+
+          // 3. Fallback: if cell contains the branch name parts (e.g. "GANDH" for "GANDHIDHAM")
+          if (branchName.length > 4 && cellText.includes(branchName.substring(0, 4))) return true;
+          
+          return false;
+        });
+
+        if (!branchMatch) {
+          setError(`Error: The provided data is not valid for the selected branch: ${selectedBranch.branch_name}. Please ensure the Excel file contains the branch name.`);
+          setLoading(false);
+          if (inputRef.current) inputRef.current.value = null;
+          return;
+        }
       }
 
       // If validation passes, continue with existing processing
@@ -294,6 +318,8 @@ function useFileUpload(inputRef, alt, setAlt) {
     setLoading(true);
     const startTime = Date.now(); // Start timer
 
+    const selectedBranch = branches.find(b => b._id === selectedBranchId);
+
     try {
       // Fetch the existing LastJobsDate data to check the current vessel_berthing value
       const lastJobsDateRes = await axios.get(
@@ -350,7 +376,12 @@ function useFileUpload(inputRef, alt, setAlt) {
           // Upload the chunk
           const uploadResponse = await axios.post(
             `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-            chunk,
+            {
+              jobs: chunk,
+              branch_id: selectedBranchId,
+              branch_code: selectedBranch?.branch_code,
+              mode: selectedMode
+            },
             { headers }
           );
 

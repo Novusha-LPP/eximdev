@@ -3,6 +3,7 @@ export const moduleCategories = {
   "Import - Billing": "Accounts",
   "Employee Onboarding": "HR & Management",
   "Employee KYC": "HR & Management",
+  "Update Employee Data": "HR & Management",
   "Customer KYC": "Customer KYC",
   "Import - DSR": "DSR Module",
   "Audit Trail": "DSR Module",
@@ -17,12 +18,19 @@ export const moduleCategories = {
   "Inward Register": "Inward and Outward Register",
   "Outward Register": "Inward and Outward Register",
   "Exit Feedback": "HR & Management",
-  Export: "Export",
+  "Export - Directories": "Export",
+  "Export - Audit Trail": "Export",
+  "Export - Charges": "Export",
+  "Export - Documentation": "Export",
+  "Export - E-Sanchit": "Export",
+  "Export - Jobs": "Export",
+  "Export - Operation": "Export",
 
   "DGFT": "DGFT",
   "Open Points": "Project Management",
   "KPI": "Project Management",
   "MRM": "Project Management",
   "Pulse": "Analytics & Reports",
+  "MasterDirectory": "Masters",
 };
 

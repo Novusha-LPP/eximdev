@@ -12,6 +12,13 @@ const allModules = [
   "Report",
   "Audit Trail",
   "Export",
+  "Export - Directories",
+  "Export - Audit Trail",
+  "Export - Charges",
+  "Export - Documentation",
+  "Export - E-Sanchit",
+  "Export - Jobs",
+  "Export - Operation",
   "Accounts",
   "Employee Onboarding",
   "Employee KYC",
@@ -19,13 +26,16 @@ const allModules = [
   "Outward Register",
   "Customer KYC",
   "Exit Feedback",
+  "Update Employee Data",
   "e-Sanchit",
   "Documentation",
 
   "KPI",
+  "Open Points",
   "MRM",
   "DGFT",
-  "Pulse"
+  "Pulse",
+  "MasterDirectory"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

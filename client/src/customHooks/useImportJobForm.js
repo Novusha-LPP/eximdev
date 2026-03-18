@@ -62,6 +62,10 @@ const useImportJobForm = () => {
   const [inv_currency, setInvCurrency] = useState("");
   const [invoice_number, setInvoiceNumber] = useState("");
   const [invoice_date, setInvoiceDate] = useState("");
+  const [import_terms, setImportTerms] = useState("CIF");
+  const [freight, setFreight] = useState("");
+  const [insurance, setInsurance] = useState("");
+  const [term_value, setTermValue] = useState("");
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
@@ -69,6 +73,17 @@ const useImportJobForm = () => {
   const [trade_type, setTradeType] = useState("IMP");
   const [mode, setMode] = useState("SEA");
   const [branches, setBranches] = useState([]);
+  const [invoice_details, setInvoiceDetails] = useState([
+    {
+      invoice_number: "",
+      invoice_date: "",
+      total_inv_value: "",
+      inv_currency: "",
+      toi: "CIF",
+      freight: "",
+      insurance: "",
+    },
+  ]);
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -140,6 +155,14 @@ const useImportJobForm = () => {
   const [sallerName, setSallerName] = useState("");
   const [bankName, setBankName] = useState("")
   const [ie_code_no, setIeCodeNo] = useState("");
+  const [hss_address, setHssAddress] = useState("");
+  const [hss_address_details, setHssAddressDetails] = useState("");
+  const [hss_branch_id, setHssBranchId] = useState("");
+  const [hss_city, setHssCity] = useState("");
+  const [hss_ie_code_no, setHssIeCodeNo] = useState("");
+  const [hss_postal_code, setHssPostalCode] = useState("");
+  const [hss_country, setHssCountry] = useState("");
+  const [hss_ad_code, setHssAdCode] = useState("");
 
   useEffect(() => {
     if (importer) {
@@ -181,6 +204,50 @@ const useImportJobForm = () => {
     },
   ]);
 
+  const updateInvoiceRow = (rowIndex, field, value) => {
+    const updatedRows = [...invoice_details];
+    updatedRows[rowIndex] = {
+      ...updatedRows[rowIndex],
+      [field]: value,
+    };
+    setInvoiceDetails(updatedRows);
+
+    // Sync first row with single fields for backward compatibility
+    if (rowIndex === 0) {
+      if (field === "invoice_number") setInvoiceNumber(value);
+      if (field === "invoice_date") setInvoiceDate(value);
+      if (field === "total_inv_value") {
+        setTotalInvValue(value);
+        setTermValue(value);
+      }
+      if (field === "inv_currency") setInvCurrency(value);
+      if (field === "toi") setImportTerms(value);
+      if (field === "freight") setFreight(value);
+      if (field === "insurance") setInsurance(value);
+    }
+  };
+
+  const addInvoiceRow = () => {
+    setInvoiceDetails([
+      ...invoice_details,
+      {
+        invoice_number: "",
+        invoice_date: "",
+        total_inv_value: "",
+        inv_currency: invoice_details[0]?.inv_currency || "",
+        toi: "CIF",
+        freight: "",
+        insurance: "",
+      },
+    ]);
+  };
+
+  const removeInvoiceRow = (rowIndex) => {
+    if (invoice_details.length <= 1) return;
+    const updatedRows = invoice_details.filter((_, index) => index !== rowIndex);
+    setInvoiceDetails(updatedRows);
+  };
+
   const updateDescriptionRow = (rowIndex, field, value) => {
     const updatedRows = [...description_details];
     updatedRows[rowIndex] = {
@@ -196,7 +263,6 @@ const useImportJobForm = () => {
         setClearanceValue(value);
         setScheme(value);
       }
-      if (field === "sr_no_invoice") setInvoiceNumber(value);
       if (field === "quantity") setGrossWeight(value); // Approximating ViewJob logic mapping quantity
       if (field === "unit") { /* We don't have unit state in CreateJob, ignoring for top-level */ }
     }
@@ -214,13 +280,14 @@ const useImportJobForm = () => {
   }, [scheme]);
 
   const addDescriptionRow = () => {
+    const defaultSrNo = invoice_details.length > 0 ? String(invoice_details.length) : "";
     setDescriptionDetails([
       ...description_details,
       {
         description: "",
         cth_no: "",
         clearance_under: scheme || clearanceValue || "",
-        sr_no_invoice: "",
+        sr_no_invoice: defaultSrNo,
         sr_no_lic: "",
         quantity: "",
         unit: "",
@@ -271,6 +338,14 @@ const useImportJobForm = () => {
         unit: "",
       },
     ]);
+    setInvoiceDetails([
+      {
+        invoice_number: "",
+        invoice_date: "",
+        total_inv_value: "",
+        inv_currency: "",
+      },
+    ]);
     setConsignmentType("");
     setIsDraftDoc(false);
     setContainerNos([
@@ -316,6 +391,14 @@ const useImportJobForm = () => {
     setSallerName("")
     setBankName("")
     setIeCodeNo("");
+    setHssAddress("");
+    setHssAddressDetails("");
+    setHssBranchId("");
+    setHssCity("");
+    setHssIeCodeNo("");
+    setHssPostalCode("");
+    setHssCountry("");
+    setHssAdCode("");
     setBranchId("");
     setTradeType("IMP");
     setMode("SEA");
@@ -359,6 +442,11 @@ const useImportJobForm = () => {
           inv_currency,
           invoice_number,
           invoice_date,
+          invoice_details,
+          import_terms,
+          freight,
+          insurance,
+          cifValue: term_value,
           description,
           description_details,
           consignment_type,
@@ -386,9 +474,17 @@ const useImportJobForm = () => {
           clearanceValue,
           ie_code_no,
           saller_name: sallerName,
-          hss: HSS,
-          bank_name: bankName,
-          detailed_status: "ETA Date Pending",
+           hss: HSS,
+           bank_name: bankName,
+           hss_address,
+           hss_address_details,
+           hss_branch_id,
+           hss_city,
+           hss_ie_code_no: hss_ie_code_no,
+           hss_postal_code,
+           hss_country,
+           hss_ad_code,
+           detailed_status: "ETA Date Pending",
         };
 
         // Get user info from localStorage for audit trail
@@ -660,9 +756,25 @@ const useImportJobForm = () => {
     setHSS,
     sallerName,
     setSallerName,
-    bankName,
-    setBankName,
-    ie_code_no,
+     bankName,
+     setBankName,
+     hss_address,
+     setHssAddress,
+     hss_address_details,
+     setHssAddressDetails,
+     hss_branch_id,
+     setHssBranchId,
+     hss_city,
+     setHssCity,
+     hss_ie_code_no,
+     setHssIeCodeNo,
+     hss_postal_code,
+     setHssPostalCode,
+     hss_country,
+     setHssCountry,
+     hss_ad_code,
+     setHssAdCode,
+     ie_code_no,
     setIeCodeNo,
     branch_id,
     setBranchId,
@@ -675,6 +787,18 @@ const useImportJobForm = () => {
     addDescriptionRow,
     updateDescriptionRow,
     removeDescriptionRow,
+    invoice_details,
+    addInvoiceRow,
+    updateInvoiceRow,
+    removeInvoiceRow,
+    import_terms,
+    setImportTerms,
+    freight,
+    setFreight,
+    insurance,
+    setInsurance,
+    term_value,
+    setTermValue,
     snackbar,
     setSnackbar
   };

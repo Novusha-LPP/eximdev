@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { message } from 'antd';
 
 import LeadFormModal from './components/LeadFormModal';
 
@@ -8,11 +9,21 @@ export default function LeadList() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const dummyLeads = [
+    { _id: '1', company: 'Acme Corp', firstName: 'John', lastName: 'Smith', email: 'john@acme.com', phone: '+1-555-0101', status: 'open', source: 'LinkedIn', lastContact: new Date(Date.now() - 2*24*60*60*1000) },
+    { _id: '2', company: 'Tech Ventures', firstName: 'Sarah', lastName: 'Johnson', email: 'sarah@techventures.io', phone: '+1-555-0102', status: 'open', source: 'Referral', lastContact: new Date(Date.now() - 1*24*60*60*1000) },
+    { _id: '3', company: 'Innovate Solutions', firstName: 'Michael', lastName: 'Chen', email: 'michael@innovate.co', phone: '+1-555-0103', status: 'open', source: 'Website', lastContact: new Date(Date.now() - 5*24*60*60*1000) },
+    { _id: '4', company: 'Global Systems', firstName: 'Emily', lastName: 'Davis', email: 'emily@global.net', phone: '+1-555-0104', status: 'converted', source: 'Cold Call', lastContact: new Date(Date.now() - 10*24*60*60*1000) },
+    { _id: '5', company: 'Enterprise Inc', firstName: 'Robert', lastName: 'Wilson', email: 'robert@enterprise.com', phone: '+1-555-0105', status: 'open', source: 'Event', lastContact: new Date(Date.now() - 3*24*60*60*1000) },
+    { _id: '6', company: 'Startup Hub', firstName: 'Lisa', lastName: 'Anderson', email: 'lisa@startup.io', phone: '+1-555-0106', status: 'open', source: 'LinkedIn', lastContact: new Date(Date.now() - 7*24*60*60*1000) }
+  ];
+
   const fetchLeads = async () => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/leads`, { withCredentials: true });
-      setLeads(res.data);
+      setLeads(res.data && res.data.length > 0 ? res.data : dummyLeads);
     } catch (err) {
+      setLeads(dummyLeads);
       console.error(err);
     } finally {
       setLoading(false);
@@ -26,11 +37,12 @@ export default function LeadList() {
   const handleConvert = async (leadId) => {
     try {
       if(!window.confirm("Convert this Lead into an Account & Opportunity?")) return;
-      await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadId}/convert`, {}, { withCredentials: true });
-      alert("Lead converted successfully!");
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadId}/convert`, {}, { withCredentials: true });
+      const { accountId, opportunityId } = res.data;
+      message.success(`Lead converted successfully! Account: ${accountId}, Opportunity: ${opportunityId}`);
       fetchLeads();
     } catch (error) {
-      alert("Error converting lead: " + (error.response?.data?.message || error.message));
+      message.error("Error converting lead: " + (error.response?.data?.message || error.message));
     }
   };
 

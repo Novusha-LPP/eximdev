@@ -7,18 +7,13 @@ const accountSchema = new mongoose.Schema({
   industry: { type: String },
   size: { 
     type: String, 
-    enum: ['1-10', '11-50', '51-200', '200+'] 
+    enum: ['startup', 'small', 'medium', 'large', '1-10', '11-50', '51-200', '200+'] 
   },
   website: { type: String },
   annualRevenue: { type: Number },
-  parentAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
+  parentAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },
   healthScore: { type: Number, default: 0 },
-  address: {
-    street: { type: String },
-    city: { type: String },
-    state: { type: String },
-    country: { type: String }
-  }
+  address: { type: String }
 }, { timestamps: true });
 
 export default mongoose.model('Account', accountSchema);

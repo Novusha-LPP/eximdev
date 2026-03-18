@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { X } from 'lucide-react';
+import { message } from 'antd';
 
 const ALLOWED_SERVICES = [
   'custom clearance', 
@@ -47,7 +48,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
         interestedServices: []
       });
     } catch (error) {
-      alert("Error creating lead: " + (error.response?.data?.message || error.message));
+      message.error("Error creating lead: " + (error.response?.data?.message || error.message));
     } finally {
       setIsSubmitting(false);
     }

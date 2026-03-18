@@ -8,7 +8,7 @@ import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SpeedIcon from '@mui/icons-material/Speed';
-import { ALL_BLOCKERS, ALL_BUSINESS_LOSS_TYPES } from './KPIConstants';
+import { ALL_BLOCKERS, ALL_BUSINESS_LOSS_TYPES } from './KPIConstants.js';
 import './kpi.scss';
 
 const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {

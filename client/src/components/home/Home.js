@@ -82,6 +82,7 @@ function Home() {
     <div>
       {categorizedModules &&
         Object.keys(categorizedModules)
+          .filter(category => category !== "Uncategorized")
           .sort()
           .map((category, idx) => (
             <div key={idx}>

@@ -25,11 +25,17 @@ router.get("/api/download-report/:years/:status", async (req, res) => {
     // Convert years into an array (e.g., "24-25,25-26" to ["24-25", "25-26"])
     let yearArray = years.split(",");
 
+    const branchId = req.query.branchId;
+
     // MongoDB query to match any year in the array
     const query = {
       year: { $in: yearArray },
       status,
     };
+
+    if (branchId && branchId !== 'all') {
+      query.branch_id = branchId;
+    }
 
     let jobs = await JobModel.find(query);
 

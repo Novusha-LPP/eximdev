@@ -395,4 +395,270 @@ router.post('/api/sea-cargo-tracking', async (req, res) => {
   }
 });
 
+// ========================================
+// SEA IGM - Full Details Tracking Route (Multi-step)
+// ========================================
+router.post('/api/sea-igm-full-details', async (req, res) => {
+  try {
+    const { location, masterBlNo } = req.body;
+
+    if (!location || !masterBlNo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: location, masterBlNo'
+      });
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Origin': 'https://foservices.icegate.gov.in',
+      'Referer': 'https://foservices.icegate.gov.in/#/public-enquiries',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+
+    // Step 1: Get Basic IGM Summary
+    console.log('Step 1: Fetching Sea IGM Summary...');
+    const url1 = 'https://foservices.icegate.gov.in/enquiry/enquiryatices/SeaIgmEnq';
+    const response1 = await axios.post(url1, { location, masterBlNo }, {
+      headers,
+      timeout: 30000,
+      validateStatus: (status) => status < 500
+    });
+
+    if (response1.status !== 200 || !response1.data || !Array.isArray(response1.data) || response1.data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No details found in IGM Summary',
+        details: response1.data
+      });
+    }
+
+    const summaryData = response1.data;
+    const firstRecord = summaryData[0];
+    const { igmNo, igmDate, lineNo, subLineNo } = firstRecord;
+
+    // Step 2: Get Vessel/More Details
+    console.log('Step 2: Fetching Vessel Details...');
+    const url2 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/SeaIgmMorePublicDetails';
+    let vesselDetails = null;
+    try {
+      const response2 = await axios.post(url2, { masterBlNo, location, igmNo, igmDate }, {
+        headers,
+        timeout: 20000,
+        validateStatus: (status) => status < 500
+      });
+      if (response2.status === 200) {
+        vesselDetails = response2.data;
+      }
+    } catch (err) {
+      console.error('Step 2 (Vessel Details) failed:', err.message);
+    }
+
+    // Step 3: Get Container Details
+    console.log('Step 3: Fetching Container Details...');
+    const url3 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/SeaIgmContPublicDetails';
+    let containerDetails = null;
+    try {
+      const response3 = await axios.post(url3, { lineNo, subLineNo, igmNo, location }, {
+        headers,
+        timeout: 20000,
+        validateStatus: (status) => status < 500
+      });
+      if (response3.status === 200) {
+        containerDetails = response3.data;
+      }
+    } catch (err) {
+      console.error('Step 3 (Container Details) failed:', err.message);
+    }
+
+    // Return combined results
+    res.json({
+      success: true,
+      data: {
+        summary: summaryData,
+        vessel_details: vesselDetails,
+        container_details: containerDetails
+      }
+    });
+
+  } catch (error) {
+    console.error('Sea IGM Full Details API Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: `Unexpected error during multi-step tracking: ${error.message}`
+    });
+  }
+});
+
+// ========================================
+// AIR IGM - Full Details Tracking Route (Multi-step)
+// ========================================
+router.post('/api/air-igm-full-details', async (req, res) => {
+  try {
+    const { location, mawbNumber } = req.body;
+
+    if (!location || !mawbNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: location, mawbNumber'
+      });
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Origin': 'https://foservices.icegate.gov.in',
+      'Referer': 'https://foservices.icegate.gov.in/#/public-enquiries',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+
+    // Step 1: Get Air IGM Summary
+    console.log('Step 1: Fetching Air IGM Summary...');
+    const url1 = 'https://foservices.icegate.gov.in/enquiry/enquiryatices/AirIgmEnq';
+    const response1 = await axios.post(url1, { location, mawbNumber }, {
+      headers,
+      timeout: 30000,
+      validateStatus: (status) => status < 500
+    });
+
+    if (response1.status !== 200 || !response1.data || !Array.isArray(response1.data) || response1.data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No details found in Air IGM Summary',
+        details: response1.data
+      });
+    }
+
+    const summaryData = response1.data;
+    const firstRecord = summaryData[0];
+    const { igmRotation, igmDate, lineNo } = firstRecord;
+    const igmNo = igmRotation; // Mapping igmRotation to igmNo for subsequent calls
+
+    // Step 2: Get Flight Details
+    console.log('Step 2: Fetching Flight Details...');
+    const url2 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/airIgmFlightDetailsPublic';
+    let flightDetails = [];
+    try {
+      const response2 = await axios.post(url2, { igmNo, igmDate, location, isLoggedIn: false }, {
+        headers,
+        timeout: 20000,
+        validateStatus: (status) => status < 500
+      });
+      if (response2.status === 200 && Array.isArray(response2.data)) {
+        flightDetails = response2.data;
+      }
+    } catch (err) {
+      console.error('Step 2 (Flight Details) failed:', err.message);
+    }
+
+    // Step 3: Get BE Details
+    console.log('Step 3: Fetching BE Details...');
+    const url3 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/airIgmBeDetailsPublic';
+    let beDetails = [];
+    try {
+      const response3 = await axios.post(url3, { igmNo, igmDate, location, lineNo }, {
+        headers,
+        timeout: 20000,
+        validateStatus: (status) => status < 500
+      });
+      if (response3.status === 200 && Array.isArray(response3.data)) {
+        beDetails = response3.data;
+      }
+    } catch (err) {
+      console.error('Step 3 (BE Details) failed:', err.message);
+    }
+
+    // Return combined results
+    res.json({
+      success: true,
+      data: {
+        summary: summaryData,
+        flight_details: flightDetails,
+        be_details: beDetails
+      }
+    });
+
+  } catch (error) {
+    console.error('Air IGM Full Details API Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: `Unexpected error during multi-step Air tracking: ${error.message}`
+    });
+  }
+});
+
+// ========================================
+// AIR CONSOLE - Full Details Tracking Route
+// ========================================
+router.post('/api/air-console-full-details', async (req, res) => {
+  try {
+    const { locationCode, masterBlNumber } = req.body;
+
+    if (!locationCode || !masterBlNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: locationCode, masterBlNumber'
+      });
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Origin': 'https://foservices.icegate.gov.in',
+      'Referer': 'https://foservices.icegate.gov.in/#/public-enquiries',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+
+    // Step 1: Get Master Console details
+    console.log('Step 1: Fetching Air Console Master...');
+    const masterRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-master', 
+      { locationCode, masterBlNumber }, { headers, timeout: 25000 });
+    
+    const masterData = Array.isArray(masterRes.data) ? masterRes.data : [];
+    
+    // Extract fileName from first master record if available
+    const fileName = masterData.length > 0 ? masterData[0].fileName : null;
+
+    // Step 2: Get House Console details (Pass fileName and internalFlag)
+    console.log('Step 2: Fetching Air Console House...');
+    let houseData = [];
+    try {
+      const houseRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-house', 
+        { 
+          locationCode, 
+          masterBlNumber, 
+          fileName: fileName || "", 
+          internalFlag: false 
+        }, { headers, timeout: 25000 });
+      
+      if (Array.isArray(houseRes.data)) {
+        houseData = houseRes.data;
+      }
+    } catch (err) {
+      console.error('Step 2 (House Console) failed:', err.message);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        master: masterData,
+        house: houseData
+      }
+    });
+
+  } catch (error) {
+    console.error('Air Console API Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: `Unexpected error during Air Console tracking: ${error.message}`
+    });
+  }
+});
+
+
+
 export default router;

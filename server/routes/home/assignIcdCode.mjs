@@ -1,5 +1,6 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import BranchModel from "../../model/branchModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 
@@ -35,12 +36,10 @@ router.post("/api/admin/assign-icd-code", authMiddleware, auditMiddleware("User"
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Valid ICD codes
-    const validIcdCodes = [
-      "ICD SACHANA",
-      "ICD SANAND",
-      "ICD KHODIYAR",
-    ];
+    // Dynamic ICD codes from ports within branches
+    const branches = await BranchModel.find({ is_active: true });
+    // Extract unique port names from all branches
+    const validIcdCodes = [...new Set(branches.flatMap(b => b.ports.map(p => p.port_name)))];
 
     // Validate all selected ICD codes
     const invalidCodes = icdCodesArray.filter(code => !validIcdCodes.includes(code));

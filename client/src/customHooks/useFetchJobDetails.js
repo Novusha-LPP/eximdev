@@ -399,6 +399,7 @@ function useFetchJobDetails(
       required_do_validity_upto: "",
       invoice_number: "",
       invoice_date: "",
+      invoice_details: [],
       total_inv_value: "",
       cth_no: "",
       checklist: [],
@@ -563,11 +564,17 @@ function useFetchJobDetails(
           firstCheck: values.firstCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
+          invoice_details: values.invoice_details,
           invoice_number:
+            values.invoice_details?.[0]?.invoice_number ||
             values.description_details?.[0]?.sr_no_invoice ||
             values.invoice_number,
-          invoice_date: values.invoice_date,
-          total_inv_value: values.total_inv_value,
+          invoice_date: values.invoice_details?.[0]?.invoice_date || values.invoice_date,
+          total_inv_value: values.invoice_details?.[0]?.total_inv_value || values.total_inv_value,
+          inv_currency: values.invoice_details?.[0]?.inv_currency || "",
+          import_terms: values.invoice_details?.[0]?.toi || values.import_terms,
+          freight: values.invoice_details?.[0]?.freight || values.freight,
+          insurance: values.invoice_details?.[0]?.insurance || values.insurance,
           payment_method: values.payment_method,
           gross_weight: values.gross_weight,
           job_net_weight: values.job_net_weight,
@@ -887,6 +894,20 @@ function useFetchJobDetails(
         invoice_number: safeValue(data.invoice_number),
         invoice_date: safeValue(data.invoice_date),
         total_inv_value: safeValue(data.total_inv_value),
+        invoice_details:
+          Array.isArray(data.invoice_details) && data.invoice_details.length > 0
+            ? data.invoice_details
+            : [
+                {
+                  invoice_number: safeValue(data.invoice_number),
+                  invoice_date: safeValue(data.invoice_date),
+                  total_inv_value: safeValue(data.total_inv_value),
+                  inv_currency: safeValue(data.inv_currency),
+                  toi: safeValue(data.import_terms) || "CIF",
+                  freight: safeValue(data.freight),
+                  insurance: safeValue(data.insurance),
+                },
+              ],
         bill_date: safeValue(data.bill_date),
         bill_no: safeValue(data.bill_no),
         cifValue: safeValue(data.cifValue),

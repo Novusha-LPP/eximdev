@@ -43,6 +43,7 @@ const SeaCargoStatus = ({
   location,
   masterBlNo,
   jobId,
+  isExtended,
   onUpdateSuccess,
 }) => {
   const theme = useTheme();
@@ -99,13 +100,20 @@ const SeaCargoStatus = ({
     setLoading(true);
     setError({ type: "", message: "" });
     try {
+      const apiPath = isExtended
+        ? "/sea-igm-full-details"
+        : "/sea-cargo-tracking";
+
       const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/sea-cargo-tracking`,
+        `${process.env.REACT_APP_API_STRING}${apiPath}`,
         { location, masterBlNo },
         { timeout: 35000, headers: { "Content-Type": "application/json" } }
       );
+
       if (res.data?.success) {
-        setCargoDetails(res.data.data || null);
+        // Standardize response format if needed
+        const data = res.data.data;
+        setCargoDetails(data || null);
       } else {
         setError({
           type: "api",
@@ -480,10 +488,17 @@ const SeaCargoStatus = ({
             <DirectionsBoatIcon fontSize="small" sx={{ fontSize: "0.9rem" }} />
           ),
         },
+        { label: "Vessel Name", value: vesselDetails.vesselName },
+        { label: "Vessel Type", value: vesselDetails.vesselType },
         { label: "IMO Number", value: vesselDetails.imoNo },
         { label: "Voyage Number", value: vesselDetails.voyageNo },
         { label: "Gateway Port", value: vesselDetails.gatewayPort },
+        { label: "Arrival Date", value: vesselDetails.arrivalDate },
         { label: "Inward Date", value: vesselDetails.inwardDate },
+        { label: "Rotation No", value: vesselDetails.rotationNo },
+        { label: "Rotation Date", value: vesselDetails.rotationDate },
+        { label: "Line Code", value: vesselDetails.lineCode },
+        { label: "Agency Code", value: vesselDetails.agencyCode },
         { label: "File Name", value: vesselDetails.fileName },
         { label: "G-IGM Number", value: vesselDetails.igmNo },
         { label: "G-IGM Date", value: vesselDetails.igmDate },

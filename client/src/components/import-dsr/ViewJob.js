@@ -869,6 +869,63 @@ function JobDetails() {
     formik.setFieldValue("description_details", updatedRows);
   };
 
+  // ---- Invoice Details helpers ----
+  const invoiceRows =
+    Array.isArray(formik.values.invoice_details) &&
+    formik.values.invoice_details.length > 0
+      ? formik.values.invoice_details
+      : [
+          {
+            invoice_number: "",
+            invoice_date: "",
+            total_inv_value: "",
+            inv_currency: "",
+            toi: "CIF",
+            freight: "",
+            insurance: "",
+          },
+        ];
+
+  const updateInvoiceRow = (rowIndex, field, value) => {
+    const updatedRows = [...invoiceRows];
+    updatedRows[rowIndex] = {
+      ...updatedRows[rowIndex],
+      [field]: value,
+    };
+    formik.setFieldValue("invoice_details", updatedRows);
+
+    // Sync top-level fields from the first row for backward compatibility
+    if (rowIndex === 0) {
+      if (field === "invoice_number") formik.setFieldValue("invoice_number", value);
+      if (field === "invoice_date") formik.setFieldValue("invoice_date", value);
+      if (field === "total_inv_value") formik.setFieldValue("total_inv_value", value);
+      if (field === "toi") formik.setFieldValue("import_terms", value);
+      if (field === "freight") formik.setFieldValue("freight", value);
+      if (field === "insurance") formik.setFieldValue("insurance", value);
+    }
+  };
+
+  const addInvoiceRow = () => {
+    formik.setFieldValue("invoice_details", [
+      ...invoiceRows,
+      {
+        invoice_number: "",
+        invoice_date: "",
+        total_inv_value: "",
+        inv_currency: "",
+        toi: "CIF",
+        freight: "",
+        insurance: "",
+      },
+    ]);
+  };
+
+  const removeInvoiceRow = (rowIndex) => {
+    if (invoiceRows.length <= 1) return;
+    const updatedRows = invoiceRows.filter((_, index) => index !== rowIndex);
+    formik.setFieldValue("invoice_details", updatedRows);
+  };
+
   return (
     <>
       {data !== null && (
@@ -1688,20 +1745,147 @@ function JobDetails() {
                       <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
                         value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
                     </Col>
-                    <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Invoice No</label>
-                      <TextField fullWidth size="small" variant="outlined" id="invoice_number" name="invoice_number" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.invoice_number || ""} onChange={formik.handleChange} placeholder="Invoice No" sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={2} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Invoice Date</label>
-                      <TextField fullWidth size="small" variant="outlined" type="date" id="invoice_date" name="invoice_date" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.invoice_date || ""} onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={4} lg={3} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Invoice Value</label>
-                      <TextField fullWidth size="small" variant="outlined" id="total_inv_value" name="total_inv_value" disabled={user?.role !== "Admin" && isSubmissionDate}
-                        value={formik.values.total_inv_value || ""} onChange={formik.handleChange} placeholder={`${data?.inv_currency || ""} ${((formik.values.cifValue || data?.cifValue) && (data?.exrate)) ? ((formik.values.cifValue || data?.cifValue) / data?.exrate).toFixed(2) : ""}`} sx={compactInputSx} />
+                  </Row>
+
+                  {/* Invoice Details Table */}
+                  <Row>
+                    <Col xs={12} className="mb-3">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                          Invoice Details
+                        </label>
+                        {!isDescriptionTableReadOnly && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={addInvoiceRow}
+                          >
+                            Add Invoice
+                          </Button>
+                        )}
+                      </div>
+
+                      <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
+                          <thead>
+                            <tr style={{ background: "#f8f9fa" }}>
+                              {["Sr", "Invoice Number", "Invoice Date", "Invoice Value", "Currency", "TOI", "Freight", "Insurance", "Action"].map((h) => (
+                                <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {invoiceRows.map((row, rowIndex) => (
+                              <tr key={`inv-row-${rowIndex}`}>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
+                                  {rowIndex + 1}
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.invoice_number || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Invoice No"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="date"
+                                    value={row.invoice_date || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    InputLabelProps={{ shrink: true }}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.total_inv_value || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "total_inv_value", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Value"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.inv_currency || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  >
+                                    <MenuItem value="">Select</MenuItem>
+                                    <MenuItem value="USD">USD</MenuItem>
+                                    <MenuItem value="EUR">EUR</MenuItem>
+                                    <MenuItem value="GBP">GBP</MenuItem>
+                                    <MenuItem value="JPY">JPY</MenuItem>
+                                    <MenuItem value="INR">INR</MenuItem>
+                                    <MenuItem value="AED">AED</MenuItem>
+                                    <MenuItem value="CNY">CNY</MenuItem>
+                                    <MenuItem value="CHF">CHF</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.toi || "CIF"}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  >
+                                    <MenuItem value="CIF">CIF</MenuItem>
+                                    <MenuItem value="FOB">FOB</MenuItem>
+                                    <MenuItem value="CF">C&F</MenuItem>
+                                    <MenuItem value="CI">C&I</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.freight || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Freight"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.insurance || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Insurance"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                                  {!isDescriptionTableReadOnly && (
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      disabled={invoiceRows.length <= 1}
+                                      onClick={() => removeInvoiceRow(rowIndex)}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </Col>
                   </Row>
 

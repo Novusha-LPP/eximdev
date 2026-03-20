@@ -151,6 +151,11 @@ router.get(
                   $regex: /Ocean Network Express \(India\) Private Limited/i,
                 },
               },
+              {
+                shipping_line_airline: {
+                  $regex: /GOLD STAR \/ ZIM \/ STAR SHIPPING SERVICES \(I\) PVT\. LTD\./i,
+                },
+              },
             ],
           },
           {

@@ -115,6 +115,19 @@ function ImportOperations() {
         if (location.state?.detailedStatusExPlan !== undefined) {
           setDetailedStatusExPlan(location.state.detailedStatusExPlan);
         }
+        
+        // Manual refresh when coming back from job details
+        fetchJobs(
+          location.state?.currentPage || currentPage,
+          location.state?.searchQuery || "",
+          selectedYearState,
+          location.state?.detailedStatusExPlan || "",
+          location.state?.selectedICD || "",
+          location.state?.selectedImporter || "",
+          false,
+          selectedBranch,
+          selectedCategory
+        );
       } else {
         // Clear search state when coming from other tabs (not job details)
         setSearchQuery("");
@@ -193,7 +206,9 @@ function ImportOperations() {
         setTotalJobs(totalJobs || 0);
         setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
         abortControllerRef.current = null;
+        return res.data;
       }
+      return null;
     } catch (error) {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
         return;
@@ -567,7 +582,7 @@ function ImportOperations() {
           try {
             const response = await axios.patch(
               `${process.env.REACT_APP_API_STRING}/update-operations-job/${row.original.mode}/${row.original.year}/${row.original.job_no}`,
-              { cfs_name: newCfs }
+              { cfs_name: newCfs, _id: row.original._id }
             );
             
             if (response.status === 200) {

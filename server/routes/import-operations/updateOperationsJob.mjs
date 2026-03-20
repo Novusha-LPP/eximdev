@@ -37,7 +37,11 @@ router.patch("/api/update-operations-job/:mode/:year/:job_no", extractJobInfo, a
   try {
     // SECURITY CHECK: If container_nos is being updated, validate they belong to this job
     if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
-      const existingJob = await JobModel.findOne({ mode: mode.toUpperCase(), year, job_no }).select('container_nos');
+      const query = { mode: mode.toUpperCase(), year, job_no };
+      if (updateData._id) {
+        query._id = updateData._id;
+      }
+      const existingJob = await JobModel.findOne(query).select('container_nos');
       
       if (existingJob && existingJob.container_nos) {
         const existingContainerNumbers = new Set(
@@ -69,7 +73,12 @@ router.patch("/api/update-operations-job/:mode/:year/:job_no", extractJobInfo, a
     }
 
     // Apply the requested update first
-    await JobModel.findOneAndUpdate({ mode: mode.toUpperCase(), year, job_no }, { $set: updateData });
+    const query = { mode: mode.toUpperCase(), year, job_no };
+    if (updateData._id) {
+       query._id = updateData._id;
+       delete updateData._id;
+    }
+    await JobModel.findOneAndUpdate(query, { $set: updateData });
 
     // Fetch the updated job and recompute detailed_status server-side
     let job = await JobModel.findOne({ mode: mode.toUpperCase(), year, job_no }).lean();

@@ -72,6 +72,7 @@ function useFetchOperationTeamJob(params) {
       concor_gate_pass_validate_up_to: "",
       completed_operation_date: "",
       out_of_charge: "",
+      cfs_name: "",
       custodian_gate_pass: [],
       concor_invoice_and_receipt_copy: [],
       dsr_queries: [],
@@ -110,7 +111,7 @@ function useFetchOperationTeamJob(params) {
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.mode}/${params.year}/${params.job_no}`,
-          values,
+          { ...values, _id: data?._id },
           {
             headers: {
               'username': username,
@@ -202,6 +203,7 @@ function useFetchOperationTeamJob(params) {
           data.concor_gate_pass_validate_up_to || "",
         completed_operation_date: data.completed_operation_date || "",
         out_of_charge: data.out_of_charge || "",
+        cfs_name: data.cfs_name || "",
         custodian_gate_pass: data.custodian_gate_pass || [],
         dsr_queries: data.dsr_queries || [],
         concor_invoice_and_receipt_copy:

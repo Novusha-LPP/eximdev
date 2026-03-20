@@ -50,11 +50,6 @@ export function determineDetailedStatus(job) {
   const isLCL = norm(consignment_type) === "lcl";
   const isTypeDoIcd = norm(type_of_Do) === "icd";
 
-  // Special case for LCL In-Bond: if OOC is present, it goes directly to Billing Pending
-  if (isLCL && isInBond && validOOC) {
-    return "Billing Pending";
-  }
-
   // Ex-Bond: return early to avoid fall-through
   if (isExBond) {
     if (be_no && validOOC && allDelivered) {

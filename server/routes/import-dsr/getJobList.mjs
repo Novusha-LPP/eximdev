@@ -497,21 +497,83 @@ router.get(
           },
           in: {
             $cond: [
-              { $and: ["$$isLcl", "$$isInBond", "$$validOutOfCharge"] },
-              "Billing Pending",
+              "$$isExBond",
               {
-                $cond: [
-                  "$$isExBond",
-                  {
-                    // Ex-bond
+                // Ex-bond
+                $switch: {
+                  branches: [
+                    {
+                      case: {
+                        $and: [
+                          "$$bePresent",
+                          "$$validOutOfCharge",
+                          "$$allDelivery",
+                        ],
+                      },
+                      then: "Billing Pending",
+                    },
+                    {
+                      case: {
+                        $and: [
+                          "$$validDoCompleted",
+                          "$$validOutOfCharge",
+                          { $eq: ["$$allDelivery", false] },
+                        ],
+                      },
+                      then: "Do completed and Delivery pending",
+                    },
+                    {
+                      case: {
+                        $and: ["$$bePresent", "$$validOutOfCharge"],
+                      },
+                      then: "Custom Clearance Completed",
+                    },
+                    {
+                      case: {
+                        $and: ["$$bePresent", "$$validPcv"],
+                      },
+                      then: "PCV Done, Duty Payment Pending",
+                    },
+                  ],
+                  default: "ETA Date Pending",
+                },
+              },
+              {
+                // Non Ex-bond (Home + In-Bond etc)
+                $let: {
+                  vars: {
+                    billingComplete: {
+                      $cond: [
+                        "$$isInBond",
+                        // In-Bond Logic
+                        {
+                          $cond: [
+                            "$$isTypeDoIcd",
+                            "$$allEmptyOffload", // In-Bond ICD: wait for EmptyOff
+                            { $and: ["$$allEmptyOffload", "$$allDelivery"] } // In-Bond Factory: wait for EmptyOff AND Delivery
+                          ]
+                        },
+                        // Standard Logic (Home Consumption etc)
+                        {
+                          $cond: [
+                            { $or: ["$$isLcl", "$$isTypeDoIcd"] },
+                            "$$allDelivery", // LCL/ICD: wait for Delivery
+                            "$$allEmptyOffload" // Container: wait for EmptyOff
+                          ]
+                        }
+                      ]
+                    },
+                  },
+                  in: {
                     $switch: {
                       branches: [
                         {
                           case: {
                             $and: [
                               "$$bePresent",
+                              "$$anyArrival",
                               "$$validOutOfCharge",
-                              "$$allDelivery",
+                              "$$billingComplete",
                             ],
                           },
                           then: "Billing Pending",
@@ -528,125 +590,57 @@ router.get(
                         },
                         {
                           case: {
-                            $and: ["$$bePresent", "$$validOutOfCharge"],
+                            $and: [
+                              "$$bePresent",
+                              "$$anyArrival",
+                              "$$validOutOfCharge",
+                            ],
                           },
                           then: "Custom Clearance Completed",
                         },
                         {
                           case: {
-                            $and: ["$$bePresent", "$$validPcv"],
+                            $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
                           },
                           then: "PCV Done, Duty Payment Pending",
+                        },
+                        {
+                          case: {
+                            $and: ["$$bePresent", "$$anyArrival"],
+                          },
+                          then: "BE Noted, Clearance Pending",
+                        },
+                        {
+                          case: {
+                            $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
+                          },
+                          then: "Arrived, BE Note Pending",
+                        },
+                        {
+                          case: "$$bePresent",
+                          then: "BE Noted, Arrival Pending",
+                        },
+                        {
+                          case: "$$anyRailOut",
+                          then: "Rail Out",
+                        },
+                        {
+                          case: "$$validDischarge",
+                          then: "Discharged",
+                        },
+                        {
+                          case: "$$validGateway",
+                          then: "Gateway IGM Filed",
+                        },
+                        {
+                          case: "$$validVessel",
+                          then: "Estimated Time of Arrival",
                         },
                       ],
                       default: "ETA Date Pending",
                     },
                   },
-                  {
-                    // Non Ex-bond (Home + In-Bond etc)
-                    $let: {
-                      vars: {
-                        billingComplete: {
-                          $cond: [
-                            "$$isInBond",
-                            // In-Bond Logic
-                            {
-                              $cond: [
-                                "$$isTypeDoIcd",
-                                "$$allEmptyOffload", // In-Bond ICD: wait for EmptyOff
-                                { $and: ["$$allEmptyOffload", "$$allDelivery"] } // In-Bond Factory: wait for EmptyOff AND Delivery
-                              ]
-                            },
-                            // Standard Logic (Home Consumption etc)
-                            {
-                              $cond: [
-                                { $or: ["$$isLcl", "$$isTypeDoIcd"] },
-                                "$$allDelivery", // LCL/ICD: wait for Delivery
-                                "$$allEmptyOffload" // Container: wait for EmptyOff
-                              ]
-                            }
-                          ]
-                        },
-                      },
-                      in: {
-                        $switch: {
-                          branches: [
-                            {
-                              case: {
-                                $and: [
-                                  "$$bePresent",
-                                  "$$anyArrival",
-                                  "$$validOutOfCharge",
-                                  "$$billingComplete",
-                                ],
-                              },
-                              then: "Billing Pending",
-                            },
-                            {
-                              case: {
-                                $and: [
-                                  "$$validDoCompleted",
-                                  "$$validOutOfCharge",
-                                  { $eq: ["$$allDelivery", false] },
-                                ],
-                              },
-                              then: "Do completed and Delivery pending",
-                            },
-                            {
-                              case: {
-                                $and: [
-                                  "$$bePresent",
-                                  "$$anyArrival",
-                                  "$$validOutOfCharge",
-                                ],
-                              },
-                              then: "Custom Clearance Completed",
-                            },
-                            {
-                              case: {
-                                $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
-                              },
-                              then: "PCV Done, Duty Payment Pending",
-                            },
-                            {
-                              case: {
-                                $and: ["$$bePresent", "$$anyArrival"],
-                              },
-                              then: "BE Noted, Clearance Pending",
-                            },
-                            {
-                              case: {
-                                $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
-                              },
-                              then: "Arrived, BE Note Pending",
-                            },
-                            {
-                              case: "$$bePresent",
-                              then: "BE Noted, Arrival Pending",
-                            },
-                            {
-                              case: "$$anyRailOut",
-                              then: "Rail Out",
-                            },
-                            {
-                              case: "$$validDischarge",
-                              then: "Discharged",
-                            },
-                            {
-                              case: "$$validGateway",
-                              then: "Gateway IGM Filed",
-                            },
-                            {
-                              case: "$$validVessel",
-                              then: "Estimated Time of Arrival",
-                            },
-                          ],
-                          default: "ETA Date Pending",
-                        },
-                      },
-                    },
-                  },
-                ],
+                },
               },
             ],
           },

@@ -417,12 +417,6 @@ function JobDetails() {
     const isLCL = norm(consignment_type) === "lcl";
     const isTypeDoIcd = norm(type_of_Do) === "icd";
 
-    // New logic for LCL In-Bond jobs with Out of Charge Date
-    if (isLCL && isInBond && validOOC) {
-      formik.setFieldValue("detailed_status", "Billing Pending");
-      return;
-    }
-
     // Ex-Bond: return early to avoid fall-through
     if (isExBond) {
       if (be_no && validOOC && allDelivered) {
@@ -989,7 +983,6 @@ function JobDetails() {
             >
               <Tab label="Completion Status" />
               <Tab label="Tracking Status" />
-              <Tab label="Invoice & products" />
               <Tab label={getContainerOrPackageLabel(data?.mode)} />
               <Tab label="Documents" />
               <Tab label="Charges" />
@@ -1738,357 +1731,345 @@ function JobDetails() {
                   </Row>
                 </div>
 
-                </div>
-              {/* Tracking status end*/}
-            </>
-          )}
-
-          {viewJobTab === 2 && (
-            <div className="job-details-container">
-              <JobDetailsRowHeading heading="Invoice & products" />
-              <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
-                  Invoice Terms & Priority
-                </h6>
-                <Row>
+                {/* --- Section: Cargo & Terms --- */}
+                <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Invoice Terms & Priority
+                  </h6>
+                  <Row>
 
 
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
-                    <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
-                    <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
-                  </Col>
-                </Row>
-
-                {/* Invoice Details Table */}
-                <Row>
-                  <Col xs={12} className="mb-3">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
-                        Invoice Details
-                      </label>
-                      {!isDescriptionTableReadOnly && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={addInvoiceRow}
-                        >
-                          Add Invoice
-                        </Button>
-                      )}
-                    </div>
-
-                    <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
-                        <thead>
-                          <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr", "Invoice Number", "Invoice Date", "Invoice Value", "Currency", "TOI", "Freight", "Insurance", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoiceRows.map((row, rowIndex) => (
-                            <tr key={`inv-row-${rowIndex}`}>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
-                                {rowIndex + 1}
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.invoice_number || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Invoice No"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  type="date"
-                                  value={row.invoice_date || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  InputLabelProps={{ shrink: true }}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.total_inv_value || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "total_inv_value", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Value"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.inv_currency || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  <MenuItem value="USD">USD</MenuItem>
-                                  <MenuItem value="EUR">EUR</MenuItem>
-                                  <MenuItem value="GBP">GBP</MenuItem>
-                                  <MenuItem value="JPY">JPY</MenuItem>
-                                  <MenuItem value="INR">INR</MenuItem>
-                                  <MenuItem value="AED">AED</MenuItem>
-                                  <MenuItem value="CNY">CNY</MenuItem>
-                                  <MenuItem value="CHF">CHF</MenuItem>
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.toi || "CIF"}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="CIF">CIF</MenuItem>
-                                  <MenuItem value="FOB">FOB</MenuItem>
-                                  <MenuItem value="CF">C&F</MenuItem>
-                                  <MenuItem value="CI">C&I</MenuItem>
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.freight || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Freight"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.insurance || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Insurance"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
-                                {!isDescriptionTableReadOnly && (
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    disabled={invoiceRows.length <= 1}
-                                    onClick={() => removeInvoiceRow(rowIndex)}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Col>
-                </Row>
-
-                <div style={{ marginTop: "16px", padding: "16px", background: "#f8f9fa", borderRadius: "6px" }}>
-                  <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "1rem", color: "#34495e", mb: 1 }}> Terms of Invoice & Payment </FormLabel>
-
-                  <Row className="align-items-center">
-                    {/* 1. Import Terms Radios */}
-                    <Col xs={12} lg={4} className="mb-2">
-                      <RadioGroup row name="import_terms" value={formik.values.import_terms || importTerms} onChange={handleImportTermsChange}>
-                        <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>CIF</span>} />
-                        <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>FOB</span>} />
-                        <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>C&F</span>} />
-                        <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>C&I</span>} />
-                      </RadioGroup>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
+                      <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
                     </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
+                      <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
+                    </Col>
+                  </Row>
 
-                    {/* 2. Values Inputs (Conditionals) */}
-                    <Col xs={12} lg={4} className="mb-2">
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        <TextField label={`${formik.values.import_terms || importTerms} Value (₹)`} type="number" name="cifValue"
-                          value={formik.values.cifValue || ""} onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
-
-                        {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CI") && (
-                          <TextField label="Freight (₹)" type="number" name="freight" value={formik.values.freight || ""}
-                            onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
-                        )}
-                        {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CF") && (
-                          <TextField label="Insurance (₹)" type="number" name="insurance" value={formik.values.insurance || ""}
-                            onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+                  {/* Invoice Details Table */}
+                  <Row>
+                    <Col xs={12} className="mb-3">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                          Invoice Details
+                        </label>
+                        {!isDescriptionTableReadOnly && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={addInvoiceRow}
+                          >
+                            Add Invoice
+                          </Button>
                         )}
                       </div>
-                    </Col>
 
-                    {/* Payment radios moved beside FTA Benefit Date (see below) */}
-                  </Row>
-
-                  <Row className="align-items-center">
-                    <Col xs={12} lg={3} className="mt-2">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
-                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
-                        value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
-                        onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
-                        disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: 'white', ...compactInputSx }} />
-                    </Col>
-
-                    <Col xs={12} lg={4} className="mt-2 d-flex align-items-center">
-                      <div style={{ marginRight: '8px', fontWeight: '600', fontSize: '0.9rem', color: '#6c757d' }}>Payment:</div>
-                      <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
-                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.9rem' }}>Transaction</span>} />
-                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.9rem' }}>Deferred</span>} />
-                      </RadioGroup>
-                    </Col>
-                  </Row>
-                </div>
-
-                <Row>
-                  <Col xs={12} className="mb-3">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
-                        Description Details
-                      </label>
-                      {!isDescriptionTableReadOnly && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={addDescriptionRow}
-                        >
-                          Add Row
-                        </Button>
-                      )}
-                    </div>
-
-                    <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
-                        <thead>
-                          <tr style={{ background: "#f8f9fa" }}>
-                            {["Description", "CTH", "Clearance Under", "SR No Invoice", "SR No LIC", "Quantity", "Unit", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {descriptionRows.map((row, rowIndex) => (
-                            <tr key={`desc-row-${rowIndex}`}>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.description || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.cth_no || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.clearance_under || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  {filteredClearanceOptions.map((option, index) => (
-                                    <MenuItem key={index} value={option.value || ""}>
-                                      {option.label}
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.sr_no_invoice || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.sr_no_lic || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.quantity || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.unit || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
-                                {!isDescriptionTableReadOnly && (
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    disabled={descriptionRows.length <= 1}
-                                    onClick={() => removeDescriptionRow(rowIndex)}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                )}
-                              </td>
+                      <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
+                          <thead>
+                            <tr style={{ background: "#f8f9fa" }}>
+                              {["Sr", "Invoice Number", "Invoice Date", "Invoice Value", "Currency", "TOI", "Freight", "Insurance", "Action"].map((h) => (
+                                <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
+                                  {h}
+                                </th>
+                              ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Col>
-                </Row>
-                </div>
-              </div>
-          )}
+                          </thead>
+                          <tbody>
+                            {invoiceRows.map((row, rowIndex) => (
+                              <tr key={`inv-row-${rowIndex}`}>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
+                                  {rowIndex + 1}
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.invoice_number || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Invoice No"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="date"
+                                    value={row.invoice_date || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    InputLabelProps={{ shrink: true }}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.total_inv_value || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "total_inv_value", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Value"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.inv_currency || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  >
+                                    <MenuItem value="">Select</MenuItem>
+                                    <MenuItem value="USD">USD</MenuItem>
+                                    <MenuItem value="EUR">EUR</MenuItem>
+                                    <MenuItem value="GBP">GBP</MenuItem>
+                                    <MenuItem value="JPY">JPY</MenuItem>
+                                    <MenuItem value="INR">INR</MenuItem>
+                                    <MenuItem value="AED">AED</MenuItem>
+                                    <MenuItem value="CNY">CNY</MenuItem>
+                                    <MenuItem value="CHF">CHF</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.toi || "CIF"}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  >
+                                    <MenuItem value="CIF">CIF</MenuItem>
+                                    <MenuItem value="FOB">FOB</MenuItem>
+                                    <MenuItem value="CF">C&F</MenuItem>
+                                    <MenuItem value="CI">C&I</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.freight || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Freight"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.insurance || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Insurance"
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                                  {!isDescriptionTableReadOnly && (
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      disabled={invoiceRows.length <= 1}
+                                      onClick={() => removeInvoiceRow(rowIndex)}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Col>
+                  </Row>
 
-          {viewJobTab === 1 && (
-            <>
-              <div className="job-details-container">
+                  <div style={{ marginTop: "16px", padding: "16px", background: "#f8f9fa", borderRadius: "6px" }}>
+                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: "1rem", color: "#34495e", mb: 1 }}> Terms of Invoice & Payment </FormLabel>
+
+                    <Row className="align-items-center">
+                      {/* 1. Import Terms Radios */}
+                      <Col xs={12} lg={4} className="mb-2">
+                        <RadioGroup row name="import_terms" value={formik.values.import_terms || importTerms} onChange={handleImportTermsChange}>
+                          <FormControlLabel value="CIF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>CIF</span>} />
+                          <FormControlLabel value="FOB" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>FOB</span>} />
+                          <FormControlLabel value="CF" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>C&F</span>} />
+                          <FormControlLabel value="CI" control={<Radio size="small" />} label={<span style={{ fontSize: '0.9rem' }}>C&I</span>} />
+                        </RadioGroup>
+                      </Col>
+
+                      {/* 2. Values Inputs (Conditionals) */}
+                      <Col xs={12} lg={4} className="mb-2">
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          <TextField label={`${formik.values.import_terms || importTerms} Value (₹)`} type="number" name="cifValue"
+                            value={formik.values.cifValue || ""} onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+
+                          {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CI") && (
+                            <TextField label="Freight (₹)" type="number" name="freight" value={formik.values.freight || ""}
+                              onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+                          )}
+                          {((formik.values.import_terms || importTerms) === "FOB" || (formik.values.import_terms || importTerms) === "CF") && (
+                            <TextField label="Insurance (₹)" type="number" name="insurance" value={formik.values.insurance || ""}
+                              onChange={formik.handleChange} size="small" variant="outlined" sx={{ width: 140, bgcolor: 'white', ...compactInputSx }} />
+                          )}
+                        </div>
+                      </Col>
+
+                      {/* Payment radios moved beside FTA Benefit Date (see below) */}
+                    </Row>
+
+                    <Row className="align-items-center">
+                      <Col xs={12} lg={3} className="mt-2">
+                        <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
+                        <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
+                          value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
+                          onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
+                          disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: 'white', ...compactInputSx }} />
+                      </Col>
+
+                      <Col xs={12} lg={4} className="mt-2 d-flex align-items-center">
+                        <div style={{ marginRight: '8px', fontWeight: '600', fontSize: '0.9rem', color: '#6c757d' }}>Payment:</div>
+                        <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
+                          <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.9rem' }}>Transaction</span>} />
+                          <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '0.9rem' }}>Deferred</span>} />
+                        </RadioGroup>
+                      </Col>
+                    </Row>
+                  </div>
+
+                  <Row>
+                    <Col xs={12} className="mb-3">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                          Description Details
+                        </label>
+                        {!isDescriptionTableReadOnly && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={addDescriptionRow}
+                          >
+                            Add Row
+                          </Button>
+                        )}
+                      </div>
+
+                      <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
+                          <thead>
+                            <tr style={{ background: "#f8f9fa" }}>
+                              {["Description", "CTH", "Clearance Under", "SR No Invoice", "SR No LIC", "Quantity", "Unit", "Action"].map((h) => (
+                                <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {descriptionRows.map((row, rowIndex) => (
+                              <tr key={`desc-row-${rowIndex}`}>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.description || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.cth_no || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.clearance_under || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  >
+                                    <MenuItem value="">Select</MenuItem>
+                                    {filteredClearanceOptions.map((option, index) => (
+                                      <MenuItem key={index} value={option.value || ""}>
+                                        {option.label}
+                                      </MenuItem>
+                                    ))}
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.sr_no_invoice || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.sr_no_lic || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.quantity || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.unit || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                                  {!isDescriptionTableReadOnly && (
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      disabled={descriptionRows.length <= 1}
+                                      onClick={() => removeDescriptionRow(rowIndex)}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Col>
+                  </Row>
+                </div>
+
                 {/* --- Section: Clearance, Weights & BE Details --- */}
                 <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                   <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
@@ -2526,7 +2507,7 @@ function JobDetails() {
           )}
 
           {/* document section */}
-          {viewJobTab === 4 && (
+          {viewJobTab === 3 && (
             <div className="job-details-container">
               <JobDetailsRowHeading heading="CTH Documents" />
               <br />
@@ -2673,7 +2654,7 @@ function JobDetails() {
           )}
 
           {/* charges section */}
-          {viewJobTab === 5 && (
+          {viewJobTab === 4 && (
             <div className="job-details-container">
               {/* Charges Section */}
               <JobDetailsRowHeading heading="Charges" />
@@ -2798,7 +2779,7 @@ function JobDetails() {
             </div>
           )}
 
-          {viewJobTab === 3 && (
+          {viewJobTab === 2 && (
             <div className="job-details-container">
               <JobDetailsRowHeading heading={`${getContainerOrPackageLabel(data?.mode)} Details`} />
               <Row>

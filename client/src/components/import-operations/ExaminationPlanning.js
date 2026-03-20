@@ -37,6 +37,25 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
+
+
+const CFS_OPTIONS = [
+  "Adani Ports and Special Economic Zone Limited",
+  "ALLCARGO TERMINALS LIMITED",
+  "AMEYA LOGISTICS PVT LTD",
+  "Ashutosh Container Services Pvt Ltd",
+  "Central Warehousing Corporation (NEW)",
+  "Hind Terminals Pvt Ltd.",
+  "Landmark CFS Pvt Ltd",
+  "Mundra International Container Terminal Pvt Ltd.",
+  "Mundhra Container Freight Station Pvt Ltd.",
+  "Saurashtra Freight Pvt Ltd.",
+  "Seabird Marine Services (Gujarat) Pvt. Ltd.",
+  "Transworld Terminals Pvt Ltd."
+];
+
 
 
 function ImportOperations() {
@@ -540,6 +559,31 @@ function ImportOperations() {
         const doCompleted = row.original.do_completed;
         const doCopies = row.original.do_copies;
         const do_list = row.original.do_list;
+        const branchCode = row.original.branch_code;
+        const currentCfs = row.original.cfs_name || "";
+
+        const handleCfsChange = async (event) => {
+          const newCfs = event.target.value;
+          try {
+            const response = await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/update-operations-job/${row.original.mode}/${row.original.year}/${row.original.job_no}`,
+              { cfs_name: newCfs }
+            );
+            
+            if (response.status === 200) {
+              // Update local state for immediate feedback
+              setRows(prevRows => prevRows.map(r => 
+                (r._id === row.original._id) 
+                ? { ...r, cfs_name: newCfs } 
+                : r
+              ));
+            }
+          } catch (error) {
+            console.error("Error updating CFS:", error);
+            alert("Failed to update CFS location. Please try again.");
+          }
+        };
+
         return (
           <div style={{ textAlign: "center" }}>
             <div>
@@ -575,6 +619,38 @@ function ImportOperations() {
               <strong>EmptyOff LOC:</strong> {do_list}
             </div>
 
+            {branchCode === "GIM" && (
+              <div style={{ marginTop: "8px", textAlign: "left" }}>
+                <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>CFS Loc:</span>
+                <FormControl fullWidth size="small" sx={{ marginTop: "4px" }}>
+                  <Select
+                    value={row.original.cfs_name || ""}
+                    onChange={handleCfsChange}
+                    displayEmpty
+                    sx={{ 
+                      fontSize: "0.85rem", 
+                      fontWeight: "500",
+                      backgroundColor: "#fff",
+                      "& .MuiSelect-select": {
+                        paddingY: "4px",
+                        whiteSpace: "normal", // Enable word wrap
+                        wordBreak: "break-word",
+                        textAlign: "left"
+                      }
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Select CFS</em>
+                    </MenuItem>
+                    {CFS_OPTIONS.map((option) => (
+                      <MenuItem key={option} value={option} sx={{ fontSize: "0.8rem" }}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
+            )}
           </div>
         );
       },

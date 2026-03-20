@@ -74,6 +74,8 @@ const compactInputSx = {
   "& .MuiInputLabel-shrink": { top: "0px" }
 };
 
+
+
 function JobDetails() {
   const [viewJobTab, setViewJobTab] = useState(0);
   const handleViewJobTabChange = (event, newValue) => {
@@ -1436,6 +1438,8 @@ function JobDetails() {
                           <MenuItem value="Status Completed">Status Completed</MenuItem>
                         </TextField>
                       </Col>
+
+
                     </Row>
                   </Col>
 

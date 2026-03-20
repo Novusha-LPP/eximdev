@@ -616,7 +616,12 @@ router.post('/api/air-console-full-details', async (req, res) => {
     // Step 1: Get Master Console details
     console.log('Step 1: Fetching Air Console Master...');
     const masterRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-master', 
-      { locationCode, masterBlNumber }, { headers, timeout: 25000 });
+      { 
+        locationCode, 
+        location: locationCode, // Alias just in case
+        masterBlNumber,
+        isLoggedIn: false 
+      }, { headers, timeout: 25000 });
     
     const masterData = Array.isArray(masterRes.data) ? masterRes.data : [];
     
@@ -630,9 +635,11 @@ router.post('/api/air-console-full-details', async (req, res) => {
       const houseRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-house', 
         { 
           locationCode, 
+          location: locationCode, // Alias just in case
           masterBlNumber, 
           fileName: fileName || "", 
-          internalFlag: false 
+          internalFlag: false,
+          isLoggedIn: false
         }, { headers, timeout: 25000 });
       
       if (Array.isArray(houseRes.data)) {

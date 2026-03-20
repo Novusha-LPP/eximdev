@@ -20,7 +20,12 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Fade
+  Fade,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText
 } from "@mui/material";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
@@ -285,7 +290,47 @@ const ImportCreateJob = () => {
     setHssCountry,
     hss_ad_code,
     setHssAdCode,
+    import_terms,
+    setImportTerms,
+    freight,
+    setFreight,
+    insurance,
+    setInsurance,
+    term_value,
+    setTermValue,
+    isEditMode,
+    jobNumber,
+    populateJobData,
+    checkDuplicate
   } = useImportJobForm();
+
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateJob, setDuplicateJob] = useState(null);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+
+  const handleBlBlur = async (e) => {
+    const val = e.target.value;
+    if (!val || val.length < 5 || isEditMode) return;
+
+    setIsCheckingDuplicate(true);
+    const result = await checkDuplicate(val);
+    setIsCheckingDuplicate(false);
+
+    if (result.exists) {
+      setDuplicateJob(result.job);
+      setDuplicateDialogOpen(true);
+    }
+  };
+
+  const handleFetchJob = () => {
+    populateJobData(duplicateJob);
+    setDuplicateDialogOpen(false);
+    setSnackbar({
+      open: true,
+      message: "Job details fetched successfully. You can now edit and update.",
+      severity: "info"
+    });
+  };
 
   const currencyOptions = ["USD", "EUR", "GBP", "JPY", "INR", "AUD", "CAD", "CHF", "CNY", "HKD", "SGD"];
 
@@ -446,9 +491,9 @@ const ImportCreateJob = () => {
               Create Import Job
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4ade80', boxShadow: '0 0 10px #4ade80' }} />
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: isEditMode ? '#ffca28' : '#4ade80', boxShadow: isEditMode ? '0 0 10px #ffca28' : '0 0 10px #4ade80' }} />
               <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
-                System Ready • New Job Entry
+                {isEditMode ? `Editing Job: ${jobNumber || "..."}` : "System Ready • New Job Entry"}
               </Typography>
             </Box>
           </Box>
@@ -538,6 +583,18 @@ const ImportCreateJob = () => {
                   activeStep={activeStep}
                 >
                   <Grid container spacing={2}>
+                    {isEditMode && (
+                      <FormField label="Job Number">
+                        <TextField
+                          value={jobNumber}
+                          variant="outlined"
+                          size="small"
+                          fullWidth
+                          InputProps={{ readOnly: true }}
+                          sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5', fontWeight: 700 } }}
+                        />
+                      </FormField>
+                    )}
                     <FormField label="Select Branch">
                       <TextField
                         select
@@ -933,6 +990,7 @@ const ImportCreateJob = () => {
                         size="small"
                         placeholder={`${getAwbOrBlLabel(mode)} No`}
                         fullWidth
+                        onBlur={handleBlBlur}
                         sx={compactInput}
                       />
                     </FormField>
@@ -990,6 +1048,7 @@ const ImportCreateJob = () => {
                             variant="outlined"
                             size="small"
                             fullWidth
+                            onBlur={handleBlBlur}
                             placeholder={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL No`}
                             sx={compactInput}
                           />
@@ -1792,8 +1851,25 @@ const ImportCreateJob = () => {
               <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', bgcolor: 'rgba(30, 58, 138, 0.02)', border: '1px dashed #1e3a8a33', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Button variant="text" color="inherit" onClick={() => window.location.reload()} sx={{ fontWeight: 600, textTransform: 'none' }}>Discard & Reset</Button>
                 <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button variant="contained" size="large" onClick={formik.handleSubmit} sx={{ px: 8, py: 1.5, borderRadius: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 8px 25px rgba(29, 78, 216, 0.3)' }}>
-                    Finalize & Create Job
+                  <Button 
+                    variant="contained" 
+                    size="large" 
+                    onClick={formik.handleSubmit} 
+                    sx={{ 
+                      px: 8, 
+                      py: 1.5, 
+                      borderRadius: '12px', 
+                      fontWeight: 800, 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '0.05em', 
+                      boxShadow: isEditMode ? '0 8px 25px rgba(255, 202, 40, 0.3)' : '0 8px 25px rgba(29, 78, 216, 0.3)',
+                      bgcolor: isEditMode ? 'warning.main' : 'primary.main',
+                      '&:hover': {
+                        bgcolor: isEditMode ? 'warning.dark' : 'primary.dark',
+                      }
+                    }}
+                  >
+                    {isEditMode ? 'Update Job Details' : 'Finalize & Create Job'}
                   </Button>
                 </Box>
               </Paper>
@@ -1832,6 +1908,58 @@ const ImportCreateJob = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Dialog
+        open={duplicateDialogOpen}
+        onClose={() => setDuplicateDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '16px', p: 1 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <BusinessIcon /> Duplicate Job Found
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2, fontWeight: 500, color: 'text.primary' }}>
+            A job already exists in the system for this BL/AWB number.
+          </DialogContentText>
+          {duplicateJob && (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: '12px', bgcolor: '#f8fafc', mb: 2 }}>
+              <Grid container spacing={1}>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Job Number</Typography>
+                  <Typography variant="body2" fontWeight={700}>{duplicateJob.job_number || duplicateJob.job_no}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Importer</Typography>
+                  <Typography variant="body2" fontWeight={700}>{duplicateJob.importer}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Mode</Typography>
+                  <Typography variant="body2" fontWeight={700}>{duplicateJob.mode}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Branch</Typography>
+                  <Typography variant="body2" fontWeight={700}>{duplicateJob.branch_code}</Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          )}
+          <Typography variant="body2" color="text.secondary">
+            You cannot create a duplicate job for this BL. Would you like to fetch the existing job details to update them instead?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button onClick={() => setDuplicateDialogOpen(false)} variant="outlined" sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleFetchJob} variant="contained" color="primary" sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}>
+            Fetch & Edit Details
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box >
   );
 };

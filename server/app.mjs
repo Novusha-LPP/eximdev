@@ -163,6 +163,7 @@ import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJo
 import updateJob from "./routes/import-dsr/updateJob.mjs";
 import viewDSR from "./routes/import-dsr/viewDSR.mjs";
 import containerTrack from "./routes/import-dsr/containerTrack.mjs";
+import checkDuplicateJob from "./routes/import-dsr/checkDuplicateJob.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -445,6 +446,7 @@ app.use(importerListToAssignJobs);
 app.use(updateJob);
 app.use(viewDSR);
 app.use(containerTrack);
+app.use(checkDuplicateJob);
 // app.use(ImportCreateJob);
 
 // Import Operations

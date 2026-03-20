@@ -298,6 +298,7 @@ const jobSchema = new mongoose.Schema({
   type_of_Do: { type: String },
   do_validity_upto_job_level: { type: String, trim: true },
   do_revalidation_upto_job_level: { type: String, trim: true },
+  cfs_name: { type: String, trim: true },
   do_revalidation: { type: Boolean },
   do_revalidation_date: { type: String },
   // rail_out_date: { type: String },

@@ -468,7 +468,8 @@ function useFetchJobDetails(
       bill_no: "",
       bill_date: "",
       dsr_queries: [],
-      lockBankDetails: false
+      lockBankDetails: false,
+      lockBankDetails: false,
     },
     onSubmit: async (values) => {
       // Filter documents that are sent to e-Sanchit
@@ -644,6 +645,7 @@ function useFetchJobDetails(
           client_remark: values.client_remark,
           DsrCharges: selectedChargesDocuments,
           dsr_queries: values.dsr_queries,
+          dsr_queries: values.dsr_queries,
         },
         { headers }
       );
@@ -786,6 +788,7 @@ function useFetchJobDetails(
         is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
         lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
         is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
+        client_remark: safeValue(data.client_remark),
         client_remark: safeValue(data.client_remark),
         examinationPlanning: safeValue(data.examinationPlanning, false),
         examination_planning_date: safeValue(data.examination_planning_date),

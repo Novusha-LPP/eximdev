@@ -87,31 +87,44 @@ router.post(
       }
 
       // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
-      if (container_nos && container_nos.length > 1) {
-        const existingContainer = await JobModel.findOne({
-          "container_nos.container_number": {
-            $in: container_nos.map((c) => c.container_number),
-          },
+      if (container_nos && container_nos.length > 0) {
+        // Prepare container numbers for checking
+        const containerNumbers = container_nos
+          .map((c) => c.container_number)
+          .filter(cn => cn && cn.trim().length > 0);
+
+        if (containerNumbers.length > 0) {
+          const existingContainer = await JobModel.findOne({
+            "container_nos.container_number": { $in: containerNumbers },
+          });
+
+          if (existingContainer) {
+            return res.status(400).json({
+              message: `Duplicate container number found globally: ${existingContainer.container_nos
+                .map((c) => c.container_number)
+                .filter(cn => containerNumbers.includes(cn))
+                .join(", ")}`,
+            });
+          }
+        }
+      }
+
+      // ✅ Check for duplicate BL Number globally
+      if (awb_bl_no && awb_bl_no.length > 0) {
+        const existingBl = await JobModel.findOne({ 
+          awb_bl_no,
         });
 
-        if (existingContainer) {
+        if (existingBl) {
           return res.status(400).json({
-            message: `Duplicate container number found: ${container_nos
-              .map((c) => c.container_number)
-              .join(", ")}`,
+            message: `Duplicate BL number found globally: ${awb_bl_no}`,
           });
         }
       }
 
-      // ✅ Check for duplicate BL Number **only if awb_bl_no is provided**
-      if (awb_bl_no && awb_bl_no.length > 0) {
-        const existingBl = await JobModel.findOne({ awb_bl_no });
-
-        if (existingBl) {
-          return res.status(400).json({
-            message: `Duplicate BL number found: ${awb_bl_no}`,
-          });
-        }
+      // ✅ Validate branch_id
+      if (!branch_id) {
+        return res.status(400).json({ message: "Please select a branch." });
       }
 
       // ✅ Generate new structured job_number
@@ -135,6 +148,7 @@ router.post(
 
       // ✅ Create new job entry
       const newJob = new JobModel({
+        ...sanitizeJobPayload(req.body), // Spread first so generated fields take precedence
         job_no: newJobNo,
         job_number,
         branch_id,
@@ -143,7 +157,6 @@ router.post(
         mode,
         sequence_number,
         financial_year,
-        ...sanitizeJobPayload(req.body),
         job_date: todayDate,
       });
 
@@ -485,81 +498,7 @@ router.get("/api/jobs/update-pending-status", async (req, res) => {
   }
 });
 
-// Function to determine the detailed status based on the job data
-function determineDetailedStatus(job) {
-  const {
-    be_no,
-    container_nos,
-    out_of_charge,
-    pcv_date,
-    discharge_date,
-    // rail_out_date,
-    gateway_igm_date,
-    vessel_berthing,
-    type_of_b_e,
-    consignment_type,
-  } = job;
-
-  // Validate date using a stricter check
-  const isValidDate = (date) => {
-    if (!date) return false;
-    const parsedDate = new Date(date);
-    return !isNaN(parsedDate.getTime());
-  };
-
-  // Check if any container has an arrival date
-  const anyContainerArrivalDate = container_nos?.some((container) =>
-    isValidDate(container.arrival_date)
-  );
-  const anyContainer_rail_out_date = container_nos?.some((container) =>
-    isValidDate(container.container_rail_out_date)
-  );
-
-  const emptyContainerOffLoadDate = container_nos?.every((container) =>
-    isValidDate(container.emptyContainerOffLoadDate)
-  );
-  const delivery_date = container_nos?.every((container) =>
-    isValidDate(container.delivery_date)
-  );
-
-  const validOutOfChargeDate = isValidDate(out_of_charge);
-  const validPcvDate = isValidDate(pcv_date);
-  const validDischargeDate = isValidDate(discharge_date);
-  const validGatewayIgmDate = isValidDate(gateway_igm_date);
-  const validVesselBerthing = isValidDate(vessel_berthing);
-
-  // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
-  const isExBondOrLCL = type_of_b_e === "Ex-Bond";
-
-  if (
-    be_no &&
-    anyContainerArrivalDate &&
-    validOutOfChargeDate &&
-    (isExBondOrLCL ? delivery_date : emptyContainerOffLoadDate)
-  ) {
-    return "Billing Pending";
-  } else if (be_no && anyContainerArrivalDate && validOutOfChargeDate) {
-    return "Custom Clearance Completed";
-  } else if (be_no && anyContainerArrivalDate && validPcvDate) {
-    return "PCV Done, Duty Payment Pending";
-  } else if (be_no && anyContainerArrivalDate) {
-    return "BE Noted, Clearance Pending";
-  } else if (!be_no && anyContainerArrivalDate) {
-    return "Arrived, BE Note Pending";
-  } else if (be_no) {
-    return "BE Noted, Arrival Pending";
-  } else if (anyContainer_rail_out_date) {
-    return "Rail Out";
-  } else if (validDischargeDate) {
-    return "Discharged";
-  } else if (validGatewayIgmDate) {
-    return "Gateway IGM Filed";
-  } else if (validVesselBerthing) {
-    return "Estimated Time of Arrival";
-  } else {
-    return "ETA Date Pending"; // Fallback if no conditions are met
-  }
-}
+import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 
 function computeStatus(billDate) {
   // Convert billDate to string if it's not already

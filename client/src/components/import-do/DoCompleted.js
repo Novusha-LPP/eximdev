@@ -32,6 +32,11 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
+
+
+
 
 function DoCompleted() {
   const [selectedICD, setSelectedICD] = useState("");
@@ -844,13 +849,14 @@ function DoCompleted() {
       header: "Do Completed  & Validity Date",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
         const { do_completed, do_validity, do_copies, cth_documents } =
           cell.row.original;
 
         const doCopies = do_copies;
         const doCompleted = formatDate(do_completed);
         const doValidity = formatDate(do_validity);
+        const branchCode = row.original.branch_code;
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -924,6 +930,8 @@ function DoCompleted() {
                 <span style={{ color: "gray" }}> No DO copies </span>
               </div>
             )}
+
+
             <InvoiceDisplay row={cell.row.original} />
           </div>
         );

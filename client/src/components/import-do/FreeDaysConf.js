@@ -161,7 +161,7 @@ const FreeDaysConf = () => {
       } finally {
       }
     },
-    [limit, user?.username] // Dependencies - add username
+    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, selectedBranch, selectedCategory, debouncedSearchQuery] 
   );
 
   // Fetch jobs when dependencies change
@@ -265,7 +265,15 @@ const FreeDaysConf = () => {
       //   )
       // );
       // Fetch the latest jobs with the original page preserved
-      await fetchJobs(currentPageBeforeEdit, debouncedSearchQuery);
+      await fetchJobs(
+        currentPageBeforeEdit, 
+        debouncedSearchQuery, 
+        selectedYearState, 
+        selectedICD, 
+        selectedImporter,
+        selectedBranch,
+        selectedCategory
+      );
     } catch (error) {
       console.error("Error saving data:", error);
     } finally {
@@ -756,7 +764,7 @@ const FreeDaysConf = () => {
     <div style={{ height: "80%" }}>
       <MaterialReactTable {...tableConfig} />
       <Pagination
-        count={totalPages}
+        count={totalPages > 0 ? totalPages : 1}
         page={page}
         onChange={handlePageChange}
         color="primary"

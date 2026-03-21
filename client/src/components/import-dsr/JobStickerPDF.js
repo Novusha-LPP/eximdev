@@ -258,9 +258,9 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
               halign: "center",
             },
             columnStyles: {
-              0: { cellWidth: 150 },
-              1: { cellWidth: 100 },
-              2: { cellWidth: 150 },
+              0: { cellWidth: 140 },
+              1: { cellWidth: 80 },
+              2: { cellWidth: "auto" },
             },
             theme: "striped",
             alternateRowStyles: { fillColor: [248, 249, 250] },
@@ -285,37 +285,17 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
             );
           }
 
-          // 5. Convert to Data URI and open in new tab
-          const pdfDataUri = doc.output("datauristring");
-          const newTab = window.open();
-          if (newTab) {
-            newTab.document.write(`
-              <html>
-                <head>
-                  <title>Job Sticker PDF</title>
-                  <style>
-                    body, html {
-                      margin: 0;
-                      padding: 0;
-                    }
-                    iframe {
-                      border: none;
-                      width: 100%;
-                      height: 100%;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <embed width="100%" height="100%" src="${pdfDataUri}" />
-                </body>
-              </html>
-            `);
-          } else {
-            console.error("Failed to open new tab.");
+          // 5. Convert to Blob URL and open in new tab (works in all browsers)
+          const pdfBlob = doc.output("blob");
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          const newTab = window.open(blobUrl, "_blank");
+          if (!newTab) {
             alert(
               "Pop-up blocked! Please allow pop-ups for this site to view the PDF."
             );
           }
+          // Revoke the blob URL after 60 seconds to free memory
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
         };
 
         img.onerror = (error) => {

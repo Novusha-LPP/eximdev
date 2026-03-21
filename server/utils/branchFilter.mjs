@@ -23,7 +23,7 @@ export const getBranchMatch = (branchId, category, authorizedBranchIds = null) =
         match.branch_id = { $in: authorizedBranchIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
     }
 
-    if (category) {
+    if (category && category.toString().toLowerCase() !== "all") {
         match.mode = category;
     }
 

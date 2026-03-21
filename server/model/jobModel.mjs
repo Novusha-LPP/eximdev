@@ -88,6 +88,19 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const invoiceDetailsSchema = new mongoose.Schema(
+  {
+    invoice_number: { type: String, trim: true },
+    invoice_date: { type: String, trim: true },
+    total_inv_value: { type: String, trim: true },
+    inv_currency: { type: String, trim: true },
+    toi: { type: String, trim: true },
+    freight: { type: String, trim: true },
+    insurance: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const descriptionDetailsSchema = new mongoose.Schema(
   {
     description: { type: String, trim: true },
@@ -211,6 +224,7 @@ const jobSchema = new mongoose.Schema({
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
   description_details: [descriptionDetailsSchema],
+  invoice_details: [invoiceDetailsSchema],
   hawb_hbl_no: { type: String, trim: true },
   hawb_hbl_date: { type: String, trim: true },
   be_no: { type: String, trim: true },
@@ -355,6 +369,7 @@ const jobSchema = new mongoose.Schema({
   type_of_Do: { type: String },
   do_validity_upto_job_level: { type: String, trim: true },
   do_revalidation_upto_job_level: { type: String, trim: true },
+  cfs_name: { type: String, trim: true },
   do_revalidation: { type: Boolean },
   do_revalidation_date: { type: String },
   // rail_out_date: { type: String },
@@ -488,6 +503,17 @@ const jobSchema = new mongoose.Schema({
     },
   ],
   do_completed: { type: String, trim: true },
+  misc_charges: [
+    {
+      charge_type: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      exchange_rate: { type: Number, default: 1 },
+      rate_percent: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      amount_inr: { type: Number, default: 0 },
+      remark: { type: String, trim: true }
+    }
+  ],
   // *******
   icd_cfs_invoice: { type: String, trim: true },
 

@@ -178,7 +178,7 @@ const DocumentationJob = () => {
       };
 
       await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data.job_no}/${data.year}`,
+        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${branch_code}/${trade_type}/${mode}/${data.job_no}/${data.year}`,
         {
           documentation_completed_date_time:
             data.documentation_completed_date_time,

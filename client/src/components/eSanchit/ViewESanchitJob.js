@@ -216,7 +216,7 @@ function ViewESanchitJob() {
         };
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.mode}/${params.job_no}/${params.year}`,
+          `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.job_no}/${params.year}`,
           formattedData,
           { headers }
         );

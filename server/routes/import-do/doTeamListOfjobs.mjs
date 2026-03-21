@@ -1,7 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
-import mongoose from "mongoose";
+import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
@@ -9,6 +9,7 @@ const router = express.Router();
 router.get(
   "/api/do-team-list-of-jobs",
   applyUserIcdFilter,
+  applyUserBranchFilter,
   async (req, res) => {
     try {
       // Extract and validate query parameters
@@ -16,9 +17,9 @@ router.get(
         page = 1,
         limit = 100,
         search = "",
-        importer,
-        selectedICD,
-        year,
+        year = "24-25",
+        selectedICD = "",
+        importer = "",
         unresolvedOnly,
         emergency, // ✅ Extract emergency param
         freeTimeFilter, // ✅ Extract freeTimeFilter param
@@ -150,6 +151,11 @@ router.get(
                   $regex: /Ocean Network Express \(India\) Private Limited/i,
                 },
               },
+              {
+                shipping_line_airline: {
+                  $regex: /GOLD STAR \/ ZIM \/ STAR SHIPPING SERVICES \(I\) PVT\. LTD\./i,
+                },
+              },
             ],
           },
           {
@@ -208,7 +214,7 @@ router.get(
       // 🔍 **Step 1: Fetch Jobs After Applying Filters**
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "job_number job_no year  port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time branch_code trade_type mode"
+          "job_number job_no year port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time branch_code trade_type mode"
         )
         .lean();
 

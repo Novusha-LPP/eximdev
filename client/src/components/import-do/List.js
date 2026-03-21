@@ -232,7 +232,7 @@ function List() {
         setLoading(false);
       }
     },
-    [limit, user?.username] // Dependencies - add username
+    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, showUnresolvedOnly, showEmergencyOnly, freeTimeFilter, selectedBranch, selectedCategory] 
   );
 
   // Fetch jobs with pagination
@@ -367,7 +367,9 @@ function List() {
         selectedImporter,
         showUnresolvedOnly,
         showEmergencyOnly,
-        freeTimeFilter
+        freeTimeFilter,
+        selectedBranch,
+        selectedCategory
       );
     } catch (error) {
       console.error("Error saving data:", error);
@@ -1136,7 +1138,7 @@ function List() {
                   minWidth: "18px",
                   height: "18px",
                   boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  backgroundColor: "#warning.main", // Maybe yellow/white? Default error is red.
+                  backgroundColor: "warning.main", // Removed # prefix
                   color: "white"
                 },
               }}
@@ -1152,7 +1154,7 @@ function List() {
       <div style={{ height: "80%" }}>
         <MaterialReactTable table={table} /> {/* Pagination */}
         <Pagination
-          count={totalPages}
+          count={totalPages > 0 ? totalPages : 1}
           page={currentPage}
           onChange={handlePageChange}
           color="primary"

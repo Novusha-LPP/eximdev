@@ -399,6 +399,7 @@ function useFetchJobDetails(
       required_do_validity_upto: "",
       invoice_number: "",
       invoice_date: "",
+      invoice_details: [],
       total_inv_value: "",
       cth_no: "",
       checklist: [],
@@ -467,7 +468,20 @@ function useFetchJobDetails(
       bill_no: "",
       bill_date: "",
       dsr_queries: [],
-      lockBankDetails: false
+      lockBankDetails: false,
+      other_charges_details: {
+        is_single_for_all: true,
+        miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        revenue_deposit: { rate: 0, on: "Assessable" },
+        landing_charge: { rate: 1 }
+      },
+      misc_charges: [],
     },
     onSubmit: async (values) => {
       // Filter documents that are sent to e-Sanchit
@@ -507,7 +521,7 @@ function useFetchJobDetails(
 
       // Update the payload with the modified cthDocuments and other values
       await axios.put(
-        `${process.env.REACT_APP_API_STRING}/update-job/${params.mode}/${params.selected_year}/${params.job_no}`,
+        `${process.env.REACT_APP_API_STRING}/update-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.selected_year}/${params.job_no}`,
         {
           description_details: values.description_details,
           cth_documents: updatedCthDocuments,
@@ -563,11 +577,17 @@ function useFetchJobDetails(
           firstCheck: values.firstCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
+          invoice_details: values.invoice_details,
           invoice_number:
+            values.invoice_details?.[0]?.invoice_number ||
             values.description_details?.[0]?.sr_no_invoice ||
             values.invoice_number,
-          invoice_date: values.invoice_date,
-          total_inv_value: values.total_inv_value,
+          invoice_date: values.invoice_details?.[0]?.invoice_date || values.invoice_date,
+          total_inv_value: values.invoice_details?.[0]?.total_inv_value || values.total_inv_value,
+          inv_currency: values.invoice_details?.[0]?.inv_currency || "",
+          import_terms: values.invoice_details?.[0]?.toi || values.import_terms,
+          freight: values.invoice_details?.[0]?.freight || values.freight,
+          insurance: values.invoice_details?.[0]?.insurance || values.insurance,
           payment_method: values.payment_method,
           gross_weight: values.gross_weight,
           job_net_weight: values.job_net_weight,
@@ -637,6 +657,8 @@ function useFetchJobDetails(
           client_remark: values.client_remark,
           DsrCharges: selectedChargesDocuments,
           dsr_queries: values.dsr_queries,
+          other_charges_details: values.other_charges_details,
+          misc_charges: values.misc_charges,
         },
         { headers }
       );
@@ -780,6 +802,7 @@ function useFetchJobDetails(
         lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
         is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
         client_remark: safeValue(data.client_remark),
+        client_remark: safeValue(data.client_remark),
         examinationPlanning: safeValue(data.examinationPlanning, false),
         examination_planning_date: safeValue(data.examination_planning_date),
         do_validity_upto_job_level: safeValue(data.do_validity_upto_job_level),
@@ -887,6 +910,20 @@ function useFetchJobDetails(
         invoice_number: safeValue(data.invoice_number),
         invoice_date: safeValue(data.invoice_date),
         total_inv_value: safeValue(data.total_inv_value),
+        invoice_details:
+          Array.isArray(data.invoice_details) && data.invoice_details.length > 0
+            ? data.invoice_details
+            : [
+                {
+                  invoice_number: safeValue(data.invoice_number),
+                  invoice_date: safeValue(data.invoice_date),
+                  total_inv_value: safeValue(data.total_inv_value),
+                  inv_currency: safeValue(data.inv_currency),
+                  toi: safeValue(data.import_terms) || "CIF",
+                  freight: safeValue(data.freight),
+                  insurance: safeValue(data.insurance),
+                },
+              ],
         bill_date: safeValue(data.bill_date),
         bill_no: safeValue(data.bill_no),
         cifValue: safeValue(data.cifValue),
@@ -897,6 +934,19 @@ function useFetchJobDetails(
 
         DsrCharges: safeValue(data.DsrCharges, []),
         dsr_queries: safeValue(data.dsr_queries, []),
+        other_charges_details: safeValue(data.other_charges_details, {
+          is_single_for_all: true,
+          miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          revenue_deposit: { rate: 0, on: "Assessable" },
+          landing_charge: { rate: 1 }
+        }),
+        misc_charges: safeValue(data.misc_charges, []),
       });
       // Update DsrCharges state to include custom charges from database
       if (data.DsrCharges && data.DsrCharges.length > 0) {

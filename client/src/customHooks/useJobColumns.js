@@ -470,6 +470,8 @@ function useJobColumns(
               customHouse={row?.original?.custom_house || ""}
               container_nos={row?.original?.container_nos || []}
               jobId={row.original._id}
+              branch_code={row?.original?.branch_code || ""}
+              mode={row?.original?.mode || ""}
               portOfReporting={row?.original?.port_of_reporting || ""}
               containerNos={row?.original?.container_nos || []}
               onCopy={handleCopy}

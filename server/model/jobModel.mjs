@@ -432,6 +432,17 @@ const jobSchema = new mongoose.Schema({
     },
   ],
   do_completed: { type: String, trim: true },
+  misc_charges: [
+    {
+      charge_type: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      exchange_rate: { type: Number, default: 1 },
+      rate_percent: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      amount_inr: { type: Number, default: 0 },
+      remark: { type: String, trim: true }
+    }
+  ],
   // *******
   icd_cfs_invoice: { type: String, trim: true },
 

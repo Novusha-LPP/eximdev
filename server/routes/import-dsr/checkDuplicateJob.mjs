@@ -12,12 +12,11 @@ router.post("/api/jobs/check-duplicate", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "BL Number is required" });
     }
 
-    // Search for duplicate job across all branches and modes
+    // Search for duplicate job across ALL branches and modes (GLOBAL)
     const existingJob = await JobModel.findOne({
       $or: [
         { awb_bl_no: blNumber },
         { hawb_hbl_no: blNumber },
-        { job_number: blNumber } // Also checking job number just in case
       ]
     }).lean();
 

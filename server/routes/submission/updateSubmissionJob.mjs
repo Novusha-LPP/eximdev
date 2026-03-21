@@ -6,12 +6,12 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 const router = express.Router();
 
 router.patch(
-  "/api/update-submission-job/:mode/:job_no/:year",
+  "/api/update-submission-job/:branch_code/:trade_type/:mode/:job_no/:year",
   authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {
-      const { mode, job_no, year } = req.params;
+      const { branch_code, trade_type, mode, job_no, year } = req.params;
       const updateData = req.body; // Data coming from frontend
 
       // Allowed fields in this route

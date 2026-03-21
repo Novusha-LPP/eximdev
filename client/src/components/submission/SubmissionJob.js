@@ -152,7 +152,7 @@ const SubmissionJob = () => {
       const userData = JSON.parse(localStorage.getItem("exim_user")) || {};
 
       await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-submission-job/${mode}/${data.job_no}/${data.year}`,
+        `${process.env.REACT_APP_API_STRING}/update-submission-job/${branch_code}/${trade_type}/${mode}/${data.job_no}/${data.year}`,
         payload,
         {
           headers: {

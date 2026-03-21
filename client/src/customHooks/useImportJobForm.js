@@ -77,11 +77,13 @@ const useImportJobForm = () => {
     {
       invoice_number: "",
       invoice_date: "",
+      product_value: "",
       total_inv_value: "",
       inv_currency: "",
       toi: "CIF",
       freight: "",
       insurance: "",
+      other_charges: "",
     },
   ]);
 
@@ -163,6 +165,18 @@ const useImportJobForm = () => {
   const [hss_postal_code, setHssPostalCode] = useState("");
   const [hss_country, setHssCountry] = useState("");
   const [hss_ad_code, setHssAdCode] = useState("");
+  const [other_charges_details, setOtherChargesDetails] = useState({
+    is_single_for_all: true,
+    miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    revenue_deposit: { rate: 0, on: "Assessable" },
+    landing_charge: { rate: 1 }
+  });
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editJobId, setEditJobId] = useState(null);
@@ -205,6 +219,9 @@ const useImportJobForm = () => {
       sr_no_lic: "",
       quantity: "",
       unit: "",
+      unit_price: "",
+      amount: "",
+      foc_item: "No",
     },
   ]);
 
@@ -214,20 +231,37 @@ const useImportJobForm = () => {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    // Auto-calculate total_inv_value from contributing fields
+    const calcFields = ["product_value", "freight", "insurance", "other_charges"];
+    if (calcFields.includes(field)) {
+      const row = updatedRows[rowIndex];
+      const pv = parseFloat(field === "product_value" ? value : (row.product_value || 0)) || 0;
+      const fr = parseFloat(field === "freight" ? value : (row.freight || 0)) || 0;
+      const ins = parseFloat(field === "insurance" ? value : (row.insurance || 0)) || 0;
+      const oth = parseFloat(field === "other_charges" ? value : (row.other_charges || 0)) || 0;
+      updatedRows[rowIndex].total_inv_value = (pv + fr + ins + oth).toFixed(2);
+    }
+
     setInvoiceDetails(updatedRows);
 
     // Sync first row with single fields for backward compatibility
     if (rowIndex === 0) {
       if (field === "invoice_number") setInvoiceNumber(value);
       if (field === "invoice_date") setInvoiceDate(value);
-      if (field === "total_inv_value") {
-        setTotalInvValue(value);
-        setTermValue(value);
-      }
       if (field === "inv_currency") setInvCurrency(value);
       if (field === "toi") setImportTerms(value);
       if (field === "freight") setFreight(value);
       if (field === "insurance") setInsurance(value);
+      // Sync calculated total
+      const fv = parseFloat(updatedRows[0].total_inv_value) || 0;
+      if (fv > 0) {
+        setTotalInvValue(String(fv));
+        setTermValue(String(fv));
+      } else if (field === "total_inv_value") {
+        setTotalInvValue(value);
+        setTermValue(value);
+      }
     }
   };
 
@@ -237,11 +271,13 @@ const useImportJobForm = () => {
       {
         invoice_number: "",
         invoice_date: "",
+        product_value: "",
         total_inv_value: "",
         inv_currency: invoice_details[0]?.inv_currency || "",
         toi: "CIF",
         freight: "",
         insurance: "",
+        other_charges: "",
       },
     ]);
   };
@@ -258,6 +294,14 @@ const useImportJobForm = () => {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    // Auto-calculate amount if quantity or unit_price changes
+    if (field === "quantity" || field === "unit_price") {
+      const qty = parseFloat(field === "quantity" ? value : (updatedRows[rowIndex].quantity || 0)) || 0;
+      const price = parseFloat(field === "unit_price" ? value : (updatedRows[rowIndex].unit_price || 0)) || 0;
+      updatedRows[rowIndex].amount = (qty * price).toFixed(2);
+    }
+
     setDescriptionDetails(updatedRows);
 
     if (rowIndex === 0) {
@@ -267,8 +311,6 @@ const useImportJobForm = () => {
         setClearanceValue(value);
         setScheme(value);
       }
-      if (field === "quantity") setGrossWeight(value); // Approximating ViewJob logic mapping quantity
-      if (field === "unit") { /* We don't have unit state in CreateJob, ignoring for top-level */ }
     }
   };
 
@@ -295,6 +337,9 @@ const useImportJobForm = () => {
         sr_no_lic: "",
         quantity: "",
         unit: "",
+        unit_price: "",
+        amount: "",
+        foc_item: "No",
       },
     ]);
   };
@@ -340,14 +385,22 @@ const useImportJobForm = () => {
         sr_no_lic: "",
         quantity: "",
         unit: "",
+        unit_price: "",
+        amount: "",
+        foc_item: "No",
       },
     ]);
     setInvoiceDetails([
       {
         invoice_number: "",
         invoice_date: "",
+        product_value: "",
         total_inv_value: "",
         inv_currency: "",
+        toi: "CIF",
+        freight: "",
+        insurance: "",
+        other_charges: "",
       },
     ]);
     setConsignmentType("");
@@ -403,6 +456,18 @@ const useImportJobForm = () => {
     setHssPostalCode("");
     setHssCountry("");
     setHssAdCode("");
+    setOtherChargesDetails({
+      is_single_for_all: true,
+      miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+      revenue_deposit: { rate: 0, on: "Assessable" },
+      landing_charge: { rate: 1 }
+    });
     setBranchId("");
     setTradeType("IMP");
     setMode("SEA");
@@ -456,11 +521,13 @@ const useImportJobForm = () => {
       setInvoiceDetails([{
         invoice_number: job.invoice_number || "",
         invoice_date: job.invoice_date || "",
+        product_value: job.product_value || job.total_inv_value || "",
         total_inv_value: job.total_inv_value || "",
         inv_currency: job.inv_currency || "",
         toi: job.import_terms || "CIF",
         freight: job.freight || "",
-        insurance: job.insurance || ""
+        insurance: job.insurance || "",
+        other_charges: job.other_charges || ""
       }]);
     }
     
@@ -472,9 +539,12 @@ const useImportJobForm = () => {
         cth_no: job.cth_no || (job.description_details && job.description_details[0]?.cth_no) || "",
         clearance_under: job.scheme || job.clearanceValue || "Full Duty",
         sr_no_invoice: "1",
-        sr_no_lic: "",
+        sr_no_lic: job.sr_no_lic || "",
         quantity: job.gross_weight || "",
-        unit: job.unit || ""
+        unit: job.unit || "",
+        unit_price: job.unit_price || "",
+        amount: job.total_inv_value || "",
+        foc_item: job.foc_item || "No"
       }]);
     }
 
@@ -507,12 +577,17 @@ const useImportJobForm = () => {
     if (job.branch_id) setBranchId(job.branch_id);
     if (job.trade_type) setTradeType(job.trade_type);
     if (job.mode) setMode(job.mode);
+    if (job.other_charges_details) {
+      setOtherChargesDetails(job.other_charges_details);
+    }
   };
 
   const checkDuplicate = async (blNumber) => {
     if (!blNumber) return { exists: false };
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_STRING}/jobs/check-duplicate`, { blNumber });
+      const response = await axios.post(`${process.env.REACT_APP_API_STRING}/jobs/check-duplicate`, { 
+        blNumber,
+      });
       return response.data;
     } catch (error) {
       console.error("Error checking duplication:", error);
@@ -528,6 +603,15 @@ const useImportJobForm = () => {
     },
     onSubmit: async (values) => {
       try {
+        if (!branch_id) {
+          setSnackbar({
+            open: true,
+            message: "Please select a branch before creating the job.",
+            severity: "error"
+          });
+          return;
+        }
+
         const payload = {
           ...values,
           year, // <-- MANDATORY for backend
@@ -557,6 +641,7 @@ const useImportJobForm = () => {
           invoice_number,
           invoice_date,
           invoice_details,
+          other_charges_details,
           import_terms,
           freight,
           insurance,
@@ -905,6 +990,8 @@ const useImportJobForm = () => {
     addDescriptionRow,
     updateDescriptionRow,
     removeDescriptionRow,
+    other_charges_details,
+    setOtherChargesDetails,
     invoice_details,
     addInvoiceRow,
     updateInvoiceRow,

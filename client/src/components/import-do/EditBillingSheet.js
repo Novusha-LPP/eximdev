@@ -404,7 +404,7 @@ function EditBillingSheet() {
         </div>
       )}
 
-      <Charges job_no={job_no} year={year} />
+      <Charges job_no={job_no} year={year} branch_code={branch_code} trade_type={trade_type} />
 
       <div className="job-details-container">
         <form id="billing-sheet-form" onSubmit={formik.handleSubmit}>

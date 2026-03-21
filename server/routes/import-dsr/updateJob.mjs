@@ -6,11 +6,11 @@ import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 
 const router = express.Router();
 
-router.put("/api/update-job/:mode/:year/:jobNo",
+router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
   authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
-    const { mode, jobNo, year } = req.params;
+    const { branch_code, trade_type, mode, jobNo, year } = req.params;
 
     const {
       cth_documents,
@@ -43,36 +43,42 @@ router.put("/api/update-job/:mode/:year/:jobNo",
     }
 
     try {
-      // 1. Retrieve the matching job document
-      const matchingJob = await JobModel.findOne({ mode: mode.toUpperCase(), year, job_no: jobNo });
+      // 1. Retrieve the matching job document with branch specificity
+      const matchingJob = await JobModel.findOne({ 
+        branch_code: branch_code.toUpperCase(),
+        trade_type: trade_type.toUpperCase(),
+        mode: mode.toUpperCase(), 
+        year, 
+        job_no: jobNo 
+      });
 
       if (!matchingJob) {
         return res.status(404).json({ error: "Job not found" });
       }
 
-      // 2. Determine the branch_code based on the custom_house field
-      let branch_code;
+      // 2. Determine the derived branch code based on the custom_house field
+      let derived_branch_code;
       switch (matchingJob.custom_house) {
         case "ICD SANAND":
-          branch_code = "SND";
+          derived_branch_code = "SND";
           break;
         case "ICD KHODIYAR":
-          branch_code = "KHD";
+          derived_branch_code = "KHD";
           break;
         case "HAZIRA":
-          branch_code = "HZR";
+          derived_branch_code = "HZR";
           break;
         case "MUNDRA PORT":
-          branch_code = "MND";
+          derived_branch_code = "MND";
           break;
         case "ICD SACHANA":
-          branch_code = "SCH";
+          derived_branch_code = "SCH";
           break;
         case "BARODA":
-          branch_code = "BRD";
+          derived_branch_code = "BRD";
           break;
         case "AIRPORT":
-          branch_code = "AIR";
+          derived_branch_code = "AIR";
           break;
         default:
           break;
@@ -98,7 +104,7 @@ router.put("/api/update-job/:mode/:year/:jobNo",
       //     const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
 
       //     // 5. Update the job model
-      //     matchingJob.pr_no = `PR/${branch_code}/${fiveDigitNo}/${matchingJob.year}`;
+      //     matchingJob.pr_no = `PR/${derived_branch_code}/${fiveDigitNo}/${matchingJob.year}`;
 
       //     // 6. Create a new document in PrData collection
       //     const newPrData = new PrData({
@@ -199,6 +205,15 @@ router.put("/api/update-job/:mode/:year/:jobNo",
       }
 
       const sanitizedUpdate = sanitizeJobPayload(updatedFields);
+      
+      // ✅ Protect critical fields from being overwritten by empty/undefined values
+      delete sanitizedUpdate.branch_code;
+      delete sanitizedUpdate.job_number;
+      delete sanitizedUpdate.branch_id;
+      delete sanitizedUpdate.job_no;
+      delete sanitizedUpdate.year;
+      delete sanitizedUpdate.financial_year;
+
       Object.assign(matchingJob, sanitizedUpdate);
 
       if (checked) {
@@ -278,16 +293,22 @@ router.put("/api/update-job/:mode/:year/:jobNo",
     }
   });
 // PATCH route for updating only vessel_berthing and container arrival_date
-router.patch("/api/update-job/fields/:mode/:year/:jobNo",
+router.patch("/api/update-job/fields/:branch_code/:trade_type/:mode/:year/:jobNo",
   authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
-    const { mode, year, jobNo } = req.params;
+    const { branch_code, trade_type, mode, year, jobNo } = req.params;
     const { vessel_berthing, arrival_date, container_index } = req.body;
 
     try {
-      // Find the matching job document
-      const matchingJob = await JobModel.findOne({ mode: mode.toUpperCase(), year, job_no: jobNo });
+      // Find the matching job document with branch specificity
+      const matchingJob = await JobModel.findOne({ 
+        branch_code: branch_code.toUpperCase(),
+        trade_type: trade_type.toUpperCase(),
+        mode: mode.toUpperCase(), 
+        year, 
+        job_no: jobNo 
+      });
 
       if (!matchingJob) {
         return res.status(404).json({ error: "Job not found" });
@@ -317,17 +338,19 @@ router.patch("/api/update-job/fields/:mode/:year/:jobNo",
     }
   });
 // PUT route for admin to update any static job details
-router.put("/api/admin/update-job-static/:mode/:year/:jobNo",
+router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:jobNo",
   authMiddleware,
   auditMiddleware('Job'),
   async (req, res) => {
-    const { mode, year, jobNo } = req.params;
+    const { branch_code, trade_type, mode, year, jobNo } = req.params;
     const updateData = req.body;
 
     try {
       if (updateData.job_no && updateData.job_no !== jobNo) {
         // Check for duplicate job_no
         const existingJob = await JobModel.findOne({
+          branch_code: branch_code.toUpperCase(),
+          trade_type: trade_type.toUpperCase(),
           mode: mode.toUpperCase(),
           year,
           job_no: updateData.job_no,
@@ -338,7 +361,13 @@ router.put("/api/admin/update-job-static/:mode/:year/:jobNo",
         }
       }
 
-      const matchingJob = await JobModel.findOne({ mode: mode.toUpperCase(), year, job_no: jobNo });
+      const matchingJob = await JobModel.findOne({ 
+        branch_code: branch_code.toUpperCase(),
+        trade_type: trade_type.toUpperCase(),
+        mode: mode.toUpperCase(), 
+        year, 
+        job_no: jobNo 
+      });
 
       if (!matchingJob) {
         return res.status(404).json({ error: "Job not found" });

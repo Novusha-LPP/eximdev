@@ -773,7 +773,7 @@ const ViewBillingJob = () => {
               </div>
             )}
             {/* Charges Section (below Billing Details) */}
-            <Charges job_no={job_no} year={year} />
+            <Charges job_no={job_no} year={year} branch_code={branch_code} trade_type={trade_type} />
             {/* Bill Completion Section */}
             <div className="job-details-container">
               <JobDetailsRowHeading heading="All Cleared Documentation" />

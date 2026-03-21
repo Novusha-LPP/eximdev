@@ -4,14 +4,14 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-esanchit-job/:mode/:job_no/:year",
+router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
-    const { mode, job_no, year } = req.params;
+    const { branch_code, trade_type, mode, job_no, year } = req.params;
     const { cth_documents, documents, queries, esanchitCharges, dsr_queries, esanchit_completed_date_time } = req.body;
 
     try {
-      const matchingJob = await JobModel.findOne({ mode: mode.toUpperCase(), job_no, year });
+      const matchingJob = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), job_no, year });
 
       if (!matchingJob) {
         // Send a response indicating that the job does not exist

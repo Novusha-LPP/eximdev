@@ -87,31 +87,44 @@ router.post(
       }
 
       // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
-      if (container_nos && container_nos.length > 1) {
-        const existingContainer = await JobModel.findOne({
-          "container_nos.container_number": {
-            $in: container_nos.map((c) => c.container_number),
-          },
+      if (container_nos && container_nos.length > 0) {
+        // Prepare container numbers for checking
+        const containerNumbers = container_nos
+          .map((c) => c.container_number)
+          .filter(cn => cn && cn.trim().length > 0);
+
+        if (containerNumbers.length > 0) {
+          const existingContainer = await JobModel.findOne({
+            "container_nos.container_number": { $in: containerNumbers },
+          });
+
+          if (existingContainer) {
+            return res.status(400).json({
+              message: `Duplicate container number found globally: ${existingContainer.container_nos
+                .map((c) => c.container_number)
+                .filter(cn => containerNumbers.includes(cn))
+                .join(", ")}`,
+            });
+          }
+        }
+      }
+
+      // ✅ Check for duplicate BL Number globally
+      if (awb_bl_no && awb_bl_no.length > 0) {
+        const existingBl = await JobModel.findOne({ 
+          awb_bl_no,
         });
 
-        if (existingContainer) {
+        if (existingBl) {
           return res.status(400).json({
-            message: `Duplicate container number found: ${container_nos
-              .map((c) => c.container_number)
-              .join(", ")}`,
+            message: `Duplicate BL number found globally: ${awb_bl_no}`,
           });
         }
       }
 
-      // ✅ Check for duplicate BL Number **only if awb_bl_no is provided**
-      if (awb_bl_no && awb_bl_no.length > 0) {
-        const existingBl = await JobModel.findOne({ awb_bl_no });
-
-        if (existingBl) {
-          return res.status(400).json({
-            message: `Duplicate BL number found: ${awb_bl_no}`,
-          });
-        }
+      // ✅ Validate branch_id
+      if (!branch_id) {
+        return res.status(400).json({ message: "Please select a branch." });
       }
 
       // ✅ Generate new structured job_number
@@ -135,6 +148,7 @@ router.post(
 
       // ✅ Create new job entry
       const newJob = new JobModel({
+        ...sanitizeJobPayload(req.body), // Spread first so generated fields take precedence
         job_no: newJobNo,
         job_number,
         branch_id,
@@ -143,7 +157,6 @@ router.post(
         mode,
         sequence_number,
         financial_year,
-        ...sanitizeJobPayload(req.body),
         job_date: todayDate,
       });
 

@@ -4,16 +4,20 @@ import KycDocumentsModel from '../../model/kycDocumentsModel.mjs';
 
 const router = express.Router();
 
-// GET /api/charges-section/job-details?year=YYYY&job_no=XXX
+// GET /api/charges-section/job-details?year=YYYY&job_no=XXX&branch_code=XXX&trade_type=XXX
 router.get('/api/charges-section/job-details', async (req, res) => {
   try {
-    const { year, job_no } = req.query;
+    const { year, job_no, branch_code, trade_type } = req.query;
     if (!year || !job_no) {
       return res.status(400).json({ success: false, message: 'year and job_no are required.' });
     }
 
-    // Find the job by year and job_no
-    const job = await JobModel.findOne({ year, job_no })
+    // Find the job by branch_code, trade_type, year and job_no
+    const query = { year, job_no };
+    if (branch_code) query.branch_code = branch_code;
+    if (trade_type) query.trade_type = trade_type;
+
+    const job = await JobModel.findOne(query)
       .select({
         DsrCharges: 1,
         esanchitCharges: 1,

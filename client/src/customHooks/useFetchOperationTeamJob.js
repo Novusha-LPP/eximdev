@@ -110,7 +110,7 @@ function useFetchOperationTeamJob(params) {
 
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.mode}/${params.year}/${params.job_no}`,
+          `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.year}/${params.job_no}`,
           { ...values, _id: data?._id },
           {
             headers: {

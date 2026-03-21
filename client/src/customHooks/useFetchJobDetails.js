@@ -469,7 +469,19 @@ function useFetchJobDetails(
       bill_date: "",
       dsr_queries: [],
       lockBankDetails: false,
-      lockBankDetails: false,
+      other_charges_details: {
+        is_single_for_all: true,
+        miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        revenue_deposit: { rate: 0, on: "Assessable" },
+        landing_charge: { rate: 1 }
+      },
+      misc_charges: [],
     },
     onSubmit: async (values) => {
       // Filter documents that are sent to e-Sanchit
@@ -509,7 +521,7 @@ function useFetchJobDetails(
 
       // Update the payload with the modified cthDocuments and other values
       await axios.put(
-        `${process.env.REACT_APP_API_STRING}/update-job/${params.mode}/${params.selected_year}/${params.job_no}`,
+        `${process.env.REACT_APP_API_STRING}/update-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.selected_year}/${params.job_no}`,
         {
           description_details: values.description_details,
           cth_documents: updatedCthDocuments,
@@ -645,7 +657,8 @@ function useFetchJobDetails(
           client_remark: values.client_remark,
           DsrCharges: selectedChargesDocuments,
           dsr_queries: values.dsr_queries,
-          dsr_queries: values.dsr_queries,
+          other_charges_details: values.other_charges_details,
+          misc_charges: values.misc_charges,
         },
         { headers }
       );
@@ -921,6 +934,19 @@ function useFetchJobDetails(
 
         DsrCharges: safeValue(data.DsrCharges, []),
         dsr_queries: safeValue(data.dsr_queries, []),
+        other_charges_details: safeValue(data.other_charges_details, {
+          is_single_for_all: true,
+          miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          revenue_deposit: { rate: 0, on: "Assessable" },
+          landing_charge: { rate: 1 }
+        }),
+        misc_charges: safeValue(data.misc_charges, []),
       });
       // Update DsrCharges state to include custom charges from database
       if (data.DsrCharges && data.DsrCharges.length > 0) {

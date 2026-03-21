@@ -62,13 +62,21 @@ const ImagePreview = ({
     try {
       const key = new URL(imageUrl).pathname.slice(1); // correct key including folders
 
+      // Get user info from localStorage for audit trail
+      const userStr = localStorage.getItem("exim_user");
+      const user = userStr ? JSON.parse(userStr) : {};
+      
       const response = await fetch(
         `${process.env.REACT_APP_API_STRING}/delete-s3-file`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "user-id": user.username || 'unknown',
+            "username": user.username || 'unknown',
+            "user-role": user.role || 'unknown',
           },
+          credentials: "include", // Required for sending cookies in cross-origin fetch
           body: JSON.stringify({ key }),
         }
       );

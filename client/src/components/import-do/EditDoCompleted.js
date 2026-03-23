@@ -32,6 +32,8 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "./ImportDoChargesTable";
+import ChargesGrid from "../ChargesGrid";
+
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -803,7 +805,9 @@ function EditDoCompleted() {
                 {renderContainerDetails()}
               </div>
 
+              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
               {renderChargesSection()}
+
               <Box sx={{ height: "60px" }} />
             </form>
           </div>

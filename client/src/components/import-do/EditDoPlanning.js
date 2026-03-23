@@ -30,6 +30,8 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "./ImportDoChargesTable";
+import ChargesGrid from "../ChargesGrid";
+
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
@@ -772,7 +774,9 @@ function EditDoPlanning() {
                 {data.obl_telex_bl || "N/A"}
                 <br />
               </div>
+              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
               {renderChargesSection()}
+
 
               <div className="job-details-container">
                 <h5

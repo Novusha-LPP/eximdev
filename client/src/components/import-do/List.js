@@ -697,6 +697,7 @@ function List() {
     {
       accessorKey: "free_time",
       header: "Free Time",
+      
       size: 150,
       Cell: ({ row }) =>
         editingRowId === row.original._id ? (

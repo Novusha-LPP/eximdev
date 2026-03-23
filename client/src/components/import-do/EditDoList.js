@@ -15,6 +15,8 @@ import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import QueriesComponent from "../../utils/QueriesComponent";
 import ImportDoChargesTable from "./ImportDoChargesTable";
+import ChargesGrid from "../ChargesGrid";
+
 import {
   TextField,
   FormControl,
@@ -635,11 +637,13 @@ function EditDoList() {
           </Col>
         </Row>
 
+        <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
         <ImportDoChargesTable
           formik={formik}
           user={user}
           setFileSnackbar={setFileSnackbar}
         />
+
 
         <div className="submit-section">
           <button className="submit-btn" type="submit" aria-label="submit-btn">

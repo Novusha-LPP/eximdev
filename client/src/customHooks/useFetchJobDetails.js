@@ -665,9 +665,9 @@ function useFetchJobDetails(
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
       // Close the tab after successful submit
-      // setTimeout(() => {
-      //   window.close();
-      // }, 500);
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
 
     },

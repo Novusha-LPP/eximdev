@@ -41,7 +41,7 @@ router.patch(
 
       // Perform update with only allowed fields
       const updatedJob = await JobModel.findOneAndUpdate(
-        { mode: mode.toUpperCase(), job_no, year },
+        { branch_code, trade_type, mode: mode.toUpperCase(), job_no, year },
         { $set: updateData },
         { new: true, runValidators: true }
       );

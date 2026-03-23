@@ -121,6 +121,9 @@ function DoPlanningContainerTable(props) {
     const res = await axios.post(
       `${process.env.REACT_APP_API_STRING}/update-do-container`,
       {
+        branch_code: props.branch_code,
+        trade_type: props.trade_type,
+        mode: props.mode,
         year: props.year,
         job_no: props.job_no,
         container_number: updatedRow.container_number,

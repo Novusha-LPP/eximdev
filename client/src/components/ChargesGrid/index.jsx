@@ -9,7 +9,7 @@ import ConfirmDialog from './ConfirmDialog';
 import { useCharges } from './useCharges';
 import './charges.css';
 
-const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'particulars', hideTabs = false }) => {
+const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'particulars', hideTabs = false, shippingLineAirline = '' }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -37,15 +37,21 @@ const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'p
   };
 
   const handleAddSelected = async (selectedHeads) => {
-    const newCharges = selectedHeads.map(head => ({
-      parentId,
-      parentModule,
-      chargeHead: head.name,
-      category: head.category,
-      revenue: {},
-      cost: {},
-      copyToCost: true
-    }));
+    const newCharges = selectedHeads.map(head => {
+      let finalName = head.name;
+      if (finalName.toUpperCase() === 'SHIPPING LINE CHARGES' && shippingLineAirline) {
+        finalName = shippingLineAirline;
+      }
+      return {
+        parentId,
+        parentModule,
+        chargeHead: finalName,
+        category: head.category,
+        revenue: {},
+        cost: {},
+        copyToCost: true
+      };
+    });
     await addChargesBulk(newCharges);
     setIsAddOpen(false);
   };

@@ -386,6 +386,7 @@ function EditFreeDaysConf() {
                         parentModule="Job" 
                         initialTab="cost" 
                         hideTabs={true} 
+                        shippingLineAirline={data?.shipping_line_airline}
                     />
                 </Box>
 

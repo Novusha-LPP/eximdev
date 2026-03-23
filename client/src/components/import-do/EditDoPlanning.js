@@ -774,7 +774,7 @@ function EditDoPlanning() {
                 {data.obl_telex_bl || "N/A"}
                 <br />
               </div>
-              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
+              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} shippingLineAirline={data?.shipping_line_airline} />
               {renderChargesSection()}
 
 

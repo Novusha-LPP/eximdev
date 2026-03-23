@@ -637,7 +637,7 @@ function EditDoList() {
           </Col>
         </Row>
 
-        <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
+        <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} shippingLineAirline={data?.shipping_line_airline} />
         <ImportDoChargesTable
           formik={formik}
           user={user}

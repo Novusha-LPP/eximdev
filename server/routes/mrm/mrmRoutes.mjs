@@ -335,10 +335,13 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
 
         const validSourceItems = sourceItems.sort((a, b) => (a.seq || 0) - (b.seq || 0));
 
+        const lastTargetItem = await MRMItem.findOne({ month: targetMonth, year: targetYear, createdBy: userId }).sort({ seq: -1 });
+        const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 0;
+
         let newItems = [];
 
         if (mode === 'as-is') {
-            newItems = validSourceItems.map(item => ({
+            newItems = validSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -354,12 +357,12 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
                 status: item.status,
                 remarks: item.remarks,
                 createdBy: userId,
-                seq: item.seq || 0,
+                seq: startSeq + index,
                 isTitleRow: item.isTitleRow || false,
                 bgColor: item.bgColor || '#ffffff'
             }));
         } else if (mode === 'blank') {
-            newItems = validSourceItems.map(item => ({
+            newItems = validSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -376,7 +379,9 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
                 status: "Gray",
                 remarks: "",
                 createdBy: userId,
-                seq: item.seq || 0
+                seq: startSeq + index,
+                isTitleRow: item.isTitleRow || false,
+                bgColor: item.bgColor || '#ffffff'
             }));
         }
 

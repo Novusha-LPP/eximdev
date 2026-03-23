@@ -88,5 +88,5 @@ pids/
 
 /server/get_data_to_local.cjs
 
-.claude
 .codex
+.claude

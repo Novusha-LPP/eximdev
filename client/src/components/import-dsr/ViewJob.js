@@ -29,7 +29,7 @@ import AWS from "aws-sdk";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
 import JobDetailsStaticData from "./JobDetailsStaticData";
 import JobDetailsRowHeading from "./JobDetailsRowHeading";
-import FormGroup from "@mui/material/FormGroup";
+import ChargesGrid from "../ChargesGrid";
 import { TabValueContext } from "../../contexts/TabValueContext";
 import { handleGrossWeightChange } from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
@@ -3205,6 +3205,11 @@ function JobDetails() {
                 </Row>
               </div>
 
+              {/* NEW CHARGES COMPONENT */}
+              <div style={{ marginTop: '40px' }}>
+                <JobDetailsRowHeading heading="Charges Management (New)" />
+                <ChargesGrid parentId={data?._id} parentModule="Job" />
+              </div>
 
             </div>
           )}

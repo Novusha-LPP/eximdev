@@ -304,6 +304,8 @@ function ViewAuthorizationDetails() {
           documents_received_date:    safeStr(found.documents_received_date),
           documents_send_to_icd:      safeStr(found.documents_send_to_icd),
           documents_send_to_accounts: safeStr(found.documents_send_to_accounts || found.documents_send_to_account),
+          bg_number:                  safeStr(found.bg_number),
+          bond_number:                safeStr(found.bond_number),
         };
 
         // Auto-fill validity from licence_date (DD/MM/YYYY)
@@ -545,21 +547,35 @@ function ViewAuthorizationDetails() {
             <div className="ap-card-title">Compliance &amp; Document Tracking</div>
           </div>
           <div className="ap-card-body">
-            <div className="ap-fields-grid cols-3">
+            <div className="ap-fields-grid cols-2">
+              <div className="ap-field-group">
+                <label className="ap-field-label">BG Number</label>
+                <input type="text" className="ap-field-input" value={subData.bg_number}
+                  onChange={e => hc("bg_number", e.target.value)} placeholder="Enter BG number" />
+              </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">BG Expiry Date</label>
                 <DatePickerInput value={subData.bg_expiry_date} onChange={v => hc("bg_expiry_date", v)} />
+              </div>
+            </div>
+
+            <div className="ap-fields-grid cols-2 mt-12">
+              <div className="ap-field-group">
+                <label className="ap-field-label">Bond Number</label>
+                <input type="text" className="ap-field-input" value={subData.bond_number}
+                  onChange={e => hc("bond_number", e.target.value)} placeholder="Enter Bond number" />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Bond Expiry Date</label>
                 <DatePickerInput value={subData.bond_expiry_date} onChange={v => hc("bond_expiry_date", v)} />
               </div>
+            </div>
+
+            <div className="ap-fields-grid cols-3 mt-12">
               <div className="ap-field-group">
                 <label className="ap-field-label">Documents Received Date</label>
                 <DatePickerInput value={subData.documents_received_date} onChange={v => hc("documents_received_date", v)} />
               </div>
-            </div>
-            <div className="ap-fields-grid cols-2 mt-12">
               <div className="ap-field-group">
                 <label className="ap-field-label">Documents Sent to ICD</label>
                 <DatePickerInput value={subData.documents_send_to_icd} onChange={v => hc("documents_send_to_icd", v)} />

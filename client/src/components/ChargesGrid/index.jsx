@@ -9,10 +9,10 @@ import ConfirmDialog from './ConfirmDialog';
 import { useCharges } from './useCharges';
 import './charges.css';
 
-const ChargesGrid = ({ parentId, parentModule, readOnly = false }) => {
+const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'particulars', hideTabs = false }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
-  const [activeTab, setActiveTab] = useState('particulars');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedIds, setSelectedIds] = useState(new Set());
   
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -113,7 +113,7 @@ const ChargesGrid = ({ parentId, parentModule, readOnly = false }) => {
     <div className="charges-comp-wrapper">
       {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
       
-      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      {!hideTabs && <TabBar activeTab={activeTab} onTabChange={setActiveTab} />}
       
       <Toolbar 
          onAddCharge={() => setIsAddOpen(true)}

@@ -7,6 +7,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useSearchParams } from "react-router-dom";
 import { UserContext } from "../../contexts/UserContext";
+import ChargesGrid from "../ChargesGrid";
 import ImportDoChargesTable from "./ImportDoChargesTable";
 import { TextField } from "@mui/material";
 
@@ -377,6 +378,16 @@ function EditFreeDaysConf() {
 
             {/* Form */}
             <form onSubmit={formik.handleSubmit}>
+
+                {/* Additional Charges Grid (Cost Tab only) */}
+                <Box sx={{ mb: 4, mt: 2 }}>
+                    <ChargesGrid 
+                        parentId={jobId} 
+                        parentModule="Job" 
+                        initialTab="cost" 
+                        hideTabs={true} 
+                    />
+                </Box>
 
                 {/* Charges Table */}
                 <ImportDoChargesTable

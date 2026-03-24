@@ -248,6 +248,8 @@ import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
 import countryRoutes from "./routes/master-directory/countryRoutes.mjs";
 import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
 import unitRoutes from "./routes/master-directory/unitRoutes.mjs";
+import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs";
+
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -535,6 +537,8 @@ app.use(userAssetsRoutes);
 app.use("/api", countryRoutes);
 app.use("/api", airlineRoutes);
 app.use("/api", unitRoutes);
+app.use("/api", organizationRoutes);
+
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);

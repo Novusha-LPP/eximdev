@@ -66,6 +66,10 @@ import MasterDirectory from "../components/master-directory/MasterDirectory.js";
 import CountryDirectory from "../components/master-directory/CountryDirectory.js";
 import AirlinesDirectory from "../components/master-directory/AirlinesDirectory.js";
 import UnitDirectory from "../components/master-directory/UnitDirectory.js";
+import OrganizationDirectory from "../components/master-directory/OrganizationDirectory.js";
+import OrganizationForm from "../components/master-directory/OrganizationForm.js";
+
+
 
 //import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
@@ -515,6 +519,31 @@ function HomePage() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/organization-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <OrganizationDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/add-organization"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <OrganizationForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/edit-organization/:id"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <OrganizationForm />
+                    </ProtectedRoute>
+                  }
+                />
+
 
                 <Route
                   path="/report"

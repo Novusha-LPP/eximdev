@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useChargeHeads } from './useChargeHeads';
+import { UserContext } from '../../contexts/UserContext';
 
 const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
-  const { chargeHeads, fetchChargeHeads, addChargeHead } = useChargeHeads();
+  const { user } = useContext(UserContext);
+  const isAdmin = user?.role === 'Admin';
+  const { chargeHeads, fetchChargeHeads, addChargeHead, updateChargeHead, deleteChargeHead } = useChargeHeads();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNames, setSelectedNames] = useState(new Set());
   const [customName, setCustomName] = useState('');
   const [customCategory, setCustomCategory] = useState('');
+
+  const [editingChargeId, setEditingChargeId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+
 
   useEffect(() => {
     if (isOpen) {
@@ -58,6 +66,50 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
     onAddSelected(selectedCharges);
   };
 
+  const handleEditClick = (ch, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingChargeId(ch._id);
+    setEditName(ch.name);
+    setEditCategory(ch.category || '');
+  };
+
+  const handleSaveEdit = async (ch, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!editName.trim()) return alert('Name is required');
+    const res = await updateChargeHead(ch._id, editName.trim(), editCategory);
+    if (res.success) {
+      setEditingChargeId(null);
+      // optionally update selectedNames if name changed, kept simple
+    } else {
+      alert(res.error || 'Error updating charge');
+    }
+  };
+
+  const handleCancelEdit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingChargeId(null);
+  };
+
+  const handleDelete = async (ch, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete "${ch.name}"?`)) {
+      const res = await deleteChargeHead(ch._id);
+      if (!res.success) {
+         alert(res.error || 'Error deleting charge');
+      } else {
+         const newSelected = new Set(selectedNames);
+         if (newSelected.has(ch.name)) {
+             newSelected.delete(ch.name);
+             setSelectedNames(newSelected);
+         }
+      }
+    }
+  };
+
   return (
     <div className="add-modal-overlay active">
       <div className="add-modal">
@@ -80,16 +132,57 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
             ) : (
               filteredHeads.map(ch => {
                 const isChecked = selectedNames.has(ch.name);
+                const isEditing = editingChargeId === ch._id;
+
+                if (isEditing) {
+                  return (
+                    <div key={ch._id || ch.name} className="predefined-item-edit" style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #dee2e6' }}>
+                      <input 
+                        type="text" 
+                        value={editName} 
+                        onChange={e => setEditName(e.target.value)} 
+                        style={{ flex: 1, padding: '4px' }} 
+                      />
+                      <select 
+                        value={editCategory} 
+                        onChange={e => setEditCategory(e.target.value)}
+                        style={{ padding: '4px' }}
+                      >
+                        <option value="">-- Category --</option>
+                        <option>Freight</option>
+                        <option>Reimbursement</option>
+                        <option>Insurance</option>
+                        <option>Surcharge</option>
+                        <option>Transport</option>
+                        <option>Service Charge</option>
+                        <option>Customs</option>
+                        <option>Miscellaneous</option>
+                        <option>Document</option>
+                      </select>
+                      <button type="button" onClick={(e) => handleSaveEdit(ch, e)} style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Save</button>
+                      <button type="button" onClick={handleCancelEdit} style={{ background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  );
+                }
+
                 return (
-                  <label key={ch._id || ch.name} className={`predefined-item ${isChecked ? 'checked' : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      checked={isChecked} 
-                      onChange={() => handleToggle(ch.name)} 
-                    />
-                    <span className="predefined-item-name">{ch.name}</span>
-                    <span className="predefined-item-cat">{ch.category}</span>
-                  </label>
+                  <div key={ch._id || ch.name} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                    <label className={`predefined-item ${isChecked ? 'checked' : ''}`} style={{ flex: 1, borderBottom: 'none', margin: 0 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked} 
+                        onChange={() => handleToggle(ch.name)} 
+                      />
+                      <span className="predefined-item-name">{ch.name}</span>
+                      <span className="predefined-item-cat">{ch.category}</span>
+                    </label>
+                    {isAdmin && (
+                      <div style={{ display: 'flex', gap: '8px', paddingRight: '12px' }}>
+                        <button type="button" title="Edit" onClick={(e) => handleEditClick(ch, e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>✎</button>
+                        <button type="button" title="Delete" onClick={(e) => handleDelete(ch, e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545' }}>🗑</button>
+                      </div>
+                    )}
+                  </div>
                 );
               })
             )}

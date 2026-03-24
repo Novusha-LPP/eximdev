@@ -69,6 +69,47 @@ router.post('/charge-heads/seed', async (req, res) => {
   }
 });
 
+router.put('/charge-heads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, category, isActive } = req.body;
+    
+    // Optional: check dupe name if name is provided
+    if (name) {
+      const existing = await ChargeHeadModel.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') }, _id: { $ne: id } });
+      if (existing) {
+        return res.status(409).json({ success: false, message: "Charge head with this name already exists" });
+      }
+    }
+
+    const updated = await ChargeHeadModel.findByIdAndUpdate(
+      id,
+      { $set: { name, category, isActive } },
+      { new: true }
+    );
+    
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Charge head not found' });
+    }
+    
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/charge-heads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await ChargeHeadModel.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Charge head not found' });
+    }
+    res.json({ success: true, message: 'Charge head deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // --- CHARGES API (Embedded in JobModel) ---
 

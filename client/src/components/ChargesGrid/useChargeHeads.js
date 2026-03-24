@@ -35,11 +35,37 @@ export const useChargeHeads = () => {
         }
     };
 
+    const updateChargeHead = async (id, name, category) => {
+        try {
+            const res = await axios.put(`${process.env.REACT_APP_API_STRING}/charge-heads/${id}`, { name, category });
+            if (res.data.success) {
+                await fetchChargeHeads();
+                return { success: true, data: res.data.data };
+            }
+        } catch (err) {
+            return { success: false, error: err.response?.data?.message || err.message };
+        }
+    };
+
+    const deleteChargeHead = async (id) => {
+        try {
+            const res = await axios.delete(`${process.env.REACT_APP_API_STRING}/charge-heads/${id}`);
+            if (res.data.success) {
+                await fetchChargeHeads();
+                return { success: true };
+            }
+        } catch (err) {
+            return { success: false, error: err.response?.data?.message || err.message };
+        }
+    };
+
     return {
         chargeHeads,
         loading,
         error,
         fetchChargeHeads,
-        addChargeHead
+        addChargeHead,
+        updateChargeHead,
+        deleteChargeHead
     };
 };

@@ -24,13 +24,14 @@ const ImagePreview = ({
   const { user } = useContext(UserContext);
 
   // Ensure `images` is always an array and handle both string URLs and object URLs
-  const imageArray = Array.isArray(images)
+  const imageArray = (Array.isArray(images)
     ? images.map((img) =>
       typeof img === "object" && img !== null ? img.url : img
     )
     : images
       ? [typeof images === "object" && images !== null ? images.url : images]
-      : [];
+      : []
+  ).filter((link) => link && typeof link === "string" && link.trim() !== "");
 
   // Function to extract the file name from the URL, with error handling
   const extractFileName = (url) => {
@@ -61,13 +62,21 @@ const ImagePreview = ({
     try {
       const key = new URL(imageUrl).pathname.slice(1); // correct key including folders
 
+      // Get user info from localStorage for audit trail
+      const userStr = localStorage.getItem("exim_user");
+      const user = userStr ? JSON.parse(userStr) : {};
+      
       const response = await fetch(
         `${process.env.REACT_APP_API_STRING}/delete-s3-file`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "user-id": user.username || 'unknown',
+            "username": user.username || 'unknown',
+            "user-role": user.role || 'unknown',
           },
+          credentials: "include", // Required for sending cookies in cross-origin fetch
           body: JSON.stringify({ key }),
         }
       );
@@ -126,9 +135,7 @@ const ImagePreview = ({
             ))}
           </TableBody>
         </Table>
-      ) : (
-        <p style={{ fontSize: "0.8rem", color: "#6c757d", margin: 0 }}>No files.</p>
-      )}
+      ) : null}
       {!readOnly && (
         <ConfirmDialog
           open={openDeleteDialog}

@@ -26,6 +26,9 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { UserContext } from "../../contexts/UserContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 
 function SubmissionCompleted() {
@@ -33,6 +36,8 @@ function SubmissionCompleted() {
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
   const { user } = useContext(UserContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = React.useState([]);
@@ -196,7 +201,9 @@ function SubmissionCompleted() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -211,6 +218,8 @@ function SubmissionCompleted() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -243,7 +252,7 @@ function SubmissionCompleted() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
     }
   }, [
     page,
@@ -252,6 +261,8 @@ function SubmissionCompleted() {
     selectedYearState,
     showUnresolvedOnly,
     user?.username,
+    selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
   // Debounce search input
@@ -270,9 +281,9 @@ function SubmissionCompleted() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
@@ -281,6 +292,9 @@ function SubmissionCompleted() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
+          branch_code,
+          trade_type,
+          mode,
         } = cell.row.original;
         const textColor = "blue";
         const bgColor = cell.row.original.priorityJob === "High Priority"
@@ -290,7 +304,7 @@ function SubmissionCompleted() {
             : "transparent";
         return (
           <a
-            href={`/submission-job/${job_no}/${year}`}
+            href={`/submission-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -301,10 +315,10 @@ function SubmissionCompleted() {
               borderRadius: "5px",
               textAlign: "center",
               display: "inline-block",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </a>
         );
@@ -338,7 +352,11 @@ function SubmissionCompleted() {
           <React.Fragment>
             {containerNos?.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}| "{container.size}"
+                {container.container_number}<ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
+                | "{container.size}"
               </div>
             ))}
           </React.Fragment>
@@ -364,26 +382,34 @@ function SubmissionCompleted() {
 
         return (
           <div>
-            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm)}
-            >
-              <abbr title="Copy Gateway IGM">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm_date)}
-            >
-              <abbr title="Copy Gateway Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
+            {activeBranchConfig.gateway_igm_enabled && (
+              <>
+                <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                >
+                  <abbr title="Copy Gateway IGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+              </>
+            )}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <>
+                <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                >
+                  <abbr title="Copy Gateway Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+                <br />
+              </>
+            )}
             <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
             <IconButton
               size="small"
@@ -612,7 +638,7 @@ function SubmissionCompleted() {
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      textDecoration: "none",
+                      textDecoration: "none", whiteSpace: "nowrap",
                       color: "#007bff",
                       display: "block",
                     }}

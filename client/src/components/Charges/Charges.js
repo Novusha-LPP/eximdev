@@ -41,7 +41,7 @@ const formatDate = (dateString) => {
 // Helper to check if a value is meaningful
 const hasValue = (val) => val !== null && val !== undefined && val !== '' && (Array.isArray(val) ? val.length > 0 : true);
 
-const Charges = ({ job_no, year }) => {
+const Charges = ({ job_no, year, branch_code, trade_type }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -49,6 +49,8 @@ const Charges = ({ job_no, year }) => {
   // Convert props to strings to ensure stable comparison
   const stableJobNo = String(job_no || '');
   const stableYear = String(year || '');
+  const stableBranchCode = String(branch_code || '');
+  const stableTradeType = String(trade_type || '');
 
   // Fetch Logic
   const fetchCharges = useCallback(async () => {
@@ -59,7 +61,12 @@ const Charges = ({ job_no, year }) => {
 
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/charges-section/job-details`, {
-        params: { job_no: stableJobNo, year: stableYear }
+        params: { 
+          job_no: stableJobNo, 
+          year: stableYear, 
+          branch_code: stableBranchCode, 
+          trade_type: stableTradeType 
+        }
       });
 
       if (res.data && res.data.success) {

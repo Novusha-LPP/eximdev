@@ -10,7 +10,6 @@ import {
   Pagination,
   Button,
   Badge,
-  CircularProgress,
   Typography,
   InputAdornment,
   MenuItem,
@@ -21,11 +20,15 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 function DocumentationCompletedd() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -45,7 +48,6 @@ function DocumentationCompletedd() {
     React.useState(searchQuery);
 
   const [loading, setLoading] = React.useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
   const limit = 100; // Number of items per page
 
@@ -61,8 +63,6 @@ function DocumentationCompletedd() {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -117,26 +117,30 @@ function DocumentationCompletedd() {
 
   // Fetch jobs with pagination and se
   const fetchJobs = useCallback(
-    async (
-      currentPage,
-      currentSearchQuery,
-      selectedImporter,
-      selectedYearState,
-      unresolvedOnly = false
-    ) => {
+    async ({
+      page,
+      search,
+      importer,
+      year,
+      unresolvedOnly = false,
+      branchId = "all",
+      category = "all"
+    }) => {
       setLoading(true);
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-documentation-completed-jobs`,
           {
             params: {
-              page: currentPage,
+              page,
               limit,
-              search: currentSearchQuery,
-              importer: selectedImporter?.trim() || "",
-              year: selectedYearState || "", // ✅ Ensure year is sent
+              search,
+              importer: importer?.trim() || "",
+              year: year || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: branchId || "all", // ✅ Add branchId parameter
+              category: category || "all", // ✅ Add category parameter
             },
           }
         );
@@ -162,20 +166,22 @@ function DocumentationCompletedd() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
+    [limit, user?.username] // ✅ Add username as a dependency
   );
 
   // Fetch jobs when page or debounced search query changes
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(
-        currentPage,
-        debouncedSearchQuery,
-        selectedImporter,
-        selectedYearState,
-        showUnresolvedOnly
-      );
+      fetchJobs({
+        page: currentPage,
+        search: debouncedSearchQuery,
+        importer: selectedImporter,
+        year: selectedYearState,
+        unresolvedOnly: showUnresolvedOnly,
+        branchId: selectedBranch,
+        category: selectedCategory
+      });
     }
   }, [
     currentPage,
@@ -183,11 +189,19 @@ function DocumentationCompletedd() {
     selectedImporter,
     selectedYearState,
     user?.username,
-    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    showUnresolvedOnly,
+    selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 
-  // Remove the automatic clearing - we'll handle this from the tab component instead
+  // Clear search state when this component becomes active, unless coming from job details
+  React.useEffect(() => {
+    if (!(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state]);
 
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
@@ -210,9 +224,9 @@ function DocumentationCompletedd() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
@@ -222,16 +236,20 @@ function DocumentationCompletedd() {
           custom_house,
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;
+        const branch_code = cell.row.original.branch_code;
+        const trade_type = cell.row.original.trade_type;
+        const mode = cell.row.original.mode;
+
         const textColor = "blue";
         const bgColor =
           cell.row.original.priorityJob === "High Priority"
             ? "orange"
             : cell.row.original.priorityJob === "Priority"
-            ? "yellow"
-            : "transparent";
+              ? "yellow"
+              : "transparent";
         return (
           <a
-            href={`/documentationJob/view-job/${job_no}/${year}`}
+            href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -242,10 +260,10 @@ function DocumentationCompletedd() {
               borderRadius: "5px",
               textAlign: "center",
               display: "inline-block",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </a>
         );
@@ -282,7 +300,11 @@ function DocumentationCompletedd() {
           <React.Fragment>
             {containerNos?.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}| "{container.size}"
+                {container.container_number}<ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
+                | "{container.size}"
               </div>
             ))}
           </React.Fragment>

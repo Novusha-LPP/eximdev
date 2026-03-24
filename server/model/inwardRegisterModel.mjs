@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const inwardRegisterSchema = new mongoose.Schema({
   time: { type: String },
@@ -11,6 +12,8 @@ const inwardRegisterSchema = new mongoose.Schema({
   courier_handed_over: { type: String },
   courier_received: { type: String },
 });
+
+inwardRegisterSchema.plugin(auditPlugin, { documentType: "inwardRegister" });
 
 const InwardRegisterModel = mongoose.model(
   "inwardRegister",

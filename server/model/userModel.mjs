@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const Schema = mongoose.Schema;
 
@@ -241,7 +242,24 @@ const userSchema = new Schema({
       trim: true,
     },
   ],
+  employee_photo_updatedBy: { type: String },
+  employee_photo_updatedAt: { type: Date },
+  email_signature_updatedBy: { type: String },
+  email_signature_updatedAt: { type: Date },
+  email_signature: {
+    type: String,
+  },
+  marketing_assets: [
+    {
+      name: { type: String },
+      link: { type: String },
+      updatedAt: { type: Date, default: Date.now },
+      updatedBy: { type: String },
+    },
+  ],
 });
+
+userSchema.plugin(auditPlugin, { documentType: "User" });
 
 const UserModel = mongoose.model("User", userSchema);
 export default UserModel;

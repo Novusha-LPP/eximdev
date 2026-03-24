@@ -1,13 +1,15 @@
 
 import express from 'express';
-import MRMItem from '../../model/mrm/mrmItemModel.mjs';
 import MRMMetadata from '../../model/mrm/mrmMetadataModel.mjs';
+import MRMItem from '../../model/mrm/mrmItemModel.mjs';
+import auditMiddleware from '../../middleware/auditTrail.mjs';
+import authMiddleware from '../../middleware/authMiddleware.mjs';
 import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
 
 // Get users who have MRM module assigned
-router.get('/api/mrm/users', async (req, res) => {
+router.get('/api/mrm/users', authMiddleware, async (req, res) => {
     try {
         const users = await UserModel.find(
             { status: 'active' },
@@ -20,10 +22,10 @@ router.get('/api/mrm/users', async (req, res) => {
 });
 
 // Admin Dashboard - Get all users' MRM summary for a month/year
-router.get('/api/mrm/dashboard', async (req, res) => {
+router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
     try {
         const { month, year } = req.query;
-        const requestingRole = req.headers['user-role'];
+        const requestingRole = req.user.role;
 
         // Only admins can access dashboard
         if (requestingRole !== 'Admin') {
@@ -96,7 +98,7 @@ router.get('/api/mrm/dashboard', async (req, res) => {
 // --- Metadata Routes ---
 
 // Get Metadata
-router.get('/api/mrm/metadata', async (req, res) => {
+router.get('/api/mrm/metadata', authMiddleware, async (req, res) => {
     try {
         const { month, year, userId } = req.query;
         if (!month || !year) return res.status(400).json({ error: "Month/Year required" });
@@ -116,7 +118,7 @@ router.get('/api/mrm/metadata', async (req, res) => {
 });
 
 // Update/Create Metadata
-router.post('/api/mrm/metadata', async (req, res) => {
+router.post('/api/mrm/metadata', authMiddleware, auditMiddleware("MRM_Metadata"), async (req, res) => {
     try {
         const { month, year, userId } = req.body;
         let { meetingDate, reviewDate } = req.body;
@@ -139,10 +141,10 @@ router.post('/api/mrm/metadata', async (req, res) => {
 });
 
 // Toggle Meeting Done Status (Admin only)
-router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
+router.post('/api/mrm/metadata/toggle-meeting', authMiddleware, auditMiddleware("MRM_Metadata"), async (req, res) => {
     try {
         const { month, year, userId, meetingDone } = req.body;
-        const requestingRole = req.headers['user-role'];
+        const requestingRole = req.user.role;
 
         // Only admins can toggle meeting status
         if (requestingRole !== 'Admin') {
@@ -167,11 +169,11 @@ router.post('/api/mrm/metadata/toggle-meeting', async (req, res) => {
 // --- Item Routes ---
 
 // Get MRM Items (with optional userId filter for admin view)
-router.get('/api/mrm', async (req, res) => {
+router.get('/api/mrm', authMiddleware, async (req, res) => {
     try {
         const { month, year, userId } = req.query;
-        const requestingRole = req.headers['user-role'];
-        const requestingUserId = req.headers['user-id'];
+        const requestingRole = req.user.role;
+        const requestingUserId = req.user._id;
 
         if (!month || !year) {
             return res.status(400).json({ error: "Month and Year are required" });
@@ -192,17 +194,44 @@ router.get('/api/mrm', async (req, res) => {
             query.createdBy = userId;
         }
 
-        const items = await MRMItem.find(query).sort({ createdAt: 1 });
+        const items = await MRMItem.find(query).sort({ seq: 1, createdAt: 1 });
         res.json(items);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Create MRM Item
+// Create MRM Item (Supports middle insertion)
 router.post('/api/mrm', async (req, res) => {
     try {
-        const item = new MRMItem(req.body);
+        const { month, year, createdBy, insertAfterSeq } = req.body;
+
+        if (insertAfterSeq !== undefined) {
+            // Increment all sequences after insertAfterSeq
+            await MRMItem.updateMany(
+                { month, year, createdBy, seq: { $gt: insertAfterSeq } },
+                { $inc: { seq: 1 } }
+            );
+            
+            const item = new MRMItem({
+                ...req.body,
+                seq: insertAfterSeq + 1
+            });
+            await item.save();
+            return res.status(201).json(item);
+        }
+
+        // Find the highest sequence number for this user/month/year
+        const lastItem = await MRMItem.findOne({ month, year, createdBy })
+            .sort({ seq: -1 });
+
+        const nextSeq = lastItem && lastItem.seq !== undefined ? lastItem.seq + 1 : 1;
+
+        const item = new MRMItem({
+            ...req.body,
+            seq: nextSeq
+        });
+
         await item.save();
         res.status(201).json(item);
     } catch (error) {
@@ -210,8 +239,31 @@ router.post('/api/mrm', async (req, res) => {
     }
 });
 
+// Bulk Reorder MRM Items
+router.put('/api/mrm-bulk/reorder', async (req, res) => {
+    try {
+        const { items } = req.body; // Array of { _id, seq }
+
+        if (!items || !Array.isArray(items)) {
+            return res.status(400).json({ error: "Items array is required" });
+        }
+
+        const bulkOps = items.map(item => ({
+            updateOne: {
+                filter: { _id: item._id },
+                update: { $set: { seq: item.seq } }
+            }
+        }));
+
+        await MRMItem.bulkWrite(bulkOps);
+        res.json({ message: "Reordered successfully" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Update MRM Item
-router.put('/api/mrm/:id', async (req, res) => {
+router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         const item = await MRMItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(item);
@@ -221,7 +273,7 @@ router.put('/api/mrm/:id', async (req, res) => {
 });
 
 // Delete MRM Item
-router.delete('/api/mrm/:id', async (req, res) => {
+router.delete('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         await MRMItem.findByIdAndDelete(req.params.id);
         res.json({ message: "Item deleted" });
@@ -230,8 +282,34 @@ router.delete('/api/mrm/:id', async (req, res) => {
     }
 });
 
+// Bulk Delete MRM Items for a month
+router.delete('/api/mrm-bulk/delete', async (req, res) => {
+    try {
+        const { month, year, userId } = req.query;
+        const requestingRole = req.headers['user-role'];
+        const requestingUserId = req.headers['user-id'];
+
+        if (!month || !year || !userId) {
+            return res.status(400).json({ error: "Month, Year and UserId are required" });
+        }
+
+        // Authorization check
+        const isOwnData = userId === requestingUserId;
+        const isAdmin = requestingRole === 'Admin';
+
+        if (!isOwnData && !isAdmin) {
+            return res.status(403).json({ error: "Not authorized to delete this data" });
+        }
+
+        const result = await MRMItem.deleteMany({ month, year, createdBy: userId });
+        res.json({ message: `${result.deletedCount} items deleted`, count: result.deletedCount });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Import Items
-router.post('/api/mrm/import', async (req, res) => {
+router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
         const { targetMonth, targetYear, sourceMonth, sourceYear, mode } = req.body;
 
@@ -244,16 +322,29 @@ router.post('/api/mrm/import', async (req, res) => {
         // Safe bet: if import is requested, maybe they want to start fresh or fill gaps. 
         // Let's just append.
 
-        const sourceItems = await MRMItem.find({ month: sourceMonth, year: sourceYear });
+        const { userId } = req.body;
+        const sourceItems = await MRMItem.find({
+            month: sourceMonth,
+            year: sourceYear,
+            createdBy: userId
+        });
 
         if (sourceItems.length === 0) {
             return res.status(404).json({ error: "No data found in source month to import" });
         }
 
+        const validSourceItems = sourceItems.sort((a, b) => {
+            if (a.seq !== b.seq) return (a.seq || 0) - (b.seq || 0);
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+        const lastTargetItem = await MRMItem.findOne({ month: targetMonth, year: targetYear, createdBy: userId }).sort({ seq: -1 });
+        const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 1;
+
         let newItems = [];
 
         if (mode === 'as-is') {
-            newItems = sourceItems.map(item => ({
+            newItems = validSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -268,10 +359,13 @@ router.post('/api/mrm/import', async (req, res) => {
                 targetDate: item.targetDate,
                 status: item.status,
                 remarks: item.remarks,
-                createdBy: req.body.userId // Assuming userId is passed or in session (simplified)
+                createdBy: userId,
+                seq: startSeq + index,
+                isTitleRow: item.isTitleRow || false,
+                bgColor: item.bgColor || '#ffffff'
             }));
         } else if (mode === 'blank') {
-            newItems = sourceItems.map(item => ({
+            newItems = validSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -287,7 +381,10 @@ router.post('/api/mrm/import', async (req, res) => {
                 targetDate: null,
                 status: "Gray",
                 remarks: "",
-                createdBy: req.body.userId
+                createdBy: userId,
+                seq: startSeq + index,
+                isTitleRow: item.isTitleRow || false,
+                bgColor: item.bgColor || '#ffffff'
             }));
         }
 

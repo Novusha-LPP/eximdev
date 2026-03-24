@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -21,7 +23,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
+    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly, branchId, category } = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -133,6 +135,9 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
       });
     }
 
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+    baseQuery.$and.push(branchMatch);
+
     // ✅ Apply user-based ICD filter from middleware
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
@@ -143,7 +148,7 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
     // Fetch jobs from the database
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status checklist"
+        "priorityJob job_number job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status checklist branch_code trade_type mode"
       )
       .lean();
 
@@ -208,30 +213,6 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
       error: err.message,
     });
   }
-});
-router.patch("/api/update-documentation-job/:job_no/:year", async (req, res) => {
-  const { job_no, year } = req.params;
-  const { documentation_completed_date_time, dsr_queries } = req.body;
-
-  let update = {};
-  if (documentation_completed_date_time !== undefined) {
-    update.documentation_completed_date_time = documentation_completed_date_time || "";
-  }
-  if (dsr_queries !== undefined) {
-    update.dsr_queries = dsr_queries;
-  }
-
-  const updatedJob = await JobModel.findOneAndUpdate(
-    { job_no, year },
-    { $set: update },
-    { new: true, lean: true }
-  );
-
-  if (!updatedJob) {
-    return res.status(404).json({ message: "Job not found" });
-  }
-
-  res.status(200).json({ message: "Job updated successfully", updatedJob });
 });
 
 export default router;

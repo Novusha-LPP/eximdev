@@ -372,7 +372,8 @@ const AUTH_HEADER_MAP = {
   "Licence Amount": "licence_amount",
   "LIC. RECD FROM PARTY": "lic_recd_from_party",
   "Date (send to ICD's/Ports)": "date_send_to_icd_ports",
-  "BOND NO / CHALLAN NO.": "bond_challan_no",
+  "BOND NO / CHALLAN NO.": "bond_challan_amount",
+  "BOND / CHALLAN AMOUNT": "bond_challan_amount",
   "IEC No.": "iec_no",
   "Completed": "completed",
   "Registration Date": "registration_date",
@@ -380,6 +381,32 @@ const AUTH_HEADER_MAP = {
   "Billing Done or Not": "billing_done_or_not",
   "Bill Number": "bill_number",
   "Port Code": "port_code",
+
+  // New fields mapping
+  "Import validity": "import_validity",
+  "Export validity": "export_validity",
+  "Hs code": "hs_code_import",
+  "HS CODE": "hs_code_import",
+  "HS code import": "hs_code_import",
+  "Hs code export": "export_hs_code",
+  "HS code export": "export_hs_code",
+  "Export hs code": "export_hs_code",
+  "Item description ( Export)": "export_item_description",
+  "Item description ( import)": "import_item_description",
+  "Qty ( export)": "export_qty",
+  "Qty( import)": "import_qty",
+  "Balance qty( import)": "balance_qty_import",
+  "Utilisation details ( import)": "utilisation_details_import",
+  "Utilisation details ( export)": "utilisation_details_export",
+  "Import value ( CIF USD)": "import_value_usd",
+  "Import value ( CIF Rs)": "import_value_rs",
+  "Export value ( FOB USD)": "export_value_usd",
+  "Export value ( FOB Rs)": "export_value_rs",
+  "BG expiry date": "bg_expiry_date",
+  "Bond expiry date": "bond_expiry_date",
+  "Documents received date": "documents_received_date",
+  "Documents send date to ICD": "documents_send_to_icd",
+  "Documents send date to accounts": "documents_send_to_accounts",
 };
 
 router.post(
@@ -556,6 +583,28 @@ router.delete(
     }
   }
 );
+
+// DELETE all DGFT registers
+router.delete("/api/delete-all-dgft-registers", async (req, res) => {
+  try {
+    await DgftRegisterModel.deleteMany({});
+    res.status(200).json({ message: "All DGFT registers deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// DELETE all authorization registrations
+router.delete("/api/delete-all-authorization-registrations", async (req, res) => {
+  try {
+    await AuthorizationRegistrationModel.deleteMany({});
+    res.status(200).json({ message: "All authorization registrations deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 // GET distinct categories for Authorization Registration
 router.get("/api/get-auth-reg-categories", async (req, res) => {

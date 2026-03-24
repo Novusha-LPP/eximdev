@@ -33,6 +33,29 @@ import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
 import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
 import IndentForDeliveryPDF from "./ConcorJobOrderPDF.js";
+import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
+
+import ContainerTrackButton from '../ContainerTrackButton';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
+
+
+const CFS_OPTIONS = [
+  "Adani Ports and Special Economic Zone Limited",
+  "ALLCARGO TERMINALS LIMITED",
+  "AMEYA LOGISTICS PVT LTD",
+  "Ashutosh Container Services Pvt Ltd",
+  "Central Warehousing Corporation (NEW)",
+  "Hind Terminals Pvt Ltd.",
+  "Landmark CFS Pvt Ltd",
+  "Mundra International Container Terminal Pvt Ltd.",
+  "Mundhra Container Freight Station Pvt Ltd.",
+  "Saurashtra Freight Pvt Ltd.",
+  "Seabird Marine Services (Gujarat) Pvt. Ltd.",
+  "Transworld Terminals Pvt Ltd."
+];
+
 
 
 function ImportOperations() {
@@ -46,6 +69,8 @@ function ImportOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
+  const { selectedBranch, selectedCategory, branches } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   const navigate = useNavigate();
   // Remove local page state and use persistent pagination from context
@@ -90,6 +115,19 @@ function ImportOperations() {
         if (location.state?.detailedStatusExPlan !== undefined) {
           setDetailedStatusExPlan(location.state.detailedStatusExPlan);
         }
+        
+        // Manual refresh when coming back from job details
+        fetchJobs(
+          location.state?.currentPage || currentPage,
+          location.state?.searchQuery || "",
+          selectedYearState,
+          location.state?.detailedStatusExPlan || "",
+          location.state?.selectedICD || "",
+          location.state?.selectedImporter || "",
+          false,
+          selectedBranch,
+          selectedCategory
+        );
       } else {
         // Clear search state when coming from other tabs (not job details)
         setSearchQuery("");
@@ -120,7 +158,9 @@ function ImportOperations() {
     currentStatus,
     currentICD,
     currentImporter,
-    unresolvedOnly = false
+    unresolvedOnly = false,
+    selectedBranch = "all",
+    selectedCategory = "all"
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !yearState || !user?.username) {
@@ -145,7 +185,8 @@ function ImportOperations() {
             selectedICD: currentICD,
             importer: currentImporter?.trim() || "",
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
-
+            branchId: selectedBranch || "all", // ✅ Add branchId parameter
+            category: selectedCategory || "all", // ✅ Add category parameter
           },
           signal: controller.signal,
         }
@@ -165,7 +206,9 @@ function ImportOperations() {
         setTotalJobs(totalJobs || 0);
         setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
         abortControllerRef.current = null;
+        return res.data;
       }
+      return null;
     } catch (error) {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
         return;
@@ -271,7 +314,10 @@ function ImportOperations() {
           selectedYearState,
           location.state?.detailedStatusExPlan || "",
           location.state?.selectedICD || "",
-          location.state?.selectedImporter || ""
+          location.state?.selectedImporter || "",
+          false,
+          selectedBranch,
+          selectedCategory
         );
         isFromJobDetailsRef.current = false; // Reset flag
       }, 100);
@@ -286,7 +332,9 @@ function ImportOperations() {
         detailedStatusExPlan,
         selectedICD,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -300,6 +348,8 @@ function ImportOperations() {
     isInitialized,
     location.state,
     showUnresolvedOnly,
+    selectedBranch,
+    selectedCategory,
   ]);
 
   // Cleanup on unmount
@@ -377,17 +427,19 @@ function ImportOperations() {
     ...getUniqueImporterNames(importers),
   ], [importers, getUniqueImporterNames]);
 
-  // Function to get Custom House Location
+  // Function to get Custom House Location from dynamic branch ports
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "SACHANA ICD (INJKA6)",
-        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-      };
-      return houseMap[customHouse] || customHouse;
+      for (const branch of branches || []) {
+        for (const port of branch.ports || []) {
+          if (port.port_name && port.port_name.toUpperCase() === (customHouse || "").toUpperCase()) {
+            return port.port_code || customHouse;
+          }
+        }
+      }
+      return customHouse;
     },
-    []
+    [branches]
   );
 
   // Function to format dates
@@ -405,17 +457,23 @@ function ImportOperations() {
     {
       accessorKey: "job_no",
       header: "Job No & ICD Code",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell, row }) => {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
+        const mode = row.original.mode;
+        const branch_code = row.original.branch_code;
+        const trade_type = row.original.trade_type;
+        const job_number = row.original.job_number;
         // Build query string for context passing
 
         return (
           <Link
-            to={`/import-operations/view-job/${jobNo}/${year}`}
+            to={`/import-operations/view-job/${branch_code}/${trade_type}/${mode}/${jobNo}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -424,12 +482,13 @@ function ImportOperations() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-              padding: "10px",
+              padding: "5px",
               borderRadius: "5px",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
-            {jobNo}
+            {job_number || jobNo}
             <br />
             <small>{icdCode}</small>
           </Link>
@@ -470,6 +529,10 @@ function ImportOperations() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton
+                  customHouse={row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"
@@ -511,6 +574,31 @@ function ImportOperations() {
         const doCompleted = row.original.do_completed;
         const doCopies = row.original.do_copies;
         const do_list = row.original.do_list;
+        const branchCode = row.original.branch_code;
+        const currentCfs = row.original.cfs_name || "";
+
+        const handleCfsChange = async (event) => {
+          const newCfs = event.target.value;
+          try {
+            const response = await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/update-operations-job/${row.original.mode}/${row.original.year}/${row.original.job_no}`,
+              { cfs_name: newCfs, _id: row.original._id }
+            );
+            
+            if (response.status === 200) {
+              // Update local state for immediate feedback
+              setRows(prevRows => prevRows.map(r => 
+                (r._id === row.original._id) 
+                ? { ...r, cfs_name: newCfs } 
+                : r
+              ));
+            }
+          } catch (error) {
+            console.error("Error updating CFS:", error);
+            alert("Failed to update CFS location. Please try again.");
+          }
+        };
+
         return (
           <div style={{ textAlign: "center" }}>
             <div>
@@ -546,6 +634,38 @@ function ImportOperations() {
               <strong>EmptyOff LOC:</strong> {do_list}
             </div>
 
+            {branchCode === "GIM" && (
+              <div style={{ marginTop: "8px", textAlign: "left" }}>
+                <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>CFS Loc:</span>
+                <FormControl fullWidth size="small" sx={{ marginTop: "4px" }}>
+                  <Select
+                    value={row.original.cfs_name || ""}
+                    onChange={handleCfsChange}
+                    displayEmpty
+                    sx={{ 
+                      fontSize: "0.85rem", 
+                      fontWeight: "500",
+                      backgroundColor: "#fff",
+                      "& .MuiSelect-select": {
+                        paddingY: "4px",
+                        whiteSpace: "normal", // Enable word wrap
+                        wordBreak: "break-word",
+                        textAlign: "left"
+                      }
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Select CFS</em>
+                    </MenuItem>
+                    {CFS_OPTIONS.map((option) => (
+                      <MenuItem key={option} value={option} sx={{ fontSize: "0.8rem" }}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
+            )}
           </div>
         );
       },
@@ -796,9 +916,9 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
 
         <TextField

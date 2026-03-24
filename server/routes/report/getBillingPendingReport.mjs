@@ -1,21 +1,24 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import logger from "../../logger.js";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
 // GET /api/report/billing-pending?year=22-23
 router.get("/api/report/billing-pending", async (req, res) => {
   try {
-    // Get year from query params, default to "25-26" if not provided
     const year = req.query.year || "25-26";
+    const { branchId, category } = req.query;
+    const branchMatch = getBranchMatch(branchId, category);
 
     const result = await JobModel.aggregate([
       {
         $match: {
-          year: year,
+          year,
           status: "Pending",
-          detailed_status: "Billing Pending"
+          detailed_status: "Billing Pending",
+          ...branchMatch,
         }
       },
       {
@@ -27,7 +30,7 @@ router.get("/api/report/billing-pending", async (req, res) => {
             {
               $project: {
                 _id: 0,
-                job_no: 1,
+                job_number: 1, job_no: 1,
                 importer: 1,
                 status: 1,
                 detailed_status: 1,

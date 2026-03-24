@@ -22,6 +22,8 @@ import { UserContext } from "../../contexts/UserContext.js";
 import InvoiceDisplay from "./InvoiceDisplay.js";
 import { TabContext } from "./ImportDO.js";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function ImportCompletedBilling() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -241,9 +243,9 @@ function ImportCompletedBilling() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const {
             job_no,
@@ -256,6 +258,9 @@ function ImportCompletedBilling() {
             vessel_berthing,
             colorPriority, // ✅ USE THIS FROM BACKEND
             container_nos,
+            branch_code,
+            trade_type,
+            mode,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
@@ -333,7 +338,7 @@ function ImportCompletedBilling() {
 
           return currentTab === 0 ? (
             <a
-              href={`/view-billing-job/${job_no}/${year}`}
+              href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -344,10 +349,10 @@ function ImportCompletedBilling() {
                 padding: "10px",
                 borderRadius: "5px",
                 textAlign: "center",
-                textDecoration: "none",
+                textDecoration: "none", whiteSpace: "nowrap",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </a>
           ) : (
@@ -362,7 +367,7 @@ function ImportCompletedBilling() {
                 textAlign: "center",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </div>
           );
@@ -399,7 +404,11 @@ function ImportCompletedBilling() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} | "{container.size}"
+                  {container.container_number} <ContainerTrackButton 
+                  customHouse={cell?.row?.original?.custom_house} 
+                  containerNo={container.container_number} 
+                />
+                | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>

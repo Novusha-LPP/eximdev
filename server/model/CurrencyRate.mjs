@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const exchangeRateSchema = new mongoose.Schema({
   currency_code: {
@@ -54,6 +55,8 @@ const currencyRateSchema = new mongoose.Schema({
 
 // Index for faster queries
 currencyRateSchema.index({ notification_number: 1, effective_date: 1 });
+
+currencyRateSchema.plugin(auditPlugin, { documentType: "CurrencyRate" });
 
 const CurrencyRate = mongoose.model('CurrencyRate', currencyRateSchema);
 

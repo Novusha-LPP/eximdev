@@ -12,6 +12,8 @@ export const SearchQueryContext = createContext({
   setSelectedImporter: () => { },
   selectedBeType: "all",
   setSelectedBeType: () => { },
+  selectedMode: "all",
+  setSelectedMode: () => { },
   currentPageTab0: 1,
   setCurrentPageTab0: () => { },
   currentPageTab1: 1,
@@ -43,7 +45,9 @@ export const SearchQueryProvider = ({ children }) => {
   const [detailedStatus, setDetailedStatus] = useState("all");
   const [selectedICD, setSelectedICD] = useState("all");
   const [selectedImporter, setSelectedImporter] = useState("");
-  const [selectedBeType, setSelectedBeType] = useState("all"); const [currentPageTab0, setCurrentPageTab0] = useState(1); // ESanchit tab
+  const [selectedBeType, setSelectedBeType] = useState("all");
+  const [selectedMode, setSelectedMode] = useState("all");
+  const [currentPageTab0, setCurrentPageTab0] = useState(1); // ESanchit tab
   const [currentPageTab1, setCurrentPageTab1] = useState(1); // ESanchitCompleted tab
   const [currentPageDocTab0, setCurrentPageDocTab0] = useState(1); // Documentation tab
   const [currentPageDocTab1, setCurrentPageDocTab1] = useState(1); // DocumentationCompleted tab
@@ -91,7 +95,9 @@ export const SearchQueryProvider = ({ children }) => {
         currentPageOpTab2,
         setCurrentPageOpTab2,
         selectedBeType,
-        setSelectedBeType
+        setSelectedBeType,
+        selectedMode,
+        setSelectedMode
       }}
     >
       {children}

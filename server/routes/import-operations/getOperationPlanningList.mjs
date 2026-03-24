@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, async (req, res) => {
@@ -14,6 +16,8 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
       importer = "",
       selectedICD,
       year,
+      branchId,
+      category,
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -64,6 +68,9 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
       };
     }
 
+    // ✅ Build Branch Condition
+    const branchMatch = getBranchMatch(branchId, category);
+
     // ✅ Build Final Query
     const filterConditions = {
       $and: [
@@ -71,6 +78,7 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
         importerCondition, // ✅ Importer Filter
         yearCondition, // ✅ Year Filter
         searchQuery, // ✅ Search Query
+        branchMatch, // ✅ Branch Filter
         {
           status: "Pending",
           be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
@@ -86,7 +94,7 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
     // ✅ Fetch Paginated Jobs
     const jobs = await JobModel.find(filterConditions)
       .select(
-        "job_no processed_be_attachment ooc_copies gate_pass_copies detailed_status importer status be_no be_date container_nos examination_planning_date custom_house year consignment_type type_of_b_e cth_documents all_documents job_sticker_upload checklist invoice_number invoice_date loading_port no_of_pkgs description gross_weight job_net_weight gateway_igm gateway_igm_date igm_no igm_date awb_bl_no awb_bl_date concor_invoice_and_receipt_copy shipping_line_airline"
+        "job_number job_no processed_be_attachment ooc_copies gate_pass_copies detailed_status importer status be_no be_date container_nos examination_planning_date custom_house year consignment_type type_of_b_e cth_documents all_documents job_sticker_upload checklist invoice_number invoice_date loading_port no_of_pkgs description gross_weight job_net_weight gateway_igm gateway_igm_date igm_no igm_date awb_bl_no awb_bl_date concor_invoice_and_receipt_copy shipping_line_airline mode branch_code trade_type"
       )
       .sort({ examination_planning_date: 1 })
       .skip(skip)

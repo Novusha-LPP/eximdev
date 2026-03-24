@@ -1,13 +1,17 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
 // Route: /api/report/monthly-containers/:year/:month
 router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
   const { year, month } = req.params;
-  const { custom_house } = req.query;
+  const { custom_house, branchId, category } = req.query;
   const monthInt = parseInt(month);
+
+  // Build branch filter using the shared utility
+  const branchMatch = getBranchMatch(branchId, category);
 
   try {
     // Create base match condition
@@ -15,6 +19,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
       year,
       out_of_charge: { $ne: null, $ne: "" },
       importer: { $ne: null, $ne: "" },
+      ...branchMatch,
     };
 
     // Add custom_house filter if provided
@@ -124,6 +129,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
             year,
             be_date: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
+            ...branchMatch,
             ...(custom_house ? { custom_house } : {}),
           },
         },
@@ -170,6 +176,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
             year,
             out_of_charge: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
+            ...branchMatch,
             ...(custom_house ? { custom_house } : {}),
           },
         },

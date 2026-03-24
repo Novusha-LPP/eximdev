@@ -121,22 +121,38 @@ function CompletedKyc() {
     },
     {
       accessorKey: "approval",
-      header: "Approval Status",
-      size: 250,
+      header: <>Approval <br /> Status</>,
+      size: 200,
       Cell: ({ cell }) => getStatusChip(cell.getValue()),
+    },
+    {
+      accessorKey: "financial_details_approved",
+      header: <>Financial <br /> Approval</>,
+      size: 200,
+      Cell: ({ cell }) => (
+        <span
+          className={`status-pill ${
+            cell.getValue() ? "success" : "warning"
+          }`}
+          style={{ fontSize: "0.8rem", padding: "2px 8px" }}
+        >
+          {cell.getValue() ? "Approved" : "Pending"}
+        </span>
+      ),
     },
     {
       accessorKey: "approved_by",
       header: "Approved By",
-      size: 250,
+      size: 200,
       Cell: ({ cell }) => (
         <span
           style={{
             fontStyle: cell.getValue() ? "normal" : "italic",
             color: "var(--slate-500)",
+            fontSize: "0.85rem"
           }}
         >
-          {cell.getValue() || "Not Assigned"}
+          {cell.getValue() || (cell.row.original.financial_details_approved_by ? `Fin: ${cell.row.original.financial_details_approved_by}` : "Not Assigned")}
         </span>
       ),
     },
@@ -157,8 +173,9 @@ function CompletedKyc() {
       accessorKey: "view",
       header: "Actions",
       size: 150,
-      Cell: ({ cell }) =>
-        user.role === "Admin" ? (
+      Cell: ({ cell }) => {
+        const canEdit = user?.role === "Admin" || (Array.isArray(user?.modules) && user.modules.includes("Accounts"));
+        return canEdit ? (
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               className="table-action-btn"
@@ -183,7 +200,8 @@ function CompletedKyc() {
           <span style={{ color: "var(--slate-400)", fontSize: "0.75rem" }}>
             No Access
           </span>
-        ),
+        );
+      },
     },
   ];
 

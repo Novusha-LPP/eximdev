@@ -1,15 +1,21 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 import UserModel from "../../model/userModel.mjs";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
 router.get("/reports", async (req, res) => {
     try {
+        const { branchId, category } = req.query;
+        const branchMatch = getBranchMatch(branchId, category);
+
         // 1. Fetch potential jobs (optimized for performance)
         // We fetch ALL jobs to allow frontend to calculate "Total vs Fined" stats
-        const jobs = await JobModel.find({})
-            .select("job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer consignment_type container_nos.size")
+        const jobs = await JobModel.find(branchMatch)
+            .select("job_number job_no be_no be_date fine_amount penalty_amount importer penalty_by_us penalty_by_importer consignment_type container_nos.size")
             .lean();
 
         // 2. Fetch all users for handler mapping
@@ -87,7 +93,7 @@ router.get("/reports", async (req, res) => {
     }
 });
 
-router.post("/update-penalty-status", async (req, res) => {
+router.post("/update-penalty-status", authMiddleware, auditMiddleware("Job"), async (req, res) => {
     try {
         const { jobId, updates } = req.body;
 
@@ -99,7 +105,7 @@ router.post("/update-penalty-status", async (req, res) => {
             jobId,
             { $set: updates },
             { new: true }
-        ).select("job_no penalty_by_us penalty_by_importer");
+        ).select("job_number job_no penalty_by_us penalty_by_importer");
 
         if (!updatedJob) {
             return res.status(404).json({ error: "Job not found" });
@@ -126,14 +132,16 @@ function parseAmount(amountStr) {
 // Top 10 Importers Report
 router.get("/top-importers", async (req, res) => {
     try {
-        const { filterType, month, year, quarter, startDate, endDate } = req.query;
+        const { filterType, month, year, quarter, startDate, endDate, branchId, category } = req.query;
+        const branchMatch = getBranchMatch(branchId, category);
 
         // Base Match Condition: Must have out_of_charge date and NOT be Ex-Bond
         const matchStage = {
             out_of_charge: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
             be_filing_type: { $ne: "Ex-Bond" },
-            type_of_b_e: { $ne: "Ex-Bond" }
+            type_of_b_e: { $ne: "Ex-Bond" },
+            ...branchMatch
         };
 
         const pipeline = [

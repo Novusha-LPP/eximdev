@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { context } from "../utils/context.mjs";
 
 dotenv.config();
 
@@ -13,7 +14,9 @@ const verifyToken = (req, res, next) => {
     try {
         const verified = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod");
         req.user = verified;
-        next();
+
+        // Run subsequent middleware and controller in the user context
+        context.run({ user: verified, req }, next);
     } catch (err) {
         return res.status(403).json({ message: "Invalid Token" });
     }

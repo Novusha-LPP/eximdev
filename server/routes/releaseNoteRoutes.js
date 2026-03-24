@@ -1,6 +1,8 @@
 // routes/releaseNoteRoutes.js
 import express from 'express';
 import ReleaseNote from '../model/releaseNoteModel.js';
+import auditMiddleware from '../middleware/auditTrail.mjs';
+import authMiddleware from '../middleware/authMiddleware.mjs';
 
 const router = express.Router();
 
@@ -44,16 +46,16 @@ router.get('/release-notes/:id', async (req, res) => {
   }
 });
 
-// Create new release note (no auth - handled on frontend)
-router.post('/release-notes', async (req, res) => {
+// Create new release note
+router.post('/release-notes', authMiddleware, auditMiddleware("ReleaseNote"), async (req, res) => {
   try {
     const { version, releaseDate, title, description, changes, isPublished } = req.body;
 
     // Validate required fields
     if (!version || !title || !changes || changes.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Version, title, and at least one change are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Version, title, and at least one change are required'
       });
     }
 
@@ -74,8 +76,8 @@ router.post('/release-notes', async (req, res) => {
   }
 });
 
-// Update release note (no auth - handled on frontend)
-router.put('/release-notes/:id', async (req, res) => {
+// Update release note
+router.put('/release-notes/:id', authMiddleware, auditMiddleware("ReleaseNote"), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -100,8 +102,8 @@ router.put('/release-notes/:id', async (req, res) => {
   }
 });
 
-// Delete release note (no auth - handled on frontend)
-router.delete('/release-notes/:id', async (req, res) => {
+// Delete release note
+router.delete('/release-notes/:id', authMiddleware, auditMiddleware("ReleaseNote"), async (req, res) => {
   try {
     const { id } = req.params;
 

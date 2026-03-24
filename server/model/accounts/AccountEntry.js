@@ -1,5 +1,5 @@
-// model/accounts/AccountEntry.js
 import mongoose from 'mongoose';
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const accountEntrySchema = new mongoose.Schema({
   masterTypeId: {
@@ -69,4 +69,7 @@ const accountEntrySchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('AccountEntry', accountEntrySchema);
+accountEntrySchema.plugin(auditPlugin, { documentType: "AccountEntry" });
+
+const AccountEntryModel = mongoose.model('AccountEntry', accountEntrySchema);
+export default AccountEntryModel;

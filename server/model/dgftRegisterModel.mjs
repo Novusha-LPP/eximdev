@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const dgftRegisterSchema = new mongoose.Schema(
   {
@@ -33,6 +34,8 @@ const dgftRegisterSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+dgftRegisterSchema.plugin(auditPlugin, { documentType: "dgftRegister" });
 
 const DgftRegisterModel = mongoose.model(
   "dgftRegister",

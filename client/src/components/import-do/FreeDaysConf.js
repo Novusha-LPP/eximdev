@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import {
   IconButton,
@@ -23,9 +23,15 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
+
 const FreeDaysConf = () => {
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
 
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = useState([]);
@@ -35,7 +41,6 @@ const FreeDaysConf = () => {
   const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total pages
   const [totalJobs, setTotalJobs] = React.useState(0);
-  const [loading, setLoading] = useState(false); // Loading state
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const limit = 100; // Items per page
@@ -116,9 +121,10 @@ const FreeDaysConf = () => {
       currentSearchQuery,
       currentYear,
       currentICD,
-      selectedImporter
+      selectedImporter,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
-      setLoading(true);
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-free-days`,
@@ -131,6 +137,8 @@ const FreeDaysConf = () => {
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
               username: user?.username || "", // ✅ Send username for ICD filtering
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -151,10 +159,9 @@ const FreeDaysConf = () => {
         setRows([]); // Reset data on failure
         setTotalPages(1);
       } finally {
-        setLoading(false);
       }
     },
-    [limit, user?.username] // Dependencies - add username
+    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, selectedBranch, selectedCategory, debouncedSearchQuery] 
   );
 
   // Fetch jobs when dependencies change
@@ -166,7 +173,9 @@ const FreeDaysConf = () => {
         debouncedSearchQuery,
         selectedYearState,
         selectedICD,
-        selectedImporter
+        selectedImporter,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -177,6 +186,8 @@ const FreeDaysConf = () => {
     selectedImporter,
     user?.username,
     fetchJobs,
+    selectedBranch,
+    selectedCategory,
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -254,7 +265,15 @@ const FreeDaysConf = () => {
       //   )
       // );
       // Fetch the latest jobs with the original page preserved
-      await fetchJobs(currentPageBeforeEdit, debouncedSearchQuery);
+      await fetchJobs(
+        currentPageBeforeEdit, 
+        debouncedSearchQuery, 
+        selectedYearState, 
+        selectedICD, 
+        selectedImporter,
+        selectedBranch,
+        selectedCategory
+      );
     } catch (error) {
       console.error("Error saving data:", error);
     } finally {
@@ -270,9 +289,11 @@ const FreeDaysConf = () => {
     {
       accessorKey: "job_no",
       header: "Job No ",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id } =
+        const { job_no, year, custom_house, type_of_b_e, consignment_type, _id, mode, branch_code, trade_type } =
           cell.row.original;
 
         // Debug log to check if year is available
@@ -282,7 +303,7 @@ const FreeDaysConf = () => {
 
         return (
           <Link
-            to={`/edit-free-days-conf/${job_no}/${year || 'unknown'}?jobId=${_id}`}
+            to={`/edit-free-days-conf/${branch_code}/${trade_type}/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -401,6 +422,10 @@ const FreeDaysConf = () => {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"
@@ -710,9 +735,9 @@ const FreeDaysConf = () => {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
@@ -739,7 +764,7 @@ const FreeDaysConf = () => {
     <div style={{ height: "80%" }}>
       <MaterialReactTable {...tableConfig} />
       <Pagination
-        count={totalPages}
+        count={totalPages > 0 ? totalPages : 1}
         page={page}
         onChange={handlePageChange}
         color="primary"

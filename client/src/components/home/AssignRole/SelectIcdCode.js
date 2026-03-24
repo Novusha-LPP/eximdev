@@ -24,13 +24,7 @@ function SelectIcdCode({ selectedUser }) {
   const [userData, setUserData] = useState(null);
   const { user } = useContext(UserContext);
   const [form] = Form.useForm();
-
-  // ICD Code options
-  const icdCodeOptions = [
-    "ICD SACHANA",
-    "ICD SANAND",
-    "ICD KHODIYAR",
-  ];
+  const [icdCodeOptions, setIcdCodeOptions] = useState([]);
 
   useEffect(() => {
     // Reset form when selected user changes
@@ -40,8 +34,24 @@ function SelectIcdCode({ selectedUser }) {
     // Fetch user data to check current ICD assignment
     if (selectedUser) {
       fetchUserData();
+      fetchIcdOptions();
     }
   }, [selectedUser, form]);
+
+  const fetchIcdOptions = async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/admin/get-branches`,
+        { withCredentials: true }
+      );
+      // Get unique port names from all branches
+      const portNames = [...new Set(res.data.flatMap(b => b.ports.map(p => p.port_name)))];
+      setIcdCodeOptions(portNames);
+    } catch (error) {
+      console.error("Error fetching ICD options:", error);
+      message.error("Failed to fetch ICD options from ports");
+    }
+  };
 
   const fetchUserData = async () => {
     setLoading(true);

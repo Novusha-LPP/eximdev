@@ -1,5 +1,7 @@
 import express from "express";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import auditMiddleware from "../middleware/auditTrail.mjs";
+import authMiddleware from "../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ const s3 = new S3Client({
   },
 });
 
-router.post("/api/delete-s3-file", async (req, res) => {
+router.post("/api/delete-s3-file", authMiddleware, auditMiddleware("S3File"), async (req, res) => {
   const rawKey = req.body.key;
   if (!rawKey) {
     return res.status(400).json({ message: "Missing file key" });

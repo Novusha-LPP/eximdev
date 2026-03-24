@@ -2,11 +2,13 @@
 import express from "express";
 import { scrapeAndSaveCurrencyRates } from "../services/currencyRateScraper.js";
 import CurrencyRate from "../model/CurrencyRate.mjs";
+import authMiddleware from "../middleware/authMiddleware.mjs";
+import auditMiddleware from "../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
 // Manual test API to trigger scraping
-router.post("/api/currency-rates/scrape", async (req, res) => {
+router.post("/api/currency-rates/scrape", authMiddleware, auditMiddleware("CurrencyRate"), async (req, res) => {
   try {
     console.log("🔧 Manual scrape triggered via API");
 

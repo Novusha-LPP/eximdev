@@ -1,6 +1,7 @@
 // routes/feedbackRoutes.js
 import express from 'express';
 import Feedback from '../model/feedbackModel.js';
+import auditMiddleware from '../middleware/auditTrail.mjs';
 
 const router = express.Router();
 
@@ -52,15 +53,15 @@ router.get('/feedback/user/:username', async (req, res) => {
 });
 
 // Submit new feedback
-router.post('/feedback', async (req, res) => {
+router.post('/feedback', auditMiddleware("Feedback"), async (req, res) => {
   try {
     const { type, module, title, description, priority, submittedBy, submittedByEmail, attachments } = req.body;
 
     // Validate required fields
     if (!type || !module || !title || !description || !submittedBy) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Type, module, title, description, and submittedBy are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Type, module, title, description, and submittedBy are required'
       });
     }
 
@@ -85,7 +86,7 @@ router.post('/feedback', async (req, res) => {
 });
 
 // Update feedback (admin only - change status, add notes)
-router.put('/feedback/:id', async (req, res) => {
+router.put('/feedback/:id', auditMiddleware("Feedback"), async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -113,7 +114,7 @@ router.put('/feedback/:id', async (req, res) => {
 });
 
 // Delete feedback (admin only)
-router.delete('/feedback/:id', async (req, res) => {
+router.delete('/feedback/:id', auditMiddleware("Feedback"), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -160,8 +161,8 @@ router.get('/feedback/stats/summary', async (req, res) => {
       }
     ]);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: {
         byStatus: stats,
         byType: typeStats,

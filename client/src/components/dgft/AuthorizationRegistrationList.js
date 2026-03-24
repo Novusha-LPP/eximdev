@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Dialog,
@@ -10,6 +11,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import "./dgft.scss";
 
 // ===================== Constants =====================
+export const unitCodes = [
+  "BAG", "BGS", "BLS", "BRL", "BTL", "BOX", "BLK", "CAN", "CAR", "CRY", "CTN", "CMS", "CHI", "COL", "CON", "CRI", "CCM", "CFT", "CBI", "CBM", "CYL", "DOZ", "DRM", "FLK", "FOT", "FUT", "GMS", "GRS", "FBK", "INC", "NGT", "JTA", "JAL", "KEG", "KLT", "KGS", "KME", "KIT", "LTR", "LOG", "TON", "MTR", "MTS", "MGS", "MOU", "NOS", "NHM", "THD", "PKG", "PAC", "PAI", "PRS", "PLT", "PCS", "PNT", "PND", "QDS", "QTL", "REL", "ROL", "SET", "SKD", "SLB", "SQF", "SQM", "SQY", "BLO", "BUL", "ENV", "TBL", "TNK", "TGM", "TIN", "TRK", "UNT", "UGS", "CSK", "YDS",
+];
 
 const INITIAL_FORM = {
   job_no: "",
@@ -24,8 +28,36 @@ const INITIAL_FORM = {
   licence_amount: "",
   lic_recd_from_party: "",
   date_send_to_icd_ports: "",
-  bond_challan_no: "",
+  bond_challan_amount: "",
   iec_no: "",
+  
+  // Details fields (synced with ViewAuthorizationDetails)
+  import_validity: "",
+  export_validity: "",
+  hs_code_import: "",
+  export_hs_code: "",
+  import_item_description: "",
+  export_item_description: "",
+  import_qty: "",
+  import_unit: "",
+  export_qty: "",
+  export_unit: "",
+  balance_qty_import: "",
+  balance_import_unit: "",
+  balance_qty_export: "",
+  balance_export_unit: "",
+  utilisation_details_import: "",
+  utilisation_details_export: "",
+  import_value_usd: "",
+  import_value_rs: "",
+  export_value_usd: "",
+  export_value_rs: "",
+  bg_expiry_date: "",
+  bond_expiry_date: "",
+  documents_received_date: "",
+  documents_send_to_icd: "",
+  documents_send_to_accounts: "",
+
   completed: "",
   registration_date: "",
   month: "",
@@ -34,7 +66,6 @@ const INITIAL_FORM = {
   bg_number: "",
   bg_amount: "",
   bg_date: "",
-  bg_expiry_date: "",
   bond_number: "",
   bond_date: "",
   port_code: "",
@@ -43,6 +74,8 @@ const INITIAL_FORM = {
 const DATE_FIELDS = new Set([
   "date", "licence_date", "date_send_to_icd_ports",
   "registration_date", "bg_date", "bg_expiry_date", "bond_date",
+  "lic_recd_from_party", "completed", "billing_done_or_not",
+  "import_validity", "export_validity",
 ]);
 
 const CATEGORY_OPTIONS = [
@@ -100,6 +133,8 @@ const FIELDS = [
   { key: "iec_no",               label: "IEC Number" },
   { key: "licence_no",           label: "Authorization Number" },
   { key: "licence_date",         label: "Auth Date", type: "date" },
+  { key: "import_validity",      label: "Import Validity", type: "date" },
+  { key: "export_validity",      label: "Export Validity", type: "date" },
   { key: "bg_number",            label: "BG Number" },
   { key: "bg_amount",            label: "BG Amount" },
   { key: "bg_date",              label: "BG Date", type: "date" },
@@ -107,39 +142,33 @@ const FIELDS = [
   { key: "bond_number",          label: "Bond Number" },
   { key: "bond_date",            label: "Bond Date", type: "date" },
   { key: "job_status",           label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
-  { key: "port_name",            label: "Port Name" },
-  { key: "category",             label: "Category", select: true, allowCustom: true },
+  // { key: "port_name",            label: "Port Name" },
+  // { key: "category",             label: "Category", select: true, allowCustom: true },
   { key: "licence_amount",       label: "Licence Amount" },
-  { key: "lic_recd_from_party",  label: "Lic. Recd From Party" },
+  { key: "lic_recd_from_party",  label: "Lic. Recd From Party", type: "date" },
   { key: "date_send_to_icd_ports", label: "Send to ICDs/Ports", type: "date" },
-  { key: "bond_challan_no",      label: "Bond / Challan No" },
-  { key: "completed",            label: "Completed" },
+  { key: "bond_challan_amount",   label: "Bond / Challan Amount" },
+  { key: "completed",            label: "Completed", type: "date" },
   { key: "registration_date",    label: "Registration Date", type: "date" },
-  { key: "month",                label: "Month" },
-  { key: "billing_done_or_not",  label: "Billing Done" },
+  // { key: "month",                label: "Month" },
+  { key: "billing_done_or_not",  label: "Billing Done", type: "date" },
   { key: "bill_number",          label: "Bill Number" },
   { key: "port_code",            label: "Port Code", select: true, options: PORT_CODE_OPTIONS },
 ];
 
 // Table columns — per image 1 (no Sr No, actions first)
 const TABLE_COLUMNS = [
-  { key: "_expand",      label: "",                    width: 28 },
-  { key: "_actions",     label: "Actions",             width: 90 },
-  { key: "job_no",       label: "Job Number",          width: 100 },
-  { key: "date",         label: "Date",                width: 90 },
-  { key: "job_type",     label: "Job Category",        width: 160 },
-  { key: "party_name",   label: "Firm Name",           width: 180 },
-  { key: "iec_no",       label: "IEC Number",          width: 120 },
-  { key: "licence_no",   label: "Authorization Number",width: 150 },
-  { key: "licence_date", label: "Auth Date",           width: 90 },
-  { key: "bg_number",    label: "BG Number",           width: 110 },
-  { key: "bg_amount",    label: "BG Amt",              width: 90 },
-  { key: "bg_date",      label: "BG Date",             width: 90 },
-  { key: "bg_expiry_date","label": "BG Expiry Date",   width: 110 },
-  { key: "bond_number",  label: "Bond Number",         width: 110 },
-  { key: "bond_date",    label: "Bond Date",           width: 90 },
-  { key: "port_code",    label: "Port Code",           width: 90 },
-  { key: "job_status",   label: "Job Status",          width: 120 },
+  { key: "job_no",       label: "JOB NUMBER",          width: 120 },
+  { key: "date",         label: "DATE",                width: 100 },
+  { key: "party_name",   label: "FIRM NAME",           width: 200 },
+  { key: "iec_no",       label: "IEC NAME",            width: 150 },
+  { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 180 },
+  { key: "licence_date", label: "AUTHORIZATION DATE",  width: 110 },
+  { key: "bg_number",    label: "BG NUMBER",           width: 130 },
+  { key: "port_code",    label: "PORT CODE",           width: 100 },
+  { key: "job_status",   label: "JOB STATUS",          width: 140 },
+  { key: "documents_send_to_accounts", label: "DOCUMENTS DATE SEND TO ACCOUNTS", width: 220 },
+  { key: "_actions",     label: "ACTIONS",             width: 100 },
 ];
 
 
@@ -208,80 +237,7 @@ function CustomSelectField({ label, fieldKey, value, options, onChange, inputVal
   );
 }
 
-// ===================== SubRow — reference UI (ar-* CSS classes) =====================
-function SubRow({ row, colSpan, onSave, showToast }) {
-  const [subData, setSubData] = useState(() => {
-    const d = {};
-    SUBROW_FIELDS.forEach((f) => { d[f.key] = row[f.key] || ""; });
-
-    // Auto-calc import_validity (+12 mo) and export_validity (+18 mo) from licence_date (DD/MM/YYYY)
-    const authDateStr = row.licence_date || "";
-    if (authDateStr) {
-      const parts = authDateStr.split("/");
-      if (parts.length === 3) {
-        const [dd, mm, yyyy] = parts;
-        const authDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-        if (!isNaN(authDate.getTime())) {
-          const fmt = (date) => `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-          if (!d.import_validity) { const imp = new Date(authDate); imp.setMonth(imp.getMonth() + 12); d.import_validity = fmt(imp); }
-          if (!d.export_validity) { const exp = new Date(authDate); exp.setMonth(exp.getMonth() + 18); d.export_validity = fmt(exp); }
-        }
-      }
-    }
-    return d;
-  });
-
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${row._id}`, subData);
-      showToast("Details updated successfully", "success");
-      onSave(row._id, subData);
-    } catch (err) {
-      console.error(err);
-      showToast("Update failed", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <tr>
-      <td className="ar-subrow-cell" colSpan={colSpan}>
-        <div className="ar-subrow-inner">
-          <div className="ar-subrow-header">
-            <div className="ar-subrow-title">
-              Licence Details — <span>{row.job_no || ""}</span>
-            </div>
-            <button
-              className={`ar-btn ar-btn-save ar-btn-sm${saving ? "" : ""}`}
-              onClick={handleSave}
-              disabled={saving}
-              style={{ opacity: saving ? 0.55 : 1, cursor: saving ? "not-allowed" : "pointer" }}
-            >
-              {saving ? "Saving…" : "Save Details"}
-            </button>
-          </div>
-          <div className="ar-subrow-grid">
-            {SUBROW_FIELDS.map((f) => (
-              <div key={f.key} className="ar-subrow-field">
-                <label>{f.label}</label>
-                <input
-                  type="text"
-                  value={subData[f.key]}
-                  onChange={(e) => setSubData((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder="—"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-}
+// SubRow removed in favor of separate page view
 
 
 
@@ -308,8 +264,20 @@ function AuthorizationRegistrationList({ onCountChange }) {
   const [categoryInput, setCategoryInput]                 = useState("");
   const [availableJobTypeOptions, setAvailableJobTypeOptions] = useState(DEFAULT_JOB_TYPE_OPTIONS);
   const [jobTypeInput, setJobTypeInput] = useState("");
-  const [expandedRowId, setExpandedRowId] = useState(null);
   const fileInput = React.useRef(null);
+  const navigate = React.useCallback(useNavigate(), []);
+
+  // Helper to convert DD/MM/YYYY (from server) to YYYY-MM-DD (for native date input)
+  const toNativeDate = (val) => {
+    if (!val || typeof val !== "string") return val;
+    if (val.includes("-")) return val; // Already YYYY-MM-DD
+    const parts = val.split("/");
+    if (parts.length === 3) {
+      const [d, m, y] = parts;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    return val;
+  };
 
   const getData = useCallback(async () => {
     try {
@@ -378,9 +346,16 @@ function AuthorizationRegistrationList({ onCountChange }) {
 
   const handleOpenEdit = (row) => {
     setEditingId(row._id);
-    const data = {};
-    FIELDS.forEach((f) => { data[f.key] = row[f.key] || ""; });
-    setFormData(data); setErrors({}); setCategoryInput(""); setJobTypeInput(""); setDialogOpen(true);
+    // Initialize with INITIAL_FORM to ensure all expected keys exist, then merge row data
+    const data = { ...INITIAL_FORM, ...row };
+    // Convert dates for native input
+    Object.keys(data).forEach(key => {
+      if (DATE_FIELDS.has(key) && data[key]) {
+        data[key] = toNativeDate(data[key]);
+      }
+    });
+    setFormData(data);
+    setErrors({}); setCategoryInput(""); setJobTypeInput(""); setDialogOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -388,9 +363,26 @@ function AuthorizationRegistrationList({ onCountChange }) {
     try {
       await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-authorization-registration/${id}`);
       showToast("Record deleted", "success");
-      if (expandedRowId === id) setExpandedRowId(null);
       getData();
     } catch (err) { console.error(err); showToast("Delete failed", "error"); }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!window.confirm("ARE YOU SURE? This will permanently delete ALL records in this tab.")) return;
+    if (!window.confirm("Final confirmation: This action cannot be undone. Delete all?")) return;
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-all-authorization-registrations`);
+      showToast("All records deleted", "success");
+      getData();
+    } catch (err) { console.error(err); showToast("Bulk delete failed", "error"); }
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await axios.put(`${process.env.REACT_APP_API_STRING}/update-authorization-registration/${id}`, { job_status: newStatus });
+      setRows((prev) => prev.map((r) => (r._id === id ? { ...r, job_status: newStatus } : r)));
+      showToast("Status updated", "success");
+    } catch (err) { console.error(err); showToast("Failed to update status", "error"); }
   };
 
   const handleSubmit = async () => {
@@ -408,7 +400,35 @@ function AuthorizationRegistrationList({ onCountChange }) {
   };
 
   const handleChange = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [key]: value };
+      
+      // Auto-fill validity from licence_date (Auth Date)
+      if (key === "licence_date" && value) {
+        try {
+          // Assuming date format is YYYY-MM-DD from the input type="date"
+          const authDate = new Date(value);
+          if (!isNaN(authDate.getTime())) {
+            // Helper to format Date to YYYY-MM-DD
+            const fmt = (d) => d.toISOString().split("T")[0];
+            
+            // Add 12 months for import, 18 months for export
+            const impDate = new Date(authDate);
+            impDate.setMonth(impDate.getMonth() + 12);
+            
+            const expDate = new Date(authDate);
+            expDate.setMonth(expDate.getMonth() + 18);
+            
+            updated.import_validity = fmt(impDate);
+            updated.export_validity = fmt(expDate);
+          }
+        } catch (e) {
+          console.error("Validity calculation error:", e);
+        }
+      }
+      
+      return updated;
+    });
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
@@ -472,52 +492,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
   const totalPages  = Math.ceil(displayed.length / rowsPerPage) || 1;
   const paginatedRows = displayed.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const renderDataRow = (row) => {
-    const isExpanded = expandedRowId === row._id;
-    const dataRow = (
-      <tr
-        key={row._id}
-        className={`ar-data-row${isExpanded ? " ar-expanded" : ""}`}
-        onClick={() => setExpandedRowId((p) => (p === row._id ? null : row._id))}
-      >
-        {TABLE_COLUMNS.map((col) => {
-          if (col.key === "_expand") {
-            return (
-              <td key="_expand" className="ar-td-sticky ar-td-expand" style={{ textAlign: "center", width: 36 }}>
-                <span className="ar-expand-icon">▶</span>
-              </td>
-            );
-          }
-          if (col.key === "_actions") {
-            return (
-              <td key="_actions" className="ar-td-sticky ar-td-actions" onClick={(e) => e.stopPropagation()}>
-                <div className="ar-actions-cell">
-                  <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
-                  <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
-                </div>
-              </td>
-            );
-          }
-          if (col.key === "job_status") {
-            return <td key={col.key}><StatusBadge value={row[col.key]} /></td>;
-          }
-          if (col.key === "party_name") {
-            return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{row[col.key] || ""}</td>;
-          }
-          return <td key={col.key}>{row[col.key] || ""}</td>;
-        })}
-      </tr>
-    );
-    return (
-      <React.Fragment key={`frag-${row._id}`}>
-        {dataRow}
-        {isExpanded && (
-          <SubRow key={`sub-${row._id}`} row={row} colSpan={TABLE_COLUMNS.length} onSave={handleSubRowSave} showToast={showToast} />
-        )}
-      </React.Fragment>
-    );
-  };
-
+  const containerRef = React.useRef(null);
 
   return (
     <div>
@@ -534,7 +509,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
           </div>
           <select className="ar-filter-select" value={filterJobType}  onChange={(e) => setFilterJobType(e.target.value)}>
             <option value="">All Job Categories</option>
-            {filterOptions.job_type.map((o) => <option key={o} value={o}>{o}</option>)}
+            {availableJobTypeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <select className="ar-filter-select" value={filterFirmName} onChange={(e) => setFilterFirmName(e.target.value)}>
             <option value="">All Firms</option>
@@ -559,19 +534,49 @@ function AuthorizationRegistrationList({ onCountChange }) {
             ↑ Upload Excel
             <input ref={fileInput} type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} style={{ display: "none" }} />
           </label>
+          <button className="ar-btn ar-btn-danger" onClick={handleDeleteAll}>🗑 Delete All</button>
         </div>
       </div>
 
       {/* ── Table card ── */}
       <div className="ar-table-outer">
-        <div className="ar-table-scroll">
+        <div 
+          ref={containerRef}
+          className="ar-table-scroll"
+          onMouseDown={(e) => {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "BUTTON") return;
+            const el = containerRef.current;
+            el.dataset.isDown = "true";
+            el.dataset.startX = e.pageX - el.offsetLeft;
+            el.dataset.scrollLeft = el.scrollLeft;
+            el.dataset.dragged = "false";
+          }}
+          onMouseLeave={() => {
+            const el = containerRef.current;
+            el.dataset.isDown = "false";
+          }}
+          onMouseUp={() => {
+            const el = containerRef.current;
+            el.dataset.isDown = "false";
+          }}
+          onMouseMove={(e) => {
+            const el = containerRef.current;
+            if (el.dataset.isDown !== "true") return;
+            const x = e.pageX - el.offsetLeft;
+            const walk = (x - Number(el.dataset.startX)) * 2;
+            if (Math.abs(walk) > 5) {
+              el.dataset.dragged = "true";
+              e.preventDefault();
+              el.scrollLeft = Number(el.dataset.scrollLeft) - walk;
+            }
+          }}
+        >
           <table className="ar-table">
             <thead>
               <tr>
                 {TABLE_COLUMNS.map((col) => {
                   const sorted = sort.key === col.key;
-                  if (col.key === "_expand") return <th key="_expand" className="ar-th-sticky ar-th-expand" />;
-                  if (col.key === "_actions") return <th key="_actions" className="ar-th-sticky ar-th-actions">Actions</th>;
+                  if (col.key === "_actions") return <th key="_actions" className="ar-th-sticky ar-th-actions">ACTIONS</th>;
                   return (
                     <th
                       key={col.key}
@@ -593,7 +598,52 @@ function AuthorizationRegistrationList({ onCountChange }) {
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row) => renderDataRow(row))
+                paginatedRows.map((row) => (
+                  <tr key={row._id} className="ar-data-row">
+                    {TABLE_COLUMNS.map((col) => {
+                      if (col.key === "_actions") {
+                        return (
+                          <td key="_actions" className="ar-td-sticky ar-td-actions" onClick={(e) => e.stopPropagation()}>
+                            <div className="ar-actions-cell">
+                              <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
+                              <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
+                            </div>
+                          </td>
+                        );
+                      }
+                      const val = row[col.key] || "";
+                      if (col.key === "job_no") {
+                        const sVal = String(val);
+                        const displayVal = sVal.includes("/") ? sVal : `LIC/${sVal}`;
+                        return (
+                          <td key={col.key} onClick={(e) => { e.stopPropagation(); navigate(`/dgft/authorization-details/${row._id}`); }}>
+                            <span className="ar-job-link">{displayVal}</span>
+                          </td>
+                        );
+                      }
+                      if (col.key === "job_status") {
+                        return (
+                          <td key={col.key} onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={val}
+                              onChange={(e) => handleStatusChange(row._id, e.target.value)}
+                              style={{ padding: "4px 8px", borderRadius: "3px", border: "1px solid #d0d7e2", width: "100%", fontSize: "11px", outline: "none", background: "#fff" }}
+                            >
+                              <option value="">-- Select --</option>
+                              {JOB_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          </td>
+                        );
+                      }
+                      if (col.key === "party_name") {
+                        return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{val}</td>;
+                      }
+                      return <td key={col.key}>{val}</td>;
+                    })}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

@@ -38,6 +38,8 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "../import-do/ImportDoChargesTable";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+
 function EditPaymentRequest() {
   const [someReceiptsUploaded, setsomeReceiptsUploaded] = useState(false);
   const [data, setData] = useState(null);
@@ -46,7 +48,7 @@ function EditPaymentRequest() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
 
   const params = useParams();
-  const { job_no, year } = params;
+  const { mode, job_no, year } = params;
   const container_number_ref = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -563,6 +565,10 @@ function EditPaymentRequest() {
                 >
                   {container.container_number || "N/A"}{" "}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={data?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
               </span>
             </strong>
@@ -667,7 +673,7 @@ function EditPaymentRequest() {
         </Button>
       </Box>
 
-      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && <JobDetailsStaticData data={data} params={{ mode, job_no, year }} />}
       {data && data.dsr_queries && (
         <div>
           <QueriesComponent

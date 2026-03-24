@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -20,7 +22,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
+    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly, branchId, category } = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -92,6 +94,9 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
       });
     }
 
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
+
     // ✅ Apply user-based ICD filter from middleware
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
@@ -102,7 +107,7 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     // Fetch jobs from the database
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status"
+        "priorityJob job_number job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status branch_code trade_type mode"
       )
       .lean();
 

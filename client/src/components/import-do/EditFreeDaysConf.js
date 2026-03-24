@@ -7,6 +7,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useSearchParams } from "react-router-dom";
 import { UserContext } from "../../contexts/UserContext";
+import ChargesGrid from "../ChargesGrid";
 import ImportDoChargesTable from "./ImportDoChargesTable";
 import { TextField } from "@mui/material";
 
@@ -92,8 +93,7 @@ function EditFreeDaysConf() {
     }
   `;
 
-    const param = useParams();
-    const { job_no, year } = param;
+    const { branch_code, trade_type, mode, job_no, year } = useParams();
 
     const [fileSnackbar, setFileSnackbar] = React.useState(false);
     const [snackbar, setSnackbar] = React.useState(false);
@@ -139,11 +139,11 @@ function EditFreeDaysConf() {
                 setLoading(true);
                 setError(null);
 
-                console.log("Fetching job data:", `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`);
+                console.log("Fetching job data:", `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`);
 
                 // Fetch job data
                 const jobRes = await axios.get(
-                    `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+                    `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`
                 );
 
                 const jobData = {
@@ -374,10 +374,20 @@ function EditFreeDaysConf() {
             </Box>
 
             {/* Static Job Details */}
-            {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+            {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
             {/* Form */}
             <form onSubmit={formik.handleSubmit}>
+
+                {/* Additional Charges Grid (Cost Tab only) */}
+                <Box sx={{ mb: 4, mt: 2 }}>
+                    <ChargesGrid 
+                        parentId={jobId} 
+                        parentModule="Job" 
+                        initialTab="cost" 
+                        hideTabs={true} 
+                    />
+                </Box>
 
                 {/* Charges Table */}
                 <ImportDoChargesTable

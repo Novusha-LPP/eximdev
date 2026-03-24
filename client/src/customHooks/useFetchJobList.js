@@ -9,8 +9,11 @@ function useFetchJobList(
   selectedICD,
   searchQuery,
   selectedImporter,
-  selectedBeType = "all", // NEW: filtering by Type of BE
-  unresolvedOnly = false // NEW: unresolvedOnly toggle
+  selectedBeType = "all",
+  unresolvedOnly = false,
+  selectedBranch = "all",
+  selectedMode = "all",
+  category = "all"
 ) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -31,7 +34,7 @@ function useFetchJobList(
   const CACHE_TTL = 1000 * 60 * 2; // 2 minutes
 
   const makeCacheKey = (page) =>
-    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${searchQuery}|${page}`;
+    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${selectedBranch}|${selectedMode}|${category}|${searchQuery}|${page}`;
 
   const getFromCache = (key) => {
     const e = queryCacheRef.current.get(key);
@@ -139,6 +142,15 @@ function useFetchJobList(
       if (unresolved) {
         apiUrl += `&unresolvedOnly=true`;
       }
+      if (selectedBranch && selectedBranch !== 'all') {
+        apiUrl += `&branchId=${encodeURIComponent(selectedBranch)}`;
+      }
+      if (selectedMode && selectedMode !== 'all') {
+        apiUrl += `&mode=${encodeURIComponent(selectedMode)}`;
+      }
+      if (category && category !== 'all') {
+        apiUrl += `&category=${encodeURIComponent(category)}`;
+      }
       if (bypassCache) {
         apiUrl += `&_nocache=true`;
       }
@@ -208,6 +220,16 @@ function useFetchJobList(
             unresolvedOnly: true
           });
 
+          if (selectedBranch && selectedBranch !== 'all') {
+            queryParams.append('branchId', selectedBranch);
+          }
+          if (selectedMode && selectedMode !== 'all') {
+            queryParams.append('mode', selectedMode);
+          }
+          if (category && category !== 'all') {
+            queryParams.append('category', category);
+          }
+
           const response = await axios.get(
             `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${selectedImporter || 'all'}?${queryParams}`,
             {
@@ -224,7 +246,7 @@ function useFetchJobList(
       }
     }
     fetchInitialUnresolvedCount();
-  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType]);
+  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType, selectedBranch, selectedMode, category]);
 
   // Auto-trigger search when filters change (including on page change)
   useEffect(() => {
@@ -241,14 +263,18 @@ function useFetchJobList(
     selectedImporter,
     user,
     unresolvedOnly,
+    unresolvedOnly,
     selectedBeType,
+    selectedBranch,
+    selectedMode,
+    category
   ]);
 
   // Auto-reset to page 1 when search query or major filters change
   // This ensures user doesn't stay on page 5 when filtering changes drastically
   useEffect(() => {
     setCurrentPage(1);
-  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType]);
+  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType, selectedBranch, selectedMode, category]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
 

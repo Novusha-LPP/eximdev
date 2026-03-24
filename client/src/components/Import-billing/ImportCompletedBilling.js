@@ -21,6 +21,9 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import InvoiceDisplay from "../import-do/InvoiceDisplay.js";
 import { TabContext } from "../import-do/ImportDO.js";
+import { BranchContext } from "../../contexts/BranchContext.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 function ImportCompletedBilling() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -29,6 +32,7 @@ function ImportCompletedBilling() {
     useSearchQuery();
   const [years, setYears] = useState([]);
   const { user } = useContext(UserContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
@@ -117,7 +121,9 @@ function ImportCompletedBilling() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -132,6 +138,8 @@ function ImportCompletedBilling() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -157,7 +165,7 @@ function ImportCompletedBilling() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, selectedBranch] // ✅ Add selectedYear as a dependency
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
@@ -169,7 +177,9 @@ function ImportCompletedBilling() {
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -179,6 +189,8 @@ function ImportCompletedBilling() {
     selectedYearState,
     fetchJobs,
     showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    selectedBranch,
+    selectedCategory,
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -241,9 +253,9 @@ function ImportCompletedBilling() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const {
             job_no,
@@ -256,6 +268,9 @@ function ImportCompletedBilling() {
             vessel_berthing,
             colorPriority, // ✅ USE THIS FROM BACKEND
             container_nos,
+            branch_code,
+            trade_type,
+            mode,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
@@ -333,7 +348,7 @@ function ImportCompletedBilling() {
 
           return currentTab === 0 ? (
             <a
-              href={`/view-billing-job/${job_no}/${year}`}
+              href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -344,10 +359,10 @@ function ImportCompletedBilling() {
                 padding: "10px",
                 borderRadius: "5px",
                 textAlign: "center",
-                textDecoration: "none",
+                textDecoration: "none", whiteSpace: "nowrap",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </a>
           ) : (
@@ -362,7 +377,7 @@ function ImportCompletedBilling() {
                 textAlign: "center",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </div>
           );
@@ -399,7 +414,11 @@ function ImportCompletedBilling() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} | "{container.size}"
+                  {container.container_number} <ContainerTrackButton
+                    customHouse={cell?.row?.original?.custom_house}
+                    containerNo={container.container_number}
+                  />
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>
@@ -426,14 +445,14 @@ function ImportCompletedBilling() {
           return isNaN(date)
             ? value
             : date.toLocaleString("en-IN", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              });
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            });
         },
       },
 

@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { faShip, faAnchor, faLayerGroup } from "@fortawesome/free-solid-svg-icons";
 import BLStatus from "./BLStatus";
 import SeaCargoStatus from "./SeaCargoStatus";
+import AirCargoStatus from "./AirCargoStatus";
+import AirConsoleStatus from "./AirConsoleStatus";
 
 const BLTrackingCell = ({
   blNumber,
@@ -13,6 +15,8 @@ const BLTrackingCell = ({
   customHouse,
   container_nos,
   jobId,
+  branch_code,
+  mode,
   portOfReporting,
   containerNos,
   onCopy,
@@ -21,10 +25,13 @@ const BLTrackingCell = ({
   selectedYear, // Add this prop for the current year
 }) => {
   const [isAirCargoDialogOpen, setIsAirCargoDialogOpen] = useState(false);
+  const [isAirExtendedDialogOpen, setIsAirExtendedDialogOpen] = useState(false);
+  const [isAirConsoleDialogOpen, setIsAirConsoleDialogOpen] = useState(false);
   const [isSeaCargoDialogOpen, setIsSeaCargoDialogOpen] = useState(false);
   const [selectedMawb, setSelectedMawb] = useState("");
   const [selectedBL, setSelectedBL] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
+  const [isExtended, setIsExtended] = useState(false);
 
   // Extract location code
   const locationCode =
@@ -68,15 +75,58 @@ const BLTrackingCell = ({
   const handleOpenAirCargoDialog = (event, mawbNumber) => {
     event.preventDefault();
     setSelectedMawb(mawbNumber);
-    setIsAirCargoDialogOpen(true);
+    
+    // Logic for AMD branch AIR mode
+    if (branch_code?.startsWith('AMD') && mode === 'AIR') {
+      setSelectedLocation('INAMD4');
+      setIsAirExtendedDialogOpen(true);
+    } else {
+      setIsAirCargoDialogOpen(true);
+    }
   };
 
   // Handle opening Sea Cargo dialog
   const handleOpenSeaCargoDialog = (event, blNo) => {
     event.preventDefault();
     setSelectedBL(blNo);
-    setSelectedLocation(locationCode);
+    
+    // Logic for GIM branch
+    if (branch_code?.startsWith('GIM')) {
+      setSelectedLocation('INMUN1');
+      setIsExtended(true);
+    } else {
+      setSelectedLocation(locationCode);
+      setIsExtended(false);
+    }
+    
     setIsSeaCargoDialogOpen(true);
+  };
+
+  // Handle opening Air Console dialog
+  const handleOpenAirConsoleDialog = (event, mawbNo) => {
+    event.preventDefault();
+    setSelectedMawb(mawbNo);
+    
+    // Logic for AMD branch
+    if (branch_code?.startsWith('AMD')) {
+      setSelectedLocation('INAMD4');
+    } else {
+      setSelectedLocation(locationCode);
+    }
+    
+    setIsAirConsoleDialogOpen(true);
+  };
+
+  // Unified tracking handler
+  const handleOpenTracking = (event, num) => {
+    if (branch_code?.startsWith('AMD') && mode === 'SEA') {
+      // AMD SEA branch uses BL tracking
+      handleOpenAirCargoDialog(event, num);
+    } else if (mode === 'SEA' || branch_code?.startsWith('GIM')) {
+      handleOpenSeaCargoDialog(event, num);
+    } else {
+      handleOpenAirCargoDialog(event, num);
+    }
   };
 
   // Handle successful update from SeaCargoStatus
@@ -101,10 +151,10 @@ const BLTrackingCell = ({
 
     return (
       <div style={{ marginBottom: "12px" }}>
-        {/* Number as clickable link - opens BL Status dialog */}
+        {/* Number as clickable link - opens tracking dialog */}
         <a
           href="#"
-          onClick={(e) => handleOpenAirCargoDialog(e, num)}
+          onClick={(e) => handleOpenTracking(e, num)}
           style={{
             cursor: "pointer",
             color: "#1976d2",
@@ -154,6 +204,23 @@ const BLTrackingCell = ({
               <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
             </a>
           </abbr>
+
+          {/* Air Console Tracking Icon */}
+          {mode === 'AIR' && (
+            <abbr title={`Air Console Master/House`}>
+              <a
+                href="#"
+                onClick={(e) => handleOpenAirConsoleDialog(e, num)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <FontAwesomeIcon icon={faLayerGroup} size="1x" color="green" />
+              </a>
+            </abbr>
+          )}
         </div>
       </div>
     );
@@ -176,6 +243,23 @@ const BLTrackingCell = ({
         mawbNumber={selectedMawb}
       />
 
+      {/* Air Cargo Status Dialog (Extended) */}
+      <AirCargoStatus
+        isOpen={isAirExtendedDialogOpen}
+        jobId={jobId}
+        onClose={() => setIsAirExtendedDialogOpen(false)}
+        location={selectedLocation}
+        mawbNumber={selectedMawb}
+      />
+
+      {/* Air Console Status Dialog */}
+      <AirConsoleStatus
+        isOpen={isAirConsoleDialogOpen}
+        onClose={() => setIsAirConsoleDialogOpen(false)}
+        location={selectedLocation}
+        mawbNumber={selectedMawb}
+      />
+
       {/* Sea Cargo Status Dialog */}
       <SeaCargoStatus
         isOpen={isSeaCargoDialogOpen}
@@ -183,6 +267,7 @@ const BLTrackingCell = ({
         onClose={() => setIsSeaCargoDialogOpen(false)}
         location={selectedLocation}
         masterBlNo={selectedBL}
+        isExtended={isExtended}
         onUpdateSuccess={handleSeaCargoUpdate}
         invalidateCache={invalidateCache}
         selectedYear={selectedYear}

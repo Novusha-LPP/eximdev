@@ -1,9 +1,11 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
 const router = express.Router();
 
-router.post("/api/assign-role", async (req, res) => {
+router.post("/api/assign-role", authMiddleware, async (req, res) => {
   const { username, role } = req.body;
 
   try {
@@ -73,7 +75,7 @@ router.get("/api/users-by-role", async (req, res) => {
 });
 
 // PATCH: Add an importer to a user
-router.patch("/api/users/:username/add-importer", async (req, res) => {
+router.patch("/api/users/:username/add-importer", authMiddleware, async (req, res) => {
   const { username } = req.params;
   const { importerName } = req.body;
 

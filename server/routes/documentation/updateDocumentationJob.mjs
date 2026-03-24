@@ -4,17 +4,18 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-documentation-job/:id", auditMiddleware('Job'), async (req, res) => {
+router.patch("/api/update-documentation-job/:branch_code/:trade_type/:mode/:job_no/:year", auditMiddleware('Job'), async (req, res) => {
   try {
-    const { documentation_completed_date_time, documentationQueries } = req.body;
-    const job = await JobModel.findById(req.params.id);
+    const { branch_code, trade_type, mode, job_no, year } = req.params;
+    const { documentation_completed_date_time, dsr_queries } = req.body;
+    const job = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), job_no, year });
 
     if (job) {
       if (typeof documentation_completed_date_time !== 'undefined') {
         job.documentation_completed_date_time = documentation_completed_date_time;
       }
-      if (Array.isArray(documentationQueries)) {
-        job.documentationQueries = documentationQueries;
+      if (Array.isArray(dsr_queries)) {
+        job.dsr_queries = dsr_queries;
       }
       await job.save();
       res.status(200).json({ message: "Job updated successfully", job });

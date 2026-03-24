@@ -7,14 +7,15 @@ import DensitySmallIcon from "@mui/icons-material/DensitySmall";
 import { IconButton, TextField, MenuItem } from "@mui/material";
 import { Col, Row } from "react-bootstrap";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
+import { BranchContext } from "../../contexts/BranchContext";
 
 // Predefined array of year ranges
 const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
 
 function JobsOverView() {
   const [data, setData] = useState("");
-  const { selectedYear, setSelectedYear } =
-    React.useContext(SelectedYearContext);
+  const { selectedYear, setSelectedYear } = React.useContext(SelectedYearContext);
+  const { selectedBranch, selectedCategory } = React.useContext(BranchContext);
 
   useEffect(() => {
     // Determine the current date
@@ -50,13 +51,14 @@ function JobsOverView() {
     async function getData() {
       if (selectedYear) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-jobs-overview/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-jobs-overview/${selectedYear}`,
+          { params: { branchId: selectedBranch, category: selectedCategory } }
         );
         setData(res.data);
       }
     }
     getData();
-  }, [selectedYear]);
+  }, [selectedYear, selectedBranch, selectedCategory]);
 
   return (
     <>

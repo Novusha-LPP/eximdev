@@ -20,16 +20,20 @@ import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 function ESanchitCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext); const { user } = useContext(UserContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
-  
+
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
-      const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-      const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 1
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab1: currentPage, setCurrentPageTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
@@ -38,8 +42,8 @@ function ESanchitCompleted() {
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
-  
-  
+
+
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
@@ -107,13 +111,15 @@ function ESanchitCompleted() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
- const fetchJobs = useCallback(
+  const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -128,6 +134,8 @@ function ESanchitCompleted() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -159,7 +167,7 @@ function ESanchitCompleted() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
     }
   }, [
     currentPage,
@@ -168,6 +176,8 @@ function ESanchitCompleted() {
     selectedYearState,
     user?.username,
     showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 
@@ -229,9 +239,9 @@ function ESanchitCompleted() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const {
             job_no,
@@ -240,10 +250,12 @@ function ESanchitCompleted() {
             consignment_type,
             custom_house,
             priorityColor, // Add priorityColor from API response
+            branch_code,
+            trade_type,
           } = cell.row.original;
           return (
             <a
-              href={`/esanchit-job/${job_no}/${year}`}
+              href={`/esanchit-job/${branch_code}/${trade_type}/${cell.row.original.mode}/${job_no}/${year}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -253,14 +265,14 @@ function ESanchitCompleted() {
                   cell.row.original.priorityJob === "High Priority"
                     ? "orange"
                     : cell.row.original.priorityJob === "Priority"
-                    ? "yellow"
-                    : "transparent", // Dynamically set the background color
+                      ? "yellow"
+                      : "transparent", // Dynamically set the background color
                 padding: "10px", // Add padding for better visibility
                 borderRadius: "5px", // Optional: Add some styling for aesthetics
-                textDecoration: "none"
+                textDecoration: "none", whiteSpace: "nowrap", textAlign: "center", display: "inline-block", width: "100%"
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
               <br />
             </a>
           );
@@ -297,7 +309,11 @@ function ESanchitCompleted() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} | "{container.size}"
+                  {container.container_number} <ContainerTrackButton
+                    customHouse={cell?.row?.original?.custom_house}
+                    containerNo={container.container_number}
+                  />
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>
@@ -459,10 +475,10 @@ function ESanchitCompleted() {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setCurrentPage(1);
-                  }}
+                <IconButton onClick={() => {
+                  setDebouncedSearchQuery(searchQuery);
+                  setCurrentPage(1);
+                }}
                 >
                   <SearchIcon />
                 </IconButton>
@@ -473,54 +489,54 @@ function ESanchitCompleted() {
         />
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Box sx={{ position: 'relative' }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                      sx={{
-                         borderRadius: 3,
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      padding: '8px 20px',
-                      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                        transform: 'translateY(-1px)',
-                      },
-                      '&:active': {
-                        transform: 'translateY(0px)',
-                      },
-                      }}
-                    >
-                      {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                    </Button>
-                    <Badge 
-                      badgeContent={unresolvedCount} 
-                      color="error" 
-                      overlap="circular" 
-                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                      sx={{ 
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        '& .MuiBadge-badge': {
-                          fontSize: '0.75rem',
-                          minWidth: '18px',
-                          height: '18px',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        }
-                      }}
-                    />
-                  </Box>
-                </Box>
-                
+          <Box sx={{ position: 'relative' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                padding: '8px 20px',
+                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                '& .MuiBadge-badge': {
+                  fontSize: '0.75rem',
+                  minWidth: '18px',
+                  height: '18px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }
+              }}
+            />
+          </Box>
+        </Box>
+
       </div>
     ),
   };

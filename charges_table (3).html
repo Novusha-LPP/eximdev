@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Charges Table</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; margin: 20px; background: #f5f6f8; font-size: 12px; }
+
+/* ══ TAB BAR ══ */
+.tab-bar {
+  display: flex;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+  border: 1px solid #9aa7b4;
+  border-bottom: none;
+  background: #e8edf3;
+}
+.tab {
+  padding: 7px 24px; cursor: pointer; font-size: 12px; font-weight: bold;
+  color: #4a6080; border-right: 1px solid #9aa7b4;
+  background: linear-gradient(#eef1f6,#d8e0ea); user-select: none;
+}
+.tab:last-child { border-right: none; }
+.tab:hover { background: linear-gradient(#dce6f2,#c8d4e2); }
+.tab.active {
+  background: white; color: #1a3a5c;
+  border-bottom: 2px solid white; position: relative; top: 1px; z-index: 2;
+}
+
+/* ══ GRID ══ */
+.grid-wrapper { border: 1px solid #9aa7b4; border-top: 2px solid #7a9cbf; background: white; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+thead tr.header th {
+  background: linear-gradient(#f4f6f9,#dfe5ec);
+  border: 1px solid #bfc7d1; padding: 5px 8px; text-align: left; white-space: nowrap;
+}
+td { border: 1px solid #d2d8e0; padding: 4px 8px; white-space: nowrap; }
+td.number { text-align: right; }
+tbody tr:hover { background: #eef4ff; cursor: pointer; }
+tbody tr.selected { background: #d9d9ff; }
+.link { color: #0a37ff; }
+
+/* ══ UPLOAD CELL ══ */
+.upload-cell { text-align: center; width: 60px; }
+.upload-btn {
+  background: none; border: 1px solid #9aacbd; border-radius: 3px;
+  cursor: pointer; padding: 2px 6px; font-size: 11px; color: #3a6a9a;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.upload-btn:hover { background: #dce8f4; }
+.file-badge {
+  display: inline-block; background: #d0e8ff; color: #0a5080;
+  border: 1px solid #7ab8e0; border-radius: 10px;
+  font-size: 10px; padding: 1px 8px; cursor: pointer;
+}
+
+/* ══ MODAL OVERLAY ══ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+
+/* ══ EDIT CHARGE MODAL ══ */
+.modal {
+  background: #dde4ed; border: 2px solid #7a9cbf; border-radius: 4px;
+  width: 800px; font-size: 12px; box-shadow: 4px 4px 16px rgba(0,0,0,.4);
+  overflow: hidden; max-height: 90vh; display: flex; flex-direction: column;
+}
+.modal-title {
+  background: linear-gradient(to bottom,#7fa8d0,#5580a8);
+  color: white; font-weight: bold; font-size: 13px; padding: 6px 10px; flex-shrink: 0;
+}
+.modal-body { padding: 12px 16px 8px; overflow-y: auto; }
+.form-section { display: flex; gap: 20px; margin-bottom: 10px; }
+.form-left { flex: 1; }
+.form-right { display: flex; flex-direction: column; gap: 4px; }
+.form-row { display: flex; align-items: center; margin-bottom: 7px; gap: 8px; }
+.form-label { width: 78px; text-align: right; color: #333; flex-shrink: 0; }
+.form-input { flex: 1; height: 22px; border: 1px solid #8faec7; padding: 2px 6px; background: white; border-radius: 2px; }
+.form-input-search { display: flex; flex: 1; border: 1px solid #8faec7; background: white; border-radius: 2px; overflow: hidden; }
+.form-input-search input { flex: 1; border: none; outline: none; padding: 2px 6px; height: 22px; }
+.search-btn {
+  background: linear-gradient(#e8eef5,#c8d4e0); border: none;
+  border-left: 1px solid #8faec7; cursor: pointer; width: 24px; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.remark-area { border: 1px solid #8faec7; background: white; width: 220px; height: 66px; resize: none; padding: 4px; border-radius: 2px; }
+
+.charge-table-wrap { margin-top: 4px; }
+.charge-table { width: 100%; border-collapse: collapse; }
+.charge-table th {
+  background: linear-gradient(#e0e6ef,#c8d0dc); border: 1px solid #9aacbd;
+  padding: 4px 6px; text-align: center; font-weight: bold;
+}
+.charge-table td { border: 1px solid #b0bfcc; padding: 3px 6px; background: #f0f4f8; }
+.charge-table td.row-label { font-weight: bold; background: #dde4ed; color: #333; }
+.arrow-btn { background: white; border: 1px solid #8faec7; cursor: pointer; border-radius: 2px; font-size: 10px; width: 20px; height: 18px; }
+
+.expand-row td { background: #f5f8fc; border: 1px solid #b0bfcc; padding: 0; }
+.expand-panel { display: none; padding: 10px 14px; background: #eef2f8; border-top: 2px solid #7a9cbf; }
+.expand-panel.open { display: block; }
+.ep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 30px; }
+.ep-row { display: flex; align-items: center; gap: 6px; }
+.ep-label { width: 130px; text-align: right; color: #333; flex-shrink: 0; }
+.ep-select { flex: 1; height: 22px; border: 1px solid #8faec7; background: white; border-radius: 2px; padding: 1px 4px; }
+.ep-inline { display: flex; gap: 4px; align-items: center; flex: 1; }
+.ep-inline input[type="text"] { width: 70px; height: 20px; border: 1px solid #8faec7; padding: 1px 5px; background: white; border-radius: 2px; }
+.ep-inline select { height: 22px; border: 1px solid #8faec7; background: white; border-radius: 2px; padding: 1px 4px; }
+.ep-search-wrap { display: flex; flex: 1; border: 1px solid #8faec7; background: white; border-radius: 2px; overflow: hidden; }
+.ep-search-wrap input { flex: 1; border: none; outline: none; padding: 1px 5px; height: 20px; }
+.ep-search-btn { background: linear-gradient(#e8eef5,#c8d4e0); border: none; border-left: 1px solid #8faec7; cursor: pointer; width: 22px; font-size: 10px; }
+.ep-link { color: #0a37ff; font-weight: bold; cursor: pointer; text-decoration: underline; }
+.ep-copy-row { display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 8px; color: #333; }
+.ep-desc-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.ep-desc-input { flex: 1; height: 20px; border: 1px solid #8faec7; padding: 1px 5px; background: white; border-radius: 2px; }
+
+.modal-footer {
+  background: #c8d4e0; border-top: 1px solid #9aacbd;
+  padding: 8px 12px; display: flex; justify-content: flex-end; gap: 6px; flex-shrink: 0;
+}
+.btn {
+  padding: 4px 14px; border: 1px solid #7a9cbf; border-radius: 3px; cursor: pointer;
+  background: linear-gradient(to bottom,#f0f4f9,#d8e2ec); color: #1a2a3a; font-weight: bold;
+}
+.btn:hover { background: linear-gradient(to bottom,#dde8f4,#c0cedc); }
+
+/* ══ FILE UPLOAD MODAL ══ */
+.file-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 2000;
+  align-items: center; justify-content: center;
+}
+.file-modal-overlay.active { display: flex; }
+.file-modal {
+  background: white; border: 2px solid #7a9cbf; border-radius: 6px;
+  width: 450px; box-shadow: 0 8px 30px rgba(0,0,0,.3); overflow: hidden;
+}
+.file-modal-title { background: linear-gradient(to bottom,#7fa8d0,#5580a8); color: white; font-weight: bold; padding: 7px 12px; font-size: 12px; }
+.file-modal-body { padding: 16px; }
+.drop-zone {
+  border: 2px dashed #7a9cbf; border-radius: 6px; padding: 26px 16px;
+  text-align: center; color: #5a7a9a; background: #f4f8fc; cursor: pointer;
+}
+.drop-zone:hover, .drop-zone.drag-over { background: #ddeeff; border-color: #3a70b0; }
+.drop-zone p { margin: 4px 0; font-size: 12px; }
+.browse-link { color: #0a37ff; text-decoration: underline; cursor: pointer; }
+.file-list { margin-top: 12px; max-height: 130px; overflow-y: auto; }
+.file-item {
+  display: flex; align-items: center; padding: 4px 8px;
+  border: 1px solid #c8d8e8; border-radius: 3px; margin-bottom: 4px;
+  background: #f0f7ff; font-size: 11px;
+}
+.file-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1a3a5c; }
+.file-remove { color: #c0392b; cursor: pointer; font-size: 13px; margin-left: 8px; }
+.file-modal-footer { background: #eef2f8; border-top: 1px solid #c8d4e0; padding: 8px 12px; display: flex; justify-content: flex-end; gap: 6px; }
+
+/* ══ TOOLBAR ══ */
+.toolbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px; background: linear-gradient(#f0f4f9,#e2e8f0);
+  border: 1px solid #9aa7b4; border-bottom: none;
+}
+.toolbar-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; font-size: 12px; font-weight: bold;
+  border: 1px solid #7a9cbf; border-radius: 3px; cursor: pointer;
+  background: linear-gradient(to bottom,#f0f4f9,#d8e2ec); color: #1a2a3a;
+}
+.toolbar-btn:hover { background: linear-gradient(to bottom,#dde8f4,#c0cedc); }
+.del-btn { color: #8b1a1a; border-color: #c09090; background: linear-gradient(to bottom,#faf0f0,#edd8d8); }
+.del-btn:hover { background: linear-gradient(to bottom,#f5e0e0,#e0c0c0); }
+.toolbar-sep { width: 1px; height: 22px; background: #9aa7b4; margin: 0 2px; }
+
+/* ══ ADD CHARGE MODAL ══ */
+.add-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 1500;
+  align-items: center; justify-content: center;
+}
+.add-modal-overlay.active { display: flex; }
+.add-modal {
+  background: #dde4ed; border: 2px solid #7a9cbf; border-radius: 4px;
+  width: 560px; font-size: 12px; box-shadow: 4px 4px 16px rgba(0,0,0,.4);
+  overflow: hidden; max-height: 90vh; display: flex; flex-direction: column;
+}
+.add-modal-title {
+  background: linear-gradient(to bottom,#7fa8d0,#5580a8);
+  color: white; font-weight: bold; font-size: 13px; padding: 6px 10px; flex-shrink: 0;
+}
+.add-modal-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
+.add-search-wrap {
+  display: flex; border: 1px solid #8faec7; background: white;
+  border-radius: 3px; overflow: hidden; margin-bottom: 10px;
+}
+.add-search-wrap input { flex: 1; border: none; outline: none; padding: 4px 8px; font-size: 12px; height: 26px; }
+.add-search-wrap span { padding: 0 8px; color: #7a9cbf; font-size: 14px; display:flex; align-items:center; }
+.predefined-list {
+  border: 1px solid #b0bfcc; border-radius: 3px; background: white;
+  max-height: 220px; overflow-y: auto; margin-bottom: 12px;
+}
+.predefined-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-bottom: 1px solid #e0e8f0; cursor: pointer;
+}
+.predefined-item:last-child { border-bottom: none; }
+.predefined-item:hover { background: #eef4ff; }
+.predefined-item.checked { background: #d9d9ff; }
+.predefined-item input[type="checkbox"] { cursor: pointer; accent-color: #5580a8; width:14px; height:14px; }
+.predefined-item-name { flex: 1; color: #1a3a5c; }
+.predefined-item-cat {
+  font-size: 10px; color: #7a9cbf; background: #eaf0f8;
+  border: 1px solid #c0d4e8; border-radius: 8px; padding: 1px 7px; white-space:nowrap;
+}
+.custom-charge-box {
+  padding: 10px; background: #f4f8fc; border: 1px dashed #9aacbd; border-radius: 4px; margin-bottom: 4px;
+}
+.custom-charge-box .section-label { margin-bottom: 8px; }
+.custom-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.custom-row input, .custom-row select {
+  height: 24px; border: 1px solid #8faec7; font-size: 12px;
+  background: white; border-radius: 2px; padding: 2px 6px;
+}
+.custom-row input { flex: 1; }
+.custom-row select { width: 130px; }
+.add-custom-btn {
+  padding: 3px 12px; font-size: 12px; border: 1px solid #7a9cbf; border-radius: 3px;
+  background: linear-gradient(to bottom,#f0f4f9,#d8e2ec); cursor: pointer; color: #1a2a3a; font-weight: bold;
+}
+.add-custom-btn:hover { background: linear-gradient(to bottom,#dde8f4,#c0cedc); }
+.section-label {
+  font-weight: bold; color: #4a6080; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px;
+}
+.sel-count { font-size: 11px; color: #3a6a9a; margin-left:auto; }
+.add-modal-footer { background: #c8d4e0; border-top: 1px solid #9aacbd; padding: 8px 12px; display: flex; justify-content: flex-end; gap: 6px; flex-shrink:0; }
+.no-results { padding: 12px; text-align: center; color: #8aA0b0; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <button class="toolbar-btn" onclick="openAddChargeModal()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Charge
+  </button>
+  <div class="toolbar-sep"></div>
+  <button class="toolbar-btn del-btn" onclick="deleteSelected()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    Delete Selected
+  </button>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <div class="tab active"  onclick="switchTab('particulars')">Particulars</div>
+  <div class="tab"         onclick="switchTab('revenue')">Revenue</div>
+  <div class="tab"         onclick="switchTab('cost')">Cost</div>
+</div>
+
+<!-- GRID -->
+<div class="grid-wrapper">
+
+  <div class="tab-panel active" id="tab-particulars">
+    <table>
+      <thead><tr class="header">
+        <th>Charge Head</th><th>Curr</th><th>Basis</th>
+        <th>Category</th><th>Cost Center</th>
+        <th style="width:60px;text-align:center">Files</th>
+      </tr></thead>
+      <tbody id="tbody-particulars"></tbody>
+    </table>
+  </div>
+
+  <div class="tab-panel" id="tab-revenue">
+    <table>
+      <thead><tr class="header">
+        <th>Charge Head</th><th>Curr</th><th>Basis</th>
+        <th style="text-align:right">Rate</th>
+        <th style="text-align:right">Amount</th>
+        <th style="text-align:right">Amount (INR)</th>
+        <th>Receivable</th>
+        <th style="width:60px;text-align:center">Files</th>
+      </tr></thead>
+      <tbody id="tbody-revenue"></tbody>
+    </table>
+  </div>
+
+  <div class="tab-panel" id="tab-cost">
+    <table>
+      <thead><tr class="header">
+        <th>Charge Head</th><th>Curr</th><th>Basis</th>
+        <th style="text-align:right">Rate</th>
+        <th style="text-align:right">Amount</th>
+        <th style="text-align:right">Amount (INR)</th>
+        <th>Payable</th>
+        <th style="width:60px;text-align:center">Files</th>
+      </tr></thead>
+      <tbody id="tbody-cost"></tbody>
+    </table>
+  </div>
+
+</div><!-- /grid-wrapper -->
+
+
+<!-- EDIT CHARGE MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">Edit Charge</div>
+    <div class="modal-body">
+      <div class="form-section">
+        <div class="form-left">
+          <div class="form-row">
+            <span class="form-label">Charge</span>
+            <div class="form-input-search"><input type="text" id="fCharge"><button class="search-btn">🔍</button></div>
+          </div>
+          <div class="form-row">
+            <span class="form-label">Category</span>
+            <input type="text" class="form-input" id="fCategory">
+          </div>
+          <div class="form-row">
+            <span class="form-label">Cost Center</span>
+            <div class="form-input-search"><input type="text" id="fCostCenter"><button class="search-btn">🔍</button></div>
+          </div>
+        </div>
+        <div class="form-right">
+          <span style="color:#333">Remark</span>
+          <textarea class="remark-area" id="fRemark"></textarea>
+        </div>
+      </div>
+
+      <div class="charge-table-wrap">
+        <table class="charge-table">
+          <thead>
+            <tr>
+              <th style="width:60px"></th>
+              <th>Basis</th><th>Qty/Unit</th><th style="width:40px"></th>
+              <th>Rate</th><th>Amount</th><th>Amount(INR)</th>
+              <th style="width:34px">Ovrd</th><th style="width:34px">Pstd</th>
+              <th style="width:26px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Revenue -->
+            <tr id="revSummaryRow" style="cursor:pointer" onclick="togglePanel('rev')">
+              <td class="row-label">Revenue</td>
+              <td>Per B/E - Per Shp</td><td>1.00</td><td>INR</td>
+              <td id="revRateDisplay">0.00</td><td id="revAmountDisplay">0.00</td><td id="revAmountINRDisplay">0.00</td>
+              <td style="text-align:center"></td><td style="text-align:center"></td>
+              <td><button class="arrow-btn" id="revArrow" onclick="event.stopPropagation();togglePanel('rev')">▼</button></td>
+            </tr>
+            <tr class="expand-row"><td colspan="10">
+              <div class="expand-panel" id="revPanel">
+                <div class="ep-desc-row">
+                  <span class="ep-label">Charge Description</span>
+                  <input type="text" class="ep-desc-input">
+                </div>
+                <div class="ep-grid">
+                  <div class="ep-row"><span class="ep-label">Basis</span>
+                    <select class="ep-select">
+                      <option>Per Package</option><option>By Gross Wt</option><option>By Chg Wt</option>
+                      <option>By Volume</option><option>Per Container</option><option>Per TEU</option>
+                      <option>Per FEU</option><option>% of Other Charges</option>
+                      <option>% of Assessable Value</option><option>% of AV+Duty</option>
+                      <option>% of CIF Value</option><option>Per Vehicle</option>
+                      <option>% of Invoice Value</option><option>Per License</option>
+                      <option selected>Per B/E - Per Shp</option>
+                      <option>% of Product Value</option><option>Per Labour</option>
+                      <option>Per Product</option><option>By Net Wt</option><option>Per Invoice</option>
+                    </select>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Override Auto Rate</span><input type="checkbox"></div>
+                  <div class="ep-row"><span class="ep-label">Qty/Unit</span>
+                    <div class="ep-inline"><input type="text" value="1.00"><input type="text"></div>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Receivable Type</span>
+                    <select class="ep-select"><option>Customer</option><option>Agent</option><option>Carrier</option></select>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Rate</span>
+                    <div class="ep-inline">
+                      <input type="text" id="revRate" value="0.00">
+                      <select><option>INR</option><option>USD</option><option>EUR</option></select>
+                    </div>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Receivable From</span>
+                    <div class="ep-search-wrap"><input type="text" id="revRecFrom" value="GURU RAJENDRA METALLOYS INDI"><button class="ep-search-btn">🔍</button></div>
+                    <span class="ep-link" style="margin-left:6px;white-space:nowrap">BRANCH CODE 4</span>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Amount</span>
+                    <div class="ep-inline"><input type="text" id="revAmount" value="0.00"><span>INR</span></div>
+                  </div>
+                  <div class="ep-row"></div>
+                  <div class="ep-row"><span class="ep-label">Amount(INR)</span>
+                    <div class="ep-inline"><input type="text" id="revAmountINR" value="0.00"><span>INR</span></div>
+                  </div>
+                </div>
+                <div class="ep-copy-row">Copy to Cost <input type="checkbox" checked></div>
+              </div>
+            </td></tr>
+
+            <!-- Cost -->
+            <tr id="costSummaryRow" style="cursor:pointer" onclick="togglePanel('cost')">
+              <td class="row-label">Cost</td>
+              <td>Per B/E - Per Shp</td><td>1.00</td><td>INR</td>
+              <td id="costRateDisplay">0.00</td><td id="costAmountDisplay">0.00</td><td id="costAmountINRDisplay">0.00</td>
+              <td style="text-align:center"></td><td style="text-align:center"></td>
+              <td><button class="arrow-btn" id="costArrow" onclick="event.stopPropagation();togglePanel('cost')">▼</button></td>
+            </tr>
+            <tr class="expand-row"><td colspan="10">
+              <div class="expand-panel" id="costPanel">
+                <div class="ep-desc-row">
+                  <span class="ep-label">Charge Description</span>
+                  <input type="text" class="ep-desc-input">
+                </div>
+                <div class="ep-grid">
+                  <div class="ep-row"><span class="ep-label">Basis</span>
+                    <select class="ep-select">
+                      <option>Per Package</option><option>By Gross Wt</option><option>By Chg Wt</option>
+                      <option>By Volume</option><option>Per Container</option><option>Per TEU</option>
+                      <option>Per FEU</option><option>% of Other Charges</option>
+                      <option>% of Assessable Value</option><option>% of AV+Duty</option>
+                      <option>% of CIF Value</option><option>Per Vehicle</option>
+                      <option>% of Invoice Value</option><option>Per License</option>
+                      <option selected>Per B/E - Per Shp</option>
+                      <option>% of Product Value</option><option>Per Labour</option>
+                      <option>Per Product</option><option>By Net Wt</option><option>Per Invoice</option>
+                    </select>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Override Auto Rate</span><input type="checkbox"></div>
+                  <div class="ep-row"><span class="ep-label">Qty/Unit</span>
+                    <div class="ep-inline"><input type="text" value="1.00"><input type="text"></div>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Payable Type</span>
+                    <select class="ep-select"><option>Vendor</option><option>Agent</option><option>Carrier</option></select>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Rate</span>
+                    <div class="ep-inline">
+                      <input type="text" id="costRate" value="0.00">
+                      <select><option>INR</option><option>USD</option><option>EUR</option></select>
+                    </div>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Payable To</span>
+                    <div class="ep-search-wrap"><input type="text" id="costPayTo"><button class="ep-search-btn">🔍</button></div>
+                  </div>
+                  <div class="ep-row"><span class="ep-label">Amount</span>
+                    <div class="ep-inline"><input type="text" id="costAmount" value="0.00"><span>INR</span></div>
+                  </div>
+                  <div class="ep-row"></div>
+                  <div class="ep-row"><span class="ep-label">Amount(INR)</span>
+                    <div class="ep-inline"><input type="text" id="costAmountINR" value="0.00"><span>INR</span></div>
+                  </div>
+                </div>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Update</button>
+      <button class="btn" onclick="closeModal()">Update &amp; Close</button>
+      <button class="btn" onclick="closeModal()">Update &amp; New</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- FILE UPLOAD MODAL -->
+<div class="file-modal-overlay" id="fileModalOverlay">
+  <div class="file-modal">
+    <div class="file-modal-title">📎 Attach Files — <span id="fileModalRowLabel"></span></div>
+    <div class="file-modal-body">
+      <div class="drop-zone" id="dropZone"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <div style="font-size:28px;margin-bottom:6px;opacity:.5">⬆</div>
+        <p><strong>Drag &amp; drop files here</strong></p>
+        <p>or <span class="browse-link">browse to upload</span></p>
+        <p style="color:#8aA0b0;font-size:11px;margin-top:6px">PDF, JPG, PNG, XLSX, DOCX supported</p>
+        <input type="file" id="fileInput" multiple style="display:none" onchange="handleFileInput(event)">
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+    <div class="file-modal-footer">
+      <button class="btn" onclick="saveFiles()">Attach</button>
+      <button class="btn" onclick="closeFileModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ADD CHARGE MODAL -->
+<div class="add-modal-overlay" id="addModalOverlay">
+  <div class="add-modal">
+    <div class="add-modal-title">➕ Add Charge</div>
+    <div class="add-modal-body">
+
+      <!-- Search -->
+      <div class="section-label">Search or select predefined charges</div>
+      <div class="add-search-wrap">
+        <span>🔍</span>
+        <input type="text" id="addSearchInput" placeholder="Type to filter charges..." oninput="filterPredefined()">
+      </div>
+
+      <!-- Predefined list -->
+      <div class="predefined-list" id="predefinedList"></div>
+
+      <!-- Custom charge -->
+      <div class="custom-charge-box">
+        <div class="section-label">➕ Add Custom Charge</div>
+        <div class="custom-row">
+          <input type="text" id="customChargeName" placeholder="Enter charge name...">
+          <select id="customChargeCategory">
+            <option value="">-- Category --</option>
+            <option>Freight</option>
+            <option>Reimbursement</option>
+            <option>Insurance</option>
+            <option>Surcharge</option>
+            <option>Transport</option>
+            <option>Service Charge</option>
+            <option>Customs</option>
+            <option>Miscellaneous</option>
+            <option>Document</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="add-custom-btn" onclick="addCustomCharge()">Add to List</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="add-modal-footer">
+      <span class="sel-count" id="selCount"></span>
+      <button class="btn" onclick="confirmAddCharges()">Add Selected</button>
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ── DATA ──
+const chargeData = [
+  { id:1, charge:'EDI CHARGES',                  curr:'INR', basis:'Per B/E - Per Shp', category:'Service Charge', costCenter:'CCLIMP', revRate:'0.00',      revAmt:'0.00',      revAmtINR:'0.00',      receivable:'GURU RAJENDRA METAL', payable:'',                    costRate:'0.00',      costAmt:'0.00',      costAmtINR:'0.00'      },
+  { id:2, charge:'ODEX INDIA SOLUTIONS PVT LTD', curr:'INR', basis:'Per B/E - Per Shp', category:'Reimbursement',  costCenter:'CCLIMP', revRate:'0.00',      revAmt:'0.00',      revAmtINR:'0.00',      receivable:'GURU RAJENDRA METAL', payable:'',                    costRate:'0.00',      costAmt:'0.00',      costAmtINR:'0.00'      },
+  { id:3, charge:'INSURANCE CHARGES',            curr:'INR', basis:'Per B/E - Per Shp', category:'Insurance',      costCenter:'CCLIMP', revRate:'0.00',      revAmt:'0.00',      revAmtINR:'0.00',      receivable:'GURU RAJENDRA METAL', payable:'',                    costRate:'0.00',      costAmt:'0.00',      costAmtINR:'0.00'      },
+  { id:4, charge:'HASTI PETRO CHEMICALS',        curr:'INR', basis:'Per B/E - Per Shp', category:'Freight',        costCenter:'CCLIMP', revRate:'0.00',      revAmt:'0.00',      revAmtINR:'0.00',      receivable:'GURU RAJENDRA METAL', payable:'',                    costRate:'0.00',      costAmt:'0.00',      costAmtINR:'0.00'      },
+  { id:5, charge:'EMIRATES SHIPPING AGENCIES',   curr:'INR', basis:'Per B/E - Per Shp', category:'Freight',        costCenter:'CCLIMP', revRate:'104789.00', revAmt:'104789.00', revAmtINR:'104789.00', receivable:'GURU RAJENDRA METAL', payable:'EMIRATES SHIPPING A', costRate:'104789.00', costAmt:'104789.00', costAmtINR:'104789.00' },
+  { id:6, charge:'EMIRATES SHIPPING AGENCIES',   curr:'INR', basis:'Per B/E - Per Shp', category:'Surcharge',      costCenter:'CCLIMP', revRate:'7080.00',   revAmt:'7080.00',   revAmtINR:'7080.00',   receivable:'GURU RAJENDRA METAL', payable:'EMIRATES SHIPPING A', costRate:'7080.00',   costAmt:'7080.00',   costAmtINR:'7080.00'   },
+  { id:7, charge:'THAR LOGISTICS',               curr:'INR', basis:'Per B/E - Per Shp', category:'Transport',      costCenter:'CCLIMP', revRate:'2360.00',   revAmt:'2360.00',   revAmtINR:'2360.00',   receivable:'GURU RAJENDRA METAL', payable:'THAR LOGISTICS',      costRate:'2360.00',   costAmt:'2360.00',   costAmtINR:'2360.00'   },
+  { id:8, charge:'HASTI PETRO CHEMICALS',        curr:'INR', basis:'Per B/E - Per Shp', category:'Freight',        costCenter:'CCLIMP', revRate:'9216.00',   revAmt:'9216.00',   revAmtINR:'9216.00',   receivable:'GURU RAJENDRA METAL', payable:'HASTI PETRO CHEMIC',  costRate:'9216.00',   costAmt:'9216.00',   costAmtINR:'9216.00'   },
+];
+
+const filesStore = {};   // rowId -> File[]
+let currentFileRowId = null;
+let tempFiles = [];
+let selectedRowId = null;
+
+// ── RENDER ──
+function uploadCell(rowId) {
+  const files = filesStore[rowId] || [];
+  if (!files.length) {
+    return `<td class="upload-cell">
+      <button class="upload-btn" onclick="openFileModal(${rowId},event)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>Upload
+      </button></td>`;
+  }
+  return `<td class="upload-cell">
+    <span class="file-badge" onclick="openFileModal(${rowId},event)">📎 ${files.length}</span>
+  </td>`;
+}
+
+function renderRows() {
+  ['particulars','revenue','cost'].forEach(tab => {
+    const tbody = document.getElementById('tbody-'+tab);
+    tbody.innerHTML = chargeData.map(r => {
+      const sel = selectedRowId === r.id ? 'selected' : '';
+      let cells = '';
+      if (tab === 'particulars') {
+        cells = `<td>${r.charge}</td><td>${r.curr}</td><td>${r.basis}</td><td>${r.category}</td><td>${r.costCenter}</td>`;
+      } else if (tab === 'revenue') {
+        cells = `<td>${r.charge}</td><td>${r.curr}</td><td>${r.basis}</td>
+                 <td class="number">${r.revRate}</td><td class="number">${r.revAmt}</td>
+                 <td class="number">${r.revAmtINR}</td><td>${r.receivable}</td>`;
+      } else {
+        cells = `<td>${r.charge}</td><td>${r.curr}</td><td>${r.basis}</td>
+                 <td class="number">${r.costRate}</td><td class="number">${r.costAmt}</td>
+                 <td class="number">${r.costAmtINR}</td><td>${r.payable}</td>`;
+      }
+      return `<tr data-id="${r.id}" class="${sel}">${cells}${uploadCell(r.id)}</tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('tr').forEach(tr => {
+      tr.addEventListener('click', e => {
+        if (e.target.closest('.upload-cell')) return;
+        openEditModal(parseInt(tr.dataset.id));
+      });
+    });
+  });
+}
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['particulars','revenue','cost'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ── EDIT MODAL ──
+function openEditModal(id) {
+  const r = chargeData.find(x => x.id === id);
+  if (!r) return;
+  selectedRowId = id;
+  renderRows();
+
+  document.getElementById('fCharge').value      = r.charge;
+  document.getElementById('fCategory').value    = r.category;
+  document.getElementById('fCostCenter').value  = r.costCenter;
+  document.getElementById('revRateDisplay').textContent       = r.revRate;
+  document.getElementById('revAmountDisplay').textContent     = r.revAmt;
+  document.getElementById('revAmountINRDisplay').textContent  = r.revAmtINR;
+  document.getElementById('costRateDisplay').textContent      = r.costRate;
+  document.getElementById('costAmountDisplay').textContent    = r.costAmt;
+  document.getElementById('costAmountINRDisplay').textContent = r.costAmtINR;
+  document.getElementById('revRate').value      = r.revRate;
+  document.getElementById('revAmount').value    = r.revAmt;
+  document.getElementById('revAmountINR').value = r.revAmtINR;
+  document.getElementById('costRate').value     = r.costRate;
+  document.getElementById('costAmount').value   = r.costAmt;
+  document.getElementById('costAmountINR').value= r.costAmtINR;
+
+  closePanel('rev'); closePanel('cost');
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  closePanel('rev'); closePanel('cost');
+}
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+
+function togglePanel(type) {
+  const panel = document.getElementById(type+'Panel');
+  const isOpen = panel.classList.contains('open');
+  closePanel('rev'); closePanel('cost');
+  if (!isOpen) { panel.classList.add('open'); document.getElementById(type+'Arrow').textContent='▲'; }
+}
+function closePanel(type) {
+  const p = document.getElementById(type+'Panel'), a = document.getElementById(type+'Arrow');
+  if (p) p.classList.remove('open');
+  if (a) a.textContent = '▼';
+}
+
+// ── FILE MODAL ──
+function openFileModal(rowId, e) {
+  e.stopPropagation();
+  currentFileRowId = rowId;
+  tempFiles = [...(filesStore[rowId] || [])];
+  const r = chargeData.find(x => x.id === rowId);
+  document.getElementById('fileModalRowLabel').textContent = r ? r.charge : '';
+  renderFileList();
+  document.getElementById('fileModalOverlay').classList.add('active');
+}
+function closeFileModal() {
+  document.getElementById('fileModalOverlay').classList.remove('active');
+  currentFileRowId = null; tempFiles = [];
+}
+function handleFileInput(e) {
+  [...e.target.files].forEach(f => tempFiles.push(f));
+  e.target.value = ''; renderFileList();
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  [...e.dataTransfer.files].forEach(f => tempFiles.push(f));
+  renderFileList();
+}
+function removeFile(i) { tempFiles.splice(i,1); renderFileList(); }
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = tempFiles.map((f,i) => `
+    <div class="file-item">
+      <span class="file-item-name">📄 ${f.name} <span style="color:#8aA0b0">(${(f.size/1024).toFixed(1)} KB)</span></span>
+      <span class="file-remove" onclick="removeFile(${i})">✕</span>
+    </div>`).join('');
+}
+function saveFiles() {
+  if (currentFileRowId !== null) { filesStore[currentFileRowId] = [...tempFiles]; renderRows(); }
+  closeFileModal();
+}
+document.getElementById('fileModalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('fileModalOverlay')) closeFileModal();
+});
+
+// ── INIT ──
+renderRows();
+
+// ══════════════════════════════
+// PREDEFINED CHARGES
+// ══════════════════════════════
+const PREDEFINED = [
+  { name: 'EDI CHARGES',                                          category: 'Service Charge' },
+  { name: 'ODEX INDIA SOLUTIONS PVT LTD',                        category: 'Reimbursement'  },
+  { name: 'HASTI PETRO CHEMICALS & SHIPPING LTD - IMPORT',       category: 'Freight'        },
+  { name: 'CONTAINER CORPN OF INDIA LTD.',                       category: 'Freight'        },
+  { name: 'SR CONTAINER CARRIERS',                               category: 'Transport'      },
+  { name: 'BOND PAPER EXP.',                                     category: 'Document'       },
+  { name: 'THAR LOGISTICS',                                      category: 'Transport'      },
+  { name: 'CUSTOMS DUTY',                                        category: 'Customs'        },
+  { name: 'LABOUR & MISC CHARGES',                               category: 'Miscellaneous'  },
+  { name: 'OTHER DOCUMENT',                                      category: 'Document'       },
+];
+
+// dynamic list (predefined + any user-added custom ones)
+let predefinedList = [...PREDEFINED];
+let selectedNames  = new Set();
+let nextId = chargeData.length + 1;
+
+function openAddChargeModal() {
+  selectedNames.clear();
+  document.getElementById('addSearchInput').value = '';
+  document.getElementById('customChargeName').value = '';
+  document.getElementById('customChargeCategory').value = '';
+  renderPredefinedList('');
+  updateSelCount();
+  document.getElementById('addModalOverlay').classList.add('active');
+}
+
+function closeAddModal() {
+  document.getElementById('addModalOverlay').classList.remove('active');
+}
+
+function filterPredefined() {
+  renderPredefinedList(document.getElementById('addSearchInput').value.trim());
+}
+
+function renderPredefinedList(query) {
+  const container = document.getElementById('predefinedList');
+  const q = query.toLowerCase();
+  const filtered = predefinedList.filter(p => p.name.toLowerCase().includes(q));
+  if (!filtered.length) {
+    container.innerHTML = '<div class="no-results">No matching charges found</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(p => {
+    const checked = selectedNames.has(p.name);
+    return `<label class="predefined-item ${checked?'checked':''}" onclick="togglePredefined('${p.name.replace(/'/g,"\\'")}', this)">
+      <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation()">
+      <span class="predefined-item-name">${p.name}</span>
+      <span class="predefined-item-cat">${p.category}</span>
+    </label>`;
+  }).join('');
+}
+
+function togglePredefined(name, el) {
+  if (selectedNames.has(name)) {
+    selectedNames.delete(name);
+    el.classList.remove('checked');
+    el.querySelector('input').checked = false;
+  } else {
+    selectedNames.add(name);
+    el.classList.add('checked');
+    el.querySelector('input').checked = true;
+  }
+  updateSelCount();
+}
+
+function updateSelCount() {
+  const n = selectedNames.size;
+  document.getElementById('selCount').textContent = n ? `${n} charge${n>1?'s':''} selected` : '';
+}
+
+function addCustomCharge() {
+  const name = document.getElementById('customChargeName').value.trim();
+  const cat  = document.getElementById('customChargeCategory').value || 'Miscellaneous';
+  if (!name) { alert('Please enter a charge name.'); return; }
+  if (predefinedList.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+    alert('A charge with this name already exists in the list.');
+    return;
+  }
+  predefinedList.unshift({ name, category: cat });
+  selectedNames.add(name);
+  document.getElementById('customChargeName').value = '';
+  document.getElementById('customChargeCategory').value = '';
+  renderPredefinedList(document.getElementById('addSearchInput').value.trim());
+  updateSelCount();
+}
+
+function confirmAddCharges() {
+  if (!selectedNames.size) { alert('Please select at least one charge.'); return; }
+  selectedNames.forEach(name => {
+    const pre = predefinedList.find(p => p.name === name);
+    chargeData.push({
+      id: nextId++,
+      charge: name,
+      curr: 'INR',
+      basis: 'Per B/E - Per Shp',
+      category: pre ? pre.category : 'Miscellaneous',
+      costCenter: 'CCLIMP',
+      revRate: '0.00', revAmt: '0.00', revAmtINR: '0.00',
+      receivable: '',  payable: '',
+      costRate: '0.00', costAmt: '0.00', costAmtINR: '0.00'
+    });
+  });
+  renderRows();
+  closeAddModal();
+}
+
+document.getElementById('addModalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('addModalOverlay')) closeAddModal();
+});
+
+// ══════════════════════════════
+// DELETE SELECTED
+// ══════════════════════════════
+function deleteSelected() {
+  if (!selectedRowId) { alert('Please select a row to delete.'); return; }
+  if (!confirm('Delete this charge?')) return;
+  const idx = chargeData.findIndex(r => r.id === selectedRowId);
+  if (idx !== -1) chargeData.splice(idx, 1);
+  selectedRowId = null;
+  renderRows();
+}
+</script>
+</body>
+</html>

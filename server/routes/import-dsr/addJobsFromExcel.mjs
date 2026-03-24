@@ -2,6 +2,9 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+import { generateJobNumber } from "../../services/jobNumberService.mjs";
+import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -42,12 +45,13 @@ const currentTimeIST = formatDateToIST();
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post(
   "/api/jobs/add-job-all-In-bond",
+  authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {
       const jobs = await JobModel.find(
         { type_of_b_e: "In-Bond" },
-        { job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
+        { job_number: 1, job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
       );
       res.status(200).json(jobs);
     } catch (error) {
@@ -60,6 +64,7 @@ router.post(
 // Route to add a new job
 router.post(
   "/api/jobs/add-job-imp-man",
+  authMiddleware,
   auditMiddleware("Job"),
   async (req, res) => {
     try {
@@ -69,8 +74,12 @@ router.post(
         awb_bl_no,
         custom_house,
         year,
-        job_date,
+        branch_id,
+        trade_type,
+        mode,
       } = req.body;
+
+      const financial_year = year;
 
       // ✅ Validate required fields
       if (!importer || !custom_house) {
@@ -78,40 +87,55 @@ router.post(
       }
 
       // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
-      if (container_nos && container_nos.length > 1) {
-        const existingContainer = await JobModel.findOne({
-          "container_nos.container_number": {
-            $in: container_nos.map((c) => c.container_number),
-          },
-        });
+      if (container_nos && container_nos.length > 0) {
+        // Prepare container numbers for checking
+        const containerNumbers = container_nos
+          .map((c) => c.container_number)
+          .filter(cn => cn && cn.trim().length > 0);
 
-        if (existingContainer) {
-          return res.status(400).json({
-            message: `Duplicate container number found: ${container_nos
-              .map((c) => c.container_number)
-              .join(", ")}`,
+        if (containerNumbers.length > 0) {
+          const existingContainer = await JobModel.findOne({
+            "container_nos.container_number": { $in: containerNumbers },
           });
+
+          if (existingContainer) {
+            return res.status(400).json({
+              message: `Duplicate container number found globally: ${existingContainer.container_nos
+                .map((c) => c.container_number)
+                .filter(cn => containerNumbers.includes(cn))
+                .join(", ")}`,
+            });
+          }
         }
       }
 
-      // ✅ Check for duplicate BL Number **only if awb_bl_no is provided**
+      // ✅ Check for duplicate BL Number globally
       if (awb_bl_no && awb_bl_no.length > 0) {
-        const existingBl = await JobModel.findOne({ awb_bl_no });
+        const existingBl = await JobModel.findOne({ 
+          awb_bl_no,
+        });
 
         if (existingBl) {
           return res.status(400).json({
-            message: `Duplicate BL number found: ${awb_bl_no}`,
+            message: `Duplicate BL number found globally: ${awb_bl_no}`,
           });
         }
       }
 
-      // ✅ Generate new job_no
-      const lastJob = await JobModel.findOne({ year }, { job_no: 1 })
-        .sort({ job_no: -1 })
-        .exec();
-      const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
-      const totalDigits = lastJob?.job_no?.length || 5;
-      const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
+      // ✅ Validate branch_id
+      if (!branch_id) {
+        return res.status(400).json({ message: "Please select a branch." });
+      }
+
+      // ✅ Generate new structured job_number
+      const { job_number, branch_code, sequence_number, job_no: newJobNo } = await generateJobNumber({
+        branch_id,
+        trade_type,
+        mode,
+        financial_year
+      });
+
+      console.log(`[AddJobRoute] Generated Job No: ${newJobNo}, Job Number: ${job_number}`);
       const getTodayDate = () => {
         const today = new Date();
         const day = String(today.getDate()).padStart(2, "0");
@@ -124,9 +148,16 @@ router.post(
 
       // ✅ Create new job entry
       const newJob = new JobModel({
+        ...sanitizeJobPayload(req.body), // Spread first so generated fields take precedence
         job_no: newJobNo,
-        ...req.body,
-        job_date: todayDate, // ← This line sets job_date to "now" if not provided
+        job_number,
+        branch_id,
+        branch_code,
+        trade_type,
+        mode,
+        sequence_number,
+        financial_year,
+        job_date: todayDate,
       });
 
       // ✅ Save to database
@@ -143,6 +174,7 @@ router.post(
         message: "Job successfully created.",
         job: {
           job_no: newJob.job_no,
+          job_number: newJob.job_number,
           custom_house: newJob.custom_house,
           importer: newJob.importer,
         },
@@ -160,32 +192,33 @@ router.post(
 
 router.post(
   "/api/jobs/add-job",
-  // auditMiddleware('Job'), // Disabled for bulk operations - causes performance issues with large datasets
+  authMiddleware,
+  auditMiddleware('Job'),
   async (req, res) => {
-    const jsonData = req.body;
+    const { jobs: jsonData, branch_id, branch_code, mode } = req.body;
     const CHUNK_SIZE = 1000; // Process 1000 jobs at a time
 
-    console.log(`📊 [Backend] Starting to process ${jsonData.length} jobs...`);
+    console.log(`📊 [Backend] Starting to process ${jsonData.length} jobs for branch ${branch_code} and mode ${mode}...`);
     const startTime = Date.now();
 
     try {
-      // OPTIMIZATION: Batch fetch all existing jobs in one query
-      console.log(`🔍 [Backend] Fetching existing jobs from database...`);
-      const jobKeys = jsonData.map((d) => ({ year: d.year, job_no: d.job_no }));
-
-      // Get unique year values for the query
+      // Get unique year and job_no values for the batch query
       const years = [...new Set(jsonData.map((d) => d.year))];
       const jobNos = [...new Set(jsonData.map((d) => d.job_no))];
 
+      console.log(`🔍 [Backend] Fetching existing jobs from database for ${years.length} years and ${jobNos.length} job numbers...`);
+      
       const existingJobs = await JobModel.find({
         year: { $in: years },
         job_no: { $in: jobNos },
+        branch_id: branch_id,
+        mode: mode
       }).lean();
 
       // Create a Map for O(1) lookup
       const existingJobsMap = new Map();
       existingJobs.forEach((job) => {
-        existingJobsMap.set(`${job.year}_${job.job_no}`, job);
+        existingJobsMap.set(`${job.year}_${job.job_no}_${job.branch_id}_${job.mode}`, job);
       });
 
       console.log(
@@ -196,6 +229,7 @@ router.post(
       let processedCount = 0;
 
       for (const data of jsonData) {
+        const sanitizedData = sanitizeJobPayload(data);
         const {
           year,
           job_no,
@@ -219,21 +253,22 @@ router.post(
           container_nos,
           hss_name,
           total_inv_value,
-        } = data;
+        } = sanitizedData;
 
         // Sanitize bill_date before using it
         const sanitizedBillDate =
           typeof bill_date === "string"
             ? bill_date
             : bill_date != null
-            ? String(bill_date)
-            : "";
+              ? String(bill_date)
+              : "";
 
         // Define the filter to find existing jobs
-        const filter = { year, job_no };
+        const filter = { year, job_no, branch_id, mode };
 
         // OPTIMIZATION: Use Map lookup instead of database query
-        const existingJob = existingJobsMap.get(`${year}_${job_no}`);
+        const lookupKey = `${year}_${job_no}_${branch_id}_${mode}`;
+        const existingJob = existingJobsMap.get(lookupKey);
         let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
         let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
         let lineNoUpdate = existingJob?.line_no || "";
@@ -259,6 +294,19 @@ router.post(
           iceCodeUpdate = ie_code_no;
         }
 
+        // Apply selected branch and mode
+        const trade_type = sanitizedData.trade_type || "IMP";
+        const seqNum = parseInt(job_no, 10);
+        const paddedSeq = !isNaN(seqNum) ? seqNum.toString().padStart(5, "0") : "00000";
+        const financial_year = year || "24-25";
+        
+        // Re-generate job_number for consistency if branch/mode is provided
+        const finalBranchCode = branch_code || existingJob?.branch_code || "AMD";
+        const finalMode = mode || existingJob?.mode || "SEA";
+        const finalBranchId = branch_id || existingJob?.branch_id;
+        
+        const job_number = `${finalBranchCode}/${trade_type}/${finalMode}/${paddedSeq}/${financial_year}`;
+
         if (existingJob) {
           // Logic to merge or update container sizes
           const existingContainers = existingJob.container_nos || [];
@@ -270,16 +318,22 @@ router.post(
 
               return newContainerData
                 ? {
-                    ...existingContainer,
-                    size: newContainerData.size,
-                  }
+                  ...existingContainer,
+                  size: newContainerData.size,
+                }
                 : existingContainer;
             }
           );
 
           const update = {
             $set: {
-              ...data,
+              ...sanitizedData,
+              job_number,
+              branch_id: finalBranchId,
+              branch_code: finalBranchCode,
+              mode: finalMode,
+              sequence_number: seqNum,
+              financial_year,
               vessel_berthing: vesselBerthingToUpdate,
               gateway_igm_date: gateway_igm_dateUpdate,
               line_no: lineNoUpdate,
@@ -315,7 +369,13 @@ router.post(
         } else {
           const update = {
             $set: {
-              ...data,
+              ...sanitizedData,
+              job_number,
+              branch_id: finalBranchId,
+              branch_code: finalBranchCode,
+              mode: finalMode,
+              sequence_number: seqNum,
+              financial_year,
               vessel_berthing: vesselBerthingToUpdate,
               gateway_igm_date: gateway_igm_dateUpdate,
               status: computeStatus(sanitizedBillDate),
@@ -382,7 +442,7 @@ router.post(
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(
-        `🎉 [Backend] All jobs processed successfully! Total: ${jsonData.length} jobs in ${totalTime} seconds`
+        `🎉 [Backend] All jobs processed successfully! Total: ${jsonData.length} jobs for branch ${branch_code} in ${totalTime} seconds`
       );
 
       res.status(200).json({ message: "Jobs added/updated successfully" });
@@ -438,81 +498,7 @@ router.get("/api/jobs/update-pending-status", async (req, res) => {
   }
 });
 
-// Function to determine the detailed status based on the job data
-function determineDetailedStatus(job) {
-  const {
-    be_no,
-    container_nos,
-    out_of_charge,
-    pcv_date,
-    discharge_date,
-    // rail_out_date,
-    gateway_igm_date,
-    vessel_berthing,
-    type_of_b_e,
-    consignment_type,
-  } = job;
-
-  // Validate date using a stricter check
-  const isValidDate = (date) => {
-    if (!date) return false;
-    const parsedDate = new Date(date);
-    return !isNaN(parsedDate.getTime());
-  };
-
-  // Check if any container has an arrival date
-  const anyContainerArrivalDate = container_nos?.some((container) =>
-    isValidDate(container.arrival_date)
-  );
-  const anyContainer_rail_out_date = container_nos?.some((container) =>
-    isValidDate(container.container_rail_out_date)
-  );
-
-  const emptyContainerOffLoadDate = container_nos?.every((container) =>
-    isValidDate(container.emptyContainerOffLoadDate)
-  );
-  const delivery_date = container_nos?.every((container) =>
-    isValidDate(container.delivery_date)
-  );
-
-  const validOutOfChargeDate = isValidDate(out_of_charge);
-  const validPcvDate = isValidDate(pcv_date);
-  const validDischargeDate = isValidDate(discharge_date);
-  const validGatewayIgmDate = isValidDate(gateway_igm_date);
-  const validVesselBerthing = isValidDate(vessel_berthing);
-
-  // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
-  const isExBondOrLCL = type_of_b_e === "Ex-Bond";
-
-  if (
-    be_no &&
-    anyContainerArrivalDate &&
-    validOutOfChargeDate &&
-    (isExBondOrLCL ? delivery_date : emptyContainerOffLoadDate)
-  ) {
-    return "Billing Pending";
-  } else if (be_no && anyContainerArrivalDate && validOutOfChargeDate) {
-    return "Custom Clearance Completed";
-  } else if (be_no && anyContainerArrivalDate && validPcvDate) {
-    return "PCV Done, Duty Payment Pending";
-  } else if (be_no && anyContainerArrivalDate) {
-    return "BE Noted, Clearance Pending";
-  } else if (!be_no && anyContainerArrivalDate) {
-    return "Arrived, BE Note Pending";
-  } else if (be_no) {
-    return "BE Noted, Arrival Pending";
-  } else if (anyContainer_rail_out_date) {
-    return "Rail Out";
-  } else if (validDischargeDate) {
-    return "Discharged";
-  } else if (validGatewayIgmDate) {
-    return "Gateway IGM Filed";
-  } else if (validVesselBerthing) {
-    return "Estimated Time of Arrival";
-  } else {
-    return "ETA Date Pending"; // Fallback if no conditions are met
-  }
-}
+import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 
 function computeStatus(billDate) {
   // Convert billDate to string if it's not already

@@ -1,19 +1,23 @@
 import express from "express";
 import JobModel from "../model/jobModel.mjs";
+import { getBranchMatch } from "../utils/branchFilter.mjs";
+import authMiddleware from "../middleware/authMiddleware.mjs";
+import { applyUserBranchFilter } from "../middleware/branchMiddleware.mjs";
 
 const router = express.Router();
 
 // GET importers by year + status + detailedStatus
 // Example: /api/get-importer-list/25-26?status=Completed&detailedStatus=Discharged
-router.get("/api/get-importer-list/:year", async (req, res) => {
+router.get("/api/get-importer-list/:year", authMiddleware, applyUserBranchFilter, async (req, res) => {
   try {
     const selectedYear = req.params.year;
-    const { status, detailedStatus } = req.query;
+    const { status, detailedStatus, branchId, category } = req.query;
 
     // base match: empty object to fetch all importers irrespective of year, but filter out null/empty ones and exclude 24-25 as it had no IE codes
     const matchStage = {
       importer: { $nin: [null, ""] },
-      year: { $ne: "24-25" }
+      year: { $ne: "24-25" },
+      ...getBranchMatch(branchId, category, req.authorizedBranchIds)
     };
 
     // optional status filter (if provided and not "all")

@@ -3,6 +3,9 @@ import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import logger from "../../logger.js";
 
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+
 const router = express.Router();
 
 // Configure Multer
@@ -57,7 +60,7 @@ const s3Client = new S3Client({
   },
 });
 
-router.post("/api/upload", upload.array("files"), async (req, res) => {
+router.post("/api/upload", authMiddleware, upload.array("files"), auditMiddleware("S3File"), async (req, res) => {
   try {
     const files = req.files;
     const bucketPath = req.body.bucketPath || "uploads"; // Default path if not provided

@@ -1,10 +1,11 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useEffect, useContext } from "react";
 import FileUpload from "./FileUpload";
 import { FaUpload } from "react-icons/fa";
 import axios from "axios";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import BEStatusModal from "../../customHooks/BeStatus"; // Import the modal component
+import { BranchContext } from "../../contexts/BranchContext";
 
 const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -34,16 +35,25 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
     return `${year}/${month}/${day}`; // Format as YYYY/MM/DD for display
   }, []);
 
+  const { branches } = useContext(BranchContext);
+
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "INJKA6",
-        "ICD SANAND": "INSAU6",
-        "ICD KHODIYAR": "INSBI6",
-      };
-      return houseMap[customHouse] || customHouse;
+      // Build a dynamic lookup from all branch port definitions
+      for (const branch of branches || []) {
+        for (const port of branch.ports || []) {
+          if (
+            port.port_name &&
+            port.port_name.toUpperCase() === (customHouse || "").toUpperCase()
+          ) {
+            return port.port_code || customHouse;
+          }
+        }
+      }
+      // Fallback to original value if not found
+      return customHouse;
     },
-    []
+    [branches]
   );
 
   // Sync BE Attachments

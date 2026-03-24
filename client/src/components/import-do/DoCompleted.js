@@ -28,6 +28,15 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
+import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
+
+import ContainerTrackButton from '../ContainerTrackButton';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
+
+
+
 
 function DoCompleted() {
   const [selectedICD, setSelectedICD] = useState("");
@@ -59,6 +68,9 @@ function DoCompleted() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const dynamicICDs = useDynamicICDs();
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -193,7 +205,9 @@ function DoCompleted() {
       currentYear,
       currentICD,
       selectedImporter,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -209,6 +223,8 @@ function DoCompleted() {
               importer: selectedImporter?.trim() || "",
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -245,7 +261,9 @@ function DoCompleted() {
         selectedYearState,
         selectedICD,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -256,7 +274,8 @@ function DoCompleted() {
     selectedImporter,
     user?.username,
     showUnresolvedOnly,
-
+    selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 
@@ -281,9 +300,9 @@ function DoCompleted() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
@@ -293,6 +312,9 @@ function DoCompleted() {
           _id,
           custom_house,
           priorityColor,
+          mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
         const textColor = "blue";
         const bgColor =
@@ -306,7 +328,7 @@ function DoCompleted() {
         // ...existing code...
         return (
           <Link
-            to={`/edit-do-completed/${job_no}/${year}?jobId=${_id}`}
+            to={`/edit-do-completed/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setSelectedJobId(_id)}
@@ -318,10 +340,10 @@ function DoCompleted() {
               display: "inline-block",
               width: "100%",
               padding: "5px",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
           </Link>
         );
@@ -520,43 +542,47 @@ function DoCompleted() {
               </IconButton>
             </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm_date)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM Date">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
             <div
               style={{
@@ -687,6 +713,10 @@ function DoCompleted() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"
@@ -819,13 +849,14 @@ function DoCompleted() {
       header: "Do Completed  & Validity Date",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
         const { do_completed, do_validity, do_copies, cth_documents } =
           cell.row.original;
 
         const doCopies = do_copies;
         const doCompleted = formatDate(do_completed);
         const doValidity = formatDate(do_validity);
+        const branchCode = row.original.branch_code;
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -899,6 +930,8 @@ function DoCompleted() {
                 <span style={{ color: "gray" }}> No DO copies </span>
               </div>
             )}
+
+
             <InvoiceDisplay row={cell.row.original} />
           </div>
         );
@@ -1013,9 +1046,9 @@ function DoCompleted() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>{" "}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"

@@ -94,6 +94,7 @@ const KPIHome = () => {
     const [importTemplateName, setImportTemplateName] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [extendedDeadline, setExtendedDeadline] = useState(null);
+    const [announcement, setAnnouncement] = useState(null);
 
     useEffect(() => {
         fetchTemplates();
@@ -101,6 +102,7 @@ const KPIHome = () => {
         fetchPendingCount();
         fetchTeamTemplates();
         fetchExtendedDeadline();
+        fetchAnnouncement();
     }, []);
 
     useEffect(() => {
@@ -110,6 +112,17 @@ const KPIHome = () => {
     useEffect(() => {
         fetchSheets();
     }, [filterYear]);
+
+    const fetchAnnouncement = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/announcements`, { withCredentials: true });
+            if (res.data && res.data.hasAnnouncement) {
+                setAnnouncement(res.data);
+            }
+        } catch (error) {
+            console.error("Error fetching announcement", error);
+        }
+    };
 
     const fetchExtendedDeadline = async () => {
         try {
@@ -346,25 +359,39 @@ const KPIHome = () => {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
             >
-                {extendedDeadline && (
+                {announcement && (
                     <div style={{
-                        background: 'linear-gradient(to right, #fff7ed, #ffedd5)',
-                        borderLeft: '4px solid #f97316',
-                        padding: '12px 20px',
+                        background: 'linear-gradient(to right, #fef2f2, #fee2e2)',
+                        borderLeft: '4px solid #ef4444',
+                        padding: '16px 20px',
                         borderRadius: '8px',
                         marginBottom: '20px',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '12px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.1)',
+                        position: 'relative'
                     }}>
-                        <span style={{ fontSize: '1.4rem' }}>📢</span>
-                        <div>
-                            <strong style={{ color: '#c2410c', display: 'block', fontSize: '0.95rem' }}>Important Update</strong>
-                            <span style={{ color: '#9a3412', fontSize: '0.85rem' }}>
-                                The KPI submission deadline for <strong>{months[extendedDeadline.month - 1]} {extendedDeadline.year}</strong> has been extended until <strong>{new Date(extendedDeadline.deadline_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>. You can now edit your sheets until this date.
+                        <span style={{ fontSize: '1.6rem' }}>📢</span>
+                        <div style={{ flex: 1 }}>
+                            <strong style={{ color: '#991b1b', display: 'block', fontSize: '1rem', marginBottom: '4px' }}>Important Update</strong>
+                            <span style={{ color: '#b91c1c', fontSize: '0.9rem', lineHeight: '1.5', fontWeight: 500 }}>
+                                {announcement.message}
                             </span>
                         </div>
+                        <button 
+                            onClick={() => setAnnouncement(null)}
+                            style={{ 
+                                background: 'transparent', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: '#991b1b',
+                                opacity: 0.6,
+                                padding: '4px'
+                            }}
+                        >
+                            <Icons.Close />
+                        </button>
                     </div>
                 )}
 
@@ -380,24 +407,26 @@ const KPIHome = () => {
                                 <Icons.Dashboard /> Admin View
                             </button>
                         )}
-                        {pendingReviewCount > 0 && (
+                        {(pendingReviewCount > 0 || user?.role === 'Head_of_Department' || user?.role === 'Admin') && (
                             <button className="modern-btn secondary" onClick={() => navigate('/kpi/reviews')} style={{ position: 'relative' }}>
-                                <Icons.Pending /> Pending Reviews
-                                <span style={{
-                                    position: 'absolute',
-                                    top: '-6px',
-                                    right: '-6px',
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 700,
-                                    padding: '2px 6px',
-                                    borderRadius: '10px',
-                                    minWidth: '18px',
-                                    textAlign: 'center'
-                                }}>
-                                    {pendingReviewCount}
-                                </span>
+                                <Icons.Pending /> {pendingReviewCount > 0 ? 'Pending Reviews' : 'Review Dashboard'}
+                                {pendingReviewCount > 0 && (
+                                    <span style={{
+                                        position: 'absolute',
+                                        top: '-6px',
+                                        right: '-6px',
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 700,
+                                        padding: '2px 6px',
+                                        borderRadius: '10px',
+                                        minWidth: '18px',
+                                        textAlign: 'center'
+                                    }}>
+                                        {pendingReviewCount}
+                                    </span>
+                                )}
                             </button>
                         )}
                         <button className="modern-btn secondary" onClick={() => navigate('/kpi/templates')}>

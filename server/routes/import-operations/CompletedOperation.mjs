@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -19,6 +21,8 @@ router.get(
         importer,
         year,
         unresolvedOnly,
+        branchId,
+        category,
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -89,11 +93,15 @@ router.get(
         };
       }
 
+      // Branch condition
+      const branchMatch = getBranchMatch(branchId, category);
+
       // Base AND conditions
       const andConditions = [
         icdCondition,
         importerCondition,
         searchCondition,
+        branchMatch,
         {
           completed_operation_date: { $nin: [null, ""] },
           be_no: { $nin: [null, ""], $not: /cancelled/i },
@@ -137,7 +145,7 @@ router.get(
       // Projection to shrink sort payload
       // Projection to shrink sort payload and response
       const projection = {
-        job_no: 1,
+        job_number: 1, job_no: 1,
         importer: 1,
         custom_house: 1,
         be_no: 1,
@@ -148,6 +156,9 @@ router.get(
         pcv_date: 1,
         out_of_charge: 1,
         dsr_queries: 1,
+        branch_code: 1,
+        trade_type: 1,
+        mode: 1,
         // only needed container fields
         "container_nos.container_number": 1,
         "container_nos.size": 1,

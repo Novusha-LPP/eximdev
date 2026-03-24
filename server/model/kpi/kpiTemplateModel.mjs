@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const Schema = mongoose.Schema;
 
@@ -73,6 +74,8 @@ const KPITemplateSchema = new Schema(
 // Prompt says: "Each KPI sheet is uniquely identified by User + Dept + Year + Month"
 // Templates are reusable.
 // "Templates can be: System-provided, User-created, Imported"
+
+KPITemplateSchema.plugin(auditPlugin, { documentType: "KPI_Template" });
 
 const KPITemplate = mongoose.model("KPITemplate", KPITemplateSchema);
 export default KPITemplate;

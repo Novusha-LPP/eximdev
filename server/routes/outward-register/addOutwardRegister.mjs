@@ -1,11 +1,13 @@
 import express from "express";
 import OutwardRegisterModel from "../../model/outwardRegisterModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
 
-router.post("/api/add-outward-register", async (req, res) => {
+router.post("/api/add-outward-register", authMiddleware, auditMiddleware("outwardRegister"), async (req, res) => {
   try {
     const {
       bill_given_date,
@@ -16,7 +18,7 @@ router.post("/api/add-outward-register", async (req, res) => {
       kind_attention,
     } = req.body;
 
-    await OutwardRegisterModel.create({
+    const newEntry = await OutwardRegisterModel.create({
       bill_given_date,
       party,
       division,
@@ -27,6 +29,7 @@ router.post("/api/add-outward-register", async (req, res) => {
 
     res.status(201).json({
       message: "Outward register added successfully",
+      _id: newEntry._id
     });
   } catch (error) {
     console.error(error);

@@ -35,6 +35,8 @@ import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 const extractJobNo = (input) => {
   if (!input) return "";
@@ -55,6 +57,8 @@ function JobList(props) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
   const {
     searchQuery,
     setSearchQuery,
@@ -66,6 +70,8 @@ function JobList(props) {
     setSelectedImporter,
     selectedBeType,
     setSelectedBeType,
+    selectedMode,
+    setSelectedMode,
   } = useSearchQuery();
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -106,6 +112,12 @@ function JobList(props) {
       if (detailedStatus && detailedStatus !== "all") {
         params.append("detailedStatus", detailedStatus);
       }
+      if (selectedBranch) {
+        params.append("branchId", selectedBranch);
+      }
+      if (selectedCategory) {
+        params.append("category", selectedCategory);
+      }
       const queryString = params.toString();
       const url = `${process.env.REACT_APP_API_STRING
         }/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""
@@ -125,7 +137,7 @@ function JobList(props) {
       setImporters(fetchedImporters);
     }
     getImporterList();
-  }, [selectedYearState, detailedStatus, user]);
+  }, [selectedYearState, detailedStatus, user, selectedBranch, selectedCategory]);
 
   const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -164,7 +176,10 @@ function JobList(props) {
     debouncedSearchQuery,
     selectedImporter,
     selectedBeType,
-    showUnresolvedOnly
+    showUnresolvedOnly,
+    selectedBranch,
+    selectedMode,
+    selectedCategory
   );
 
   // When unresolved toggle changes, re-fetch page 1
@@ -443,9 +458,9 @@ function JobList(props) {
           sx={{ width: "135px", marginRight: "10px" }}
         >
           <MenuItem value="all">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
 
         <TextField
@@ -462,6 +477,7 @@ function JobList(props) {
           <MenuItem value="In-Bond">In-Bond</MenuItem>
           <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
         </TextField>
+
 
         <Autocomplete
           sx={{ width: "220px", marginRight: "10px" }}
@@ -550,7 +566,8 @@ function JobList(props) {
       handleClearSearch,
       handleOpen,
       selectedBeType, // dependency
-      handleBeTypeChange // dependency
+      handleBeTypeChange, // dependency
+      dynamicICDs,
     ]
   );
 
@@ -577,6 +594,8 @@ function JobList(props) {
           selectedICD,
           selectedImporter,
           selectedBeType, // persist
+          selectedBranch,
+          selectedMode
         },
       }),
     setRows, // <-- pass here

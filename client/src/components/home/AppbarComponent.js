@@ -5,12 +5,53 @@ import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { Box, Typography } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  ToggleButton,
+  ToggleButtonGroup,
+} from "@mui/material";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import axios from "axios";
+import { useEffect, useState, useContext, useMemo } from "react";
+import { BranchContext } from "../../contexts/BranchContext.js";
 
 const drawerWidth = 60;
 
 function AppbarComponent(props) {
   const navigate = useNavigate();
+  const {
+    selectedBranchGroup,
+    setSelectedBranchGroup,
+    selectedCategory,
+    setSelectedCategory,
+    branches,
+    isAdmin,
+  } = useContext(BranchContext);
+
+  // Get unique branch locations for the dropdown
+  const uniqueBranches = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    branches.forEach((b) => {
+      if (!seen.has(b.branch_code)) {
+        seen.add(b.branch_code);
+        result.push(b);
+      }
+    });
+    return result;
+  }, [branches]);
+
+  // Check which categories are available for the selected branch group
+  const availableCategories = useMemo(() => {
+    if (selectedBranchGroup === 'all') return ['SEA', 'AIR'];
+    return branches
+      .filter(b => b.branch_code === selectedBranchGroup)
+      .map(b => b.category);
+  }, [branches, selectedBranchGroup]);
 
   return (
     <AppBar
@@ -54,8 +95,72 @@ function AppbarComponent(props) {
           />
         </div>
 
-        {/* Spacer to push the version text to the extreme right */}
         <Box sx={{ flexGrow: 1 }} />
+
+        {/* Global Branch & Category Filter */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mr: 3 }}>
+          {/* Branch Selector */}
+          <FormControl size="small" variant="outlined" sx={{ minWidth: 150 }}>
+            <Select
+              value={selectedBranchGroup}
+              onChange={(e) => setSelectedBranchGroup(e.target.value)}
+              displayEmpty
+              sx={{
+                bgcolor: "white",
+                borderRadius: 1,
+                color: "#000",
+                "& .MuiSelect-select": {
+                  color: "#000",
+                  py: 1,
+                },
+                "& .MuiSvgIcon-root": {
+                  color: "#000",
+                },
+                "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+              }}
+            >
+              {(isAdmin || branches.length === 0) && (
+                <MenuItem value="all">
+                  <em>All Branches</em>
+                </MenuItem>
+              )}
+              {uniqueBranches.map((b) => (
+                <MenuItem key={b.branch_code} value={b.branch_code}>
+                  {b.branch_name} ({b.branch_code})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Category Toggle */}
+          <ToggleButtonGroup
+            value={selectedCategory}
+            exclusive
+            onChange={(e, next) => next && setSelectedCategory(next)}
+            size="small"
+            sx={{
+              bgcolor: "white",
+              borderRadius: 1,
+              height: "40px",
+              "& .MuiToggleButton-root": {
+                border: "none",
+                px: 2,
+                color: "#666",
+                "&.Mui-selected": {
+                  bgcolor: "#f0f0f0",
+                  color: "#000",
+                  fontWeight: "bold",
+                },
+                "&.Mui-disabled": {
+                  opacity: 0.3
+                }
+              },
+            }}
+          >
+            <ToggleButton value="SEA" disabled={!availableCategories.includes('SEA')}>SEA</ToggleButton>
+            <ToggleButton value="AIR" disabled={!availableCategories.includes('AIR')}>AIR</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
         <Box sx={{ textAlign: "center", mt: 2 }}>
           <Typography
@@ -64,10 +169,10 @@ function AppbarComponent(props) {
           >
             Version: {process.env.REACT_APP_VERSION}
           </Typography>
-          {/* <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
+        </Box>
+        {/* <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
             {process.env.REACT_APP_VERSION_DATE}
           </Typography> */}
-        </Box>
       </Toolbar>
     </AppBar>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -13,6 +13,146 @@ import BLTrackingCell from "./BLTrackingCell.js";
 import axios from "axios";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
+import ContainerTrackDialog from "../components/ContainerTrackDialog";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { isAirMode, getContainerOrPackageLabel } from "../utils/modeLogic";
+
+// Helper components that need internal state
+const ContainerCellContent = ({ cell, handleCopy }) => {
+  const [containerTrackOpen, setContainerTrackOpen] = useState(false);
+  const [containerTrackContainers, setContainerTrackContainers] = useState([]);
+
+  const containerNos = cell.row.original.container_nos;
+  const jobData = cell.row.original;
+
+  // Helper function to get color based on shortage amount
+  const getShortageColor = (shortage) => {
+    if (shortage < 0) {
+      return "#e02251"; // Red for shortage
+    } else {
+      return "#2e7d32"; // Green for no shortage
+    }
+  };
+
+  // Helper function to get shortage/excess text for tooltip
+  const getShortageText = (shortage) => {
+    if (shortage < 0) {
+      return `Shortage: ${Math.abs(shortage).toFixed(2)} kg`;
+    } else if (shortage > 0) {
+      return `Excess: +${shortage.toFixed(2)} kg`;
+    } else {
+      return "No shortage/excess";
+    }
+  };
+
+  return (
+    <React.Fragment>
+      <ContainerTrackDialog
+        open={containerTrackOpen}
+        onClose={() => setContainerTrackOpen(false)}
+        containers={containerTrackContainers}
+      />
+      {containerNos?.map((container, id) => {
+        const weightShortage = parseFloat(container.weight_shortage) || 0;
+        const containerColor = getShortageColor(weightShortage);
+        const tooltipText = getShortageText(weightShortage);
+
+        return (
+          <div key={id} style={{ marginBottom: "4px" }}>
+            <Tooltip
+              title={tooltipText}
+              arrow
+              placement="top"
+            >
+              <a
+                href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: containerColor,
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                  cursor: "pointer",
+                }}
+                onMouseOver={(e) =>
+                  (e.target.style.textDecoration = "underline")
+                }
+                onMouseOut={(e) =>
+                  (e.target.style.textDecoration = "none")
+                }
+              >
+                {container.container_number}
+              </a>
+            </Tooltip>
+
+
+            {!isAirMode(jobData?.mode) && container.size && (
+              <>
+                | "{container.size}"
+              </>
+            )}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+
+              {/* CONCOR Container Track Button */}
+              {jobData?.custom_house?.toUpperCase().includes("ICD KHODIYAR") && (
+                <Tooltip title="Track on CONCOR India">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContainerTrackContainers([container.container_number]);
+                      setContainerTrackOpen(true);
+                    }}
+                    style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
+                  >
+                    <FontAwesomeIcon icon={faAnchor} style={{ fontSize: 12, color: "#7c3aed" }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title={`Copy ${getContainerOrPackageLabel(jobData?.mode)} Number`} arrow>
+                <IconButton
+                  size="small"
+                  onClick={(event) =>
+                    handleCopy(event, container.container_number)
+                  }
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+              {/* Delivery Challan Download Icon */}
+              <DeliveryChallanPdf
+                year={jobData.year}
+                jobNo={jobData.job_no}
+                branch_code={jobData.branch_code}
+                trade_type={jobData.trade_type}
+                mode={jobData.mode}
+                containerIndex={id}
+                renderAsIcon={true}
+              />
+              <IgstCalculationPDF
+                year={jobData.year}
+                jobNo={jobData.job_no}
+                branch_code={jobData.branch_code}
+                trade_type={jobData.trade_type}
+                mode={jobData.mode}
+                containerIndex={id}
+                renderAsIcon={true}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </React.Fragment>
+  );
+};
 
 // Custom hook to manage job columns configuration
 function useJobColumns(
@@ -87,6 +227,7 @@ function useJobColumns(
         "(INPAV6) Pipavav (Victor) Port":
           "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
         "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
+        "(INAMD4) Ahmedabad": "AHMEDABAD (INAMD4)",
       };
       return portMap[portOfReporting] || "";
     },
@@ -98,14 +239,17 @@ function useJobColumns(
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const row = cell.row.original;
           const {
             job_no,
             year,
+            job_number,
+            branch_code,
+            trade_type,
             type_of_b_e,
             consignment_type,
             payment_method,
@@ -198,7 +342,7 @@ function useJobColumns(
             e.stopPropagation();
             try {
               const res = await axios.get(
-                `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+                `${process.env.REACT_APP_API_STRING}/get-job/${row.branch_code}/${row.trade_type}/${row.mode}/${year}/${job_no}`
               );
               const updatedJob = res.data;
 
@@ -221,7 +365,7 @@ function useJobColumns(
           return (
             <div style={{ textAlign: "center" }}>
               <a
-                href={`/import-dsr/job/${job_no}/${year}`}
+                href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -233,9 +377,10 @@ function useJobColumns(
                   textAlign: "center",
                   display: "inline-block",
                   textDecoration: "none",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {job_no} <br /> {type_of_b_e} <br /> {consignment_type}
+                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type}
                 <br /> {custom_house} <br /> {payment_method}
               </a>
 
@@ -325,6 +470,8 @@ function useJobColumns(
               customHouse={row?.original?.custom_house || ""}
               container_nos={row?.original?.container_nos || []}
               jobId={row.original._id}
+              branch_code={row?.original?.branch_code || ""}
+              mode={row?.original?.mode || ""}
               portOfReporting={row?.original?.port_of_reporting || ""}
               containerNos={row?.original?.container_nos || []}
               onCopy={handleCopy}
@@ -377,105 +524,9 @@ function useJobColumns(
       },
       {
         accessorKey: "container_numbers",
-        header: "Container Numbers and Size",
+        header: "Container/Package Numbers",
         size: 200,
-        Cell: ({ cell }) => {
-          const containerNos = cell.row.original.container_nos;
-          const jobData = cell.row.original;
-
-          // Helper function to get color based on shortage amount
-          const getShortageColor = (shortage) => {
-            if (shortage < 0) {
-              return "#e02251"; // Red for shortage
-            } else {
-              return "#2e7d32"; // Green for no shortage
-            }
-          };
-
-          // Helper function to get shortage/excess text for tooltip
-          const getShortageText = (shortage) => {
-            if (shortage < 0) {
-              return `Shortage: ${Math.abs(shortage).toFixed(2)} kg`;
-            } else if (shortage > 0) {
-              return `Excess: +${shortage.toFixed(2)} kg`;
-            } else {
-              return "No shortage/excess";
-            }
-          };
-
-          return (
-            <React.Fragment>
-              {containerNos?.map((container, id) => {
-                const weightShortage =
-                  parseFloat(container.weight_shortage) || 0;
-                const containerColor = getShortageColor(weightShortage);
-                const tooltipText = getShortageText(weightShortage);
-
-                return (
-                  <div key={id} style={{ marginBottom: "4px" }}>
-                    <Tooltip
-                      title={tooltipText}
-                      arrow
-                      placement="top"
-                    >
-                      <a
-                        href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: containerColor,
-                          fontWeight: "bold",
-                          textDecoration: "none",
-                          cursor: "pointer",
-                        }}
-                        onMouseOver={(e) =>
-                          (e.target.style.textDecoration = "underline")
-                        }
-                        onMouseOut={(e) =>
-                          (e.target.style.textDecoration = "none")
-                        }
-                      >
-                        {container.container_number}
-                      </a>
-                    </Tooltip>
-                    | "{container.size}"
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <Tooltip title="Copy Container Number" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={(event) =>
-                            handleCopy(event, container.container_number)
-                          }
-                        >
-                          <ContentCopyIcon fontSize="inherit" />
-                        </IconButton>
-                      </Tooltip>
-                      {/* Delivery Challan Download Icon */}
-                      <DeliveryChallanPdf
-                        year={jobData.year}
-                        jobNo={jobData.job_no}
-                        containerIndex={id}
-                        renderAsIcon={true}
-                      />
-                      <IgstCalculationPDF
-                        year={jobData.year}
-                        jobNo={jobData.job_no}
-                        containerIndex={id}
-                        renderAsIcon={true}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          );
-        },
+        Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
       },
 
       {
@@ -584,9 +635,11 @@ function useJobColumns(
                   <span style={{ color: "gray" }}>No DO copies</span>
                 </div>
               )}
+              {!isAirMode(row.original?.mode) && (
               <div>
                 <strong>EmptyOff LOC:</strong> {do_list}
               </div>
+              )}
 
               <div style={{ marginTop: "8px" }}>
                 <InvoiceDisplay row={row.original} showOOC={false} />

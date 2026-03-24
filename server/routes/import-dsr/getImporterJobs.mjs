@@ -1,5 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import UserBranchModel from "../../model/userBranchModel.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
@@ -13,10 +16,25 @@ function formatImporter(importer) {
 }
 
 // ✅ API Endpoint to get job counts for an importer
-router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
+router.get("/api/get-importer-jobs/:importerURL/:year", authMiddleware, async (req, res) => {
   try {
-    const { year, importerURL } = req.params;
+    const { importerURL, year } = req.params;
+    const { category } = req.query;
+    let { branchId } = req.query;
     const formattedImporter = formatImporter(importerURL);
+
+    const userId = req.headers['user-id'] || req.user?.username || req.user?._id;
+    const role = req.user?.role;
+
+    // Filter by assignments if 'all' is requested
+    if (!branchId || branchId.toString().toLowerCase() === "all" || branchId === "") {
+      const assignments = await UserBranchModel.find({ user_id: userId });
+      if (assignments.length > 0) {
+        branchId = assignments.map(a => a.branch_id.toString());
+      } else if (role !== 'Admin') {
+        return res.json([0, 0, 0, 0]);
+      }
+    }
 
     // 🚀 Aggregation to count jobs efficiently
     const jobCounts = await JobModel.aggregate([
@@ -24,6 +42,7 @@ router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
         $match: {
           year: year,
           importerURL: new RegExp(`^${formattedImporter}$`, "i"), // Case-insensitive matching
+          ...getBranchMatch(branchId, category)
         },
       },
       {

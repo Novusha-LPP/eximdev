@@ -35,6 +35,7 @@ import {
 } from "@mui/icons-material";
 import axios from "axios";
 import { useFetchYears } from "../../utils/useFetchYears";
+import { BranchContext } from '../../contexts/BranchContext';
 
 function BillingPending() {
   const [loading, setLoading] = useState(true);
@@ -46,10 +47,11 @@ function BillingPending() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears();
+  const { selectedBranch, selectedCategory } = React.useContext(BranchContext);
 
   useEffect(() => {
     fetchBillingPendingData();
-  }, [selectedYear]);
+  }, [selectedYear, selectedBranch, selectedCategory]);
 
   const fetchBillingPendingData = async () => {
     try {
@@ -62,7 +64,9 @@ function BillingPending() {
         `${apiBase}/report/billing-pending`,
         {
           params: {
-            year: selectedYear
+            year: selectedYear,
+            branchId: selectedBranch && selectedBranch !== 'all' ? selectedBranch : undefined,
+            category: selectedCategory && selectedCategory !== 'all' ? selectedCategory : undefined
           }
         }
       );
@@ -316,8 +320,8 @@ function BillingPending() {
                       }}
                     >
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                          {row.job_no}
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', whiteSpace: 'nowrap' }}>
+                          {row.job_number || row.job_no}
                         </Typography>
                       </TableCell>
                       <TableCell>

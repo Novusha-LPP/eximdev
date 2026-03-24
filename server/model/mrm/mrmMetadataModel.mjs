@@ -1,5 +1,5 @@
-
 import mongoose from 'mongoose';
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const mrmMetadataSchema = new mongoose.Schema({
     month: { type: String, required: true },
@@ -12,6 +12,8 @@ const mrmMetadataSchema = new mongoose.Schema({
 
 // Ensure one entry per user-month-year
 mrmMetadataSchema.index({ month: 1, year: 1, userId: 1 }, { unique: true });
+
+mrmMetadataSchema.plugin(auditPlugin, { documentType: "MRM_Metadata" });
 
 const MRMMetadata = mongoose.model('MRMMetadata', mrmMetadataSchema);
 

@@ -1,6 +1,6 @@
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState, useContext } from "react";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid } from "@mui/material";
+import { IconButton, Tooltip, Collapse, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, Autocomplete } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -8,11 +8,20 @@ import EditIcon from "@mui/icons-material/Edit";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { BranchContext } from "../../contexts/BranchContext";
+import {
+  getContainerOrPackageLabel,
+  getAwbOrBlLabel,
+  getAirlineOrShippingLineLabel,
+  isAirMode,
+} from "../../utils/modeLogic";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
   const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
   const isAdmin = user?.role === "Admin";
+  const { branches, selectedBranch } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -70,7 +79,7 @@ function JobDetailsStaticData(props) {
     try {
       setIsSaving(true);
       setErrorMsg("");
-      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.year}/${props.params.job_no}`, editFormData);
+      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.mode}/${props.data?.year}/${props.params.job_no}`, editFormData);
       window.location.reload();
     } catch (err) {
       console.error(err);
@@ -230,7 +239,7 @@ function JobDetailsStaticData(props) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center", flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Job Number</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529" }}>{props.params.job_no}</span>
+              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529" }}>{props.data?.job_number || props.params.job_no}</span>
             </div>
 
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
@@ -250,7 +259,7 @@ function JobDetailsStaticData(props) {
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>BL No</span>
+              <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>{getAwbOrBlLabel(props.data?.mode)} No</span>
               <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.awb_bl_no}</span>
             </div>
 
@@ -287,7 +296,7 @@ function JobDetailsStaticData(props) {
           <Row style={{ marginBottom: "15px", borderBottom: "1px solid #eee", paddingBottom: "10px", alignItems: "center" }}>
             <Col className="d-flex align-items-center justify-content-between">
               <h5 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>
-                Job Number: {props.params.job_no} | Custom House: {props.data?.custom_house}
+                Job Number: {props.data?.job_number || props.params.job_no} | Custom House: {props.data?.custom_house}
                 {props.data?.be_no ? null : props.data?.priorityJob &&
                   (props.data.priorityJob === "High Priority" ||
                     props.data.priorityJob === "Priority") && (
@@ -412,9 +421,9 @@ function JobDetailsStaticData(props) {
               <span style={valueStyle}>{props.data.port_of_reporting}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Shipping Line: </span>
+              <span style={labelStyle}>{getAirlineOrShippingLineLabel(props.data?.mode)}: </span>
               <span style={valueStyle}>{props.data.shipping_line_airline}</span>
-              <Tooltip title="Copy Shipping Line">
+              <Tooltip title={`Copy ${getAirlineOrShippingLineLabel(props.data?.mode)}`}>
                 <IconButton
                   size="small"
                   onClick={(e) => handleCopy(e, props.data.shipping_line_airline)}
@@ -487,7 +496,7 @@ function JobDetailsStaticData(props) {
           {/* Row 7: BL No with icons, BL Date, HWBL No, HWBL Date */}
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>BL No.: </span>
+              <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} No.: </span>
               <span style={valueStyle}>
                 <a
                   href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
@@ -531,29 +540,33 @@ function JobDetailsStaticData(props) {
               )}
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>BL Date: </span>
+              <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} Date: </span>
               <span style={valueStyle}>{props.data.awb_bl_date}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>HWBL No: </span>
+              <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} No: </span>
               <span style={valueStyle}>{props.data.hawb_hbl_no}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>HWBL Date: </span>
+              <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} Date: </span>
               <span style={valueStyle}>{props.data.hawb_hbl_date}</span>
             </Col>
           </Row>
 
           {/* Row 8: G-IGM No, G-IGM Date, Line No, Bank Name */}
           <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM No: </span>
-              <span style={valueStyle}>{props.data.gateway_igm}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>G-IGM Date: </span>
-              <span style={valueStyle}>{props.data.gateway_igm_date}</span>
-            </Col>
+            {activeBranchConfig.gateway_igm_enabled && (
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>G-IGM No: </span>
+                <span style={valueStyle}>{props.data.gateway_igm}</span>
+              </Col>
+            )}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <Col xs={12} md={6} lg={3}>
+                <span style={labelStyle}>G-IGM Date: </span>
+                <span style={valueStyle}>{props.data.gateway_igm_date}</span>
+              </Col>
+            )}
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Line No: </span>
               <span style={valueStyle}>{props.data.line_no}</span>
@@ -610,18 +623,52 @@ function JobDetailsStaticData(props) {
           <DialogContent dividers>
             {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
             <Grid container spacing={2} style={{ marginTop: '5px' }}>
-              {Object.keys(editFormData).map((key) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    name={key}
-                    value={editFormData[key] || ""}
-                    onChange={handleEditChange}
-                  />
-                </Grid>
-              ))}
+              {Object.keys(editFormData).map((key) => {
+                if (key === "port_of_reporting") {
+                  const portReportingOptionsSet = [
+                    "(INMUN1) Mundra Sea",
+                    "(INNSA1) Nhava Sheva Sea",
+                    "(INPAV1) Pipavav",
+                    "(INPAV6) Pipavav (Victor) Port",
+                    "(INHZA1) Hazira",
+                    "(INAMD4) Ahmedabad"
+
+  
+                  ];
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        freeSolo
+                        options={portReportingOptionsSet}
+                        value={editFormData[key] || ""}
+                        onInputChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Port of Reporting"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                return (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      name={key}
+                      value={editFormData[key] || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Grid>
+                );
+              })}
             </Grid>
           </DialogContent>
           <DialogActions>

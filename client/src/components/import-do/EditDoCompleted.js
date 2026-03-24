@@ -32,6 +32,10 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import ImportDoChargesTable from "./ImportDoChargesTable";
+import ChargesGrid from "../ChargesGrid";
+
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 function EditDoCompleted() {
   const [data, setData] = useState(null);
@@ -40,7 +44,7 @@ function EditDoCompleted() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
 
   const params = useParams();
-  const { job_no, year } = params;
+  const { branch_code, trade_type, mode, job_no, year } = params;
 
   // Modal and other states
   const [currentField, setCurrentField] = useState(null);
@@ -589,6 +593,10 @@ function EditDoCompleted() {
                 >
                   {container.container_number || "N/A"}{" "}
                 </a>
+                <ContainerTrackButton 
+                  customHouse={data?.custom_house} 
+                  containerNo={container.container_number} 
+                />
                 | "{container.size}"
               </span>
             </strong>
@@ -695,7 +703,7 @@ function EditDoCompleted() {
         </Button>
       </Box>
 
-      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
       {data && data.dsr_queries && (
         <div>
@@ -797,7 +805,9 @@ function EditDoCompleted() {
                 {renderContainerDetails()}
               </div>
 
+              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
               {renderChargesSection()}
+
               <Box sx={{ height: "60px" }} />
             </form>
           </div>

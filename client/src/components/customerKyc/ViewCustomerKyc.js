@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { useSnackbar } from "../../contexts/SnackbarContext";
-import { TextField } from "@mui/material";
+import { TextField, FormControlLabel, Checkbox } from "@mui/material";
 import "./view-kyc.css"; // Import the new CSS
 
 function ViewCustomerKyc() {
@@ -11,6 +11,7 @@ function ViewCustomerKyc() {
   const navigate = useNavigate();
   const [data, setData] = useState();
   const [remarks, setRemarks] = useState("");
+  const [financialApproved, setFinancialApproved] = useState(false);
   const { user } = useContext(UserContext);
   const { showWarning, showSuccess } = useSnackbar();
 
@@ -21,6 +22,7 @@ function ViewCustomerKyc() {
           `${process.env.REACT_APP_API_STRING}/view-customer-kyc-details/${_id}`
         );
         setData(res.data);
+        setFinancialApproved(res.data.financial_details_approved || false);
       } catch (error) {
         console.error("Error fetching data", error);
       }
@@ -48,7 +50,37 @@ function ViewCustomerKyc() {
     }
   };
 
-  // ── Render file name from URL ──
+  const canApproveFinance =
+    user?.role === "Admin" ||
+    user?.role === "HOD" ||
+    (Array.isArray(user?.modules) && user.modules.includes("Accounts"));
+
+  const handleFinancialApprovalChange = async (event) => {
+    const isChecked = event.target.checked;
+    const approved_by = isChecked ? `${user.first_name} ${user.last_name}` : "";
+
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/customer-kyc-financial-approval/${_id}`,
+        {
+          financial_details_approved: isChecked,
+          financial_details_approved_by: approved_by,
+        }
+      );
+      setFinancialApproved(isChecked);
+      setData((prev) => ({
+        ...prev,
+        financial_details_approved: isChecked,
+        financial_details_approved_by: approved_by,
+      }));
+      showSuccess(isChecked ? "Financial details approved" : "Financial approval removed");
+    } catch (error) {
+      console.error("Error updating financial approval", error);
+      showWarning("Failed to update financial approval");
+    }
+  };
+
+   // ── Render file name from URL ──
   function renderFileName(fileUrl) {
     if (!fileUrl) return "";
     if (typeof fileUrl !== "string") return "File";
@@ -471,6 +503,46 @@ function ViewCustomerKyc() {
               <Field label="O/S Limit" value={data.outstanding_limit} />
               <Field label="Quotation Given?" value={data.quotation} />
               <Field label="Advance Payment" value={data.advance_payment ? "Yes" : "No"} />
+            </div>
+
+            <div style={{ marginTop: '16px' }}>
+                <Field label="Customer Tier" value={data.customer_tier || "—"} />
+            </div>
+            
+            <div style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={financialApproved}
+                      onChange={handleFinancialApprovalChange}
+                      disabled={!canApproveFinance}
+                      sx={{
+                        color: 'var(--primary-400)',
+                        '&.Mui-checked': {
+                          color: 'var(--primary-600)',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <span style={{ fontWeight: 600, color: '#334155', fontSize: '14px' }}>
+                      Financial Details Approved
+                      {data.financial_details_approved && (
+                        <span style={{ marginLeft: '8px', color: '#0369a1', fontWeight: 500 }}>
+                          ({data.financial_details_approved_by})
+                        </span>
+                      )}
+                    </span>
+                  }
+                />
+                
+                {!canApproveFinance && !data.financial_details_approved && (
+                  <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                    (Only Accounts team or HOD/Admin can approve)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

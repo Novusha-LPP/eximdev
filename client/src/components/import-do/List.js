@@ -35,6 +35,10 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 function List() {
   const { job_no, year } = useParams();
@@ -58,6 +62,9 @@ function List() {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const dynamicICDs = useDynamicICDs();
 
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -176,7 +183,9 @@ function List() {
       selectedImporter,
       unresolvedOnly = false,
       emergencyOnly = false,
-      freeTimeFilter = ""
+      freeTimeFilter = "",
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -194,6 +203,8 @@ function List() {
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               emergency: emergencyOnly.toString(), // ✅ Add emergency parameter
               freeTimeFilter, // ✅ Add freeTimeFilter
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -221,7 +232,7 @@ function List() {
         setLoading(false);
       }
     },
-    [limit, user?.username] // Dependencies - add username
+    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, showUnresolvedOnly, showEmergencyOnly, freeTimeFilter, selectedBranch, selectedCategory] 
   );
 
   // Fetch jobs with pagination
@@ -236,7 +247,9 @@ function List() {
         selectedImporter,
         showUnresolvedOnly,
         showEmergencyOnly,
-        freeTimeFilter
+        freeTimeFilter,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -249,6 +262,8 @@ function List() {
     showUnresolvedOnly,
     showEmergencyOnly,
     freeTimeFilter,
+    selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
 
@@ -352,7 +367,9 @@ function List() {
         selectedImporter,
         showUnresolvedOnly,
         showEmergencyOnly,
-        freeTimeFilter
+        freeTimeFilter,
+        selectedBranch,
+        selectedCategory
       );
     } catch (error) {
       console.error("Error saving data:", error);
@@ -370,21 +387,27 @@ function List() {
     {
       accessorKey: "job_no",
       header: "Job No ",
-      size: 120,
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
+          job_number,
           custom_house,
           _id,
           type_of_b_e,
           year,
           consignment_type,
+          mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
         const textColor = "blue";
         const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
         return (
           <a
-            href={`/edit-do-list/${job_no}/${year}?jobId=${_id}`}
+            href={`/edit-do-list/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -396,9 +419,10 @@ function List() {
               borderRadius: "5px",
               display: "inline-block",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </a>
         );
@@ -519,43 +543,47 @@ function List() {
               </IconButton>
             </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm_date)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM Date">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
             <div
               style={{
@@ -669,6 +697,7 @@ function List() {
     {
       accessorKey: "free_time",
       header: "Free Time",
+      
       size: 150,
       Cell: ({ row }) =>
         editingRowId === row.original._id ? (
@@ -719,6 +748,10 @@ function List() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"
@@ -985,9 +1018,9 @@ function List() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>{" "}
         {/* Search Field */}
         <TextField
@@ -1106,7 +1139,7 @@ function List() {
                   minWidth: "18px",
                   height: "18px",
                   boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  backgroundColor: "#warning.main", // Maybe yellow/white? Default error is red.
+                  backgroundColor: "warning.main", // Removed # prefix
                   color: "white"
                 },
               }}
@@ -1122,7 +1155,7 @@ function List() {
       <div style={{ height: "80%" }}>
         <MaterialReactTable table={table} /> {/* Pagination */}
         <Pagination
-          count={totalPages}
+          count={totalPages > 0 ? totalPages : 1}
           page={currentPage}
           onChange={handlePageChange}
           color="primary"

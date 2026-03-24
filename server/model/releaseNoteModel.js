@@ -1,5 +1,5 @@
-// models/releaseNoteModel.js
 import mongoose from 'mongoose';
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const releaseNoteSchema = new mongoose.Schema({
   version: {
@@ -56,9 +56,12 @@ const releaseNoteSchema = new mongoose.Schema({
   }
 });
 
-releaseNoteSchema.pre('save', function(next) {
+releaseNoteSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-export default mongoose.model('ReleaseNote', releaseNoteSchema);
+releaseNoteSchema.plugin(auditPlugin, { documentType: "ReleaseNote" });
+
+const ReleaseNoteModel = mongoose.model('ReleaseNote', releaseNoteSchema);
+export default ReleaseNoteModel;

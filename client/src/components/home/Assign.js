@@ -36,6 +36,7 @@ import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignImporters from "./AssignImporters";
 import AssignEximBot from "./AssignEximBot/AssignEximBot";
+import AssignBranch from "./AssignBranch";
 import ModuleUserList from "./ModuleUserList";
 import UserProfile from "../userProfile/UserProfile";
 import HodManagement from "./HodManagement";
@@ -161,6 +162,11 @@ function Assign() {
       key: "Assign ICD Code",
       label: "Assign ICD Code",
       children: <SelectIcdCode selectedUser={selectedUser} />,
+    },
+    {
+      key: "Assign Branch",
+      label: "Assign Branch",
+      children: <AssignBranch selectedUser={selectedUser} />,
     },
     {
       key: "Assign Importers",

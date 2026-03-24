@@ -40,6 +40,9 @@ import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 
+import ContainerTrackButton from '../ContainerTrackButton';
+import { BranchContext } from "../../contexts/BranchContext.js";
+
 function DoPlanning() {
   const [doDocCounts, setDoDocCounts] = useState({
     totalJobs: 0,
@@ -63,7 +66,7 @@ function DoPlanning() {
   const [loading, setLoading] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("");
 
-  // WebSocket states - Simple implementation like Screen1
+  // WebSocket states
   const [newJobsCount, setNewJobsCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
@@ -92,6 +95,8 @@ function DoPlanning() {
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
@@ -232,7 +237,6 @@ function DoPlanning() {
         showToastNotification(jobData);
       }
 
-      // Refresh data to show the new job if viewing today's jobs
       if (showTodayJobs) {
         console.log("🔄 Refreshing data for today's jobs");
         fetchJobs(
@@ -242,7 +246,10 @@ function DoPlanning() {
           selectedICD,
           selectedImporter,
           selectedStatusFilter,
-          showUnresolvedOnly
+          showUnresolvedOnly,
+          showDoPlanningTodayOnly,
+          selectedBranch,
+          selectedCategory
         );
       }
     },
@@ -255,6 +262,9 @@ function DoPlanning() {
       selectedImporter,
       selectedStatusFilter,
       showUnresolvedOnly,
+      showDoPlanningTodayOnly,
+      selectedBranch,
+      selectedCategory,
     ]
   );
 
@@ -331,7 +341,7 @@ function DoPlanning() {
     }, 8000);
   };
 
-  // ✅ Simple WebSocket implementation - like your working Screen1
+  // ✅ Simple WebSocket implementation
   useEffect(() => {
     const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9006"
       }`;
@@ -496,7 +506,9 @@ function DoPlanning() {
 
       statusFilter = "",
       unresolvedOnly = false,
-      doPlanningDateToday = false
+      doPlanningDateToday = false,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -517,6 +529,8 @@ function DoPlanning() {
 
             unresolvedOnly: unresolvedOnly.toString(),
             doPlanningDateToday: doPlanningDateToday.toString(),
+            branchId: selectedBranch || "all", // ✅ Add branchId parameter
+            category: selectedCategory || "all", // ✅ Add category parameter
           },
         });
 
@@ -677,7 +691,9 @@ function DoPlanning() {
         selectedImporter,
         selectedStatusFilter,
         showUnresolvedOnly,
-        showDoPlanningTodayOnly
+        showDoPlanningTodayOnly,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -692,6 +708,8 @@ function DoPlanning() {
     showDoPlanningTodayOnly,
     showTodayJobs,
     fetchJobs,
+    selectedBranch,
+    selectedCategory,
   ]);
 
   // Handle search input change
@@ -789,8 +807,8 @@ function DoPlanning() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
-      size: 120,
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+      size: 250,
       Cell: ({ cell }) => {
         const {
           job_no,
@@ -799,13 +817,16 @@ function DoPlanning() {
           type_of_b_e,
           consignment_type,
           year,
+          mode,
+          branch_code,
+          trade_type,
         } = cell.row.original;
 
         const isSelected = selectedJobId === _id;
 
         return (
           <Link
-            to={`/edit-do-planning/${job_no}/${year}?jobId=${_id}`}
+            to={`/edit-do-planning/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setSelectedJobId(_id)}
@@ -817,10 +838,10 @@ function DoPlanning() {
               display: "inline-block",
               width: "100%",
               padding: "5px",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
           </Link>
         );
@@ -1135,43 +1156,47 @@ function DoPlanning() {
               </IconButton>
             </div>
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
-            <div
-              style={{
-                marginBottom: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-              <IconButton
-                size="small"
-                onClick={(event) => handleCopy(event, gateway_igm_date)}
-                sx={{ padding: "2px", marginLeft: "4px" }}
+            {activeBranchConfig.gateway_igm_date_enabled && (
+              <div
+                style={{
+                  marginBottom: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
               >
-                <abbr title="Copy GIGM Date">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+                <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => handleCopy(event, gateway_igm_date)}
+                  sx={{ padding: "2px", marginLeft: "4px" }}
+                >
+                  <abbr title="Copy GIGM Date">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            )}
 
             <div
               style={{
@@ -1385,6 +1410,10 @@ function DoPlanning() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"

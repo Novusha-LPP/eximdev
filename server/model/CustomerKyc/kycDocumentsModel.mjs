@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const kycDocumentsSchema = new mongoose.Schema({
   importer: {
@@ -18,6 +19,8 @@ const kycDocumentsSchema = new mongoose.Schema({
   shipping_line_bond_valid_upto: { type: String },
   shipping_line_bond_docs: [{ type: String }],
 });
+
+kycDocumentsSchema.plugin(auditPlugin, { documentType: "KycDocuments" });
 
 const KycDocumentsModel = new mongoose.model(
   "kycDocuments",

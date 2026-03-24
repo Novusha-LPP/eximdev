@@ -1,10 +1,11 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/change-password", async (req, res) => {
+router.post("/api/change-password", auditMiddleware("User"), async (req, res) => {
   const { username, current_password, new_password } = req.body;
 
   try {
@@ -36,7 +37,7 @@ router.post("/api/change-password", async (req, res) => {
   }
 });
 
-router.post("/api/admin/change-password", async (req, res) => {
+router.post("/api/admin/change-password", auditMiddleware("User"), async (req, res) => {
   const { username, newPassword, adminUsername } = req.body;
 
   try {

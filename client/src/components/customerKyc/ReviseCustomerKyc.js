@@ -13,6 +13,7 @@ import { useSnackbar } from "../../contexts/SnackbarContext";
 import { UserContext } from "../../contexts/UserContext";
 import CustomDialog from "./CustomDialog";
 import { getCityAndStateByPinCode } from "../../utils/getCityAndStateByPinCode";
+import { FormControlLabel, Checkbox } from "@mui/material";
 
 function ReviseCustomerKyc() {
   const { _id } = useParams();
@@ -130,6 +131,9 @@ function ReviseCustomerKyc() {
       quotation: "No",
       outstanding_limit: "",
       advance_payment: false,
+      financial_details_approved: false,
+      financial_details_approved_by: "",
+      customer_tier: "",
 
       other_documents: [],
       spcb_reg: [],
@@ -235,6 +239,9 @@ function ReviseCustomerKyc() {
             quotation: res.data.quotation || "No",
             outstanding_limit: res.data.outstanding_limit || "",
             advance_payment: res.data.advance_payment || false,
+            financial_details_approved: res.data.financial_details_approved || false,
+            financial_details_approved_by: res.data.financial_details_approved_by || "",
+            customer_tier: res.data.customer_tier || "",
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -247,6 +254,38 @@ function ReviseCustomerKyc() {
     if (_id) getData();
     // eslint-disable-next-line
   }, [_id]);
+
+  const canApproveFinance =
+    user?.role === "Admin" ||
+    user?.role === "HOD" ||
+    (Array.isArray(user?.modules) && user.modules.includes("Accounts"));
+
+  const isAccountUser = Array.isArray(user?.modules) && (user.modules.includes("Accounts") || user.modules.includes("Account"));
+  const isAdmin = user?.role === "Admin";
+  const isKycCompleted = data?.approval === "Approved" || data?.approval === "Approved by HOD" || data?.approval === "Completed";
+  const isRestricted = isAccountUser && !isAdmin && isKycCompleted;
+
+  const handleFinancialApprovalChange = async (event) => {
+    const isChecked = event.target.checked;
+    const approved_by = isChecked ? `${user.first_name} ${user.last_name}` : "";
+
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/customer-kyc-financial-approval/${_id}`,
+        {
+          financial_details_approved: isChecked,
+          financial_details_approved_by: approved_by,
+        }
+      );
+      
+      formik.setFieldValue("financial_details_approved", isChecked);
+      formik.setFieldValue("financial_details_approved_by", approved_by);
+      showSuccess(isChecked ? "Financial details approved" : "Financial approval removed");
+    } catch (error) {
+      console.error("Error updating financial approval", error);
+      showError("Failed to update financial approval");
+    }
+  };
 
   const { getSupportingDocs, fileSnackbar } = useSupportingDocuments(formik);
 
@@ -484,8 +523,9 @@ function ReviseCustomerKyc() {
         </div>
 
         <div className="kyc-card">
-          {/* Category Row */}
-          <div className="category-bar">
+          <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
+            {/* Category Row */}
+            <div className="category-bar">
             <span className="bar-label">
               Category <span style={{ color: "var(--red)" }}>*</span>
             </span>
@@ -530,9 +570,11 @@ function ReviseCustomerKyc() {
               <span className="dot"></span> Trust / Foundation
             </label>
           </div>
+          </fieldset>
 
           <div className="panels">
             {/* LEFT PANEL */}
+            <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
             <div className="panel">
               {/* Individual Info */}
               <div className="section">
@@ -924,10 +966,12 @@ function ReviseCustomerKyc() {
                 </div>
               </div>
             </div>
+            </fieldset>
 
             {/* RIGHT PANEL */}
 
             <div className="panel">
+              <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
               {/* Factory Addresses */}
               <div className="section">
                 <div className="section-header">
@@ -1274,6 +1318,7 @@ function ReviseCustomerKyc() {
                   )}
                 </div>
               </div>
+              </fieldset>
 
               {/* Banking Information */}
               <div className="section">
@@ -1290,6 +1335,7 @@ function ReviseCustomerKyc() {
                   </button>
                 </div>
                 <div id="bank-list">
+                  <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
                   {formik.values.banks?.map((bank, index) => (
                     <div key={index} className="repeat-entry">
                       <div className="repeat-entry-header">
@@ -1396,6 +1442,7 @@ function ReviseCustomerKyc() {
                       </div>
                     </div>
                   ))}
+                  </fieldset>
 
                   {/* Finance Details */}
                   <div className="fields" style={{ paddingTop: "4px" }}>
@@ -1458,6 +1505,33 @@ function ReviseCustomerKyc() {
                         </div>
                       </div>
                     </div>
+                    
+                    <div className="row">
+                      <div className="field">
+                        <label className="field-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={formik.values.financial_details_approved}
+                            onChange={handleFinancialApprovalChange}
+                            disabled={!canApproveFinance}
+                          />
+                          <span style={{ color: '#334155', fontWeight: 600 }}>
+                            FINANCIAL DETAILS APPROVED (VERIFIED BY ACCOUNT TEAM)
+                            {formik.values.financial_details_approved && (
+                              <span style={{ marginLeft: '8px', color: '#0369a1', fontWeight: 500 }}>
+                                ({formik.values.financial_details_approved_by})
+                              </span>
+                            )}
+                          </span>
+                          
+                          {!canApproveFinance && !formik.values.financial_details_approved && (
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', marginLeft: '10px' }}>
+                              (Only Accounts team or HOD/Admin can approve)
+                            </span>
+                          )}
+                        </label>
+                      </div>
+                    </div>
                     <div className="row">
                       <div className="field">
                         <label className="field-checkbox">
@@ -1471,13 +1545,32 @@ function ReviseCustomerKyc() {
                         </label>
                       </div>
                     </div>
+
+                    {/* Customer Tier */}
+                    <div className="row" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                      <div className="field w-full">
+                        <label>Customer Tier</label>
+                        <select
+                          name="customer_tier"
+                          value={formik.values.customer_tier}
+                          onChange={formik.handleChange}
+                          style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#fff', fontSize: '14px', marginTop: '6px', minHeight: '42px', boxSizing: 'border-box' }}
+                        >
+                          <option value="">Select Tier</option>
+                          <option value="Customer tier 1 = Agency charges">Customer tier 1 = Agency charges</option>
+                          <option value="Customer tier 2 = Agency charges + concor + cfs">Customer tier 2 = Agency charges + concor + cfs</option>
+                          <option value="Customer tier 3 = Agency charges + concor + cfs + Shippingline charges">Customer tier 3 = Agency charges + concor + cfs + Shippingline charges</option>
+                          <option value="Customer tier 4 = Agency charges + concor + cfs + Shippingline charges + Custom duty">Customer tier 4 = Agency charges + concor + cfs + Shippingline charges + Custom duty</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-
+          <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
           <div className="full-section">
             <div className="section-header">
               <span className="section-title section-title-accent">
@@ -1582,6 +1675,7 @@ function ReviseCustomerKyc() {
               {renderUpload("gst_returns", "gst-returns", true)}
             </div>
           </div>
+          </fieldset>
 
           <div className="form-footer">
             <div className="footer-info">

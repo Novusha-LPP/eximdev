@@ -23,11 +23,15 @@ import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext.js";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
 import { Link } from "react-router-dom";
 import BENumberCell from "../gallery/BENumberCell.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 function OperationsList() {
   const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
@@ -37,6 +41,8 @@ function OperationsList() {
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -133,7 +139,9 @@ function OperationsList() {
       currentSearchQuery,
       currentYear,
       currentICD,
-      selectedImporter
+      selectedImporter,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       // Don't make API calls if user not available or no username
       if (!user?.username) {
@@ -153,6 +161,8 @@ function OperationsList() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -183,7 +193,9 @@ function OperationsList() {
         debouncedSearchQuery,
         selectedYearState,
         selectedICD,
-        selectedImporter
+        selectedImporter,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -193,6 +205,8 @@ function OperationsList() {
     selectedICD,
     selectedImporter,
     user?.username,
+    selectedBranch,
+    selectedCategory,
     fetchJobs,
   ]);
   // Remove the automatic clearing - we'll handle this from the tab component instead
@@ -270,16 +284,16 @@ function OperationsList() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ row }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
+        const { mode, job_no, job_number, year, type_of_b_e, consignment_type, custom_house, branch_code, trade_type } =
           row.original;
 
         return (
           <Link
-            to={`/import-operations/list-operation-job/${job_no}/${year}`}
+            to={`/import-operations/list-operation-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -288,13 +302,14 @@ function OperationsList() {
                 selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
-              padding: "10px",
+              padding: "5px",
               borderRadius: "5px",
               textAlign: "center",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
           </Link>
         );
@@ -352,6 +367,10 @@ function OperationsList() {
                 >
                   {container.container_number}
                 </a>
+                <ContainerTrackButton
+                  customHouse={cell?.row?.original?.custom_house}
+                  containerNo={container.container_number}
+                />
                 | "{container.size}"
                 <IconButton
                   size="small"
@@ -621,9 +640,9 @@ function OperationsList() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>
 
         <TextField

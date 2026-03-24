@@ -2,12 +2,270 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
-import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers } from '../../services/mrmService';
-import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField } from '@mui/material';
+import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers, reorderMRMItems } from '../../services/mrmService';
+import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip } from '@mui/material';
+import { Reorder, useDragControls } from "framer-motion";
 import SaveIcon from '@mui/icons-material/Save';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import '../../styles/mrm.scss';
+
+const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers }) => {
+    const controls = useDragControls();
+
+    if (item.isTitleRow) {
+        return (
+            <Reorder.Item
+                as="tr"
+                key={item._id}
+                value={item}
+                dragListener={false}
+                dragControls={controls}
+                className="title-row-container"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ backgroundColor: item.bgColor || '#f8fafc' }}
+            >
+                <td className="drag-handle-cell">
+                    <div className="drag-handle" onPointerDown={(e) => controls.start(e)}>
+                        <DragIndicatorIcon sx={{ fontSize: 20, color: '#64748b' }} />
+                    </div>
+                </td>
+                <td colSpan="13" className="title-row-content">
+                    <div className="title-row-inner">
+                        <input
+                            type="text"
+                            value={item.processDescription || ''}
+                            onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value)}
+                            placeholder="Enter Title..."
+                            className="title-input"
+                        />
+                        <div className="title-actions">
+                            <IconButton onClick={() => handleSaveItem(item)} size="small" color={item.isDirty ? "primary" : "default"}>
+                                <SaveIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                            <IconButton onClick={() => openDeleteDialog(item)} size="small" color="error">
+                                <DeleteIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                            <IconButton onClick={(e) => handleInsertItem(index, 'normal')} size="small">
+                                <AddCircleOutlineIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                        </div>
+                    </div>
+                </td>
+            </Reorder.Item>
+        );
+    }
+
+    return (
+        <Reorder.Item
+            as="tr"
+            key={item._id}
+            value={item}
+            dragListener={false}
+            dragControls={controls}
+            className={item.isDirty ? 'row-dirty' : ''}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+        >
+            <td className="drag-handle-cell">
+                <div 
+                    className="drag-handle" 
+                    onPointerDown={(e) => controls.start(e)}
+                    style={{ cursor: 'grab', display: 'flex', justifyContent: 'center' }}
+                >
+                    <DragIndicatorIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                </div>
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.processDescription || ''}
+                    onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.objective || ''}
+                    onChange={e => handleFieldChange(item._id, 'objective', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.target || ''}
+                    onChange={e => handleFieldChange(item._id, 'target', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('select')?.focus()} style={{ cursor: 'pointer' }}>
+                <select
+                    value={item.monitoringFrequency || ''}
+                    onChange={e => handleFieldChange(item._id, 'monitoringFrequency', e.target.value)}
+                    style={{ width: '100%', height: '35px', border: 'none', background: 'transparent', padding: '4px 8px', fontSize: '0.8rem' }}
+                >
+                    <option value="">Select...</option>
+                    <option value="Week">Week</option>
+                    <option value="Month">Month</option>
+                    <option value="Quarter">Quarter</option>
+                    <option value="Half Year">Half Year</option>
+                    <option value="Year">Year</option>
+                </select>
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.responsibility || ''}
+                    onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.actual || ''}
+                    onChange={e => handleFieldChange(item._id, 'actual', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.plan || ''}
+                    onChange={e => handleFieldChange(item._id, 'plan', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.actionPlan || ''}
+                    onChange={e => handleFieldChange(item._id, 'actionPlan', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td onClick={() => {}} style={{ cursor: 'pointer' }}>
+                <Autocomplete
+                    size="small"
+                    options={mrmUsers}
+                    getOptionLabel={(option) => {
+                        if (typeof option === 'string') return option;
+                        return `${option.first_name || ''} ${option.last_name || ''}`.trim() || option.username;
+                    }}
+                    value={mrmUsers.find(u => u.username === item.responsibilityAction) || item.responsibilityAction || null}
+                    onChange={(e, newValue) => {
+                        const username = newValue?.username || (typeof newValue === 'string' ? newValue : '');
+                        handleFieldChange(item._id, 'responsibilityAction', username);
+                    }}
+                    freeSolo
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            variant="standard"
+                            placeholder="Select..."
+                            InputProps={{
+                                ...params.InputProps,
+                                disableUnderline: true,
+                                style: { fontSize: '0.8rem', padding: '2px 4px' }
+                            }}
+                        />
+                    )}
+                    sx={{
+                        width: '100%',
+                        '& .MuiAutocomplete-input': { padding: '2px 4px !important', fontSize: '0.75rem' },
+                        '& .MuiInputBase-root': { padding: '0 !important' }
+                    }}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('input')?.focus()} style={{ cursor: 'pointer' }}>
+                <input
+                    type="date"
+                    value={item.targetDate ? new Date(item.targetDate).toISOString().split('T')[0] : ''}
+                    onChange={e => handleFieldChange(item._id, 'targetDate', e.target.value)}
+                />
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('select')?.focus()} style={{ cursor: 'pointer' }}>
+                <select
+                    value={item.status || 'Green'}
+                    onChange={e => handleFieldChange(item._id, 'status', e.target.value)}
+                    className={`status-badge ${item.status}`}
+                    style={{ width: '100%', height: '25px', border: 'none' }}
+                >
+                    <option value="Green" style={{ background: 'white', color: '#166534' }}>Green</option>
+                    <option value="Yellow" style={{ background: 'white', color: '#ca8a04' }}>Yellow</option>
+                    <option value="Red" style={{ background: 'white', color: '#dc2626' }}>Red</option>
+                </select>
+            </td>
+            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+                <textarea
+                    value={item.remarks || ''}
+                    onChange={e => handleFieldChange(item._id, 'remarks', e.target.value, e)}
+                    onFocus={autoResizeTextarea}
+                    onInput={autoResizeTextarea}
+                />
+            </td>
+            <td className="action-cell">
+                <div className="action-buttons">
+                        <IconButton
+                        onClick={(e) => {
+                            // We'll pass the anchor element to show a menu
+                            handleInsertItem(index, 'menu', e.currentTarget);
+                        }}
+                        size="small"
+                        sx={{
+                            backgroundColor: '#f0f9ff',
+                            color: '#0369a1',
+                            '&:hover': { backgroundColor: '#e0f2fe' },
+                            width: 24,
+                            height: 24,
+                            padding: '4px'
+                        }}
+                        title="Add row below"
+                    >
+                        <AddCircleOutlineIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                    <IconButton
+                        onClick={() => handleSaveItem(item)}
+                        size="small"
+                        sx={{
+                            backgroundColor: item.isDirty ? '#217346' : '#e5e7eb',
+                            color: item.isDirty ? 'white' : '#6b7280',
+                            '&:hover': { backgroundColor: item.isDirty ? '#1b5e20' : '#d1d5db' },
+                            width: 24,
+                            height: 24,
+                            padding: '4px'
+                        }}
+                        title="Save"
+                    >
+                        <SaveIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                    <IconButton
+                        onClick={() => openDeleteDialog(item)}
+                        size="small"
+                        sx={{
+                            backgroundColor: '#fee2e2',
+                            color: '#dc2626',
+                            '&:hover': { backgroundColor: '#fecaca' },
+                            width: 24,
+                            height: 24,
+                            padding: '4px'
+                        }}
+                        title="Delete"
+                    >
+                        <DeleteIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                </div>
+            </td>
+        </Reorder.Item>
+    );
+};
 
 const MRMHome = () => {
     const { user } = useContext(UserContext);
@@ -42,6 +300,9 @@ const MRMHome = () => {
         itemId: null,
         itemName: ''
     });
+
+    // Bulk Delete Dialog
+    const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
 
     // Load MRM users for admin dropdown
     // Load MRM users for dropdowns
@@ -110,6 +371,10 @@ const MRMHome = () => {
         }
     };
 
+    // Add Row Menu State
+    const [addRowMenu, setAddRowMenu] = useState(null);
+    const [addRowIndex, setAddRowIndex] = useState(null);
+
     const handleAddItem = async () => {
         const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
         const newItem = {
@@ -125,6 +390,51 @@ const MRMHome = () => {
         } catch (err) {
             console.error(err);
             alert("Failed to create item: " + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const handleInsertItem = async (index, type, anchor = null) => {
+        if (type === 'menu') {
+            setAddRowIndex(index);
+            setAddRowMenu(anchor);
+            return;
+        }
+
+        setAddRowMenu(null);
+        const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+        const currentItem = items[index];
+        const newItem = {
+            month: String(selectedMonth).padStart(2, '0'),
+            year: selectedYear,
+            processDescription: type === 'title' ? "New Title" : "New In-between Item",
+            status: "Red",
+            createdBy: targetUserId,
+            insertAfterSeq: currentItem.seq,
+            isTitleRow: type === 'title'
+        };
+        try {
+            const saved = await createMRMItem(newItem);
+            const newItems = [...items];
+            // Update local sequences for UI consistency until next reload
+            newItems.slice(index + 1).forEach(item => { item.seq += 1; });
+            newItems.splice(index + 1, 0, { ...saved, isDirty: false });
+            setItems(newItems);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to insert item");
+        }
+    };
+
+    const handleReorder = async (newOrder) => {
+        setItems(newOrder);
+        try {
+            const itemsToUpdate = newOrder.map((item, index) => ({
+                _id: item._id,
+                seq: index
+            }));
+            await reorderMRMItems(itemsToUpdate);
+        } catch (err) {
+            console.error("Failed to persist reorder", err);
         }
     };
 
@@ -203,6 +513,22 @@ const MRMHome = () => {
             loadData();
         } catch (err) {
             alert("Import failed: " + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        setBulkDeleteDialog(false);
+        setLoading(true);
+        try {
+            const monthStr = String(selectedMonth).padStart(2, '0');
+            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+            await bulkDeleteMRMItems(monthStr, selectedYear, targetUserId);
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to delete month data: " + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -338,6 +664,15 @@ const MRMHome = () => {
                     </select>
 
                     <button className="secondary" onClick={() => setShowImportModal(true)}>Import / Copy</button>
+                    {items.length > 0 && (
+                        <button
+                            className="danger-btn-outline"
+                            onClick={() => setBulkDeleteDialog(true)}
+                            title="Delete all rows for this month"
+                        >
+                            🗑️ Delete Month
+                        </button>
+                    )}
                     <button onClick={handleAddItem}>+ Add Row</button>
                 </div>
             </div>
@@ -387,178 +722,47 @@ const MRMHome = () => {
                     <table>
                         <thead>
                             <tr>
-                                <th style={{ width: '250px' }} title="Process Description">Process Desc.</th>
+                                <th style={{ width: '30px' }}></th>
+                                <th style={{ width: '250px' }} title="Process Description">Process<br />Description</th>
                                 <th style={{ width: '180px' }} title="Objective">Objective</th>
                                 <th style={{ width: '70px' }} title="Target">Target</th>
-                                <th style={{ width: '80px' }} title="Monitoring Frequency">Freq.</th>
+                                <th style={{ width: '80px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
                                 <th style={{ width: '90px' }} title="Responsibility">Resp.</th>
-                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act. ({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
-                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan ({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
-                                <th style={{ width: '220px' }} title="Action Plan">Action Plan</th>
-                                <th style={{ width: '80px' }} title="Action Responsibility">Act. Resp.</th>
-                                <th style={{ width: '95px' }} title="Target Date">Date</th>
+                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
+                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
+                                <th style={{ width: '220px' }} title="Action Plan">Action<br />Plan</th>
+                                <th style={{ width: '80px' }} title="Action Responsibility">Act.<br />Resp.</th>
+                                <th style={{ width: '95px' }} title="Target Date">Target<br />Date</th>
                                 <th style={{ width: '75px' }} title="Status">Status</th>
                                 <th style={{ width: '200px' }} title="Remarks">Remarks</th>
-                                <th style={{ width: '60px', textAlign: 'center' }} title="Actions">Act.</th>
+                                <th style={{ width: '80px', textAlign: 'center' }} title="Actions">Act.</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
                             {filteredItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="13" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                                    <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
                                         {items.length === 0
                                             ? 'No entries for this month. Add a new row or import from previous month.'
                                             : `No items with "${statusFilter}" status.`}
                                     </td>
                                 </tr>
                             ) : (
-                                filteredItems.map(item => (
-                                    <tr key={item._id} className={item.isDirty ? 'row-dirty' : ''}>
-                                        <td><textarea
-                                            value={item.processDescription || ''}
-                                            onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value, e)}
-                                            onFocus={autoResizeTextarea}
-                                            onInput={autoResizeTextarea}
-                                        /></td>
-                                        <td><textarea
-                                            value={item.objective || ''}
-                                            onChange={e => handleFieldChange(item._id, 'objective', e.target.value, e)}
-                                            onFocus={autoResizeTextarea}
-                                            onInput={autoResizeTextarea}
-                                        /></td>
-                                        <td><input value={item.target || ''} onChange={e => handleFieldChange(item._id, 'target', e.target.value)} /></td>
-                                        <td>
-                                            <select
-                                                value={item.monitoringFrequency || ''}
-                                                onChange={e => handleFieldChange(item._id, 'monitoringFrequency', e.target.value)}
-                                                style={{ width: '100%', height: '35px', border: 'none', background: 'transparent', padding: '4px 8px', fontSize: '0.8rem' }}
-                                            >
-                                                <option value="">Select...</option>
-                                                <option value="Week">Week</option>
-                                                <option value="Month">Month</option>
-                                                <option value="Quarter">Quarter</option>
-                                                <option value="Half Year">Half Year</option>
-                                                <option value="Year">Year</option>
-                                            </select>
-                                        </td>
-                                        <td><input value={item.responsibility || ''} onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value)} /></td>
-                                        <td><input value={item.actual || ''} onChange={e => handleFieldChange(item._id, 'actual', e.target.value)} /></td>
-                                        <td><input value={item.plan || ''} onChange={e => handleFieldChange(item._id, 'plan', e.target.value)} /></td>
-                                        <td><textarea
-                                            value={item.actionPlan || ''}
-                                            onChange={e => handleFieldChange(item._id, 'actionPlan', e.target.value, e)}
-                                            onFocus={autoResizeTextarea}
-                                            onInput={autoResizeTextarea}
-                                        /></td>
-                                        <td>
-                                            <Autocomplete
-                                                size="small"
-                                                options={mrmUsers}
-                                                getOptionLabel={(option) => {
-                                                    if (typeof option === 'string') return option;
-                                                    return `${option.first_name || ''} ${option.last_name || ''}`.trim() || option.username;
-                                                }}
-                                                value={mrmUsers.find(u => u.username === item.responsibilityAction) || item.responsibilityAction || null}
-                                                onChange={(e, newValue) => {
-                                                    const username = newValue?.username || (typeof newValue === 'string' ? newValue : '');
-                                                    handleFieldChange(item._id, 'responsibilityAction', username);
-                                                }}
-                                                freeSolo
-                                                renderInput={(params) => (
-                                                    <TextField
-                                                        {...params}
-                                                        variant="standard"
-                                                        placeholder="Select..."
-                                                        InputProps={{
-                                                            ...params.InputProps,
-                                                            disableUnderline: true,
-                                                            style: { fontSize: '0.8rem', padding: '2px 4px' }
-                                                        }}
-                                                    />
-                                                )}
-                                                sx={{
-                                                    width: '100%',
-                                                    '& .MuiAutocomplete-input': { padding: '2px 4px !important', fontSize: '0.75rem' },
-                                                    '& .MuiInputBase-root': { padding: '0 !important' }
-                                                }}
-                                                ListboxProps={{
-                                                    sx: {
-                                                        '& .MuiAutocomplete-option': {
-                                                            fontSize: '0.75rem',
-                                                            padding: '4px 8px !important',
-                                                            minHeight: 'auto'
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="date"
-                                                value={item.targetDate ? new Date(item.targetDate).toISOString().split('T')[0] : ''}
-                                                onChange={e => handleFieldChange(item._id, 'targetDate', e.target.value)}
-                                            />
-                                        </td>
-                                        <td>
-                                            <select
-                                                value={item.status || 'Green'}
-                                                onChange={e => handleFieldChange(item._id, 'status', e.target.value)}
-                                                className={`status-badge ${item.status}`}
-                                                style={{ width: '100%', height: '25px', border: 'none' }}
-                                            >
-                                                <option value="Green" style={{ background: 'white', color: '#166534' }}>Green</option>
-                                                <option value="Yellow" style={{ background: 'white', color: '#ca8a04' }}>Yellow</option>
-                                                <option value="Red" style={{ background: 'white', color: '#dc2626' }}>Red</option>
-                                            </select>
-                                        </td>
-                                        <td><textarea
-                                            value={item.remarks || ''}
-                                            onChange={e => handleFieldChange(item._id, 'remarks', e.target.value, e)}
-                                            onFocus={autoResizeTextarea}
-                                            onInput={autoResizeTextarea}
-                                        /></td>
-                                        <td className="action-cell">
-                                            <div className="action-buttons">
-                                                <IconButton
-                                                    onClick={() => handleSaveItem(item)}
-                                                    size="small"
-                                                    sx={{
-                                                        backgroundColor: item.isDirty ? '#217346' : '#e5e7eb',
-                                                        color: item.isDirty ? 'white' : '#6b7280',
-                                                        '&:hover': {
-                                                            backgroundColor: item.isDirty ? '#1b5e20' : '#d1d5db'
-                                                        },
-                                                        width: 24,
-                                                        height: 24,
-                                                        padding: '4px'
-                                                    }}
-                                                    title="Save"
-                                                >
-                                                    <SaveIcon sx={{ fontSize: 14 }} />
-                                                </IconButton>
-                                                <IconButton
-                                                    onClick={() => openDeleteDialog(item)}
-                                                    size="small"
-                                                    sx={{
-                                                        backgroundColor: '#fee2e2',
-                                                        color: '#dc2626',
-                                                        '&:hover': {
-                                                            backgroundColor: '#fecaca'
-                                                        },
-                                                        width: 24,
-                                                        height: 24,
-                                                        padding: '4px'
-                                                    }}
-                                                    title="Delete"
-                                                >
-                                                    <DeleteIcon sx={{ fontSize: 14 }} />
-                                                </IconButton>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                filteredItems.map((item, index) => (
+                                    <ReorderRow 
+                                        key={item._id} 
+                                        item={item} 
+                                        index={index}
+                                        handleFieldChange={handleFieldChange}
+                                        handleSaveItem={handleSaveItem}
+                                        openDeleteDialog={openDeleteDialog}
+                                        handleInsertItem={handleInsertItem}
+                                        autoResizeTextarea={autoResizeTextarea}
+                                        mrmUsers={mrmUsers}
+                                    />
                                 ))
                             )}
-                        </tbody>
+                        </Reorder.Group>
                     </table>
                 )}
             </div>
@@ -661,6 +865,41 @@ const MRMHome = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Bulk Delete Confirmation */}
+            <Dialog
+                open={bulkDeleteDialog}
+                onClose={() => setBulkDeleteDialog(false)}
+            >
+                <DialogTitle sx={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WarningAmberIcon /> Delete Entire Month
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Are you sure you want to delete <strong>ALL</strong> entries for <strong>{currentMonthName} {selectedYear}</strong>?
+                        This action is irreversible and will remove all rows for this user in this month.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '16px 24px' }}>
+                    <Button onClick={() => setBulkDeleteDialog(false)} variant="outlined">Cancel</Button>
+                    <Button
+                        onClick={handleBulkDelete}
+                        variant="contained"
+                        sx={{ backgroundColor: '#dc2626', '&:hover': { backgroundColor: '#b91c1c' } }}
+                    >
+                        Delete Everything
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            {/* Add Row Menu */}
+            <Menu
+                anchorEl={addRowMenu}
+                open={Boolean(addRowMenu)}
+                onClose={() => setAddRowMenu(null)}
+            >
+                <MenuItem onClick={() => handleInsertItem(addRowIndex, 'normal')}>Normal Row</MenuItem>
+                <MenuItem onClick={() => handleInsertItem(addRowIndex, 'title')}>Title Row</MenuItem>
+            </Menu>
         </div >
     );
 };

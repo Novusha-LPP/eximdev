@@ -1,0 +1,171 @@
+{
+  "collections": [
+    "authorizationregistrations",
+    "qrusers",
+    "outwardregisters",
+    "tyres",
+    "customers",
+    "cthdocuments",
+    "documents",
+    "currencyrates",
+    "feedbacks",
+    "drivertypes",
+    "deliveryaddresses",
+    "mrmitems",
+    "typeofvehicles",
+    "serverlogs",
+    "elockstatushistories",
+    "prs",
+    "graph_notifications",
+    "unitmeasurements",
+    "branches",
+    "exitinterviews",
+    "organizations",
+    "globalbalances",
+    "trackingstatushistories",
+    "job_logs",
+    "tolldatas",
+    "recents",
+    "engineoilstocks",
+    "importers",
+    "deleteelockothers",
+    "counters",
+    "ports",
+    "elocks",
+    "kycdocuments",
+    "eximclientusers",
+    "gandhidham_jobs_sea",
+    "myfeedbacks",
+    "driverdetails",
+    "graph_subscriptions",
+    "repairtypes",
+    "branchports",
+    "transactions",
+    "tyremodels",
+    "cvcategorydirectories",
+    "favorites",
+    "netBalance",
+    "trucks",
+    "rtos",
+    "scanlogs",
+    "releasenotes",
+    "locationmasters",
+    "tyrebrands",
+    "kpisheets",
+    "netbalances",
+    "inwardregisters",
+    "audittrails",
+    "kpisettings",
+    "mrmmetadatas",
+    "kpitemplates",
+    "dgftregisters",
+    "cashvouchers",
+    "qrbundles",
+    "jobcounters",
+    "elockbilldirectories",
+    "locations",
+    "jobs",
+    "organisations",
+    "tyresizes",
+    "activity_logs",
+    "openpoints",
+    "vehicleregistrations",
+    "engineoildistributions",
+    "userbranches",
+    "elockassignlimits",
+    "cashregisters",
+    "deletedlrs",
+    "statedistricts",
+    "containertypes",
+    "jobslastupdateds",
+    "teams",
+    "departments",
+    "customerkycs",
+    "prdatas",
+    "cths",
+    "tyretypes",
+    "trs",
+    "lrtrackingstages",
+    "accountentries",
+    "elockbills",
+    "porticdcodes",
+    "vehicles",
+    "shippinglines",
+    "superadmins",
+    "clientcallhistories",
+    "mastertypes",
+    "vehicletypes",
+    "usermappings",
+    "organisationmasters",
+    "openpointprojects",
+    "vendors",
+    "plyratings",
+    "elockassignothers",
+    "users"
+  ],
+  "indexes": [
+    {
+      "v": 2,
+      "key": {
+        "_id": 1
+      },
+      "name": "_id_"
+    },
+    {
+      "v": 2,
+      "key": {
+        "branch_name": 1
+      },
+      "name": "branch_name_1",
+      "background": true,
+      "unique": true
+    },
+    {
+      "v": 2,
+      "key": {
+        "branch_code": 1
+      },
+      "name": "branch_code_1",
+      "background": true,
+      "unique": true
+    },
+    {
+      "v": 2,
+      "key": {
+        "branch_code": 1,
+        "category": 1
+      },
+      "name": "branch_code_1_category_1",
+      "background": true,
+      "unique": true
+    }
+  ],
+  "branchesCount": 2,
+  "sampleBranch": {
+    "_id": "69abeeae0a6647027c4a09a8",
+    "branch_name": "AHEMDABAD",
+    "branch_code": "AMD",
+    "category": "SEA",
+    "is_active": true,
+    "created_by": null,
+    "ports": [
+      {
+        "port_name": "ICD SANAND",
+        "port_code": "INSBI6",
+        "_id": "69abeec30a6647027c4a09ac"
+      },
+      {
+        "port_name": "ICD KHODIYAR",
+        "port_code": "INSBI7",
+        "_id": "69abeed40a6647027c4a09b2"
+      },
+      {
+        "port_name": "ICD KHODIYAR",
+        "port_code": "INSBI9",
+        "_id": "69abeee20a6647027c4a09ba"
+      }
+    ],
+    "created_at": "2026-03-07T09:23:58.126Z",
+    "__v": 3
+  }
+}

@@ -10,10 +10,10 @@ const router = express.Router();
 // so we just need to attach them to req.jobInfo for the audit middleware
 const extractJobInfo = async (req, res, next) => {
   try {
-    const { year, job_no } = req.params;
+    const { branch_code, trade_type, mode, year, job_no } = req.params;
     
     // Find the job to get its document ID
-    const job = await JobModel.findOne({ job_no, year }).lean();
+    const job = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), job_no, year }).lean();
     if (job) {
       req.jobInfo = {
         documentId: job._id,
@@ -21,7 +21,7 @@ const extractJobInfo = async (req, res, next) => {
         year
       };
     } else {
-      console.log(`❌ Could not find job: ${year}/${job_no}`);
+      console.log(`❌ Could not find job: ${branch_code}/${trade_type}/${year}/${job_no}`);
     }
     next();
   } catch (error) {
@@ -30,14 +30,18 @@ const extractJobInfo = async (req, res, next) => {
   }
 };
 
-router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
-  const { year, job_no } = req.params;
+router.patch("/api/update-operations-job/:branch_code/:trade_type/:mode/:year/:job_no", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
+  const { branch_code, trade_type, mode, year, job_no } = req.params;
   const updateData = req.body;
 
   try {
     // SECURITY CHECK: If container_nos is being updated, validate they belong to this job
     if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
-      const existingJob = await JobModel.findOne({ year, job_no }).select('container_nos');
+      const query = { branch_code, trade_type, mode: mode.toUpperCase(), year, job_no };
+      if (updateData._id) {
+        query._id = updateData._id;
+      }
+      const existingJob = await JobModel.findOne(query).select('container_nos');
       
       if (existingJob && existingJob.container_nos) {
         const existingContainerNumbers = new Set(
@@ -69,10 +73,15 @@ router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMi
     }
 
     // Apply the requested update first
-    await JobModel.findOneAndUpdate({ year, job_no }, { $set: updateData });
+    const query = { branch_code, trade_type, mode: mode.toUpperCase(), year, job_no };
+    if (updateData._id) {
+       query._id = updateData._id;
+       delete updateData._id;
+    }
+    await JobModel.findOneAndUpdate(query, { $set: updateData });
 
     // Fetch the updated job and recompute detailed_status server-side
-    let job = await JobModel.findOne({ year, job_no }).lean();
+    let job = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), year, job_no }).lean();
     if (!job) {
       return res.status(200).send({ message: "Job not found" });
     }
@@ -80,7 +89,7 @@ router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMi
     const recomputedStatus = determineDetailedStatus(job);
     if (recomputedStatus && recomputedStatus !== job.detailed_status) {
       job = await JobModel.findOneAndUpdate(
-        { year, job_no },
+        { branch_code, trade_type, mode: mode.toUpperCase(), year, job_no },
         { $set: { detailed_status: recomputedStatus } },
         { new: true }
       ).lean();

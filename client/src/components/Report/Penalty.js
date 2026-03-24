@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import {
   parse, isValid, isWithinInterval, getYear, getMonth, getQuarter
@@ -6,10 +6,12 @@ import {
 import './Penalty.css';
 import BillingPending from './BillingPending'; // Importing the existing component
 import MonthlyContainers from './monthlyContainers';
+import { BranchContext } from '../../contexts/BranchContext';
 
 const Penalty = () => {
   // Basic state for the report tab
   const [activeReport, setActiveReport] = useState('monthly-container'); // Default to monthly container
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   // Filter State
   const [filterType, setFilterType] = useState('month'); // Default to month
@@ -46,7 +48,13 @@ const Penalty = () => {
           ? `${apiUrl}/project-nucleus/reports`
           : `${apiUrl}/api/project-nucleus/reports`;
 
-        const response = await axios.get(endpoint, { withCredentials: true });
+        const response = await axios.get(endpoint, {
+          params: {
+            branchId: selectedBranch && selectedBranch !== 'all' ? selectedBranch : undefined,
+            category: selectedCategory && selectedCategory !== 'all' ? selectedCategory : undefined
+          },
+          withCredentials: true
+        });
         setData(response.data);
       } catch (error) {
         console.error("Error fetching reports:", error);
@@ -56,7 +64,7 @@ const Penalty = () => {
     };
 
     fetchReports();
-  }, []);
+  }, [selectedBranch, selectedCategory]);
 
   const filterByTime = (items) => {
     return items.filter(item => {
@@ -541,7 +549,7 @@ const Penalty = () => {
               {dataToShow.length > 0 ? (
                 dataToShow.map((item) => (
                   <tr key={item._id}>
-                    <td style={{ fontWeight: 500 }}>{item.job_no}</td>
+                    <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{item.job_number || item.job_no}</td>
                     <td>{item.be_no}</td>
                     <td>{item.be_date}</td>
                     <td className={`amount-cell ${activeReport === 'fine' ? 'fine-amount' : 'penalty-amount'}`}>

@@ -48,6 +48,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { UserContext } from "../../contexts/UserContext";
 import { useFetchYears } from "../../utils/useFetchYears";
+import { BranchContext } from '../../contexts/BranchContext';
 
 const columns = [
   { label: "Srl No.", key: "srlNo", minWidth: 50 },
@@ -80,6 +81,7 @@ const DetailedReport = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
   const gradeOptions = [
     { value: "", label: "All Grades" },
@@ -124,6 +126,12 @@ const DetailedReport = () => {
       if (isSrManager && gradeFilter) {
         url.searchParams.append('grade', gradeFilter);
       }
+      if (selectedBranch && selectedBranch !== 'all') {
+        url.searchParams.append('branchId', selectedBranch);
+      }
+      if (selectedCategory && selectedCategory !== 'all') {
+        url.searchParams.append('category', selectedCategory);
+      }
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Failed to fetch data");
       const json = await res.json();
@@ -137,7 +145,7 @@ const DetailedReport = () => {
 
   useEffect(() => {
     fetchData();
-  }, [year, month, gradeFilter]); // ✅ Added gradeFilter dependency
+  }, [year, month, gradeFilter, selectedBranch, selectedCategory]); // ✅ Added branch dependencies
 
   const handlePreviousMonth = () => {
     const prev = parseInt(month) - 1;

@@ -1,7 +1,10 @@
-import React, { useState,  useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import axios from "axios";
+
 import "./dgft.scss";
 import DgftRegisterList from "./DgftRegisterList";
 import AuthorizationRegistrationList from "./AuthorizationRegistrationList";
+import { useParams, useNavigate } from "react-router-dom";
 
 // --- Clean Enterprise Styles ---
 const s = {
@@ -69,23 +72,48 @@ const s = {
 };
 
 const TABS = [
-  { label: "Authorization Registration", key: "register" },
-  { label: "Register Format ", key: "authorization" },
+  { label: "Authorization Registration", key: "auth-reg" },
+  { label: "Register Format", key: "reg-format" },
 ];
 
 function DgftTabs() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [counts, setCounts] = useState({ register: 0, authorization: 0 });
+  const { tab } = useParams();
+  const navigate = useNavigate();
+  
+  // Default to first tab if none specified in URL
+  const activeTabKey = tab || TABS[0].key;
+  const activeIdx = TABS.findIndex(t => t.key === activeTabKey);
+  const validIdx = activeIdx === -1 ? 0 : activeIdx;
 
-  const handleCountUpdate = useCallback((tab, count) => {
-    setCounts((prev) => {
-      if (prev[tab] === count) return prev;
-      return { ...prev, [tab]: count };
-    });
+  const [counts, setCounts] = useState({ "auth-reg": 0, "reg-format": 0 });
+
+  const fetchCounts = useCallback(async () => {
+    try {
+      const api = process.env.REACT_APP_API_STRING;
+      const [res1, res2] = await Promise.all([
+        axios.get(`${api}/get-dgft-registers`),
+        axios.get(`${api}/get-authorization-registrations`)
+      ]);
+      setCounts({
+        "auth-reg": res1.data.length,
+        "reg-format": res2.data.length
+      });
+    } catch (err) {
+      console.error("Error fetching DGFT counts:", err);
+    }
   }, []);
 
-  const handleRegisterCount = useCallback((c) => handleCountUpdate("register", c), [handleCountUpdate]);
-  const handleAuthCount = useCallback((c) => handleCountUpdate("authorization", c), [handleCountUpdate]);
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
+
+  const handleAuthRegCount = useCallback((c) => {
+    setCounts(prev => ({ ...prev, "auth-reg": c }));
+  }, []);
+
+  const handleRegFormatCount = useCallback((c) => {
+    setCounts(prev => ({ ...prev, "reg-format": c }));
+  }, []);
 
   return (
     <div style={s.wrapper}>
@@ -96,37 +124,37 @@ function DgftTabs() {
 
         {/* Tabs */}
         <div style={s.tabContainer}>
-          {TABS.map((tab, idx) => (
+          {TABS.map((tabItem, idx) => (
             <button
-              key={tab.key}
+              key={tabItem.key}
               style={{
                 ...s.tab,
-                ...(activeTab === idx ? s.activeTab : {}),
+                ...(validIdx === idx ? s.activeTab : {}),
               }}
-              onClick={() => setActiveTab(idx)}
+              onClick={() => navigate(`/dgft/${tabItem.key}`)}
             >
-              {tab.label}
+              {tabItem.label}
               <span
                 style={{
                   ...s.badge,
-                  ...(activeTab === idx ? s.activeBadge : {}),
+                  ...(validIdx === idx ? s.activeBadge : {}),
                 }}
               >
-                {tab.key === "register" ? counts.register : counts.authorization}
+                {counts[tabItem.key]}
               </span>
             </button>
           ))}
         </div>
 
         {/* Tab Content */}
-        {activeTab === 0 && (
+        {validIdx === 0 && (
           <DgftRegisterList
-            onCountChange={handleRegisterCount}
+            onCountChange={handleAuthRegCount}
           />
         )}
-        {activeTab === 1 && (
+        {validIdx === 1 && (
           <AuthorizationRegistrationList
-            onCountChange={handleAuthCount}
+            onCountChange={handleRegFormatCount}
           />
         )}
       </div>

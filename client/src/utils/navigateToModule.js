@@ -4,6 +4,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/employee-onboarding");
     case "Employee KYC":
       return navigate("/employee-kyc");
+    case "Update Employee Data":
+      return navigate("/update-employee-data");
     case "Import - DSR":
       return navigate("/import-dsr");
     case "Report":
@@ -23,7 +25,21 @@ export const navigateToModule = (module, navigate) => {
     case "Inward Register":
       return navigate("/inward-register");
     case "Export":
-      return navigate("https://export.alvision.in");
+      return window.open("https://export.alvision.in", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - Directories":
+      return window.open("https://export.alvision.in/export-directories", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - Audit Trail":
+      return window.open("https://export.alvision.in/export-audit-trail", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - Charges":
+      return window.open("https://export.alvision.in/export-charges", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - Documentation":
+      return window.open("https://export.alvision.in/export-documentation", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - E-Sanchit":
+      return window.open("https://export.alvision.in/export-esanchit", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - Jobs":
+      return window.open("https://export.alvision.in/export-dsr", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+    case "Export - Operation":
+      return window.open("https://export.alvision.in/export-operation", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
     case "Outward Register":
       return navigate("/outward-register");
     case "Accounts":
@@ -40,20 +56,9 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/documentation");
     case "Submission":
       return navigate("/submission");
-    case "Screen1":
-      return navigate("/screen1");
-    case "Screen2":
-      return navigate("/screen2");
-    case "Screen3":
-      return navigate("/screen3");
-    case "Screen4":
-      return navigate("/screen4");
-    case "Screen5":
-      return navigate("/screen5");
     case "DGFT":
       return navigate("/dgft");
-    case "Screen6":
-      return navigate("/screen6");
+
     case "Open Points":
       return navigate("/open-points");
     case "KPI":
@@ -62,6 +67,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/mrm");
     case "Pulse":
       return navigate("/pulse");
+    case "MasterDirectory":
+      return navigate("/master-directory");
     default:
       return navigate("/home");
   }

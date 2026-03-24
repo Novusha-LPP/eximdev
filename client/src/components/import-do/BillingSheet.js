@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -24,6 +24,8 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { BranchContext } from "../../contexts/BranchContext";
+import useDynamicICDs from "../../customHooks/useDynamicICDs";
 import {
   getTableRowsClassname,
   getTableRowInlineStyle,
@@ -33,6 +35,8 @@ import InvoiceDisplay from "./InvoiceDisplay";
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+  const { selectedBranch } = useContext(BranchContext);
+  const dynamicICDs = useDynamicICDs();
 
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
@@ -41,9 +45,9 @@ function BillingSheet() {
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(1);
   // Use context for search functionality and pagination for BillingSheet tab
   const {
     searchQuery,
@@ -56,7 +60,6 @@ function BillingSheet() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
-  const navigate = useNavigate();
   const location = useLocation();
   const listRef = useRef(null);
   const [selectedJobId, setSelectedJobId] = useState(
@@ -214,9 +217,11 @@ function BillingSheet() {
       currentICD,
       OBLvalue,
       selectedImporter,
-      unresolvedOnly = false
+      unresolvedOnly = false,
+      selectedBranch = "all"
     ) => {
       setLoading(true);
+      setError(null);
       try {
         const apiString =
           process.env.REACT_APP_API_STRING
@@ -231,6 +236,7 @@ function BillingSheet() {
             importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
             username: user?.username || "", // ✅ Send username for ICD filtering
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+            branchId: selectedBranch || "all", // ✅ Add branchId parameter
           },
         });
 
@@ -246,11 +252,9 @@ function BillingSheet() {
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
         setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
-        setTotalPages(1);
-        setUnresolvedCount(0);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+        setError("Error fetching jobs. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -269,7 +273,8 @@ function BillingSheet() {
         selectedICD,
         blValue,
         selectedImporter,
-        showUnresolvedOnly
+        showUnresolvedOnly,
+        selectedBranch
       );
     }
   }, [
@@ -282,15 +287,16 @@ function BillingSheet() {
     user?.username,
     showUnresolvedOnly,
     fetchJobs,
+    selectedBranch,
   ]);
 
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => {
+      size: 250,
+      Cell: ({ row }) => {
         const {
           job_no,
           year,
@@ -299,11 +305,12 @@ function BillingSheet() {
           consignment_type,
           custom_house,
           detailed_status,
-          vessel_berthing,
           container_nos,
           colorPriority, // ✅ USE THIS FROM BACKEND
-          daysDifference, // ✅ USE THIS FROM BACKEND
-        } = cell.row.original;
+          mode,
+          branch_code,
+          trade_type,
+        } = row.original;
 
         // Color-coding logic - NOW USES BACKEND DATA
         let bgColor = "";
@@ -379,7 +386,7 @@ function BillingSheet() {
 
         return (
           <Link
-            to={`/edit-billing-sheet/${job_no}/${year}?${queryParams}`}
+            to={`/edit-billing-sheet/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?${queryParams}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -390,11 +397,11 @@ function BillingSheet() {
               padding: "10px",
               borderRadius: "5px",
               textAlign: "center",
-              textDecoration: "none",
+              textDecoration: "none", whiteSpace: "nowrap",
               border: bgColor ? "1px solid #ccc" : "none",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </Link>
         );
@@ -529,9 +536,9 @@ function BillingSheet() {
           sx={{ width: "200px", marginRight: "20px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          {dynamicICDs.map((icd, index) => (
+            <MenuItem key={index} value={icd}>{icd}</MenuItem>
+          ))}
         </TextField>{" "}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"

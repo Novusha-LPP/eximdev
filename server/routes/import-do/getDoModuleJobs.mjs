@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -21,7 +23,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly, branchId, category } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -112,6 +114,9 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+    baseQuery.$and.push(branchMatch);
+
     // ✅ Apply ICD filter if provided
     if (decodedICD && decodedICD !== "All ICDs") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
@@ -141,7 +146,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year port_of_reporting do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved do_planning_date free_time"
+        "job_number job_no year port_of_reporting do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved do_planning_date free_time mode branch_code trade_type"
       )
       .lean();
 
@@ -372,6 +377,8 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     };
     if (selectedYear) countQuery.$and.push({ year: selectedYear });
     if (req.userIcdFilter) countQuery.$and.push(req.userIcdFilter);
+    const countBranchMatch = getBranchMatch(branchId, category);
+    countQuery.$and.push(countBranchMatch);
     // Apply other current context filters if needed, but usually this badge is "How many jobs TODAY in this YEAR"
 
     const doPlanningTodayCount = await JobModel.countDocuments(countQuery);
@@ -405,7 +412,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly, branchId, category } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -479,6 +486,9 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+    baseQuery.$and.push(branchMatch);
+
     // ✅ Apply ICD filter if provided
     if (decodedICD && decodedICD !== "All ICDs") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
@@ -493,7 +503,7 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no port_of_reporting year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no do_completed do_validity do_copies do_list ooc_copies in_bond_ooc_copies free_time"
+        "job_number job_no port_of_reporting year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no do_completed do_validity do_copies do_list ooc_copies in_bond_ooc_copies free_time mode branch_code trade_type"
       )
       .lean();
 
@@ -600,6 +610,8 @@ export async function getTodayJob(req, res) {
       obl_telex_bl,
       year,
       unresolvedOnly,
+      branchId,
+      category,
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -664,6 +676,9 @@ export async function getTodayJob(req, res) {
       });
     }
 
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+    baseQuery.$and.push(branchMatch);
+
     // ✅ If selectedICD is provided, filter by ICD Code
     if (decodedICD && decodedICD !== "Select ICD") {
       baseQuery.$and.push({
@@ -685,7 +700,7 @@ export async function getTodayJob(req, res) {
     // **Step 2: Fetch only today's eligible jobs**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos do_completed doPlanning met_do_billing_conditions_date do_shipping_line_invoice free_time"
+        "job_number job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos do_completed doPlanning met_do_billing_conditions_date do_shipping_line_invoice free_time mode branch_code trade_type"
       )
       .lean();
 
@@ -790,7 +805,7 @@ router.get('/get-new-do-billing-jobs', async (req, res) => {
         $gte: new Date(since)
       }
     })
-      .select('job_no importer be_no met_do_billing_conditions_date')
+      .select('job_number job_no importer be_no met_do_billing_conditions_date')
       .sort({ met_do_billing_conditions_date: -1 })
       .limit(50);
 

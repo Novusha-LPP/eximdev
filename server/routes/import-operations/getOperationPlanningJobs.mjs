@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -28,7 +30,9 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     importer = "", // NEW: Capture importer from query params
     detailedStatusExPlan = "all",
     year,
-    unresolvedOnly
+    unresolvedOnly,
+    branchId,
+    category
   } = req.query;
 
   // Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
@@ -162,6 +166,9 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
       };
     }
 
+    // **Branch condition**
+    const branchMatch = getBranchMatch(branchId, category);
+
     // **Final Query: Merge All Conditions**
     const baseQuery = {
       $and: [
@@ -170,6 +177,7 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
         statusExtraCondition,
         searchQuery,
         importerCondition, // NEW: Ensure importer filtering is applied
+        branchMatch, // NEW: Filter by branch
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
@@ -183,6 +191,7 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
+
     // **Fetch Jobs**
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,

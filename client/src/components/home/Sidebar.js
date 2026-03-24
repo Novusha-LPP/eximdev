@@ -15,6 +15,7 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import DomainIcon from "@mui/icons-material/Domain";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -66,17 +67,31 @@ function Sidebar() {
       </Tooltip>
 
       {user.role === "Admin" && (
-        <Tooltip title="Admin" enterDelay={0} placement="right">
-          <ListItemButton
-            className="appbar-links"
-            aria-label="list-item"
-            onClick={() => navigate("/assign")}
-          >
-            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-              <AssignmentIndIcon />
-            </IconButton>
-          </ListItemButton>
-        </Tooltip>
+        <>
+          <Tooltip title="Admin" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/assign")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <AssignmentIndIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          <Tooltip title="Branch Management" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/admin/branches")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <DomainIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+        </>
       )}
 
       {/* HOD Management - For Head of Department users */}

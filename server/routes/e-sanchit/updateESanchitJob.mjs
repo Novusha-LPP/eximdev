@@ -4,13 +4,14 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/update-esanchit-job",
+router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
-    const { job_no, year, cth_documents, documents, eSachitQueries, esanchitCharges } = req.body;
+    const { branch_code, trade_type, mode, job_no, year } = req.params;
+    const { cth_documents, documents, queries, esanchitCharges, dsr_queries, esanchit_completed_date_time } = req.body;
 
     try {
-      const matchingJob = await JobModel.findOne({ job_no, year });
+      const matchingJob = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), job_no, year });
 
       if (!matchingJob) {
         // Send a response indicating that the job does not exist
@@ -75,8 +76,18 @@ router.post("/api/update-esanchit-job",
         });
       }
 
-      // Update eSachitQueries
-      matchingJob.eSachitQueries = eSachitQueries;
+      // Update queries
+      if (queries) {
+        matchingJob.eSachitQueries = queries;
+      }
+
+      if (dsr_queries) {
+        matchingJob.dsr_queries = dsr_queries;
+      }
+
+      if (typeof esanchit_completed_date_time !== 'undefined') {
+        matchingJob.esanchit_completed_date_time = esanchit_completed_date_time;
+      }
 
       await matchingJob.save();
       res.send({ message: "Job updated successfully" });

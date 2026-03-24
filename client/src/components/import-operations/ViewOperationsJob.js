@@ -3,7 +3,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, TextField, Box, Typography, Button, Tabs, Tab } from "@mui/material";
+import { IconButton, TextField, Box, Typography, Button, Tabs, Tab, FormControl, Select, MenuItem } from "@mui/material";
 import { Edit, Delete, Add as AddIcon } from "@mui/icons-material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -28,6 +28,21 @@ import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
+
+const CFS_OPTIONS = [
+  "Adani Ports and Special Economic Zone Limited",
+  "ALLCARGO TERMINALS LIMITED",
+  "AMEYA LOGISTICS PVT LTD",
+  "Ashutosh Container Services Pvt Ltd",
+  "Central Warehousing Corporation (NEW)",
+  "Hind Terminals Pvt Ltd.",
+  "Landmark CFS Pvt Ltd",
+  "Mundra International Container Terminal Pvt Ltd.",
+  "Mundhra Container Freight Station Pvt Ltd.",
+  "Saurashtra Freight Pvt Ltd.",
+  "Seabird Marine Services (Gujarat) Pvt. Ltd.",
+  "Transworld Terminals Pvt Ltd."
+];
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
@@ -451,7 +466,7 @@ function ViewOperationsJob() {
                 <Row>
                   <Col md={9}>
                     <Row>
-                      <Col xs={12} md={4}>
+                      <Col xs={12} md={3}>
                         <div
                           className="job-detail-input-container"
                           style={{
@@ -480,7 +495,7 @@ function ViewOperationsJob() {
                           />
                         </div>
                       </Col>
-                      <Col xs={12} md={4}>
+                      <Col xs={12} md={3}>
                         <div
                           className="job-detail-input-container"
                           style={{
@@ -513,7 +528,7 @@ function ViewOperationsJob() {
                           />
                         </div>
                       </Col>
-                      <Col xs={12} md={4}>
+                      <Col xs={12} md={3}>
                         <div
                           className="job-detail-input-container"
                           style={{
@@ -547,6 +562,42 @@ function ViewOperationsJob() {
                           />
                         </div>
                       </Col>
+
+                      {data.branch_code === "GIM" && (
+                        <Col xs={12} md={3}>
+                          <div
+                            className="job-detail-input-container"
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              width: "120%",
+                            }}
+                          >
+                            <strong style={{ marginBottom: "5px" }}>
+                              CFS Loc:
+                            </strong>
+                            <FormControl fullWidth size="small">
+                              <Select
+                                id="cfs_name"
+                                name="cfs_name"
+                                value={formik.values.cfs_name || ""}
+                                onChange={formik.handleChange}
+                                displayEmpty
+                                variant="outlined"
+                              >
+                                <MenuItem value="">
+                                  <em>Select CFS</em>
+                                </MenuItem>
+                                {CFS_OPTIONS.map((option) => (
+                                  <MenuItem key={option} value={option}>
+                                    {option}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </div>
+                        </Col>
+                      )}
 
                       {/* Add Concor Gate Pass Date and Validate Up To Date only for ICD KHODIYAR */}
                       {data.custom_house === "ICD KHODIYAR" && (

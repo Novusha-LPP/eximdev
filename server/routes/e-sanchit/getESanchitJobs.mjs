@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -36,7 +38,7 @@ const getMostRecentSendDate = (job) => {
 };
 
 router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
-  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly, branchId, category } = req.query;
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -98,13 +100,16 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
       });
     }
 
+    const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+    baseQuery.$and.push(branchMatch);
+
     if (req.userIcdFilter) {
       baseQuery.$and.push(req.userIcdFilter);
     }
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries mode branch_code trade_type"
       )
       .sort({ gateway_igm_date: 1 });
 
@@ -173,14 +178,14 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year",
+router.patch("/api/update-esanchit-job/:mode/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
-    const { job_no, year } = req.params;
+    const { mode, job_no, year } = req.params;
     const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
 
     try {
-      const job = await JobModel.findOne({ job_no, year });
+      const job = await JobModel.findOne({ mode: mode.toUpperCase(), job_no, year });
 
       if (!job) {
         return res.status(404).json({ message: "Job not found" });

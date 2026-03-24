@@ -38,17 +38,44 @@ export default function SelectImporterModal(props) {
   const [checked, setChecked] = React.useState(false);
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
+  const [branches, setBranches] = React.useState([]);
+  const [selectedBranchId, setSelectedBranchId] = React.useState("");
+
   const { years: availableYears } = useFetchYears();
 
   // Get importer list for MUI autocomplete
   const { user } = useContext(UserContext);
 
   React.useEffect(() => {
+    async function fetchBranches() {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`);
+        setBranches(response.data);
+        if (response.data.length > 0) {
+          // Default to Ahmedabad Sea as requested
+          const defaultBranch = response.data.find(b => 
+            b.branch_name.toLowerCase().includes("ahmedabad") && b.category === "SEA"
+          );
+          setSelectedBranchId(defaultBranch ? defaultBranch._id : "all");
+        }
+      } catch (err) {
+        console.error("Error fetching branches:", err);
+      }
+    }
+    fetchBranches();
+  }, []);
+
+  React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
         try {
+          const params = new URLSearchParams();
+          if (selectedBranchId && selectedBranchId !== 'all') {
+            params.append("branchId", selectedBranchId);
+          }
+          const queryString = params.toString();
           const res = await axios.get(
-            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}${queryString ? '?' + queryString : ''}`
           );
 
           let fetchedImporters = res.data;
@@ -69,7 +96,7 @@ export default function SelectImporterModal(props) {
       }
     }
     getImporterList();
-  }, [selectedYearState, user, setImporters]);
+  }, [selectedYearState, user, setImporters, selectedBranchId]);
 
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
@@ -103,6 +130,7 @@ export default function SelectImporterModal(props) {
   const handleReportDownload = async () => {
     if (selectedImporter !== "" && selectedApiYears.length > 0) {
       const yearString = selectedApiYears.join(",");
+      const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING
         }/download-report/${yearString}/${selectedImporter
@@ -110,7 +138,7 @@ export default function SelectImporterModal(props) {
           .replace(/\s+/g, "_")
           .replace(/[^\w]+/g, "")
           .replace(/_+/g, "_")
-          .replace(/^_|_$/g, "")}/${props.status}`
+          .replace(/^_|_$/g, "")}/${props.status}${branchParam}`
       );
 
       convertToExcel(
@@ -125,8 +153,9 @@ export default function SelectImporterModal(props) {
   const handleDownloadAll = async () => {
     if (selectedApiYears.length > 0) {
       const yearString = selectedApiYears.join(",");
+      const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}`
+        `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}${branchParam}`
       );
 
       downloadAllReport(res.data, props.status, props.detailedStatus);
@@ -163,6 +192,25 @@ export default function SelectImporterModal(props) {
             >
               <CloseIcon />
             </IconButton>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Select Branch"
+              value={selectedBranchId}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              SelectProps={{ native: true }}
+            >
+              <option value="all">All Branches</option>
+              {branches.map((branch) => (
+                <option key={branch._id} value={branch._id}>
+                  {branch.branch_name} ({branch.category})
+                </option>
+              ))}
+            </TextField>
           </Box>
 
           <FormGroup>
@@ -225,4 +273,4 @@ export default function SelectImporterModal(props) {
       </Modal>
     </div>
   );
-}
+}

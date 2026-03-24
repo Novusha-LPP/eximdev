@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const { Schema } = mongoose;
 
@@ -253,6 +254,20 @@ const customerKycSchema = new Schema({
     type: Boolean,
     default: false
   },
+  financial_details_approved: {
+    type: Boolean,
+    default: false
+  },
+  financial_details_approved_by: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  customer_tier: {
+    type: String,
+    required: false,
+    trim: true
+  },
 
 
 
@@ -492,6 +507,8 @@ customerKycSchema.pre('save', function (next) {
 
   next();
 });
+
+customerKycSchema.plugin(auditPlugin, { documentType: "CustomerKyc" });
 
 const CustomerKycModel = mongoose.model('CustomerKyc', customerKycSchema);
 

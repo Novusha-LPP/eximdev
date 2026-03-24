@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAnalytics } from './AnalyticsContext';
+import { useBranch } from '../../contexts/BranchContext';
 import KPICard from './KPICard';
 import ModalTable from './ModalTable';
 import './AnalyticsLayout.css';
@@ -17,8 +18,10 @@ import {
 import useLiveAnalytics from '../../hooks/useLiveAnalytics';
 
 const CustomsDashboard = () => {
-    const { startDate, endDate, importer } = useAnalytics();
-    const { data: rawData, loading } = useLiveAnalytics('customs', startDate, endDate, importer);
+    const { startDate, endDate, importer, selectedBranch, selectedCategory } = useAnalytics();
+    const { branches } = useBranch();
+    const activeBranchConfig = branches?.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+    const { data: rawData, loading } = useLiveAnalytics('customs', startDate, endDate, importer, selectedBranch, selectedCategory);
     const data = rawData && rawData.summary ? rawData : { summary: {}, details: {} };
 
     const [modalOpen, setModalOpen] = useState(false);
@@ -41,7 +44,9 @@ const CustomsDashboard = () => {
             <h2>Customs Clearance</h2>
             <div className="dashboard-grid">
                 <KPICard title="IGM" count={summary.igm || 0} color="purple" onClick={() => handleCardClick('igm', 'IGM')} />
-                <KPICard title="Gateway IGM" count={summary.gateway_igm || 0} color="purple" onClick={() => handleCardClick('gateway_igm', 'Gateway IGM')} />
+                {activeBranchConfig.gateway_igm_enabled && (
+                    <KPICard title="Gateway IGM" count={summary.gateway_igm || 0} color="purple" onClick={() => handleCardClick('gateway_igm', 'Gateway IGM')} />
+                )}
                 <KPICard title="BE Filed" count={summary.be_filed || 0} color="purple" onClick={() => handleCardClick('be_filed', 'BE Filed')} />
                 <KPICard title="Assessment" count={summary.assessment || 0} color="purple" onClick={() => handleCardClick('assessment', 'Assessment')} />
                 <KPICard title="Duty Paid" count={summary.duty_paid || 0} color="purple" onClick={() => handleCardClick('duty_paid', 'Duty Paid')} />

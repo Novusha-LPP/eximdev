@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const Schema = mongoose.Schema;
 
@@ -59,6 +60,8 @@ teamSchema.pre("save", function (next) {
     this.updatedAt = Date.now();
     next();
 });
+
+teamSchema.plugin(auditPlugin, { documentType: "Team" });
 
 const TeamModel = mongoose.model("Team", teamSchema);
 export default TeamModel;

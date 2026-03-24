@@ -1,5 +1,5 @@
-
 import mongoose from "mongoose";
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 const Schema = mongoose.Schema;
 
 const projectSchema = new Schema({
@@ -15,4 +15,7 @@ const projectSchema = new Schema({
     created_at: { type: Date, default: Date.now },
 });
 
-export default mongoose.model("OpenPointProject", projectSchema);
+projectSchema.plugin(auditPlugin, { documentType: "OpenPointProject" });
+
+const OpenPointProjectModel = mongoose.model("OpenPointProject", projectSchema);
+export default OpenPointProjectModel;

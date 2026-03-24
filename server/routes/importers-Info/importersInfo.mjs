@@ -1,8 +1,9 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 const router = express.Router();
-router.post("/api/importers", async (req, res) => {
+router.post("/api/importers", auditMiddleware("Importer"), async (req, res) => {
   const { name, contact, email, address } = req.body;
 
   // Validate input fields
@@ -54,7 +55,7 @@ router.get("/api/importers", async (req, res) => {
       .send({ message: "Internal Server Error", error: error.message });
   }
 });
-router.patch("/api/importers/:id", async (req, res) => {
+router.patch("/api/importers/:id", auditMiddleware("Importer"), async (req, res) => {
   const { id } = req.params;
   const { name, contact, email, address } = req.body;
 
@@ -82,7 +83,7 @@ router.patch("/api/importers/:id", async (req, res) => {
   }
 });
 
-router.delete("/api/importers/:id", async (req, res) => {
+router.delete("/api/importers/:id", auditMiddleware("Importer"), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -99,7 +100,7 @@ router.delete("/api/importers/:id", async (req, res) => {
 });
 
 // PATCH API to assign importers to a user
-router.patch("/api/users/:userId/importers", async (req, res) => {
+router.patch("/api/users/:userId/importers", auditMiddleware("User"), async (req, res) => {
   const { userId } = req.params;
   const { importers } = req.body; // Array of importer names to assign
 
@@ -122,7 +123,7 @@ router.patch("/api/users/:userId/importers", async (req, res) => {
 
     res.status(200).send({
       message: "Importers assigned successfully to the user.",
-      
+
     });
   } catch (error) {
     console.error("Error assigning importers:", error);

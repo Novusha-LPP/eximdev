@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -20,7 +22,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract query parameters
-    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly } = req.query;
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly, branchId, category } = req.query;
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
@@ -124,6 +126,9 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
+    const branchMatch = getBranchMatch(branchId, category);
+    Object.assign(baseQuery, branchMatch);
+
     // ✅ Apply ICD Code Filter - User-based filtering takes precedence
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
@@ -137,7 +142,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "is_checklist_aprroved_date is_checklist_aprroved submission_completed_date_time be_filing_type priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation"
+        "is_checklist_aprroved_date is_checklist_aprroved submission_completed_date_time be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation branch_code trade_type mode"
       )
       .lean();
 
@@ -197,7 +202,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract query parameters
-    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year } = req.query;
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, branchId, category } = req.query;
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
@@ -364,6 +369,9 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
+    const branchMatch = getBranchMatch(branchId, category);
+    Object.assign(baseQuery, branchMatch);
+
     // ✅ Apply ICD Code Filter - User-based filtering takes precedence
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
@@ -377,7 +385,7 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "submission_completed_date_time submission_completed_date_time be_no be_date is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation"
+        "submission_completed_date_time submission_completed_date_time be_no be_date is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation branch_code trade_type mode"
       )
       .lean();
 

@@ -28,6 +28,9 @@ function ImportDSR() {
   const [selectedYear, setSelectedYear] = React.useState("");
   const [alt, setAlt] = React.useState(false);
   const [lastJobsDate, setLastJobsDate] = React.useState("");
+  const [branches, setBranches] = React.useState([]);
+  const [selectedBranchId, setSelectedBranchId] = React.useState("");
+  const [selectedMode, setSelectedMode] = React.useState("SEA");
 
   const inputRef = React.useRef();
 
@@ -45,10 +48,31 @@ function ImportDSR() {
     getLastJobsDate();
   }, [alt]);
 
+  React.useEffect(() => {
+    async function fetchBranches() {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`);
+        setBranches(response.data);
+        // Set default branch if available
+        if (response.data.length > 0) {
+          // Find if there's an AMD branch to set as default (based on requirement)
+          const amdBranch = response.data.find(b => b.branch_code === "AMD");
+          setSelectedBranchId(amdBranch ? amdBranch._id : response.data[0]._id);
+        }
+      } catch (err) {
+        console.error("Error fetching branches:", err);
+      }
+    }
+    fetchBranches();
+  }, []);
+
   const { handleFileUpload, snackbar, loading, error, setError, progress, uploadStats } = useFileUpload(
     inputRef,
     alt,
-    setAlt
+    setAlt,
+    selectedBranchId,
+    selectedMode,
+    branches
   );
 
   return (
@@ -104,6 +128,36 @@ function ImportDSR() {
                 >
                   Upload Party Data
                 </label>
+              )}
+
+              {tabValue === 0 && (
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', ml: 2, mt: 2 }}>
+                  <TextField
+                    select
+                    label="Branch"
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    size="small"
+                    sx={{ minWidth: 150 }}
+                  >
+                    {branches.map((branch) => (
+                      <MenuItem key={branch._id} value={branch._id}>
+                        {branch.branch_name} ({branch.category})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Mode"
+                    value={selectedMode}
+                    onChange={(e) => setSelectedMode(e.target.value)}
+                    size="small"
+                    sx={{ minWidth: 100 }}
+                  >
+                    <MenuItem value="SEA">SEA</MenuItem>
+                    <MenuItem value="AIR">AIR</MenuItem>
+                  </TextField>
+                </Box>
               )}
 
               <input

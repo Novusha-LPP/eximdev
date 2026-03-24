@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import icdFilter from "../../middleware/icdFilter.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
@@ -146,6 +148,8 @@ router.get(
       importer,
       year,
       unresolvedOnly,
+      branchId,
+      category,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -209,13 +213,16 @@ router.get(
         });
       }
 
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
+
       if (req.userIcdFilter) {
         baseQuery.$and.push(req.userIcdFilter);
       }
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode"
         )
         .lean();
 
@@ -273,6 +280,8 @@ router.get(
       importer,
       year,
       unresolvedOnly,
+      branchId,
+      category,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -318,13 +327,16 @@ router.get(
         });
       }
 
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
+
       if (req.userIcdFilter) {
         baseQuery.$and.push(req.userIcdFilter);
       }
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode"
         )
         .lean();
 
@@ -394,6 +406,8 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     importer,
     year,
     detailed_status,
+    branchId,
+    category,
   } = req.query;
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -449,9 +463,12 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
       });
     }
 
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
+
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob _id eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing"
+        "priorityJob _id eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing branch_code trade_type mode"
       )
       .lean();
 
@@ -493,6 +510,8 @@ router.get(
       importer,
       year,
       unresolvedOnly,
+      branchId,
+      category,
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -542,6 +561,9 @@ router.get(
           importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
         });
       }
+
+      const branchMatch = getBranchMatch(branchId, category);
+      matchConditions.$and.push(branchMatch);
 
       if (search && search.trim()) {
         matchConditions.$and.push({
@@ -681,7 +703,7 @@ router.get(
             status: 1,
             be_date: 1,
             be_no: 1,
-            job_no: 1,
+            job_number: 1, job_no: 1,
             year: 1,
             importer: 1,
             custom_house: 1,
@@ -709,6 +731,9 @@ router.get(
             other_do_documents: 1,
             dsr_queries: 1,
             vessel_berthing: 1,
+            branch_code: 1,
+            trade_type: 1,
+            mode: 1,
           },
         },
       ];
@@ -881,7 +906,7 @@ router.get(
   "/api/get-payment-completed-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const { page = 1, limit = 100, search = "", importer, year } = req.query;
+    const { page = 1, limit = 100, search = "", importer, year, branchId, category } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const pageNumber = parseInt(page, 10);
@@ -932,9 +957,12 @@ router.get(
         });
       }
 
+      const branchMatch = getBranchMatch(branchId, category);
+      baseQuery.$and.push(branchMatch);
+
       const allJobsFromDB = await JobModel.find(baseQuery)
         .select(
-          "priorityJob eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries dsr_queries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice insurance_copy other_do_documents vessel_berthing"
+          "priorityJob eta out_of_charge delivery_date DsrCharges detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries dsr_queries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice insurance_copy other_do_documents vessel_berthing"
         )
         .lean();
 

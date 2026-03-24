@@ -17,6 +17,8 @@ const buildSearchQuery = (search) => ({
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import mongoose from "mongoose";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
@@ -28,6 +30,8 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     const importer = req.query.importer ? decodeURIComponent(req.query.importer).trim() : "";
     const selectedICD = req.query.selectedICD ? decodeURIComponent(req.query.selectedICD).trim() : "";
     const selectedYear = req.query.year ? req.query.year.trim() : ""; // ✅ Extract and trim year
+    const branchId = req.query.branchId; // ✅ Extract branchId
+    const category = req.query.category; // ✅ Extract category
 
     if (page < 1 || limit < 1) {
       return res.status(400).json({ message: "Invalid pagination parameters" });
@@ -82,10 +86,12 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${importer}$`, "i") } });
     }
 
-    // ✅ Apply ICD Code Filter if provided
     if (selectedICD && selectedICD !== "Select ICD") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
     }
+
+    const branchMatch = getBranchMatch(branchId, category);
+    baseQuery.$and.push(branchMatch);
 
     // ✅ Apply user-based ICD filter from middleware
     if (req.userIcdFilter) {
@@ -95,7 +101,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year cth_documents checklist processed_be_attachment line_no _id"
+        "status detailed_status job_number job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year cth_documents checklist processed_be_attachment line_no _id mode branch_code trade_type"
       )
       .lean();
 

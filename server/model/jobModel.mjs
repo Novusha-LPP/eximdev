@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import auditPlugin from "../plugins/auditPlugin.mjs";
 import { type } from "os";
 import { determineDetailedStatus } from "../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../utils/statusColorMapper.mjs";
@@ -87,6 +88,19 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const invoiceDetailsSchema = new mongoose.Schema(
+  {
+    invoice_number: { type: String, trim: true },
+    invoice_date: { type: String, trim: true },
+    total_inv_value: { type: String, trim: true },
+    inv_currency: { type: String, trim: true },
+    toi: { type: String, trim: true },
+    freight: { type: String, trim: true },
+    insurance: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const descriptionDetailsSchema = new mongoose.Schema(
   {
     description: { type: String, trim: true },
@@ -99,6 +113,77 @@ const descriptionDetailsSchema = new mongoose.Schema(
   },
   { _id: false }
 );
+
+const ChargeLineSchema = new mongoose.Schema({
+  chargeDescription: String,
+  basis: {
+    type: String,
+    enum: [
+      "Per Package", "By Gross Wt", "By Chg Wt", "By Volume",
+      "Per Container", "Per TEU", "Per FEU", "% of Other Charges",
+      "% of Assessable Value", "% of AV+Duty", "% of CIF Value",
+      "Per Vehicle", "% of Invoice Value", "Per License",
+      "Per B/E - Per Shp", "% of Product Value", "Per Labour",
+      "Per Product", "By Net Wt", "Per Invoice"
+    ],
+    default: "Per B/E - Per Shp"
+  },
+  qty: { type: Number, default: 1 },
+  unit: { type: String, default: "" },
+  currency: { type: String, default: "INR" },
+  rate: { type: Number, default: 0 },
+  amount: { type: Number, default: 0 },
+  amountINR: { type: Number, default: 0 },
+  exchangeRate: { type: Number, default: 1 },
+  overrideAutoRate: { type: Boolean, default: false },
+  isPosted: { type: Boolean, default: false },
+  party: { type: mongoose.Schema.Types.ObjectId },
+  partyName: { type: String },
+  partyType: { type: String },
+  branchCode: { type: String },
+  url: { type: String }
+}, { _id: false });
+
+const ChargeSchema = new mongoose.Schema({
+  chargeHead: { type: String, required: true },
+  chargeHeadRef: { type: mongoose.Schema.Types.ObjectId, ref: "ChargeHead" },
+  category: { type: String },
+  costCenter: { type: String },
+  remark: { type: String },
+
+  revenue: ChargeLineSchema,
+  cost: ChargeLineSchema,
+  copyToCost: { type: Boolean, default: true },
+
+
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+ChargeSchema.pre("save", function (next) {
+  if (this.revenue) {
+    this.revenue.amount = (this.revenue.rate || 0) * (this.revenue.qty || 0);
+    this.revenue.amountINR = this.revenue.amount * (this.revenue.exchangeRate || 1);
+  }
+  if (this.cost) {
+    this.cost.amount = (this.cost.rate || 0) * (this.cost.qty || 0);
+    this.cost.amountINR = this.cost.amount * (this.cost.exchangeRate || 1);
+  }
+
+  if (this.isNew && this.copyToCost && this.revenue && this.cost) {
+    this.cost.rate = this.revenue.rate;
+    this.cost.amount = this.revenue.amount;
+    this.cost.amountINR = this.revenue.amountINR;
+    this.cost.currency = this.revenue.currency;
+    this.cost.basis = this.revenue.basis;
+  }
+
+  this.updatedAt = Date.now();
+  next();
+});
 
 const jobSchema = new mongoose.Schema({
   createdAt: {
@@ -119,6 +204,16 @@ const jobSchema = new mongoose.Schema({
   ////////////////////////////////////////////////// Excel sheet
   year: { type: String, trim: true },
   job_no: { type: String, trim: true },
+
+  // New Structured Fields
+  job_number: { type: String, trim: true, unique: true, sparse: true },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+  branch_code: { type: String, trim: true },
+  trade_type: { type: String, trim: true, enum: ["IMP", "EXP"] },
+  mode: { type: String, trim: true, enum: ["SEA", "AIR"] },
+  sequence_number: { type: Number },
+  financial_year: { type: String, trim: true },
+
   custom_house: { type: String, trim: true },
   job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
@@ -129,6 +224,7 @@ const jobSchema = new mongoose.Schema({
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
   description_details: [descriptionDetailsSchema],
+  invoice_details: [invoiceDetailsSchema],
   hawb_hbl_no: { type: String, trim: true },
   hawb_hbl_date: { type: String, trim: true },
   be_no: { type: String, trim: true },
@@ -157,6 +253,14 @@ const jobSchema = new mongoose.Schema({
   branchSrNo: { type: String, trim: true },
   adCode: { type: String, trim: true },
   bank_name: { type: String, trim: true },
+  hss_address: { type: String, trim: true },
+  hss_address_details: { type: String, trim: true },
+  hss_branch_id: { type: String, trim: true },
+  hss_city: { type: String, trim: true },
+  hss_ie_code_no: { type: String, trim: true },
+  hss_postal_code: { type: String, trim: true },
+  hss_country: { type: String, trim: true },
+  hss_ad_code: { type: String, trim: true },
   isDraftDoc: { type: Boolean },
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },
@@ -217,6 +321,7 @@ const jobSchema = new mongoose.Schema({
   lockBankDetails: { type: Boolean, default: false },
   is_checklist_aprroved: { type: Boolean, default: false },
   is_checklist_aprroved_date: { type: String, trim: true },
+  client_remark: { type: String, trim: true },
   is_checklist_clicked: { type: Boolean, trim: true },
   container_count: { type: String, trim: true },
   no_of_container: { type: String, trim: true },
@@ -264,6 +369,7 @@ const jobSchema = new mongoose.Schema({
   type_of_Do: { type: String },
   do_validity_upto_job_level: { type: String, trim: true },
   do_revalidation_upto_job_level: { type: String, trim: true },
+  cfs_name: { type: String, trim: true },
   do_revalidation: { type: Boolean },
   do_revalidation_date: { type: String },
   // rail_out_date: { type: String },
@@ -397,6 +503,17 @@ const jobSchema = new mongoose.Schema({
     },
   ],
   do_completed: { type: String, trim: true },
+  misc_charges: [
+    {
+      charge_type: { type: String, trim: true },
+      currency: { type: String, trim: true },
+      exchange_rate: { type: Number, default: 1 },
+      rate_percent: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      amount_inr: { type: Number, default: 0 },
+      remark: { type: String, trim: true }
+    }
+  ],
   // *******
   icd_cfs_invoice: { type: String, trim: true },
 
@@ -489,6 +606,7 @@ const jobSchema = new mongoose.Schema({
 
   /////////////////////////////////// Charges Details
   DsrCharges: [DsrchargesSchema],
+  charges: [ChargeSchema],
 
   /////////////////////////////////// esanchit Charges Details
   esanchitCharges: [esanchitChargesSchema],
@@ -636,9 +754,16 @@ jobSchema.pre("save", function (next) {
 // ==================== PERFORMANCE OPTIMIZATION INDEXES ====================
 // These indexes dramatically improve search performance for the most common queries
 
-// Existing indexes - keep for compatibility
+// Existing indexes - keep for compatibility, but drop the overly restrictive duplicate key check
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });
-jobSchema.index({ year: 1, job_no: 1 }, { unique: true });
+// Allowed duplicate job_no across modes and trade types for the same branch and year
+jobSchema.index({ branch_id: 1, year: 1, trade_type: 1, mode: 1, job_no: 1 }, { unique: true });
+
+// New indexes for structured job numbers and branch management
+jobSchema.index({ job_number: 1 }, { unique: true, sparse: true });
+jobSchema.index({ branch_id: 1 });
+jobSchema.index({ branch_id: 1, createdAt: 1 });
+jobSchema.index({ branch_code: 1, trade_type: 1, mode: 1, financial_year: 1 });
 
 // NEW: Indexes for primary search filters
 jobSchema.index({ year: 1, status: 1, detailed_status: 1 });
@@ -672,6 +797,8 @@ jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 // NEW: Optimized indexes for Status Ranking and Sorting
 jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
 jobSchema.index({ year: 1, detailed_status: 1 });
+
+jobSchema.plugin(auditPlugin, { documentType: "Job" });
 
 const JobModel = new mongoose.model("Job", jobSchema);
 export default JobModel;

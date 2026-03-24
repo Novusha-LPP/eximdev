@@ -20,12 +20,16 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext.js";
 import DocsCell from "../gallery/DocsCell.js";
+import { BranchContext } from "../../contexts/BranchContext.js";
+
+import ContainerTrackButton from '../ContainerTrackButton';
 
 function PaymentCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();    useSearchQuery();
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();
   const { user } = useContext(UserContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -108,7 +112,9 @@ function PaymentCompleted() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
-      username
+      username,
+      selectedBranch = "all",
+      selectedCategory = "all"
     ) => {
       setLoading(true);
       try {
@@ -122,6 +128,8 @@ function PaymentCompleted() {
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "",
               username: username || "",
+              branchId: selectedBranch || "all", // ✅ Add branchId parameter
+              category: selectedCategory || "all", // ✅ Add category parameter
             },
           }
         );
@@ -156,7 +164,9 @@ function PaymentCompleted() {
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState,
-        user.username
+        user.username,
+        selectedBranch,
+        selectedCategory
       );
     }
   }, [
@@ -166,6 +176,8 @@ function PaymentCompleted() {
     selectedYearState,
     user?.username,
     fetchJobs,
+    selectedBranch,
+    selectedCategory,
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -225,11 +237,11 @@ function PaymentCompleted() {
 
   const columns = React.useMemo(
     () => [
-       {
+      {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
-        size: 150,
+        size: 250,
         Cell: ({ cell }) => {
           const {
             job_no,
@@ -240,78 +252,78 @@ function PaymentCompleted() {
             custom_house,
             detailed_status,
             vessel_berthing,
-                colorPriority,      // ✅ USE THIS FROM BACKEND
+            colorPriority,      // ✅ USE THIS FROM BACKEND
             container_nos,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
           // Color-coding logic - NOW USES BACKEND DATA
-  let bgColor = "";
-  let textColor = "blue";
+          let bgColor = "";
+          let textColor = "blue";
 
-  const currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
+          const currentDate = new Date();
+          currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
 
-  // Function to calculate the days difference (MUST MATCH BACKEND)
-  const calculateDaysDifference = (targetDate) => {
-    if (!targetDate) return null;
-    
-    const date = new Date(targetDate);
-    date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
-    
-    const timeDifference = date.getTime() - currentDate.getTime();
-    return Math.floor(timeDifference / (1000 * 3600 * 24));
-  };
+          // Function to calculate the days difference (MUST MATCH BACKEND)
+          const calculateDaysDifference = (targetDate) => {
+            if (!targetDate) return null;
 
-  // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
-  if (colorPriority) {
-    if (colorPriority === 1) {
-      bgColor = "red";
-      textColor = "white";
-    } else if (colorPriority === 2) {
-      bgColor = "orange";
-      textColor = "black";
-    } else if (colorPriority === 3) {
-      bgColor = "white";
-      textColor = "blue";
-    }
-  } 
-  // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
-  else if (detailed_status === "Billing Pending" && container_nos) {
-    let mostCriticalDays = null;
+            const date = new Date(targetDate);
+            date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
 
-    container_nos.forEach((container) => {
-      const targetDate = consignment_type === "LCL"
-        ? container.delivery_date
-        : container.emptyContainerOffLoadDate;
+            const timeDifference = date.getTime() - currentDate.getTime();
+            return Math.floor(timeDifference / (1000 * 3600 * 24));
+          };
 
-      if (targetDate) {
-        const daysDifference = calculateDaysDifference(targetDate);
-        
-        if (mostCriticalDays === null || daysDifference < mostCriticalDays) {
-          mostCriticalDays = daysDifference;
-        }
-      }
-    });
+          // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
+          if (colorPriority) {
+            if (colorPriority === 1) {
+              bgColor = "red";
+              textColor = "white";
+            } else if (colorPriority === 2) {
+              bgColor = "orange";
+              textColor = "black";
+            } else if (colorPriority === 3) {
+              bgColor = "white";
+              textColor = "blue";
+            }
+          }
+          // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
+          else if (detailed_status === "Billing Pending" && container_nos) {
+            let mostCriticalDays = null;
 
-    // Apply colors based on the most critical container
-    if (mostCriticalDays !== null && mostCriticalDays < 0) {
-      if (mostCriticalDays <= -10) {
-        bgColor = "red";
-        textColor = "white";
-      } else if (mostCriticalDays <= -6) {
-        bgColor = "orange";
-        textColor = "black";
-      } else if (mostCriticalDays <= -1) {
-        bgColor = "white";
-        textColor = "blue";
-      }
-    }
-  }
+            container_nos.forEach((container) => {
+              const targetDate = consignment_type === "LCL"
+                ? container.delivery_date
+                : container.emptyContainerOffLoadDate;
 
-  const queryParams = new URLSearchParams({
-    selectedJobId: _id,
-  }).toString();
+              if (targetDate) {
+                const daysDifference = calculateDaysDifference(targetDate);
+
+                if (mostCriticalDays === null || daysDifference < mostCriticalDays) {
+                  mostCriticalDays = daysDifference;
+                }
+              }
+            });
+
+            // Apply colors based on the most critical container
+            if (mostCriticalDays !== null && mostCriticalDays < 0) {
+              if (mostCriticalDays <= -10) {
+                bgColor = "red";
+                textColor = "white";
+              } else if (mostCriticalDays <= -6) {
+                bgColor = "orange";
+                textColor = "black";
+              } else if (mostCriticalDays <= -1) {
+                bgColor = "white";
+                textColor = "blue";
+              }
+            }
+          }
+
+          const queryParams = new URLSearchParams({
+            selectedJobId: _id,
+          }).toString();
 
           return (
             <div
@@ -324,7 +336,7 @@ function PaymentCompleted() {
                 textAlign: "center",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </div>
           );
@@ -347,7 +359,11 @@ function PaymentCompleted() {
             <React.Fragment>
               {containerNos?.map((container, id) => (
                 <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} | "{container.size}"
+                  {container.container_number} <ContainerTrackButton
+                    customHouse={cell?.row?.original?.custom_house}
+                    containerNo={container.container_number}
+                  />
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>
@@ -371,7 +387,7 @@ function PaymentCompleted() {
           const { be_no, be_date } = cell.row.original;
           return (
             <div>
-              {be_no || "-"} <br /> 
+              {be_no || "-"} <br />
               {be_date ? new Date(be_date).toLocaleDateString('en-GB') : "-"}
             </div>
           );
@@ -433,7 +449,7 @@ function PaymentCompleted() {
         >
           Total Jobs: {totalJobs}
         </Typography>
-        
+
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo

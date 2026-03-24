@@ -68,6 +68,7 @@ import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 
 // charges
 import Charges from "./routes/ChargesSection/ChargesSection.js";
+import chargesRoutes from "./routes/charges/chargesRoutes.mjs";
 
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
@@ -103,6 +104,8 @@ import viewCustomerKycDrafts from "./routes/CustomerKyc/viewCustomerKycDrafts.mj
 import viewRevisionList from "./routes/CustomerKyc/viewRevisionList.mjs";
 import hodApprovalPending from "./routes/CustomerKyc/hodApprovalPending.mjs";
 import deleteCustomerKyc from "./routes/CustomerKyc/deleteCustomerKyc.mjs";
+import financialDetailsApproval from "./routes/CustomerKyc/financialDetailsApproval.mjs";
+import financialApprovalPending from "./routes/CustomerKyc/financialApprovalPending.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -125,6 +128,7 @@ import assignEximBot from "./routes/home/assignEximBot.mjs";
 import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
 import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
 import toggleUserStatus from "./routes/toggleUserStatus.mjs";
+import assignDepartment from "./routes/home/assignDepartment.mjs";
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -159,6 +163,8 @@ import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
 import updateJob from "./routes/import-dsr/updateJob.mjs";
 import viewDSR from "./routes/import-dsr/viewDSR.mjs";
+import containerTrack from "./routes/import-dsr/containerTrack.mjs";
+import checkDuplicateJob from "./routes/import-dsr/checkDuplicateJob.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -197,6 +203,7 @@ import auditTrail from "./routes/audit/auditTrail.mjs";
 //import utility tool
 import getCthSearch from "./routes/CthUtil/getChtSearch.js";
 import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
+import syncDataRouter from "./routes/utility/syncData.mjs";
 
 //proxy apis
 import icegateProxy from "./routes/icegateProxy.js";
@@ -233,6 +240,16 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // CRM Module
 import crmRoutes from "./routes/crm/crmRoutes.mjs";
+// Admin Branch Module
+import branchRoutes from "./routes/admin/branchRoutes.mjs";
+
+// HR Asset Module
+import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+
+// Master Directory
+import countryRoutes from "./routes/master-directory/countryRoutes.mjs";
+import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
+import unitRoutes from "./routes/master-directory/unitRoutes.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -343,6 +360,7 @@ app.use(handleS3Deletation);
 
 // charges
 app.use(Charges);
+app.use("/api", chargesRoutes);
 
 // Accounts
 app.use("/api", Accounts);
@@ -375,6 +393,8 @@ app.use(viewCompletedKyc);
 app.use(viewCustomerKycDrafts);
 app.use(viewRevisionList);
 app.use(hodApprovalPending);
+app.use(financialDetailsApproval);
+app.use(financialApprovalPending);
 
 app.use(deleteCustomerKyc);
 
@@ -389,6 +409,7 @@ app.use(updateESanchitJob);
 // Home
 app.use(assignModules);
 app.use(assignRole);
+app.use("/api", assignDepartment);
 app.use(unassignModule);
 app.use(changePassword);
 app.use(assignIcdCode);
@@ -430,6 +451,8 @@ app.use(getLastJobsDate);
 app.use(importerListToAssignJobs);
 app.use(updateJob);
 app.use(viewDSR);
+app.use(containerTrack);
+app.use(checkDuplicateJob);
 // app.use(ImportCreateJob);
 
 // Import Operations
@@ -444,6 +467,7 @@ app.use(getImportBilling);
 // import cth search
 app.use(getCthSearch);
 app.use(dutyCalculator);
+app.use("/api", syncDataRouter);
 
 // Inward Register
 app.use(addInwardRegister);
@@ -509,6 +533,15 @@ app.use(dgftRoutes);
 // CRM Module (existing)
 app.use("/api/crm", crmRoutes);
 
+// Admin Branch Module
+app.use("/api/admin", branchRoutes);
+
+app.use(userAssetsRoutes);
+
+// Master Directory
+app.use("/api", countryRoutes);
+app.use("/api", airlineRoutes);
+app.use("/api", unitRoutes);
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);
@@ -547,7 +580,7 @@ if (cluster.isPrimary) {
       })
       .then(async () => {
         // initialize cron jobs only on the first worker to avoid duplicates
-        if (cluster.worker.id === 1) {
+        if (!cluster.worker || cluster.worker.id === 1) {
           cron.schedule(
             "1 0 * * *",
             async () => {

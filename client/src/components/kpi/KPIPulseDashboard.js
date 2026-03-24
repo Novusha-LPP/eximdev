@@ -289,28 +289,43 @@ const KPIPulseDashboard = () => {
     const [year, setYear] = useState(new Date().getFullYear());
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [department, setDepartment] = useState('');
+    const [team, setTeam] = useState('');
+    const [teams, setTeams] = useState([]);
     const [data, setData] = useState({ pulseData: [], stats: { totalUsers: 0, stars: 0, specialists: 0, engines: 0, drainers: 0 } });
+    const [reportData, setReportData] = useState({ records: [], stats: {} });
     const [loading, setLoading] = useState(false);
+    const [reportLoading, setReportLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSheetId, setSelectedSheetId] = useState(null);
 
-    const departments = [
-        'Export', 'Import', 'Operation-Khodiyar', 'Operation-Sanand', 'Feild', 'Accounts', 'SRCC',
-        'Gandhidham', 'DGFT', 'Software', 'Marketing', 'Paramount', 'Rabs', 'Admin'
-    ];
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     useEffect(() => {
         if (user && (user.role === 'Admin' || user.role === 'Head_of_Department')) {
             fetchPulseData();
         }
-    }, [year, month, department, user]);
+    }, [year, month, department, team, user]);
+
+    useEffect(() => {
+        fetchTeams();
+    }, []);
+
+    const fetchTeams = async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/teams/all`, { withCredentials: true });
+            setTeams(res.data?.teams || []);
+        } catch (err) {
+            console.error("Error fetching teams", err);
+        }
+    };
 
     const fetchPulseData = async () => {
         try {
             setLoading(true);
+            setReportLoading(true);
             let url = `${process.env.REACT_APP_API_STRING}/kpi/analytics/pulse?year=${year}&month=${month}`;
-            if (department) url += `&department=${department}`;
+            if (team) url += `&team=${encodeURIComponent(team)}`;
+            else if (department) url += `&department=${encodeURIComponent(department)}`;
             const res = await axios.get(url, { withCredentials: true });
 
             let stars = 0, specialists = 0, engines = 0, drainers = 0;
@@ -324,10 +339,19 @@ const KPIPulseDashboard = () => {
             });
 
             setData({ pulseData: pulseArray, stats: { totalUsers: pulseArray.length, stars, specialists, engines, drainers } });
+
+            // Fetch Report Data
+            let reportUrl = `${process.env.REACT_APP_API_STRING}/kpi/analytics/blockers-losses?year=${year}&month=${month}`;
+            if (team) reportUrl += `&team=${encodeURIComponent(team)}`;
+            else if (department) reportUrl += `&department=${encodeURIComponent(department)}`;
+            const reportRes = await axios.get(reportUrl, { withCredentials: true });
+            setReportData(reportRes.data);
+
         } catch (error) {
             console.error("Error fetching pulse data", error);
         } finally {
             setLoading(false);
+            setReportLoading(false);
         }
     };
 
@@ -338,9 +362,10 @@ const KPIPulseDashboard = () => {
         return arr.filter(item => {
             const name = `${item.user?.first_name} ${item.user?.last_name}`.toLowerCase();
             const dept = (item.department || '').toLowerCase();
+            const teamName = (item.team || '').toLowerCase();
             const insight = (item.delta?.insight || '').toLowerCase();
             const quadrant = (item.current?.quadrant || '').toLowerCase();
-            return name.includes(q) || dept.includes(q) || insight.includes(q) || quadrant.includes(q);
+            return name.includes(q) || dept.includes(q) || teamName.includes(q) || insight.includes(q) || quadrant.includes(q);
         });
     }, [data.pulseData, searchQuery]);
 
@@ -438,7 +463,7 @@ const KPIPulseDashboard = () => {
                                         <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
                                             <span style={{ color: q.color, fontWeight: 600 }}>{q.label}</span>
                                             <span>•</span>
-                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.department}</span>
+                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.team || item.department}</span>
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0F172A', background: '#FFFFFF', padding: '4px 8px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
@@ -497,11 +522,22 @@ const KPIPulseDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Department Selectors */}
+                    {/* Team Selectors (Primary Focus) */}
                     <div style={S.deptBar}>
-                        <button onClick={() => setDepartment('')} style={S.deptBtn(department === '')}>All Departments</button>
-                        {departments.map(d => (
-                            <button key={d} onClick={() => setDepartment(d)} style={S.deptBtn(department === d)}>{d}</button>
+                        <button 
+                            onClick={() => { setTeam(''); setDepartment(''); }} 
+                            style={S.deptBtn(team === '' && department === '')}
+                        >
+                            All Teams
+                        </button>
+                        {teams.map(t => (
+                            <button 
+                                key={t._id} 
+                                onClick={() => { setTeam(t.name); setDepartment(''); }} 
+                                style={S.deptBtn(team === t.name)}
+                            >
+                                {t.name}
+                            </button>
                         ))}
                     </div>
 
@@ -523,7 +559,7 @@ const KPIPulseDashboard = () => {
                         </div>
                         <div style={S.summaryItem}>
                             <span style={S.summaryLabel}>View Focus</span>
-                            <span style={S.summaryVal}>{department || 'Global'}</span>
+                            <span style={S.summaryVal}>{team || department || 'Global'}</span>
                         </div>
                     </div>
 
@@ -631,7 +667,7 @@ const KPIPulseDashboard = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                 <div>
                                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0F172A', display: 'block' }}>{item.user?.first_name} {item.user?.last_name}</span>
-                                                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{item.department}</span>
+                                                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{item.team || item.department}</span>
                                                 </div>
                                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '4px 10px', borderRadius: '99px', background: q.bg, color: q.color, border: `1px solid ${q.border}` }}>
                                                     {q.label}
@@ -656,6 +692,129 @@ const KPIPulseDashboard = () => {
                                     );
                                 })}
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Blocker & Business Loss Report */}
+                    <div style={{ marginTop: '48px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <div>
+                                <h2 style={{ ...S.headerTitle, fontSize: '1.5rem' }}>Blocker & Business Loss Report</h2>
+                                <p style={S.headerSub}>Detailed breakdown of registered blockers and financial impact</p>
+                            </div>
+                            {reportData.stats?.totalValueAtLoss > 0 && (
+                                <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '12px 24px', borderRadius: '16px', border: '1px solid #FECDD3' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>Total Business Loss</span>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>₹{reportData.stats.totalValueAtLoss.toLocaleString('en-IN')}</div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={S.bentoGrid}>
+                             {/* Highest Blockers Summary */}
+                             {reportData.stats?.blockerDistribution?.length > 0 && (
+                                <div style={S.bentoCard(12)}>
+                                     <div style={S.cardTitle}>
+                                        <div style={{ background: '#F1F5F9', padding: '6px', borderRadius: '8px' }}>🚫</div>
+                                        Highest Registered Blockers
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                        {reportData.stats.blockerDistribution.slice(0, 5).map((stat, i) => (
+                                            <div key={i} style={{ flex: 1, minWidth: '200px', background: i === 0 ? '#FFF7ED' : '#F8FAFC', border: i === 0 ? '1px solid #FFEDD5' : '1px solid #E2E8F0', padding: '16px', borderRadius: '12px' }}>
+                                                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: i === 0 ? '#C2410C' : '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                    {i === 0 ? '🔥 Top Blocker' : `Rank #${i+1}`}
+                                                </div>
+                                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>{stat.category}</div>
+                                                <div style={{ fontSize: '0.85rem', color: '#475569', marginTop: '4px' }}>{stat.count} Reports</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                             )}
+
+                             {/* Detailed Records Table */}
+                             <div style={S.bentoCard(12)}>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid #F1F5F9' }}>
+                                                <th style={{ padding: '16px 12px', fontSize: '0.75rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Personnel</th>
+                                                <th style={{ padding: '16px 12px', fontSize: '0.75rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Blocker Details</th>
+                                                <th style={{ padding: '16px 12px', fontSize: '0.75rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Business Loss & Root Cause</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {reportData.records?.length > 0 ? reportData.records.map((rec, i) => {
+                                                const showHeader = i === 0 || rec.blockerCategory !== reportData.records[i - 1].blockerCategory;
+                                                return (
+                                                    <React.Fragment key={i}>
+                                                        {showHeader && (
+                                                            <tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                                <td colSpan="3" style={{ padding: '8px 16px', borderBottom: '1px solid #E2E8F0' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <span style={{ 
+                                                                            fontSize: '0.65rem', 
+                                                                            fontWeight: 800, 
+                                                                            color: '#64748B', 
+                                                                            textTransform: 'uppercase', 
+                                                                            letterSpacing: '0.05em',
+                                                                            padding: '2px 8px',
+                                                                            background: '#F1F5F9',
+                                                                            borderRadius: '99px'
+                                                                        }}>
+                                                                            Category
+                                                                        </span>
+                                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1E293B' }}>
+                                                                            {rec.blockerCategory || 'General'}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                        <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                                            <td style={{ padding: '16px 12px' }}>
+                                                                <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem' }}>{rec.user.name}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{rec.team}</div>
+                                                            </td>
+                                                            <td style={{ padding: '16px 12px' }}>
+                                                                {rec.blocker ? (
+                                                                    <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.4 }}>
+                                                                        {rec.blocker.split(' | ').map(b => b.includes(':') ? b.split(':').slice(1).join(':').trim() : b).join(', ')}
+                                                                    </div>
+                                                                ) : <span style={{ color: '#CBD5E1', fontSize: '0.85rem' }}>No blockers reported</span>}
+                                                            </td>
+                                                            <td style={{ padding: '16px 12px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                                    <span style={{ fontSize: '1rem', fontWeight: 800, color: rec.businessLoss > 0 ? '#DC2626' : '#94A3B8' }}>
+                                                                        ₹{rec.businessLoss.toLocaleString('en-IN')}
+                                                                    </span>
+                                                                    {rec.businessLoss > 0 && rec.lossCategory && (
+                                                                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#FEF2F2', color: '#B91C1C', borderRadius: '6px', fontWeight: 700 }}>
+                                                                            {rec.lossCategory.split(' | ').map(l => l.includes(':') ? l.split(':').slice(1).join(':').trim() : l).join(', ')}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {rec.businessLoss > 0 && rec.lossDescription && (
+                                                                    <div style={{ fontSize: '0.8rem', color: '#64748B', fontStyle: 'italic' }}>{rec.lossDescription}</div>
+                                                                )}
+                                                                {rec.businessLoss === 0 && (
+                                                                    <div style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>No financial loss reported</div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    </React.Fragment>
+                                                );
+                                            }) : (
+                                                <tr>
+                                                    <td colSpan="3" style={{ padding: '48px', textAlign: 'center', color: '#94A3B8' }}>
+                                                        {reportLoading ? 'Analyzing records...' : 'No blockers or losses registered for this period.'}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                             </div>
                         </div>
                     </div>
 

@@ -29,7 +29,7 @@ const compactInputSx = {
 
 const DocumentationJob = () => {
   const routeLocation = useLocation();
-  const { job_no, year } = useParams();
+  const { branch_code, trade_type, mode, job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const { user } = useContext(UserContext);
@@ -101,9 +101,23 @@ const DocumentationJob = () => {
 
   const fetchJobDetails = async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
-      );
+      // Check if critical parameters are "undefined" string (from URL)
+      const isParamMissing = branch_code === "undefined" || branch_code === "all" ||
+                             trade_type === "undefined" || trade_type === "all" ||
+                             mode === "undefined" || mode === "all";
+
+      let response;
+      if (isParamMissing) {
+        // Fallback search: try to find the job by job_no and year only
+        console.warn("Missing metadata in parameters, using fallback search.");
+        response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-job/all/all/all/${year}/${job_no}`
+        );
+      } else {
+        response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`
+        );
+      }
       setData(response.data);
     } catch (error) {
       console.error("Error fetching job details:", error);
@@ -164,7 +178,7 @@ const DocumentationJob = () => {
       };
 
       await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data.job_no}/${data.year}`,
+        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${branch_code}/${trade_type}/${mode}/${data.job_no}/${data.year}`,
         {
           documentation_completed_date_time:
             data.documentation_completed_date_time,
@@ -302,7 +316,7 @@ const DocumentationJob = () => {
           <JobDetailsStaticData
             data={data}
             bl_no_ref={bl_no_ref}
-            params={{ job_no, year }}
+            params={{ branch_code, trade_type, mode, job_no, year }}
           />
 
           <div>

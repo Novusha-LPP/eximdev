@@ -225,7 +225,7 @@ router.post('/api/mrm', async (req, res) => {
         const lastItem = await MRMItem.findOne({ month, year, createdBy })
             .sort({ seq: -1 });
 
-        const nextSeq = lastItem && lastItem.seq !== undefined ? lastItem.seq + 1 : 0;
+        const nextSeq = lastItem && lastItem.seq !== undefined ? lastItem.seq + 1 : 1;
 
         const item = new MRMItem({
             ...req.body,
@@ -333,10 +333,13 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
             return res.status(404).json({ error: "No data found in source month to import" });
         }
 
-        const validSourceItems = sourceItems.sort((a, b) => (a.seq || 0) - (b.seq || 0));
+        const validSourceItems = sourceItems.sort((a, b) => {
+            if (a.seq !== b.seq) return (a.seq || 0) - (b.seq || 0);
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        });
 
         const lastTargetItem = await MRMItem.findOne({ month: targetMonth, year: targetYear, createdBy: userId }).sort({ seq: -1 });
-        const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 0;
+        const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 1;
 
         let newItems = [];
 

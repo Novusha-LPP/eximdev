@@ -434,6 +434,10 @@ function ViewCompletedKycDetails() {
                     <Field label="Quotation Given?" value={data.quotation} />
                     <Field label="Advance Payment" value={data.advance_payment ? "Yes" : "No"} />
                 </div>
+
+                <div style={{ marginTop: '16px' }}>
+                    <Field label="Customer Tier" value={data.customer_tier || "—"} />
+                </div>
                 
                 <div style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px' }}>

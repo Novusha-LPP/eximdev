@@ -133,6 +133,7 @@ function ReviseCustomerKyc() {
       advance_payment: false,
       financial_details_approved: false,
       financial_details_approved_by: "",
+      customer_tier: "",
 
       other_documents: [],
       spcb_reg: [],
@@ -240,6 +241,7 @@ function ReviseCustomerKyc() {
             advance_payment: res.data.advance_payment || false,
             financial_details_approved: res.data.financial_details_approved || false,
             financial_details_approved_by: res.data.financial_details_approved_by || "",
+            customer_tier: res.data.customer_tier || "",
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -257,6 +259,11 @@ function ReviseCustomerKyc() {
     user?.role === "Admin" ||
     user?.role === "HOD" ||
     (Array.isArray(user?.modules) && user.modules.includes("Accounts"));
+
+  const isAccountUser = Array.isArray(user?.modules) && (user.modules.includes("Accounts") || user.modules.includes("Account"));
+  const isAdmin = user?.role === "Admin";
+  const isKycCompleted = data?.approval === "Approved" || data?.approval === "Approved by HOD" || data?.approval === "Completed";
+  const isRestricted = isAccountUser && !isAdmin && isKycCompleted;
 
   const handleFinancialApprovalChange = async (event) => {
     const isChecked = event.target.checked;
@@ -516,8 +523,9 @@ function ReviseCustomerKyc() {
         </div>
 
         <div className="kyc-card">
-          {/* Category Row */}
-          <div className="category-bar">
+          <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
+            {/* Category Row */}
+            <div className="category-bar">
             <span className="bar-label">
               Category <span style={{ color: "var(--red)" }}>*</span>
             </span>
@@ -562,9 +570,11 @@ function ReviseCustomerKyc() {
               <span className="dot"></span> Trust / Foundation
             </label>
           </div>
+          </fieldset>
 
           <div className="panels">
             {/* LEFT PANEL */}
+            <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
             <div className="panel">
               {/* Individual Info */}
               <div className="section">
@@ -956,10 +966,12 @@ function ReviseCustomerKyc() {
                 </div>
               </div>
             </div>
+            </fieldset>
 
             {/* RIGHT PANEL */}
 
             <div className="panel">
+              <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
               {/* Factory Addresses */}
               <div className="section">
                 <div className="section-header">
@@ -1306,6 +1318,7 @@ function ReviseCustomerKyc() {
                   )}
                 </div>
               </div>
+              </fieldset>
 
               {/* Banking Information */}
               <div className="section">
@@ -1322,6 +1335,7 @@ function ReviseCustomerKyc() {
                   </button>
                 </div>
                 <div id="bank-list">
+                  <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
                   {formik.values.banks?.map((bank, index) => (
                     <div key={index} className="repeat-entry">
                       <div className="repeat-entry-header">
@@ -1428,6 +1442,7 @@ function ReviseCustomerKyc() {
                       </div>
                     </div>
                   ))}
+                  </fieldset>
 
                   {/* Finance Details */}
                   <div className="fields" style={{ paddingTop: "4px" }}>
@@ -1530,13 +1545,32 @@ function ReviseCustomerKyc() {
                         </label>
                       </div>
                     </div>
+
+                    {/* Customer Tier */}
+                    <div className="row" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                      <div className="field w-full">
+                        <label>Customer Tier</label>
+                        <select
+                          name="customer_tier"
+                          value={formik.values.customer_tier}
+                          onChange={formik.handleChange}
+                          style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#fff', fontSize: '14px', marginTop: '6px', minHeight: '42px', boxSizing: 'border-box' }}
+                        >
+                          <option value="">Select Tier</option>
+                          <option value="Customer tier 1 = Agency charges">Customer tier 1 = Agency charges</option>
+                          <option value="Customer tier 2 = Agency charges + concor + cfs">Customer tier 2 = Agency charges + concor + cfs</option>
+                          <option value="Customer tier 3 = Agency charges + concor + cfs + Shippingline charges">Customer tier 3 = Agency charges + concor + cfs + Shippingline charges</option>
+                          <option value="Customer tier 4 = Agency charges + concor + cfs + Shippingline charges + Custom duty">Customer tier 4 = Agency charges + concor + cfs + Shippingline charges + Custom duty</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-
+          <fieldset disabled={isRestricted} style={{ display: 'contents', border: 'none', padding: '0', margin: '0' }}>
           <div className="full-section">
             <div className="section-header">
               <span className="section-title section-title-accent">
@@ -1641,6 +1675,7 @@ function ReviseCustomerKyc() {
               {renderUpload("gst_returns", "gst-returns", true)}
             </div>
           </div>
+          </fieldset>
 
           <div className="form-footer">
             <div className="footer-info">

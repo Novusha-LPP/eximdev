@@ -200,6 +200,7 @@ function ViewDraftDetails() {
                 quotation: res.data.quotation || "No",
                 outstanding_limit: res.data.outstanding_limit || "",
                 advance_payment: res.data.advance_payment || false,
+                customer_tier: res.data.customer_tier || "",
             };
             setData(sanitizedData);
             formik.setValues(sanitizedData);
@@ -1207,6 +1208,25 @@ function ViewDraftDetails() {
                           <input type="checkbox" />{" "}
                           <span>Advance Payment Required</span>
                         </label>
+                      </div>
+                    </div>
+
+                    {/* Customer Tier */}
+                    <div className="row" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                      <div className="field w-full">
+                        <label>Customer Tier</label>
+                        <select
+                          name="customer_tier"
+                          value={formik.values.customer_tier}
+                          onChange={formik.handleChange}
+                          style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#fff', fontSize: '14px', marginTop: '6px', minHeight: '42px', boxSizing: 'border-box' }}
+                        >
+                          <option value="">Select Tier</option>
+                          <option value="Customer tier 1 = Agency charges">Customer tier 1 = Agency charges</option>
+                          <option value="Customer tier 2 = Agency charges + concor + cfs">Customer tier 2 = Agency charges + concor + cfs</option>
+                          <option value="Customer tier 3 = Agency charges + concor + cfs + Shippingline charges">Customer tier 3 = Agency charges + concor + cfs + Shippingline charges</option>
+                          <option value="Customer tier 4 = Agency charges + concor + cfs + Shippingline charges + Custom duty">Customer tier 4 = Agency charges + concor + cfs + Shippingline charges + Custom duty</option>
+                        </select>
                       </div>
                     </div>
                   </div>

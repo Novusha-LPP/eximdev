@@ -263,6 +263,11 @@ const customerKycSchema = new Schema({
     required: false,
     trim: true
   },
+  customer_tier: {
+    type: String,
+    required: false,
+    trim: true
+  },
 
 
 

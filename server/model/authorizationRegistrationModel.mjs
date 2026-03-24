@@ -56,6 +56,13 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     documents_received_date: { type: String },
     documents_send_to_icd: { type: String },
     documents_send_to_accounts: { type: String },
+    
+    registration_no: { type: String },
+    auth_date: { type: String },
+    scheme_code: { type: String },
+    notification_number: { type: String },
+    be_details: [{ type: mongoose.Schema.Types.Mixed }],
+    import_details_array: [{ type: mongoose.Schema.Types.Mixed }],
 
     // Legacy/Unused (Keeping for backward compatibility if any)
     bond_challan_no: { type: String },

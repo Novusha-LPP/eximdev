@@ -173,8 +173,9 @@ function CompletedKyc() {
       accessorKey: "view",
       header: "Actions",
       size: 150,
-      Cell: ({ cell }) =>
-        user.role === "Admin" ? (
+      Cell: ({ cell }) => {
+        const canEdit = user?.role === "Admin" || (Array.isArray(user?.modules) && user.modules.includes("Accounts"));
+        return canEdit ? (
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               className="table-action-btn"
@@ -199,7 +200,8 @@ function CompletedKyc() {
           <span style={{ color: "var(--slate-400)", fontSize: "0.75rem" }}>
             No Access
           </span>
-        ),
+        );
+      },
     },
   ];
 

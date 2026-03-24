@@ -315,6 +315,37 @@ const ImportCreateJob = () => {
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [duplicateJob, setDuplicateJob] = useState(null);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [nextJobNumber, setNextJobNumber] = useState("");
+
+  const fetchNextJobNumber = async () => {
+    if (isEditMode) {
+      setNextJobNumber(jobNumber);
+      return;
+    }
+    if (!branch_id) {
+      const bc = branches.find(b => b._id === branch_id)?.branch_code || '???';
+      setNextJobNumber(`${bc}/${trade_type}/${mode}/XXXXX/${selectedYear}`);
+      return;
+    }
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-next-job-number`, {
+        params: { branch_id, trade_type, mode, financial_year: selectedYear }
+      });
+      console.log("Next Job Number fetched:", res.data.jobNumber);
+      setNextJobNumber(res.data.jobNumber);
+    } catch (error) {
+      console.error("Error fetching next job number:", error);
+      // Fallback to pattern
+      const bc = branches.find(b => b._id === branch_id)?.branch_code || '???';
+      setNextJobNumber(`${bc}/${trade_type}/${mode}/XXXXX/${selectedYear}`);
+    }
+  };
+
+  const handleFinalizeClick = async () => {
+    await fetchNextJobNumber();
+    setReviewDialogOpen(true);
+  };
 
   const handleBlBlur = async (e) => {
     const val = e.target.value;
@@ -2127,7 +2158,7 @@ const ImportCreateJob = () => {
                   <Button 
                     variant="contained" 
                     size="large" 
-                    onClick={formik.handleSubmit} 
+                    onClick={handleFinalizeClick} 
                     sx={{ 
                       px: 8, 
                       py: 1.5, 
@@ -2250,6 +2281,89 @@ const ImportCreateJob = () => {
             sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
           >
             Fetch & Edit Details
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* JOB REVIEW DIALOG */}
+      <Dialog
+        open={reviewDialogOpen}
+        onClose={() => setReviewDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '16px', p: 1 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: 'primary.main', borderBottom: '1px solid #eee', mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Confirm Job Details
+          <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            Job No: {nextJobNumber}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3}>
+            {/* Row 1: General Info */}
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Branch & Mode</Typography>
+              <Typography variant="body2"><b>Branch:</b> {branches.find(b => b._id === branch_id)?.branch_name || 'N/A'}</Typography>
+              <Typography variant="body2"><b>Mode:</b> {mode}</Typography>
+              <Typography variant="body2"><b>Trade Type:</b> {trade_type}</Typography>
+              <Typography variant="body2"><b>Year:</b> {selectedYear}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Parties</Typography>
+              <Typography variant="body2"><b>Importer:</b> {importer}</Typography>
+              <Typography variant="body2"><b>Supplier:</b> {supplier_exporter}</Typography>
+              <Typography variant="body2"><b>Custom House:</b> {custom_house}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Shipping</Typography>
+              <Typography variant="body2"><b>B/L No:</b> {awb_bl_no}</Typography>
+              <Typography variant="body2"><b>B/L Date:</b> {awb_bl_date}</Typography>
+              <Typography variant="body2"><b>Vessel/Flight:</b> {vessel_berthing}</Typography>
+            </Grid>
+
+            {/* Row 2: Cargo & Value */}
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Cargo Details</Typography>
+              <Typography variant="body2"><b>Gross Wt:</b> {gross_weight}</Typography>
+              <Typography variant="body2"><b>Net Wt:</b> {job_net_weight}</Typography>
+              <Typography variant="body2"><b>Consignment:</b> {consignment_type}</Typography>
+              <Typography variant="body2"><b>Containers:</b> {container_nos.length}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Value & Currency</Typography>
+              <Typography variant="body2"><b>Invoice Val:</b> {total_inv_value}</Typography>
+              <Typography variant="body2"><b>Currency:</b> {inv_currency}</Typography>
+              <Typography variant="body2"><b>Incoterm:</b> {import_terms}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Clearance</Typography>
+              <Typography variant="body2"><b>B/E Type:</b> {type_of_b_e}</Typography>
+              <Typography variant="body2"><b>Scheme:</b> {scheme}</Typography>
+            </Grid>
+          </Grid>
+          <Box sx={{ mt: 3, p: 2, bgcolor: '#fff9c4', borderRadius: '8px', border: '1px solid #fbc02d' }}>
+            <Typography variant="body2" sx={{ color: '#5f4b00', fontWeight: 500 }}>
+              Please carefully review the information above. Once created, some details may require administrative privileges to change.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button onClick={() => setReviewDialogOpen(false)} variant="outlined" sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+            Back to Edit
+          </Button>
+          <Button 
+            onClick={() => {
+              setReviewDialogOpen(false);
+              formik.handleSubmit();
+            }} 
+            variant="contained" 
+            color="primary" 
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, px: 4 }}
+          >
+            {isEditMode ? 'Confirm Update' : 'Confirm & Create Job'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -250,6 +250,12 @@ import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
 import unitRoutes from "./routes/master-directory/unitRoutes.mjs";
 import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs";
 
+// Tally API
+import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
+import apiKeyRoutes from "./routes/admin/apiKeyRoutes.mjs";
+
+
+
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -538,6 +544,13 @@ app.use("/api", countryRoutes);
 app.use("/api", airlineRoutes);
 app.use("/api", unitRoutes);
 app.use("/api", organizationRoutes);
+
+
+// Tally API
+app.use(tallyRoutes);
+app.use(apiKeyRoutes);
+
+
 
 
 // Sentry Error Handler (Must be after controllers)

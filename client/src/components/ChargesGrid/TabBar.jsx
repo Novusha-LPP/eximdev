@@ -4,8 +4,8 @@ import './charges.css';
 const TabBar = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'particulars', label: 'Particulars' },
-    { id: 'revenue', label: 'Revenue' },
-    { id: 'cost', label: 'Cost' }
+    { id: 'cost', label: 'Cost' },
+    { id: 'revenue', label: 'Revenue' }
   ];
 
   return (

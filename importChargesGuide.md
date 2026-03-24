@@ -279,7 +279,7 @@ The ▼/▲ arrow button also toggles the panel.
 
 #### Cost expand panel contains:
   Same layout as Revenue panel except:
-  - Right column shows: Payable Type [select: Vendor / Agent / Carrier]
+  - Right column shows: Payable Type [select: Vendor / Transporter / Others]
                         Payable To   [searchable input + 🔍]
   - No "Copy to Cost" checkbox
 

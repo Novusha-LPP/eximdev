@@ -12,6 +12,8 @@ import Assign from "../components/home/Assign.js";
 import ChangePassword from "../components/home/ChangePassword.js";
 import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
+import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
+
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
 // Documentation
@@ -190,6 +192,8 @@ function HomePage() {
                 {/* Protected Routes */}
                 <Route path="/assign" element={<Assign />} />
                 <Route path="/admin/branches" element={<BranchManagement />} />
+                <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
+
 
                 {/* HOD Management - For Head of Department users */}
                 <Route path="/hod-management" element={<HodManagement />} />

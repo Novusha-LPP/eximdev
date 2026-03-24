@@ -15,6 +15,7 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import DomainIcon from "@mui/icons-material/Domain";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -87,6 +88,18 @@ function Sidebar() {
             >
               <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
                 <DomainIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          <Tooltip title="API Key Management" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/admin/api-keys")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <VpnKeyIcon />
               </IconButton>
             </ListItemButton>
           </Tooltip>

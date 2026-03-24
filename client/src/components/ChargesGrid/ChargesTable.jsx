@@ -32,7 +32,8 @@ const ChargesTable = ({
   const renderParticularsHeaders = () => (
     <>
       <th>Category</th>
-      <th>Cost Center</th>
+      <th>Charge Description</th>
+      <th>Remarks</th>
       <th style={{ width: '100px' }}>Attach</th>
     </>
   );
@@ -160,7 +161,12 @@ const ChargesTable = ({
                 {activeTab === 'particulars' && (
                   <>
                     <td>{ch.category}</td>
-                    <td>{ch.costCenter}</td>
+                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.cost?.chargeDescription || ch.revenue?.chargeDescription || ''}>
+                      {ch.cost?.chargeDescription || ch.revenue?.chargeDescription || ''}
+                    </td>
+                    <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.remark || ''}>
+                      {ch.remark || ''}
+                    </td>
                     {renderAttachmentCell(ch, ch.revenue?.url)}
                   </>
                 )}

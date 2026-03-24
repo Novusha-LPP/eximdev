@@ -4,7 +4,7 @@ import { Chip } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import './charges.css';
 
-const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave }) => {
+const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLineAirline, importerName }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
   const [uploadIndex, setUploadIndex] = useState(null); // index of charge being uploaded for
@@ -13,7 +13,7 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave }) => {
   useEffect(() => {
     if (isOpen) {
       setFormData(JSON.parse(JSON.stringify(selectedCharges)));
-      setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'rev' }), {}));
+      setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
       setUploadIndex(null);
     }
   }, [isOpen, selectedCharges]);
@@ -36,6 +36,16 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave }) => {
        updated[index][section] = updated[index][section] || {};
        updated[index][section][field] = value;
        
+       // Auto-populate Payable To if type is 'Others' in Cost section
+       if (section === 'cost' && field === 'partyType' && value === 'Others' && shippingLineAirline) {
+         updated[index][section].partyName = shippingLineAirline;
+       }
+
+       // Auto-populate Payable To if type is 'Importer' in Cost section
+       if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
+         updated[index][section].partyName = importerName;
+       }
+
        if (['qty', 'rate'].includes(field)) {
          const qty = parseFloat(updated[index][section].qty) || 0;
          const rate = parseFloat(updated[index][section].rate) || 0;
@@ -88,11 +98,16 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave }) => {
                     <input type="text" className="form-input" value={row.category || ''} onChange={e => handleFieldChange(i, 'category', e.target.value)} />
                   </div>
                   <div className="form-row">
-                    <span className="form-label">Cost Center</span>
-                    <div className="form-input-search">
-                      <input type="text" className="form-input" value={row.costCenter || ''} onChange={e => handleFieldChange(i, 'costCenter', e.target.value)} />
-                      <button type="button" className="search-btn">🔍</button>
-                    </div>
+                    <span className="form-label">Charge Description</span>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={row.cost?.chargeDescription || row.revenue?.chargeDescription || ''} 
+                      onChange={e => {
+                        handleFieldChange(i, 'chargeDescription', e.target.value, 'cost');
+                        handleFieldChange(i, 'chargeDescription', e.target.value, 'revenue');
+                      }} 
+                    />
                   </div>
 
                 </div>
@@ -323,7 +338,7 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave }) => {
                               <div className="ep-row">
                                 <span className="ep-label">Payable Type</span>
                                 <select className="ep-select" value={row.cost?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
-                                  <option>Vendor</option><option>Agent</option><option>Carrier</option>
+                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option>
                                 </select>
                               </div>
                               <div className="ep-row">

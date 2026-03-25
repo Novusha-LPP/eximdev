@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const activitySchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   relatedTo: {
     model: { type: String, enum: ['Lead', 'Contact', 'Opportunity'], required: true },

@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const taskSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   title: { type: String, required: true },

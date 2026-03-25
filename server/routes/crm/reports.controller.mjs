@@ -2,38 +2,34 @@ import express from 'express';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import Lead from '../../model/crm/Lead.mjs';
 import Task from '../../model/crm/Task.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // GET /api/crm/reports/dashboard
 router.get('/dashboard', async (req, res) => {
   try {
-    const tenantId = req.tenantId;
-    
     // 1. Pipeline Health (Total value in each stage)
-    const pipelineHealth = await Opportunity.aggregate([
-      { $match: { tenantId } },
-      { $group: { _id: '$stage', totalValue: { $sum: '$value' }, count: { $sum: 1 } } }
+    const byStage = await Opportunity.aggregate([
+      { $group: { _id: '$stage', value: { $sum: '$value' }, count: { $sum: 1 } } },
+      { $project: { _id: 0, stage: '$_id', value: 1, count: 1 } }
     ]);
     
     // 2. Weighted Sales Forecast (expected revenue based on probability)
     const forecast = await Opportunity.aggregate([
-      { $match: { tenantId, stage: { $nin: ['won', 'lost'] } } },
+      { $match: { stage: { $nin: ['won', 'lost'] } } },
       { $project: { weightedRevenue: { $multiply: ['$value', { $divide: ['$probability', 100] }] } } },
       { $group: { _id: null, totalExpectedRevenue: { $sum: '$weightedRevenue' } } }
     ]);
     
     // 3. Lead Conversion Stats
-    const totalLeads = await Lead.countDocuments({ tenantId });
-    const convertedLeads = await Lead.countDocuments({ tenantId, status: 'converted' });
-
+    const totalLeads = await Lead.countDocuments({});
+    const convertedLeads = await Lead.countDocuments({ status: 'converted' });
+ 
     // 4. Tasks Status
-    const tasksCount = await Task.countDocuments({ tenantId, status: { $ne: 'completed' } });
+    const tasksCount = await Task.countDocuments({ status: { $ne: 'completed' } });
 
     res.json({
-      pipelineHealth,
+      byStage,
       weightedForecast: forecast[0]?.totalExpectedRevenue || 0,
       leadStats: { total: totalLeads, converted: convertedLeads },
       pendingTasks: tasksCount

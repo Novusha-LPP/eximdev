@@ -351,9 +351,7 @@ function HomePage() {
               <Route
                 path="/crm"
                 element={
-                  <ProtectedRoute requiredModule="Customer KYC">
-                    <CRMModule />
-                  </ProtectedRoute>
+                  <CRMModule />
                 }
               />
        

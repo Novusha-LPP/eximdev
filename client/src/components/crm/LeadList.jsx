@@ -8,45 +8,112 @@ export default function LeadList() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState(null);
+  const [converting, setConverting] = useState(null);
+  
+  // Teams for filtering
+  const [userTeams, setUserTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState('');
 
-  const dummyLeads = [
-    { _id: '1', company: 'Acme Corp', firstName: 'John', lastName: 'Smith', email: 'john@acme.com', phone: '+1-555-0101', status: 'open', source: 'LinkedIn', lastContact: new Date(Date.now() - 2*24*60*60*1000) },
-    { _id: '2', company: 'Tech Ventures', firstName: 'Sarah', lastName: 'Johnson', email: 'sarah@techventures.io', phone: '+1-555-0102', status: 'open', source: 'Referral', lastContact: new Date(Date.now() - 1*24*60*60*1000) },
-    { _id: '3', company: 'Innovate Solutions', firstName: 'Michael', lastName: 'Chen', email: 'michael@innovate.co', phone: '+1-555-0103', status: 'open', source: 'Website', lastContact: new Date(Date.now() - 5*24*60*60*1000) },
-    { _id: '4', company: 'Global Systems', firstName: 'Emily', lastName: 'Davis', email: 'emily@global.net', phone: '+1-555-0104', status: 'converted', source: 'Cold Call', lastContact: new Date(Date.now() - 10*24*60*60*1000) },
-    { _id: '5', company: 'Enterprise Inc', firstName: 'Robert', lastName: 'Wilson', email: 'robert@enterprise.com', phone: '+1-555-0105', status: 'open', source: 'Event', lastContact: new Date(Date.now() - 3*24*60*60*1000) },
-    { _id: '6', company: 'Startup Hub', firstName: 'Lisa', lastName: 'Anderson', email: 'lisa@startup.io', phone: '+1-555-0106', status: 'open', source: 'LinkedIn', lastContact: new Date(Date.now() - 7*24*60*60*1000) }
-  ];
-
-  const fetchLeads = async () => {
+  const fetchLeads = async (teamId = selectedTeamId) => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/leads`, { withCredentials: true });
-      setLeads(res.data && res.data.length > 0 ? res.data : dummyLeads);
+      const queryParams = new URLSearchParams();
+      if (teamId) queryParams.append('teamId', teamId);
+      
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/leads${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+        { withCredentials: true }
+      );
+      setLeads(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      setLeads(dummyLeads);
-      console.error(err);
+      console.error('Error fetching leads:', err);
+      setError(err.response?.data?.message || 'Failed to load leads');
+      setLeads([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchLeads();
-  }, []);
-
-  const handleConvert = async (leadId) => {
+  const fetchUserTeams = async () => {
     try {
-      if(!window.confirm("Convert this Lead into an Account & Opportunity?")) return;
-      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadId}/convert`, {}, { withCredentials: true });
-      const { accountId, opportunityId } = res.data;
-      message.success(`Lead converted successfully! Account: ${accountId}, Opportunity: ${opportunityId}`);
-      fetchLeads();
-    } catch (error) {
-      message.error("Error converting lead: " + (error.response?.data?.message || error.message));
+      const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+      const userId = user._id || user.id || '';
+      
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/teams`,
+        { 
+          headers: {
+            'Content-Type': 'application/json',
+            'user-id': userId,
+            'username': user.username || '',
+            'user-role': user.role || '',
+            'Authorization': user.token ? `Bearer ${user.token}` : undefined
+          },
+          withCredentials: true 
+        }
+      );
+      
+      // Filter to only teams where the user is a member or manager
+      const myTeams = (res.data.teams || []).filter(team => {
+        const isManager = team.managerId === userId || team.managerId?._id === userId;
+        const isMember = team.memberIds?.some(m => m === userId || m?._id === userId);
+        return isManager || isMember;
+      });
+      setUserTeams(myTeams);
+    } catch (err) {
+      console.error('Error fetching user teams:', err);
     }
   };
 
-  if (loading) return <div style={{ padding: '20px', color: '#64748b' }}>Loading leads...</div>;
+  useEffect(() => {
+    fetchUserTeams();
+    fetchLeads();
+  }, []);
+
+  const handleConvert = async (leadId, leadName) => {
+    if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
+      return;
+    }
+
+    setConverting(leadId);
+    setError(null);
+    
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/crm/leads/${leadId}/convert`,
+        {},
+        { withCredentials: true }
+      );
+      
+      if (res.data.success) {
+        const { data } = res.data;
+        message.success({
+          content: `✓ Lead converted successfully!\nAccount: ${data.account.name}\nOpportunity: ${data.opportunity.name}`,
+          duration: 3
+        });
+        // Refresh the leads list
+        fetchLeads();
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to convert lead';
+      console.error('Conversion error:', error);
+      setError(errorMsg);
+      message.error(`❌ ${errorMsg}`);
+    } finally {
+      setConverting(null);
+    }
+  };
+
+  if (loading) return (
+    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div>
+        <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Loading leads...</div>
+        <div style={{ fontSize: '14px', color: '#94a3b8' }}>Fetching your lead list</div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
@@ -55,14 +122,56 @@ export default function LeadList() {
         onClose={() => setIsModalOpen(false)} 
         onRefresh={fetchLeads} 
       />
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      
+      {/* Error notification */}
+      {error && (
+        <div style={{
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          border: '1px solid #fca5a5'
+        }}>
+          <span>⚠️ {error}</span>
+          <button 
+            onClick={() => setError(null)}
+            style={{ background: 'transparent', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '18px' }}
+          >×</button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '16px' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>Lead Management</h2>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          style={{ background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', position: 'relative', zIndex: 10 }}
-        >
-          + New Lead
-        </button>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Team Filter Dropdown */}
+          {userTeams.length > 0 && (
+            <select
+              value={selectedTeamId}
+              onChange={(e) => {
+                setSelectedTeamId(e.target.value);
+                fetchLeads(e.target.value);
+              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
+            >
+              <option value="">All My Teams</option>
+              {userTeams.map(team => (
+                <option key={team._id} value={team._id}>{team.name}</option>
+              ))}
+            </select>
+          )}
+          
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            style={{ background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
+          >
+            + New Lead
+          </button>
+        </div>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -97,10 +206,22 @@ export default function LeadList() {
                 <td style={{ padding: '16px 12px', textAlign: 'right' }}>
                   {lead.status !== 'converted' && (
                     <button 
-                      onClick={() => handleConvert(lead._id)} 
-                      style={{ background: '#10b981', color: 'white', padding: '6px 14px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                      onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
+                      disabled={converting === lead._id}
+                      style={{ 
+                        background: converting === lead._id ? '#d1d5db' : '#10b981', 
+                        color: 'white', 
+                        padding: '6px 14px', 
+                        border: 'none', 
+                        borderRadius: '6px', 
+                        cursor: converting === lead._id ? 'not-allowed' : 'pointer', 
+                        fontSize: '0.8rem', 
+                        fontWeight: 600,
+                        opacity: converting === lead._id ? 0.6 : 1,
+                        minWidth: '90px'
+                      }}
                     >
-                      Convert
+                      {converting === lead._id ? '⏳ Converting...' : 'Convert'}
                     </button>
                   )}
                 </td>

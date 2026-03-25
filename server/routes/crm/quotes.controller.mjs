@@ -2,15 +2,13 @@ import express from 'express';
 import Quote from '../../model/crm/Quote.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import Account from '../../model/crm/Account.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // Helper: Generate quote number
-const generateQuoteNumber = async (tenantId) => {
-  const count = await Quote.countDocuments({ tenantId });
+const generateQuoteNumber = async () => {
+  const count = await Quote.countDocuments({});
   return `QT-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
 };
 
@@ -41,10 +39,9 @@ router.post('/', async (req, res) => {
 
     const total = subtotal - totalDiscount + totalTax;
 
-    const quoteNumber = await generateQuoteNumber(req.tenantId);
+    const quoteNumber = await generateQuoteNumber();
 
     const newQuote = new Quote({
-      tenantId: req.tenantId,
       quoteNumber,
       opportunityId,
       accountId,
@@ -73,7 +70,7 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { status, accountId, opportunityId, page = 1, limit = 20 } = req.query;
-    let query = { tenantId: req.tenantId };
+    let query = {};
 
     if (status) query.status = status;
     if (accountId) query.accountId = accountId;
@@ -101,7 +98,7 @@ router.get('/', async (req, res) => {
 // GET single quote
 router.get('/:id', async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.tenantId })
+    const quote = await Quote.findOne({ _id: req.params.id })
       .populate('accountId')
       .populate('contactId')
       .populate('createdById')
@@ -117,7 +114,7 @@ router.get('/:id', async (req, res) => {
 // UPDATE quote
 router.put('/:id', async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const quote = await Quote.findOne({ _id: req.params.id });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     const { lineItems, terms } = req.body;
@@ -160,7 +157,7 @@ router.put('/:id', async (req, res) => {
 // Delete quote
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Quote.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
+    const deleted = await Quote.findOneAndDelete({ _id: req.params.id });
     if (!deleted) return res.status(404).json({ message: 'Quote not found' });
     res.json({ success: true, message: 'Quote deleted' });
   } catch (error) {
@@ -180,7 +177,7 @@ router.put('/:id/status', async (req, res) => {
     }
 
     const quote = await Quote.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
+      { _id: req.params.id },
       update,
       { new: true }
     );
@@ -198,7 +195,7 @@ router.post('/:id/send', async (req, res) => {
     const { recipientEmail } = req.body;
 
     const quote = await Quote.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
+      { _id: req.params.id },
       {
         status: 'sent',
         'tracking.sentAt': new Date(),
@@ -224,7 +221,7 @@ router.post('/:id/send', async (req, res) => {
 // Track quote views
 router.post('/:id/view', async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const quote = await Quote.findOne({ _id: req.params.id });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     quote.tracking.viewedCount = (quote.tracking.viewedCount || 0) + 1;
@@ -243,7 +240,7 @@ router.post('/:id/view', async (req, res) => {
 // Convert quote to opportunity (if not already linked)
 router.post('/:id/convert-to-opportunity', async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const quote = await Quote.findOne({ _id: req.params.id });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     if (quote.opportunityId) {
@@ -252,7 +249,6 @@ router.post('/:id/convert-to-opportunity', async (req, res) => {
 
     // Create opportunity from quote
     const newOpportunity = new Opportunity({
-      tenantId: req.tenantId,
       name: quote.title,
       accountId: quote.accountId,
       value: quote.total,

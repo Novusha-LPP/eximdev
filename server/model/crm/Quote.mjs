@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const quoteSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   quoteNumber: { type: String, unique: true, required: true },
   
   // Reference
@@ -88,7 +87,7 @@ const quoteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-quoteSchema.index({ tenantId: 1, quoteNumber: 1 });
+quoteSchema.index({ quoteNumber: 1 });
 quoteSchema.index({ opportunityId: 1 });
 quoteSchema.index({ accountId: 1 });
 quoteSchema.index({ status: 1 });

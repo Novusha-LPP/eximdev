@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const accountSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   name: { type: String, required: true },
   industry: { type: String },

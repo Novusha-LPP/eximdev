@@ -25,24 +25,30 @@ export default function TerritoryManagement() {
     fetchTeams();
   }, []);
 
-  const dummyTerritories = [
-    { _id: '1', name: 'North America', type: 'geographic', description: 'USA, Canada & Mexico', assignedTeamId: { _id: 'team1', name: 'Enterprise Team' }, currentAccountCount: 24, currentLeadCount: 56, leadRoutingRules: { autoAssign: true, roundRobin: false }, isActive: true },
-    { _id: '2', name: 'Technology Sector', type: 'industry', description: 'SaaS, Software & IT Services', assignedTeamId: { _id: 'team2', name: 'Tech Sales' }, currentAccountCount: 18, currentLeadCount: 42, leadRoutingRules: { autoAssign: true, roundRobin: false }, isActive: true },
-    { _id: '3', name: 'Enterprise Accounts', type: 'customer-size', description: 'Companies with 1000+ employees', assignedTeamId: { _id: 'team1', name: 'Enterprise Team' }, currentAccountCount: 12, currentLeadCount: 28, leadRoutingRules: { autoAssign: false, roundRobin: true }, isActive: true },
-    { _id: '4', name: 'Financial Services', type: 'industry', description: 'Banks, Insurance & Investment Firms', assignedTeamId: { _id: 'team3', name: 'Vertical Sales' }, currentAccountCount: 15, currentLeadCount: 35, leadRoutingRules: { autoAssign: true, roundRobin: false }, isActive: true },
-    { _id: '5', name: 'EMEA Region', type: 'geographic', description: 'Europe, Middle East & Africa', assignedTeamId: { _id: 'team4', name: 'International Sales' }, currentAccountCount: 31, currentLeadCount: 67, leadRoutingRules: { autoAssign: true, roundRobin: false }, isActive: true }
-  ];
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
 
   const fetchTerritories = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/territories`,
-        { withCredentials: true }
+        getHeaders()
       );
-      setTerritories(res.data.territories && res.data.territories.length > 0 ? res.data.territories : dummyTerritories);
+      setTerritories(res.data.territories || []);
     } catch (err) {
-      setTerritories(dummyTerritories);
+      setTerritories([]);
       console.error(err);
     } finally {
       setLoading(false);
@@ -53,9 +59,9 @@ export default function TerritoryManagement() {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/teams`,
-        { withCredentials: true }
+        getHeaders()
       );
-      setTeams(res.data.teams);
+      setTeams(res.data.teams || []);
     } catch (err) {
       console.error(err);
     }
@@ -68,14 +74,14 @@ export default function TerritoryManagement() {
         await axios.put(
           `${process.env.REACT_APP_API_STRING}/crm/territories/${editingTerritory._id}`,
           formData,
-          { withCredentials: true }
+          getHeaders()
         );
         message.success('Territory updated successfully');
       } else {
         await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/territories`,
           formData,
-          { withCredentials: true }
+          getHeaders()
         );
         message.success('Territory created successfully');
       }
@@ -94,7 +100,7 @@ export default function TerritoryManagement() {
       okType: 'danger',
       async onOk() {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/territories/${id}`, { withCredentials: true });
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/territories/${id}`, getHeaders());
           message.success('Territory deleted');
           fetchTerritories();
         } catch (error) {

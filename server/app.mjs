@@ -301,6 +301,7 @@ app.use(
     origin: [
       "http://eximdev.s3-website.ap-south-1.amazonaws.com",
       "http://localhost:3000",
+      "http://192.168.1.105:3000",
       "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       "https://import.alvision.in",
       "https://test-frontend.alvision.in"
@@ -623,8 +624,8 @@ if (cluster.isPrimary) {
           }
         });
 
-        server.listen(9006, () => {
-          console.log(`🟢 Server listening on http://localhost:${9006}`);
+        server.listen(9006, "0.0.0.0", () => {
+          console.log(`🟢 Server listening on port ${9006}`);
         });
       })
       .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));

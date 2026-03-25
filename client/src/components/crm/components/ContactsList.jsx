@@ -13,22 +13,27 @@ export default function ContactsList() {
   const [accountFilter, setAccountFilter] = useState('');
   const [accounts, setAccounts] = useState([]);
 
-  const dummyContacts = [
-    { _id: '1', firstName: 'John', lastName: 'Smith', email: 'john.smith@techcorp.com', phone: '+1-555-2001', title: 'VP Sales', accountId: '1', department: 'Sales', linkedinUrl: 'linkedin.com/in/johnsmith' },
-    { _id: '2', firstName: 'Sarah', lastName: 'Johnson', email: 'sarah.j@financefirst.com', phone: '+1-555-2002', title: 'CFO', accountId: '2', department: 'Finance', linkedinUrl: 'linkedin.com/in/sarahjohnson' },
-    { _id: '3', firstName: 'Michael', lastName: 'Chen', email: 'mchen@innovate.co', phone: '+1-555-2003', title: 'CEO', accountId: '3', department: 'Executive', linkedinUrl: 'linkedin.com/in/michaelchen' },
-    { _id: '4', firstName: 'Emily', lastName: 'Davis', email: 'emily.davis@global-sys.com', phone: '+1-555-2004', title: 'Procurement Manager', accountId: '4', department: 'Procurement', linkedinUrl: 'linkedin.com/in/emilydavis' },
-    { _id: '5', firstName: 'Robert', lastName: 'Wilson', email: 'rwilson@enterprise.com', phone: '+1-555-2005', title: 'Director IT', accountId: '5', department: 'IT', linkedinUrl: 'linkedin.com/in/robertwilson' },
-    { _id: '6', firstName: 'Lisa', lastName: 'Anderson', email: 'lisa.a@techcorp.com', phone: '+1-555-2006', title: 'Operations Manager', accountId: '1', department: 'Operations', linkedinUrl: 'linkedin.com/in/lisaanderson' }
-  ];
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
 
   const fetchContacts = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/contacts`, { withCredentials: true });
-      setContacts(res.data && res.data.length > 0 ? res.data : dummyContacts);
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/contacts`, getHeaders());
+      setContacts(res.data || []);
     } catch (err) {
-      setContacts(dummyContacts);
+      setContacts([]);
       console.error(err);
     } finally {
       setLoading(false);
@@ -37,7 +42,7 @@ export default function ContactsList() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, { withCredentials: true });
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, getHeaders());
       setAccounts(res.data);
     } catch (err) {
       console.error(err);
@@ -57,7 +62,7 @@ export default function ContactsList() {
       okType: 'danger',
       async onOk() {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/contacts/${id}`, { withCredentials: true });
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/contacts/${id}`, getHeaders());
           message.success('Contact deleted successfully');
           fetchContacts();
         } catch (error) {
@@ -67,12 +72,32 @@ export default function ContactsList() {
     });
   };
 
+  const handleContactUpdate = async (updatedContact) => {
+    // Update local state immediately when contact is updated from form
+    setContacts(prevContacts =>
+      prevContacts.map(c =>
+        c._id === updatedContact._id ? { ...c, ...updatedContact } : c
+      )
+    );
+    
+    // Also refresh accounts to ensure the linked account is in the list
+    // This is important for the account name to display correctly
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, getHeaders());
+      setAccounts(res.data || []);
+    } catch (err) {
+      console.error('Error fetching accounts:', err);
+    }
+  };
+
   const filteredContacts = contacts.filter(contact => {
     const contactName = `${contact.firstName} ${contact.lastName}`.toLowerCase();
     const matchesSearch = contactName.includes(searchTerm.toLowerCase()) ||
                           contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           contact.phone?.includes(searchTerm);
-    const matchesAccount = !accountFilter || contact.accountId === accountFilter;
+    // Handle both populated and unpopulated accountId
+    const accountId = typeof contact.accountId === 'object' ? contact.accountId._id : contact.accountId;
+    const matchesAccount = !accountFilter || accountId === accountFilter;
     return matchesSearch && matchesAccount;
   });
 
@@ -87,8 +112,10 @@ export default function ContactsList() {
           setEditingContact(null);
         }}
         onRefresh={fetchContacts}
+        onUpdate={handleContactUpdate}
         contact={editingContact}
         accounts={accounts}
+        getHeaders={getHeaders}
       />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -137,7 +164,11 @@ export default function ContactsList() {
             {filteredContacts.length === 0 ? (
               <tr><td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No contacts found.</td></tr>
             ) : filteredContacts.map(contact => {
-              const account = accounts.find(a => a._id === contact.accountId);
+              // Handle both populated and unpopulated accountId (object or string)
+              const accountId = typeof contact.accountId === 'object' ? contact.accountId._id : contact.accountId;
+              const account = contact.accountId && typeof contact.accountId === 'object' 
+                ? contact.accountId 
+                : accounts.find(a => a._id === accountId);
               return (
                 <tr key={contact._id} style={{ borderBottom: '1px solid #f1f5f9' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>
@@ -151,7 +182,7 @@ export default function ContactsList() {
                   <td style={{ padding: '16px 12px', color: '#475569' }}>
                     {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#4f46e5' }}>{contact.phone}</a> : 'N/A'}
                   </td>
-                  <td style={{ padding: '16px 12px', color: '#475569' }}>{account?.name || 'Unlinked'}</td>
+                  <td style={{ padding: '16px 12px', color: account?.name ? '#475569' : '#f97316' }}>{account?.name || 'No Account'}</td>
                   <td style={{ padding: '16px 12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
                       <button

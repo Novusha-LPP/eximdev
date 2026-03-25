@@ -5,6 +5,18 @@ import { message, Modal } from 'antd';
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
 
+const ALLOWED_SERVICES = [
+  'custom clearance', 
+  'freight forwarding', 
+  'dgft', 
+  'e-lock', 
+  'client', 
+  'transportation', 
+  'paramount', 
+  'rabs', 
+  'auto rack'
+];
+
 export default function OpportunityDetailModal({ isOpen, onClose, opportunity, onRefresh }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({});
@@ -27,10 +39,53 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     }
   };
 
+  const toggleService = (service) => {
+    const currentServices = formData.interestedServices || [];
+    if (currentServices.includes(service)) {
+      setFormData({ 
+        ...formData, 
+        interestedServices: currentServices.filter(s => s !== service) 
+      });
+    } else {
+      setFormData({ 
+        ...formData, 
+        interestedServices: [...currentServices, service] 
+      });
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await axios.put(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`, formData, { withCredentials: true });
+      const currentStage = opportunity.stage;
+      const newStage = formData.stage;
+      const stageChanged = newStage && newStage !== currentStage;
+
+      // Only send the fields the form actually edits — never send stageHistory, __v, _id etc.
+      const payload = {
+        name: formData.name,
+        value: formData.value,
+        probability: formData.probability,
+        expectedCloseDate: formData.expectedCloseDate,
+        interestedServices: formData.interestedServices || []
+      };
+
+      // If stage changed, use the dedicated PATCH /stage endpoint
+      if (stageChanged) {
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/stage`,
+          { stage: newStage },
+          { withCredentials: true }
+        );
+      }
+
+      // Update other fields via PUT (without stage in payload to skip validation)
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+        payload,
+        { withCredentials: true }
+      );
+
       message.success('Opportunity updated successfully');
       setIsEditMode(false);
       onRefresh();
@@ -196,6 +251,33 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 />
               </div>
 
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Interested Services</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {ALLOWED_SERVICES.map(service => (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => toggleService(service)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: (formData.interestedServices || []).includes(service) ? '#4f46e5' : '#e2e8f0',
+                        background: (formData.interestedServices || []).includes(service) ? '#eef2ff' : '#fff',
+                        color: (formData.interestedServices || []).includes(service) ? '#4f46e5' : '#64748b',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {service.charAt(0).toUpperCase() + service.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
                 <button
                   onClick={() => setIsEditMode(false)}
@@ -217,7 +299,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               {/* Opportunity Details */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Details</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Expected Close</span>
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>
@@ -229,6 +311,31 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.forecastCategory || 'Pipeline'}</p>
                   </div>
                 </div>
+                
+                {/* Services Display */}
+                {(formData.interestedServices || []).length > 0 && (
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px' }}>Interested Services</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {(formData.interestedServices || []).map(service => (
+                        <span
+                          key={service}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            background: '#eef2ff',
+                            color: '#4f46e5',
+                            border: '1px solid #4f46e5'
+                          }}
+                        >
+                          {service.charAt(0).toUpperCase() + service.slice(1)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Activities */}

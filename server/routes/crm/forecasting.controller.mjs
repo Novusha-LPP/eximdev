@@ -1,10 +1,8 @@
 import express from 'express';
 import OpportunityForecast from '../../model/crm/OpportunityForecast.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // CREATE forecast for opportunity
 router.post('/', async (req, res) => {
@@ -12,7 +10,7 @@ router.post('/', async (req, res) => {
     const { opportunityId, probability, adjustments = [] } = req.body;
 
     // Get opportunity details
-    const opportunity = await Opportunity.findOne({ _id: opportunityId, tenantId: req.tenantId });
+    const opportunity = await Opportunity.findOne({ _id: opportunityId });
     if (!opportunity) return res.status(404).json({ message: 'Opportunity not found' });
 
     // Calculate expected value
@@ -29,7 +27,6 @@ router.post('/', async (req, res) => {
     const forecastMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const newForecast = new OpportunityForecast({
-      tenantId: req.tenantId,
       opportunityId,
       forecastMonth,
       opportunityName: opportunity.name,
@@ -60,7 +57,7 @@ router.get('/period/:period', async (req, res) => {
     const { period } = req.params;
     const { ownerId, teamId, stage } = req.query;
 
-    let query = { tenantId: req.tenantId };
+    let query = {};
 
     // Filter by period
     const now = new Date();
@@ -102,7 +99,7 @@ router.get('/period/:period', async (req, res) => {
 // GET single forecast
 router.get('/:id', async (req, res) => {
   try {
-    const forecast = await OpportunityForecast.findOne({ _id: req.params.id, tenantId: req.tenantId })
+    const forecast = await OpportunityForecast.findOne({ _id: req.params.id })
       .populate('opportunityId accountId ownerId teamId');
 
     if (!forecast) return res.status(404).json({ message: 'Forecast not found' });
@@ -117,7 +114,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { probability, adjustments, probabilityFactors } = req.body;
 
-    const forecast = await OpportunityForecast.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const forecast = await OpportunityForecast.findOne({ _id: req.params.id });
     if (!forecast) return res.status(404).json({ message: 'Forecast not found' });
 
     if (probability !== undefined) {
@@ -151,7 +148,7 @@ router.post('/:id/close', async (req, res) => {
   try {
     const { actualValue, outcome } = req.body;
 
-    const forecast = await OpportunityForecast.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const forecast = await OpportunityForecast.findOne({ _id: req.params.id });
     if (!forecast) return res.status(404).json({ message: 'Forecast not found' });
 
     forecast.accuracy = {
@@ -174,7 +171,7 @@ router.get('/dashboard/summary', async (req, res) => {
   try {
     const { period = 'current-month', ownerId } = req.query;
 
-    let query = { tenantId: req.tenantId };
+    let query = {};
     if (ownerId) query.ownerId = ownerId;
 
     // Get all active forecasts
@@ -225,7 +222,7 @@ router.get('/dashboard/summary', async (req, res) => {
 router.get('/health/aging-deals', async (req, res) => {
   try {
     const now = new Date();
-    const query = { tenantId: req.tenantId };
+    const query = {};
 
     const forecasts = await OpportunityForecast.find(query);
 

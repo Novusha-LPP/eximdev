@@ -23,10 +23,24 @@ export default function TaskBoard() {
   const [editingTask, setEditingTask] = useState(null);
   const [draggedTask, setDraggedTask] = useState(null);
 
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
+
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/tasks`, { withCredentials: true });
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/tasks`, getHeaders());
       setTasks(res.data || []);
     } catch (err) {
       setTasks([]);
@@ -48,7 +62,7 @@ export default function TaskBoard() {
       okType: 'danger',
       async onOk() {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/tasks/${id}`, { withCredentials: true });
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/tasks/${id}`, getHeaders());
           message.success('Task deleted successfully');
           fetchTasks();
         } catch (error) {
@@ -83,7 +97,7 @@ export default function TaskBoard() {
       setTasks(updatedTasks);
       
       // Save to database
-      await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`, { status: newStatus }, { withCredentials: true });
+      await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`, { status: newStatus }, getHeaders());
       message.success('Task moved successfully');
     } catch (error) {
       message.error('Error updating task');

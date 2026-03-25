@@ -10,7 +10,6 @@ export default function AccountFormModal({ isOpen, onClose, onRefresh, account }
     size: '',
     website: '',
     annualRevenue: '',
-    healthScore: 75,
     address: '',
     parentAccountId: ''
   });
@@ -26,7 +25,6 @@ export default function AccountFormModal({ isOpen, onClose, onRefresh, account }
         size: '',
         website: '',
         annualRevenue: '',
-        healthScore: 75,
         address: '',
         parentAccountId: ''
       });
@@ -121,7 +119,7 @@ export default function AccountFormModal({ isOpen, onClose, onRefresh, account }
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Company Size</label>
               <select
@@ -135,20 +133,6 @@ export default function AccountFormModal({ isOpen, onClose, onRefresh, account }
                 <option value="medium">Medium (51-500)</option>
                 <option value="large">Large (500+)</option>
               </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Health Score</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={formData.healthScore}
-                  onChange={(e) => setFormData({ ...formData, healthScore: parseInt(e.target.value) })}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ minWidth: '40px', textAlign: 'center', fontWeight: 700, color: '#4f46e5' }}>{formData.healthScore}%</span>
-              </div>
             </div>
           </div>
 

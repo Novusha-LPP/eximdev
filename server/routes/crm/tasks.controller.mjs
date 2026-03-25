@@ -1,22 +1,20 @@
 import express from 'express';
 import Task from '../../model/crm/Task.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // GET /api/crm/tasks
 router.get('/', async (req, res) => {
   try {
     const { status, priority, assignedTo } = req.query;
-    const query = { tenantId: req.tenantId };
+    const query = {};
     if (status) query.status = status.toLowerCase();
     if (priority) query.priority = priority.toLowerCase();
     if (assignedTo) query.assignedTo = assignedTo;
 
     const tasks = await Task.find(query)
-      .populate('assignedTo', 'username email')
-      .populate('createdBy', 'username email')
+      .populate('assignedTo', 'username email first_name last_name role department')
+      .populate('createdBy', 'username email first_name last_name role department')
       .sort({ dueDate: 1 });
     res.json(tasks);
   } catch (error) {
@@ -28,7 +26,6 @@ router.get('/', async (req, res) => {
 router.get('/my', async (req, res) => {
   try {
     const tasks = await Task.find({ 
-      tenantId: req.tenantId, 
       assignedTo: req.user?._id,
       status: { $ne: 'completed' }
     }).sort({ dueDate: 1 });
@@ -41,7 +38,7 @@ router.get('/my', async (req, res) => {
 // GET /api/crm/tasks/:id
 router.get('/:id', async (req, res) => {
   try {
-    const task = await Task.findOne({ _id: req.params.id, tenantId: req.tenantId })
+    const task = await Task.findOne({ _id: req.params.id })
       .populate('assignedTo', 'username email');
     if (!task) return res.status(404).json({ message: 'Task not found' });
     res.json(task);
@@ -55,7 +52,6 @@ router.post('/', async (req, res) => {
   try {
     const newTask = new Task({ 
       ...req.body, 
-      tenantId: req.tenantId,
       createdBy: req.user?._id
     });
     await newTask.save();
@@ -68,8 +64,8 @@ router.post('/', async (req, res) => {
 // PUT /api/crm/tasks/:id
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await Task.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
+    const updated = await Task.findByIdAndUpdate(
+      req.params.id,
       req.body,
       { new: true }
     );
@@ -84,7 +80,7 @@ router.put('/:id', async (req, res) => {
 router.patch('/:id/complete', async (req, res) => {
   try {
     const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
+      { _id: req.params.id },
       { status: 'completed' },
       { new: true }
     );

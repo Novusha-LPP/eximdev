@@ -26,11 +26,32 @@ export default function TasksList() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssigned, setFilterAssigned] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    setCurrentUser(user);
+    fetchTasks();
+  }, []);
+
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/tasks`, { withCredentials: true });
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/tasks`, getHeaders());
       setTasks(res.data || []);
     } catch (err) {
       setTasks([]);
@@ -40,9 +61,21 @@ export default function TasksList() {
     }
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  const canEditOrDelete = (task) => {
+    if (!currentUser) return false;
+    const isOwner = task.createdBy === currentUser._id || task.createdBy?._id === currentUser._id;
+    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'Admin';
+    return isOwner || isAdmin;
+  };
+
+  const canUpdateStatus = (task) => {
+    if (!currentUser) return false;
+    const assignedId = task.assignedTo?._id || task.assignedTo;
+    const isAssignee = assignedId === currentUser._id;
+    const isOwner = task.createdBy === currentUser._id || task.createdBy?._id === currentUser._id;
+    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'Admin';
+    return isAssignee || isOwner || isAdmin;
+  };
 
   const handleDelete = (id) => {
     Modal.confirm({
@@ -52,7 +85,7 @@ export default function TasksList() {
       okType: 'danger',
       async onOk() {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/tasks/${id}`, { withCredentials: true });
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/tasks/${id}`, getHeaders());
           message.success('Task deleted successfully');
           fetchTasks();
         } catch (error) {
@@ -69,7 +102,7 @@ export default function TasksList() {
       setTasks(updatedTasks);
       
       // Save to database
-      await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`, { status: newStatus }, { withCredentials: true });
+      await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`, { status: newStatus }, getHeaders());
       message.success('Task status updated');
     } catch (error) {
       message.error('Error updating task');
@@ -93,7 +126,7 @@ export default function TasksList() {
   if (loading) return <div style={{ padding: '20px', color: '#64748b' }}>Loading tasks...</div>;
 
   return (
-    <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+    <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', minHeight: '600px' }}>
       <TaskFormModal
         isOpen={isFormOpen}
         onClose={() => {
@@ -104,28 +137,44 @@ export default function TasksList() {
         task={editingTask}
       />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>Task List</h2>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{filteredTasks.length} tasks</span>
+          <h2 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.025em' }}>Task Management</h2>
+          <p style={{ margin: '4px 0 0', fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>
+            {filteredTasks.length === 0 ? 'No active tasks found' : `Currently tracking ${filteredTasks.length} tasks`}
+          </p>
         </div>
         <button
           onClick={() => setIsFormOpen(true)}
-          style={{ background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{ 
+            background: '#4f46e5', color: 'white', padding: '12px 24px', border: 'none', 
+            borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', 
+            alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)',
+            transition: 'all 0.2s', fontSize: '0.95rem'
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
         >
-          <Plus size={18} /> New Task
+          <Plus size={20} /> New Task
         </button>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      {/* Filters Bar */}
+      <div style={{ 
+        display: 'flex', gap: '12px', marginBottom: '2rem', flexWrap: 'wrap', 
+        padding: '16px', background: '#fff', borderRadius: '12px', 
+        border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Filter By:</span>
+        </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.9rem', background: 'white' }}
+          style={{ padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fbfcfd', outline: 'none', cursor: 'pointer', minWidth: '140px' }}
         >
-          <option value="">All Status</option>
-          <option value="open">Open</option>
+          <option value="">All Statuses</option>
+          <option value="open">Opened</option>
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
@@ -133,100 +182,152 @@ export default function TasksList() {
         <select
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.9rem', background: 'white' }}
+          style={{ padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fbfcfd', outline: 'none', cursor: 'pointer', minWidth: '140px' }}
         >
           <option value="">All Priorities</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
+          <option value="low">Low Priority</option>
+          <option value="medium">Medium Priority</option>
+          <option value="high">High Priority</option>
           <option value="urgent">Urgent</option>
         </select>
       </div>
 
-      <div style={{ display: 'grid', gap: '12px' }}>
+      <div style={{ display: 'grid', gap: '16px' }}>
         {filteredTasks.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px' }}>
-            No tasks found matching filters.
+          <div style={{ padding: '4rem 2rem', textAlign: 'center', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #e2e8f0' }}>
+            <div style={{ marginBottom: '16px', opacity: 0.5 }}>📂</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#64748b' }}>No tasks found</div>
+            <p style={{ margin: '8px 0 0', fontSize: '0.9rem' }}>Try adjusting your filters or create a new task above.</p>
           </div>
         ) : (
-          filteredTasks.map(task => (
-            <div
-              key={task._id}
-              style={{
-                background: '#f8fafc',
-                padding: '16px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: '16px'
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <h4 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>{task.title}</h4>
-                  <span style={{
-                    background: STATUS_COLORS[task.status]?.bg || '#f1f5f9',
-                    color: STATUS_COLORS[task.status]?.text || '#475569',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase'
-                  }}>
-                    {task.status?.replace('_', ' ') || 'Open'}
-                  </span>
-                  <span style={{
-                    background: PRIORITY_COLORS[task.priority]?.bg || '#f1f5f9',
-                    color: PRIORITY_COLORS[task.priority]?.text || '#475569',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    textTransform: 'capitalize'
-                  }}>
-                    {task.priority || 'Medium'}
-                  </span>
+          filteredTasks.map(task => {
+            const hasStatusPermission = canUpdateStatus(task);
+            const hasEditPermission = canEditOrDelete(task);
+            
+            return (
+              <div
+                key={task._id}
+                style={{
+                  background: '#fff',
+                  padding: '20px',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '20px',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  opacity: (hasStatusPermission || hasEditPermission) ? 1 : 0.8
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05)';
+                  e.currentTarget.style.borderColor = '#cbd5e1';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                }}
+              >
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1 }}>
+                  <div style={{ 
+                    width: '4px', height: '40px', borderRadius: '2px', 
+                    background: PRIORITY_COLORS[task.priority || 'medium']?.text || '#475569',
+                    opacity: 0.8
+                  }}></div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                      <h4 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.05rem' }}>{task.title}</h4>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <span style={{
+                          background: STATUS_COLORS[task.status]?.bg || '#f1f5f9',
+                          color: STATUS_COLORS[task.status]?.text || '#475569',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.025em'
+                        }}>
+                          {task.status?.replace('_', ' ') || 'Open'}
+                        </span>
+                        <span style={{
+                          background: PRIORITY_COLORS[task.priority]?.bg || '#f1f5f9',
+                          color: PRIORITY_COLORS[task.priority]?.text || '#475569',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.025em'
+                        }}>
+                          {task.priority || 'Medium'}
+                        </span>
+                      </div>
+                    </div>
+                    {task.description && (
+                      <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.875rem', lineHeight: 1.5 }}>{task.description}</p>
+                    )}
+                    <div style={{ display: 'flex', gap: '24px', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: '#cbd5e1' }}>📅</span> Due: <span style={{ color: '#64748b' }}>{formatDate(task.dueDate)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: '#cbd5e1' }}>👤</span> Assigned to: 
+                        <span style={{ color: '#4f46e5' }}>
+                          {typeof task.assignedTo === 'object' && task.assignedTo
+                            ? (task.assignedTo.first_name ? `${task.assignedTo.first_name} ${task.assignedTo.last_name || ''}`.trim() : task.assignedTo.username || 'Unassigned') 
+                            : (task.assignedTo || 'Unassigned')}
+                        </span>
+                      
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                {task.description && (
-                  <p style={{ margin: '8px 0 0 0', color: '#475569', fontSize: '0.9rem' }}>{task.description}</p>
-                )}
-                <div style={{ display: 'flex', gap: '20px', marginTop: '8px', fontSize: '0.85rem', color: '#64748b' }}>
-                  <span>Due: {formatDate(task.dueDate)}</span>
-                  <span>Assigned to: {task.assignedTo || 'Unassigned'}</span>
+
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                  {task.status !== 'completed' && hasStatusPermission && (
+                    <button
+                      onClick={() => handleUpdateStatus(task._id, 'completed')}
+                      style={{ background: '#ecfdf5', color: '#059669', padding: '10px', border: '1px solid #d1fae5', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#d1fae5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#ecfdf5'; }}
+                      title="Mark as complete"
+                    >
+                      <Check size={18} />
+                    </button>
+                  )}
+                  {hasEditPermission && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingTask(task);
+                          setIsFormOpen(true);
+                        }}
+                        style={{ background: '#eff6ff', color: '#2563eb', padding: '10px', border: '1px solid #dbeafe', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; }}
+                        title="Edit details"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(task._id)}
+                        style={{ background: '#fef2f2', color: '#dc2626', padding: '10px', border: '1px solid #fee2e2', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; }}
+                        title="Remove task"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                {task.status !== 'completed' && (
-                  <button
-                    onClick={() => handleUpdateStatus(task._id, 'completed')}
-                    style={{ background: '#10b981', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600 }}
-                    title="Mark as complete"
-                  >
-                    <Check size={16} />
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setEditingTask(task);
-                    setIsFormOpen(true);
-                  }}
-                  style={{ background: '#3b82f6', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600 }}
-                  title="Edit"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(task._id)}
-                  style={{ background: '#ef4444', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600 }}
-                  title="Delete"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

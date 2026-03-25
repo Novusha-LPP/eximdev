@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const leadScoreSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', required: true },
   baseScore: { type: Number, default: 0, min: 0, max: 100 },
   activityScore: { type: Number, default: 0, min: 0, max: 100 },
@@ -37,8 +36,8 @@ const leadScoreSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Index for quick lookups
-leadScoreSchema.index({ tenantId: 1, leadId: 1 });
-leadScoreSchema.index({ tenantId: 1, totalScore: -1 });
-leadScoreSchema.index({ tenantId: 1, grade: 1 });
+leadScoreSchema.index({ leadId: 1 });
+leadScoreSchema.index({ totalScore: -1 });
+leadScoreSchema.index({ grade: 1 });
 
 export default mongoose.model('LeadScore', leadScoreSchema);

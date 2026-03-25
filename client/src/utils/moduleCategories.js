@@ -25,7 +25,7 @@ export const moduleCategories = {
   "Export - E-Sanchit": "Export",
   "Export - Jobs": "Export",
   "Export - Operation": "Export",
-
+  "CRM": "CRM",
   "DGFT": "DGFT",
   "Open Points": "Project Management",
   "KPI": "Project Management",

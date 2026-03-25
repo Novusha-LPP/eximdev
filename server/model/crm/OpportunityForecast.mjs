@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const opportunityForecastSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   opportunityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Opportunity', required: true },
   
   // Forecast period
@@ -93,11 +92,11 @@ const opportunityForecastSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast querying
-opportunityForecastSchema.index({ tenantId: 1, forecastMonth: -1 });
-opportunityForecastSchema.index({ tenantId: 1, opportunityId: 1 });
-opportunityForecastSchema.index({ tenantId: 1, ownerId: 1, forecastMonth: -1 });
-opportunityForecastSchema.index({ tenantId: 1, teamId: 1, forecastMonth: -1 });
-opportunityForecastSchema.index({ tenantId: 1, stage: 1, forecastMonth: -1 });
+opportunityForecastSchema.index({ forecastMonth: -1 });
+opportunityForecastSchema.index({ opportunityId: 1 });
+opportunityForecastSchema.index({ ownerId: 1, forecastMonth: -1 });
+opportunityForecastSchema.index({ teamId: 1, forecastMonth: -1 });
+opportunityForecastSchema.index({ stage: 1, forecastMonth: -1 });
 opportunityForecastSchema.index({ forecastMonth: 1 });
 
 export default mongoose.model('OpportunityForecast', opportunityForecastSchema);

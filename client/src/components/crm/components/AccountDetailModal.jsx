@@ -80,14 +80,10 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
 
         <div style={{ padding: '24px' }}>
           {/* Quick Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>
               <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Size</div>
               <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{account.size || 'N/A'}</div>
-            </div>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Health Score</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{account.healthScore || 0}%</div>
             </div>
             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
               <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Opportunities</div>

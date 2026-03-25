@@ -58,7 +58,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/submission");
     case "DGFT":
       return navigate("/dgft");
-
+    case "CRM":
+      return navigate("/crm");
     case "Open Points":
       return navigate("/open-points");
     case "KPI":

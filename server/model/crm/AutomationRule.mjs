@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const automationRuleSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   name: { type: String, required: true },
   description: { type: String },
   
@@ -142,8 +141,8 @@ const automationRuleSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-automationRuleSchema.index({ tenantId: 1, type: 1, isActive: 1 });
-automationRuleSchema.index({ tenantId: 1, isActive: 1 });
+automationRuleSchema.index({ type: 1, isActive: 1 });
+automationRuleSchema.index({ isActive: 1 });
 automationRuleSchema.index({ createdAt: -1 });
 
 export default mongoose.model('AutomationRule', automationRuleSchema);

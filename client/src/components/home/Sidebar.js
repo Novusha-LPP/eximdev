@@ -110,19 +110,17 @@ function Sidebar() {
       )}
 
       {/* CRM Module */}
-      {(user.role === "Admin" || user.role === "Head_of_Department") && (
-        <Tooltip title="CRM Module" enterDelay={0} placement="right">
-          <ListItemButton
-            className="appbar-links"
-            aria-label="list-item"
-            onClick={() => navigate("/crm")}
-          >
-            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-              <PeopleAltIcon />
-            </IconButton>
-          </ListItemButton>
-        </Tooltip>
-      )}
+      <Tooltip title="CRM Module" enterDelay={0} placement="right">
+        <ListItemButton
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/crm")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <PeopleAltIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
 
       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">

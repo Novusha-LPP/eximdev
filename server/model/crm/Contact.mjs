@@ -1,8 +1,7 @@
 import mongoose from 'mongoose';
 
 const contactSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
-  accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+  accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   firstName: { type: String, required: true },
   lastName: { type: String },

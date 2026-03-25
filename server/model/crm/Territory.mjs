@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const territorySchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   name: { type: String, required: true },
   description: { type: String },
   

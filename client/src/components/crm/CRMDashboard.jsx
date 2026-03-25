@@ -6,41 +6,34 @@ export default function CRMDashboard() {
     weightedForecast: 0, 
     pendingTasks: 0, 
     leadStats: { total: 0, converted: 0 }, 
-    pipelineHealth: [],
-    mtdDealsWon: 23,
-    winRate: 34,
-    quotaAttained: 78
+    byStage: [],
+    mtdDealsWon: 0
   });
   const [loading, setLoading] = useState(true);
-
-  const dummyData = {
-    weightedForecast: 2850000,
-    pendingTasks: 12,
-    leadStats: { total: 48, converted: 12, conversionRate: 25 },
-    pipelineHealth: [
-      { stage: 'Lead', count: 15, value: 450000 },
-      { stage: 'Qualified', count: 12, value: 380000 },
-      { stage: 'Opportunity', count: 8, value: 520000 },
-      { stage: 'Proposal', count: 6, value: 650000 },
-      { stage: 'Negotiation', count: 5, value: 850000 }
-    ],
-    mtdDealsWon: 23,
-    winRate: 68,
-    quotaAttained: 89
-  };
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/dashboard`, { withCredentials: true });
-        if (res.data && Object.keys(res.data).length > 0) {
-          setData(prev => ({ ...prev, ...res.data }));
-        } else {
-          setData(prev => ({ ...prev, ...dummyData }));
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/crm/reports/dashboard`,
+          { withCredentials: true }
+        );
+        
+        if (res.data) {
+          setData({
+            weightedForecast: res.data.weightedForecast || 0,
+            pendingTasks: res.data.pendingTasks || 0,
+            leadStats: res.data.leadStats || { total: 0, converted: 0 },
+            byStage: res.data.byStage || [],
+            mtdDealsWon: (res.data.byStage || []).find(s => s.stage === 'won')?.count || 0
+          });
         }
       } catch (err) {
-        setData(prev => ({ ...prev, ...dummyData }));
-        console.error(err);
+        console.error('Dashboard load error:', err);
+        setError(err.response?.data?.message || 'Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
@@ -49,13 +42,39 @@ export default function CRMDashboard() {
   }, []);
 
   if (loading) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', background: '#f8fafc', minHeight: '100vh' }}>
-      Loading Analytics...
+    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', background: '#f8fafc', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div>
+        <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Loading Analytics...</div>
+        <div style={{ fontSize: '14px', color: '#94a3b8' }}>Fetching your CRM metrics</div>
+      </div>
     </div>
   );
 
+  const conversionRate = data.leadStats.total > 0 ? Math.round((data.leadStats.converted / data.leadStats.total) * 100) : 0;
+
   return (
     <div style={{ padding: '32px', background: '#f8fafc', minHeight: '100vh', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
+      {/* Error notification */}
+      {error && (
+        <div style={{
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          border: '1px solid #fca5a5'
+        }}>
+          <span>⚠️ {error}</span>
+          <button 
+            onClick={() => setError(null)}
+            style={{ background: 'transparent', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '18px' }}
+          >×</button>
+        </div>
+      )}
+
       <header style={{ marginBottom: '40px' }}>
         <div style={{ 
           fontFamily: 'monospace', 
@@ -76,10 +95,10 @@ export default function CRMDashboard() {
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         {[
-          { label: 'PIPELINE VALUE', value: `₹${(data.weightedForecast / 100000).toFixed(1)}L`, delta: '↑ 12.4% vs last month', color: '#4f46e5' },
-          { label: 'DEALS WON (MTD)', value: data.mtdDealsWon, delta: '↑ 5 vs target', color: '#10b981' },
-          { label: 'WIN RATE', value: `${data.winRate}%`, delta: '↓ 2% vs last month', color: '#f59e0b' },
-          { label: 'QUOTA ATTAINED', value: `${data.quotaAttained}%`, delta: '↑ On track', color: '#8b5cf6' }
+          { label: 'PIPELINE VALUE', value: `₹${(data.weightedForecast / 100000).toFixed(1)}L`, color: '#4f46e5', sub: 'Weighted Forecast' },
+          { label: 'DEALS WON', value: data.mtdDealsWon, color: '#10b981', sub: 'Total Closed Won' },
+          { label: 'CONVERSION RATE', value: `${conversionRate}%`, color: '#f59e0b', sub: 'Lead to Opportunity' },
+          { label: 'PENDING TASKS', value: data.pendingTasks, color: '#8b5cf6', sub: 'Action Required' }
         ].map((kpi, i) => (
           <div key={i} style={{ 
             padding: '24px', 
@@ -104,9 +123,9 @@ export default function CRMDashboard() {
             }}>{kpi.value}</div>
             <div style={{ 
               fontSize: '11px', 
-              color: kpi.delta.includes('↑') ? '#10b981' : '#ef4444', 
+              color: '#94a3b8',
               marginTop: '6px'
-            }}>{kpi.delta}</div>
+            }}>{kpi.sub}</div>
           </div>
         ))}
       </div>
@@ -116,8 +135,8 @@ export default function CRMDashboard() {
         <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#0f172a' }}>Pipeline Distribution</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {data.pipelineHealth.map((stage, i) => (
-              <div key={stage._id} style={{ 
+            {data.byStage.map((item, i) => (
+              <div key={item.stage} style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 padding: '16px', 
@@ -129,13 +148,13 @@ export default function CRMDashboard() {
               }}>
                 <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '4px', background: '#3b82f6' }}></div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>{stage._id}</div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>{stage.count} deals</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155', textTransform: 'capitalize' }}>{item.stage}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{item.count} deals</div>
                 </div>
-                <div style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>₹{(stage.totalValue / 100000).toFixed(1)}L</div>
+                <div style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>₹{(item.value / 100000).toFixed(1)}L</div>
               </div>
             ))}
-            {data.pipelineHealth.length === 0 && (
+            {data.byStage.length === 0 && (
               <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #e2e8f0', borderRadius: '8px' }}>
                 No active opportunities in pipeline
               </div>
@@ -148,7 +167,7 @@ export default function CRMDashboard() {
           <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#0f172a' }}>Lead Funnel</h3>
           <div style={{ textAlign: 'center', padding: '24px 0' }}>
             <div style={{ fontSize: '48px', fontWeight: 800, color: '#4f46e5' }}>
-              {data.leadStats.total > 0 ? Math.round((data.leadStats.converted / data.leadStats.total) * 100) : 0}%
+              {conversionRate}%
             </div>
             <div style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>Conversion Rate</div>
             <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'center', gap: '48px' }}>

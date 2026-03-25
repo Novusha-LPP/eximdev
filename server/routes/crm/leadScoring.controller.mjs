@@ -1,10 +1,8 @@
 import express from 'express';
 import LeadScore from '../../model/crm/LeadScore.mjs';
 import Lead from '../../model/crm/Lead.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // Calculate or update lead score
 router.post('/leads/:leadId/score', async (req, res) => {
@@ -13,7 +11,7 @@ router.post('/leads/:leadId/score', async (req, res) => {
     const { baseScore, sourceScore, activityScore, engagementScore, ruleFactors = [] } = req.body;
 
     // Verify lead exists
-    const lead = await Lead.findOne({ _id: leadId, tenantId: req.tenantId });
+    const lead = await Lead.findOne({ _id: leadId });
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
 
     // Calculate total score
@@ -27,7 +25,7 @@ router.post('/leads/:leadId/score', async (req, res) => {
 
     // Update or create lead score
     let leadScore = await LeadScore.findOneAndUpdate(
-      { tenantId: req.tenantId, leadId },
+      { leadId },
       {
         baseScore,
         sourceScore,
@@ -51,7 +49,7 @@ router.post('/leads/:leadId/score', async (req, res) => {
 // Get lead score
 router.get('/leads/:leadId/score', async (req, res) => {
   try {
-    const leadScore = await LeadScore.findOne({ tenantId: req.tenantId, leadId: req.params.leadId });
+    const leadScore = await LeadScore.findOne({ leadId: req.params.leadId });
     if (!leadScore) return res.status(404).json({ message: 'Score not found' });
     res.json(leadScore);
   } catch (error) {
@@ -63,14 +61,14 @@ router.get('/leads/:leadId/score', async (req, res) => {
 router.get('/scores', async (req, res) => {
   try {
     const { grade, minScore, maxScore, page = 1, limit = 20 } = req.query;
-    let query = { tenantId: req.tenantId };
+    let query = {};
 
     if (grade) query.grade = grade;
     if (minScore) query.totalScore = { ...query.totalScore, $gte: Number(minScore) };
     if (maxScore) query.totalScore = { ...query.totalScore, $lte: Number(maxScore) };
 
     const scores = await LeadScore.find(query)
-      .populate('leadId', 'name email company')
+      .populate('leadId', 'firstName lastName email company')
       .sort({ totalScore: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -93,7 +91,6 @@ router.post('/leads/auto-qualify', async (req, res) => {
 
     // Find leads with score above threshold
     const qualifyingLeads = await LeadScore.find({
-      tenantId: req.tenantId,
       totalScore: { $gte: minScoreForQualification },
       isQualified: false
     });
@@ -121,7 +118,6 @@ router.post('/leads/auto-qualify', async (req, res) => {
 router.get('/scores/dashboard/stats', async (req, res) => {
   try {
     const stats = await LeadScore.aggregate([
-      { $match: { tenantId: req.tenantId } },
       {
         $facet: {
           byGrade: [

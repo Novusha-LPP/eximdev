@@ -13,7 +13,6 @@ const allowedServices = [
 ];
 
 const opportunitySchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
   accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
   primaryContactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

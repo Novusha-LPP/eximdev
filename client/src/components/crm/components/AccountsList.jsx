@@ -14,21 +14,27 @@ export default function AccountsList() {
   const [editingAccount, setEditingAccount] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const dummyAccounts = [
-    { _id: '1', name: 'TechCorp Inc', industry: 'Technology', website: 'www.techcorp.com', phone: '+1-555-1001', employees: 500, annualRevenue: 25000000, status: 'active', owner: 'John Doe', rating: 5, lastContact: new Date(Date.now() - 2*24*60*60*1000) },
-    { _id: '2', name: 'FinanceFirst Bank', industry: 'Financial Services', website: 'www.financefirst.com', phone: '+1-555-1002', employees: 2000, annualRevenue: 150000000, status: 'active', owner: 'Sarah Smith', rating: 5, lastContact: new Date(Date.now() - 1*24*60*60*1000) },
-    { _id: '3', name: 'Innovate Solutions', industry: 'Software', website: 'www.innovate.co', phone: '+1-555-1003', employees: 150, annualRevenue: 8000000, status: 'active', owner: 'Michael Chen', rating: 4, lastContact: new Date(Date.now() - 5*24*60*60*1000) },
-    { _id: '4', name: 'Global Systems', industry: 'Consulting', website: 'www.global-sys.com', phone: '+1-555-1004', employees: 1000, annualRevenue: 75000000, status: 'active', owner: 'Emily Davis', rating: 5, lastContact: new Date(Date.now() - 3*24*60*60*1000) },
-    { _id: '5', name: 'Enterprise Inc', industry: 'Manufacturing', website: 'www.enterprise.com', phone: '+1-555-1005', employees: 5000, annualRevenue: 500000000, status: 'active', owner: 'Robert Wilson', rating: 4, lastContact: new Date(Date.now() - 7*24*60*60*1000) }
-  ];
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
 
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, { withCredentials: true });
-      setAccounts(res.data && res.data.length > 0 ? res.data : dummyAccounts);
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, getHeaders());
+      setAccounts(res.data || []);
     } catch (err) {
-      setAccounts(dummyAccounts);
+      setAccounts([]);
       console.error(err);
     } finally {
       setLoading(false);
@@ -48,7 +54,7 @@ export default function AccountsList() {
       cancelText: 'Cancel',
       async onOk() {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/accounts/${id}`, { withCredentials: true });
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/accounts/${id}`, getHeaders());
           message.success('Account deleted successfully');
           fetchAccounts();
         } catch (error) {
@@ -133,30 +139,18 @@ export default function AccountsList() {
               <th style={{ padding: '16px 12px' }}>Company Name</th>
               <th style={{ padding: '16px 12px' }}>Industry</th>
               <th style={{ padding: '16px 12px' }}>Size</th>
-              <th style={{ padding: '16px 12px' }}>Health Score</th>
               <th style={{ padding: '16px 12px' }}>Website</th>
               <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredAccounts.length === 0 ? (
-              <tr><td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No accounts found.</td></tr>
+              <tr><td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No accounts found.</td></tr>
             ) : filteredAccounts.map(account => (
               <tr key={account._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>{account.name}</td>
                 <td style={{ padding: '16px 12px', color: '#475569' }}>{account.industry || 'N/A'}</td>
                 <td style={{ padding: '16px 12px', color: '#475569' }}>{account.size || 'N/A'}</td>
-                <td style={{ padding: '16px 12px' }}>
-                  <span style={{
-                    background: (account.healthScore || 0) > 70 ? '#dcfce7' : (account.healthScore || 0) > 40 ? '#fef3c7' : '#fee2e2',
-                    color: (account.healthScore || 0) > 70 ? '#166534' : (account.healthScore || 0) > 40 ? '#92400e' : '#991b1b',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    fontSize: '0.8rem'
-                  }}>
-                    {account.healthScore || 0}%
-                  </span>
-                </td>
                 <td style={{ padding: '16px 12px', color: '#475569' }}>
                   {account.website ? <a href={account.website} target="_blank" rel="noopener noreferrer" style={{ color: '#4f46e5' }}>{account.website}</a> : 'N/A'}
                 </td>

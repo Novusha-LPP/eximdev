@@ -2,10 +2,8 @@ import express from 'express';
 import Territory from '../../model/crm/Territory.mjs';
 import Lead from '../../model/crm/Lead.mjs';
 import Account from '../../model/crm/Account.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // CREATE territory
 router.post('/', async (req, res) => {
@@ -15,7 +13,6 @@ router.post('/', async (req, res) => {
     if (!name) return res.status(400).json({ message: 'Territory name is required' });
 
     const newTerritory = new Territory({
-      tenantId: req.tenantId,
       name,
       description,
       type,
@@ -38,7 +35,7 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { type, isActive = true, page = 1, limit = 20 } = req.query;
-    let query = { tenantId: req.tenantId };
+    let query = {};
 
     if (type) query.type = type;
     if (isActive !== 'all') query.isActive = isActive === 'true';
@@ -64,7 +61,7 @@ router.get('/', async (req, res) => {
 // GET single territory
 router.get('/:id', async (req, res) => {
   try {
-    const territory = await Territory.findOne({ _id: req.params.id, tenantId: req.tenantId })
+    const territory = await Territory.findOne({ _id: req.params.id })
       .populate('assignedTeamId')
       .populate('assignedOwnerId')
       .populate('memberIds');
@@ -80,7 +77,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const updatedTerritory = await Territory.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
+      { _id: req.params.id },
       req.body,
       { new: true }
     ).populate('assignedTeamId assignedOwnerId');
@@ -95,7 +92,7 @@ router.put('/:id', async (req, res) => {
 // DELETE territory
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Territory.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
+    const deleted = await Territory.findOneAndDelete({ _id: req.params.id });
     if (!deleted) return res.status(404).json({ message: 'Territory not found' });
     res.json({ success: true, message: 'Territory deleted' });
   } catch (error) {
@@ -111,7 +108,7 @@ router.post('/:id/assign-leads', async (req, res) => {
     const updatedLeads = await Promise.all(
       leadsToAssign.map(leadId =>
         Lead.findOneAndUpdate(
-          { _id: leadId, tenantId: req.tenantId },
+          { _id: leadId },
           { assignedTerritoryId: req.params.id, assignedTeamId: territory.assignedTeamId },
           { new: true }
         )
@@ -130,12 +127,11 @@ router.post('/:id/assign-leads', async (req, res) => {
 // Get territory performance
 router.get('/:id/performance', async (req, res) => {
   try {
-    const territory = await Territory.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const territory = await Territory.findOne({ _id: req.params.id });
     if (!territory) return res.status(404).json({ message: 'Territory not found' });
 
     // Get accounts in territory
     const accounts = await Account.find({
-      tenantId: req.tenantId,
       assignedTerritoryId: req.params.id
     });
 

@@ -7,37 +7,23 @@ export default function LeadScoringModule() {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, A, B, C, D
+  const [dashboardStats, setDashboardStats] = useState({
+    byGrade: [],
+    qualified: []
+  });
   
-  const dummyStats = {
-    byGrade: [
-      { _id: 'A', count: 2 },
-      { _id: 'B', count: 2 },
-      { _id: 'C', count: 1 },
-      { _id: 'D', count: 1 }
-    ],
-    qualified: [{ count: 3 }]
-  };
-
-  const [dashboardStats, setDashboardStats] = useState(dummyStats);
-  const [selectedFilter, setSelectedFilter] = useState({});
-
-  useEffect(() => {
-    fetchScores();
-    fetchDashboardStats();
-  }, [filter]);
-
-  const dummyScores = [
-    { _id: '1', leadId: { name: 'John Smith', email: 'john.smith@acme.com', company: 'Acme Corp' }, totalScore: 92, grade: 'A', activityScore: 25, sourceScore: 20, engagementScore: 22, isQualified: true, rulesApplied: ['High engagement', 'Recent interaction'] },
-    { _id: '2', leadId: { name: 'Sarah Johnson', email: 'sarah.j@techventures.io', company: 'Tech Ventures' }, totalScore: 78, grade: 'B', activityScore: 18, sourceScore: 16, engagementScore: 19, isQualified: true, rulesApplied: ['Active lead'] },
-    { _id: '3', leadId: { name: 'Michael Chen', email: 'mchen@innovate.co', company: 'Innovate Solutions' }, totalScore: 65, grade: 'B', activityScore: 16, sourceScore: 15, engagementScore: 17, isQualified: false, rulesApplied: ['Growing interest'] },
-    { _id: '4', leadId: { name: 'Emily Davis', email: 'emily.davis@global.net', company: 'Global Systems' }, totalScore: 88, grade: 'A', activityScore: 24, sourceScore: 19, engagementScore: 20, isQualified: true, rulesApplied: ['Hot prospect', 'Budget confirmed'] },
-    { _id: '5', leadId: { name: 'Robert Wilson', email: 'rwilson@enterprise.com', company: 'Enterprise Inc' }, totalScore: 45, grade: 'C', activityScore: 12, sourceScore: 10, engagementScore: 11, isQualified: false, rulesApplied: ['Low engagement'] },
-    { _id: '6', leadId: { name: 'Lisa Anderson', email: 'lisa.a@startup.io', company: 'Startup Hub' }, totalScore: 28, grade: 'D', activityScore: 8, sourceScore: 6, engagementScore: 7, isQualified: false, rulesApplied: ['Cold lead'] }
-  ];
-
-  const getFilteredScores = (data) => {
-    if (filter === 'all') return data;
-    return data.filter(score => score.grade === filter);
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
   };
 
   const fetchScores = async () => {
@@ -46,12 +32,11 @@ export default function LeadScoringModule() {
       const query = filter !== 'all' ? `?grade=${filter}` : '';
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/lead-scoring/scores${query}`,
-        { withCredentials: true }
+        getHeaders()
       );
-      const data = res.data?.scores && res.data.scores.length > 0 ? res.data.scores : dummyScores;
-      setScores(getFilteredScores(data));
+      setScores(res.data?.scores || []);
     } catch (err) {
-      setScores(getFilteredScores(dummyScores));
+      setScores([]);
       console.error(err);
     } finally {
       setLoading(false);
@@ -62,18 +47,20 @@ export default function LeadScoringModule() {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/lead-scoring/scores/dashboard/stats`,
-        { withCredentials: true }
+        getHeaders()
       );
-      if (res.data && res.data.byGrade && res.data.byGrade.length > 0) {
+      if (res.data) {
         setDashboardStats(res.data);
-      } else {
-        setDashboardStats(dummyStats);
       }
     } catch (err) {
-      setDashboardStats(dummyStats);
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    fetchScores();
+    fetchDashboardStats();
+  }, [filter]);
 
   const getGradeColor = (grade) => {
     switch (grade) {
@@ -108,7 +95,7 @@ export default function LeadScoringModule() {
           const res = await axios.post(
             `${process.env.REACT_APP_API_STRING}/crm/leads/auto-qualify`,
             { minScoreForQualification: 70 },
-            { withCredentials: true }
+            getHeaders()
           );
           message.success(res.data.message);
           fetchScores();
@@ -219,7 +206,9 @@ export default function LeadScoringModule() {
               const gradeInfo = getGradeColor(score.grade);
               return (
                 <tr key={score._id} style={{ borderBottom: '1px solid #f1f5f9' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>{score.leadId?.name || 'N/A'}</td>
+                  <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>
+                    {[score.leadId?.firstName, score.leadId?.lastName].filter(Boolean).join(' ') || 'N/A'}
+                  </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>
                     {score.leadId?.email ? <a href={`mailto:${score.leadId.email}`} style={{ color: '#4f46e5' }}>{score.leadId.email}</a> : 'N/A'}
                   </td>

@@ -2,10 +2,8 @@ import express from 'express';
 import AutomationRule from '../../model/crm/AutomationRule.mjs';
 import Lead from '../../model/crm/Lead.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
-import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
-router.use(requireTenant);
 
 // CREATE automation rule
 router.post('/', async (req, res) => {
@@ -17,7 +15,6 @@ router.post('/', async (req, res) => {
     }
 
     const newRule = new AutomationRule({
-      tenantId: req.tenantId,
       name,
       description,
       type,
@@ -39,7 +36,7 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { type, isActive = true, page = 1, limit = 20 } = req.query;
-    let query = { tenantId: req.tenantId };
+    let query = {};
 
     if (type) query.type = type;
     if (isActive !== 'all') query.isActive = isActive === 'true';
@@ -64,7 +61,7 @@ router.get('/', async (req, res) => {
 // GET single rule
 router.get('/:id', async (req, res) => {
   try {
-    const rule = await AutomationRule.findOne({ _id: req.params.id, tenantId: req.tenantId })
+    const rule = await AutomationRule.findOne({ _id: req.params.id })
       .populate('createdBy');
 
     if (!rule) return res.status(404).json({ message: 'Rule not found' });
@@ -78,7 +75,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const updated = await AutomationRule.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
+      { _id: req.params.id },
       req.body,
       { new: true }
     ).populate('createdBy');
@@ -93,7 +90,7 @@ router.put('/:id', async (req, res) => {
 // DELETE rule
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await AutomationRule.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
+    const deleted = await AutomationRule.findOneAndDelete({ _id: req.params.id });
     if (!deleted) return res.status(404).json({ message: 'Rule not found' });
     res.json({ success: true, message: 'Rule deleted' });
   } catch (error) {
@@ -105,7 +102,7 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/execute', async (req, res) => {
   try {
     const { recordIds = [] } = req.body;
-    const rule = await AutomationRule.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const rule = await AutomationRule.findOne({ _id: req.params.id });
 
     if (!rule) return res.status(404).json({ message: 'Rule not found' });
 
@@ -115,7 +112,7 @@ router.post('/:id/execute', async (req, res) => {
     for (const recordId of recordIds) {
       try {
         // Execute actions for this record
-        await executeRuleActions(rule, recordId, req.tenantId, req.userId);
+        await executeRuleActions(rule, recordId, req.userId);
         executionCount++;
         results.push({ recordId, status: 'success' });
       } catch (err) {
@@ -143,7 +140,7 @@ router.post('/:id/execute', async (req, res) => {
 // Toggle rule active status
 router.put('/:id/toggle', async (req, res) => {
   try {
-    const rule = await AutomationRule.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    const rule = await AutomationRule.findOne({ _id: req.params.id });
     if (!rule) return res.status(404).json({ message: 'Rule not found' });
 
     rule.isActive = !rule.isActive;
@@ -163,7 +160,6 @@ router.put('/:id/toggle', async (req, res) => {
 router.get('/templates/list', async (req, res) => {
   try {
     const templates = await AutomationRule.find({
-      tenantId: req.tenantId,
       isTemplate: true,
       isActive: true
     }).select('name description type');
@@ -175,7 +171,7 @@ router.get('/templates/list', async (req, res) => {
 });
 
 // Helper function to execute rule actions
-async function executeRuleActions(rule, recordId, tenantId, userId) {
+async function executeRuleActions(rule, recordId, userId) {
   for (const action of rule.actions) {
     switch (action.type) {
       case 'assign_to':

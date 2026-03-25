@@ -3,7 +3,7 @@ import axios from 'axios';
 import { X } from 'lucide-react';
 import { message } from 'antd';
 
-export default function ContactFormModal({ isOpen, onClose, onRefresh, contact, accounts }) {
+export default function ContactFormModal({ isOpen, onClose, onRefresh, onUpdate, contact, accounts, getHeaders }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -47,17 +47,67 @@ export default function ContactFormModal({ isOpen, onClose, onRefresh, contact, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    // Prepare submission data - ensure all fields are included
+    const submissionData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      title: formData.title,
+      accountId: formData.accountId,
+      isPrimary: formData.isPrimary,
+      tags: formData.tags
+    };
+    
+    console.log('Submitting contact data:', submissionData);
+    
     try {
+      const headers = getHeaders ? getHeaders() : { withCredentials: true };
+      
       if (contact?._id) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/contacts/${contact._id}`, formData, { withCredentials: true });
+        // Update contact in API
+        const response = await axios.put(
+          `${process.env.REACT_APP_API_STRING}/crm/contacts/${contact._id}`, 
+          submissionData, 
+          headers
+        );
+        
+        console.log('Update response:', response.data);
         message.success('Contact updated successfully');
+        
+        // Refresh data from server to ensure everything is in sync
+        await onRefresh();
+        
+        // Build complete updated contact object for immediate UI update
+        const completeUpdatedContact = {
+          ...contact,
+          ...submissionData,
+          _id: contact._id
+        };
+        
+        // Update parent state with merged data
+        if (onUpdate) {
+          onUpdate(completeUpdatedContact);
+        }
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/contacts`, formData, { withCredentials: true });
+        // Create new contact
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/crm/contacts`, 
+          submissionData, 
+          headers
+        );
+        
+        console.log('Create response:', response.data);
         message.success('Contact created successfully');
+        
+        // Refresh to get the new contact in the list
+        await onRefresh();
       }
-      onRefresh();
+      
       onClose();
     } catch (error) {
+      console.error('Submission error:', error);
       message.error('Error: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsSubmitting(false);
@@ -156,9 +206,8 @@ export default function ContactFormModal({ isOpen, onClose, onRefresh, contact, 
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Account *</label>
+            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Account</label>
             <select
-              required
               value={formData.accountId}
               onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
               style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}

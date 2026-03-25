@@ -59,8 +59,8 @@ export const validationSchema = Yup.object({
   ),
 
   // Factory Photos (Mandatory)
-  factory_name_board_img: Yup.array().min(1, 'Factory Name Board photo is required'),
-  factory_selfie_img: Yup.array().min(1, 'Factory Selfie photo is required'),
+  // factory_name_board_img: Yup.array().min(1, 'Factory Name Board photo is required'),
+  // factory_selfie_img: Yup.array().min(1, 'Factory Selfie photo is required'),
 
   // New Fields
   hsn_codes: Yup.array().of(Yup.string().required('HSN Code is required')),

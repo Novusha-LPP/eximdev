@@ -3208,7 +3208,14 @@ function JobDetails() {
               {/* NEW CHARGES COMPONENT */}
               <div style={{ marginTop: '40px' }}>
                 <JobDetailsRowHeading heading="Charges Management (New)" />
-                <ChargesGrid parentId={data?._id} parentModule="Job" shippingLineAirline={data?.shipping_line_airline} importerName={data?.importer} />
+                <ChargesGrid 
+                  parentId={data?._id} 
+                  parentModule="Job" 
+                  shippingLineAirline={data?.shipping_line_airline} 
+                  importerName={data?.importer} 
+                  jobNumber={data?.job_no}
+                  jobYear={data?.year}
+                />
               </div>
 
             </div>

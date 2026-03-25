@@ -144,46 +144,80 @@ import HodManagement from "../components/home/HodManagement.js";
 import DgftTabs from "../components/dgft/DgftTabs.js";
 import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 
+import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
+
+import { useBranch } from "../contexts/BranchContext.js";
+
 const drawerWidth = 60;
 
-function HomePage() {
+function HomePageContent() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
+  
+  const { isChangingBranch } = useBranch();
+
+  if (isChangingBranch) {
+    return (
+      <Box sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(249, 250, 251, 0.7)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        backdropFilter: 'blur(8px)'
+      }}>
+        <CircularProgress size={60} thickness={4} sx={{ color: '#1a237e', mb: 2 }} />
+        <Typography variant="h5" sx={{ color: '#1a237e', fontWeight: 600, letterSpacing: '0.5px' }}>
+          Switching Branch...
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
+          Please wait while we prepare your workspace
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
-    <BranchProvider>
-      <TabValueContext.Provider value={{ tabValue, setTabValue }}>
-        <SearchQueryProvider>
-          <Box sx={{ display: "flex" }}>
-            <CssBaseline />
-            <AppbarComponent
-              mobileOpen={mobileOpen}
-              setMobileOpen={setMobileOpen}
-            />
+    <TabValueContext.Provider value={{ tabValue, setTabValue }}>
+      <SearchQueryProvider>
+        <Box sx={{ display: "flex" }}>
+          <CssBaseline />
+          <AppbarComponent
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
 
-            <DrawerComponent
-              mobileOpen={mobileOpen}
-              setMobileOpen={setMobileOpen}
-            />
+          <DrawerComponent
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
 
-            <Box
-              component="main"
-              sx={{
-                flexGrow: 1,
-                width: {
-                  lg: `calc(100% - ${drawerWidth}px)`,
-                  backgroundColor: "#F9FAFB",
-                  height: "100vh",
-                  overflow: "scroll",
-                  padding: "20px",
-                  paddingTop: 0,
-                },
-              }}
-            >
-              <Toolbar />
-              <Routes>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              width: {
+                lg: `calc(100% - ${drawerWidth}px)`,
+                backgroundColor: "#F9FAFB",
+                height: "100vh",
+                overflow: "scroll",
+                padding: "20px",
+                paddingTop: 0,
+              },
+            }}
+          >
+            <Toolbar />
+            <Routes>
+              {/* ... routes ... */}
                 {/* Public Routes - No protection needed */}
                 <Route path="/" element={<Home />} />
                 <Route path="/change-password" element={<ChangePassword />} />
@@ -796,6 +830,13 @@ function HomePage() {
           </Box>
         </SearchQueryProvider>
       </TabValueContext.Provider>
+    );
+}
+
+function HomePage() {
+  return (
+    <BranchProvider>
+      <HomePageContent />
     </BranchProvider>
   );
 }

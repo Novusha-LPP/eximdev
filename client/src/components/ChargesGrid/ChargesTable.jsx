@@ -46,8 +46,8 @@ const ChargesTable = ({
       <th style={{ width: '60px' }}>Ex. Rate</th>
       <th style={{ width: '50px' }}>Qty</th>
       <th style={{ width: '80px' }}>Rate</th>
-      <th style={{ width: '95px' }}>Amount</th>
-      <th style={{ width: '95px' }}>Amt (INR)</th>
+      <th style={{ width: '95px' }}>Total Amount</th>
+      <th style={{ width: '95px' }}>Total Amt (INR)</th>
       <th style={{ width: '180px' }}>Attach</th>
     </>
   );
@@ -60,8 +60,9 @@ const ChargesTable = ({
       <th style={{ width: '60px' }}>Ex. Rate</th>
       <th style={{ width: '50px' }}>Qty</th>
       <th style={{ width: '80px' }}>Rate</th>
-      <th style={{ width: '95px' }}>Amount</th>
-      <th style={{ width: '95px' }}>Amt (INR)</th>
+      <th style={{ width: '95px' }}>Total Amount</th>
+      <th style={{ width: '95px' }}>Total Amt (INR)</th>
+      <th style={{ width: '95px' }}>Net Payable</th>
       <th style={{ width: '180px' }}>Attach</th>
     </>
   );
@@ -195,6 +196,7 @@ const ChargesTable = ({
                     <td className="number">{formatNumber(ch.cost?.rate)}</td>
                     <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.cost?.amount)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#6c4a30' }}>{formatNumber(ch.cost?.amountINR)}</td>
+                    <td className="number" style={{ fontWeight: 'bold', color: '#d32f2f' }}>{formatNumber(ch.cost?.netPayable)}</td>
                     {renderAttachmentCell(ch, ch.cost?.url)}
                   </>
                 )}

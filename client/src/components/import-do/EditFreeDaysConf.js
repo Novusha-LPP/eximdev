@@ -387,6 +387,8 @@ function EditFreeDaysConf() {
                         initialTab="cost" 
                         hideTabs={true} 
                         shippingLineAirline={data?.shipping_line_airline}
+                        jobNumber={job_no}
+                        jobYear={year}
                     />
                 </Box>
 

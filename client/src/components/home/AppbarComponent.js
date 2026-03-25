@@ -3,7 +3,7 @@ import AppBar from "@mui/material/AppBar";
 import IconButton from "@mui/material/IconButton";
 import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   Box,
@@ -23,6 +23,7 @@ const drawerWidth = 60;
 
 function AppbarComponent(props) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const {
     selectedBranchGroup,
     setSelectedBranchGroup,
@@ -31,6 +32,20 @@ function AppbarComponent(props) {
     branches,
     isAdmin,
   } = useContext(BranchContext);
+
+  // Determine if we are in a job-specific view to disable branch switching
+  const isJobView = useMemo(() => {
+    return pathname.includes('/job/') || 
+           pathname.includes('/edit-do-') || 
+           pathname.includes('/edit-billing-') ||
+           pathname.includes('/edit-free-days-') ||
+           pathname.includes('/view-job/') ||
+           pathname.includes('/view-billing-job/') ||
+           pathname.includes('/view-payment-request-job/') ||
+           pathname.includes('/submission-job/') ||
+           pathname.includes('/esanchit-job/') ||
+           pathname.includes('/documentationJob/');
+  }, [pathname]);
 
   // Get unique branch locations for the dropdown
   const uniqueBranches = useMemo(() => {
@@ -105,8 +120,9 @@ function AppbarComponent(props) {
               value={selectedBranchGroup}
               onChange={(e) => setSelectedBranchGroup(e.target.value)}
               displayEmpty
+              disabled={isJobView}
               sx={{
-                bgcolor: "white",
+                bgcolor: isJobView ? "#f5f5f5" : "white",
                 borderRadius: 1,
                 color: "#000",
                 "& .MuiSelect-select": {
@@ -138,8 +154,9 @@ function AppbarComponent(props) {
             exclusive
             onChange={(e, next) => next && setSelectedCategory(next)}
             size="small"
+            disabled={isJobView}
             sx={{
-              bgcolor: "white",
+              bgcolor: isJobView ? "#f5f5f5" : "white",
               borderRadius: 1,
               height: "40px",
               "& .MuiToggleButton-root": {

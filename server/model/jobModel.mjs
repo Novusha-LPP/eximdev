@@ -141,7 +141,17 @@ const ChargeLineSchema = new mongoose.Schema({
   partyName: { type: String },
   partyType: { type: String },
   branchCode: { type: String },
-  url: { type: String }
+  url: { type: String },
+
+  // GST & TDS Fields
+  isGst: { type: Boolean, default: false },
+  gstRate: { type: Number, default: 18 },
+  gstAmount: { type: Number, default: 0 },
+  basicAmount: { type: Number, default: 0 },
+  isTds: { type: Boolean, default: false },
+  tdsPercent: { type: Number, default: 0 },
+  tdsAmount: { type: Number, default: 0 },
+  netPayable: { type: Number, default: 0 }
 }, { _id: false });
 
 const ChargeSchema = new mongoose.Schema({

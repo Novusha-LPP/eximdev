@@ -805,7 +805,15 @@ function EditDoCompleted() {
                 {renderContainerDetails()}
               </div>
 
-              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} shippingLineAirline={data?.shipping_line_airline} />
+              <ChargesGrid 
+                parentId={jobId} 
+                parentModule="Job" 
+                initialTab="cost" 
+                hideTabs={true} 
+                shippingLineAirline={data?.shipping_line_airline} 
+                jobNumber={job_no}
+                jobYear={year}
+              />
               {renderChargesSection()}
 
               <Box sx={{ height: "60px" }} />

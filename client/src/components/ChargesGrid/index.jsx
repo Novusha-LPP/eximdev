@@ -9,7 +9,17 @@ import ConfirmDialog from './ConfirmDialog';
 import { useCharges } from './useCharges';
 import './charges.css';
 
-const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'particulars', hideTabs = false, shippingLineAirline = '', importerName = '' }) => {
+const ChargesGrid = ({ 
+  parentId, 
+  parentModule, 
+  readOnly = false, 
+  initialTab = 'particulars', 
+  hideTabs = false, 
+  shippingLineAirline = '', 
+  importerName = '',
+  jobNumber = '',
+  jobYear = ''
+}) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -44,11 +54,11 @@ const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'p
       if (upperName === 'SHIPPING LINE CHARGES' && shippingLineAirline) {
         finalName = shippingLineAirline;
       } else if ((upperName === 'DETENTION CHARGES' || upperName === 'DETENSION CHARGES') && shippingLineAirline) {
-        finalName = `DETN.$${shippingLineAirline}`;
+        finalName = `DETN.${shippingLineAirline}`;
       } else if (upperName === 'SECURITY DEPOSIT' && shippingLineAirline) {
-        finalName = `SECU.DEPO.$${shippingLineAirline}`;
+        finalName = `SECU.DEPO.${shippingLineAirline}`;
       } else if (upperName === 'DAMAGE CHARGES' && shippingLineAirline) {
-        finalName = `DAMAGE.$${shippingLineAirline}`;
+        finalName = `DAMAGE.${shippingLineAirline}`;
       }
       return {
         parentId,
@@ -164,6 +174,8 @@ const ChargesGrid = ({ parentId, parentModule, readOnly = false, initialTab = 'p
         onSave={handleSaveEdit}
         shippingLineAirline={shippingLineAirline}
         importerName={importerName}
+        jobNumber={jobNumber}
+        jobYear={jobYear}
       />
 
       {fileModalCharge && (

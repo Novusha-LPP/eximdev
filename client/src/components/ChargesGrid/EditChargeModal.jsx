@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import FileUploadModal from './FileUploadModal';
+import RequestPaymentModal from './RequestPaymentModal';
+import PurchaseBookModal from './PurchaseBookModal';
 import { Chip } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import './charges.css';
 
-const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLineAirline, importerName }) => {
+const EditChargeModal = ({ 
+  isOpen, 
+  onClose, 
+  selectedCharges, 
+  onSave, 
+  shippingLineAirline, 
+  importerName,
+  jobNumber = '',
+  jobYear = ''
+}) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
   const [uploadIndex, setUploadIndex] = useState(null); // index of charge being uploaded for
   const [uploadSection, setUploadSection] = useState(null); // 'revenue' | 'cost'
+  const [paymentRequestData, setPaymentRequestData] = useState(null);
+  const [purchaseBookData, setPurchaseBookData] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -33,30 +46,62 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLin
   const handleFieldChange = (index, field, value, section = null) => {
     const updated = [...formData];
     if (section) {
-       updated[index][section] = updated[index][section] || {};
-       updated[index][section][field] = value;
-       
-       // Auto-populate Payable To if type is 'Others' in Cost section
-       if (section === 'cost' && field === 'partyType' && value === 'Others' && shippingLineAirline) {
-         updated[index][section].partyName = shippingLineAirline;
-       }
+      updated[index][section] = updated[index][section] || {};
+      updated[index][section][field] = value;
+      
+      // Auto-populate Payable To if type is 'Others' in Cost section
+      if (section === 'cost' && field === 'partyType' && value === 'Others' && shippingLineAirline) {
+        updated[index][section].partyName = shippingLineAirline;
+      }
 
-       // Auto-populate Payable To if type is 'Importer' in Cost section
-       if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
-         updated[index][section].partyName = importerName;
-       }
+      // Auto-populate Payable To if type is 'Importer' in Cost section
+      if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
+        updated[index][section].partyName = importerName;
+      }
 
-       if (['qty', 'rate'].includes(field)) {
-         const qty = parseFloat(updated[index][section].qty) || 0;
-         const rate = parseFloat(updated[index][section].rate) || 0;
-         updated[index][section].amount = qty * rate;
-         updated[index][section].amountINR = updated[index][section].amount * (parseFloat(updated[index][section].exchangeRate) || 1);
-       }
-       if (field === 'exchangeRate') {
-         updated[index][section].amountINR = (updated[index][section].amount || 0) * (parseFloat(value) || 1);
-       }
+      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate'];
+      if (fieldsToTriggerRecalc.includes(field)) {
+        const sectionRef = updated[index][section];
+        const qty = parseFloat(sectionRef.qty) || 0;
+        const rate = parseFloat(sectionRef.rate) || 0;
+        const exRate = parseFloat(sectionRef.exchangeRate) || 1;
+        
+        // Total Amount: Qty * Rate (Rate is always GST-inclusive)
+        const amount = qty * rate;
+        sectionRef.amount = amount;
+        sectionRef.amountINR = amount * exRate;
+
+        // GST & Basic Amount Calculation:
+        // Basic is always GST-exclusive (Amount / 1.18)
+        // GST is the difference (Amount - Basic)
+        const gstRate = parseFloat(sectionRef.gstRate) || 18;
+        const derivedBasic = amount / (1 + (gstRate / 100));
+        const derivedGst = amount - derivedBasic;
+        
+        sectionRef.gstAmount = derivedGst;
+        sectionRef.basicAmount = derivedBasic; // TDS always calculated on this
+
+        // TDS Calculation: ALWAYS on the GST-exclusive Basic Amount
+        const isTds = sectionRef.isTds || false;
+        const tdsPercent = parseFloat(sectionRef.tdsPercent) || 0;
+        if (isTds) {
+          sectionRef.tdsAmount = sectionRef.basicAmount * (tdsPercent / 100);
+        } else {
+          sectionRef.tdsAmount = 0;
+        }
+
+        // Net Payable Calculation:
+        // "Include GST" (Checked): Net = Total Amount - TDS
+        // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
+        const includeGst = sectionRef.isGst || false;
+        if (includeGst) {
+          sectionRef.netPayable = amount - sectionRef.tdsAmount;
+        } else {
+          sectionRef.netPayable = sectionRef.basicAmount - sectionRef.tdsAmount;
+        }
+      }
     } else {
-       updated[index][field] = value;
+      updated[index][field] = value;
     }
     setFormData(updated);
   };
@@ -126,8 +171,8 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLin
                       <th>Qty/Unit</th>
                       <th style={{ width: '40px' }}></th>
                       <th>Rate</th>
-                      <th>Amount</th>
-                      <th>Amount(INR)</th>
+                      <th>Total Amount</th>
+                      <th>Total Amount(INR)</th>
                       <th style={{ width: '34px' }}>Ovrd</th>
                       <th style={{ width: '34px' }}>Pstd</th>
                       <th style={{ width: '26px' }}></th>
@@ -235,7 +280,7 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLin
                                 {row.revenue?.branchCode && <span className="ep-link" style={{ marginLeft: '6px', whiteSpace: 'nowrap' }}>{row.revenue.branchCode}</span>}
                               </div>
                               <div className="ep-row">
-                                <span className="ep-label">Amount</span>
+                                <span className="ep-label">Total Amount</span>
                                 <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.revenue?.amount || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>{row.revenue?.currency || 'INR'}</span>
@@ -243,7 +288,7 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLin
                               </div>
                               <div className="ep-row"></div>
                               <div className="ep-row">
-                                <span className="ep-label">Amount(INR)</span>
+                                <span className="ep-label">Total Amount(INR)</span>
                                 <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.revenue?.amountINR || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
@@ -358,18 +403,102 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLin
                                 </div>
                               </div>
                               <div className="ep-row">
-                                <span className="ep-label">Amount</span>
+                                <span className="ep-label">Total Amount</span>
                                 <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amount || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>{row.cost?.currency || 'INR'}</span>
                                 </div>
                               </div>
-                              <div className="ep-row"></div>
                               <div className="ep-row">
-                                <span className="ep-label">Amount(INR)</span>
+                                <span className="ep-label">Total Amount(INR)</span>
                                 <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amountINR || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
+                                </div>
+                              </div>
+
+                              {/* GST & TDS FIELDS FOR COST */}
+                              <div className="ep-row">
+                                <span className="ep-label">Include GST?</span>
+                                <div className="ep-inline">
+                                  <input type="checkbox" checked={row.cost?.isGst || false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
+                                  {row.cost?.isGst && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <input type="number" style={{ width: '50px' }} value={row.cost?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} />
+                                      <span style={{ fontSize: '11px' }}>%</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label">Basic Amount</span>
+                                <div className="ep-inline">
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.cost?.basicAmount)} />
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label">GST Amount</span>
+                                <div className="ep-inline">
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.cost?.gstAmount)} />
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label">Apply TDS?</span>
+                                <div className="ep-inline">
+                                  <input type="checkbox" checked={row.cost?.isTds || false} onChange={e => handleFieldChange(i, 'isTds', e.target.checked, 'cost')} />
+                                  {row.cost?.isTds && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <input type="number" style={{ width: '50px' }} value={row.cost?.tdsPercent ?? 0} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'cost')} />
+                                      <span style={{ fontSize: '11px' }}>%</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label">TDS Amount</span>
+                                <div className="ep-inline">
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.cost?.tdsAmount)} />
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label" style={{ fontWeight: 'bold', color: '#d32f2f' }}>Net Payable</span>
+                                <div className="ep-inline">
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#fff9f9', fontWeight: 'bold', color: '#d32f2f', border: '1px solid #ffcdd2' }} value={formatNumber(row.cost?.netPayable)} />
+                                  <button 
+                                    type="button" 
+                                    className="upload-btn" 
+                                    style={{ 
+                                      marginRight: '10px', 
+                                      backgroundColor: '#1976d2', 
+                                      color: '#fff', 
+                                      borderColor: '#1565c0' 
+                                    }}
+                                    onClick={() => setPurchaseBookData({
+                                        partyName: row.cost?.partyName,
+                                        amount: row.cost?.amount,
+                                        gstRate: row.cost?.gstRate,
+                                        cgst: row.cost?.cgst,
+                                        sgst: row.cost?.sgst,
+                                        igst: row.cost?.igst,
+                                        tdsAmount: row.cost?.tdsAmount,
+                                        totalAmount: row.cost?.totalAmount,
+                                        chargeHead: row.chargeHead
+                                    })}
+                                  >
+                                    Purchase book
+                                  </button>
+                                  <button 
+                                    type="button" 
+                                    className="upload-btn" 
+                                    style={{ backgroundColor: '#d32f2f', color: '#fff', borderColor: '#b71c1c' }}
+                                    onClick={() => setPaymentRequestData({
+                                        partyName: row.cost?.partyName,
+                                        netPayable: row.cost?.netPayable,
+                                        chargeHead: row.chargeHead
+                                    })}
+                                  >
+                                    Request Payment
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -403,6 +532,21 @@ const EditChargeModal = ({ isOpen, onClose, selectedCharges, onSave, shippingLin
             }}
         />
       )}
+
+      <RequestPaymentModal 
+        isOpen={paymentRequestData !== null}
+        onClose={() => setPaymentRequestData(null)}
+        initialData={paymentRequestData}
+        jobNumber={jobNumber}
+        jobYear={jobYear}
+      />
+
+      <PurchaseBookModal 
+        isOpen={purchaseBookData !== null}
+        onClose={() => setPurchaseBookData(null)}
+        initialData={purchaseBookData}
+        jobNumber={jobNumber}
+      />
     </div>
   );
 };

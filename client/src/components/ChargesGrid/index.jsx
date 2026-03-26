@@ -18,7 +18,10 @@ const ChargesGrid = ({
   shippingLineAirline = '', 
   importerName = '',
   jobNumber = '',
-  jobYear = ''
+  jobYear = '',
+  invoiceNumber = '',
+  invoiceDate = '',
+  invoiceValue = ''
 }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
@@ -97,15 +100,15 @@ const ChargesGrid = ({
     });
   };
 
-  const handleAttachFiles = async (url) => {
+  const handleAttachFiles = async (urls) => {
     if (fileModalCharge) {
       const { charge, tab } = fileModalCharge;
       const updateData = {};
       
       if (tab === 'revenue' || tab === 'particulars') {
-        updateData.revenue = { ...(charge.revenue || {}), url };
+        updateData.revenue = { ...(charge.revenue || {}), url: urls };
       } else if (tab === 'cost') {
-        updateData.cost = { ...(charge.cost || {}), url };
+        updateData.cost = { ...(charge.cost || {}), url: urls };
       }
       
       await updateCharge(charge._id, updateData);
@@ -113,22 +116,14 @@ const ChargesGrid = ({
     }
   };
 
-  const handleRemoveAttachment = async (charge, tab) => {
-    setConfirmState({
-      open: true,
-      title: 'Remove Attachment',
-      message: 'Are you sure you want to remove this attachment?',
-      onConfirm: async () => {
-        const updateData = {};
-        if (tab === 'revenue' || tab === 'particulars') {
-          updateData.revenue = { ...(charge.revenue || {}), url: null };
-        } else if (tab === 'cost') {
-          updateData.cost = { ...(charge.cost || {}), url: null };
-        }
-        await updateCharge(charge._id, updateData);
-        setConfirmState(prev => ({ ...prev, open: false }));
-      }
-    });
+  const handleRemoveAttachment = async (charge, tab, newUrls) => {
+    const updateData = {};
+    if (tab === 'revenue' || tab === 'particulars') {
+      updateData.revenue = { ...(charge.revenue || {}), url: newUrls };
+    } else if (tab === 'cost') {
+      updateData.cost = { ...(charge.cost || {}), url: newUrls };
+    }
+    await updateCharge(charge._id, updateData);
   };
 
   const isDeleteDisabled = selectedIds.size === 0 || readOnly;
@@ -176,6 +171,9 @@ const ChargesGrid = ({
         importerName={importerName}
         jobNumber={jobNumber}
         jobYear={jobYear}
+        jobInvoiceNumber={invoiceNumber}
+        jobInvoiceDate={invoiceDate}
+        jobInvoiceValue={invoiceValue}
       />
 
       {fileModalCharge && (
@@ -183,10 +181,10 @@ const ChargesGrid = ({
           isOpen={!!fileModalCharge}
           onClose={() => setFileModalCharge(null)}
           chargeLabel={`${fileModalCharge.charge.chargeHead} (${fileModalCharge.tab})`}
-          initialUrl={
+          initialUrls={
             fileModalCharge.tab === 'cost' 
-              ? fileModalCharge.charge.cost?.url 
-              : fileModalCharge.charge.revenue?.url
+              ? fileModalCharge.charge.cost?.url || []
+              : fileModalCharge.charge.revenue?.url || []
           }
           onAttach={handleAttachFiles}
         />

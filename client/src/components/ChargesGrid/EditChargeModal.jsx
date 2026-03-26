@@ -4,6 +4,7 @@ import RequestPaymentModal from './RequestPaymentModal';
 import PurchaseBookModal from './PurchaseBookModal';
 import { Chip } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
+import axios from 'axios';
 import './charges.css';
 
 const EditChargeModal = ({ 
@@ -14,7 +15,10 @@ const EditChargeModal = ({
   shippingLineAirline, 
   importerName,
   jobNumber = '',
-  jobYear = ''
+  jobYear = '',
+  jobInvoiceNumber = '',
+  jobInvoiceDate = '',
+  jobInvoiceValue = ''
 }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
@@ -22,14 +26,41 @@ const EditChargeModal = ({
   const [uploadSection, setUploadSection] = useState(null); // 'revenue' | 'cost'
   const [paymentRequestData, setPaymentRequestData] = useState(null);
   const [purchaseBookData, setPurchaseBookData] = useState(null);
+  const [shippingLines, setShippingLines] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+
+  useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        const [slRes, supRes, orgRes] = await Promise.all([
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/organization`)
+        ]);
+        setShippingLines(slRes.data);
+        setSuppliers(supRes.data);
+        setOrganizations(orgRes.data.organizations || []);
+      } catch (error) {
+        console.error("Error fetching master data:", error);
+      }
+    };
+    fetchMasterData();
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(JSON.parse(JSON.stringify(selectedCharges)));
+      const initialData = JSON.parse(JSON.stringify(selectedCharges)).map(charge => ({
+        ...charge,
+        invoice_number: charge.invoice_number || jobInvoiceNumber,
+        invoice_date: charge.invoice_date || jobInvoiceDate,
+        invoice_value: charge.invoice_value || jobInvoiceValue
+      }));
+      setFormData(initialData);
       setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
       setUploadIndex(null);
     }
-  }, [isOpen, selectedCharges]);
+  }, [isOpen, selectedCharges, jobInvoiceNumber, jobInvoiceDate, jobInvoiceValue]);
 
   if (!isOpen) return null;
 
@@ -129,9 +160,9 @@ const EditChargeModal = ({
         <div className="modal-body">
           {formData.map((row, i) => (
             <div key={row._id || i} style={{ marginBottom: formData.length > 1 ? '30px' : '0' }}>
-              <div className="form-section">
-                <div className="form-left">
-                  <div className="form-row">
+              <div className="form-section-new">
+                <div className="form-grid">
+                  <div className="form-row span-2">
                     <span className="form-label">Charge</span>
                     <div className="form-input-search">
                       <input type="text" readOnly className="form-input" style={{ background: '#f5f8fc', color: '#1a3a5c', fontWeight: 'bold' }} value={row.chargeHead || ''} />
@@ -143,22 +174,28 @@ const EditChargeModal = ({
                     <input type="text" className="form-input" value={row.category || ''} onChange={e => handleFieldChange(i, 'category', e.target.value)} />
                   </div>
                   <div className="form-row">
-                    <span className="form-label">Charge Description</span>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={row.cost?.chargeDescription || row.revenue?.chargeDescription || ''} 
-                      onChange={e => {
-                        handleFieldChange(i, 'chargeDescription', e.target.value, 'cost');
-                        handleFieldChange(i, 'chargeDescription', e.target.value, 'revenue');
-                      }} 
-                    />
+                    <span className="form-label">Invoice Number</span>
+                    <input type="text" className="form-input" value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} />
                   </div>
-
+                  <div className="form-row">
+                    <span className="form-label">Invoice Date</span>
+                    <input type="date" className="form-input" value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
+                  </div>
+                  <div className="form-row">
+                    <span className="form-label">Invoice Value</span>
+                    <input type="number" className="form-input" value={row.invoice_value || ''} onChange={e => handleFieldChange(i, 'invoice_value', e.target.value)} />
+                  </div>
                 </div>
-                <div className="form-right">
-                  <span style={{ color: '#333' }}>Remark</span>
-                  <textarea className="remark-area" value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)}></textarea>
+
+                <div className="form-remark-row">
+                  <span className="form-label" style={{ textAlign: 'right' }}>Remark</span>
+                  <input 
+                    type="text"
+                    className="form-input"
+                    style={{ width: '100%' }}
+                    value={row.remark || ''} 
+                    onChange={e => handleFieldChange(i, 'remark', e.target.value)} 
+                  />
                 </div>
               </div>
 
@@ -208,25 +245,31 @@ const EditChargeModal = ({
                             </div>
                             <div className="ep-desc-row">
                                 <span className="ep-label">Attachment</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                    {row.revenue?.url ? (
-                                        <Chip
-                                            icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
-                                            label={extractFileName(row.revenue.url)}
-                                            size="small"
-                                            onDelete={() => handleFieldChange(i, 'url', null, 'revenue')}
-                                            component="a"
-                                            href={row.revenue.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            clickable
-                                            sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
-                                        />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+                                    {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? (
+                                        row.revenue.url.map((url, urlIdx) => (
+                                            <Chip
+                                                key={urlIdx}
+                                                icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
+                                                label={extractFileName(url)}
+                                                size="small"
+                                                onDelete={() => {
+                                                    const newUrls = row.revenue.url.filter((_, i) => i !== urlIdx);
+                                                    handleFieldChange(i, 'url', newUrls, 'revenue');
+                                                }}
+                                                component="a"
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                clickable
+                                                sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
+                                            />
+                                        ))
                                     ) : (
-                                        <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No file attached</span>
+                                        <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
                                     )}
                                     <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
-                                        {row.revenue?.url ? 'Change' : 'Upload File'}
+                                        {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? 'Edit Files' : 'Upload Files'}
                                     </button>
                                 </div>
                             </div>
@@ -383,7 +426,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Payable Type</span>
                                 <select className="ep-select" value={row.cost?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
-                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option>
+                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option><option>Agent</option>
                                 </select>
                               </div>
                               <div className="ep-row">
@@ -398,8 +441,23 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Payable To</span>
                                 <div className="ep-search-wrap">
-                                  <input type="text" value={row.cost?.partyName || ''} onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'cost')} />
+                                  <input 
+                                    type="text" 
+                                    list={`masterList-${i}`}
+                                    value={row.cost?.partyName || ''} 
+                                    onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'cost')} 
+                                  />
                                   <button type="button" className="ep-search-btn">🔍</button>
+                                  <datalist id={`masterList-${i}`}>
+                                    {(row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
+                                      row.cost?.partyType === 'Vendor' || row.cost?.partyType === 'Transporter' ? suppliers :
+                                      row.cost?.partyType === 'Importer' ? organizations : [])
+                                      .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
+                                      .slice(0, 10)
+                                      .map((item, idx) => (
+                                        <option key={idx} value={item.name} />
+                                      ))}
+                                  </datalist>
                                 </div>
                               </div>
                               <div className="ep-row">
@@ -524,9 +582,9 @@ const EditChargeModal = ({
             isOpen={true}
             onClose={() => { setUploadIndex(null); setUploadSection(null); }}
             chargeLabel={`${formData[uploadIndex]?.chargeHead} (${uploadSection})`}
-            initialUrl={formData[uploadIndex]?.[uploadSection]?.url}
-            onAttach={(url) => {
-                handleFieldChange(uploadIndex, 'url', url, uploadSection);
+            initialUrls={formData[uploadIndex]?.[uploadSection]?.url || []}
+            onAttach={(urls) => {
+                handleFieldChange(uploadIndex, 'url', urls, uploadSection);
                 setUploadIndex(null);
                 setUploadSection(null);
             }}

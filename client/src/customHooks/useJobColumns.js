@@ -385,6 +385,11 @@ function useJobColumns(
                 <br /> {custom_house} <br /> {payment_method}
               </a>
 
+              {branch_code === "GIM" && row.cfs_name && (
+                <div style={{ marginTop: "4px", fontWeight: "bold", color: "#000", fontSize: "0.85rem" }}>
+                  CFS Loc: {row.cfs_name}
+                </div>
+              )}
               <div style={{ marginTop: 4 }}>
                 <IconButton
                   size="small"

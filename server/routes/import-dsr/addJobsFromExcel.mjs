@@ -86,8 +86,8 @@ router.post(
         return res.status(400).json({ message: "Missing required fields." });
       }
 
-      // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
-      if (container_nos && container_nos.length > 0) {
+      // ✅ Check for duplicate container numbers **only if mode is NOT 'AIR' and container_nos is provided**
+      if (mode !== "AIR" && container_nos && container_nos.length > 0) {
         // Prepare container numbers for checking
         const containerNumbers = container_nos
           .map((c) => c.container_number)

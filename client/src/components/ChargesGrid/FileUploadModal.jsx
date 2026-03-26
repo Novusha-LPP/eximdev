@@ -1,36 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { uploadFileToS3 } from "../../utils/awsFileUpload"; 
 
-const FileUploadModal = ({ isOpen, onClose, chargeLabel, initialUrl = null, onAttach }) => {
-  const [tempFile, setTempFile] = useState(null);
+const FileUploadModal = ({ isOpen, onClose, chargeLabel, initialUrls = [], onAttach }) => {
+  const [tempFiles, setTempFiles] = useState([]);
+  const [remainingUrls, setRemainingUrls] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [isRemoved, setIsRemoved] = useState(false);
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     if (isOpen) {
-      setTempFile(null);
+      setTempFiles([]);
+      setRemainingUrls(Array.isArray(initialUrls) ? initialUrls : (initialUrls ? [initialUrls] : []));
       setIsUploading(false);
-      setIsRemoved(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialUrls]);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setTempFile(e.target.files[0]);
-      setIsRemoved(false);
+    if (e.target.files && e.target.files.length > 0) {
+      setTempFiles([...tempFiles, ...Array.from(e.target.files)]);
     }
     e.target.value = '';
   };
 
-  const handleRemove = () => {
-    if (tempFile) {
-        setTempFile(null);
-    } else {
-        setIsRemoved(true);
-    }
+  const removeTempFile = (index) => {
+    setTempFiles(tempFiles.filter((_, i) => i !== index));
+  };
+
+  const removeInitialUrl = (index) => {
+    setRemainingUrls(remainingUrls.filter((_, i) => i !== index));
   };
 
   const getS3FileName = (url) => {
@@ -46,20 +45,20 @@ const FileUploadModal = ({ isOpen, onClose, chargeLabel, initialUrl = null, onAt
   const handleAttach = async () => {
     setIsUploading(true);
     try {
-        let finalUrl = isRemoved ? null : initialUrl;
-
-        if (tempFile) {
+        const uploadedUrls = [];
+        for (const file of tempFiles) {
             try {
-                const result = await uploadFileToS3(tempFile, "charges"); 
-                finalUrl = result.Location;
+                const result = await uploadFileToS3(file, "charges"); 
+                uploadedUrls.push(result.Location);
             } catch (err) {
-                console.error("Failed to upload", tempFile.name, err);
-                alert("Failed to upload " + tempFile.name);
-                return;
+                console.error("Failed to upload", file.name, err);
+                alert("Failed to upload " + file.name);
+                // Continue with others? For now, yes, but we could stop.
             }
         }
 
-        onAttach(finalUrl);
+        const finalUrls = [...remainingUrls, ...uploadedUrls];
+        onAttach(finalUrls);
     } finally {
         setIsUploading(false);
     }
@@ -68,7 +67,7 @@ const FileUploadModal = ({ isOpen, onClose, chargeLabel, initialUrl = null, onAt
   return (
     <div className="file-modal-overlay active">
       <div className="file-modal">
-        <div className="file-modal-title">📎 Attach File — {chargeLabel}</div>
+        <div className="file-modal-title">📎 Attach Files — {chargeLabel}</div>
         <div className="file-modal-body">
           <div 
              className="drop-zone" 
@@ -77,50 +76,50 @@ const FileUploadModal = ({ isOpen, onClose, chargeLabel, initialUrl = null, onAt
              onDrop={(e) => {
                e.preventDefault();
                e.currentTarget.classList.remove('drag-over');
-               if(e.dataTransfer.files && e.dataTransfer.files[0]) {
-                   setTempFile(e.dataTransfer.files[0]);
-                   setIsRemoved(false);
+               if(e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                   setTempFiles([...tempFiles, ...Array.from(e.dataTransfer.files)]);
                }
              }}
              onClick={() => fileInputRef.current && fileInputRef.current.click()}
           >
             <div style={{ fontSize: '28px', marginBottom: '6px', opacity: 0.5 }}>⬆</div>
-            <p><strong>Drag &amp; drop file here</strong></p>
+            <p><strong>Drag &amp; drop files here</strong></p>
             <p>or <span className="browse-link" onClick={(e) => { e.stopPropagation(); fileInputRef.current && fileInputRef.current.click()}}>browse to upload</span></p>
             <p style={{ color: '#8aA0b0', fontSize: '11px', marginTop: '6px' }}>PDF, JPG, PNG, XLSX, DOCX supported</p>
             <input 
                type="file" 
+               multiple
                ref={fileInputRef}
                style={{ display: 'none' }} 
                onChange={handleFileChange} 
             />
           </div>
           
-          <div className="file-list" style={{ minHeight: '60px' }}>
-            {(initialUrl && !isRemoved && !tempFile) && (
-                <div className="file-item">
-                  <span className="file-item-name">📄 {getS3FileName(initialUrl)}</span>
-                  <span className="file-remove" onClick={handleRemove}>✕</span>
+          <div className="file-list" style={{ minHeight: '60px', maxHeight: '200px', overflowY: 'auto' }}>
+            {remainingUrls.map((url, idx) => (
+                <div className="file-item" key={`init-${idx}`}>
+                  <span className="file-item-name">📄 {getS3FileName(url)}</span>
+                  <span className="file-remove" onClick={() => removeInitialUrl(idx)}>✕</span>
                 </div>
-            )}
+            ))}
 
-            {tempFile && (
-              <div className="file-item">
-                <span className="file-item-name">📄 {tempFile.name} <span style={{ color: '#8aA0b0' }}>({(tempFile.size/1024).toFixed(1)} KB)</span></span>
-                <span className="file-remove" onClick={handleRemove}>✕</span>
+            {tempFiles.map((file, idx) => (
+              <div className="file-item" key={`temp-${idx}`}>
+                <span className="file-item-name">📄 {file.name} <span style={{ color: '#8aA0b0' }}>({(file.size/1024).toFixed(1)} KB)</span></span>
+                <span className="file-remove" onClick={() => removeTempFile(idx)}>✕</span>
               </div>
-            )}
+            ))}
             
-            {(!initialUrl || isRemoved) && !tempFile && (
+            {remainingUrls.length === 0 && tempFiles.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '10px', color: '#8aA0b0', fontSize: '12px' }}>
-                    No file selected
+                    No files selected
                 </div>
             )}
           </div>
         </div>
         <div className="file-modal-footer">
-          <button type="button" className="btn" onClick={handleAttach} disabled={isUploading}>
-             {isUploading ? 'Uploading...' : 'Attach'}
+          <button type="button" className="btn" onClick={handleAttach} disabled={isUploading || (remainingUrls.length === 0 && tempFiles.length === 0)}>
+             {isUploading ? 'Uploading...' : 'Attach Files'}
           </button>
           <button type="button" className="btn" onClick={onClose} disabled={isUploading}>Cancel</button>
         </div>

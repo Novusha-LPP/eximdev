@@ -67,11 +67,12 @@ const ChargesTable = ({
     </>
   );
 
-  const renderAttachmentCell = (ch, url) => (
+  const renderAttachmentCell = (ch, urls) => (
     <td className="upload-cell" onClick={(e) => e.stopPropagation()}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center", justifyContent: "center" }}>
-        {url && (
+        {Array.isArray(urls) && urls.map((url, urlIdx) => (
           <Chip
+              key={urlIdx}
               icon={<DescriptionIcon style={{ fontSize: "12px" }} />}
               label={
                 <a 
@@ -88,7 +89,8 @@ const ChargesTable = ({
               onDelete={readOnly ? undefined : (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                onRemoveAttachment(ch, activeTab);
+                const newUrls = urls.filter((_, i) => i !== urlIdx);
+                onRemoveAttachment(ch, activeTab, newUrls);
               }}
               clickable
               sx={{
@@ -107,7 +109,7 @@ const ChargesTable = ({
                   }
               }}
           />
-        )}
+        ))}
         <button 
            type="button"
            className="upload-btn" 
@@ -115,7 +117,7 @@ const ChargesTable = ({
            disabled={readOnly}
            style={{ padding: "1px 4px", fontSize: "9px" }}
         >
-          {url ? '+' : '⇧'}
+          {Array.isArray(urls) && urls.length > 0 ? '+' : '⇧'}
         </button>
       </div>
     </td>

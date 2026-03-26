@@ -13,8 +13,10 @@ import {
   InputLabel,
   Select,
   Typography,
+  Autocomplete,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
+import axios from "axios";
 import "../../styles/job-details.scss";
 import useFetchJobDetails from "../../customHooks/useFetchJobDetails";
 import Checkbox from "@mui/material/Checkbox";
@@ -92,6 +94,19 @@ function JobDetails() {
 
   // State to track which containers have expanded seal number lists
   const [expandedSealIndices, setExpandedSealIndices] = useState({});
+  const [currencies, setCurrencies] = useState([]);
+
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-currencies`);
+        setCurrencies(res.data);
+      } catch (error) {
+        console.error("Error fetching currencies:", error);
+      }
+    };
+    fetchCurrencies();
+  }, []);
 
   const toggleSealExpansion = (index) => {
     setExpandedSealIndices(prev => ({
@@ -908,6 +923,7 @@ function JobDetails() {
           {
             invoice_number: "",
             invoice_date: "",
+            po_no: "",
             product_value: "",
             other_charges: "",
             total_inv_value: "",
@@ -941,6 +957,7 @@ function JobDetails() {
     if (rowIndex === 0) {
       if (field === "invoice_number") formik.setFieldValue("invoice_number", value);
       if (field === "invoice_date") formik.setFieldValue("invoice_date", value);
+      if (field === "po_no") formik.setFieldValue("po_no", value);
       if (field === "total_inv_value") formik.setFieldValue("total_inv_value", value);
       if (field === "toi") formik.setFieldValue("import_terms", value);
       if (field === "freight") formik.setFieldValue("freight", value);
@@ -954,6 +971,7 @@ function JobDetails() {
       {
         invoice_number: "",
         invoice_date: "",
+        po_no: "",
         product_value: "",
         other_charges: "",
         total_inv_value: "",
@@ -1998,7 +2016,7 @@ function JobDetails() {
                         <div className="d-flex gap-2 align-items-center mb-2">
                           <JobStickerPDF ref={pdfRef} jobData={{
                             job_no: formik.values.job_no, year: formik.values.year, importer: formik.values.importer, be_no: formik.values.be_no, be_date: formik.values.be_date,
-                            invoice_number: formik.values.invoice_number, invoice_date: formik.values.invoice_date, loading_port: formik.values.loading_port,
+                            invoice_number: formik.values.invoice_number, invoice_date: formik.values.invoice_date, po_no: formik.values.po_no, loading_port: formik.values.loading_port,
                             no_of_pkgs: formik.values.no_of_pkgs, description: formik.values.description, gross_weight: formik.values.gross_weight,
                             job_net_weight: formik.values.job_net_weight, gateway_igm: formik.values.gateway_igm, gateway_igm_date: formik.values.gateway_igm_date,
                             igm_no: formik.values.igm_no, igm_date: formik.values.igm_date, awb_bl_no: formik.values.awb_bl_no, awb_bl_date: formik.values.awb_bl_date,
@@ -2326,7 +2344,7 @@ function JobDetails() {
                       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
                         <thead>
                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Invoice Number", "Date", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
+                            {["Sr No", "Invoice Number", "Date", "PO NO", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
                               <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
                                 {h}
                               </th>
@@ -2349,7 +2367,7 @@ function JobDetails() {
                                   placeholder="Invoice No"
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -2358,6 +2376,16 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   InputLabelProps={{ shrink: true }}
+                                />
+                              </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={row.po_no || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                  placeholder="PO No"
                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
@@ -2376,24 +2404,25 @@ function JobDetails() {
                                 </TextField>
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.inv_currency || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  <MenuItem value="USD">USD</MenuItem>
-                                  <MenuItem value="EUR">EUR</MenuItem>
-                                  <MenuItem value="GBP">GBP</MenuItem>
-                                  <MenuItem value="JPY">JPY</MenuItem>
-                                  <MenuItem value="INR">INR</MenuItem>
-                                  <MenuItem value="AED">AED</MenuItem>
-                                  <MenuItem value="CNY">CNY</MenuItem>
-                                  <MenuItem value="CHF">CHF</MenuItem>
-                                </TextField>
+                                 <Autocomplete
+                                   freeSolo
+                                   size="small"
+                                   options={currencies.map(c => c.code)}
+                                   sx={compactInputSx}
+                                   value={row.inv_currency || ""}
+                                   onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                   onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                   disabled={isDescriptionTableReadOnly}
+                                   renderInput={(params) => (
+                                     <TextField
+                                       {...params}
+                                       variant="outlined"
+                                       size="small"
+                                       placeholder="Currency"
+                                       sx={compactInputSx}
+                                     />
+                                   )}
+                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
                                 <TextField
@@ -2504,19 +2533,24 @@ function JobDetails() {
                           <tr key={row.id}>
                             <td style={{ verticalAlign: "middle", fontWeight: "500" }}>{row.label}</td>
                             <td>
-                              <TextField
-                                select
-                                fullWidth
-                                size="small"
-                                sx={compactInputSx}
-                                value={formik.values.other_charges_details?.[row.id]?.currency || ""}
-                                onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, e.target.value)}
-                              >
-                                <MenuItem value="">Select</MenuItem>
-                                {["USD", "EUR", "GBP", "JPY", "INR", "AED", "CNY", "CHF"].map(c => (
-                                  <MenuItem key={c} value={c}>{c}</MenuItem>
-                                ))}
-                              </TextField>
+                               <Autocomplete
+                                 freeSolo
+                                 size="small"
+                                 options={currencies.map(c => c.code)}
+                                 sx={compactInputSx}
+                                 value={formik.values.other_charges_details?.[row.id]?.currency || ""}
+                                 onInputChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue)}
+                                 onChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "")}
+                                 renderInput={(params) => (
+                                   <TextField
+                                     {...params}
+                                     variant="outlined"
+                                     size="small"
+                                     placeholder="Currency"
+                                     sx={compactInputSx}
+                                   />
+                                 )}
+                               />
                             </td>
                             <td>
                               <TextField
@@ -2674,18 +2708,24 @@ function JobDetails() {
                               </TextField>
                             </td>
                             <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
-                              <TextField
-                                select
-                                size="small"
-                                fullWidth
-                                value={row.currency || "USD"}
-                                onChange={(e) => updateMiscChargeRow(rowIndex, "currency", e.target.value)}
-                                sx={compactInputSx}
-                              >
-                                {["USD", "EUR", "GBP", "JPY", "INR", "AED", "CNY", "CHF"].map((c) => (
-                                  <MenuItem key={c} value={c}>{c}</MenuItem>
-                                ))}
-                              </TextField>
+                               <Autocomplete
+                                 freeSolo
+                                 size="small"
+                                 options={currencies.map(c => c.code)}
+                                 sx={compactInputSx}
+                                 value={row.currency || "USD"}
+                                 onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
+                                 onChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue || "")}
+                                 renderInput={(params) => (
+                                   <TextField
+                                     {...params}
+                                     variant="outlined"
+                                     size="small"
+                                     placeholder="Currency"
+                                     sx={compactInputSx}
+                                   />
+                                 )}
+                               />
                             </td>
                             <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
                               <TextField
@@ -3222,6 +3262,10 @@ function JobDetails() {
                   importerName={data?.importer} 
                   jobNumber={data?.job_no}
                   jobYear={data?.year}
+                  invoiceNumber={data?.invoice_number}
+                  invoiceDate={data?.invoice_date}
+                  poNo={data?.po_no}
+                  invoiceValue={data?.total_inv_value}
                 />
               </div>
 

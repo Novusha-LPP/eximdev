@@ -92,6 +92,7 @@ const invoiceDetailsSchema = new mongoose.Schema(
   {
     invoice_number: { type: String, trim: true },
     invoice_date: { type: String, trim: true },
+    po_no: { type: String, trim: true },
     total_inv_value: { type: String, trim: true },
     inv_currency: { type: String, trim: true },
     toi: { type: String, trim: true },
@@ -141,7 +142,7 @@ const ChargeLineSchema = new mongoose.Schema({
   partyName: { type: String },
   partyType: { type: String },
   branchCode: { type: String },
-  url: { type: String },
+  url: [{ type: String }],
 
   // GST & TDS Fields
   isGst: { type: Boolean, default: false },
@@ -160,6 +161,9 @@ const ChargeSchema = new mongoose.Schema({
   category: { type: String },
   costCenter: { type: String },
   remark: { type: String },
+  invoice_number: { type: String, trim: true },
+  invoice_date: { type: String, trim: true },
+  invoice_value: { type: String, trim: true },
 
   revenue: ChargeLineSchema,
   cost: ChargeLineSchema,
@@ -230,6 +234,7 @@ const jobSchema = new mongoose.Schema({
   supplier_exporter: { type: String, trim: true },
   invoice_number: { type: String, trim: true },
   invoice_date: { type: String, trim: true },
+  po_no: { type: String, trim: true },
   awb_bl_no: { type: String, trim: true },
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },

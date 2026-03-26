@@ -70,6 +70,9 @@ import AirlinesDirectory from "../components/master-directory/AirlinesDirectory.
 import UnitDirectory from "../components/master-directory/UnitDirectory.js";
 import OrganizationDirectory from "../components/master-directory/OrganizationDirectory.js";
 import OrganizationForm from "../components/master-directory/OrganizationForm.js";
+import ShippingLineDirectory from "../components/master-directory/ShippingLineDirectory.js";
+import SupplierDirectory from "../components/master-directory/SupplierDirectory.js";
+import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.js";
 
 
 
@@ -102,12 +105,8 @@ import AllUsersPage from "./AllUsersPage.js";
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
 import { AnalyticsProvider } from "../components/analytics/AnalyticsContext";
-import OverviewDashboard from "../components/analytics/OverviewDashboard";
-import MovementDashboard from "../components/analytics/MovementDashboard";
-import CustomsDashboard from "../components/analytics/CustomsDashboard";
 import DocumentationDashboard from "../components/analytics/DocumentationDashboard";
 import DoManagementDashboard from "../components/analytics/DoManagementDashboard";
-import BillingDashboard from "../components/analytics/BillingDashboard";
 // import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
 import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
@@ -578,6 +577,30 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <OrganizationForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/shipping-line-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <ShippingLineDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/supplier-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <SupplierDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/currency-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <CurrencyDirectory />
                     </ProtectedRoute>
                   }
                 />

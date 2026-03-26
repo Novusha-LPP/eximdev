@@ -250,6 +250,9 @@ import countryRoutes from "./routes/master-directory/countryRoutes.mjs";
 import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
 import unitRoutes from "./routes/master-directory/unitRoutes.mjs";
 import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs";
+import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs";
+import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
+import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -546,6 +549,9 @@ app.use("/api", countryRoutes);
 app.use("/api", airlineRoutes);
 app.use("/api", unitRoutes);
 app.use("/api", organizationRoutes);
+app.use("/api", shippingLineRoutes);
+app.use("/api", supplierRoutes);
+app.use("/api", currencyRoutes);
 
 
 // Tally API

@@ -399,6 +399,7 @@ function useFetchJobDetails(
       required_do_validity_upto: "",
       invoice_number: "",
       invoice_date: "",
+      po_no: "",
       invoice_details: [],
       total_inv_value: "",
       cth_no: "",
@@ -909,10 +910,14 @@ function useFetchJobDetails(
         insurance: safeValue(data.insurance),
         invoice_number: safeValue(data.invoice_number),
         invoice_date: safeValue(data.invoice_date),
+        po_no: safeValue(data.po_no),
         total_inv_value: safeValue(data.total_inv_value),
         invoice_details:
           Array.isArray(data.invoice_details) && data.invoice_details.length > 0
-            ? data.invoice_details
+            ? safeValue(data.invoice_details, []).map(inv => ({
+                ...inv,
+                po_no: inv.po_no || ""
+              }))
             : [
                 {
                   invoice_number: safeValue(data.invoice_number),

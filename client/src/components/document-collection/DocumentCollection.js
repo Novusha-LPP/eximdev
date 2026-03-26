@@ -83,6 +83,7 @@ function ProofImagesDialog({ open, onClose, images }) {
 }
 
 function UpdateStatusDialog({ open, onClose, request, onSaved, fieldUsers }) {
+  const { user } = useContext(UserContext);
   const [status, setStatus] = useState(request?.status || "Not Collected");
   const [responsible, setResponsible] = useState(request?.responsible_person || "");
   const [notes, setNotes] = useState(request?.notes || "");
@@ -125,7 +126,13 @@ function UpdateStatusDialog({ open, onClose, request, onSaved, fieldUsers }) {
     try {
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/document-requests/${request._id}/status`,
-        { status, proof_image_urls: proofUrls, responsible_person: responsible, notes },
+        { 
+          status, 
+          proof_image_urls: proofUrls, 
+          responsible_person: responsible, 
+          notes,
+          updated_by_name: `${user?.first_name || ""} ${user?.last_name || ""}`.trim()
+        },
         { withCredentials: true }
       );
       onSaved();

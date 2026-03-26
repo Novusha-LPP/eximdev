@@ -29,7 +29,7 @@ const allModules = [
   "Update Employee Data",
   "e-Sanchit",
   "Documentation",
-
+  "Document Collection",
   "KPI",
   "Open Points",
   "MRM",

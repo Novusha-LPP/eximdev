@@ -41,6 +41,7 @@ const MODULES = [
   "e-Sanchit",
   "Documentation",
   "Submission",
+  "Document Collection",
   "Open Points",
 
   "DGFT",

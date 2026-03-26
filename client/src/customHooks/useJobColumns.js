@@ -17,6 +17,7 @@ import ContainerTrackDialog from "../components/ContainerTrackDialog";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAnchor } from "@fortawesome/free-solid-svg-icons";
 import { isAirMode, getContainerOrPackageLabel } from "../utils/modeLogic";
+import DocRequestCheckbox from "../components/document-collection/DocRequestCheckbox";
 
 // Helper components that need internal state
 const ContainerCellContent = ({ cell, handleCopy }) => {

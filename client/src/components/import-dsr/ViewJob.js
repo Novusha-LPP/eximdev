@@ -57,6 +57,8 @@ import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
+import JobDocRequests from "../document-collection/JobDocRequests.js";
+import DocRequestCheckbox from "../document-collection/DocRequestCheckbox.js";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import { BranchContext } from "../../contexts/BranchContext";
 import {
@@ -1645,13 +1647,16 @@ function JobDetails() {
                 <JobDetailsRowHeading
                   heading="Tracking Status"
                   rightContent={
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
-                      <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
-                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
-                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
-                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
-                      </RadioGroup>
+                    <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                      <DocRequestCheckbox job={data} />
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
+                        <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
+                          <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
+                          <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
+                          <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
+                        </RadioGroup>
+                      </div>
                     </div>
                   }
                 />
@@ -1816,6 +1821,8 @@ function JobDetails() {
                     )}
                   </Row>
                 </div>
+
+                <JobDocRequests jobNumber={formik.values.job_number || formik.values.job_no} />
 
                 {/* --- Section: Clearance, Weights & BE Details --- */}
                 <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>

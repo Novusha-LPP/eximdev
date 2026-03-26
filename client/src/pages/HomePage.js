@@ -71,6 +71,9 @@ import UnitDirectory from "../components/master-directory/UnitDirectory.js";
 import OrganizationDirectory from "../components/master-directory/OrganizationDirectory.js";
 import OrganizationForm from "../components/master-directory/OrganizationForm.js";
 
+// Document Collection
+import DocumentCollection from "../components/document-collection/DocumentCollection.js";
+
 
 
 //import Report
@@ -578,6 +581,17 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <OrganizationForm />
+                    </ProtectedRoute>
+                  }
+                />
+
+
+                {/* Document Collection */}
+                <Route
+                  path="/document-collection"
+                  element={
+                    <ProtectedRoute requiredModule="Document Collection">
+                      <DocumentCollection />
                     </ProtectedRoute>
                   }
                 />

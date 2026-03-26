@@ -245,6 +245,9 @@ import branchRoutes from "./routes/admin/branchRoutes.mjs";
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
 
+// Document Collection Module
+import documentCollectionRoutes from "./routes/document-collection/documentCollectionRoutes.mjs";
+
 // Master Directory
 import countryRoutes from "./routes/master-directory/countryRoutes.mjs";
 import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
@@ -540,6 +543,9 @@ app.use(dgftRoutes);
 app.use("/api/admin", branchRoutes);
 
 app.use(userAssetsRoutes);
+
+// Document Collection Module
+app.use(documentCollectionRoutes);
 
 // Master Directory
 app.use("/api", countryRoutes);

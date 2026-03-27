@@ -371,7 +371,8 @@ const ImportCreateJob = () => {
     });
   };
 
-  const currencyOptions = ["USD", "EUR", "GBP", "JPY", "INR", "AUD", "CAD", "CHF", "CNY", "HKD", "SGD"];
+  const [currencies, setCurrencies] = useState([]);
+  const currencyOptions = currencies.map(c => c.code);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
@@ -393,6 +394,18 @@ const ImportCreateJob = () => {
 
   const selectedBranchData = branches.find((b) => b._id === branch_id);
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
+
+  React.useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-currencies`);
+        setCurrencies(res.data);
+      } catch (error) {
+        console.error("Error fetching currencies:", error);
+      }
+    };
+    fetchCurrencies();
+  }, []);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -1244,7 +1257,7 @@ const ImportCreateJob = () => {
                       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#f8fafc' }}>
-                            {['Sr', 'Invoice Number', 'Invoice Date', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
+                            {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO', 'PO Date', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
                               <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
                                 {h}
                               </th>
@@ -1267,13 +1280,34 @@ const ImportCreateJob = () => {
                                   sx={compactInput}
                                 />
                               </td>
-                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
                                 <TextField
                                   type="date"
                                   size="small"
                                   fullWidth
                                   value={row.invoice_date || ""}
                                   onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="PO No"
+                                  value={row.po_no || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
+                                <TextField
+                                  type="date"
+                                  size="small"
+                                  fullWidth
+                                  value={row.po_date || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
                                   InputLabelProps={{ shrink: true }}
                                   sx={compactInput}
                                 />
@@ -1289,19 +1323,23 @@ const ImportCreateJob = () => {
                                 />
                               </td>
                               <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
-                                <TextField
-                                  select
+                                <Autocomplete
+                                  freeSolo
                                   size="small"
-                                  fullWidth
+                                  options={currencyOptions}
                                   value={row.inv_currency || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
-                                  sx={compactInput}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  {currencyOptions.map((curr) => (
-                                    <MenuItem key={curr} value={curr}>{curr}</MenuItem>
-                                  ))}
-                                </TextField>
+                                  onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                  onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      variant="outlined"
+                                      size="small"
+                                      placeholder="Currency"
+                                      sx={compactInput}
+                                    />
+                                  )}
+                                />
                               </td>
                               <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
                                 <TextField
@@ -1416,22 +1454,29 @@ const ImportCreateJob = () => {
                                   {row.label}
                                 </td>
                                 <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '120px' }}>
-                                  <TextField
-                                    select
-                                    size="small"
-                                    fullWidth
-                                    value={other_charges_details?.[row.id]?.currency || ""}
-                                    onChange={(e) => setOtherChargesDetails({
-                                      ...other_charges_details,
-                                      [row.id]: { ...other_charges_details[row.id], currency: e.target.value }
-                                    })}
-                                    sx={compactInput}
-                                  >
-                                    <MenuItem value="">Select</MenuItem>
-                                    {["USD", "EUR", "GBP", "JPY", "INR", "AED", "CNY", "CHF"].map(c => (
-                                      <MenuItem key={c} value={c}>{c}</MenuItem>
-                                    ))}
-                                  </TextField>
+                                  <Autocomplete
+                                     freeSolo
+                                     size="small"
+                                     options={currencyOptions}
+                                     value={other_charges_details?.[row.id]?.currency || ""}
+                                     onInputChange={(event, newValue) => setOtherChargesDetails({
+                                       ...other_charges_details,
+                                       [row.id]: { ...other_charges_details[row.id], currency: newValue }
+                                     })}
+                                     onChange={(event, newValue) => setOtherChargesDetails({
+                                       ...other_charges_details,
+                                       [row.id]: { ...other_charges_details[row.id], currency: newValue || "" }
+                                     })}
+                                     renderInput={(params) => (
+                                       <TextField
+                                         {...params}
+                                         variant="outlined"
+                                         size="small"
+                                         placeholder="Currency"
+                                         sx={compactInput}
+                                       />
+                                     )}
+                                   />
                                 </td>
                                 <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
                                   <TextField

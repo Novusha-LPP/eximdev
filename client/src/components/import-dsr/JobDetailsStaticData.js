@@ -79,7 +79,7 @@ function JobDetailsStaticData(props) {
     try {
       setIsSaving(true);
       setErrorMsg("");
-      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.mode}/${props.data?.year}/${props.params.job_no}`, editFormData);
+      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.branch_code || "AMD"}/${props.data?.trade_type || "IMP"}/${props.data?.mode}/${props.data?.year}/${props.params.job_no}`, editFormData);
       window.location.reload();
     } catch (err) {
       console.error(err);

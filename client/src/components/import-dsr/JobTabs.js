@@ -334,14 +334,18 @@ function JobTabs() {
           >
             Utility Tool
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<AssignmentIcon />}
-            onClick={() => setOpenMyRequests(true)}
-            sx={{ ...mainButtonStyle, background: "linear-gradient(135deg, #1a237e 0%, #311b92 100%)" }}
-          >
-            My Doc Requests
-          </Button>
+          <Tooltip title="My Doc Requests">
+            <IconButton
+              onClick={() => setOpenMyRequests(true)}
+              sx={{
+                background: "rgba(26, 35, 126, 0.05)",
+                color: "#1a237e",
+                "&:hover": { background: "rgba(26, 35, 126, 0.1)" }
+              }}
+            >
+              <AssignmentIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
 

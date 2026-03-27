@@ -17,7 +17,6 @@ import ContainerTrackDialog from "../components/ContainerTrackDialog";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAnchor } from "@fortawesome/free-solid-svg-icons";
 import { isAirMode, getContainerOrPackageLabel } from "../utils/modeLogic";
-import DocRequestCheckbox from "../components/document-collection/DocRequestCheckbox";
 
 // Helper components that need internal state
 const ContainerCellContent = ({ cell, handleCopy }) => {
@@ -385,6 +384,11 @@ function useJobColumns(
                 <br /> {custom_house} <br /> {payment_method}
               </a>
 
+              {branch_code === "GIM" && row.cfs_name && (
+                <div style={{ marginTop: "4px", fontWeight: "bold", color: "#000", fontSize: "0.85rem" }}>
+                  CFS Loc: {row.cfs_name}
+                </div>
+              )}
               <div style={{ marginTop: 4 }}>
                 <IconButton
                   size="small"

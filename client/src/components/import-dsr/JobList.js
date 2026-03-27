@@ -449,14 +449,9 @@ function JobList(props) {
             variant="body1"
             sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
           >
-            {props.status} Jobs: {total}
-          </Typography>
-          <Tooltip title="My Doc Requests">
-            <IconButton onClick={() => setMyRequestsOpen(true)} color="primary" sx={{ ml: 1, background: "rgba(26, 35, 126, 0.05)", "&:hover": { background: "rgba(26, 35, 126, 0.1)" } }}>
-              <AssignmentIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+          {props.status} Jobs: {total}
+        </Typography>
+      </Box>
 
         <TextField
           select

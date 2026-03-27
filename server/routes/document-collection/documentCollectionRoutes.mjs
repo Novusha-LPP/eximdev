@@ -148,8 +148,8 @@ router.patch(
   authMiddleware,
   async (req, res) => {
     try {
+      const { status, proof_image_urls, responsible_person, notes, updated_by_name } = req.body;
       const { id } = req.params;
-      const { status, proof_image_urls, responsible_person, notes } = req.body;
 
       const update = {};
       if (status !== undefined) update.status = status;
@@ -159,7 +159,7 @@ router.patch(
       if (status === "Collected") update.collected_at = new Date();
 
       update.updated_by = req.user?.username || "";
-      update.updated_by_name = `${req.user?.first_name || ""} ${req.user?.last_name || ""}`.trim() || update.updated_by;
+      update.updated_by_name = updated_by_name || `${req.user?.first_name || ""} ${req.user?.last_name || ""}`.trim() || update.updated_by;
 
       const updated = await DocumentCollection.findByIdAndUpdate(id, { $set: update }, {
         new: true,

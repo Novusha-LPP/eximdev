@@ -6,6 +6,7 @@ export const moduleCategories = {
   "Update Employee Data": "HR & Admin",
   "Exit Feedback": "HR & Admin",
   "Document Collection": "HR & Admin",
+  "Attendance": "HR & Admin",
   "Customer KYC": "Customer KYC",
   "Import - DSR": "DSR Module",
   "Audit Trail": "DSR Module",

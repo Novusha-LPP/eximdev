@@ -18,6 +18,24 @@ import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
 import Accounts from "../components/accounts/Accounts.js";
 // Documentation
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
+
+// Attendance
+import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
+import AttendanceDashboard from "../components/attendance/Dashboard.jsx";
+import AttendancePage from "../components/attendance/Attendance.jsx";
+import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
+import Regularization from "../components/attendance/Regularization.jsx";
+import HODDashboard from "../components/attendance/HODDashboard.jsx";
+import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
+import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
+import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
+import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
+import HolidayManagement from "../components/attendance/admin/HolidayManagement.jsx";
+import ShiftManagement from "../components/attendance/admin/ShiftManagement.jsx";
+import LeavePolicyManagement from "../components/attendance/admin/LeavePolicyManagement.jsx";
+import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
+import PayrollExport from "../components/attendance/admin/PayrollExport.jsx";
+import AttendanceSettings from "../components/attendance/admin/Settings.jsx";
 // Submission
 import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
@@ -839,6 +857,27 @@ function HomePageContent() {
                   path="/dgft/authorization-details/:id"
                   element={<ViewAuthorizationDetails />}
                 />
+
+                {/* Attendance Module */}
+                <Route path="/attendance" element={<ProtectedRoute requiredModule="Attendance"><AttendanceLayout /></ProtectedRoute>}>
+                  <Route path="dashboard" element={<AttendanceDashboard />} />
+                  <Route path="my-attendance" element={<AttendancePage />} />
+                  <Route path="leave" element={<LeaveManagement />} />
+                  <Route path="regularization" element={<Regularization />} />
+                  <Route path="hod-dashboard" element={<HODDashboard />} />
+                  <Route path="hod/leave-approval" element={<LeaveApproval />} />
+                  <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
+                  <Route path="admin" element={<AdminDashboard />} />
+                  <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
+                  <Route path="admin/holidays" element={<HolidayManagement />} />
+                  <Route path="admin/shifts" element={<ShiftManagement />} />
+                  <Route path="admin/leave-policies" element={<LeavePolicyManagement />} />
+                  <Route path="admin/lock" element={<LockAttendance />} />
+                  <Route path="admin/payroll" element={<PayrollExport />} />
+                  <Route path="admin/settings" element={<AttendanceSettings />} />
+                  <Route path="hod/report" element={<AttendanceReport />} />
+                  <Route path="report" element={<AttendanceReport isAdmin />} />
+                </Route>
               </Routes>
             </Box>
           </Box>

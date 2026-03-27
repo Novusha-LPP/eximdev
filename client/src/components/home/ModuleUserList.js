@@ -49,6 +49,7 @@ const MODULES = [
   "MRM",
   "Project Nucleus", // Keeping this as it was in the original list
   "Pulse",
+  "Attendance"
 ];
 
 function ModuleUserList() {

@@ -1,0 +1,149 @@
+/* ═══════════════════════════════════════════════
+   SFTIME  ·  Global Reset
+   ═══════════════════════════════════════════════ */
+@import './variables.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale
+}
+
+body {
+  font-family: var(--font);
+  font-size: .875rem;
+  line-height: 1.55;
+  color: var(--t1);
+  background: var(--bg);
+  min-height: 100vh
+}
+
+#root {
+  min-height: 100vh
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--t1)
+}
+
+p {
+  margin: 0
+}
+
+a {
+  color: var(--n600);
+  text-decoration: none;
+  transition: color var(--tf) var(--ease)
+}
+
+a:hover {
+  color: var(--n800)
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .6
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit
+}
+
+/* Thin scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg)
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--n200);
+  border-radius: 10px
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--n300)
+}
+
+/* Animations */
+@keyframes sf-spin {
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+@keyframes sf-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px)
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0)
+  }
+}
+
+@keyframes sf-scale {
+  from {
+    opacity: 0;
+    transform: scale(.96) translateY(8px)
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0)
+  }
+}
+
+@keyframes sf-pulse {
+
+  0%,
+  100% {
+    opacity: 1
+  }
+
+  50% {
+    opacity: .35
+  }
+}
+
+@keyframes sf-shimmer {
+  0% {
+    background-position: -200% 0
+  }
+
+  100% {
+    background-position: 200% 0
+  }
+}

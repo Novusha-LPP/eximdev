@@ -1,0 +1,211 @@
+/* C:\Users\NCP-1\attendance_module\client\src\components\common\EnterpriseTable.css */
+
+.enterprise-table-container {
+    /* 1. Force Chrome to render this element in Light Mode */
+    color-scheme: light;
+
+    /* 2. Explicitly set background to white (prevents variable inheritance issues) */
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Toolbar --- */
+.table-toolbar {
+    /* 3. Ensure toolbar has its own white background */
+    background: #ffffff;
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.toolbar-left,
+.toolbar-right {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* Ensure title is dark text */
+.table-title {
+    color: #0f172a;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.search-input-wrapper {
+    position: relative;
+    min-width: 250px;
+}
+
+.search-input-wrapper input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    /* 4. Force input background and text color */
+    background: #ffffff;
+    color: #1e293b;
+    outline: none;
+    font-size: 0.9rem;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+}
+
+/* --- Bulk Actions Bar --- */
+.bulk-actions-bar {
+    background: #f0f9ff;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid #0ea5e9;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.selected-count {
+    font-weight: 600;
+    color: #0ea5e9;
+}
+
+/* --- Table Wrapper --- */
+.table-scroll-wrapper {
+    overflow-x: auto;
+    width: 100%;
+}
+
+table.enterprise-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    /* Force white background for the table itself */
+    background: #ffffff;
+    color-scheme: light;
+}
+
+.enterprise-table th {
+    padding: 12px 16px;
+    background: var(--n50); /* Use variable for consistency */
+    font-weight: 600;
+    color: var(--n600);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--n100);
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.enterprise-table th.sortable {
+    cursor: pointer;
+}
+
+.enterprise-table th.sortable:hover {
+    background: var(--n100);
+    color: var(--n900);
+}
+
+.enterprise-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--n50);
+    color: var(--n800);
+    font-size: 0.875rem;
+    vertical-align: middle;
+}
+
+.enterprise-table tr {
+    transition: background 0.15s ease;
+    background: transparent;
+}
+
+.enterprise-table tr:hover {
+    background: var(--n50) !important;
+}
+
+.enterprise-table tr.selected {
+    background: var(--s-blue-bg) !important;
+}
+
+.enterprise-table tr.selected td {
+    color: var(--s-blue);
+}
+
+/* --- Pagination --- */
+.table-pagination {
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+    /* Fix for dark mode */
+    color: #334155;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.page-btn {
+    padding: 6px 12px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #334155;
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-btn.active {
+    background: #0ea5e9;
+    color: #fff;
+    border-color: #0ea5e9;
+}
+
+/* --- Loader & Empty State --- */
+.table-loader-overlay {
+    padding: 40px;
+    text-align: center;
+    color: #64748b;
+    background: #ffffff;
+}
+
+.empty-state {
+    padding: 60px 40px;
+    text-align: center;
+    color: #64748b;
+    background: #ffffff;
+}

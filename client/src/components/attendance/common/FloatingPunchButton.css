@@ -1,0 +1,102 @@
+:root {
+  --primary: #0284C7;
+  --success: #10B981;
+  --danger: #EF4444;
+}
+
+.floating-punch-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+  touch-action: none;
+}
+
+.floating-punch-container.dragging {
+  cursor: grabbing;
+  opacity: 0.8;
+  z-index: 1001;
+}
+
+.status-label-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #fff;
+}
+
+.status-label-badge.active {
+  color: var(--success);
+  border: 1px solid #10B981;
+}
+
+.status-label-badge.inactive {
+  color: #64748B;
+  border: 1px solid #E2E8F0;
+}
+
+.floating-punch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-transform: uppercase;
+}
+
+.timer-live {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.punch-in {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+}
+
+.punch-out {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+}
+
+.floating-punch-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+}
+
+.floating-punch-btn:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .floating-punch-btn {
+    width: 90px;
+    height: 90px;
+    font-size: 0.8rem;
+  }
+
+  .floating-punch-container {
+    bottom: 1rem;
+    right: 1rem;
+  }
+}

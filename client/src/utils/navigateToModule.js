@@ -71,6 +71,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/master-directory");
     case "Document Collection":
       return navigate("/document-collection");
+    case "Attendance":
+      return navigate("/attendance/dashboard");
     default:
       return navigate("/home");
   }

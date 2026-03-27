@@ -29,6 +29,8 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import mongoose from "mongoose";
 import compression from "compression";
@@ -257,6 +259,12 @@ import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
 import apiKeyRoutes from "./routes/admin/apiKeyRoutes.mjs";
+
+// Attendance Module
+import attendanceRoutes from "./routes/attendance/attendanceRoutes.mjs";
+import leaveRoutes from "./routes/attendance/leaveRoutes.mjs";
+import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
+import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
 
 
 
@@ -558,9 +566,15 @@ app.use("/api", organizationRoutes);
 app.use(tallyRoutes);
 app.use(apiKeyRoutes);
 
-
-
-
+// ─── Attendance Module ────────────────────────────────────────────────────────
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/leave', leaveRoutes);
+app.use('/api/hod-attendance', hodAttendanceRoutes);
+app.use('/api/master', masterAttendanceRoutes);
+app.use('/uploads/leaves', express.static(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
+));
+// ─────────────────────────────────────────────────────────────────────────────
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);
 

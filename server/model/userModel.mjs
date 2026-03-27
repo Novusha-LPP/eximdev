@@ -13,6 +13,10 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other'],
+  },
   isActive: {
     type: Boolean,
     default: true,
@@ -57,6 +61,59 @@ const userSchema = new Schema({
     type: String,
   },
   employment_type: { type: String },
+
+  // ─── Attendance-specific fields ───────────────────────────────────────────
+  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
+  department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', index: true },
+  shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', index: true },
+  hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  employee_code: { type: String, unique: true, sparse: true },
+
+  // Employment timeline
+  date_of_joining: { type: Date },
+  probation_end_date: { type: Date },
+  confirmation_date: { type: Date },
+  notice_period_days: { type: Number },
+
+  // Attendance Settings
+  attendance_settings: {
+    punch_allowed: { type: Boolean, default: true },
+    punch_methods: [{ type: String, enum: ['web', 'mobile', 'biometric'] }],
+    geo_fencing_required: { type: Boolean, default: false },
+    allowed_locations: [{
+      name: String,
+      latitude: Number,
+      longitude: Number,
+      radius_meters: Number
+    }],
+    face_recognition_required: { type: Boolean, default: false },
+    manager_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
+
+  // Leave Settings
+  leave_settings: {
+    leave_applicable: { type: Boolean, default: true },
+    applicable_from_date: Date,
+    special_leave_policies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'LeavePolicy' }]
+  },
+
+  // Work Pattern Override
+  work_pattern_override: {
+    custom_shift: { type: Boolean, default: false },
+    custom_weekly_offs: [Number],
+    custom_work_hours: Number
+  },
+
+  // Live punch status
+  last_punch_date: { type: Date },
+  last_punch_type: { type: String },
+  current_status: { type: String, enum: ['in_office', 'out_office', 'on_leave', 'on_duty'] },
+  monthly_salary: { type: Number, default: 0 },
+
+  // Audit
+  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // ─────────────────────────────────────────────────────────────────────────
+
   skill: {
     type: String,
   },

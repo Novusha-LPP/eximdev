@@ -1,0 +1,243 @@
+/* ═══════════════════════════════════════════════════════
+   SFTIME — Leave Policy Cards  (Employee / HOD read-only)
+   All classes prefixed lpc- to avoid collisions
+   ═══════════════════════════════════════════════════════ */
+
+.lpc-page {
+  font-family: var(--as-font);
+}
+
+/* ── Summary strip ─────────────────────────────────── */
+.lpc-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 1.125rem;
+}
+@media (max-width: 860px)  { .lpc-summary { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px)  { .lpc-summary { grid-template-columns: 1fr 1fr; } }
+
+.lpc-sum-tile {
+  background: var(--as-card);
+  border: 1px solid var(--as-border);
+  border-radius: 12px;
+  padding: .875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: box-shadow .15s;
+}
+.lpc-sum-tile:hover { box-shadow: var(--as-sh-md); }
+.lpc-sum-emoji { font-size: 1.25rem; margin-bottom: 3px; }
+.lpc-sum-val   { font-size: 1.5rem; font-weight: 700; color: var(--as-t1); letter-spacing: -.5px; line-height: 1; }
+.lpc-sum-lbl   { font-size: .6875rem; font-weight: 500; color: var(--as-t3); text-transform: uppercase; letter-spacing: .3px; }
+
+/* ── Filter pills ──────────────────────────────────── */
+.lpc-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.lpc-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid #e4e7f0;
+  border-radius: 999px;
+  background: #fff;
+  font-size: .8125rem;
+  font-weight: 500;
+  color: #4a5a7c;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.lpc-filter-pill:hover { background: #f4f6f9; border-color: #d0d5e3; color: #1e2540; }
+.lpc-filter-pill.active { background: #1e2540; border-color: #1e2540; color: #fff; }
+.lpc-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: .625rem;
+  font-weight: 700;
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+.lpc-filter-pill:not(.active) .lpc-pill-count { background: #eaecf2; color: #7d8bac; }
+
+/* ── Cards grid ────────────────────────────────────── */
+.lpc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+@media (max-width: 700px) { .lpc-grid { grid-template-columns: 1fr; } }
+
+/* ── Single policy card ────────────────────────────── */
+.lpc-card {
+  background: #fff;
+  border: 1px solid #e4e7f0;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: box-shadow .2s, transform .2s;
+}
+.lpc-card:hover {
+  box-shadow: 0 8px 26px rgba(30,37,64,.10);
+  transform: translateY(-2px);
+}
+
+/* colour top stripe */
+.lpc-stripe { height: 4px; width: 100%; }
+.lpc-stripe-casual   { background: linear-gradient(90deg,#1a5fab,#4a90e8); }
+.lpc-stripe-sick     { background: linear-gradient(90deg,#1a7c5c,#22c47a); }
+.lpc-stripe-earned   { background: linear-gradient(90deg,#5a3fa8,#8b6be0); }
+.lpc-stripe-compoff  { background: linear-gradient(90deg,#92610a,#f59e3a); }
+.lpc-stripe-maternity{ background: linear-gradient(90deg,#b53535,#e84040); }
+.lpc-stripe-unpaid   { background: linear-gradient(90deg,#7d8bac,#aab3cc); }
+.lpc-stripe-default  { background: linear-gradient(90deg,#1e2540,#3a4766); }
+
+/* Card header */
+.lpc-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: .875rem 1rem .75rem;
+  border-bottom: 1px solid #f0f2f8;
+}
+.lpc-emoji-box {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.375rem; flex-shrink: 0;
+}
+.lpc-ebox-casual   { background: linear-gradient(135deg,#e6f0fc,#dbeafe); }
+.lpc-ebox-sick     { background: linear-gradient(135deg,#e8f5f0,#dcfce7); }
+.lpc-ebox-earned   { background: linear-gradient(135deg,#ede9fd,#f3e8ff); }
+.lpc-ebox-compoff  { background: linear-gradient(135deg,#fef4e0,#fef9c3); }
+.lpc-ebox-maternity{ background: linear-gradient(135deg,#fdeaea,#fee2e2); }
+.lpc-ebox-unpaid   { background: #f0f2f8; }
+.lpc-ebox-default  { background: linear-gradient(135deg,#eaecf2,#f4f6f9); }
+
+.lpc-head-info { flex: 1; min-width: 0; }
+.lpc-name {
+  font-size: .9375rem; font-weight: 700; color: #1e2540;
+  margin-bottom: 5px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.lpc-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lpc-type-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: .6875rem; font-weight: 700; text-transform: capitalize;
+}
+.lpc-badge-casual   { background: #e6f0fc; color: #1a5fab; }
+.lpc-badge-sick     { background: #e8f5f0; color: #1a7c5c; }
+.lpc-badge-earned   { background: #ede9fd; color: #5a3fa8; }
+.lpc-badge-compoff  { background: #fef4e0; color: #92610a; }
+.lpc-badge-maternity{ background: #fdeaea; color: #b53535; }
+.lpc-badge-unpaid   { background: #f0f2f8; color: #7d8bac; }
+.lpc-badge-default  { background: #eaecf2; color: #4a5a7c; }
+.lpc-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+.lpc-code {
+  display: inline-flex; padding: 3px 7px;
+  border-radius: 6px; font-size: .6875rem; font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  background: #f4f6f9; color: #4a5a7c; border: 1px solid #e4e7f0;
+}
+.lpc-quota {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: .6875rem; font-weight: 700;
+  background: #1e2540; color: #fff;
+  flex-shrink: 0; white-space: nowrap;
+}
+
+/* Card body */
+.lpc-body { padding: .875rem 1rem; }
+
+.lpc-sec-title {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .625rem; font-weight: 700;
+  color: #aab3cc; text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 9px;
+}
+
+/* Rule chips */
+.lpc-rules-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 1rem;
+}
+.lpc-chip {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 9px;
+  background: #f8f9fc; border: 1px solid #f0f2f8; border-radius: 9px;
+}
+.lpc-chip-emoji { font-size: .9375rem; flex-shrink: 0; line-height: 1; }
+.lpc-chip-val { font-size: .8125rem; font-weight: 600; color: #1e2540; line-height: 1; }
+.lpc-chip-lbl { font-size: .5625rem; color: #aab3cc; text-transform: uppercase; letter-spacing: .3px; margin-top: 2px; }
+
+/* Feature flags */
+.lpc-flags {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  margin-bottom: 1rem;
+}
+.lpc-flag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: 999px;
+  font-size: .6875rem; font-weight: 600;
+}
+.lpc-flag.yes { background: #e8f5f0; color: #1a7c5c; }
+.lpc-flag.no  { background: #f0f2f8; color: #aab3cc; }
+
+/* Eligibility */
+.lpc-elig { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 1rem; }
+.lpc-elig-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: 7px;
+  font-size: .6875rem; font-weight: 600;
+  background: #eaecf2; color: #4a5a7c; text-transform: capitalize;
+}
+
+/* Footer row */
+.lpc-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: .75rem; border-top: 1px solid #f0f2f8;
+  gap: 8px; flex-wrap: wrap;
+}
+.lpc-foot-item { display: flex; flex-direction: column; gap: 2px; }
+.lpc-foot-val  { font-size: .8125rem; font-weight: 600; color: #1e2540; }
+.lpc-foot-lbl  { font-size: .5625rem; color: #aab3cc; text-transform: uppercase; letter-spacing: .3px; }
+
+/* ── Loading / Empty ───────────────────────────────── */
+.lpc-load {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 4rem;
+}
+.lpc-spin {
+  width: 28px; height: 28px;
+  border: 3px solid #e4e7f0; border-top-color: #1e2540;
+  border-radius: 50%; animation: lpc-spin .7s linear infinite;
+}
+@keyframes lpc-spin { to { transform: rotate(360deg); } }
+
+.lpc-empty {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 3rem 1.5rem;
+  text-align: center; gap: 8px;
+  background: #fff; border: 1px dashed #d0d5e3; border-radius: 14px;
+  color: #aab3cc;
+}
+.lpc-empty p { font-size: .875rem; }

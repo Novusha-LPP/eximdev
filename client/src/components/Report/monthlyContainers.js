@@ -216,7 +216,7 @@ const MonthlyContainers = () => {
   const [selectedImporter, setSelectedImporter] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
   const dynamicICDs = useDynamicICDs();
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory, loading: branchLoading } = useContext(BranchContext);
   const navigate = useNavigate();
 
   // The years array is now fetched dynamically through the useFetchYears hook.
@@ -269,8 +269,8 @@ const MonthlyContainers = () => {
     });
   };
 
-  const fetchData = useCallback(async () => {
-    if (!year) return; // Prevent 404 with empty year
+  const fetchData = useCallback(async (signal) => {
+    if (!year || branchLoading) return; // Prevent 404 with empty year or incorrect data before branch context
     setLoading(true);
     setError("");
     try {
@@ -282,17 +282,20 @@ const MonthlyContainers = () => {
       // Construct query string manually to avoid double encoding or missing ?
       const queryString = params.toString();
       const url = `${apiBase}/report/monthly-containers/${year}/${month}${queryString ? `?${queryString}` : ""}`;
-      const res = await axios.get(url);
+      const res = await axios.get(url, { signal });
       setData(res.data);
     } catch (err) {
+      if (axios.isCancel(err)) return;
       setError("Failed to fetch data");
     } finally {
       setLoading(false);
     }
-  }, [year, month, selectedICD, selectedBranch, selectedCategory]);
+  }, [year, month, selectedICD, selectedBranch, selectedCategory, branchLoading]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, [fetchData]);
 
   const handleSort = (column) => {

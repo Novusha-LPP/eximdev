@@ -47,9 +47,10 @@ function BillingPending() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears();
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory, loading: branchLoading } = useContext(BranchContext);
 
-  const fetchBillingPendingData = useCallback(async () => {
+  const fetchBillingPendingData = useCallback(async (signal) => {
+    if (!selectedYear || branchLoading) return; // Wait for branch context
     try {
       setLoading(true);
       setError(null);
@@ -59,6 +60,7 @@ function BillingPending() {
       const response = await axios.get(
         `${apiBase}/report/billing-pending`,
         {
+          signal,
           params: {
             year: selectedYear,
             branchId: selectedBranch && selectedBranch !== 'all' ? selectedBranch : undefined,
@@ -76,16 +78,19 @@ function BillingPending() {
       });
 
     } catch (err) {
+      if (axios.isCancel(err)) return;
       console.error("Error fetching billing pending data:", err);
       setError(`Failed to fetch billing pending data: ${err.message}`);
       setData({ count: 0, importerCount: [], results: [] });
     } finally {
       setLoading(false);
     }
-  }, [selectedYear, selectedBranch, selectedCategory]);
+  }, [selectedYear, selectedBranch, selectedCategory, branchLoading]);
 
   useEffect(() => {
-    fetchBillingPendingData();
+    const controller = new AbortController();
+    fetchBillingPendingData(controller.signal);
+    return () => controller.abort();
   }, [fetchBillingPendingData]);
 
   // Filter results based on search term

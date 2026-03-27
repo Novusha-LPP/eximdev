@@ -261,6 +261,9 @@ import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
 import apiKeyRoutes from "./routes/admin/apiKeyRoutes.mjs";
 
+// scmCube API
+import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
+
 
 
 
@@ -564,6 +567,9 @@ app.use("/api", currencyRoutes);
 app.use(tallyRoutes);
 app.use(apiKeyRoutes);
 
+// scmCube API
+app.use(scmCubeRoutes);
+
 
 
 
@@ -683,3 +689,4 @@ if (cluster.isPrimary) {
 }
 
 export default app;
+ 

@@ -2344,7 +2344,7 @@ function JobDetails() {
                       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
                         <thead>
                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Invoice Number", "Date", "PO NO", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
+                            {["Sr No", "Invoice Number", "Date", "PO NO", "PO Date", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
                               <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
                                 {h}
                               </th>
@@ -2386,6 +2386,17 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   placeholder="PO No"
+                                />
+                              </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  type="date"
+                                  value={row.po_date || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                  InputLabelProps={{ shrink: true }}
                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>

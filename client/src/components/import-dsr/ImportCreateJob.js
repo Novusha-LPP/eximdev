@@ -1257,7 +1257,7 @@ const ImportCreateJob = () => {
                       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#f8fafc' }}>
-                            {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
+                            {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO', 'PO Date', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
                               <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
                                 {h}
                               </th>
@@ -1298,6 +1298,17 @@ const ImportCreateJob = () => {
                                   placeholder="PO No"
                                   value={row.po_no || ""}
                                   onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
+                                <TextField
+                                  type="date"
+                                  size="small"
+                                  fullWidth
+                                  value={row.po_date || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
+                                  InputLabelProps={{ shrink: true }}
                                   sx={compactInput}
                                 />
                               </td>

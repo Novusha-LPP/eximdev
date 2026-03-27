@@ -400,6 +400,7 @@ function useFetchJobDetails(
       invoice_number: "",
       invoice_date: "",
       po_no: "",
+      po_date: "",
       invoice_details: [],
       total_inv_value: "",
       cth_no: "",
@@ -584,6 +585,8 @@ function useFetchJobDetails(
             values.description_details?.[0]?.sr_no_invoice ||
             values.invoice_number,
           invoice_date: values.invoice_details?.[0]?.invoice_date || values.invoice_date,
+          po_no: values.invoice_details?.[0]?.po_no || values.po_no,
+          po_date: values.invoice_details?.[0]?.po_date || values.po_date,
           total_inv_value: values.invoice_details?.[0]?.total_inv_value || values.total_inv_value,
           inv_currency: values.invoice_details?.[0]?.inv_currency || "",
           import_terms: values.invoice_details?.[0]?.toi || values.import_terms,
@@ -911,17 +914,21 @@ function useFetchJobDetails(
         invoice_number: safeValue(data.invoice_number),
         invoice_date: safeValue(data.invoice_date),
         po_no: safeValue(data.po_no),
+        po_date: safeValue(data.po_date),
         total_inv_value: safeValue(data.total_inv_value),
         invoice_details:
           Array.isArray(data.invoice_details) && data.invoice_details.length > 0
             ? safeValue(data.invoice_details, []).map(inv => ({
                 ...inv,
-                po_no: inv.po_no || ""
+                po_no: inv.po_no || "",
+                po_date: inv.po_date || ""
               }))
             : [
                 {
                   invoice_number: safeValue(data.invoice_number),
                   invoice_date: safeValue(data.invoice_date),
+                  po_no: safeValue(data.po_no),
+                  po_date: safeValue(data.po_date),
                   total_inv_value: safeValue(data.total_inv_value),
                   inv_currency: safeValue(data.inv_currency),
                   toi: safeValue(data.import_terms) || "CIF",

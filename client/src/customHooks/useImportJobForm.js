@@ -63,6 +63,7 @@ const useImportJobForm = () => {
   const [invoice_number, setInvoiceNumber] = useState("");
   const [invoice_date, setInvoiceDate] = useState("");
   const [po_no, setPoNo] = useState("");
+  const [po_date, setPoDate] = useState("");
   const [import_terms, setImportTerms] = useState("CIF");
   const [freight, setFreight] = useState("");
   const [insurance, setInsurance] = useState("");
@@ -79,6 +80,7 @@ const useImportJobForm = () => {
       invoice_number: "",
       invoice_date: "",
       po_no: "",
+      po_date: "",
       product_value: "",
       total_inv_value: "",
       inv_currency: "",
@@ -252,6 +254,7 @@ const useImportJobForm = () => {
       if (field === "invoice_number") setInvoiceNumber(value);
       if (field === "invoice_date") setInvoiceDate(value);
       if (field === "po_no") setPoNo(value);
+      if (field === "po_date") setPoDate(value);
       if (field === "inv_currency") setInvCurrency(value);
       if (field === "toi") setImportTerms(value);
       if (field === "freight") setFreight(value);
@@ -275,6 +278,7 @@ const useImportJobForm = () => {
         invoice_number: "",
         invoice_date: "",
         po_no: "",
+        po_date: "",
         product_value: "",
         total_inv_value: "",
         inv_currency: invoice_details[0]?.inv_currency || "",
@@ -380,6 +384,7 @@ const useImportJobForm = () => {
     setInvoiceNumber("");
     setInvoiceDate("");
     setPoNo("");
+    setPoDate("");
     setDescription("");
     setDescriptionDetails([
       {
@@ -400,6 +405,7 @@ const useImportJobForm = () => {
         invoice_number: "",
         invoice_date: "",
         po_no: "",
+        po_date: "",
         product_value: "",
         total_inv_value: "",
         inv_currency: "",
@@ -515,6 +521,7 @@ const useImportJobForm = () => {
     if (job.invoice_number) setInvoiceNumber(job.invoice_number);
     if (job.invoice_date) setInvoiceDate(job.invoice_date);
     if (job.po_no) setPoNo(job.po_no);
+    if (job.po_date) setPoDate(job.po_date);
     if (job.total_inv_value || job.cifValue) setTermValue(job.total_inv_value || job.cifValue || "");
     if (job.consignment_type) setConsignmentType(job.consignment_type);
     if (job.description) setDescription(job.description);
@@ -525,13 +532,15 @@ const useImportJobForm = () => {
     if (job.invoice_details && job.invoice_details.length > 0) {
       setInvoiceDetails(job.invoice_details.map(inv => ({
         ...inv,
-        po_no: inv.po_no || ""
+        po_no: inv.po_no || "",
+        po_date: inv.po_date || ""
       })));
     } else if (job.invoice_number || job.total_inv_value) {
       setInvoiceDetails([{
         invoice_number: job.invoice_number || "",
         invoice_date: job.invoice_date || "",
         po_no: job.po_no || "",
+        po_date: job.po_date || "",
         product_value: job.product_value || job.total_inv_value || "",
         total_inv_value: job.total_inv_value || "",
         inv_currency: job.inv_currency || "",
@@ -652,6 +661,7 @@ const useImportJobForm = () => {
           invoice_number,
           invoice_date,
           po_no,
+          po_date,
           invoice_details,
           other_charges_details,
           import_terms,

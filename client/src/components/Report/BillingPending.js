@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import {
   Box,
   Typography,
@@ -47,13 +47,9 @@ function BillingPending() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { years: availableYears, selectedYear, setSelectedYear } = useFetchYears();
-  const { selectedBranch, selectedCategory } = React.useContext(BranchContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
 
-  useEffect(() => {
-    fetchBillingPendingData();
-  }, [selectedYear, selectedBranch, selectedCategory]);
-
-  const fetchBillingPendingData = async () => {
+  const fetchBillingPendingData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -86,7 +82,11 @@ function BillingPending() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear, selectedBranch, selectedCategory]);
+
+  useEffect(() => {
+    fetchBillingPendingData();
+  }, [fetchBillingPendingData]);
 
   // Filter results based on search term
   const filteredResults = data.results.filter(

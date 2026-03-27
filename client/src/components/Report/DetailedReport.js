@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import {
   Container,
   Typography,
@@ -115,7 +115,8 @@ const DetailedReport = () => {
     { value: "12", label: "December" },
   ];
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!year) return; // Prevent 404 with empty year
     setLoading(true);
     setError("");
     try {
@@ -141,11 +142,11 @@ const DetailedReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [year, month, isSrManager, gradeFilter, selectedBranch, selectedCategory]);
 
   useEffect(() => {
     fetchData();
-  }, [year, month, gradeFilter, selectedBranch, selectedCategory]); // ✅ Added branch dependencies
+  }, [fetchData]);
 
   const handlePreviousMonth = () => {
     const prev = parseInt(month) - 1;

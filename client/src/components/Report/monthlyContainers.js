@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -30,7 +30,8 @@ import {
   Tooltip,
   useTheme,
   ClickAwayListener,
-  Popper
+  Popper,
+  Avatar
 } from "@mui/material";
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -42,7 +43,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, ResponsiveContainer, defs, linearGradient, stop } from 'recharts';
 import { useFetchYears } from "../../utils/useFetchYears";
 import { BranchContext } from "../../contexts/BranchContext";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
@@ -117,78 +118,84 @@ const ChartTooltip = ({ active, payload, label }) => {
 };
 
 // Trend chart component
-const TrendChart = ({ trendData }) => {
+const TrendChart = ({ trendData, importerName }) => {
   // Calculate net containers and TEU for each month
-  const dataWithTEU = trendData.map(item => ({
+  const dataWithStats = trendData.map(item => ({
     ...item,
-    netContainer20Ft: Math.max(0, (Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)),
-    netContainer40Ft: Math.max(0, (Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0)),
+    net20: Math.max(0, (Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)),
+    net40: Math.max(0, (Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0)),
     teu: Math.max(0,
       ((Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)) +
       2 * ((Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0))
     ),
   }));
 
-  console.log("Trend Data with TEU:", dataWithTEU);
-
   return (
-    <Box sx={{ width: 400, height: 250, p: 2 }}>
-      <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
-        6-Month Trend Analysis
-      </Typography>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={dataWithTEU} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis
-            dataKey="month"
-            tick={{ fontSize: 12 }}
-            axisLine={{ stroke: '#e0e0e0' }}
-          />
-          <YAxis
-            tick={{ fontSize: 12 }}
-            axisLine={{ stroke: '#e0e0e0' }}
-          />
-          <RechartsTooltip content={<ChartTooltip />} />
-          <Legend />
-
-          <Line
-            type="monotone"
-            dataKey="beDateCount"
-            stroke="#1976d2"
-            strokeWidth={2}
-            dot={(props) => <CustomDot {...props} allData={dataWithTEU} />}
-            activeDot={{ r: 6, stroke: '#1976d2', strokeWidth: 2 }}
-            name="BEs Filed"
-          />
-          <Line
-            type="monotone"
-            dataKey="netContainer20Ft"
-            stroke="#2e7d32"
-            strokeWidth={2}
-            dot={(props) => <CustomDot {...props} allData={dataWithTEU} />}
-            activeDot={{ r: 6, stroke: '#2e7d32', strokeWidth: 2 }}
-            name="Net 20ft Containers"
-          />
-          <Line
-            type="monotone"
-            dataKey="netContainer40Ft"
-            stroke="#ed6c02"
-            strokeWidth={2}
-            dot={(props) => <CustomDot {...props} allData={dataWithTEU} />}
-            activeDot={{ r: 6, stroke: '#ed6c02', strokeWidth: 2 }}
-            name="Net 40ft Containers"
-          />
-          <Line
-            type="monotone"
-            dataKey="teu"
-            stroke="#d32f2f"
-            strokeWidth={2}
-            dot={(props) => <CustomDot {...props} allData={dataWithTEU} />}
-            activeDot={{ r: 6, stroke: '#d32f2f', strokeWidth: 2 }}
-            name="TEU"
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <Box sx={{ width: 450, p: 3, background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)' }}>
+      <Box sx={{ mb: 2, textAlign: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1a237e', mb: 0.5 }}>
+          6-Month Trend Analysis
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+          {importerName}
+        </Typography>
+      </Box>
+      <Box sx={{ height: 280 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={dataWithStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorBE" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#1976d2" stopOpacity={0.1}/>
+                <stop offset="95%" stopColor="#1976d2" stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="colorTEU" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#d32f2f" stopOpacity={0.1}/>
+                <stop offset="95%" stopColor="#d32f2f" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+            <XAxis 
+              dataKey="month" 
+              tick={{ fontSize: 11, fontWeight: 500 }} 
+              axisLine={false}
+              tickLine={false}
+              dy={10}
+            />
+            <YAxis 
+              tick={{ fontSize: 11, fontWeight: 500 }} 
+              axisLine={false}
+              tickLine={false}
+            />
+            <RechartsTooltip content={<ChartTooltip />} />
+            <Legend 
+              verticalAlign="top" 
+              height={36}
+              iconType="circle"
+              wrapperStyle={{ fontSize: '11px', fontWeight: 600, paddingBottom: '10px' }}
+            />
+            <Area
+              type="monotone"
+              dataKey="beDateCount"
+              stroke="#1976d2"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#colorBE)"
+              name="BEs Filed"
+              animationDuration={1500}
+            />
+            <Area
+              type="monotone"
+              dataKey="teu"
+              stroke="#d32f2f"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#colorTEU)"
+              name="Total TEU"
+              animationDuration={1500}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </Box>
     </Box>
   );
 };
@@ -206,6 +213,7 @@ const MonthlyContainers = () => {
   const [popperOpen, setPopperOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
+  const [selectedImporter, setSelectedImporter] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
   const dynamicICDs = useDynamicICDs();
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
@@ -238,11 +246,20 @@ const MonthlyContainers = () => {
       lcl40Ft: Number(row.lcl40Ft) || 0,
     };
 
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    return months.map((month, index) => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dynamicMonths = [];
+    
+    // Use the selected month/year instead of the current date
+    const selectedMonthIdx = parseInt(month) - 1; 
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (selectedMonthIdx - i + 12) % 12;
+      dynamicMonths.push(monthNames[monthIndex]);
+    }
+    return dynamicMonths.map((m, index) => {
       const variation = (Math.random() - 0.5) * 0.3; // ±15% variation
       return {
-        month,
+        month: m,
         beDateCount: Math.max(1, Math.round(currentValues.beDateCount * (1 + variation * (index + 1) / 6))),
         container20Ft: Math.max(0, Math.round(currentValues.container20Ft * (1 + variation * (index + 1) / 6))),
         container40Ft: Math.max(0, Math.round(currentValues.container40Ft * (1 + variation * (index + 1) / 6))),
@@ -252,7 +269,8 @@ const MonthlyContainers = () => {
     });
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!year) return; // Prevent 404 with empty year
     setLoading(true);
     setError("");
     try {
@@ -261,19 +279,21 @@ const MonthlyContainers = () => {
       if (selectedICD) params.append("custom_house", selectedICD);
       if (selectedBranch && selectedBranch !== "all") params.append("branchId", selectedBranch);
       if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
-      const query = params.toString() ? `?${params.toString()}` : "";
-      const res = await axios.get(`${apiBase}/report/monthly-containers/${year}/${month}${query}`);
+      // Construct query string manually to avoid double encoding or missing ?
+      const queryString = params.toString();
+      const url = `${apiBase}/report/monthly-containers/${year}/${month}${queryString ? `?${queryString}` : ""}`;
+      const res = await axios.get(url);
       setData(res.data);
     } catch (err) {
       setError("Failed to fetch data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [year, month, selectedICD, selectedBranch, selectedCategory]);
 
   useEffect(() => {
     fetchData();
-  }, [year, month, selectedICD, selectedBranch, selectedCategory]);
+  }, [fetchData]);
 
   const handleSort = (column) => {
     const isAsc = sortColumn === column && sortDirection === 'asc';
@@ -344,6 +364,7 @@ const MonthlyContainers = () => {
   const handleChartHover = (event, row) => {
     setAnchorEl(event.currentTarget);
     setSelectedRowData(generateMockTrendData(row));
+    setSelectedImporter(row.importer);
     setPopperOpen(true);
   };
 
@@ -351,6 +372,7 @@ const MonthlyContainers = () => {
     setPopperOpen(false);
     setAnchorEl(null);
     setSelectedRowData(null);
+    setSelectedImporter("");
   };
 
   // Calculate statistics with LCL subtraction
@@ -380,13 +402,21 @@ const MonthlyContainers = () => {
           }
         }}
       >
-        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ color: color }}>{icon}</Box>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
+          <Avatar sx={{ 
+            bgcolor: `${color}20`, 
+            color: color, 
+            width: 50, 
+            height: 50,
+            boxShadow: `0 4px 10px ${color}30`
+          }}>
+            {icon}
+          </Avatar>
           <Box>
-            <Typography variant="h4" fontWeight="bold" color={color}>
+            <Typography variant="h5" fontWeight="800" color={color}>
               {value.toLocaleString()}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {title}
             </Typography>
           </Box>
@@ -602,85 +632,117 @@ const MonthlyContainers = () => {
           </Grid>
 
           <Fade in timeout={1000}>
-            <Card elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+            <Card elevation={4} sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #e0e0e0' }}>
               <TableContainer>
-                <Table>
+                <Table stickyHeader>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: 'grey.50' }}>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                    <TableRow>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'importer'}
                           direction={sortColumn === 'importer' ? sortDirection : 'asc'}
                           onClick={() => handleSort('importer')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           Importer Name
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'beDateCount'}
                           direction={sortColumn === 'beDateCount' ? sortDirection : 'asc'}
                           onClick={() => handleSort('beDateCount')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           BEs Filed
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'oocCount'}
                           direction={sortColumn === 'oocCount' ? sortDirection : 'asc'}
                           onClick={() => handleSort('oocCount')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           Out of Charge
                         </TableSortLabel>
                       </TableCell>
 
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'container20Ft'}
                           direction={sortColumn === 'container20Ft' ? sortDirection : 'asc'}
                           onClick={() => handleSort('container20Ft')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           Net 20ft Containers
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'container40Ft'}
                           direction={sortColumn === 'container40Ft' ? sortDirection : 'asc'}
                           onClick={() => handleSort('container40Ft')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           Net 40ft Containers
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'lcl20Ft'}
                           direction={sortColumn === 'lcl20Ft' ? sortDirection : 'asc'}
                           onClick={() => handleSort('lcl20Ft')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           LCL 20ft
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'lcl40Ft'}
                           direction={sortColumn === 'lcl40Ft' ? sortDirection : 'asc'}
                           onClick={() => handleSort('lcl40Ft')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           LCL 40ft
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'teu'}
                           direction={sortColumn === 'teu' ? sortDirection : 'asc'}
                           onClick={() => handleSort('teu')}
+                          sx={{ 
+                            color: 'white !important',
+                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                          }}
                         >
                           TEU
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem', textAlign: 'center' }}>
+                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem', textAlign: 'center' }}>
                         Trend
                       </TableCell>
                     </TableRow>
@@ -856,7 +918,6 @@ const MonthlyContainers = () => {
             </Card>
           </Fade>
 
-          {/* Trend Chart Popper */}
           <Popper
             open={popperOpen}
             anchorEl={anchorEl}
@@ -865,17 +926,34 @@ const MonthlyContainers = () => {
               {
                 name: 'offset',
                 options: {
-                  offset: [0, 10],
+                  offset: [0, 15],
                 },
               },
             ]}
             sx={{ zIndex: 1300 }}
           >
-            <ClickAwayListener onClickAway={handlePopperClose}>
-              <Card elevation={8} sx={{ borderRadius: 2 }}>
-                {selectedRowData && <TrendChart trendData={selectedRowData} />}
-              </Card>
-            </ClickAwayListener>
+            <Fade in={popperOpen} timeout={300}>
+              <Box>
+                <ClickAwayListener onClickAway={handlePopperClose}>
+                  <Card 
+                    elevation={12} 
+                    sx={{ 
+                      borderRadius: 3, 
+                      overflow: 'hidden',
+                      border: '1px solid rgba(25, 118, 210, 0.1)',
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+                    }}
+                  >
+                    {selectedRowData && (
+                      <TrendChart 
+                        trendData={selectedRowData} 
+                        importerName={selectedImporter} 
+                      />
+                    )}
+                  </Card>
+                </ClickAwayListener>
+              </Box>
+            </Fade>
           </Popper>
         </>
       )}

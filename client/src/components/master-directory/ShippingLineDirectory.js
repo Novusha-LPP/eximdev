@@ -24,18 +24,14 @@ const ShippingLineDirectory = () => {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
-    address: "",
-    city: "",
-    state: "",
-    country: "",
-    pincode: "",
-    gst: "",
-    tds: "",
-    pan: "",
     active: "Yes",
+    tds_percent: 0,
+    credit_terms: "",
+    cin: "",
     branches: []
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, title: "", message: "", onConfirm: null });
 
   const navigate = useNavigate();
 
@@ -49,6 +45,7 @@ const ShippingLineDirectory = () => {
       branches: [
         ...formData.branches,
         {
+          branch_no: formData.branches.length === 0 ? "0" : "",
           branchName: "",
           address: "",
           city: "",
@@ -57,25 +54,98 @@ const ShippingLineDirectory = () => {
           country: "",
           gst: "",
           pan: "",
-          bankName: "",
-          accountNo: "",
-          ifsc: "",
-          adCode: ""
+          accounts: [{ bankName: "", accountNo: "", ifsc: "", adCode: "" }]
         }
       ]
     });
   };
 
   const removeBranch = (index) => {
-    const updatedBranches = [...formData.branches];
-    updatedBranches.splice(index, 1);
-    setFormData({ ...formData, branches: updatedBranches });
+    const branch = formData.branches[index];
+    setConfirmDialog({
+      open: true,
+      title: "Delete Branch",
+      message: branch._id 
+        ? "Are you sure you want to delete this branch? This will be immediately removed from the database." 
+        : "Are you sure you want to delete this branch?",
+      onConfirm: async () => {
+        if (branch._id && editingId) {
+          try {
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-shipping-line/${editingId}/branch/${branch._id}`);
+            handleSnackbar("Branch deleted from database successfully", "success");
+            fetchShippingLines(); // Refresh the main list
+            
+            // Also update local state to reflect change immediately in Dialog
+            const updatedBranches = [...formData.branches];
+            updatedBranches.splice(index, 1);
+            setFormData({ ...formData, branches: updatedBranches });
+          } catch (error) {
+            handleSnackbar("Failed to delete branch from database", "error");
+          }
+        } else {
+          // New branch not yet in DB, just remove locally
+          const updatedBranches = [...formData.branches];
+          updatedBranches.splice(index, 1);
+          setFormData({ ...formData, branches: updatedBranches });
+        }
+      }
+    });
   };
 
   const handleBranchChange = (index, field, value) => {
     const updatedBranches = [...formData.branches];
-    updatedBranches[index][field] = value;
+    const processedValue = typeof value === 'string' ? value.toUpperCase() : value;
+    updatedBranches[index][field] = processedValue;
     setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const handleAccountChange = (branchIndex, accountIndex, field, value) => {
+    const updatedBranches = [...formData.branches];
+    updatedBranches[branchIndex].accounts[accountIndex][field] = value.toUpperCase();
+    setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const addAccount = (branchIndex) => {
+    const updatedBranches = [...formData.branches];
+    updatedBranches[branchIndex].accounts = [
+      ...(updatedBranches[branchIndex].accounts || []),
+      { bankName: "", accountNo: "", ifsc: "", adCode: "" }
+    ];
+    setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const removeAccount = (branchIndex, accountIndex) => {
+    const branch = formData.branches[branchIndex];
+    const account = branch.accounts[accountIndex];
+    
+    setConfirmDialog({
+      open: true,
+      title: "Delete Bank Account",
+      message: account._id && branch._id 
+        ? "Are you sure you want to delete this bank account? This will be immediately removed from the database." 
+        : "Are you sure you want to delete this bank account?",
+      onConfirm: async () => {
+        if (account._id && branch._id && editingId) {
+          try {
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-shipping-line/${editingId}/branch/${branch._id}/account/${account._id}`);
+            handleSnackbar("Bank account deleted from database successfully", "success");
+            fetchShippingLines();
+            
+            // Update local state
+            const updatedBranches = [...formData.branches];
+            updatedBranches[branchIndex].accounts.splice(accountIndex, 1);
+            setFormData({ ...formData, branches: updatedBranches });
+          } catch (error) {
+            handleSnackbar("Failed to delete bank account from database", "error");
+          }
+        } else {
+          // New account or branch, remove locally
+          const updatedBranches = [...formData.branches];
+          updatedBranches[branchIndex].accounts.splice(accountIndex, 1);
+          setFormData({ ...formData, branches: updatedBranches });
+        }
+      }
+    });
   };
 
   const fetchShippingLines = async () => {
@@ -111,32 +181,37 @@ const ShippingLineDirectory = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this shipping line?")) {
-      try {
-        await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-shipping-line/${id}`);
-        handleSnackbar("Shipping Line deleted successfully", "success");
-        fetchShippingLines();
-      } catch (error) {
-        handleSnackbar("Failed to delete shipping line", "error");
+  const handleDelete = (id) => {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Shipping Line",
+      message: "Are you sure you want to delete this shipping line? This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-shipping-line/${id}`);
+          handleSnackbar("Shipping Line deleted successfully", "success");
+          fetchShippingLines();
+        } catch (error) {
+          handleSnackbar("Failed to delete shipping line", "error");
+        }
       }
-    }
+    });
   };
 
   const handleEdit = (line) => {
     setEditingId(line._id);
     setFormData({
       name: line.name,
-      address: line.address || "",
-      city: line.city || "",
-      state: line.state || "",
-      country: line.country || "",
-      pincode: line.pincode || "",
-      gst: line.gst || "",
-      tds: line.tds || "",
-      pan: line.pan || "",
       active: line.active || "Yes",
-      branches: line.branches || []
+      tds_percent: line.tds_percent || 0,
+      credit_terms: line.credit_terms || "",
+      cin: line.cin || "",
+      branches: (line.branches || []).map(b => ({
+        ...b,
+        accounts: b.accounts && b.accounts.length > 0 
+          ? b.accounts 
+          : [{ bankName: "", accountNo: "", ifsc: "", adCode: "" }]
+      }))
     });
     setOpen(true);
   };
@@ -146,16 +221,22 @@ const ShippingLineDirectory = () => {
     setEditingId(null);
     setFormData({
       name: "",
-      address: "",
-      city: "",
-      state: "",
-      country: "",
-      pincode: "",
-      gst: "",
-      tds: "",
-      pan: "",
       active: "Yes",
-      branches: []
+      tds_percent: 0,
+      credit_terms: "",
+      cin: "",
+      branches: [{
+        branch_no: "0",
+        branchName: "Main Branch",
+        address: "",
+        city: "",
+        state: "",
+        pincode: "",
+        country: "",
+        gst: "",
+        pan: "",
+        accounts: [{ bankName: "", accountNo: "", ifsc: "", adCode: "" }]
+      }]
     });
   };
 
@@ -165,8 +246,11 @@ const ShippingLineDirectory = () => {
 
   const filteredLines = shippingLines.filter((l) =>
     l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (l.gst && l.gst.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (l.pan && l.pan.toLowerCase().includes(searchTerm.toLowerCase()))
+    l.branches?.some(b => 
+      (b.gst && b.gst.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (b.pan && b.pan.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (b.city && b.city.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
   );
 
   return (
@@ -216,28 +300,40 @@ const ShippingLineDirectory = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Name</TableCell>
-                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Address & Location</TableCell>
-                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>GST / PAN / TDS</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Branches</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Main Branch (GST/PAN)</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Address (Branch 0)</TableCell>
                 <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Active</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>TDS %</TableCell>
                 <TableCell align="center" sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredLines.map((line, index) => (
                 <TableRow key={index} hover>
-                  <TableCell>{line.name}</TableCell>
                   <TableCell>
-                    <Typography variant="body2">{line.address}</Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      {line.city ? `${line.city}, ` : ""}{line.state ? `${line.state}, ` : ""}{line.country} {line.pincode}
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{line.name}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    {line.branches?.length || 0} Branch(es)
+                    <Typography variant="caption" display="block" color="textSecondary">
+                      {line.branches?.map(b => `${b.branch_no || ""}: ${b.branchName}`).join(", ")}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" display="block">GST: {line.gst || "N/A"}</Typography>
-                    <Typography variant="caption" display="block">PAN: {line.pan || "N/A"}</Typography>
-                    <Typography variant="caption" display="block">TDS: {line.tds || "N/A"}</Typography>
+                    <Typography variant="caption" display="block">GST: {line.branches?.[0]?.gst || "N/A"}</Typography>
+                    <Typography variant="caption" display="block">PAN: {line.branches?.[0]?.pan || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{line.branches?.[0]?.address}</Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {line.branches?.[0]?.city ? `${line.branches[0].city}, ` : ""}
+                      {line.branches?.[0]?.state ? `${line.branches[0].state}, ` : ""}
+                      {line.branches?.[0]?.country} {line.branches?.[0]?.pincode}
+                    </Typography>
                   </TableCell>
                   <TableCell>{line.active}</TableCell>
+                  <TableCell>{line.tds_percent || 0}%</TableCell>
                   <TableCell align="center">
                     <IconButton size="small" onClick={() => handleEdit(line)} color="primary">
                         <EditIcon fontSize="small" />
@@ -269,54 +365,9 @@ const ShippingLineDirectory = () => {
               fullWidth
               label="Shipping Line Name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
             />
             <TextField
-              fullWidth
-              label="GST Number"
-              value={formData.gst}
-              onChange={(e) => setFormData({ ...formData, gst: e.target.value.toUpperCase() })}
-            />
-            <TextField
-              fullWidth
-              label="Address"
-              multiline
-              rows={2}
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              sx={{ gridColumn: 'span 2' }}
-            />
-            <TextField
-              label="City"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            />
-            <TextField
-              label="State"
-              value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-            />
-            <TextField
-              label="Country"
-              value={formData.country}
-              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-            />
-            <TextField
-              label="Pincode"
-              value={formData.pincode}
-              onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-            />
-            <TextField
-              label="PAN Number"
-              value={formData.pan}
-              onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
-            />
-            <TextField
-              label="TDS"
-              value={formData.tds}
-              onChange={(e) => setFormData({ ...formData, tds: e.target.value })}
-            />
-             <TextField
               select
               label="Active"
               SelectProps={{ native: true }}
@@ -326,6 +377,27 @@ const ShippingLineDirectory = () => {
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
             </TextField>
+            <TextField
+              fullWidth
+              label="TDS %"
+              type="number"
+              value={formData.tds_percent}
+              onChange={(e) => setFormData({ ...formData, tds_percent: parseFloat(e.target.value) || 0 })}
+            />
+            <TextField
+              fullWidth
+              label="Credit Terms"
+              placeholder="e.g. 30 DAYS"
+              value={formData.credit_terms}
+              onChange={(e) => setFormData({ ...formData, credit_terms: e.target.value.toUpperCase() })}
+            />
+            <TextField
+              fullWidth
+              label="CIN No"
+              placeholder="Corporate Identification Number"
+              value={formData.cin}
+              onChange={(e) => setFormData({ ...formData, cin: e.target.value.toUpperCase() })}
+            />
 
             <Box sx={{ gridColumn: 'span 2', mt: 2 }}>
               <Divider sx={{ mb: 2 }} />
@@ -337,7 +409,7 @@ const ShippingLineDirectory = () => {
                 <Accordion key={index} elevation={0} sx={{ border: '1px solid #e0e0e0', mb: 1 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography sx={{ fontWeight: 'bold' }}>
-                      {branch.branchName || `Branch ${index + 1}`} 
+                      {branch.branch_no ? `${branch.branch_no}: ` : ""}{branch.branchName || `Branch ${index + 1}`} 
                       {branch.city ? ` - ${branch.city}` : ""}
                     </Typography>
                   </AccordionSummary>
@@ -352,6 +424,13 @@ const ShippingLineDirectory = () => {
                         <RemoveCircleOutlineIcon />
                       </IconButton>
                       
+                      <TextField 
+                        label="Branch No" 
+                        fullWidth 
+                        size="small"
+                        value={branch.branch_no} 
+                        onChange={(e) => handleBranchChange(index, "branch_no", e.target.value)} 
+                      />
                       <TextField 
                         label="Branch Name" 
                         fullWidth 
@@ -412,37 +491,56 @@ const ShippingLineDirectory = () => {
                         onChange={(e) => handleBranchChange(index, "pan", e.target.value.toUpperCase())} 
                       />
                       <Box sx={{ gridColumn: 'span 2', mt: 1 }}>
-                        <Typography variant="subtitle2" color="primary" gutterBottom>Account Information</Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                          <TextField 
-                            label="Bank Name" 
-                            fullWidth 
-                            size="small"
-                            value={branch.bankName} 
-                            onChange={(e) => handleBranchChange(index, "bankName", e.target.value)} 
-                          />
-                          <TextField 
-                            label="Account No" 
-                            fullWidth 
-                            size="small"
-                            value={branch.accountNo} 
-                            onChange={(e) => handleBranchChange(index, "accountNo", e.target.value)} 
-                          />
-                          <TextField 
-                            label="IFSC Code" 
-                            fullWidth 
-                            size="small"
-                            value={branch.ifsc} 
-                            onChange={(e) => handleBranchChange(index, "ifsc", e.target.value)} 
-                          />
-                          <TextField 
-                            label="AD Code" 
-                            fullWidth 
-                            size="small"
-                            value={branch.adCode} 
-                            onChange={(e) => handleBranchChange(index, "adCode", e.target.value)} 
-                          />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="subtitle2" color="primary">Account Information</Typography>
+                            <Button size="small" startIcon={<AddIcon />} onClick={() => addAccount(index)}>Add Account</Button>
                         </Box>
+                        {branch.accounts?.map((account, accIdx) => (
+                            <Box key={accIdx} sx={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr', 
+                                gap: 2, 
+                                mb: 2, 
+                                p: 1.5, 
+                                border: '1px dashed #ccc',
+                                borderRadius: 1,
+                                position: 'relative'
+                            }}>
+                                {branch.accounts.length > 1 && (
+                                    <IconButton size="small" color="error" sx={{ position: 'absolute', right: 0, top: 0 }} onClick={() => removeAccount(index, accIdx)}>
+                                        <RemoveCircleOutlineIcon fontSize="small" />
+                                    </IconButton>
+                                )}
+                                <TextField 
+                                    label="Bank Name" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.bankName} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "bankName", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="Account No" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.accountNo} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "accountNo", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="IFSC Code" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.ifsc} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "ifsc", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="AD Code" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.adCode} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "adCode", e.target.value)} 
+                                />
+                            </Box>
+                        ))}
                       </Box>
                     </Box>
                   </AccordionDetails>
@@ -464,6 +562,27 @@ const ShippingLineDirectory = () => {
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained">{editingId ? "Update" : "Add"}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}>
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <Typography>{confirmDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>Cancel</Button>
+          <Button 
+            onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog({ ...confirmDialog, open: false });
+            }} 
+            color="error" 
+            variant="contained"
+          >
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
 

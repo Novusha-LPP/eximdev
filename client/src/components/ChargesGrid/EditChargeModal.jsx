@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import FileUploadModal from './FileUploadModal';
 import RequestPaymentModal from './RequestPaymentModal';
 import PurchaseBookModal from './PurchaseBookModal';
@@ -15,10 +15,12 @@ const EditChargeModal = ({
   shippingLineAirline, 
   importerName,
   jobNumber = '',
+  jobDisplayNumber = '',
   jobYear = '',
   jobInvoiceNumber = '',
   jobInvoiceDate = '',
-  jobInvoiceValue = ''
+  jobInvoiceValue = '',
+  jobCthNo = ''
 }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
@@ -29,6 +31,30 @@ const EditChargeModal = ({
   const [shippingLines, setShippingLines] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
+  const [activeDropdown, setActiveDropdown] = useState({ index: null, section: null }); // Track which row/section has open dropdown
+  const dropdownRef = useRef(null);
+  const modalRef = useRef(null);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isOpen]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setActiveDropdown({ index: null, section: null });
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchMasterData = async () => {
@@ -52,15 +78,14 @@ const EditChargeModal = ({
     if (isOpen) {
       const initialData = JSON.parse(JSON.stringify(selectedCharges)).map(charge => ({
         ...charge,
-        invoice_number: charge.invoice_number || jobInvoiceNumber,
-        invoice_date: charge.invoice_date || jobInvoiceDate,
-        invoice_value: charge.invoice_value || jobInvoiceValue
+        invoice_number: charge.invoice_number || '',
+        invoice_date: charge.invoice_date || ''
       }));
       setFormData(initialData);
       setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
       setUploadIndex(null);
     }
-  }, [isOpen, selectedCharges, jobInvoiceNumber, jobInvoiceDate, jobInvoiceValue]);
+  }, [isOpen, selectedCharges]);
 
   if (!isOpen) return null;
 
@@ -80,6 +105,15 @@ const EditChargeModal = ({
       updated[index][section] = updated[index][section] || {};
       updated[index][section][field] = value;
       
+      // Auto-populate TDS if selecting a shipping line
+      if (section === 'cost' && field === 'partyName') {
+        const matchedSL = shippingLines.find(sl => sl.name?.toUpperCase() === value?.toUpperCase());
+        if (matchedSL && matchedSL.tds_percent > 0) {
+          updated[index][section].isTds = true;
+          updated[index][section].tdsPercent = matchedSL.tds_percent;
+        }
+      }
+
       // Auto-populate Payable To if type is 'Others' in Cost section
       if (section === 'cost' && field === 'partyType' && value === 'Others' && shippingLineAirline) {
         updated[index][section].partyName = shippingLineAirline;
@@ -90,7 +124,7 @@ const EditChargeModal = ({
         updated[index][section].partyName = importerName;
       }
 
-      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate'];
+      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate', 'partyName'];
       if (fieldsToTriggerRecalc.includes(field)) {
         const sectionRef = updated[index][section];
         const qty = parseFloat(sectionRef.qty) || 0;
@@ -112,6 +146,22 @@ const EditChargeModal = ({
         sectionRef.gstAmount = derivedGst;
         sectionRef.basicAmount = derivedBasic; // TDS always calculated on this
 
+        // GST Split Logic based on GSTIN (24 = Gujarat)
+        const partyName = sectionRef.partyName;
+        const party = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+        const branchIndex = sectionRef.branchIndex || 0;
+        const gstin = party?.branches?.[branchIndex]?.gst || "";
+        
+        if (gstin.startsWith("24")) {
+          sectionRef.cgst = derivedGst / 2;
+          sectionRef.sgst = derivedGst / 2;
+          sectionRef.igst = 0;
+        } else {
+          sectionRef.cgst = 0;
+          sectionRef.sgst = 0;
+          sectionRef.igst = derivedGst;
+        }
+
         // TDS Calculation: ALWAYS on the GST-exclusive Basic Amount
         const isTds = sectionRef.isTds || false;
         const tdsPercent = parseFloat(sectionRef.tdsPercent) || 0;
@@ -131,10 +181,32 @@ const EditChargeModal = ({
           sectionRef.netPayable = sectionRef.basicAmount - sectionRef.tdsAmount;
         }
       }
+      
+      // Open dropdown when typing party name
+      if (field === 'partyName') {
+        setActiveDropdown({ index, section });
+      } else if (field === 'partyType') {
+        // Clear party selected when type changes
+        updated[index][section].partyName = '';
+        updated[index][section].isTds = false;
+        updated[index][section].tdsPercent = 0;
+        setActiveDropdown({ index: null, section: null });
+      }
     } else {
       updated[index][field] = value;
     }
     setFormData(updated);
+  };
+
+  const handleSelectParty = (index, section, item) => {
+    handleFieldChange(index, 'partyName', item.name, section);
+    // Initialize branch index and trigger recalc
+    const updated = [...formData];
+    updated[index][section].branchIndex = 0;
+    setFormData(updated);
+    // Explicitly trigger recalc for branch change
+    handleFieldChange(index, 'branchIndex', 0, section);
+    setActiveDropdown({ index: null, section: null });
   };
 
   const handleSave = () => {
@@ -154,8 +226,8 @@ const EditChargeModal = ({
   };
 
   return (
-    <div className="modal-overlay active">
-      <div className="edit-charge-modal">
+    <div className="modal-overlay active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
+      <div className="edit-charge-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-title">Edit Charge</div>
         <div className="modal-body">
           {formData.map((row, i) => (
@@ -180,10 +252,6 @@ const EditChargeModal = ({
                   <div className="form-row">
                     <span className="form-label">Invoice Date</span>
                     <input type="date" className="form-input" value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
-                  </div>
-                  <div className="form-row">
-                    <span className="form-label">Invoice Value</span>
-                    <input type="number" className="form-input" value={row.invoice_value || ''} onChange={e => handleFieldChange(i, 'invoice_value', e.target.value)} />
                   </div>
                 </div>
 
@@ -316,27 +384,61 @@ const EditChargeModal = ({
                               </div>
                               <div className="ep-row">
                                 <span className="ep-label">Receivable From</span>
-                                <div className="ep-search-wrap">
-                                  <input type="text" value={row.revenue?.partyName || ''} onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'revenue')} />
-                                  <button type="button" className="ep-search-btn">🔍</button>
+                                <div className="ep-search-container">
+                                  <div className="ep-search-wrap">
+                                    <input 
+                                      type="text" 
+                                      value={row.revenue?.partyName || ''} 
+                                      onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'revenue')} 
+                                      onFocus={() => setActiveDropdown({ index: i, section: 'revenue' })}
+                                    />
+                                    <button type="button" className="ep-search-btn">🔍</button>
+                                  </div>
+                                  {activeDropdown.index === i && activeDropdown.section === 'revenue' && (row.revenue?.partyName?.length >= 2) && (
+                                    <ul className="ep-dropdown-list" ref={dropdownRef}>
+                                      {(row.revenue?.partyType?.toUpperCase() === 'AGENT' || row.revenue?.partyType?.toUpperCase() === 'CARRIER' ? shippingLines : 
+                                        row.revenue?.partyType?.toUpperCase() === 'CUSTOMER' ? organizations : [])
+                                        .filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase()))
+                                        .slice(0, 20)
+                                        .map((item, idx) => (
+                                          <li key={idx} className="ep-dropdown-item" onClick={() => handleSelectParty(i, 'revenue', item)}>
+                                            <span className="ep-item-name">{item.name}</span>
+                                            <span className="ep-item-sub">{item.city || 'Master Directory'}</span>
+                                          </li>
+                                        ))}
+                                      {/* Click outside to close is handled by modal background or focus loss usually, but let's add no-results */}
+                                      {((row.revenue?.partyType === 'Agent' || row.revenue?.partyType === 'Carrier' ? shippingLines : 
+                                        row.revenue?.partyType === 'Customer' ? organizations : [])
+                                        .filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase()))
+                                        .length === 0) && <li className="ep-dropdown-item"><span className="ep-item-sub">No results found</span></li>}
+                                    </ul>
+                                  )}
                                 </div>
                                 {row.revenue?.branchCode && <span className="ep-link" style={{ marginLeft: '6px', whiteSpace: 'nowrap' }}>{row.revenue.branchCode}</span>}
                               </div>
                               <div className="ep-row">
                                 <span className="ep-label">Total Amount</span>
                                 <div className="ep-inline">
-                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.revenue?.amount || 0} />
-                                  <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>{row.revenue?.currency || 'INR'}</span>
-                                </div>
-                              </div>
-                              <div className="ep-row"></div>
-                              <div className="ep-row">
-                                <span className="ep-label">Total Amount(INR)</span>
-                                <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.revenue?.amountINR || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
                                 </div>
                               </div>
+                              {(() => {
+                                const party = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === row.revenue?.partyName?.toUpperCase());
+                                if (party && party.branches?.length > 1) {
+                                  return (
+                                    <div className="ep-row">
+                                      <span className="ep-label">Branch</span>
+                                      <select className="ep-select" value={row.revenue?.branchIndex || 0} onChange={e => handleFieldChange(i, 'branchIndex', parseInt(e.target.value), 'revenue')}>
+                                        {party.branches.map((b, bIdx) => (
+                                          <option key={bIdx} value={bIdx}>{b.branchName || `Branch ${bIdx + 1}`}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                             <div className="ep-copy-row">
                               Copy to Cost <input type="checkbox" checked={row.copyToCost || false} onChange={e => handleFieldChange(i, 'copyToCost', e.target.checked)} />
@@ -440,40 +542,61 @@ const EditChargeModal = ({
                               </div>
                               <div className="ep-row">
                                 <span className="ep-label">Payable To</span>
-                                <div className="ep-search-wrap">
-                                  <input 
-                                    type="text" 
-                                    list={`masterList-${i}`}
-                                    value={row.cost?.partyName || ''} 
-                                    onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'cost')} 
-                                  />
-                                  <button type="button" className="ep-search-btn">🔍</button>
-                                  <datalist id={`masterList-${i}`}>
-                                    {(row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
-                                      row.cost?.partyType === 'Vendor' || row.cost?.partyType === 'Transporter' ? suppliers :
-                                      row.cost?.partyType === 'Importer' ? organizations : [])
-                                      .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
-                                      .slice(0, 10)
-                                      .map((item, idx) => (
-                                        <option key={idx} value={item.name} />
-                                      ))}
-                                  </datalist>
+                                <div className="ep-search-container">
+                                  <div className="ep-search-wrap">
+                                    <input 
+                                      type="text" 
+                                      value={row.cost?.partyName || ''} 
+                                      onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'cost')} 
+                                      onFocus={() => setActiveDropdown({ index: i, section: 'cost' })}
+                                    />
+                                    <button type="button" className="ep-search-btn">🔍</button>
+                                  </div>
+                                  {activeDropdown.index === i && activeDropdown.section === 'cost' && (row.cost?.partyName?.length >= 2) && (
+                                    <ul className="ep-dropdown-list" ref={dropdownRef}>
+                                      {(row.cost?.partyType?.toUpperCase() === 'AGENT' || row.cost?.partyType?.toUpperCase() === 'OTHERS' ? shippingLines : 
+                                        row.cost?.partyType?.toUpperCase() === 'VENDOR' || row.cost?.partyType?.toUpperCase() === 'TRANSPORTER' ? [...suppliers, ...shippingLines] :
+                                        row.cost?.partyType?.toUpperCase() === 'IMPORTER' ? organizations : [])
+                                        .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
+                                        .slice(0, 20)
+                                        .map((item, idx) => (
+                                          <li key={idx} className="ep-dropdown-item" onClick={() => handleSelectParty(i, 'cost', item)}>
+                                            <span className="ep-item-name">{item.name}</span>
+                                            <span className="ep-item-sub">{item.city || 'Master Directory'}</span>
+                                          </li>
+                                        ))}
+                                      {((row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
+                                        row.cost?.partyType === 'Vendor' || row.cost?.partyType === 'Transporter' ? [...suppliers, ...shippingLines] :
+                                        row.cost?.partyType === 'Importer' ? organizations : [])
+                                        .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
+                                        .length === 0) && <li className="ep-dropdown-item"><span className="ep-item-sub">No results found</span></li>}
+                                    </ul>
+                                  )}
                                 </div>
                               </div>
                               <div className="ep-row">
                                 <span className="ep-label">Total Amount</span>
                                 <div className="ep-inline">
-                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amount || 0} />
-                                  <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>{row.cost?.currency || 'INR'}</span>
-                                </div>
-                              </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Total Amount(INR)</span>
-                                <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amountINR || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
                                 </div>
                               </div>
+                              {(() => {
+                                const party = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === row.cost?.partyName?.toUpperCase());
+                                if (party && party.branches?.length > 1) {
+                                  return (
+                                    <div className="ep-row">
+                                      <span className="ep-label">Branch</span>
+                                      <select className="ep-select" value={row.cost?.branchIndex || 0} onChange={e => handleFieldChange(i, 'branchIndex', parseInt(e.target.value), 'cost')}>
+                                        {party.branches.map((b, bIdx) => (
+                                          <option key={bIdx} value={bIdx}>{b.branchName || `Branch ${bIdx + 1}`}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
 
                               {/* GST & TDS FIELDS FOR COST */}
                               <div className="ep-row">
@@ -531,17 +654,50 @@ const EditChargeModal = ({
                                       color: '#fff', 
                                       borderColor: '#1565c0' 
                                     }}
-                                    onClick={() => setPurchaseBookData({
-                                        partyName: row.cost?.partyName,
-                                        amount: row.cost?.amount,
-                                        gstRate: row.cost?.gstRate,
-                                        cgst: row.cost?.cgst,
-                                        sgst: row.cost?.sgst,
-                                        igst: row.cost?.igst,
-                                        tdsAmount: row.cost?.tdsAmount,
-                                        totalAmount: row.cost?.totalAmount,
-                                        chargeHead: row.chargeHead
-                                    })}
+                                    onClick={() => {
+                                      const partyName = row.cost?.partyName;
+                                      const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                      setPurchaseBookData(() => {
+                                        const cost = row.cost || {};
+                                        const rate = parseFloat(cost.gstRate) || 18;
+                                        const amt = parseFloat(cost.amount) || 0;
+                                        const includeGst = cost.isGst || false;
+                                        
+                                        let basic = amt;
+                                        let totalGst = 0;
+                                        
+                                        if (includeGst) {
+                                          basic = amt / (1 + (rate / 100));
+                                          totalGst = amt - basic;
+                                        } else {
+                                          totalGst = amt * (rate / 100);
+                                        }
+
+                                        const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
+                                        const isGujarat = branch.gst?.startsWith('24');
+
+                                        return {
+                                          partyName,
+                                          partyDetails,
+                                          amount: amt,
+                                          basicAmount: basic,
+                                          gstAmount: totalGst,
+                                          gstRate: rate,
+                                          cgst: isGujarat ? totalGst / 2 : 0,
+                                          sgst: isGujarat ? totalGst / 2 : 0,
+                                          igst: !isGujarat ? totalGst : 0,
+                                          tdsAmount: cost.tdsAmount,
+                                          netPayable: cost.netPayable,
+                                          totalAmount: cost.totalAmount,
+                                          chargeHead: row.chargeHead,
+                                          invoice_number: row.invoice_number,
+                                          invoice_date: row.invoice_date,
+                                          cthNo: jobCthNo,
+                                          jobDisplayNumber,
+                                          branchIndex: cost.branchIndex || 0
+                                        };
+                                      });
+                                    }}
                                   >
                                     Purchase book
                                   </button>
@@ -549,11 +705,18 @@ const EditChargeModal = ({
                                     type="button" 
                                     className="upload-btn" 
                                     style={{ backgroundColor: '#d32f2f', color: '#fff', borderColor: '#b71c1c' }}
-                                    onClick={() => setPaymentRequestData({
-                                        partyName: row.cost?.partyName,
+                                    onClick={() => {
+                                      const partyName = row.cost?.partyName;
+                                      const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                      setPaymentRequestData({
+                                        partyName,
+                                        partyDetails,
+                                        jobDisplayNumber,
+                                        branchIndex: row.cost?.branchIndex || 0,
                                         netPayable: row.cost?.netPayable,
                                         chargeHead: row.chargeHead
-                                    })}
+                                      });
+                                    }}
                                   >
                                     Request Payment
                                   </button>
@@ -609,4 +772,4 @@ const EditChargeModal = ({
   );
 };
 
-export default EditChargeModal;
+export default memo(EditChargeModal);

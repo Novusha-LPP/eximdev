@@ -131,6 +131,23 @@
 .ep-desc-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .ep-desc-input { flex: 1; height: 20px; border: 1px solid #8faec7; padding: 1px 5px; background: white; border-radius: 2px; font-family: inherit; font-size: 12px;}
 
+/* ══ CUSTOM DROPDOWN ══ */
+.ep-search-container { position: relative; flex: 1; display: flex; }
+.ep-dropdown-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: white; border: 1px solid #7a9cbf; border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 1100;
+  max-height: 200px; overflow-y: auto; list-style: none; padding: 0; margin: 0;
+}
+.ep-dropdown-item {
+  padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f0f4f8;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ep-dropdown-item:last-child { border-bottom: none; }
+.ep-dropdown-item:hover { background: #eef4ff; }
+.ep-item-name { font-weight: bold; color: #1a3a5c; font-size: 11px; }
+.ep-item-sub { font-size: 10px; color: #7a9cbf; }
+
 .modal-footer {
   background: #c8d4e0; border-top: 1px solid #9aacbd;
   padding: 8px 12px; display: flex; justify-content: flex-end; gap: 6px; flex-shrink: 0;

@@ -22,14 +22,22 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
     useEffect(() => {
         if (isOpen && initialData) {
             // Generate request number: R1/JOB_NO/YEAR
-            const generatedRequestNo = `R1/${jobNumber || ''}/${jobYear || ''}`;
+            const jobRef = initialData.jobDisplayNumber || jobNumber || '';
+            const generatedRequestNo = `R1/${jobRef}/${jobYear || ''}`;
+            const party = initialData.partyDetails;
+            const branchIndex = initialData.branchIndex || 0;
+            const branch = party?.branches?.[branchIndex];
+            const account = branch?.accounts?.[0] || {};
             
             setFormData(prev => ({
                 ...prev,
                 requestNo: generatedRequestNo,
                 paymentTo: initialData.partyName || '',
                 amount: initialData.netPayable || '',
-                againstBill: initialData.chargeHead || ''
+                againstBill: initialData.chargeHead || '',
+                accountNo: account.accountNo || '',
+                bankName: account.bankName || '',
+                ifscCode: account.ifsc || ''
             }));
         }
     }, [isOpen, initialData, jobNumber, jobYear]);

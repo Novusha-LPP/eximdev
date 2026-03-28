@@ -114,7 +114,12 @@
 
 .nav-item:hover {
   background: #f3f4f6;
-  color: #111827;
+  color: #111827 !important;
+}
+
+.nav-item:hover .nav-label,
+.nav-item:hover .nav-icon {
+  color: #111827 !important;
 }
 
 .nav-item.active {

@@ -68,10 +68,10 @@ exports.punch = async (req, res) => {
         }
 
         // 1. Fetch Company for rules & timezone
-        // const company = await Company.findById(user.company_id);
-        // if (!company) return res.status(404).json({ message: 'Company not found' });
+        const company = await Company.findById(user.company_id);
+        if (!company) return res.status(404).json({ message: 'Company not found' });
 
-        const tz = Company.timezone || 'Asia/Kolkata';
+        const tz = company.timezone || 'Asia/Kolkata';
         const now = moment().tz(tz);
         const today = now.format('YYYY-MM-DD');
         const yearMonth = today.substring(0, 7);
@@ -82,10 +82,10 @@ exports.punch = async (req, res) => {
         }
 
         // 3. Rule: Security Validations (Geo-Fencing, IP, Device)
-        // const validation = ValidationEngine.validatePunch(user, company, { ip, location, deviceType });
-        // if (!validation.isValid) {
-        //     return res.status(403).json({ message: validation.message });
-        // }
+        const validation = ValidationEngine.validatePunch(user, company, { ip, location, deviceType });
+        if (!validation.isValid) {
+            return res.status(403).json({ message: validation.message });
+        }
 
         // 4. Punch Logic (Intelligent detection of session state)
         // Check User status AND today's AttendanceRecord to handle manual admin overrides
@@ -105,7 +105,7 @@ exports.punch = async (req, res) => {
         // 5. Save Punch
         const punch = new AttendancePunch({
             employee_id: user._id,
-            // company_id: user.company_id,
+            company_id: user.company_id,
             punch_type: type,
             punch_time: now.toDate(),
             punch_date: today,

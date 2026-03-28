@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { fetchUserOpenPoints } from "../../services/openPointsService";
+import attendanceAPI from "../../api/attendance/attendance.api";
+import leaveAPI from "../../api/attendance/leave.api";
 import "./userProfile.css";
 import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button, Menu, MenuItem, IconButton } from "@mui/material";
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
@@ -36,6 +38,13 @@ const UserProfile = ({ username: propUsername }) => {
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
     const [globalAssets, setGlobalAssets] = useState([]);
+
+    // Attendance state
+    const [attendanceData, setAttendanceData] = useState(null);
+    const [leaveApplications, setLeaveApplications] = useState([]);
+    const [leaveBalance, setLeaveBalance] = useState([]);
+    const [punchLoading, setPunchLoading] = useState(false);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
     const openMenu = Boolean(anchorEl);
 
     // Date formatter helper
@@ -154,6 +163,32 @@ const UserProfile = ({ username: propUsername }) => {
         };
         fetchGlobalAssets();
     }, []);
+
+    // Attendance data fetcher
+    const fetchAttendanceData = useCallback(async () => {
+        if (!isOwnProfile) return;
+        setAttendanceLoading(true);
+        try {
+            const [dashData, leaveBalData, leaveApps] = await Promise.all([
+                attendanceAPI.getDashboardData().catch(() => null),
+                leaveAPI.getBalance().catch(() => ({ balances: [] })),
+                leaveAPI.getApplications({ limit: 10 }).catch(() => ({ applications: [] }))
+            ]);
+            setAttendanceData(dashData);
+            setLeaveBalance(leaveBalData?.balances || []);
+            setLeaveApplications(leaveApps?.applications || []);
+        } catch (err) {
+            console.error('Failed to fetch attendance data', err);
+        } finally {
+            setAttendanceLoading(false);
+        }
+    }, [isOwnProfile]);
+
+    useEffect(() => {
+        if (activeTab === 4 && isOwnProfile) {
+            fetchAttendanceData();
+        }
+    }, [activeTab, isOwnProfile, fetchAttendanceData]);
 
 
     const handlePhotoClick = (event) => {
@@ -726,6 +761,160 @@ const UserProfile = ({ username: propUsername }) => {
         );
     };
 
+
+
+    const handlePunch = async (type) => {
+        setPunchLoading(true);
+        try {
+            await attendanceAPI.punch({ type, method: 'web' });
+            setSnackbar({ open: true, message: `Punch ${type} recorded successfully!`, severity: 'success' });
+            // Refresh data
+            setTimeout(() => fetchAttendanceData(), 500);
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.message || `Punch ${type} failed`, severity: 'error' });
+        } finally {
+            setPunchLoading(false);
+        }
+    };
+
+    const AttendanceTab = () => {
+        const punchStatus = attendanceData?.punchStatus;
+        const monthStats = attendanceData?.monthStats;
+        const isCheckedIn = punchStatus?.status === 'Checked In';
+
+        return (
+            <motion.div className="tab-content fade-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div style={{ padding: '20px' }}>
+                    {attendanceLoading ? (
+                        <div style={{ textAlign: 'center', padding: '40px' }}><CircularProgress size={32} /></div>
+                    ) : (
+                        <>
+                            {/* Punch Section */}
+                            <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                                {/* Punch Card */}
+                                <div style={{ flex: '1 1 320px', background: isCheckedIn ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', borderRadius: '16px', padding: '24px', border: isCheckedIn ? '1px solid #bbf7d0' : '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Today's Status</div>
+                                            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: isCheckedIn ? '#16a34a' : '#64748b' }}>
+                                                {isCheckedIn ? '✅ Checked In' : '⏸️ Not Checked In'}
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#1e293b' }}>
+                                            {punchStatus?.workHours || '0h 0m'}
+                                        </div>
+                                    </div>
+                                    {punchStatus?.shiftTime && (
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '16px' }}>
+                                            🕐 Shift: {punchStatus.shiftName} ({punchStatus.shiftTime})
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button
+                                            onClick={() => handlePunch('IN')}
+                                            disabled={punchLoading || isCheckedIn}
+                                            style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', border: 'none', background: isCheckedIn ? '#e2e8f0' : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: isCheckedIn ? '#94a3b8' : 'white', fontWeight: 700, fontSize: '0.95rem', cursor: isCheckedIn ? 'not-allowed' : 'pointer', boxShadow: isCheckedIn ? 'none' : '0 4px 12px rgba(34,197,94,0.3)' }}
+                                        >
+                                            {punchLoading ? '...' : '🟢 Punch IN'}
+                                        </button>
+                                        <button
+                                            onClick={() => handlePunch('OUT')}
+                                            disabled={punchLoading || !isCheckedIn}
+                                            style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', border: 'none', background: !isCheckedIn ? '#e2e8f0' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: !isCheckedIn ? '#94a3b8' : 'white', fontWeight: 700, fontSize: '0.95rem', cursor: !isCheckedIn ? 'not-allowed' : 'pointer', boxShadow: !isCheckedIn ? 'none' : '0 4px 12px rgba(239,68,68,0.3)' }}
+                                        >
+                                            {punchLoading ? '...' : '🔴 Punch OUT'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Month Stats */}
+                                <div style={{ flex: '1 1 320px', background: '#f8fafc', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '16px' }}>This Month</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                                        <div style={{ background: 'white', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#16a34a' }}>{monthStats?.present || 0}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Present</div>
+                                        </div>
+                                        <div style={{ background: 'white', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626' }}>{monthStats?.absent || 0}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Absent</div>
+                                        </div>
+                                        <div style={{ background: 'white', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>{monthStats?.late || 0}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Late</div>
+                                        </div>
+                                        <div style={{ background: 'white', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#3b82f6' }}>{monthStats?.onLeave || 0}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>On Leave</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Leave Balance */}
+                            {leaveBalance.length > 0 && (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <div className="section-header">Leave Balance</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                                        {leaveBalance.map((lb, i) => (
+                                            <div key={i} style={{ background: 'white', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>{lb.leave_type || lb.policy_name || 'Leave'}</div>
+                                                <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#1e293b' }}>{lb.closing_balance ?? lb.available ?? 0}</div>
+                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Available / {lb.opening_balance ?? lb.total ?? 0}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Leave Applications Log */}
+                            <div>
+                                <div className="section-header">Leave Applications</div>
+                                {leaveApplications.length === 0 ? (
+                                    <div className="empty-message" style={{ padding: '20px', textAlign: 'center', color:'#64748b' }}>No leave applications found</div>
+                                ) : (
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                            <thead>
+                                                <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+                                                    <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Type</th>
+                                                    <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>From</th>
+                                                    <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>To</th>
+                                                    <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Days</th>
+                                                    <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Status</th>
+                                                    <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Reason</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {leaveApplications.map((app, i) => {
+                                                    const statusColors = { approved: '#16a34a', rejected: '#dc2626', pending: '#f59e0b', cancelled: '#94a3b8' };
+                                                    return (
+                                                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>{app.leave_type || app.leave_policy_id?.leave_type || '—'}</td>
+                                                            <td style={{ padding: '10px 12px' }}>{app.from_date ? new Date(app.from_date).toLocaleDateString('en-IN') : '—'}</td>
+                                                            <td style={{ padding: '10px 12px' }}>{app.to_date ? new Date(app.to_date).toLocaleDateString('en-IN') : '—'}</td>
+                                                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>{app.total_days || 1}{app.is_half_day ? ' (½)' : ''}</td>
+                                                            <td style={{ padding: '10px 12px' }}>
+                                                                <span style={{ background: `${statusColors[app.approval_status] || '#64748b'}18`, color: statusColors[app.approval_status] || '#64748b', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'capitalize' }}>
+                                                                    {app.approval_status}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: '10px 12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.reason || '—'}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </motion.div>
+        );
+    };
+
     const MarketingAssetsTab = () => (
         <motion.div
             className="tab-content fade-in"
@@ -870,6 +1059,7 @@ const UserProfile = ({ username: propUsername }) => {
                     <Tab label={`Modules (${profileData.modules?.length || 0})`} />
                     <Tab label={`Importers (${profileData.assigned_importer_name?.length || 0})`} />
                     <Tab label={`Open Points (${openPointsCount})`} />
+                    {isOwnProfile && <Tab label="Attendance" />}
                     {(profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) && (
                         <Tab label="Marketing Assets" />
                     )}
@@ -883,7 +1073,8 @@ const UserProfile = ({ username: propUsername }) => {
                     {activeTab === 1 && <ModulesTab key="modules" />}
                     {activeTab === 2 && <ImportersTab key="importers" />}
                     {activeTab === 3 && <OpenPointsTab key="openpoints" />}
-                    {activeTab === 4 && <MarketingAssetsTab key="marketing" />}
+                    {activeTab === 4 && isOwnProfile && <AttendanceTab key="attendance" />}
+                    {activeTab === (isOwnProfile ? 5 : 4) && <MarketingAssetsTab key="marketing" />}
                 </AnimatePresence>
             </div>
 

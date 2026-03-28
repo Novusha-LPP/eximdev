@@ -10,9 +10,7 @@ import FloatingPunchButton from '../common/FloatingPunchButton';
 import './AttendanceLayout.css';
 
 const EMPLOYEE_MENU = [
-  { section: 'Overview' },
-  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-  { section: 'Attendance' },
+  { section: 'My Attendance' },
   { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
   { section: 'Leave' },
   { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
@@ -51,7 +49,7 @@ const ADMIN_MENU = [
   { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holidays' },
   { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts' },
   { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies' },
-  { path: '/attendance/admin/settings', icon: FiSettings, label: 'Settings' },
+//   { path: '/attendance/admin/settings', icon: FiSettings, label: 'Settings' },
 ];
 
 const AttendanceLayout = () => {

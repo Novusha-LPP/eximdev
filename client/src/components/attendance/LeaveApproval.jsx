@@ -10,7 +10,7 @@ import LeavePolicyManagement from './admin/LeavePolicyManagement';
 import HolidayManagement from './admin/HolidayManagement';
 
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-const fmt = (d, f) => { try { return formatDate(d, f); } catch { return d || '�'; } };
+const fmt = (d, f) => { try { return formatDate(d, f); } catch { return d || '-'; } };
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
 const LeaveApproval = () => {
@@ -53,25 +53,25 @@ const LeaveApproval = () => {
     }
   };
 
-  if (loading) return <div className="ap-page"><div className="ap-loading"><div className="ap-spin" /><span>Loading�</span></div></div>;
+  if (loading) return <div className="ap-page"><div className="ap-loading"><div className="ap-spin" /><span>Loading...</span></div></div>;
 
   if (error) return (
     <div className="ap-page">
       <div className="ap-header"><div><h1>Leave & Holidays</h1></div></div>
-      <div className="ap-card"><div className="ap-empty"><div className="ap-empty-icon">??</div><p style={{ color: '#b53535' }}>{error}</p><button className="ap-icon-btn" onClick={fetchRequests} style={{ marginTop: 8 }}><FiRefreshCw size={13} /> Retry</button></div></div>
+      <div className="ap-card"><div className="ap-empty"><div className="ap-empty-icon">!</div><p style={{ color: '#b53535' }}>{error}</p><button className="ap-icon-btn" onClick={fetchRequests} style={{ marginTop: 8 }}><FiRefreshCw size={13} /> Retry</button></div></div>
     </div>
   );
 
   const TABS = [
-    { key: 'approvals', emoji: '?', label: 'Leave Approvals', count: requests.length },
-    { key: 'policy', emoji: '??', label: 'Leave Policy', count: 0 },
-    { key: 'holiday', emoji: '???', label: 'Holidays', count: 0 },
+    { key: 'approvals', emoji: '', label: 'Leave Approvals', count: requests.length },
+    { key: 'policy', emoji: '', label: 'Leave Policy', count: 0 },
+    { key: 'holiday', emoji: '', label: 'Holidays', count: 0 },
   ];
 
   return (
     <div className="ap-page">
       <div className="ap-header">
-        <div><h1>?? Leave & Holidays</h1><p>Manage leave requests, policies, and upcoming holidays</p></div>
+        <div><h1>Leave & Holidays</h1><p>Manage leave requests, policies, and upcoming holidays</p></div>
         <div className="ap-header-actions">
           {activeTab === 'approvals' && <button className="ap-icon-btn" onClick={fetchRequests}><FiRefreshCw size={13} /> Refresh</button>}
         </div>
@@ -80,7 +80,7 @@ const LeaveApproval = () => {
       <div className="ap-tabs">
         {TABS.map(t => (
           <button key={t.key} className={`ap-tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
-            {t.emoji} {t.label}
+            {t.label}
             {t.count > 0 && <span className="ap-tab-count">{t.count}</span>}
           </button>
         ))}
@@ -95,13 +95,13 @@ const LeaveApproval = () => {
           <div className="ap-card">
             <div className="ap-card-head">
               <div>
-                <div className="ap-card-title">?? Pending Approvals</div>
+                <div className="ap-card-title">Pending Approvals</div>
                 <div className="ap-card-sub">{requests.length} request{requests.length !== 1 ? 's' : ''} awaiting your decision</div>
               </div>
             </div>
 
             {requests.length === 0 ? (
-              <div className="ap-empty"><div className="ap-empty-icon">??</div><p>All caught up! No pending requests.</p></div>
+              <div className="ap-empty"><div className="ap-empty-icon">&#10003;</div><p>All caught up! No pending requests.</p></div>
             ) : (
               <div className="ap-request-list">
                 {requests.map(req => (
@@ -135,7 +135,7 @@ const LeaveApproval = () => {
                         <span className="ap-date-lbl">From</span>
                         <span className="ap-date-val">{fmt(req.fromDate, 'dd MMM yyyy')}</span>
                       </div>
-                      <span className="ap-date-arrow">?</span>
+                      <span className="ap-date-arrow">&rarr;</span>
                       <div className="ap-date-block">
                         <span className="ap-date-lbl">To</span>
                         <span className="ap-date-val">{fmt(req.toDate, 'dd MMM yyyy')}</span>
@@ -157,7 +157,7 @@ const LeaveApproval = () => {
           {history.length > 0 && (
             <div className="ap-card">
               <div className="ap-card-head">
-                <div><div className="ap-card-title">?? Action History</div><div className="ap-card-sub">Actioned this session</div></div>
+                <div><div className="ap-card-title">Action History</div><div className="ap-card-sub">Actioned this session</div></div>
               </div>
               <div className="ap-history-wrap">
                 <table className="ap-table">
@@ -181,8 +181,8 @@ const LeaveApproval = () => {
                           )}
                         </td>
                         <td className="td-mono">{req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`}</td>
-                        <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} � {fmt(req.toDate, 'dd MMM')}</td>
-                        <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>{req.reason || '�'}</td>
+                        <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} &rarr; {fmt(req.toDate, 'dd MMM')}</td>
+                        <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>{req.reason || '-'}</td>
                         <td><span className={`ap-status-badge ${req.status}`}>{req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />} {req.status.charAt(0).toUpperCase() + req.status.slice(1)}</span></td>
                         <td className="td-dim">{new Date(req.actionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                       </tr>

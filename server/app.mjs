@@ -256,6 +256,8 @@ import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs
 import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs";
 import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
 import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
+import portRoutes from "./routes/master-directory/portRoutes.mjs";
+import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -561,6 +563,8 @@ app.use("/api", organizationRoutes);
 app.use("/api", shippingLineRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", currencyRoutes);
+app.use("/api", portRoutes);
+app.use("/api", customHouseRoutes);
 
 
 // Tally API

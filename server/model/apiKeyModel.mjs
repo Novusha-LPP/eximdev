@@ -14,8 +14,13 @@ const apiKeySchema = new mongoose.Schema({
     trim: true
   }, // e.g., "Tally Integration"
   createdBy: { 
-    type: String 
-  }, // Username of the admin who created it
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }, // ID of the admin who created it
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 

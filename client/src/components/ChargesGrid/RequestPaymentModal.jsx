@@ -28,7 +28,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
             const branchIndex = initialData.branchIndex || 0;
             const branch = party?.branches?.[branchIndex];
             const account = branch?.accounts?.[0] || {};
-            
+
             setFormData(prev => ({
                 ...prev,
                 requestNo: generatedRequestNo,
@@ -58,11 +58,11 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
 
     return (
         <div className="modal-overlay active" style={{ zIndex: 1100 }}>
-            <div className="edit-charge-modal" style={{ width: '600px' }}>
+            <div className="edit-charge-modal" style={{ width: '800px' }}>
                 <div className="modal-title">Request Payment</div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
-                        <div className="ep-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '10px 20px' }}>
+                        <div className="ep-grid" style={{ gridTemplateColumns: '1fr 1fr 30px', gap: '10px 20px', marginRight: '10px' }}>
                             <div className="ep-row">
                                 <span className="ep-label">Request No</span>
                                 <input type="text" name="requestNo" className="ep-desc-input" value={formData.requestNo} onChange={handleInputChange} />
@@ -71,6 +71,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                                 <span className="ep-label">Request Date</span>
                                 <input type="date" name="requestDate" className="ep-desc-input" value={formData.requestDate} onChange={handleInputChange} />
                             </div>
+                            <div /> {/* Spacer */}
                             <div className="ep-row">
                                 <span className="ep-label">Bank From</span>
                                 <select name="bankFrom" className="ep-select" value={formData.bankFrom} onChange={handleInputChange}>
@@ -84,6 +85,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                                 <span className="ep-label">Payment to</span>
                                 <input type="text" name="paymentTo" className="ep-desc-input" value={formData.paymentTo} onChange={handleInputChange} />
                             </div>
+                            <div /> {/* Spacer */}
                             <div className="ep-row">
                                 <span className="ep-label">Against Bill</span>
                                 <input type="text" name="againstBill" className="ep-desc-input" value={formData.againstBill} onChange={handleInputChange} />
@@ -92,6 +94,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                                 <span className="ep-label">Amount</span>
                                 <input type="number" name="amount" className="ep-desc-input" value={formData.amount} onChange={handleInputChange} />
                             </div>
+                            <div /> {/* Spacer */}
                             <div className="ep-row">
                                 <span className="ep-label">Transfer Mode</span>
                                 <select name="transferMode" className="ep-select" value={formData.transferMode} onChange={handleInputChange}>
@@ -103,6 +106,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                                 <span className="ep-label">A/c No</span>
                                 <input type="text" name="accountNo" className="ep-desc-input" value={formData.accountNo} onChange={handleInputChange} />
                             </div>
+                            <div /> {/* Spacer */}
                             <div className="ep-row">
                                 <span className="ep-label">IFS Code</span>
                                 <input type="text" name="ifscCode" className="ep-desc-input" value={formData.ifscCode} onChange={handleInputChange} />
@@ -111,6 +115,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                                 <span className="ep-label">Bank Name</span>
                                 <input type="text" name="bankName" className="ep-desc-input" value={formData.bankName} onChange={handleInputChange} />
                             </div>
+                            <div /> {/* Spacer */}
                             <div className="ep-row">
                                 <span className="ep-label">Transaction Type</span>
                                 <select name="transactionType" className="ep-select" value={formData.transactionType} onChange={handleInputChange}>
@@ -124,6 +129,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                                 <span className="ep-label">Beneficiary Code</span>
                                 <input type="text" name="beneficiaryCode" className="ep-desc-input" value={formData.beneficiaryCode} onChange={handleInputChange} />
                             </div>
+                            <div /> {/* Spacer */}
                             {formData.transactionType === 'CHEQUE' && (
                                 <>
                                     <div className="ep-row">
@@ -140,7 +146,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear 
                     </div>
                     <div className="modal-footer">
                         <button type="submit" className="btn">Submit Request</button>
-                        <button type="button" className="btn" onClick={onClose}>Cancel</button>
+                        <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
                     </div>
                 </form>
             </div>

@@ -89,7 +89,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber }) => {
                 <div className="modal-title">Purchase Book Entry</div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
-                        <div className="ep-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 20px' }}>
+                        <div className="ep-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 20px', marginRight: '30px' }}>
                             <div className="ep-row">
                                 <span className="ep-label">Entry No</span>
                                 <input type="text" name="entryNo" className="ep-desc-input" value={formData.entryNo} onChange={handleInputChange} />
@@ -213,7 +213,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber }) => {
                     </div>
                     <div className="modal-footer">
                         <button type="submit" className="btn">Submit Purchase Entry</button>
-                        <button type="button" className="btn" onClick={onClose}>Cancel</button>
+                        <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
                     </div>
                 </form>
             </div>

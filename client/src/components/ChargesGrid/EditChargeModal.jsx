@@ -233,7 +233,7 @@ const EditChargeModal = ({
           {formData.map((row, i) => (
             <div key={row._id || i} style={{ marginBottom: formData.length > 1 ? '30px' : '0' }}>
               <div className="form-section-new">
-                <div className="form-grid">
+                <div className="form-grid" style={{ marginRight: '30px' }}>
                   <div className="form-row span-2">
                     <span className="form-label">Charge</span>
                     <div className="form-input-search">
@@ -341,7 +341,7 @@ const EditChargeModal = ({
                                     </button>
                                 </div>
                             </div>
-                            <div className="ep-grid">
+                            <div className="ep-grid" style={{ marginRight: '30px' }}>
                               <div className="ep-row">
                                 <span className="ep-label">Basis</span>
                                 <select className="ep-select" value={row.revenue?.basis || 'Per B/E - Per Shp'} onChange={e => handleFieldChange(i, 'basis', e.target.value, 'revenue')}>
@@ -499,7 +499,7 @@ const EditChargeModal = ({
                                     </button>
                                 </div>
                             </div>
-                            <div className="ep-grid">
+                            <div className="ep-grid" style={{ marginRight: '30px' }}>
                               <div className="ep-row">
                                 <span className="ep-label">Basis</span>
                                 <select className="ep-select" value={row.cost?.basis || 'Per B/E - Per Shp'} onChange={e => handleFieldChange(i, 'basis', e.target.value, 'cost')}>
@@ -736,7 +736,7 @@ const EditChargeModal = ({
         <div className="modal-footer">
           <button type="button" className="btn" onClick={handleSave}>Update</button>
           <button type="button" className="btn" onClick={handleSave}>Update & Close</button>
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import { Route, Routes, Navigate } from "react-router-dom";
 import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 import ProtectedRoute from "./ProtectedRoute.js";
+import { UserContext } from "../contexts/UserContext.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
@@ -13,6 +14,8 @@ import ChangePassword from "../components/home/ChangePassword.js";
 import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
 import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
+import NavbarCustomizer from "../components/admin/NavbarCustomizer.js";
+import NavbarThemesList from "../components/admin/NavbarThemesList.js";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
@@ -155,6 +158,18 @@ import { useBranch } from "../contexts/BranchContext.js";
 
 const drawerWidth = 60;
 
+// Guard components: allow Admin role OR users with 'Navbar Design' module
+function NavbarDesignGuard({ children }) {
+  const { user } = React.useContext(UserContext);
+  if (!user) return <Navigate to="/" replace />;
+  if (user.role === 'Admin' || (user.modules && user.modules.includes('Navbar Design'))) {
+    return children;
+  }
+  return <Navigate to="/" replace />;
+}
+const NavbarThemesListGuarded = () => <NavbarDesignGuard><NavbarThemesList /></NavbarDesignGuard>;
+const NavbarCustomizerGuarded = () => <NavbarDesignGuard><NavbarCustomizer /></NavbarDesignGuard>;
+
 function HomePageContent() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [tabValue, setTabValue] = useState(
@@ -231,6 +246,15 @@ function HomePageContent() {
                 <Route path="/assign" element={<Assign />} />
                 <Route path="/admin/branches" element={<BranchManagement />} />
                 <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
+                <Route path="/admin/navbar-themes" element={
+                  <NavbarThemesListGuarded />
+                } />
+                <Route path="/admin/navbar-customizer" element={
+                  <NavbarCustomizerGuarded />
+                } />
+                <Route path="/admin/navbar-customizer/:id" element={
+                  <NavbarCustomizerGuarded />
+                } />
 
 
                 {/* HOD Management - For Head of Department users */}

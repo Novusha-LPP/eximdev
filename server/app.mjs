@@ -266,6 +266,9 @@ import apiKeyRoutes from "./routes/admin/apiKeyRoutes.mjs";
 // scmCube API
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
 
+// AppBar Theme Module
+import appBarThemeRoutes from "./routes/appBarThemeRoutes.mjs";
+
 
 
 
@@ -573,6 +576,9 @@ app.use(apiKeyRoutes);
 
 // scmCube API
 app.use(scmCubeRoutes);
+
+// AppBar Theme Module
+app.use("/api", appBarThemeRoutes);
 
 
 

@@ -16,6 +16,7 @@ import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import BrushIcon from "@mui/icons-material/Brush";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -103,7 +104,34 @@ function Sidebar() {
               </IconButton>
             </ListItemButton>
           </Tooltip>
+
+          <Tooltip title="Navbar Design" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/admin/navbar-themes")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <BrushIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
         </>
+      )}
+
+      {/* Navbar Design — for non-admin users with the module assigned */}
+      {user.role !== "Admin" && user.modules?.includes("Navbar Design") && (
+        <Tooltip title="Navbar Design" enterDelay={0} placement="right">
+          <ListItemButton
+            className="appbar-links"
+            aria-label="list-item"
+            onClick={() => navigate("/admin/navbar-themes")}
+          >
+            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+              <BrushIcon />
+            </IconButton>
+          </ListItemButton>
+        </Tooltip>
       )}
 
       {/* HOD Management - For Head of Department users */}

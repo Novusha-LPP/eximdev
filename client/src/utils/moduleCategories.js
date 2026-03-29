@@ -33,5 +33,6 @@ export const moduleCategories = {
   "MRM": "Project Management",
   "Pulse": "Analytics & Reports",
   "MasterDirectory": "Masters",
+  "Navbar Design": "Admin Tools",
 };
 

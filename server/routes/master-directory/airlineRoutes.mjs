@@ -27,6 +27,9 @@ router.post("/add-airline", async (req, res) => {
     await airline.save();
     res.status(201).json({ message: "Airline added successfully", airline });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Airline name already exists" });
+    }
     console.error("Error adding airline:", error);
     res.status(500).json({ message: "Internal server error" });
   }
@@ -35,17 +38,79 @@ router.post("/add-airline", async (req, res) => {
 // Update an airline
 router.put("/update-airline/:id", async (req, res) => {
   try {
-    const updatedAirline = await AirlineModel.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!updatedAirline) {
+    const airline = await AirlineModel.findById(req.params.id);
+    if (!airline) {
       return res.status(404).json({ message: "Airline not found" });
     }
-    res.status(200).json({ message: "Airline updated successfully", airline: updatedAirline });
+    
+    airline.set(req.body);
+    
+    await airline.save();
+    res.status(200).json({ message: "Airline updated successfully", airline });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Airline name already exists" });
+    }
     console.error("Error updating airline:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Delete an airline
+router.delete("/delete-airline/:id", async (req, res) => {
+  try {
+    const deleted = await AirlineModel.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Airline not found" });
+    }
+    res.status(200).json({ message: "Airline deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting airline:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Delete a specific branch from an airline
+router.delete("/delete-airline/:id/branch/:branchId", async (req, res) => {
+  try {
+    const airline = await AirlineModel.findById(req.params.id);
+    if (!airline) {
+      return res.status(404).json({ message: "Airline not found" });
+    }
+    
+    airline.branches = airline.branches.filter(
+      (b) => b._id.toString() !== req.params.branchId
+    );
+    
+    await airline.save();
+    res.status(200).json({ message: "Branch deleted successfully", airline });
+  } catch (error) {
+    console.error("Error deleting branch:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Delete a specific bank account from a branch in an airline
+router.delete("/delete-airline/:id/branch/:branchId/account/:accountId", async (req, res) => {
+  try {
+    const airline = await AirlineModel.findById(req.params.id);
+    if (!airline) {
+      return res.status(404).json({ message: "Airline not found" });
+    }
+    
+    const branch = airline.branches.id(req.params.branchId);
+    if (!branch) {
+      return res.status(404).json({ message: "Branch not found" });
+    }
+    
+    branch.accounts = branch.accounts.filter(
+      (acc) => acc._id.toString() !== req.params.accountId
+    );
+    
+    await airline.save();
+    res.status(200).json({ message: "Bank account deleted successfully", airline });
+  } catch (error) {
+    console.error("Error deleting bank account:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });

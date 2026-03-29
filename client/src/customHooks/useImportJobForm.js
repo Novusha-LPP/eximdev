@@ -44,6 +44,8 @@ const useImportJobForm = () => {
   // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
   const [importer, setImporter] = useState("");
+  const [importer_type, setImporterType] = useState("");
+  const [commercial_tax_type, setCommercialTaxType] = useState("");
   const [importerURL, setImporterURL] = useState("");
   const [shipping_line_airline, setShippingLineAirline] = useState("");
   const [branchSrNo, setBranchSrNo] = useState("");
@@ -389,6 +391,9 @@ const useImportJobForm = () => {
     // setYear(defaultYearPair);
     setCustomHouse("");
     setImporter("");
+    setImporterType("");
+    setCommercialTaxType("");
+    setImporterURL("");
     setShippingLineAirline("");
     setBranchSrNo("");
     setAdCode("");
@@ -526,6 +531,8 @@ const useImportJobForm = () => {
     if (job.year) setYear(job.year);
     if (job.custom_house) setCustomHouse(job.custom_house);
     if (job.importer) setImporter(job.importer);
+    if (job.importer_type) setImporterType(job.importer_type);
+    if (job.commercial_tax_type) setCommercialTaxType(job.commercial_tax_type);
     if (job.shipping_line_airline) setShippingLineAirline(job.shipping_line_airline);
     if (job.branchSrNo) setBranchSrNo(job.branchSrNo);
     if (job.adCode) setAdCode(job.adCode);
@@ -664,6 +671,8 @@ const useImportJobForm = () => {
           job_date,
           custom_house,
           importer,
+          importer_type,
+          commercial_tax_type,
           importerURL,
           ie_code_no,
           shipping_line_airline,
@@ -907,7 +916,6 @@ const useImportJobForm = () => {
 
   return {
     formik,
-    // Export states so the component can use them
     year,
     setYear,
     custom_house,
@@ -1058,7 +1066,11 @@ const useImportJobForm = () => {
     setIsEditMode,
     jobNumber,
     populateJobData,
-    checkDuplicate
+    checkDuplicate,
+    importer_type,
+    setImporterType,
+    commercial_tax_type,
+    setCommercialTaxType,
   };
 };
 

@@ -2,11 +2,17 @@ import React, { useState, useEffect } from "react";
 import { 
   Table, TextField, InputAdornment, Box, Paper, Typography, 
   Breadcrumbs, Link, Button, Dialog, DialogTitle, DialogContent, 
-  DialogActions, Snackbar, Alert, CircularProgress, IconButton
+  DialogActions, Snackbar, Alert, CircularProgress, IconButton,
+  TableBody, TableCell, TableHead, TableRow, Accordion,
+  AccordionSummary, AccordionDetails, Divider
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
+import BusinessIcon from "@mui/icons-material/Business";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -22,9 +28,16 @@ const AirlinesDirectory = () => {
     prefix: "",
     checkDigit: "Yes",
     active: "Yes",
-    awbFormat: ""
+    awbFormat: "",
+    homePageUrl: "",
+    trackingUrl: "",
+    tds_percent: 0,
+    credit_terms: "",
+    cin: "",
+    branches: []
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, title: "", message: "", onConfirm: null });
 
   const navigate = useNavigate();
 
@@ -58,6 +71,111 @@ const AirlinesDirectory = () => {
     }
   };
 
+  const addBranch = () => {
+    setFormData({
+      ...formData,
+      branches: [
+        ...formData.branches,
+        {
+          branch_no: formData.branches.length === 0 ? "0" : "",
+          branchName: "",
+          address: "",
+          city: "",
+          state: "",
+          pincode: "",
+          country: "",
+          gst: "",
+          pan: "",
+          accounts: [{ bankName: "", accountNo: "", ifsc: "", adCode: "" }]
+        }
+      ]
+    });
+  };
+
+  const removeBranch = (index) => {
+    const branch = formData.branches[index];
+    setConfirmDialog({
+      open: true,
+      title: "Delete Branch",
+      message: branch._id 
+        ? "Are you sure you want to delete this branch? This will be immediately removed from the database." 
+        : "Are you sure you want to delete this branch?",
+      onConfirm: async () => {
+        if (branch._id && editingId) {
+          try {
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-airline/${editingId}/branch/${branch._id}`);
+            handleSnackbar("Branch deleted from database successfully", "success");
+            fetchAirlines();
+            
+            const updatedBranches = [...formData.branches];
+            updatedBranches.splice(index, 1);
+            setFormData({ ...formData, branches: updatedBranches });
+          } catch (error) {
+            handleSnackbar("Failed to delete branch from database", "error");
+          }
+        } else {
+          const updatedBranches = [...formData.branches];
+          updatedBranches.splice(index, 1);
+          setFormData({ ...formData, branches: updatedBranches });
+        }
+      }
+    });
+  };
+
+  const handleBranchChange = (index, field, value) => {
+    const updatedBranches = [...formData.branches];
+    const processedValue = typeof value === 'string' ? value.toUpperCase() : value;
+    updatedBranches[index][field] = processedValue;
+    setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const handleAccountChange = (branchIndex, accountIndex, field, value) => {
+    const updatedBranches = [...formData.branches];
+    updatedBranches[branchIndex].accounts[accountIndex][field] = value.toUpperCase();
+    setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const addAccount = (branchIndex) => {
+    const updatedBranches = [...formData.branches];
+    updatedBranches[branchIndex].accounts = [
+      ...(updatedBranches[branchIndex].accounts || []),
+      { bankName: "", accountNo: "", ifsc: "", adCode: "" }
+    ];
+    setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const removeAccount = (branchIndex, accountIndex) => {
+    const branch = formData.branches[branchIndex];
+    const account = branch.accounts[accountIndex];
+    
+    setConfirmDialog({
+      open: true,
+      title: "Delete Bank Account",
+      message: account._id && branch._id 
+        ? "Are you sure you want to delete this bank account? This will be immediately removed from the database." 
+        : "Are you sure you want to delete this bank account?",
+      onConfirm: async () => {
+        if (account._id && branch._id && editingId) {
+          try {
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-airline/${editingId}/branch/${branch._id}/account/${account._id}`);
+            handleSnackbar("Bank account deleted from database successfully", "success");
+            fetchAirlines();
+            
+            const updatedBranches = [...formData.branches];
+            updatedBranches[branchIndex].accounts.splice(accountIndex, 1);
+            setFormData({ ...formData, branches: updatedBranches });
+          } catch (error) {
+            handleSnackbar("Failed to delete bank account from database", "error");
+          }
+        } else {
+          const updatedBranches = [...formData.branches];
+          updatedBranches[branchIndex].accounts.splice(accountIndex, 1);
+          setFormData({ ...formData, branches: updatedBranches });
+        }
+      }
+    });
+  };
+
   const handleSubmit = async () => {
     if (!formData.name || !formData.code || !formData.prefix) {
       handleSnackbar("Name, Code and Prefix are required", "warning");
@@ -74,19 +192,47 @@ const AirlinesDirectory = () => {
       handleClose();
       fetchAirlines();
     } catch (error) {
-      handleSnackbar("Failed to save airline", "error");
+      handleSnackbar(error.response?.data?.message || "Failed to save airline", "error");
     }
   };
 
-  const handleEdit = (airline) => {
-    setEditingId(airline._id);
+  const handleDelete = (id) => {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Airline",
+      message: "Are you sure you want to delete this airline? This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-airline/${id}`);
+          handleSnackbar("Airline deleted successfully", "success");
+          fetchAirlines();
+        } catch (error) {
+          handleSnackbar("Failed to delete airline", "error");
+        }
+      }
+    });
+  };
+
+  const handleEdit = (line) => {
+    setEditingId(line._id);
     setFormData({
-      name: airline.name,
-      code: airline.code,
-      prefix: airline.prefix,
-      checkDigit: airline.checkDigit || "Yes",
-      active: airline.active || "Yes",
-      awbFormat: airline.awbFormat || ""
+      name: line.name,
+      code: line.code || "",
+      prefix: line.prefix || "",
+      checkDigit: line.checkDigit || "Yes",
+      active: line.active || "Yes",
+      awbFormat: line.awbFormat || "",
+      homePageUrl: line.homePageUrl || "",
+      trackingUrl: line.trackingUrl || "",
+      tds_percent: line.tds_percent || 0,
+      credit_terms: line.credit_terms || "",
+      cin: line.cin || "",
+      branches: (line.branches || []).map(b => ({
+        ...b,
+        accounts: b.accounts && b.accounts.length > 0 
+          ? b.accounts 
+          : [{ bankName: "", accountNo: "", ifsc: "", adCode: "" }]
+      }))
     });
     setOpen(true);
   };
@@ -100,7 +246,24 @@ const AirlinesDirectory = () => {
       prefix: "",
       checkDigit: "Yes",
       active: "Yes",
-      awbFormat: ""
+      awbFormat: "",
+      homePageUrl: "",
+      trackingUrl: "",
+      tds_percent: 0,
+      credit_terms: "",
+      cin: "",
+      branches: [{
+        branch_no: "0",
+        branchName: "Main Branch",
+        address: "",
+        city: "",
+        state: "",
+        pincode: "",
+        country: "",
+        gst: "",
+        pan: "",
+        accounts: [{ bankName: "", accountNo: "", ifsc: "", adCode: "" }]
+      }]
     });
   };
 
@@ -108,10 +271,15 @@ const AirlinesDirectory = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const filteredAirlines = airlines.filter((a) =>
-    a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.prefix.includes(searchTerm)
+  const filteredAirlines = airlines.filter((l) =>
+    l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    l.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    l.prefix?.includes(searchTerm) ||
+    l.branches?.some(b => 
+      (b.gst && b.gst.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (b.pan && b.pan.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (b.city && b.city.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
   );
 
   return (
@@ -125,7 +293,7 @@ const AirlinesDirectory = () => {
         >
           Master Directory
         </Link>
-        <Typography color="text.primary">Airlines Directory</Typography>
+        <Typography color="text.primary">Airlines</Typography>
       </Breadcrumbs>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -145,7 +313,7 @@ const AirlinesDirectory = () => {
       <TextField
         fullWidth
         variant="outlined"
-        placeholder="Search by name, code or prefix..."
+        placeholder="Search by name, code, GST or PAN..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         sx={{ mb: 3, maxWidth: 400 }}
@@ -164,60 +332,78 @@ const AirlinesDirectory = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Table stickyHeader sx={{ minWidth: 800 }}>
-            <Box component="thead">
-              <Box component="tr">
-                <Box component="th" sx={{ p: 1.5, textAlign: "left", background: "#f5f5f5", fontWeight: 'bold' }}>Airline Name</Box>
-                <Box component="th" sx={{ p: 1.5, textAlign: "left", background: "#f5f5f5", fontWeight: 'bold' }}>Code</Box>
-                <Box component="th" sx={{ p: 1.5, textAlign: "left", background: "#f5f5f5", fontWeight: 'bold' }}>Prefix</Box>
-                <Box component="th" sx={{ p: 1.5, textAlign: "left", background: "#f5f5f5", fontWeight: 'bold' }}>Check Digit</Box>
-                <Box component="th" sx={{ p: 1.5, textAlign: "left", background: "#f5f5f5", fontWeight: 'bold' }}>Active</Box>
-                <Box component="th" sx={{ p: 2, textAlign: "center", background: "#f5f5f5", fontWeight: 'bold' }}>Action</Box>
-              </Box>
-            </Box>
-            <Box component="tbody">
+          <Table stickyHeader sx={{ minWidth: 1000 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Airline Name</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Code/Prefix</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Branches</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Main Branch (GST/PAN)</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Active</TableCell>
+                <TableCell align="center" sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {filteredAirlines.map((airline, index) => (
-                <Box component="tr" key={index} sx={{ "&:hover": { backgroundColor: "#f9f9f9" } }}>
-                  <Box component="td" sx={{ p: 1.5, borderBottom: "1px solid #eee" }}>{airline.name}</Box>
-                  <Box component="td" sx={{ p: 1.5, borderBottom: "1px solid #eee" }}>{airline.code}</Box>
-                  <Box component="td" sx={{ p: 1.5, borderBottom: "1px solid #eee" }}>{airline.prefix}</Box>
-                  <Box component="td" sx={{ p: 1.5, borderBottom: "1px solid #eee" }}>{airline.checkDigit}</Box>
-                  <Box component="td" sx={{ p: 1.5, borderBottom: "1px solid #eee" }}>{airline.active}</Box>
-                  <Box component="td" sx={{ p: 1, borderBottom: "1px solid #eee", textAlign: "center" }}>
+                <TableRow key={index} hover>
+                  <TableCell>
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{airline.name}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{airline.code} / {airline.prefix}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    {airline.branches?.length || 0} Branch(es)
+                    <Typography variant="caption" display="block" color="textSecondary">
+                      {airline.branches?.map(b => `${b.branch_no || ""}: ${b.branchName}`).join(", ")}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" display="block">GST: {airline.branches?.[0]?.gst || "N/A"}</Typography>
+                    <Typography variant="caption" display="block">PAN: {airline.branches?.[0]?.pan || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell>{airline.active}</TableCell>
+                  <TableCell align="center">
                     <IconButton size="small" onClick={() => handleEdit(airline)} color="primary">
                         <EditIcon fontSize="small" />
                     </IconButton>
-                  </Box>
-                </Box>
+                    <IconButton size="small" onClick={() => handleDelete(airline._id)} color="error">
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
               ))}
               {filteredAirlines.length === 0 && (
-                <Box component="tr">
-                    <Box component="td" colSpan={6} sx={{ p: 4, textAlign: "center" }}>
-                      No airlines found matching your search.
-                    </Box>
-                </Box>
+                <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ p: 4 }}>
+                      No airlines found.
+                    </TableCell>
+                </TableRow>
               )}
-            </Box>
+            </TableBody>
           </Table>
         )}
       </Paper>
 
-      {/* Airline Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      {/* Dialog */}
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{editingId ? "Edit Airline" : "Add New Airline"}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
             <TextField
+              fullWidth
               label="Airline Name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
             />
             <TextField
+              fullWidth
               label="Code"
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
             />
             <TextField
+              fullWidth
               label="Prefix"
               value={formData.prefix}
               onChange={(e) => setFormData({ ...formData, prefix: e.target.value })}
@@ -243,15 +429,217 @@ const AirlinesDirectory = () => {
                 <option value="No">No</option>
             </TextField>
             <TextField
+              fullWidth
               label="AWB Format"
               value={formData.awbFormat}
               onChange={(e) => setFormData({ ...formData, awbFormat: e.target.value })}
             />
+            <TextField
+              fullWidth
+              label="TDS %"
+              type="number"
+              value={formData.tds_percent}
+              onChange={(e) => setFormData({ ...formData, tds_percent: parseFloat(e.target.value) || 0 })}
+            />
+            <TextField
+              fullWidth
+              label="Credit Terms"
+              placeholder="e.g. 30 DAYS"
+              value={formData.credit_terms}
+              onChange={(e) => setFormData({ ...formData, credit_terms: e.target.value.toUpperCase() })}
+            />
+            <TextField
+              fullWidth
+              label="CIN No"
+              placeholder="Corporate Identification Number"
+              value={formData.cin}
+              onChange={(e) => setFormData({ ...formData, cin: e.target.value.toUpperCase() })}
+            />
+
+            <Box sx={{ gridColumn: 'span 2', mt: 2 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <BusinessIcon color="primary" /> Manage Branches ({formData.branches.length})
+              </Typography>
+              
+              {formData.branches.map((branch, index) => (
+                <Accordion key={index} elevation={0} sx={{ border: '1px solid #e0e0e0', mb: 1 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography sx={{ fontWeight: 'bold' }}>
+                      {branch.branch_no ? `${branch.branch_no}: ` : ""}{branch.branchName || `Branch ${index + 1}`} 
+                      {branch.city ? ` - ${branch.city}` : ""}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, position: 'relative' }}>
+                      <IconButton 
+                        size="small" 
+                        color="error" 
+                        onClick={() => removeBranch(index)}
+                        sx={{ position: 'absolute', right: -10, top: -45 }}
+                      >
+                        <RemoveCircleOutlineIcon />
+                      </IconButton>
+                      
+                      <TextField 
+                        label="Branch No" 
+                        fullWidth 
+                        size="small"
+                        value={branch.branch_no} 
+                        onChange={(e) => handleBranchChange(index, "branch_no", e.target.value)} 
+                      />
+                      <TextField 
+                        label="Branch Name" 
+                        fullWidth 
+                        size="small"
+                        value={branch.branchName} 
+                        onChange={(e) => handleBranchChange(index, "branchName", e.target.value)} 
+                      />
+                      <TextField 
+                        label="GST" 
+                        fullWidth 
+                        size="small"
+                        value={branch.gst} 
+                        onChange={(e) => handleBranchChange(index, "gst", e.target.value.toUpperCase())} 
+                      />
+                      <TextField 
+                        label="Address" 
+                        fullWidth 
+                        size="small"
+                        multiline
+                        rows={2}
+                        value={branch.address} 
+                        onChange={(e) => handleBranchChange(index, "address", e.target.value)} 
+                        sx={{ gridColumn: 'span 2' }}
+                      />
+                      <TextField 
+                        label="City" 
+                        fullWidth 
+                        size="small"
+                        value={branch.city} 
+                        onChange={(e) => handleBranchChange(index, "city", e.target.value)} 
+                      />
+                      <TextField 
+                        label="State" 
+                        fullWidth 
+                        size="small"
+                        value={branch.state} 
+                        onChange={(e) => handleBranchChange(index, "state", e.target.value)} 
+                      />
+                      <TextField 
+                        label="Pincode" 
+                        fullWidth 
+                        size="small"
+                        value={branch.pincode} 
+                        onChange={(e) => handleBranchChange(index, "pincode", e.target.value)} 
+                      />
+                      <TextField 
+                        label="Country" 
+                        fullWidth 
+                        size="small"
+                        value={branch.country} 
+                        onChange={(e) => handleBranchChange(index, "country", e.target.value)} 
+                      />
+                      <TextField 
+                        label="PAN Card" 
+                        fullWidth 
+                        size="small"
+                        value={branch.pan} 
+                        onChange={(e) => handleBranchChange(index, "pan", e.target.value.toUpperCase())} 
+                      />
+                      <Box sx={{ gridColumn: 'span 2', mt: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="subtitle2" color="primary">Account Information</Typography>
+                            <Button size="small" startIcon={<AddIcon />} onClick={() => addAccount(index)}>Add Account</Button>
+                        </Box>
+                        {branch.accounts?.map((account, accIdx) => (
+                            <Box key={accIdx} sx={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr', 
+                                gap: 2, 
+                                mb: 2, 
+                                p: 1.5, 
+                                border: '1px dashed #ccc',
+                                borderRadius: 1,
+                                position: 'relative'
+                            }}>
+                                {branch.accounts.length > 1 && (
+                                    <IconButton size="small" color="error" sx={{ position: 'absolute', right: 0, top: 0 }} onClick={() => removeAccount(index, accIdx)}>
+                                        <RemoveCircleOutlineIcon fontSize="small" />
+                                    </IconButton>
+                                )}
+                                <TextField 
+                                    label="Bank Name" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.bankName} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "bankName", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="Account No" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.accountNo} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "accountNo", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="IFSC Code" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.ifsc} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "ifsc", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="AD Code" 
+                                    fullWidth 
+                                    size="small"
+                                    value={account.adCode} 
+                                    onChange={(e) => handleAccountChange(index, accIdx, "adCode", e.target.value)} 
+                                />
+                            </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+              
+              <Button 
+                startIcon={<AddIcon />} 
+                variant="outlined" 
+                fullWidth 
+                onClick={addBranch}
+                sx={{ mt: 1 }}
+              >
+                Add New Branch
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained">{editingId ? "Update" : "Add"}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}>
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <Typography>{confirmDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>Cancel</Button>
+          <Button 
+            onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog({ ...confirmDialog, open: false });
+            }} 
+            color="error" 
+            variant="contained"
+          >
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
 

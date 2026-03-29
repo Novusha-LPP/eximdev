@@ -309,7 +309,11 @@ const ImportCreateJob = () => {
     isEditMode,
     jobNumber,
     populateJobData,
-    checkDuplicate
+    checkDuplicate,
+    importer_type,
+    setImporterType,
+    commercial_tax_type,
+    setCommercialTaxType,
   } = useImportJobForm();
 
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
@@ -384,6 +388,41 @@ const ImportCreateJob = () => {
     "(INHZA1) Hazira",
     "(INAMD4) Ahmedabad"
   ];
+
+  const importerTypeOptions = [
+    { value: 'G', label: 'Government Departments (Central & State)' },
+    { value: 'U', label: 'Government Undertakings (Central & State)' },
+    { value: 'O', label: 'Others' },
+    { value: 'P', label: 'Private' },
+    { value: 'J', label: 'Jobbing' },
+    { value: 'R', label: 'Repair' },
+    { value: 'E', label: 'Exhibition' },
+    { value: 'D', label: 'Destruction' },
+    { value: 'T', label: 'Sample Testing' },
+    { value: 'S', label: 'Ship Stores / Cruise Ship Purchase' },
+    { value: 'V', label: 'Vessels / Charter Vessels / Vessel Repair' },
+    { value: 'A', label: 'New Aircraft' },
+    { value: 'H', label: 'Hand Carriage (Applicable for Air Cargo – H Type BE)' },
+    { value: 'I', label: 'Unclaimed Cargo' },
+    { value: 'T', label: 'W Type BE in SEZ (Trading – SEZ to CBW)' },
+    { value: 'M', label: 'W Type BE in SEZ (Manufactured Goods – SEZ to CBW)' },
+    { value: 'W', label: 'Z Type BE in SEZ (CBW to SEZ)' },
+  ];
+
+  const commercialTaxTypeOptions = [
+    { value: 'V', label: 'VAT (Value Added Tax)' },
+    { value: 'C', label: 'CST (Central Sales Tax)' },
+    { value: 'S', label: 'Service Tax' },
+    { value: 'G', label: 'GST – Registered Taxpayer (India)' },
+    { value: 'N', label: 'GST – Non-Resident Taxpayer' },
+    { value: 'O', label: 'GST – Government Entity' },
+    { value: 'D', label: 'GST – Diplomat' },
+    { value: 'A', label: 'Aadhaar Number' },
+    { value: 'P', label: 'Passport Number' },
+    { value: 'I', label: 'Income Tax PAN' },
+    { value: 'T', label: 'TIN (Taxpayer Identification Number)' },
+  ];
+
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"];
   const [selectedImporter, setSelectedImporter] = useState("");
@@ -788,6 +827,48 @@ const ImportCreateJob = () => {
                         fullWidth
                         InputProps={{ readOnly: true }}
                         sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}
+                      />
+                    </FormField>
+
+                    <FormField label="Importer Type">
+                      <Autocomplete
+                        options={importerTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={importerTypeOptions.find(opt => opt.value === importer_type) || null}
+                        onChange={(event, newValue) => {
+                          setImporterType(newValue ? newValue.value : "");
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Type"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Commercial Tax Type">
+                      <Autocomplete
+                        options={commercialTaxTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={commercialTaxTypeOptions.find(opt => opt.value === commercial_tax_type) || null}
+                        onChange={(event, newValue) => {
+                          setCommercialTaxType(newValue ? newValue.value : "");
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Tax Type"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
                       />
                     </FormField>
 
@@ -2359,6 +2440,8 @@ const ImportCreateJob = () => {
             <Grid item xs={12} md={4}>
               <Typography variant="overline" color="text.secondary" fontWeight={700}>Parties</Typography>
               <Typography variant="body2"><b>Importer:</b> {importer}</Typography>
+              <Typography variant="body2"><b>Importer Type:</b> {importerTypeOptions.find(opt => opt.value === importer_type)?.label || 'N/A'}</Typography>
+              <Typography variant="body2"><b>Commercial Tax Type:</b> {commercialTaxTypeOptions.find(opt => opt.value === commercial_tax_type)?.label || 'N/A'}</Typography>
               <Typography variant="body2"><b>Supplier:</b> {supplier_exporter}</Typography>
               <Typography variant="body2"><b>Custom House:</b> {custom_house}</Typography>
             </Grid>

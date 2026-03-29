@@ -232,6 +232,8 @@ const jobSchema = new mongoose.Schema({
   custom_house: { type: String, trim: true },
   job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
+  importer_type: { type: String, trim: true },
+  commercial_tax_type: { type: String, trim: true },
   supplier_exporter: { type: String, trim: true },
   invoice_number: { type: String, trim: true },
   invoice_date: { type: String, trim: true },

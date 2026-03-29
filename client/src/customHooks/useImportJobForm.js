@@ -35,7 +35,10 @@ const useImportJobForm = () => {
 
   // Initialize the state with the determined year pair
   const [year, setYear] = useState(defaultYearPair);
-  const [job_date, setJob_date] = useState("")
+  const [job_date, setJob_date] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editJobId, setEditJobId] = useState(null);
+  const [jobNumber, setJobNumber] = useState("");
 
   // Existing states:
   // const [job_no, setJobNo] = useState("");
@@ -133,12 +136,39 @@ const useImportJobForm = () => {
       isDefault: true,
     },
     {
-      document_name: "Bill of Lading",
-      document_code: "704000",
+      document_name: mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+      document_code: mode === "AIR" ? "740000" : "704000",
       url: [],
       isDefault: true,
     },
   ]);
+
+  // Update default transport document when mode changes (only for new jobs)
+  useEffect(() => {
+    if (!isEditMode) {
+      const isAir = mode === "AIR";
+      const targetDocName = isAir ? "Air Way BL" : "Bill of Lading";
+      const targetDocCode = isAir ? "740000" : "704000";
+      const otherDocName = isAir ? "Bill of Lading" : "Air Way BL";
+
+      setCthDocuments((prev) => {
+        // If the target doc is already present, do nothing
+        if (prev.some(doc => doc.document_name === targetDocName)) return prev;
+
+        // Replace the other doc if it's there, otherwise just add it
+        const hasOther = prev.some(doc => doc.document_name === otherDocName);
+        if (hasOther) {
+          return prev.map(doc => 
+            doc.document_name === otherDocName 
+              ? { ...doc, document_name: targetDocName, document_code: targetDocCode, url: doc.url || [] }
+              : doc
+          );
+        } else {
+          return [...prev, { document_name: targetDocName, document_code: targetDocCode, url: [], isDefault: true }];
+        }
+      });
+    }
+  }, [mode, isEditMode]);
 
   const [scheme, setScheme] = useState("");
   const [in_bond_be_no, setBeNo] = useState("");
@@ -181,10 +211,6 @@ const useImportJobForm = () => {
     revenue_deposit: { rate: 0, on: "Assessable" },
     landing_charge: { rate: 1 }
   });
-
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editJobId, setEditJobId] = useState(null);
-  const [jobNumber, setJobNumber] = useState("");
 
   useEffect(() => {
     if (importer) {
@@ -442,8 +468,8 @@ const useImportJobForm = () => {
         isDefault: true,
       },
       {
-        document_name: "Bill of Lading",
-        document_code: "704000",
+        document_name: mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+        document_code: mode === "AIR" ? "740000" : "704000",
         url: [],
         isDefault: true,
       },

@@ -596,10 +596,11 @@ const getDocumentationPipeline = (start, end, importer, branchId, category) => {
             },
             {
                 $and: [
-                    { "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] } },
-                    { "cth_documents": { $elemMatch: { document_name: "Bill of Lading", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents.document_name": { $all: ["Packing List", "Commercial Invoice"] } },
+                    { "cth_documents.document_name": { $in: ["Bill of Lading", "Air Way BL", "Air Waybill"] } },
                     { "cth_documents": { $elemMatch: { document_name: "Packing List", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
-                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
+                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: { $in: ["Bill of Lading", "Air Way BL", "Air Waybill"] }, url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
                 ]
             }
         ]
@@ -1250,10 +1251,11 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
             },
             {
                 $and: [
-                    { "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] } },
-                    { "cth_documents": { $elemMatch: { document_name: "Bill of Lading", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents.document_name": { $all: ["Packing List", "Commercial Invoice"] } },
+                    { "cth_documents.document_name": { $in: ["Bill of Lading", "Air Way BL", "Air Waybill"] } },
                     { "cth_documents": { $elemMatch: { document_name: "Packing List", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
-                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
+                    { "cth_documents": { $elemMatch: { document_name: "Commercial Invoice", url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } },
+                    { "cth_documents": { $elemMatch: { document_name: { $in: ["Bill of Lading", "Air Way BL", "Air Waybill"] }, url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } } } } }
                 ]
             }
         ]

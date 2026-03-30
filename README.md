@@ -67,3 +67,6 @@ To set up the AlVision Exim client application, follow these steps:
 
 - Ensure that all environment variables and system prerequisites (like Node.js, npm, and Electron) are correctly set up before installing and running the application.
 - Configuration details for AWS S3 should be securely stored and managed via environment variables or configuration files.
+
+
+`Stop-Process -Id (Get-NetTCPConnection -LocalPort 9006).OwningProcess -Force`

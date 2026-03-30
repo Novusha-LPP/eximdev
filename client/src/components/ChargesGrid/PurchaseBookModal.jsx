@@ -35,18 +35,36 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber }) => {
 
     useEffect(() => {
         if (isOpen && initialData) {
+            const party = initialData.partyDetails;
+            const branchIndex = initialData.branchIndex || 0;
+            const branch = party?.branches?.[branchIndex] || {};
+            
             setFormData(prev => ({
                 ...prev,
-                jobNo: jobNumber || '',
+                jobNo: initialData.jobDisplayNumber || jobNumber || '',
+                supplierInvNo: initialData.invoice_number || '',
+                supplierInvDate: initialData.invoice_date || '',
                 supplierName: initialData.partyName || '',
-                taxableValue: initialData.amount || '',
+                address1: branch.address || '',
+                address2: branch.city || '',
+                address3: branch.state || branch.city || '',
+                state: branch.state || '',
+                country: branch.country || '',
+                pinCode: branch.pincode || branch.postal_code || '',
+                gstinNo: branch.gst || '',
+                pan: branch.pan || '',
+                cin: party?.cin || '',
+                creditTerms: party?.credit_terms || '',
+                taxableValue: initialData.basicAmount ? initialData.basicAmount.toFixed(2) : (initialData.amount ? initialData.amount.toFixed(2) : ''),
                 gstPercent: initialData.gstRate || '',
-                cgstAmt: initialData.cgst || '',
-                sgstAmt: initialData.sgst || '',
-                igstAmt: initialData.igst || '',
-                tds: initialData.tdsAmount || '',
-                total: initialData.totalAmount || '',
-                descriptionOfServices: initialData.chargeHead || ''
+                cgstAmt: (initialData.cgst > 0) ? initialData.cgst.toFixed(2) : '',
+                sgstAmt: (initialData.sgst > 0) ? initialData.sgst.toFixed(2) : '',
+                igstAmt: (initialData.igst > 0) ? initialData.igst.toFixed(2) : '',
+                tds: initialData.tdsAmount ? initialData.tdsAmount.toFixed(2) : '',
+                total: initialData.netPayable ? initialData.netPayable.toFixed(2) : '',
+                descriptionOfServices: initialData.chargeHead || '',
+                sac: initialData.cthNo || '',
+                status: ''
             }));
         }
     }, [isOpen, initialData, jobNumber]);
@@ -71,7 +89,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber }) => {
                 <div className="modal-title">Purchase Book Entry</div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
-                        <div className="ep-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 20px' }}>
+                        <div className="ep-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 20px', marginRight: '30px' }}>
                             <div className="ep-row">
                                 <span className="ep-label">Entry No</span>
                                 <input type="text" name="entryNo" className="ep-desc-input" value={formData.entryNo} onChange={handleInputChange} />
@@ -168,7 +186,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber }) => {
                                 <input type="number" name="gstPercent" className="ep-desc-input" value={formData.gstPercent} onChange={handleInputChange} />
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">CGST Amt</span>
+                                <span className="ep-label">CGST</span>
                                 <input type="number" name="cgstAmt" className="ep-desc-input" value={formData.cgstAmt} onChange={handleInputChange} />
                             </div>
                             <div className="ep-row">
@@ -189,17 +207,13 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber }) => {
                             </div>
                             <div className="ep-row">
                                 <span className="ep-label">Status</span>
-                                <select name="status" className="ep-select" value={formData.status} onChange={handleInputChange}>
-                                    <option value="Active">Active</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Completed">Completed</option>
-                                </select>
+                                <input type="text" name="status" className="ep-desc-input" value={formData.status} onChange={handleInputChange} />
                             </div>
                         </div>
                     </div>
                     <div className="modal-footer">
                         <button type="submit" className="btn">Submit Purchase Entry</button>
-                        <button type="button" className="btn" onClick={onClose}>Cancel</button>
+                        <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
                     </div>
                 </form>
             </div>

@@ -66,6 +66,8 @@ function JobDetailsStaticData(props) {
       hss: props.data?.hss || "",
       saller_name: props.data?.saller_name || "",
       importer_address: props.data?.importer_address || "",
+      importer_type: props.data?.importer_type || "",
+      commercial_tax_type: props.data?.commercial_tax_type || "",
     });
     setErrorMsg("");
     setEditModalOpen(true);
@@ -219,6 +221,40 @@ function JobDetailsStaticData(props) {
     fontWeight: "400",
   };
 
+  const importerTypeOptions = [
+    { value: 'G', label: 'Government Departments (Central & State)' },
+    { value: 'U', label: 'Government Undertakings (Central & State)' },
+    { value: 'O', label: 'Others' },
+    { value: 'P', label: 'Private' },
+    { value: 'J', label: 'Jobbing' },
+    { value: 'R', label: 'Repair' },
+    { value: 'E', label: 'Exhibition' },
+    { value: 'D', label: 'Destruction' },
+    { value: 'T', label: 'Sample Testing' },
+    { value: 'S', label: 'Ship Stores / Cruise Ship Purchase' },
+    { value: 'V', label: 'Vessels / Charter Vessels / Vessel Repair' },
+    { value: 'A', label: 'New Aircraft' },
+    { value: 'H', label: 'Hand Carriage (Applicable for Air Cargo – H Type BE)' },
+    { value: 'I', label: 'Unclaimed Cargo' },
+    { value: 'T', label: 'W Type BE in SEZ (Trading – SEZ to CBW)' },
+    { value: 'M', label: 'W Type BE in SEZ (Manufactured Goods – SEZ to CBW)' },
+    { value: 'W', label: 'Z Type BE in SEZ (CBW to SEZ)' },
+  ];
+
+  const commercialTaxTypeOptions = [
+    { value: 'V', label: 'VAT (Value Added Tax)' },
+    { value: 'C', label: 'CST (Central Sales Tax)' },
+    { value: 'S', label: 'Service Tax' },
+    { value: 'G', label: 'GST – Registered Taxpayer (India)' },
+    { value: 'N', label: 'GST – Non-Resident Taxpayer' },
+    { value: 'O', label: 'GST – Government Entity' },
+    { value: 'D', label: 'GST – Diplomat' },
+    { value: 'A', label: 'Aadhaar Number' },
+    { value: 'P', label: 'Passport Number' },
+    { value: 'I', label: 'Income Tax PAN' },
+    { value: 'T', label: 'TIN (Taxpayer Identification Number)' },
+  ];
+
   return (
     <div className="job-details-container" style={{ padding: "0px", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", transition: "all 0.3s ease" }}>
 
@@ -370,23 +406,36 @@ function JobDetailsStaticData(props) {
             </Col>
           </Row>
 
-          {/* Row 2: Importer, IE Code, Invoice No, Invoice Date */}
           <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>Importer: </span>
               <span style={valueStyle}>{props.data.importer}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} md={6} lg={4}>
+              <span style={labelStyle}>Importer Type: </span>
+              <span style={valueStyle}>{importerTypeOptions.find(opt => opt.value === props.data.importer_type)?.label || props.data.importer_type || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={4}>
+              <span style={labelStyle}>Comm. Tax Type: </span>
+              <span style={valueStyle}>{commercialTaxTypeOptions.find(opt => opt.value === props.data.commercial_tax_type)?.label || props.data.commercial_tax_type || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>IE Code: </span>
               <span style={valueStyle}>{props.data.ie_code_no}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
+          </Row>
+          <Row style={compactRowStyle}>
+            <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>Invoice No.: </span>
               <span style={valueStyle}>{props.data.invoice_number}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>Invoice Date: </span>
               <span style={valueStyle}>{props.data.invoice_date}</span>
+            </Col>
+            <Col xs={12} md={6} lg={4}>
+               <span style={labelStyle}>Incoterm: </span>
+               <span style={valueStyle}>{props.data.import_terms}</span>
             </Col>
           </Row>
 
@@ -649,6 +698,50 @@ function JobDetailsStaticData(props) {
                             {...params}
                             size="small"
                             label="Port of Reporting"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                if (key === "importer_type") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        options={importerTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={importerTypeOptions.find(opt => opt.value === editFormData[key]) || null}
+                        onChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue ? newValue.value : "" }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Importer Type"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                if (key === "commercial_tax_type") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        options={commercialTaxTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={commercialTaxTypeOptions.find(opt => opt.value === editFormData[key]) || null}
+                        onChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue ? newValue.value : "" }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Commercial Tax Type"
                             fullWidth
                           />
                         )}

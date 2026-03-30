@@ -795,6 +795,10 @@ export const cth_Dropdown = [
   //   document_code: "704000",
   // },
   {
+    document_name: "Air Way BL",
+    document_code: "740000",
+  },
+  {
     document_name: "Certificate of Origin",
     document_code: "861000",
   },

@@ -91,6 +91,8 @@ import OrganizationForm from "../components/master-directory/OrganizationForm.js
 import ShippingLineDirectory from "../components/master-directory/ShippingLineDirectory.js";
 import SupplierDirectory from "../components/master-directory/SupplierDirectory.js";
 import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.js";
+import PortDirectory from "../components/master-directory/PortDirectory.js";
+import CustomHouseDirectory from "../components/master-directory/CustomHouseDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
@@ -550,6 +552,14 @@ function HomePageContent() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/custom-house-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <CustomHouseDirectory />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route
                   path="/country-directory"
@@ -622,6 +632,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <CurrencyDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/port-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <PortDirectory />
                     </ProtectedRoute>
                   }
                 />

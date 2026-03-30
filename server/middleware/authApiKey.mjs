@@ -18,7 +18,11 @@ const authApiKey = async (req, res, next) => {
     const keyDoc = await ApiKeyModel.findOne({ key: apiKey });
 
     if (!keyDoc) {
-      return res.status(403).json({ error: "Invalid or revoked API Key." });
+      return res.status(401).json({ error: "Invalid API Key." });
+    }
+
+    if (keyDoc.isActive === false) {
+        return res.status(401).json({ error: "API Key is deactivated." });
     }
 
     // Update lastUsedAt in the background (non-blocking)

@@ -258,6 +258,8 @@ import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs
 import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs";
 import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
 import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
+import portRoutes from "./routes/master-directory/portRoutes.mjs";
+import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -268,6 +270,8 @@ import attendanceRoutes from "./routes/attendance/attendanceRoutes.mjs";
 import leaveRoutes from "./routes/attendance/leaveRoutes.mjs";
 import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
 import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
+// scmCube API
+import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
 
 
 
@@ -566,6 +570,8 @@ app.use("/api", organizationRoutes);
 app.use("/api", shippingLineRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", currencyRoutes);
+app.use("/api", portRoutes);
+app.use("/api", customHouseRoutes);
 
 
 // Tally API
@@ -581,6 +587,12 @@ app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
 ));
 // ─────────────────────────────────────────────────────────────────────────────
+// scmCube API
+app.use(scmCubeRoutes);
+
+
+
+
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);
 
@@ -697,3 +709,4 @@ if (cluster.isPrimary) {
 }
 
 export default app;
+ 

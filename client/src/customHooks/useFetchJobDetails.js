@@ -59,8 +59,8 @@ function useFetchJobDetails(
       document_code: "271000",
     },
     {
-      document_name: "Bill of Lading",
-      document_code: "704000",
+      document_name: params.mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+      document_code: params.mode === "AIR" ? "740000" : "704000",
     },
   ]);
 

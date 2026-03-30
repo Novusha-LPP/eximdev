@@ -35,12 +35,17 @@ const useImportJobForm = () => {
 
   // Initialize the state with the determined year pair
   const [year, setYear] = useState(defaultYearPair);
-  const [job_date, setJob_date] = useState("")
+  const [job_date, setJob_date] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editJobId, setEditJobId] = useState(null);
+  const [jobNumber, setJobNumber] = useState("");
 
   // Existing states:
   // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
   const [importer, setImporter] = useState("");
+  const [importer_type, setImporterType] = useState("");
+  const [commercial_tax_type, setCommercialTaxType] = useState("");
   const [importerURL, setImporterURL] = useState("");
   const [shipping_line_airline, setShippingLineAirline] = useState("");
   const [branchSrNo, setBranchSrNo] = useState("");
@@ -133,12 +138,39 @@ const useImportJobForm = () => {
       isDefault: true,
     },
     {
-      document_name: "Bill of Lading",
-      document_code: "704000",
+      document_name: mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+      document_code: mode === "AIR" ? "740000" : "704000",
       url: [],
       isDefault: true,
     },
   ]);
+
+  // Update default transport document when mode changes (only for new jobs)
+  useEffect(() => {
+    if (!isEditMode) {
+      const isAir = mode === "AIR";
+      const targetDocName = isAir ? "Air Way BL" : "Bill of Lading";
+      const targetDocCode = isAir ? "740000" : "704000";
+      const otherDocName = isAir ? "Bill of Lading" : "Air Way BL";
+
+      setCthDocuments((prev) => {
+        // If the target doc is already present, do nothing
+        if (prev.some(doc => doc.document_name === targetDocName)) return prev;
+
+        // Replace the other doc if it's there, otherwise just add it
+        const hasOther = prev.some(doc => doc.document_name === otherDocName);
+        if (hasOther) {
+          return prev.map(doc => 
+            doc.document_name === otherDocName 
+              ? { ...doc, document_name: targetDocName, document_code: targetDocCode, url: doc.url || [] }
+              : doc
+          );
+        } else {
+          return [...prev, { document_name: targetDocName, document_code: targetDocCode, url: [], isDefault: true }];
+        }
+      });
+    }
+  }, [mode, isEditMode]);
 
   const [scheme, setScheme] = useState("");
   const [in_bond_be_no, setBeNo] = useState("");
@@ -181,10 +213,6 @@ const useImportJobForm = () => {
     revenue_deposit: { rate: 0, on: "Assessable" },
     landing_charge: { rate: 1 }
   });
-
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editJobId, setEditJobId] = useState(null);
-  const [jobNumber, setJobNumber] = useState("");
 
   useEffect(() => {
     if (importer) {
@@ -363,6 +391,9 @@ const useImportJobForm = () => {
     // setYear(defaultYearPair);
     setCustomHouse("");
     setImporter("");
+    setImporterType("");
+    setCommercialTaxType("");
+    setImporterURL("");
     setShippingLineAirline("");
     setBranchSrNo("");
     setAdCode("");
@@ -442,8 +473,8 @@ const useImportJobForm = () => {
         isDefault: true,
       },
       {
-        document_name: "Bill of Lading",
-        document_code: "704000",
+        document_name: mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+        document_code: mode === "AIR" ? "740000" : "704000",
         url: [],
         isDefault: true,
       },
@@ -500,6 +531,8 @@ const useImportJobForm = () => {
     if (job.year) setYear(job.year);
     if (job.custom_house) setCustomHouse(job.custom_house);
     if (job.importer) setImporter(job.importer);
+    if (job.importer_type) setImporterType(job.importer_type);
+    if (job.commercial_tax_type) setCommercialTaxType(job.commercial_tax_type);
     if (job.shipping_line_airline) setShippingLineAirline(job.shipping_line_airline);
     if (job.branchSrNo) setBranchSrNo(job.branchSrNo);
     if (job.adCode) setAdCode(job.adCode);
@@ -638,6 +671,8 @@ const useImportJobForm = () => {
           job_date,
           custom_house,
           importer,
+          importer_type,
+          commercial_tax_type,
           importerURL,
           ie_code_no,
           shipping_line_airline,
@@ -881,7 +916,6 @@ const useImportJobForm = () => {
 
   return {
     formik,
-    // Export states so the component can use them
     year,
     setYear,
     custom_house,
@@ -1032,7 +1066,11 @@ const useImportJobForm = () => {
     setIsEditMode,
     jobNumber,
     populateJobData,
-    checkDuplicate
+    checkDuplicate,
+    importer_type,
+    setImporterType,
+    commercial_tax_type,
+    setCommercialTaxType,
   };
 };
 

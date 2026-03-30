@@ -9,7 +9,8 @@
     "middleware",
     "services",
     ".env",
-    "logger.js"
+    "logger.js",
+    "scmCube"
   ],
   "ext": "js,json,mjs",
   "exec": "node app.mjs"

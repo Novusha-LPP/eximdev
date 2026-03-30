@@ -1,5 +1,7 @@
 import express from "express";
+import mongoose from "mongoose";
 import ApiKeyModel from "../../model/apiKeyModel.mjs";
+import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import crypto from "crypto";
 
@@ -22,8 +24,37 @@ const isAdmin = (req, res, next) => {
 router.get("/api/admin/api-keys", authMiddleware, isAdmin, async (req, res) => {
   try {
     // Return keys but redact the full key string for listing (optional)
-    // Here we return name, createdBy, createdAt, lastUsedAt etc.
-    const keys = await ApiKeyModel.find().select("-key");
+    // Fetches keys. We do NOT use .populate() here because legacy 'createdBy' 
+    // strings will cause a CastError on the ObjectId ref.
+    let keys = await ApiKeyModel.find().select("-key").lean();
+
+    // Manual population for both legacy usernames and new ObjectIds
+    for (let i = 0; i < keys.length; i++) {
+        const creatorIdOrName = keys[i].createdBy;
+        if (!creatorIdOrName) {
+            keys[i].createdBy = { username: "System" };
+            continue;
+        }
+
+        let user = null;
+        // Check if it's a valid MongoDB ObjectId
+        if (mongoose.Types.ObjectId.isValid(creatorIdOrName)) {
+            user = await UserModel.findById(creatorIdOrName, "first_name last_name username").lean();
+        } 
+        
+        // If not found by ID, or it was a string username, try finding by username
+        if (!user && typeof creatorIdOrName === 'string') {
+            user = await UserModel.findOne({ username: creatorIdOrName }, "first_name last_name username").lean();
+        }
+
+        if (user) {
+            keys[i].createdBy = user;
+        } else {
+            // Fallback for display if user is totally missing
+            keys[i].createdBy = { username: typeof creatorIdOrName === 'string' ? creatorIdOrName : "Unknown" };
+        }
+    }
+
     res.status(200).json(keys);
   } catch (error) {
     console.error("Error listing API keys:", error);
@@ -47,7 +78,7 @@ router.post("/api/admin/api-keys", authMiddleware, isAdmin, async (req, res) => 
     const newApiKey = new ApiKeyModel({
       key,
       name,
-      createdBy: req.user.username || "Admin"
+      createdBy: req.user._id
     });
 
     await newApiKey.save();
@@ -64,23 +95,34 @@ router.post("/api/admin/api-keys", authMiddleware, isAdmin, async (req, res) => 
   }
 });
 
-/**
- * @api {delete} /api/admin/api-keys/:id Revoke/Delete an API key (Admin only)
- */
-router.delete("/api/admin/api-keys/:id", authMiddleware, isAdmin, async (req, res) => {
+router.patch("/api/admin/api-keys/:id/toggle", authMiddleware, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedKey = await ApiKeyModel.findByIdAndDelete(id);
+    
+    // Using findByIdAndUpdate with a toggle toggle ($not) works without loading the model, 
+    // which bypasses validation errors on internal fields like 'createdBy' (legacy strings)
+    const updatedKey = await ApiKeyModel.findByIdAndUpdate(
+        id,
+        [
+            { $set: { isActive: { $cond: { if: { $eq: ["$isActive", false] }, then: true, else: false } } } }
+        ],
+        { new: true }
+    );
 
-    if (!deletedKey) {
+    if (!updatedKey) {
       return res.status(404).json({ error: "API Key not found." });
     }
 
-    res.status(200).json({ message: "API Key revoked successfully." });
+    res.status(200).json({ 
+        message: `API Key ${updatedKey.isActive ? "activated" : "deactivated"} successfully.`,
+        isActive: updatedKey.isActive
+    });
   } catch (error) {
-    console.error("Error deleting API key:", error);
+    console.error("Error toggling API key status:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+// REMOVED: Permanent Delete route
 
 export default router;

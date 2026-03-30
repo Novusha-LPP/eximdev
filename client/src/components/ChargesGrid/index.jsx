@@ -18,10 +18,12 @@ const ChargesGrid = ({
   shippingLineAirline = '', 
   importerName = '',
   jobNumber = '',
+  jobDisplayNumber = '',
   jobYear = '',
   invoiceNumber = '',
   invoiceDate = '',
-  invoiceValue = ''
+  invoiceValue = '',
+  cthNo = ''
 }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
@@ -170,10 +172,12 @@ const ChargesGrid = ({
         shippingLineAirline={shippingLineAirline}
         importerName={importerName}
         jobNumber={jobNumber}
+        jobDisplayNumber={jobDisplayNumber}
         jobYear={jobYear}
         jobInvoiceNumber={invoiceNumber}
         jobInvoiceDate={invoiceDate}
         jobInvoiceValue={invoiceValue}
+        jobCthNo={cthNo}
       />
 
       {fileModalCharge && (

@@ -3272,11 +3272,13 @@ function JobDetails() {
                   shippingLineAirline={data?.shipping_line_airline} 
                   importerName={data?.importer} 
                   jobNumber={data?.job_no}
+                  jobDisplayNumber={data?.job_number}
                   jobYear={data?.year}
                   invoiceNumber={data?.invoice_number}
                   invoiceDate={data?.invoice_date}
                   poNo={data?.po_no}
                   invoiceValue={data?.total_inv_value}
+                  cthNo={data?.cth_no}
                 />
               </div>
 

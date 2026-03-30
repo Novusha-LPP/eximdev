@@ -333,7 +333,9 @@ app.use(
       "username",
       "user-role",
       "x-username",
+      "x-api-key",
     ],
+
   })
 );
 
@@ -568,7 +570,7 @@ app.use("/api", customHouseRoutes);
 
 
 // Tally API
-app.use(tallyRoutes);
+app.use("/api/tally", tallyRoutes);
 app.use(apiKeyRoutes);
 
 // scmCube API

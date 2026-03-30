@@ -1,0 +1,293 @@
+{
+	"info": {
+		"_postman_id": "7f8b9d2e-1234-4567-890a-bcdef1234567",
+		"name": "Tally Integration API",
+		"description": "API Collection for Tally Integration including Purchase Entries and Payment Requests.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Diagnostics",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tally/test",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"test"
+							]
+						},
+						"description": "Simple health check to verify the Tally API module is loaded."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Jobs",
+			"item": [
+				{
+					"name": "Get Job Data",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tally/job-data?job_number=AMD/IMP/SEA/01800/25-26",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"job-data"
+							],
+							"query": [
+								{
+									"key": "job_number",
+									"value": "AMD/IMP/SEA/01800/25-26"
+								}
+							]
+						},
+						"description": "Fetch basic job details for Tally mapping."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Purchase Book Entries",
+			"item": [
+				{
+					"name": "Submit Purchase Entry",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Entry No\": \"PB/01/AMD/IMP/SEA/01800/25-26\",\n    \"Entry Date\": \"2025-03-30\",\n    \"Supplier Inv No\": \"INV-12345\",\n    \"Supplier Inv Date\": \"2025-03-25\",\n    \"Job No\": \"AMD/IMP/SEA/01800/25-26\",\n    \"Supplier Name\": \"Global Logistics Ltd\",\n    \"Address 1\": \"Industrial Area 5\",\n    \"State\": \"Gujarat\",\n    \"Country\": \"India\",\n    \"GSTIN No\": \"24AAAAA0000A1Z5\",\n    \"Taxable Value\": 10000,\n    \"GST%\": 18,\n    \"CGST\": 900,\n    \"SGST\": 900,\n    \"Total\": 11800,\n    \"Status\": \"\"\n}",
+							"options": {
+								"json": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/tally/purchase-entry",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"purchase-entry"
+							]
+						},
+						"description": "Create a new Purchase Book Entry."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Purchase Entry by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tally/purchase-entry?entry_no=PB/01/AMD/IMP/SEA/01800/25-26",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"purchase-entry"
+							],
+							"query": [
+								{
+									"key": "entry_no",
+									"value": "PB/01/AMD/IMP/SEA/01800/25-26"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check Purchase Entry Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Entry No\": \"PB/01/AMD/IMP/SEA/01800/25-26\"\n}",
+							"options": {
+								"json": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/tally/purchase-entry/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"purchase-entry",
+								"status"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment Requests",
+			"item": [
+				{
+					"name": "Submit Payment Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Request No\": \"R1/AMD/IMP/SEA/01800/25-26\",\n    \"Request Date\": \"2025-03-30\",\n    \"Bank From\": \"HDFC Bank\",\n    \"Payment To\": \"Vendor X\",\n    \"Against Bill\": \"PB/01/AMD/IMP/SEA/01800/25-26\",\n    \"Amount\": 50000,\n    \"Transaction Type\": \"NEFT\",\n    \"Account No\": \"1234567890\",\n    \"IFSC Code\": \"HDFC0001234\",\n    \"Bank Name\": \"HDFC\",\n    \"Status\": \"\"\n}",
+							"options": {
+								"json": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/tally/payment-request",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"payment-request"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Request by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tally/payment-request?request_no=R1/AMD/IMP/SEA/01800/25-26",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"payment-request"
+							],
+							"query": [
+								{
+									"key": "request_no",
+									"value": "R1/AMD/IMP/SEA/01800/25-26"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check Payment Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Request No\": \"R1/AMD/IMP/SEA/01800/25-26\"\n}",
+							"options": {
+								"json": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/tally/payment-request/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"tally",
+								"payment-request",
+								"status"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{api_key}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "x-api-key",
+				"type": "string"
+			},
+			{
+				"key": "in",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:9006",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "8ee991284105b70062b129ec14bce5c06f718f3a7421aa852a34fcbcd1142865",
+			"type": "string"
+		}
+	]
+}

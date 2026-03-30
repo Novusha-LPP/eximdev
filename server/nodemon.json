@@ -10,7 +10,8 @@
     "services",
     ".env",
     "logger.js",
-    "scmCube"
+    "scmCube",
+    "tallyapi"
   ],
   "ext": "js,json,mjs",
   "exec": "node app.mjs"

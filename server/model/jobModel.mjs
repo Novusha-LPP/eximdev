@@ -165,6 +165,10 @@ const ChargeSchema = new mongoose.Schema({
   invoice_number: { type: String, trim: true },
   invoice_date: { type: String, trim: true },
   invoice_value: { type: String, trim: true },
+  purchase_book_no: { type: String, trim: true },
+  purchase_book_status: { type: String, default: '' },
+  payment_request_no: { type: String, trim: true },
+  payment_request_status: { type: String, default: '' },
 
   revenue: ChargeLineSchema,
   cost: ChargeLineSchema,

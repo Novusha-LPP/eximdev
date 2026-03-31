@@ -272,7 +272,7 @@ const AdminDashboard = () => {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {absentToday.length > 0 && <span className="db-card-badge dbb-red">{absentToday.length} absent</span>}
-                <button className="db-view-all" onClick={() => navigate('/attendance/admin/attendance')}>
+                <button className="db-view-all" onClick={() => navigate('/attendance/admin/attendance', { state: { companyId } })}>
                   View all <FiChevronRight size={12} />
                 </button>
               </div>

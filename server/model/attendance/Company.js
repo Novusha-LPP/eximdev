@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const companySchema = new mongoose.Schema({
   // === CORE IDENTITY ===
   company_name: { type: String, required: true, trim: true },
+  company_name_lower: { type: String, trim: true, lowercase: true, index: true }, // For case-insensitive lookups
   company_code: { type: String, required: true, unique: true, uppercase: true, trim: true },
   domain: { type: String, trim: true }, // e.g., "mycompany.com"
 
@@ -118,5 +119,16 @@ const companySchema = new mongoose.Schema({
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 
 }, { timestamps: true }); // Automatically adds created_at and updated_at
+
+// Pre-save hook to auto-populate company_name_lower
+companySchema.pre('save', function(next) {
+  if (this.company_name) {
+    this.company_name_lower = this.company_name.toLowerCase();
+  }
+  next();
+});
+
+// Add unique index on company_name_lower to prevent case-insensitive duplicates
+companySchema.index({ company_name_lower: 1 }, { unique: true });
 
 export default mongoose.model('Company', companySchema);

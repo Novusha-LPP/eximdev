@@ -58,27 +58,35 @@ async function seed() {
   console.log('[seed] Connected to DB');
 
   const userCompanies = await User.distinct('company', { company: { $exists: true, $ne: '' } });
-  const companyNames = Array.from(new Set([...PROVIDED_COMPANIES, ...userCompanies])).filter(Boolean);
+  
+  // Normalize company names (case-insensitive deduplication)
+  const uniqueCompanyNames = new Map();
+  [...PROVIDED_COMPANIES, ...userCompanies].forEach(name => {
+    if (name) {
+      const key = name.toLowerCase();
+      if (!uniqueCompanyNames.has(key)) {
+        uniqueCompanyNames.set(key, name);
+      }
+    }
+  });
+  
+  const companyNames = Array.from(uniqueCompanyNames.values());
 
   const usedCodes = new Set((await Company.find({}, 'company_code')).map(c => c.company_code).filter(Boolean));
   const summary = { created: 0, updated: 0, shiftsCreated: 0, usersLinked: 0 };
 
   for (const name of companyNames) {
     const code = generateCompanyCode(name, usedCodes);
-    const update = {
-      company_name: name,
-      timezone: defaults.timezone,
-      attendance_config: defaults.attendance_config,
-      settings: defaults.settings,
-      status: 'active'
-    };
-
-    const preCompany = await Company.findOne({ company_name: name });
+    
+    // Case-insensitive lookup
+    const preCompany = await Company.findOne({ company_name_lower: name.toLowerCase() });
     const company = await Company.findOneAndUpdate(
-      { company_name: name },
+      { company_name_lower: name.toLowerCase() },
       {
         $setOnInsert: { 
-          company_code: code 
+          company_code: code,
+          company_name: name,
+          company_name_lower: name.toLowerCase()
         },
         $set: {
           timezone: defaults.timezone,
@@ -114,11 +122,31 @@ async function seed() {
     );
     if (!preShift) summary.shiftsCreated += 1;
 
+    // Backfill user references (case-insensitive company matching)
+    // Escape special regex characters in company name
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const userUpdate = await User.updateMany(
-      { company: name, $or: [{ company_id: { $exists: false } }, { company_id: null }] },
+      { 
+        company: { $regex: new RegExp(`^${escapedName}$`, 'i') }, 
+        $or: [{ company_id: { $exists: false } }, { company_id: null }] 
+      },
       { $set: { company_id: company._id, shift_id: shift._id } }
     );
+    if (userUpdate.modifiedCount > 0) {
+      console.log(`[seed] Linked ${userUpdate.modifiedCount} users to "${name}"`);
+    }
     summary.usersLinked += userUpdate.modifiedCount;
+  }
+
+  // Final check: How many users still don't have company_id?
+  const unlinkedUsers = await User.find({ 
+    company: { $exists: true, $ne: '' }, 
+    $or: [{ company_id: { $exists: false } }, { company_id: null }] 
+  }).select('username company').limit(10);
+  
+  if (unlinkedUsers.length > 0) {
+    console.log('[seed] WARNING: Some users still unlinked:');
+    unlinkedUsers.forEach(u => console.log(`  - ${u.username}: "${u.company}"`));
   }
 
   console.log('[seed] Completed', summary);

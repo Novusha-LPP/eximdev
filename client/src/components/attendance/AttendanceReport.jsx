@@ -3,7 +3,7 @@ import {
     FiX, FiLogIn, FiLogOut, FiEdit, FiFileText, FiUsers, FiAlertTriangle,
     FiUser, FiBriefcase, FiActivity, FiArrowRight, FiRefreshCw, FiDownload, FiCalendar, FiSearch, FiCheckCircle, FiClock
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import masterAPI from '../../api/attendance/master.api';
 import { formatTime12Hr, minutesToHours, formatDate } from './utils/helpers';
@@ -49,6 +49,7 @@ const RenderHeatmap = ({ history, startDate, endDate }) => {
 
 const AttendanceReport = ({ isAdmin }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(true);
     const [reportData, setReportData] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -56,6 +57,7 @@ const AttendanceReport = ({ isAdmin }) => {
     const [selectedDept, setSelectedDept] = useState('all');
     const [companies, setCompanies] = useState([]);
     const [companyId, setCompanyId] = useState('');
+    const [companiesLoaded, setCompaniesLoaded] = useState(false); // guard: wait until company is resolved
     const [selectedEmp, setSelectedEmp] = useState(null);
     const [empHistory, setEmpHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -78,17 +80,37 @@ const AttendanceReport = ({ isAdmin }) => {
     const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);
     const [browseYear, setBrowseYear] = useState(now.getFullYear());
 
-    useEffect(() => { if (isAdmin) fetchCompanies(); }, [isAdmin]);
+    useEffect(() => {
+        if (isAdmin) fetchCompanies();
+        else setCompaniesLoaded(true); // non-admin: no company fetch needed, proceed immediately
+    }, [isAdmin]);
     useEffect(() => { if (isAdmin) fetchDepts(); }, [isAdmin, companyId]);
-    useEffect(() => { fetchReport(); }, [selectedDept, startDate, endDate, companyId]);
+    // Guard: only fetch report after companyId is resolved (companiesLoaded = true)
+    useEffect(() => {
+        if (!companiesLoaded) return;
+        if (isAdmin && !companyId) return; // admin must have a company selected
+        fetchReport();
+    }, [startDate, endDate, companyId, companiesLoaded]);
 
     const fetchCompanies = async () => {
         try {
             const res = await masterAPI.getCompanies();
             const list = res?.data || [];
             setCompanies(list);
-            if (!companyId && list.length > 0) setCompanyId(list[0]._id);
-        } catch { /* ignore for non-admins */ }
+            // Check if company was passed via navigation state (from Dashboard "View all")
+            const passedCompanyId = location.state?.companyId;
+            if (passedCompanyId && list.some(c => c._id === passedCompanyId)) {
+                setCompanyId(passedCompanyId);
+            } else if (list.length > 0) {
+                // Always pick first company if none is set yet
+                setCompanyId(prev => prev || list[0]._id);
+            }
+        } catch (err) {
+            console.error('[AttendanceReport] fetchCompanies failed:', err);
+        } finally {
+            // Mark companies as loaded regardless — so fetchReport can proceed
+            setCompaniesLoaded(true);
+        }
     };
 
     const fetchDepts = async () => {
@@ -103,9 +125,13 @@ const AttendanceReport = ({ isAdmin }) => {
     const fetchReport = async () => {
         try {
             setLoading(true);
-            const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, selectedDept, undefined, companyId);
+            // For Company Report (admin), don't filter by department - pass 'all'
+            const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, 'all', undefined, companyId);
             setReportData(r?.data || []);
-        } catch { toast.error('Failed to load report'); }
+        } catch (err) {
+            console.error('[AttendanceReport] fetchReport error:', err?.response?.status, err?.response?.data || err?.message);
+            toast.error(err?.response?.data?.message || 'Failed to load report');
+        }
         finally { setLoading(false); }
     };
 
@@ -341,12 +367,6 @@ const AttendanceReport = ({ isAdmin }) => {
                             <span>—</span>
                             <input type="date" className="ar-input-ctrl" value={endDate} onChange={e => setEndDate(e.target.value)} />
                         </div>
-                        {isAdmin && (
-                            <select className="ar-input-ctrl ar-select" value={selectedDept} onChange={e => setSelectedDept(e.target.value)}>
-                                <option value="all">All Departments</option>
-                                {departments.map(d => <option key={d._id} value={d._id}>{d.department_name}</option>)}
-                            </select>
-                        )}
                         <select className="ar-input-ctrl ar-select" onChange={e => {
                             if (e.target.value === 'custom') return;
                             const [y, m] = e.target.value.split('-');

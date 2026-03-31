@@ -19,8 +19,13 @@ export const getDashboard = async (req, res) => {
         // Use UTC for date-only comparison to match AttendanceEngine
         const targetDate = date ? moment.utc(date).startOf('day') : moment.utc().startOf('day');
 
-        // Robust ID extraction
-        const companyId = hod.company_id?._id || hod.company_id;
+        // Extract Company ID
+        // Note: For admins, we should also look at req.query.company_id to allow switching contexts
+        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+
+        if (!companyId) {
+            return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
+        }
 
         const debugLog = [];
         debugLog.push(`--- HOD DASHBOARD DEBUG ${new Date().toISOString()} ---`);
@@ -682,7 +687,11 @@ export const getDepartmentAttendanceReport = async (req, res) => {
 
         const startOfMonth = moment(month, 'YYYY-MM').startOf('month');
         const endOfMonth = moment(month, 'YYYY-MM').endOf('month');
-        const companyId = hod.company_id?._id || hod.company_id;
+        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+
+        if (!companyId) {
+            return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
+        }
 
         // 1. Get team members for this HOD (TEAM-BASED FILTERING)
         let employeeIds = [];

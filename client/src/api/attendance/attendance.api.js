@@ -180,8 +180,9 @@ const attendanceAPI = {
   getAdminAttendanceReport: async (startDate, endDate, departmentId, designation, companyId) => {
     try {
       const params = { startDate, endDate };
-      if (departmentId) params.departmentId = departmentId;
-      if (designation) params.designation = designation;
+      // Only add departmentId if it's a valid value (not 'all' or empty)
+      if (departmentId && departmentId !== 'all') params.departmentId = departmentId;
+      if (designation && designation !== 'all') params.designation = designation;
       if (companyId) params.company_id = companyId;
       const response = await apiClient.get('/attendance/admin-report', {
         params

@@ -693,7 +693,13 @@ export const getAdminDashboardData = async (req, res) => {
             return res.status(403).json({ message: 'Only admins can access admin dashboard' });
         }
         const companyId = resolveCompanyId(req);
+        if (!companyId) {
+            return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
+        }
         const company = await Company.findById(companyId);
+        if (!company) {
+            return res.status(400).json({ message: `Company not found for id: ${companyId}. Please select a valid company.` });
+        }
         const tz = 'Asia/Kolkata'; // Standardizing for this business
         const istNow = moment().tz(tz);
         const todayStr = istNow.format('YYYY-MM-DD');
@@ -702,11 +708,11 @@ export const getAdminDashboardData = async (req, res) => {
 
         const totalEmployees = await User.countDocuments({
             company_id: companyId,
-            role: { $ne: 'ADMIN' },
+            role: { $nin: ['ADMIN', 'Admin'] },
             isActive: true
         });
 
-        const employeeIds = await User.find({ company_id: companyId, role: { $ne: 'ADMIN' } }).select('_id');
+        const employeeIds = await User.find({ company_id: companyId, role: { $nin: ['ADMIN', 'Admin'] } }).select('_id');
         const empIdList = employeeIds.map(e => e._id.toString());
 
         const [presentRecs, activeLeaves] = await Promise.all([
@@ -1111,9 +1117,17 @@ export const getAdminAttendanceReport = async (req, res) => {
     try {
         const { startDate, endDate, departmentId } = req.query;
         const companyId = resolveCompanyId(req);
+        
+        console.log(`[Admin Report Test] Request by ${req.user?._id} Role: ${req.user?.role} CompanyId: ${companyId}`);
+
 
         if (!startDate || !endDate) {
             return res.status(400).json({ message: 'startDate and endDate are required' });
+        }
+
+        // Guard: companyId must be resolvable
+        if (!companyId) {
+            return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
         }
 
         const start = moment(startDate).startOf('day').toDate();
@@ -1132,9 +1146,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             userQuery.role = 'EMPLOYEE';
             userQuery.department_id = req.user.department_id;
         } else {
-            // Admin or other roles seeing all staff (including themselves)
-            userQuery.role = { $in: ['EMPLOYEE', 'HOD', 'ADMIN'] };
-
+            // Admin sees all staff in the company. No role filter needed.
             if (departmentId && departmentId !== 'all') {
                 userQuery.department_id = departmentId;
             }
@@ -1146,9 +1158,20 @@ export const getAdminAttendanceReport = async (req, res) => {
         const employees = await User.find(userQuery)
             .populate('department_id')
             .populate('shift_id');
+        
+        // Debug: Check how many users exist with this company_id
+        const totalUsersWithCompany = await User.countDocuments({ company_id: companyId });
+        const totalActiveUsers = await User.countDocuments({ company_id: companyId, isActive: true });
+        console.log(`[Admin Report] Company ${companyId}: Total users=${totalUsersWithCompany}, Active=${totalActiveUsers}, Query result=${employees.length}`);
+        
         const employeeIds = employees.map(e => e._id);
+
+
         // 2. Fetch Bulk Data (Records, Leaves, Holidays)
         const company = await Company.findById(companyId); // Fetch company here for WorkingDayEngine
+        if (!company) {
+            return res.status(400).json({ message: `Company not found for id: ${companyId}. Please select a valid company.` });
+        }
         const [attendanceRecords, approvedLeaves, holidays] = await Promise.all([
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },

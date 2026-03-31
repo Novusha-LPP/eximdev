@@ -84,11 +84,15 @@ const attendanceAPI = {
   },
 
   /**
-   * Get HOD Dashboard Data
+   * Get HOD Dashboard Data (also used for HOD leave approvals)
+   * Admins can pass ?teamId to filter
    */
-  getHODDashboard: async () => {
+  getHODDashboard: async (teamId) => {
     try {
-      const response = await apiClient.get('/attendance/HODDashboard');
+      const url = teamId && teamId !== 'all'
+        ? `/attendance/HODDashboard?teamId=${teamId}`
+        : '/attendance/HODDashboard';
+      const response = await apiClient.get(url);
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch HOD dashboard' };
@@ -172,7 +176,7 @@ const attendanceAPI = {
   getAdminAttendanceReport: async (startDate, endDate, departmentId, designation) => {
     try {
       const response = await apiClient.get('/attendance/admin-report', {
-        params: { startDate, endDate, departmentId: departmentId, designation }
+        params: { startDate, endDate, departmentId, designation }
       });
       return response.data;
     } catch (error) {
@@ -227,6 +231,21 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to update employee profile' };
+    }
+  },
+
+  /**
+   * Get all leave requests for Admin view (with optional teamId filter)
+   * Returns: { data: { pendingLeaves, recentProcessedLeaves, teams } }
+   */
+  getAdminLeaveRequests: async (teamId) => {
+    try {
+      const params = {};
+      if (teamId && teamId !== 'all') params.teamId = teamId;
+      const response = await apiClient.get('/attendance/admin-leave-requests', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch leave requests' };
     }
   }
 };

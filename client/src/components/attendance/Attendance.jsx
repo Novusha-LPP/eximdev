@@ -41,7 +41,7 @@ const badgeLabel = (r) => {
 };
 
 /* -- Component -- */
-const Attendance = () => {
+const Attendance = ({ employeeId }) => {
   const { user } = useContext(UserContext);
   const now   = new Date();
   const dflt  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -60,10 +60,10 @@ const Attendance = () => {
   const load = async () => {
     try {
       setLoading(true);
-      console.log('Loading attendance for employee:', user?.id || user?._id);
+      console.log('Loading attendance for employee:', employeeId || user?.id || user?._id);
       const r = await attendanceAPI.getHistory({
         limit: 2000,
-        employee_id: user?.id || user?._id,
+        employee_id: employeeId || user?.id || user?._id,
       });
       const data = (r?.data || []).sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
       console.log('Attendance data loaded:', data.length, 'records');

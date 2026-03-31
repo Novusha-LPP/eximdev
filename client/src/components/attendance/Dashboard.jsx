@@ -84,14 +84,15 @@ const calClass = (rec, isCurrentDay, punchStatus) => {
 const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'H', weekly_off: 'O', empty: '' };
 
 /* ------------------------------------------
-   DASHBOARD
+   UNIFIED DASHBOARD – All Roles
 ------------------------------------------ */
 export default function Dashboard() {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === 'ADMIN';
-  const isHOD = user?.role === 'HOD';
+  const role = user?.role || 'EMPLOYEE';
+  const isAdmin = role === 'ADMIN' || role === 'Admin';
+  const isHOD = role === 'HOD' || role === 'Head_of_Department';
   const isManager = isAdmin || isHOD;
 
   const [loading, setLoading] = useState(true);
@@ -266,7 +267,7 @@ export default function Dashboard() {
 
   const upcomingHolidays = (dash?.upcomingHolidays || []).slice(0, 4);
 
-  /* -- Personal stat tiles – always 4 -- */
+  /* -- Role-aware stat tiles -- */
   const personalTiles = [
     { cls: 'green', val: ms?.present ?? 0, lbl: 'Days Present', sub: `of ${ms?.workingDays ?? 0} working days` },
     { cls: 'blue', val: balances.reduce((s, b) => s + (b.available || b.balance || 0), 0), lbl: 'Leave Balance', sub: `${balances.reduce((s, b) => s + (b.consumed || 0), 0)} used this month` },
@@ -274,7 +275,14 @@ export default function Dashboard() {
     { cls: 'gray', val: ms?.weeklyAvgHours ? `${Math.floor(ms.weeklyAvgHours)}h${Math.floor((ms.weeklyAvgHours % 1) * 60)}m` : '-', lbl: 'Weekly Avg Hours', sub: 'based on days worked' },
   ];
 
-  /* -- HOD quick actions -- */
+  const managerTiles = [
+    { cls: 'green', val: stats.present ?? 0, lbl: 'Present Today', sub: `of ${stats.total ?? '—'} ${isAdmin ? 'employees' : 'team members'}` },
+    { cls: 'red', val: stats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences' },
+    { cls: 'amber', val: stats.late ?? 0, lbl: 'Late Arrivals', sub: 'past grace period' },
+    { cls: 'blue', val: stats.onLeave ?? stats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves' },
+  ];
+
+  /* -- Quick actions -- */
   const hodActions = [
     { icon: <FiCheckSquare size={14} />, lbl: 'Leave Approvals', sub: `${pendingLeaves.length} pending`, path: '/attendance/hod/leave-approval', count: pendingLeaves.length },
     { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/attendance/hod/regularization-approval', count: pendingRegs.length },
@@ -282,13 +290,18 @@ export default function Dashboard() {
     { icon: <FiCalendar size={14} />, lbl: 'Apply My Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
   ];
 
-  /* -- Admin quick actions -- */
   const adminActions = [
     { icon: <FiActivity size={14} />, lbl: 'Attendance Report', sub: 'Company-wide records', path: '/attendance/admin/attendance' },
     { icon: <FiCalendar size={14} />, lbl: 'Manage Holidays', sub: 'Add or edit holidays', path: '/attendance/admin/holidays' },
     { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Timings & grace periods', path: '/attendance/admin/shifts' },
     { icon: <FiBookOpen size={14} />, lbl: 'Leave Policies', sub: 'Quotas & accrual rules', path: '/attendance/admin/leave-policies' },
     { icon: <FiSettings size={14} />, lbl: 'System Settings', sub: 'Company configuration', path: '/attendance/admin/settings' },
+  ];
+
+  const employeeActions = [
+    { icon: <FiFileText size={14} />, lbl: 'Apply Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
+    { icon: <FiActivity size={14} />, lbl: 'My Attendance', sub: 'View full punch history', path: '/attendance/my-attendance', count: 0 },
+    { icon: <FiCalendar size={14} />, lbl: 'Holiday Calendar', sub: 'View upcoming holidays', path: '/attendance/holiday-calendar', count: 0 },
   ];
 
   return (
@@ -298,7 +311,7 @@ export default function Dashboard() {
       <div className="db-hero">
         <div className="db-hero-inner">
           <div>
-            <h1>{isAdmin ? 'Admin Dashboard' : isHOD ? 'Team Overview' : `${greeting()}, ${firstName}`}</h1>
+            <h1>{`${greeting()}, ${firstName}`}</h1>
             <p>{new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="punch-widget">
@@ -328,7 +341,7 @@ export default function Dashboard() {
       {/* -- STAT TILES -- */}
       <div className="db-tiles-wrap">
         <div className="db-tiles">
-          {personalTiles.map((t, i) => (
+          {(isManager ? managerTiles : personalTiles).map((t, i) => (
             <div key={i} className={`tile ${t.cls}`}>
               <div className="tile-val">{t.val}</div>
               <div className="tile-lbl">{t.lbl}</div>
@@ -344,7 +357,7 @@ export default function Dashboard() {
         {/* -- LEFT / MAIN -- */}
         <div className="db-main">
 
-          {/* Personal punch hero – all roles */}
+          {/* Personal punch card – compact for managers */}
           <div className="ph-card">
             <div className="ph-top">
               <div>
@@ -352,7 +365,7 @@ export default function Dashboard() {
                   <span className="ph-dot" />
                   <span className="ph-status-text">{isIn ? 'Clocked in' : 'Not clocked in'}</span>
                 </div>
-                <div className="ph-greeting">{isManager ? `${greeting()}, ${firstName}` : ps?.shiftName || 'General Shift'}</div>
+                <div className="ph-greeting">{ps?.shiftName || 'General Shift'}</div>
                 {ps?.shiftTime && <div className="ph-shift">{ps.shiftTime}</div>}
                 <div className="ph-timer">{liveTimer}</div>
                 <div className="ph-timer-lbl">Time logged today</div>
@@ -393,7 +406,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* -- MANAGER: Snapshot strip (both HOD & Admin) -- */}
+          {/* -- MANAGER: Overview strip -- */}
           {isManager && (
             <div className="card insight-mini">
               <div className="card-head">
@@ -431,6 +444,23 @@ export default function Dashboard() {
                     <span className="insight-mini-lbl">On Leave</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* -- EMPLOYEE: Personal stat tiles below calendar for managers -- */}
+          {isManager && (
+            <div className="card">
+              <div className="card-head">
+                <span className="card-title">My Monthly Summary</span>
+              </div>
+              <div className="personal-stats-row">
+                {personalTiles.map((t, i) => (
+                  <div key={i} className={`personal-stat ${t.cls}`}>
+                    <div className="personal-stat-val">{t.val}</div>
+                    <div className="personal-stat-lbl">{t.lbl}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -555,65 +585,63 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* -- EMPLOYEE: Attendance calendar -- */}
-          {!isManager && (
-            <div className="card cal-card">
-              <div className="card-head">
-                <span className="card-title">Attendance Calendar</span>
-                <button className="card-link" onClick={() => navigate('/attendance/my-attendance')}>
-                  Full report <FiArrowRight size={12} />
-                </button>
-              </div>
-              <div className="cal-nav">
-                <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
-                <span>{monthName}</span>
-                <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
-              </div>
-              <div className="cal-grid">
-                {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => <div key={d} className="cal-dname">{d}</div>)}
-                {getCalDays().map((day, i) => {
-                  const rec = getCalRecord(day);
-                  const isTd = day && month.getMonth() === new Date().getMonth() && month.getFullYear() === new Date().getFullYear() && day === new Date().getDate();
-                  let cls = calClass(rec, isTd, dash?.punchStatus);
-
-                  if (day && !rec) {
-                    const dObj = new Date(month.getFullYear(), month.getMonth(), day);
-                    const dow = dObj.getDay();
-                    const offDays = dash?.punchStatus?.weeklyOffDays || [0, 6];
-                    if (offDays.includes(dow)) {
-                        cls = 'off';
-                    } else if (dObj <= new Date()) {
-                        cls = 'absent';
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={i}
-                      className={`cal-day ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
-                      onClick={() => openDay(day)}
-                    >
-                      {day}
-                      {rec?.status === 'half_day' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>½</span>}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="cal-legend">
-                {[
-                  ['Present', '#10b981'],
-                  ['Late', '#f59e0b'],
-                  ['Absent', '#ef4444'],
-                  ['Leave', '#8b5cf6'],
-                  ['Half Day', '#0369a1'],
-                  ['Weekly Off', '#cbd5e1'],
-                  ['Holiday', '#e0e7ff']
-                ].map(([l, c]) => (
-                  <span key={l}><span className="cal-ldot" style={{ background: c }} />{l}</span>
-                ))}
-              </div>
+          {/* -- Attendance calendar – ALL ROLES -- */}
+          <div className="card cal-card">
+            <div className="card-head">
+              <span className="card-title">Attendance Calendar</span>
+              <button className="card-link" onClick={() => navigate('/attendance/my-attendance')}>
+                Full report <FiArrowRight size={12} />
+              </button>
             </div>
-          )}
+            <div className="cal-nav">
+              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
+              <span>{monthName}</span>
+              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
+            </div>
+            <div className="cal-grid">
+              {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => <div key={d} className="cal-dname">{d}</div>)}
+              {getCalDays().map((day, i) => {
+                const rec = getCalRecord(day);
+                const isTd = day && month.getMonth() === new Date().getMonth() && month.getFullYear() === new Date().getFullYear() && day === new Date().getDate();
+                let cls = calClass(rec, isTd, dash?.punchStatus);
+
+                if (day && !rec) {
+                  const dObj = new Date(month.getFullYear(), month.getMonth(), day);
+                  const dow = dObj.getDay();
+                  const offDays = dash?.punchStatus?.weeklyOffDays || [0, 6];
+                  if (offDays.includes(dow)) {
+                      cls = 'off';
+                  } else if (dObj <= new Date()) {
+                      cls = 'absent';
+                  }
+                }
+
+                return (
+                  <div
+                    key={i}
+                    className={`cal-day ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
+                    onClick={() => openDay(day)}
+                  >
+                    {day}
+                    {rec?.status === 'half_day' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>½</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="cal-legend">
+              {[
+                ['Present', '#10b981'],
+                ['Late', '#f59e0b'],
+                ['Absent', '#ef4444'],
+                ['Leave', '#8b5cf6'],
+                ['Half Day', '#0369a1'],
+                ['Weekly Off', '#cbd5e1'],
+                ['Holiday', '#e0e7ff']
+              ].map(([l, c]) => (
+                <span key={l}><span className="cal-ldot" style={{ background: c }} />{l}</span>
+              ))}
+            </div>
+          </div>
 
           {/* -- ADMIN: Department performance -- */}
           {isAdmin && departments.length > 0 && (
@@ -784,11 +812,7 @@ export default function Dashboard() {
             <div className="card-head">
               <span className="card-title">Quick Actions</span>
             </div>
-            {(isAdmin ? adminActions : isHOD ? hodActions : [
-              { icon: <FiFileText size={14} />, lbl: 'Apply Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
-              { icon: <FiActivity size={14} />, lbl: 'My Attendance', sub: 'View full punch history', path: '/attendance/my-attendance', count: 0 },
-              { icon: <FiCalendar size={14} />, lbl: 'Holiday Calendar', sub: 'View upcoming holidays', path: '/attendance/holiday-calendar', count: 0 },
-            ]).map((item, i) => (
+            {(isAdmin ? adminActions : isHOD ? hodActions : employeeActions).map((item, i) => (
               <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
                 <div className="qa-icon">{item.icon}</div>
                 <div className="qa-text">
@@ -806,24 +830,24 @@ export default function Dashboard() {
 
       {/* -- DAY DETAIL MODAL -- */}
       {selectedDay && (
-        <div className="modal-backdrop" onClick={() => setSelectedDay(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="attendance-modal-backdrop" onClick={() => setSelectedDay(null)}>
+          <div className="attendance-modal" onClick={e => e.stopPropagation()}>
+            <div className="attendance-modal-header">
               <FiCalendar size={16} color="rgba(255,255,255,.6)" />
               <div>
                 <h3>Day Details</h3>
                 <p>{formatDate(selectedDay, 'EEEE, dd MMM yyyy')}</p>
               </div>
-              <button className="modal-close" onClick={() => setSelectedDay(null)}>
+              <button className="attendance-modal-close" onClick={() => setSelectedDay(null)}>
                 <FiX size={12} />
               </button>
             </div>
-            <div className="modal-body">
-              <div className="modal-row">
+            <div className="attendance-modal-body">
+              <div className="attendance-modal-row">
                 <span>Status</span>
                 <Badge variant={getStatusVariant(dayDetail?.is_half_day ? 'half_day' : dayDetail?.status)}>{dayDetail?.status}</Badge>
               </div>
-              <div className="modal-row">
+              <div className="attendance-modal-row">
                 <span>Duration</span>
                 <strong>
                   {typeof dayDetail?.hours === 'number'
@@ -832,7 +856,7 @@ export default function Dashboard() {
                 </strong>
               </div>
               {dayDetail?.isLate && (
-                <div className="modal-row">
+                <div className="attendance-modal-row">
                   <span>Late By</span>
                   <strong style={{ color: 'var(--amber-text)' }}>{minutesToHours(dayDetail.lateByMinutes)}</strong>
                 </div>

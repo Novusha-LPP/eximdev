@@ -25,6 +25,7 @@ router.get('/payroll', attendanceAuthBridge, attendanceCtrl.getPayrollData);
 router.get('/payroll-locks', attendanceAuthBridge, attendanceCtrl.getPayrollLocks);
 router.post('/toggle-lock', attendanceAuthBridge, attendanceCtrl.togglePayrollLock);
 router.get('/admin-report', attendanceAuthBridge, attendanceCtrl.getAdminAttendanceReport);
+router.get('/admin-leave-requests', attendanceAuthBridge, hodCtrl.getAdminLeaveRequests);
 router.post('/approve-request', attendanceAuthBridge, hodCtrl.approveRequest);
 router.put('/new', attendanceAuthBridge, attendanceCtrl.createManualAdjustment);
 router.put('/:id', attendanceAuthBridge, attendanceCtrl.updateAttendanceRecord);

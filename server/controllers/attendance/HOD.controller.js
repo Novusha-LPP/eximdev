@@ -15,7 +15,7 @@ import RegularizationRequest from '../../model/attendance/RegularizationRequest.
 export const getDashboard = async (req, res) => {
     try {
         const hod = req.user;
-        const { date } = req.query;
+        const { date, teamId } = req.query;
         // Use UTC for date-only comparison to match AttendanceEngine
         const targetDate = date ? moment.utc(date).startOf('day') : moment.utc().startOf('day');
 
@@ -32,14 +32,30 @@ export const getDashboard = async (req, res) => {
         let employees = [];
 
         if (hod.role === 'ADMIN') {
-            // Admin sees all employees
-            const userQuery = { 
-                company_id: companyId, 
-                isActive: true,
-                role: { $in: ['EMPLOYEE', 'HOD', 'ADMIN'] }
-            };
-            employees = await User.find(userQuery).select('_id first_name last_name username email role department_id');
-            debugLog.push(`Admin mode: Found ${employees.length} total employees`);
+            // Admin sees all employees, optionally filtered by teamId
+            if (teamId) {
+                // Admin filtered by a specific team
+                const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
+                if (team && team.members && team.members.length > 0) {
+                    const memberIds = team.members.map(m => m.userId).filter(Boolean);
+                    employees = await User.find({
+                        _id: { $in: memberIds },
+                        isActive: true
+                    }).select('_id first_name last_name username email role department_id');
+                    debugLog.push(`Admin filtered by teamId ${teamId}: Found ${employees.length} team members`);
+                } else {
+                    employees = [];
+                    debugLog.push(`Admin filtered by teamId ${teamId}: Team not found or empty`);
+                }
+            } else {
+                const userQuery = { 
+                    company_id: companyId, 
+                    isActive: true,
+                    role: { $in: ['EMPLOYEE', 'HOD', 'ADMIN'] }
+                };
+                employees = await User.find(userQuery).select('_id first_name last_name username email role department_id');
+                debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
+            }
         } else {
             // HOD sees only their team members
             debugLog.push(`Loading teams for HOD: ${hod.username}`);
@@ -221,7 +237,7 @@ export const getDashboard = async (req, res) => {
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ createdAt: -1 })
-            .limit(10);
+            .limit(100);
 
         // 5a. Get recently processed leave requests (History)
         const recentProcessedLeaves = await LeaveApplication.find({
@@ -231,7 +247,7 @@ export const getDashboard = async (req, res) => {
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ updatedAt: -1 })
-            .limit(10);
+            .limit(50);
 
         // 6. Get pending regularizations
         const pendingRegularizations = await RegularizationRequest.find({
@@ -417,10 +433,10 @@ export const getDashboard = async (req, res) => {
                     type: reg.regularization_type,
                     reason: reg.reason
                 })),
-                department: {
-                    name: department?.department_name || 'Department',
-                    hodName: hod.first_name ? `${hod.first_name} ${hod.last_name || ''}`.trim() : (hod.name || hod.username)
-                },
+                // department: {
+                //     name: department?.department_name || 'Department',
+                //     hodName: hod.first_name ? `${hod.first_name} ${hod.last_name || ''}`.trim() : (hod.name || hod.username)
+                // },
                 upcomingHolidays: (await Holiday.find({
                     company_id: companyId,
                     holiday_date: { $gte: moment().startOf('day').toDate() }
@@ -451,19 +467,19 @@ export const getDashboard = async (req, res) => {
     }
 };
 
-// Unified Approve/Reject function (HOD)
+// Unified Approve/Reject function (HOD & Admin)
 export const approveRequest = async (req, res) => {
     const debug = [];
     debug.push(`--- APPROVE REQUEST START ${new Date().toISOString()} ---`);
     try {
         const { id, type, status, comments } = req.body;
-        const hod = req.user;
+        const actor = req.user; // Can be HOD or ADMIN
 
         debug.push(`Body: ${JSON.stringify(req.body)}`);
-        debug.push(`HOD: ${hod.username} Dept: ${hod.department_id}`);
+        debug.push(`Actor: ${actor.username} Role: ${actor.role}`);
 
         if (type === 'leave') {
-            const application = await LeaveApplication.findById(id).populate('employee_id', 'department_id');
+            const application = await LeaveApplication.findById(id);
             if (!application) {
                 debug.push(`Application not found: ${id}`);
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
@@ -471,34 +487,44 @@ export const approveRequest = async (req, res) => {
             }
 
             debug.push(`Found Application: ${application._id}`);
-            debug.push(`Employee Dept: ${application.employee_id?.department_id}`);
 
-            // Leave Hierarchy Rules
-            const requesterId = application.employee_id?._id || application.employee_id;
-            const hodId = hod._id?._id || hod._id;
+            const requesterId = application.employee_id?.toString();
+            const actorId = (actor._id?._id || actor._id).toString();
 
-            // 1. HOD cannot approve their own leave
-            if (hod.role === 'HOD' && requesterId.toString() === hodId.toString()) {
-                debug.push('SELF APPROVAL DENIED');
-                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                return res.status(403).json({ message: 'Unauthorized: You cannot approve your own leave application' });
-            }
-
-            // 2. HOD can only approve leaves within their department
-            if (hod.role === 'HOD') {
-                const hodDeptId = hod.department_id?._id || hod.department_id;
-                const empDeptId = application.employee_id?.department_id?._id || application.employee_id?.department_id;
-
-                debug.push(`Comparing: HOD Dept ${hodDeptId} vs Emp Dept ${empDeptId}`);
-
-                if (!empDeptId || !hodDeptId || empDeptId.toString() !== hodDeptId.toString()) {
-                    debug.push('AUTHORIZATION FAILED (Dept Mismatch)');
+            // Admin bypasses all team checks — global access
+            if (actor.role !== 'ADMIN') {
+                // 1. HOD cannot approve their own leave
+                if (requesterId === actorId) {
+                    debug.push('SELF APPROVAL DENIED');
                     fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                    return res.status(403).json({ message: 'Unauthorized: Not your department' });
+                    return res.status(403).json({ message: 'Unauthorized: You cannot approve your own leave application' });
                 }
-            }
 
-            // Note: Admin can approve everything.
+                // 2. HOD can only approve leaves for members of their team(s)
+                const hodTeams = await TeamModel.find({
+                    hodId: actor._id,
+                    isActive: { $ne: false }
+                });
+
+                const teamMemberIds = new Set();
+                hodTeams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(m => {
+                            if (m.userId) teamMemberIds.add(m.userId.toString());
+                        });
+                    }
+                });
+
+                debug.push(`HOD team member IDs: ${Array.from(teamMemberIds).join(', ')}`);
+
+                if (!teamMemberIds.has(requesterId)) {
+                    debug.push('AUTHORIZATION FAILED (Not in HOD team)');
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                }
+            } else {
+                debug.push('Admin override: skipping team check');
+            }
 
             if (application.approval_status !== 'pending') {
                 return res.status(400).json({ message: 'Request is no longer pending' });
@@ -518,16 +544,14 @@ export const approveRequest = async (req, res) => {
                     const dateStr = curr.format('YYYY-MM-DD');
                     const attDate = moment.utc(dateStr).startOf('day').toDate();
 
-                    // We only update if status is absent or empty (normal case for retro leave)
-                    // If they had punches, AttendanceEngine already handles half-day/present logic
                     await AttendanceRecord.findOneAndUpdate(
-                        { employee_id: application.employee_id._id, attendance_date: attDate },
+                        { employee_id: application.employee_id, attendance_date: attDate },
                         {
                             status: application.is_half_day ? 'half_day' : 'leave',
                             is_half_day: application.is_half_day || false,
                             half_day_session: application.half_day_session,
                             year_month: curr.format('YYYY-MM'),
-                            processed_by: 'system_sync'
+                            processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
                         },
                         { upsert: true }
                     );
@@ -538,19 +562,18 @@ export const approveRequest = async (req, res) => {
             // Update Leave Balance
             const currentYear = new Date().getFullYear();
             let balanceRecord = await LeaveBalance.findOne({
-                employee_id: application.employee_id._id,
+                employee_id: application.employee_id,
                 leave_policy_id: application.leave_policy_id,
                 year: currentYear
             });
 
             if (!balanceRecord) {
                 const policy = await LeavePolicy.findById(application.leave_policy_id);
-                // Default to 24 days if policy quota is not set
                 const defaultQuota = 24;
                 const quota = policy?.annual_quota || defaultQuota;
                 
                 balanceRecord = new LeaveBalance({
-                    employee_id: application.employee_id._id,
+                    employee_id: application.employee_id,
                     company_id: application.company_id,
                     leave_policy_id: application.leave_policy_id,
                     leave_type: application.leave_type,
@@ -567,18 +590,14 @@ export const approveRequest = async (req, res) => {
 
             if (status === 'approved') {
                 balanceRecord.consumed += application.total_days;
-                // If it was already locked in pending (normal system flow)
                 if (balanceRecord.pending_approval >= application.total_days) {
                     balanceRecord.pending_approval -= application.total_days;
-                    // For unpaid, we don't deduct from closing in applyLeave either, so stay consistent
                 } else {
-                    // Not in pending (seeded flow), deduct from closing now if NOT unpaid
                     if (!isUnpaid) {
                         balanceRecord.closing_balance -= application.total_days;
                     }
                 }
             } else if (status === 'rejected') {
-                // If it was locked in pending, move it back to closing (only if NOT unpaid, since it was never deducted)
                 if (balanceRecord.pending_approval >= application.total_days) {
                     balanceRecord.pending_approval -= application.total_days;
                     if (!isUnpaid) {
@@ -590,16 +609,32 @@ export const approveRequest = async (req, res) => {
 
             fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
             return res.json({ message: `Leave ${status} successfully` });
+
         } else if (type === 'regularization') {
-            const request = await RegularizationRequest.findById(id).populate('employee_id', 'department_id');
+            const request = await RegularizationRequest.findById(id);
             if (!request) return res.status(404).json({ message: 'Request not found' });
 
-            // Authority check
-            const hodDeptId = hod.department_id?._id || hod.department_id;
-            const empDeptId = request.employee_id?.department_id?._id || request.employee_id?.department_id;
+            // Admin bypasses team check
+            if (actor.role !== 'ADMIN') {
+                // HOD: verify employee is in their team
+                const hodTeams = await TeamModel.find({
+                    hodId: actor._id,
+                    isActive: { $ne: false }
+                });
 
-            if (!empDeptId || !hodDeptId || empDeptId.toString() !== hodDeptId.toString()) {
-                return res.status(403).json({ message: 'Unauthorized' });
+                const teamMemberIds = new Set();
+                hodTeams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(m => {
+                            if (m.userId) teamMemberIds.add(m.userId.toString());
+                        });
+                    }
+                });
+
+                const requestEmpId = (request.employee_id?._id || request.employee_id).toString();
+                if (!teamMemberIds.has(requestEmpId)) {
+                    return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                }
             }
 
             request.status = status;
@@ -618,7 +653,7 @@ export const approveRequest = async (req, res) => {
                         status: 'present',
                         is_regularized: true,
                         processed_at: new Date(),
-                        processed_by: 'hod'
+                        processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
                     },
                     { upsert: true }
                 );
@@ -799,5 +834,109 @@ export const getDepartmentAttendanceReport = async (req, res) => {
     } catch (error) {
         console.error('Report Error:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+/**
+ * Admin-only: Get all leave requests across the company, with optional teamId filter.
+ * Also returns all teams for the filter dropdown.
+ */
+export const getAdminLeaveRequests = async (req, res) => {
+    try {
+        const admin = req.user;
+        if (admin.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Admin access only' });
+        }
+
+        const { teamId, status } = req.query;
+        const companyId = admin.company_id?._id || admin.company_id;
+
+        // Build query for leave applications
+        let employeeFilter = null;
+
+        if (teamId && teamId !== 'all') {
+            // Filter by specific team members
+            const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
+            if (team && team.members && team.members.length > 0) {
+                const memberIds = team.members.map(m => m.userId).filter(Boolean);
+                employeeFilter = { $in: memberIds };
+            } else {
+                // Team not found or empty — return empty
+                return res.json({ data: { pendingLeaves: [], recentProcessedLeaves: [], teams: [] } });
+            }
+        }
+
+        // Build leave query
+        const leaveQuery = { company_id: companyId };
+        if (employeeFilter) leaveQuery.employee_id = employeeFilter;
+
+        // Fetch all teams for dropdown
+        const teams = await TeamModel.find({ isActive: { $ne: false } })
+            .select('_id name hodUsername members')
+            .lean();
+
+        // Fetch pending leaves
+        const pendingLeaves = await LeaveApplication.find({
+            ...leaveQuery,
+            approval_status: 'pending'
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ createdAt: -1 })
+            .limit(200);
+
+        // Fetch recent processed leaves
+        const recentProcessedLeaves = await LeaveApplication.find({
+            ...leaveQuery,
+            approval_status: { $in: ['approved', 'rejected'] }
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ updatedAt: -1 })
+            .limit(100);
+
+        // Helper to resolve team name for an employee
+        const getTeamName = (empId) => {
+            const empIdStr = empId?.toString();
+            const team = teams.find(t =>
+                t.members && t.members.some(m => m.userId?.toString() === empIdStr)
+            );
+            return team ? team.name : null;
+        };
+
+        const mapLeave = (leave) => {
+            const empId = leave.employee_id?._id || leave.employee_id;
+            const empName = leave.employee_id?.first_name
+                ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim()
+                : leave.employee_id?.username || 'Unknown';
+            return {
+                id: leave._id,
+                employeeName: empName,
+                employeeId: empId,
+                teamName: getTeamName(empId),
+                leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                fromDate: leave.from_date,
+                toDate: leave.to_date,
+                totalDays: leave.total_days,
+                is_half_day: leave.is_half_day,
+                half_day_session: leave.half_day_session,
+                attachment_urls: leave.attachment_urls || [],
+                reason: leave.reason,
+                status: leave.approval_status,
+                actionDate: leave.updatedAt
+            };
+        };
+
+        return res.json({
+            data: {
+                pendingLeaves: pendingLeaves.map(mapLeave),
+                recentProcessedLeaves: recentProcessedLeaves.map(mapLeave),
+                teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername }))
+            }
+        });
+
+    } catch (err) {
+        console.error('Error in getAdminLeaveRequests:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

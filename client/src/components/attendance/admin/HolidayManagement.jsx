@@ -504,14 +504,14 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
 
       {/* -- ADD HOLIDAY MODAL -- */}
       {!readOnly && showAddModal && (
-        <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="attendance-modal-backdrop" onClick={() => setShowAddModal(false)}>
+          <div className="attendance-modal" onClick={e => e.stopPropagation()}>
+            <div className="attendance-modal-header">
               <FiPlus size={18} color="#fff" />
               <h3>Add Company Holiday</h3>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
+              <button className="attendance-modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
-            <div className="modal-body" style={{ background: '#fff', padding: '1.5rem' }}>
+            <div className="attendance-modal-body" style={{ background: '#fff', padding: '1.5rem' }}>
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '.875rem' }}>Holiday Date</label>
                 <input

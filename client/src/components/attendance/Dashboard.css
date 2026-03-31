@@ -830,6 +830,54 @@
   border-radius: 50%;
 }
 
+/* Manager personal stats row */
+.personal-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: .875rem 1.25rem;
+}
+
+.personal-stat {
+  text-align: center;
+  padding: .625rem .5rem;
+  border-radius: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  transition: border-color .15s;
+}
+
+.personal-stat:hover {
+  border-color: var(--ink5);
+}
+
+.personal-stat-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink1);
+  line-height: 1;
+}
+
+.personal-stat.green .personal-stat-val { color: var(--green-text); }
+.personal-stat.blue .personal-stat-val { color: var(--blue-text); }
+.personal-stat.amber .personal-stat-val { color: var(--amber-text); }
+.personal-stat.red .personal-stat-val { color: var(--red-text); }
+
+.personal-stat-lbl {
+  font-size: .625rem;
+  font-weight: 500;
+  color: var(--ink4);
+  margin-top: 3px;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+@media(max-width:600px) {
+  .personal-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .status-flag {
   display: inline-flex;
   align-items: center;
@@ -1488,7 +1536,7 @@
   border-color: var(--navy);
 }
 
-.modal-backdrop {
+.attendance-modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .5);
@@ -1501,7 +1549,7 @@
   animation: fadeIn .2s ease;
 }
 
-.modal {
+.attendance-modal {
   background: var(--surface);
   border-radius: 12px;
   width: 100%;
@@ -1522,7 +1570,7 @@
   to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
-.modal-header {
+.attendance-modal-header {
   background: var(--navy);
   padding: 1.25rem 1.5rem;
   display: flex;
@@ -1530,20 +1578,20 @@
   gap: 10px;
 }
 
-.modal-header h3 {
+.attendance-modal-header h3 {
   font-size: .9375rem;
   color: #fff;
   margin: 0;
   font-weight: 600;
 }
 
-.modal-header p {
+.attendance-modal-header p {
   font-size: .75rem;
   color: rgba(255, 255, 255, .4);
   margin: 0;
 }
 
-.modal-close {
+.attendance-modal-close {
   margin-left: auto;
   background: rgba(255, 255, 255, .1);
   border: none;
@@ -1557,11 +1605,11 @@
   justify-content: center;
 }
 
-.modal-body {
+.attendance-modal-body {
   padding: 1.25rem 1.5rem;
 }
 
-.modal-row {
+.attendance-modal-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1571,11 +1619,11 @@
   color: var(--ink3);
 }
 
-.modal-row:last-child {
+.attendance-modal-row:last-child {
   border-bottom: none;
 }
 
-.modal-row strong {
+.attendance-modal-row strong {
   color: var(--ink1);
   font-weight: 500;
 }

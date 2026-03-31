@@ -79,12 +79,14 @@ const ChargesGrid = ({
     setIsAddOpen(false);
   };
 
-  const handleSaveEdit = async (updatedCharges) => {
+  const handleSaveEdit = async (updatedCharges, shouldClose = true) => {
     for (const charge of updatedCharges) {
       await updateCharge(charge._id, charge);
     }
-    setEditingCharges([]);
-    setSelectedIds(new Set());
+    if (shouldClose) {
+      setEditingCharges([]);
+      setSelectedIds(new Set());
+    }
   };
 
   const handleDeleteSelected = async () => {
@@ -169,6 +171,8 @@ const ChargesGrid = ({
         onClose={() => setEditingCharges([])}
         selectedCharges={editingCharges}
         onSave={handleSaveEdit}
+        updateCharge={updateCharge}
+        parentId={parentId}
         shippingLineAirline={shippingLineAirline}
         importerName={importerName}
         jobNumber={jobNumber}

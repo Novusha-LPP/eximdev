@@ -1,68 +1,356 @@
 import express from "express";
 import JobModel from "../model/jobModel.mjs";
 import authApiKey from "../middleware/authApiKey.mjs";
+import PurchaseBookEntryModel from "../model/purchaseBookEntryModel.mjs";
+import PaymentRequestModel from "../model/paymentRequestModel.mjs";
 
 const router = express.Router();
+
+router.get("/test", (req, res) => res.json({ status: "Tally API is connected and working!" }));
 
 /**
  * @api {get} /api/tally/job-data Retrieve job data for Tally integration
  * @apiHeader {String} x-api-key API Key for external authentication
  * @apiParam {String} job_number Job Number (unique/structured)
- * @apiParam {String} year Financial Year
  */
-router.get("/api/tally/job-data", authApiKey, async (req, res) => {
+router.get("/job-data", authApiKey, async (req, res) => {
   try {
-    const { job_number, year } = req.query;
+    const { job_number } = req.query;
 
-    if (!job_number || !year) {
-      return res.status(400).send({ error: "job_number and year are required query parameters" });
+    if (!job_number) {
+      return res.status(400).send({ error: "job_number is a required query parameter" });
     }
 
-    // Find the job by job_number and year
-    const job = await JobModel.findOne({ job_number, year }).lean();
+    // Find the job by job_number
+    const job = await JobModel.findOne({ job_number }).lean();
 
     if (!job) {
-      return res.status(404).send({ error: "Job not found for the provided job_number and year" });
+      return res.status(404).send({ error: "Job not found for the provided job_number" });
     }
 
-    // Map fields according to user request and mapping analysis
     const responseData = {
-      "Job Number": job.job_number || "",
-      "Job Type": job.trade_type || "",
+      "Job Number": job.job_number,
+      "Job Year": job.year,
+      "Job Type": job.type,
+      "Job Date": job.job_date,
+      "Importer/Exporter Name": job.importer || job.exporter,
+      "Consignee": job.consignee,
+      "Shipper": job.shipper,
+      "Origin Port": job.loading_port || job.port_of_loading,
+      "Destination Port": job.port_of_discharge || job.destination_port,
+      "Gross Weight": job.gross_weight,
+      "Net Weight": job.net_weight,
+      "Package Count": job.no_of_pkgs,
+      "Package Unit": job.unit,
+      "Container Count": job.container_nos?.length || 0,
       "BE No": job.be_no || "",
       "BE Date": job.be_date || "",
-      "BE Type": job.type_of_b_e || "",
-      "MBL NO": job.awb_bl_no || "",
-      "MBL Date": job.awb_bl_date || "",
-      "HBL No": job.hawb_hbl_no || "",
-      "HBL Date": job.hawb_hbl_date || "",
-      "Consignment Type": job.consignment_type || "",
-      "Packages": job.no_of_pkgs || "",
-      "Gross Weight": job.gross_weight || "",
-      "Net Wt.": job.job_net_weight || "",
-      "Custom House": job.custom_house || "",
-      "Vessel": job.vessel_flight || "", // User requested to use vessel_flight
-      "Voyage": job.voyage_no || "",
-      "Origin Port": job.loading_port || "",
-      "Customer Ref.": "", // User requested to keep blank
-      "Invoice Number": job.invoice_number || "",
-      "Inv Date": job.invoice_date || "",
-      "Terms of Invoice": job.toi || "",
-      "Invoice Value": job.total_inv_value || "",
-      "CIF Value": job.cif_amount || "",
-      "Assess Value": job.assbl_value || job.assessable_ammount || "",
-      "Total Duty": job.total_duty || "",
-      "Shipper Name": job.supplier_exporter || "",
-      "BE Heading": job.description || "",
-      "No. of Containers": job.no_of_container || "",
-      "Importer Name": job.importer || "",
-      "Containers": (job.container_nos || []).map(c => c.container_number).join(", "),
-      "Status": "" // User requested to keep blank
+      "SB No": job.sb_no || "",
+      "SB Date": job.sb_date || "",
+      "Status": "" 
     };
 
     res.status(200).json(responseData);
   } catch (error) {
     console.error("Tally API Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @api {get} /api/tally/next-sequence Retrieve the next sequence number for a job
+ */
+router.get("/next-sequence", authApiKey, async (req, res) => {
+  try {
+    const { type, jobNo, year } = req.query;
+    if (!type || !jobNo) {
+      return res.status(400).json({ error: "type (purchase/payment) and jobNo are required query parameters" });
+    }
+
+    // Standardize jobNo: Use structured job_number (canonical reference) if possible
+    let canonicalJobNo = jobNo;
+    if (!jobNo.includes('/')) {
+      const query = { job_no: jobNo };
+      if (year) query.year = year;
+      const job = await JobModel.findOne(query).select('job_number').lean();
+      if (job && job.job_number) canonicalJobNo = job.job_number;
+    }
+
+    let count = 0;
+    let prefix = "";
+    if (type === "purchase") {
+      count = await PurchaseBookEntryModel.countDocuments({ jobNo: canonicalJobNo });
+      prefix = "PB";
+    } else if (type === "payment") {
+      count = await PaymentRequestModel.countDocuments({ jobNo: canonicalJobNo });
+      prefix = "R1";
+    } else {
+      return res.status(400).json({ error: "Invalid type. Must be 'purchase' or 'payment'" });
+    }
+
+    const nextIndex = (count + 1).toString().padStart(2, '0');
+    const fullNo = `${prefix}/${nextIndex}/${canonicalJobNo}`;
+
+    res.status(200).json({ 
+      success: true, 
+      nextIndex, 
+      fullNo,
+      jobNo: canonicalJobNo 
+    });
+
+  } catch (error) {
+    console.error("Next Sequence Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+// --- PURCHASE BOOK ENTRY ROUTES ---
+
+/**
+ * Helper to map readable keys to PurchaseBookEntryModel fields
+ */
+const mapPurchaseEntryData = (data) => {
+  return {
+    entryNo: data["Entry No"] || data.entryNo,
+    entryDate: data["Entry Date"] || data.entryDate,
+    supplierInvNo: data["Supplier Inv No"] || data.supplierInvNo,
+    supplierInvDate: data["Supplier Inv Date"] || data.supplierInvDate,
+    jobNo: data["Job No"] || data.jobNo,
+    supplierName: data["Supplier Name"] || data.supplierName,
+    address1: data["Address 1"] || data.address1,
+    address2: data["Address 2"] || data.address2,
+    address3: data["Address 3"] || data.address3,
+    state: data["State"] || data.state,
+    country: data["Country"] || data.country,
+    pinCode: data["Pin Code"] || data.pinCode,
+    registrationType: data["Registration Type"] || data.registrationType,
+    gstinNo: data["GSTIN No"] || data.gstinNo,
+    pan: data["PAN"] || data.pan,
+    cin: data["CIN"] || data.cin,
+    placeOfSupply: data["Place of Supply"] || data.placeOfSupply,
+    creditTerms: data["Credit Terms"] || data.creditTerms,
+    descriptionOfServices: data["Description of Services"] || data.descriptionOfServices,
+    sac: data["SAC"] || data.sac,
+    taxableValue: data["Taxable Value"] || data.taxableValue,
+    gstPercent: data["GST%"] || data.gstPercent,
+    cgstAmt: data["CGST"] || data.cgstAmt,
+    sgstAmt: data["SGST"] || data.sgstAmt,
+    igstAmt: data["IGST"] || data.igstAmt,
+    tds: data["TDS"] || data.tds,
+    total: data["Total"] || data.total,
+    chargeRef: data.chargeRef,
+    jobRef: data.jobRef,
+    status: data["Status"] || data.status || ''
+  };
+};
+
+/**
+ * @api {post} /api/tally/purchase-entry Submit Purchase Book Entry for Tally (supports readable keys)
+ */
+router.post("/purchase-entry", authApiKey, async (req, res) => {
+  try {
+    const rawData = req.body;
+    const data = mapPurchaseEntryData(rawData);
+    
+    console.log("Saving Purchase Entry:", data.entryNo);
+    const entry = await PurchaseBookEntryModel.create(data);
+    res.status(201).json({ 
+      success: true, 
+      message: "Purchase Book Entry saved and submitted successfully",
+      id: entry._id,
+      "Entry No": entry.entryNo
+    });
+  } catch (error) {
+    console.error("Tally Purchase Entry Storage Error:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Entry with this number already exists." });
+    }
+    res.status(500).send({ error: "Internal Server Error", details: error.message });
+  }
+});
+
+
+/**
+ * @api {get} /api/tally/purchase-entry Retrieve Purchase Book Entry (supports query params)
+ */
+router.get("/purchase-entry", authApiKey, async (req, res) => {
+  try {
+    const entryNo = req.query.entry_no || req.query.entryNo;
+    
+    if (!entryNo) {
+      return res.status(400).json({ error: "entry_no is a required query parameter" });
+    }
+
+    console.log("Fetching Purchase Entry:", entryNo);
+
+    const entry = await PurchaseBookEntryModel.findOne({ entryNo }).lean();
+    if (!entry) return res.status(404).json({ error: "Purchase Book Entry not found." });
+
+    const formattedData = {
+      "Entry No": entry.entryNo,
+      "Entry Date": entry.entryDate,
+      "Supplier Inv No": entry.supplierInvNo,
+      "Supplier Inv Date": entry.supplierInvDate,
+      "Job No": entry.jobNo,
+      "Supplier Name": entry.supplierName,
+      "Address 1": entry.address1,
+      "Address 2": entry.address2,
+      "Address 3": entry.address3,
+      "State": entry.state,
+      "Country": entry.country,
+      "Pin Code": entry.pinCode,
+      "Registration Type": entry.registrationType,
+      "GSTIN No": entry.gstinNo,
+      "PAN": entry.pan,
+      "CIN": entry.cin,
+      "Place of Supply": entry.placeOfSupply,
+      "Credit Terms": entry.creditTerms,
+      "Description of Services": entry.descriptionOfServices,
+      "SAC": entry.sac,
+      "Taxable Value": entry.taxableValue,
+      "GST%": entry.gstPercent,
+      "CGST": entry.cgstAmt,
+      "SGST": entry.sgstAmt,
+      "IGST": entry.igstAmt,
+      "TDS": entry.tds,
+      "Total": entry.total,
+      "Status": entry.status
+    };
+
+    res.status(200).json(formattedData);
+
+
+  } catch (error) {
+    console.error("Fetch Purchase Entry Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @api {post} /api/tally/purchase-entry/status Retrieve Status by Entry Number
+ */
+router.post("/purchase-entry/status", authApiKey, async (req, res) => {
+  try {
+    const entryNo = req.body["Entry No"] || req.body.entryNo;
+    if (!entryNo) return res.status(400).json({ error: "Entry No is required" });
+    const entry = await PurchaseBookEntryModel.findOne({ entryNo }, { status: 1 }).lean();
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+    res.status(200).json({ "Entry No": entryNo, "Status": entry.status });
+  } catch (error) {
+
+    console.error("Fetch Purchase Status Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+// --- PAYMENT REQUEST ROUTES ---
+
+/**
+ * Helper to map readable keys to PaymentRequestModel fields
+ */
+const mapPaymentRequestData = (data) => {
+  return {
+    requestNo: data["Request No"] || data.requestNo,
+    requestDate: data["Request Date"] || data.requestDate,
+    bankFrom: data["Bank From"] || data.bankFrom,
+    paymentTo: data["Payment To"] || data.paymentTo,
+    againstBill: data["Against Bill"] || data.againstBill,
+    amount: data["Amount"] || data.amount,
+    transactionType: data["Transaction Type"] || data.transactionType,
+    accountNo: data["Account No"] || data.accountNo,
+    ifscCode: data["IFSC Code"] || data.ifscCode,
+    bankName: data["Bank Name"] || data.bankName,
+    jobNo: data["Job No"] || data.jobNo,
+    chargeRef: data.chargeRef,
+    jobRef: data.jobRef,
+    instrumentNo: data["Instrument No"] || data.instrumentNo,
+    instrumentDate: data["Instrument Date"] || data.instrumentDate,
+    transferMode: data["Transfer Mode"] || data.transferMode,
+    beneficiaryCode: data["Beneficiary Code"] || data.beneficiaryCode,
+    status: data["Status"] || data.status || ''
+  };
+};
+
+/**
+ * @api {post} /api/tally/payment-request Submit Payment Request for Tally (supports readable keys)
+ */
+router.post("/payment-request", authApiKey, async (req, res) => {
+  try {
+    const rawData = req.body;
+    const data = mapPaymentRequestData(rawData);
+
+    console.log("Saving Payment Request:", data.requestNo);
+    const request = await PaymentRequestModel.create(data);
+    res.status(201).json({ 
+      success: true, 
+      message: "Payment Request saved and submitted successfully",
+      id: request._id,
+      "Request No": request.requestNo
+    });
+  } catch (error) {
+    console.error("Tally Payment Request Storage Error:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Payment request with this number already exists." });
+    }
+    res.status(500).send({ error: "Internal Server Error", details: error.message });
+  }
+});
+
+
+
+/**
+ * @api {get} /api/tally/payment-request Retrieve Payment Request (supports query params)
+ */
+router.get("/payment-request", authApiKey, async (req, res) => {
+  try {
+    const requestNo = req.query.request_no || req.query.requestNo;
+
+    if (!requestNo) {
+      return res.status(400).json({ error: "request_no is a required query parameter" });
+    }
+
+    const request = await PaymentRequestModel.findOne({ requestNo }).lean();
+    if (!request) return res.status(404).json({ error: "Payment Request not found." });
+    
+    const formattedData = {
+      "Request No": request.requestNo,
+      "Request Date": request.requestDate,
+      "Bank From": request.bankFrom,
+      "Payment To": request.paymentTo,
+      "Against Bill": request.againstBill,
+      "Amount": request.amount,
+      "Transaction Type": request.transactionType,
+      "Account No": request.accountNo,
+      "IFSC Code": request.ifscCode,
+      "Bank Name": request.bankName,
+      "Instrument No": request.instrumentNo,
+      "Instrument Date": request.instrumentDate,
+      "Transfer Mode": request.transferMode,
+      "Beneficiary Code": request.beneficiaryCode,
+      "Status": request.status
+    };
+
+    res.status(200).json(formattedData);
+
+  } catch (error) {
+    console.error("Fetch Payment Request Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @api {post} /api/tally/payment-request/status Retrieve Status by Request Number
+ */
+router.post("/payment-request/status", authApiKey, async (req, res) => {
+  try {
+    const requestNo = req.body["Request No"] || req.body.requestNo;
+    if (!requestNo) return res.status(400).json({ error: "Request No is required" });
+    const request = await PaymentRequestModel.findOne({ requestNo }, { status: 1 }).lean();
+    if (!request) return res.status(404).json({ error: "Request not found" });
+    res.status(200).json({ "Request No": requestNo, "Status": request.status });
+  } catch (error) {
+
+    console.error("Fetch Payment Status Error:", error);
     res.status(500).send({ error: "Internal Server Error" });
   }
 });

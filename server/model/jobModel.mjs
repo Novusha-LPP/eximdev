@@ -165,6 +165,10 @@ const ChargeSchema = new mongoose.Schema({
   invoice_number: { type: String, trim: true },
   invoice_date: { type: String, trim: true },
   invoice_value: { type: String, trim: true },
+  purchase_book_no: { type: String, trim: true },
+  purchase_book_status: { type: String, default: '' },
+  payment_request_no: { type: String, trim: true },
+  payment_request_status: { type: String, default: '' },
 
   revenue: ChargeLineSchema,
   cost: ChargeLineSchema,
@@ -272,14 +276,17 @@ const jobSchema = new mongoose.Schema({
   branchSrNo: { type: String, trim: true },
   adCode: { type: String, trim: true },
   bank_name: { type: String, trim: true },
-  hss_address: { type: String, trim: true },
-  hss_address_details: { type: String, trim: true },
+  hss_address: {
+    category: { type: String, trim: true },
+    details: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    postal_code: { type: String, trim: true },
+    country: { type: String, trim: true },
+    ad_code: { type: String, trim: true },
+  },
   hss_branch_id: { type: String, trim: true },
-  hss_city: { type: String, trim: true },
   hss_ie_code_no: { type: String, trim: true },
-  hss_postal_code: { type: String, trim: true },
-  hss_country: { type: String, trim: true },
-  hss_ad_code: { type: String, trim: true },
   isDraftDoc: { type: Boolean },
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },
@@ -360,7 +367,13 @@ const jobSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-  importer_address: { type: String },
+  importer_address: {
+    details: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    postal_code: { type: String, trim: true },
+    country: { type: String, trim: true },
+  },
   vessel_flight: { type: String },
   voyage_no: { type: String },
   job_owner: { type: String },
@@ -767,6 +780,26 @@ jobSchema.pre("save", function (next) {
     // Don't block save, but maybe log?
   }
 
+  next();
+});
+
+// Systematic fix for address object transition
+jobSchema.pre("validate", function (next) {
+  // If importer_address is a string, convert it to an object with the string in 'details'
+  if (typeof this.importer_address === "string") {
+    const originalValue = this.importer_address;
+    this.importer_address = {
+      details: originalValue,
+    };
+  }
+
+  // If hss_address is a string, convert it to an object with the string in 'details'
+  if (typeof this.hss_address === "string") {
+    const originalValue = this.hss_address;
+    this.hss_address = {
+      details: originalValue,
+    };
+  }
   next();
 });
 

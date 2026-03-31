@@ -314,6 +314,20 @@ const ImportCreateJob = () => {
     setImporterType,
     commercial_tax_type,
     setCommercialTaxType,
+    importer_address,
+    setImporterAddress,
+    importer_address_details,
+    setImporterAddressDetails,
+    importer_city,
+    setImporterCity,
+    importer_state,
+    setImporterState,
+    importer_postal_code,
+    setImporterPostalCode,
+    importer_country,
+    setImporterCountry,
+    hss_state,
+    setHssState,
   } = useImportJobForm();
 
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
@@ -424,9 +438,11 @@ const ImportCreateJob = () => {
   ];
 
   const [selectedYear, setSelectedYear] = useState("");
-  const years = ["24-25", "25-26", "26-27"];
+  const [years, setYears] = useState(["24-25", "25-26", "26-27"]);
   const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [importerBranches, setImporterBranches] = useState([]);
+  const [hssSellerBranches, setHssSellerBranches] = useState([]);
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
   const [suppliers, setSuppliers] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
@@ -447,17 +463,24 @@ const ImportCreateJob = () => {
   }, []);
 
   React.useEffect(() => {
-    async function getImporterList() {
-      if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
-        );
-        setImporters(res.data);
-        setSelectedImporter("Select Importer");
+    async function getOrganizationList() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/organization`);
+        let orgData = res.data.organizations || (Array.isArray(res.data) ? res.data : []);
+        
+        // Ensure every organization has a 'name' field for the UI
+        const mappedOrgs = orgData.map(org => ({
+          ...org,
+          name: org.name || org.name_of_individual || "Unknown Organization"
+        }));
+        
+        setOrganizations(mappedOrgs);
+      } catch (error) {
+        console.error("Error fetching organizations:", error);
       }
     }
-    getImporterList();
-  }, [selectedYear]);
+    getOrganizationList();
+  }, []);
 
   React.useEffect(() => {
     async function getSupplierExporterList() {
@@ -476,31 +499,19 @@ const ImportCreateJob = () => {
     getSupplierExporterList();
   }, [selectedYear]);
 
-  const getUniqueImporterNames = (importerData) => {
-    if (!importerData || !Array.isArray(importerData)) return [];
-    const uniqueImporters = new Set();
-    return importerData
-      .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
-        return true;
-      })
-      .map((importer, index) => ({
-        label: importer.importer,
-        key: `${importer.importer}-${index}`,
-      }));
-  };
-
   const importerNames = [
     { label: "Select Importer" },
-    ...getUniqueImporterNames(importers),
+    ...organizations.map(org => ({ label: org.name, key: org._id }))
   ];
 
   useEffect(() => {
-    if (!selectedImporter) {
-      setSelectedImporter("Select Importer");
+    if (importer && organizations.length > 0) {
+      const org = organizations.find(o => o.name === importer);
+      if (org) {
+        setImporterBranches(org.branches || []);
+      }
     }
-  }, [importerNames]);
+  }, [importer, organizations]);
 
   useEffect(() => {
     const currentDate = new Date();
@@ -797,14 +808,70 @@ const ImportCreateJob = () => {
                         onChange={(event, newValue) => {
                           const sel = newValue || "";
                           setImporter(sel);
-                          const found = Array.isArray(importers)
-                            ? importers.find((it) => it.importer === sel)
-                            : null;
-                          if (found) {
-                            const code = found.ie_code_no || found.ieCode || found.iecode || found.ie_code || "";
-                            setIeCodeNo(code || "");
+                          const org = organizations.find((o) => o.name === sel);
+                          if (org) {
+                            setIeCodeNo(org.iec_no || "");
+                            const availableBranches = org.branches || [];
+                            setImporterBranches(availableBranches);
+                            
+                            // Handle Address Population
+                            if (availableBranches.length === 0) {
+                              // Fallback to Organization Permanent Address if no branches
+                              const addrObj = org.addressDetails || {};
+                              setImporterAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
+                              setImporterCity(addrObj.city || "");
+                              setImporterState(addrObj.state || "");
+                              setImporterPostalCode(addrObj.pinCode || "");
+                              setImporterCountry("India");
+                              setBranchSrNo("");
+                              
+                              // Keep the joined address for backward compatibility if needed
+                              const addr = [addrObj.line1, addrObj.line2, addrObj.city, addrObj.state, addrObj.pinCode].filter(Boolean).join(", ");
+                              setImporterAddress(addr);
+                            } else if (availableBranches.length === 1) {
+                              // If exactly one branch, auto-select it
+                              const branch = availableBranches[0];
+                              setBranchSrNo(branch.branch_code || "");
+                              setImporterAddressDetails(branch.address || "");
+                              setImporterCity(branch.city || "");
+                              setImporterState(branch.state || "");
+                              setImporterPostalCode(branch.postal_code || "");
+                              setImporterCountry(branch.country || "India");
+                              
+                              const addr = [branch.address, branch.city, branch.state, branch.postal_code, branch.country].filter(Boolean).join(", ");
+                              setImporterAddress(addr);
+                            } else {
+                              // Multiple branches: Clear selection and address, let user pick branch
+                              setBranchSrNo("");
+                              setImporterAddressDetails("");
+                              setImporterCity("");
+                              setImporterState("");
+                              setImporterPostalCode("");
+                              setImporterCountry("");
+                              setImporterAddress("");
+                            }
+
+                            // Handle bank details for AD code
+                            if (org.banks && org.banks.length > 0) {
+                              const bank = org.banks.find(b => b.adCode) || org.banks[0];
+                              setAdCode(bank.adCode || "");
+                              setBankName(bank.bankers_name || "");
+                            } else {
+                              setAdCode("");
+                              setBankName("");
+                            }
                           } else {
                             setIeCodeNo("");
+                            setImporterBranches([]);
+                            setBranchSrNo("");
+                            setImporterAddress("");
+                            setImporterAddressDetails("");
+                            setImporterCity("");
+                            setImporterState("");
+                            setImporterPostalCode("");
+                            setImporterCountry("");
+                            setAdCode("");
+                            setBankName("");
                           }
                         }}
                         renderInput={(params) => (
@@ -822,11 +889,137 @@ const ImportCreateJob = () => {
                     <FormField label="IE Code">
                       <TextField
                         value={ie_code_no || ""}
+                        onChange={(e) => setIeCodeNo(e.target.value)}
                         variant="outlined"
                         size="small"
                         fullWidth
-                        InputProps={{ readOnly: true }}
-                        sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Importer Branch">
+                      <Autocomplete
+                        options={importerBranches}
+                        getOptionLabel={(option) => option.branch_name ? `${option.branch_name} (${option.branch_code})` : ""}
+                        value={importerBranches.find(b => b.branch_code === branchSrNo) || null}
+                        onChange={(event, newValue) => {
+                          if (newValue) {
+                            setBranchSrNo(newValue.branch_code || "");
+                            setImporterAddressDetails(newValue.address || "");
+                            setImporterCity(newValue.city || "");
+                            setImporterState(newValue.state || "");
+                            setImporterPostalCode(newValue.postal_code || "");
+                            setImporterCountry(newValue.country || "India");
+                            
+                            const addr = [
+                              newValue.address,
+                              newValue.city,
+                              newValue.state,
+                              newValue.postal_code,
+                              newValue.country
+                            ].filter(Boolean).join(", ");
+                            setImporterAddress(addr);
+                          } else {
+                            setBranchSrNo("");
+                            const org = organizations.find((o) => o.name === importer);
+                            if (org && (!org.branches || org.branches.length === 0)) {
+                              const addrObj = org.addressDetails || {};
+                              setImporterAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
+                              setImporterCity(addrObj.city || "");
+                              setImporterState(addrObj.state || "");
+                              setImporterPostalCode(addrObj.pinCode || "");
+                              setImporterCountry("India");
+                              
+                              const addr = [addrObj.line1, addrObj.line2, addrObj.city, addrObj.state, addrObj.pinCode].filter(Boolean).join(", ");
+                              setImporterAddress(addr);
+                            } else {
+                              setImporterAddressDetails("");
+                              setImporterCity("");
+                              setImporterState("");
+                              setImporterPostalCode("");
+                              setImporterCountry("");
+                              setImporterAddress("");
+                            }
+                          }
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Branch"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Address Details" md={12}>
+                      <TextField
+                        multiline
+                        rows={2}
+                        value={importer_address_details || ""}
+                        onChange={(e) => setImporterAddressDetails(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        placeholder="Detailed Address"
+                        sx={{
+                          ...compactInput,
+                          '& .MuiInputBase-root': { height: 'auto', minHeight: '64px', fontSize: '0.8rem' },
+                        }}
+                      />
+                    </FormField>
+
+                    <FormField label="City" md={3}>
+                      <TextField
+                        value={importer_city || ""}
+                        onChange={(e) => setImporterCity(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="State" md={3}>
+                      <TextField
+                        value={importer_state || ""}
+                        onChange={(e) => setImporterState(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="PIN Code" md={3}>
+                      <TextField
+                        value={importer_postal_code || ""}
+                        onChange={(e) => setImporterPostalCode(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Country" md={3}>
+                       <Autocomplete
+                        freeSolo
+                        options={countryOptions}
+                        value={importer_country || ""}
+                        onInputChange={(event, newValue) => setImporterCountry(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
                       />
                     </FormField>
 
@@ -952,14 +1145,69 @@ const ImportCreateJob = () => {
                     {HSS && HSS === "Yes" && (
                       <Grid container item xs={12} spacing={2} sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eaedf2' }}>
                         <FormField label="Seller Name" md={6}>
-                          <TextField
-                            value={sallerName}
-                            onChange={(e) => setSallerName(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            placeholder="Seller Name"
-                            fullWidth
-                            sx={compactInput}
+                          <Autocomplete
+                            freeSolo
+                            options={importerNames.map((option) => option.label)}
+                            value={sallerName || ""}
+                            onInputChange={(event, newValue, reason) => {
+                              if (reason === "input") {
+                                setSallerName(newValue);
+                              } else if (reason === "clear") {
+                                setSallerName("");
+                              }
+                            }}
+                            onChange={(event, newValue) => {
+                              const sel = newValue || "";
+                              setSallerName(sel);
+                              const org = organizations.find((o) => o.name === sel);
+                              if (org) {
+                                setHssIeCodeNo(org.iec_no || "");
+                                
+                                // Set AD Code from banks
+                                if (org.banks && org.banks.length > 0) {
+                                  const bank = org.banks.find(b => b.adCode) || org.banks[0];
+                                  setHssAdCode(bank.adCode || "");
+                                } else {
+                                  setHssAdCode("");
+                                }
+
+                                const availableBranches = org.branches || [];
+                                if (availableBranches.length === 0) {
+                                  const addrObj = org.addressDetails || {};
+                                  setHssAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
+                                  setHssCity(addrObj.city || "");
+                                  setHssPostalCode(addrObj.pinCode || "");
+                                  setHssCountry("India");
+                                  setHssBranchId("");
+                                } else {
+                                  // Auto-fill from first branch
+                                  const branch = availableBranches[0];
+                                  setHssBranchId(branch.branch_code || "");
+                                  setHssAddressDetails(branch.address || "");
+                                  setHssCity(branch.city || "");
+                                  setHssPostalCode(branch.postal_code || "");
+                                  setHssCountry(branch.country || "India");
+                                }
+                              } else {
+                                setHssIeCodeNo("");
+                                setHssAdCode("");
+                                setHssBranchId("");
+                                setHssAddressDetails("");
+                                setHssCity("");
+                                setHssPostalCode("");
+                                setHssCountry("");
+                              }
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                variant="outlined"
+                                size="small"
+                                placeholder="Search Seller"
+                                fullWidth
+                                sx={compactInput}
+                              />
+                            )}
                           />
                         </FormField>
 
@@ -982,14 +1230,15 @@ const ImportCreateJob = () => {
                         <FormField label="Address Details" md={12}>
                           <TextField
                             multiline
-                            rows={3}
+                            rows={2}
                             fullWidth
                             value={hss_address_details}
                             onChange={(e) => setHssAddressDetails(e.target.value)}
                             variant="outlined"
                             size="small"
+                            placeholder="Street, Area, etc."
                             sx={{
-                              '& .MuiInputBase-root': { fontSize: '0.8rem', bgcolor: '#fdfceb' },
+                              '& .MuiInputBase-root': { fontSize: '0.8rem', bgcolor: '#fdfceb', height: 'auto', minHeight: '64px' },
                               '& .MuiOutlinedInput-input': { padding: '4px 8px !important' },
                             }}
                           />

@@ -41,26 +41,68 @@ router.patch("/api/update-do-planning", extractJobInfo, auditMiddleware("Job"), 
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
+    // Explicitly listing fields that can be updated from DO Planning module
+    const allowedUpdateFields = [
+      "do_validity",
+      "do_processed",
+      "do_completed",
+      "do_documents",
+      "do_copies",
+      "do_list",
+      "shipping_line_invoice",
+      "shipping_line_invoice_date",
+      "shipping_line_invoice_imgs",
+      "other_invoices",
+      "payment_made",
+      "security_deposit",
+      "security_amount",
+      "utr",
+      "do_queries",
+      "do_Revalidation_Completed",
+      "container_nos",
+      "is_do_doc_recieved",
+      "do_doc_recieved_date",
+      "do_shipping_line_invoice",
+      "insurance_copy",
+      "other_do_documents"
+    ];
+
     const updateFields = {
-      ...req.body,
       kyc_date: currentDate,
       payment_made_date: currentDate,
       do_processed_date: currentDate,
       shipping_line_invoice_date: currentDate,
       other_invoices_date: currentDate,
-      do_validity: req.body.do_validity,
-      do_processed: req.body.do_processed,
     };
 
-    // Update fields
+    // Only update fields that are explicitly allowed
+    allowedUpdateFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateFields[field] = req.body[field];
+      }
+    });
+
+    // Handle nested object sanitization: if any address fields are accidentally sent as strings, 
+    // the JobModel pre-validate hook will handle them, but we've already 
+    // excluded them from updateFields here as a first line of defense.
+
+    // Update fields on the existing document
     Object.assign(existingJob, updateFields);
 
     // Save the updated job document
     await existingJob.save();
 
-    return res.json({ message: "Details submitted" });
+    return res.json({ message: "Details submitted succesfully." });
   } catch (error) {
     console.error("❌ Error updating DO Planning:", error);
+    // Return specific validation error message if available
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Validation Failed", 
+        details: error.message 
+      });
+    }
     return res.status(500).json({ success: false, error: error.message });
   }
 });

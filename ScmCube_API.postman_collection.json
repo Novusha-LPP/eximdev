@@ -1,0 +1,81 @@
+{
+	"info": {
+		"_postman_id": "8a3b5c7d-9e1f-4a2b-bc3d-5e6f7a8b9c0d",
+		"name": "ScmCube Integration API",
+		"description": "Collection for ScmCube Integration API endpoints.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get ScmCube Job Data",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}",
+						"type": "text",
+						"description": "API Key for external authentication"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/scmCube/job-data?job_number={{jobNumber}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"scmCube",
+						"job-data"
+					],
+					"query": [
+						{
+							"key": "job_number",
+							"value": "{{jobNumber}}",
+							"description": "Unique or structured Job Number"
+						}
+					]
+				},
+				"description": "Retrieves comprehensive job data mapped for ScmCube integration, including BE details, IGM, Container, and Supporting Documents."
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "YOUR_API_KEY_HERE",
+			"type": "string"
+		},
+		{
+			"key": "jobNumber",
+			"value": "IMP/2026/001",
+			"type": "string"
+		}
+	]
+}

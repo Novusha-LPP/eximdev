@@ -46,10 +46,16 @@ const useImportJobForm = () => {
   const [importer, setImporter] = useState("");
   const [importer_type, setImporterType] = useState("");
   const [commercial_tax_type, setCommercialTaxType] = useState("");
+  const [importer_address, setImporterAddress] = useState("");
   const [importerURL, setImporterURL] = useState("");
   const [shipping_line_airline, setShippingLineAirline] = useState("");
   const [branchSrNo, setBranchSrNo] = useState("");
   const [adCode, setAdCode] = useState("");
+  const [importer_address_details, setImporterAddressDetails] = useState("");
+  const [importer_city, setImporterCity] = useState("");
+  const [importer_state, setImporterState] = useState("");
+  const [importer_postal_code, setImporterPostalCode] = useState("");
+  const [importer_country, setImporterCountry] = useState("");
   const [supplier_exporter, setSupplierExporter] = useState("");
   const [awb_bl_no, setAwbBlNo] = useState("");
   const [awb_bl_date, setAwbBlDate] = useState("");
@@ -197,6 +203,7 @@ const useImportJobForm = () => {
   const [hss_address_details, setHssAddressDetails] = useState("");
   const [hss_branch_id, setHssBranchId] = useState("");
   const [hss_city, setHssCity] = useState("");
+  const [hss_state, setHssState] = useState("");
   const [hss_ie_code_no, setHssIeCodeNo] = useState("");
   const [hss_postal_code, setHssPostalCode] = useState("");
   const [hss_country, setHssCountry] = useState("");
@@ -393,6 +400,7 @@ const useImportJobForm = () => {
     setImporter("");
     setImporterType("");
     setCommercialTaxType("");
+    setImporterAddress("");
     setImporterURL("");
     setShippingLineAirline("");
     setBranchSrNo("");
@@ -495,10 +503,16 @@ const useImportJobForm = () => {
     setHssAddressDetails("");
     setHssBranchId("");
     setHssCity("");
+    setHssState("");
     setHssIeCodeNo("");
     setHssPostalCode("");
     setHssCountry("");
     setHssAdCode("");
+    setImporterAddressDetails("");
+    setImporterCity("");
+    setImporterState("");
+    setImporterPostalCode("");
+    setImporterCountry("");
     setOtherChargesDetails({
       is_single_for_all: true,
       miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
@@ -533,6 +547,7 @@ const useImportJobForm = () => {
     if (job.importer) setImporter(job.importer);
     if (job.importer_type) setImporterType(job.importer_type);
     if (job.commercial_tax_type) setCommercialTaxType(job.commercial_tax_type);
+    if (job.importer_address) setImporterAddress(job.importer_address);
     if (job.shipping_line_airline) setShippingLineAirline(job.shipping_line_airline);
     if (job.branchSrNo) setBranchSrNo(job.branchSrNo);
     if (job.adCode) setAdCode(job.adCode);
@@ -619,14 +634,48 @@ const useImportJobForm = () => {
     if (job.saller_name) setSallerName(job.saller_name);
     if (job.hss) setHSS(job.hss);
     if (job.bank_name) setBankName(job.bank_name);
-    if (job.hss_address) setHssAddress(job.hss_address);
+    // HSS Address Refactor
+    if (job.hss_address) {
+      if (typeof job.hss_address === 'object' && !Array.isArray(job.hss_address)) {
+        const addr = job.hss_address;
+        if (addr.category) setHssAddress(addr.category);
+        if (addr.details) setHssAddressDetails(addr.details);
+        if (addr.city) setHssCity(addr.city);
+        if (addr.state) setHssState(addr.state);
+        if (addr.postal_code) setHssPostalCode(addr.postal_code);
+        if (addr.country) setHssCountry(addr.country);
+        if (addr.ad_code) setHssAdCode(addr.ad_code);
+      } else {
+        setHssAddress(job.hss_address);
+      }
+    }
     if (job.hss_address_details) setHssAddressDetails(job.hss_address_details);
     if (job.hss_branch_id) setHssBranchId(job.hss_branch_id);
     if (job.hss_city) setHssCity(job.hss_city);
+    if (job.hss_state) setHssState(job.hss_state);
     if (job.hss_ie_code_no) setHssIeCodeNo(job.hss_ie_code_no);
     if (job.hss_postal_code) setHssPostalCode(job.hss_postal_code);
     if (job.hss_country) setHssCountry(job.hss_country);
     if (job.hss_ad_code) setHssAdCode(job.hss_ad_code);
+    
+    // Importer Address Refactor
+    if (job.importer_address) {
+      if (typeof job.importer_address === "object" && !Array.isArray(job.importer_address)) {
+        const addr = job.importer_address;
+        if (addr.details) setImporterAddressDetails(addr.details);
+        if (addr.city) setImporterCity(addr.city);
+        if (addr.state) setImporterState(addr.state);
+        if (addr.postal_code) setImporterPostalCode(addr.postal_code);
+        if (addr.country) setImporterCountry(addr.country);
+      } else {
+        setImporterAddress(job.importer_address);
+      }
+    }
+    if (job.importer_address_details) setImporterAddressDetails(job.importer_address_details);
+    if (job.importer_city) setImporterCity(job.importer_city);
+    if (job.importer_state) setImporterState(job.importer_state);
+    if (job.importer_postal_code) setImporterPostalCode(job.importer_postal_code);
+    if (job.importer_country) setImporterCountry(job.importer_country);
     if (job.branch_id) setBranchId(job.branch_id);
     if (job.trade_type) setTradeType(job.trade_type);
     if (job.mode) setMode(job.mode);
@@ -673,6 +722,22 @@ const useImportJobForm = () => {
           importer,
           importer_type,
           commercial_tax_type,
+          importer_address: {
+            details: importer_address_details,
+            city: importer_city,
+            state: importer_state,
+            postal_code: importer_postal_code,
+            country: importer_country,
+          },
+          hss_address: {
+            category: hss_address,
+            details: hss_address_details,
+            city: hss_city,
+            state: hss_state,
+            postal_code: hss_postal_code,
+            country: hss_country,
+            ad_code: hss_ad_code,
+          },
           importerURL,
           ie_code_no,
           shipping_line_airline,
@@ -735,6 +800,7 @@ const useImportJobForm = () => {
            hss_address_details,
            hss_branch_id,
            hss_city,
+           hss_state,
            hss_ie_code_no: hss_ie_code_no,
            hss_postal_code,
            hss_country,
@@ -1027,14 +1093,16 @@ const useImportJobForm = () => {
      setHssCity,
      hss_ie_code_no,
      setHssIeCodeNo,
-     hss_postal_code,
-     setHssPostalCode,
-     hss_country,
-     setHssCountry,
-     hss_ad_code,
-     setHssAdCode,
-     ie_code_no,
-    setIeCodeNo,
+      hss_postal_code,
+      setHssPostalCode,
+      hss_country,
+      setHssCountry,
+      hss_ad_code,
+      setHssAdCode,
+      hss_state,
+      setHssState,
+      ie_code_no,
+     setIeCodeNo,
     branch_id,
     setBranchId,
     trade_type,
@@ -1071,6 +1139,18 @@ const useImportJobForm = () => {
     setImporterType,
     commercial_tax_type,
     setCommercialTaxType,
+    importer_address,
+    setImporterAddress,
+    importer_address_details,
+    setImporterAddressDetails,
+    importer_city,
+    setImporterCity,
+    importer_state,
+    setImporterState,
+    importer_postal_code,
+    setImporterPostalCode,
+    importer_country,
+    setImporterCountry,
   };
 };
 

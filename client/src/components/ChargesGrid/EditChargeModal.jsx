@@ -12,6 +12,8 @@ const EditChargeModal = ({
   onClose, 
   selectedCharges, 
   onSave, 
+  updateCharge,
+  parentId,
   shippingLineAirline, 
   importerName,
   jobNumber = '',
@@ -79,7 +81,12 @@ const EditChargeModal = ({
       const initialData = JSON.parse(JSON.stringify(selectedCharges)).map(charge => ({
         ...charge,
         invoice_number: charge.invoice_number || '',
-        invoice_date: charge.invoice_date || ''
+        invoice_date: charge.invoice_date || '',
+        remark: charge.remark || '',
+        purchase_book_no: charge.purchase_book_no || '',
+        purchase_book_status: charge.purchase_book_status || '',
+        payment_request_no: charge.payment_request_no || '',
+        payment_request_status: charge.payment_request_status || ''
       }));
       setFormData(initialData);
       setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
@@ -209,8 +216,8 @@ const EditChargeModal = ({
     setActiveDropdown({ index: null, section: null });
   };
 
-  const handleSave = () => {
-    onSave(formData);
+  const handleSave = (shouldClose = true) => {
+    onSave(formData, shouldClose);
   };
 
   const togglePanel = (idx, panel) => {
@@ -233,37 +240,52 @@ const EditChargeModal = ({
           {formData.map((row, i) => (
             <div key={row._id || i} style={{ marginBottom: formData.length > 1 ? '30px' : '0' }}>
               <div className="form-section-new">
-                <div className="form-grid" style={{ marginRight: '30px' }}>
-                  <div className="form-row span-2">
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginRight: '30px', gap: '10px 20px' }}>
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Charge</span>
                     <div className="form-input-search">
                       <input type="text" readOnly className="form-input" style={{ background: '#f5f8fc', color: '#1a3a5c', fontWeight: 'bold' }} value={row.chargeHead || ''} />
                       <button type="button" className="search-btn">🔍</button>
                     </div>
                   </div>
-                  <div className="form-row">
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Category</span>
                     <input type="text" className="form-input" value={row.category || ''} onChange={e => handleFieldChange(i, 'category', e.target.value)} />
                   </div>
-                  <div className="form-row">
+
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Invoice Number</span>
                     <input type="text" className="form-input" value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} />
                   </div>
-                  <div className="form-row">
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Invoice Date</span>
                     <input type="date" className="form-input" value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
                   </div>
-                </div>
 
-                <div className="form-remark-row">
-                  <span className="form-label" style={{ textAlign: 'right' }}>Remark</span>
-                  <input 
-                    type="text"
-                    className="form-input"
-                    style={{ width: '100%' }}
-                    value={row.remark || ''} 
-                    onChange={e => handleFieldChange(i, 'remark', e.target.value)} 
-                  />
+                  {/* Tally Numbers & Status Row */}
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="form-label" style={{ color: '#1565c0', fontWeight: 'bold' }}>PB No</span>
+                    <div className="ep-inline">
+                        <input type="text" readOnly className="form-input" style={{ background: '#e3f2fd', color: '#1565c0', width: '60%' }} value={row.purchase_book_no || ''} />
+                        <span className="ep-status-pill" style={{ marginLeft: '10px', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: row.purchase_book_status ? '#e8f5e9' : '#f5f5f5', color: row.purchase_book_status === 'Active' ? '#2e7d32' : '#757575', border: '1px solid #ddd' }}>
+                            {row.purchase_book_status || 'Pending'}
+                        </span>
+                    </div>
+                  </div>
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="form-label" style={{ color: '#d32f2f', fontWeight: 'bold' }}>PR No</span>
+                    <div className="ep-inline">
+                        <input type="text" readOnly className="form-input" style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
+                        <span className="ep-status-pill" style={{ marginLeft: '10px', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: row.payment_request_status ? '#e8f5e9' : '#f5f5f5', color: row.payment_request_status === 'Active' ? '#2e7d32' : '#757575', border: '1px solid #ddd' }}>
+                            {row.payment_request_status || 'Pending'}
+                        </span>
+                    </div>
+                  </div>
+
+                  <div className="form-row" style={{ gridColumn: 'span 4' }}>
+                    <span className="form-label">Remark</span>
+                    <input type="text" className="form-input" value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)} />
+                  </div>
                 </div>
               </div>
 
@@ -645,81 +667,89 @@ const EditChargeModal = ({
                                 <span className="ep-label" style={{ fontWeight: 'bold', color: '#d32f2f' }}>Net Payable</span>
                                 <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#fff9f9', fontWeight: 'bold', color: '#d32f2f', border: '1px solid #ffcdd2' }} value={formatNumber(row.cost?.netPayable)} />
-                                  <button 
-                                    type="button" 
-                                    className="upload-btn" 
-                                    style={{ 
-                                      marginRight: '10px', 
-                                      backgroundColor: '#1976d2', 
-                                      color: '#fff', 
-                                      borderColor: '#1565c0' 
-                                    }}
-                                    onClick={() => {
-                                      const partyName = row.cost?.partyName;
-                                      const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
-                                      setPurchaseBookData(() => {
-                                        const cost = row.cost || {};
-                                        const rate = parseFloat(cost.gstRate) || 18;
-                                        const amt = parseFloat(cost.amount) || 0;
-                                        const includeGst = cost.isGst || false;
-                                        
-                                        let basic = amt;
-                                        let totalGst = 0;
-                                        
-                                        if (includeGst) {
-                                          basic = amt / (1 + (rate / 100));
-                                          totalGst = amt - basic;
-                                        } else {
-                                          totalGst = amt * (rate / 100);
-                                        }
+                                  {!row.purchase_book_no && (
+                                    <button 
+                                      type="button" 
+                                      className="upload-btn" 
+                                      style={{ 
+                                        marginRight: '10px', 
+                                        backgroundColor: '#1976d2', 
+                                        color: '#fff', 
+                                        borderColor: '#1565c0' 
+                                      }}
+                                      onClick={() => {
+                                        const partyName = row.cost?.partyName;
+                                        const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        setPurchaseBookData(() => {
+                                          const cost = row.cost || {};
+                                          const rate = parseFloat(cost.gstRate) || 18;
+                                          const amt = parseFloat(cost.amount) || 0;
+                                          const includeGst = cost.isGst || false;
+                                          
+                                          let basic = amt;
+                                          let totalGst = 0;
+                                          
+                                          if (includeGst) {
+                                            basic = amt / (1 + (rate / 100));
+                                            totalGst = amt - basic;
+                                          } else {
+                                            totalGst = amt * (rate / 100);
+                                          }
 
-                                        const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
-                                        const isGujarat = branch.gst?.startsWith('24');
+                                          const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
+                                          const isGujarat = branch.gst?.startsWith('24');
 
-                                        return {
+                                          return {
+                                            partyName,
+                                            partyDetails,
+                                            amount: amt,
+                                            basicAmount: basic,
+                                            gstAmount: totalGst,
+                                            gstRate: rate,
+                                            cgst: isGujarat ? totalGst / 2 : 0,
+                                            sgst: isGujarat ? totalGst / 2 : 0,
+                                            igst: !isGujarat ? totalGst : 0,
+                                            tdsAmount: cost.tdsAmount,
+                                            netPayable: cost.netPayable,
+                                            totalAmount: cost.totalAmount,
+                                            chargeHead: row.chargeHead,
+                                            invoice_number: row.invoice_number,
+                                            invoice_date: row.invoice_date,
+                                            cthNo: jobCthNo,
+                                            jobDisplayNumber,
+                                            branchIndex: cost.branchIndex || 0,
+                                            chargeId: row._id,
+                                            jobId: parentId
+                                          };
+                                        });
+                                      }}
+                                    >
+                                      Purchase book
+                                    </button>
+                                  )}
+                                  {!row.payment_request_no && (
+                                    <button 
+                                      type="button" 
+                                      className="upload-btn" 
+                                      style={{ backgroundColor: '#d32f2f', color: '#fff', borderColor: '#b71c1c' }}
+                                      onClick={() => {
+                                        const partyName = row.cost?.partyName;
+                                        const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        setPaymentRequestData({
                                           partyName,
                                           partyDetails,
-                                          amount: amt,
-                                          basicAmount: basic,
-                                          gstAmount: totalGst,
-                                          gstRate: rate,
-                                          cgst: isGujarat ? totalGst / 2 : 0,
-                                          sgst: isGujarat ? totalGst / 2 : 0,
-                                          igst: !isGujarat ? totalGst : 0,
-                                          tdsAmount: cost.tdsAmount,
-                                          netPayable: cost.netPayable,
-                                          totalAmount: cost.totalAmount,
-                                          chargeHead: row.chargeHead,
-                                          invoice_number: row.invoice_number,
-                                          invoice_date: row.invoice_date,
-                                          cthNo: jobCthNo,
                                           jobDisplayNumber,
-                                          branchIndex: cost.branchIndex || 0
-                                        };
-                                      });
-                                    }}
-                                  >
-                                    Purchase book
-                                  </button>
-                                  <button 
-                                    type="button" 
-                                    className="upload-btn" 
-                                    style={{ backgroundColor: '#d32f2f', color: '#fff', borderColor: '#b71c1c' }}
-                                    onClick={() => {
-                                      const partyName = row.cost?.partyName;
-                                      const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
-                                      setPaymentRequestData({
-                                        partyName,
-                                        partyDetails,
-                                        jobDisplayNumber,
-                                        branchIndex: row.cost?.branchIndex || 0,
-                                        netPayable: row.cost?.netPayable,
-                                        chargeHead: row.chargeHead
-                                      });
-                                    }}
-                                  >
-                                    Request Payment
-                                  </button>
+                                          branchIndex: row.cost?.branchIndex || 0,
+                                          netPayable: row.cost?.netPayable,
+                                          chargeHead: row.chargeHead,
+                                          chargeId: row._id,
+                                          jobId: parentId
+                                        });
+                                      }}
+                                    >
+                                      Request Payment
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -734,8 +764,8 @@ const EditChargeModal = ({
           ))}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={handleSave}>Update</button>
-          <button type="button" className="btn" onClick={handleSave}>Update & Close</button>
+          <button type="button" className="btn" onClick={() => handleSave(false)}>Update</button>
+          <button type="button" className="btn" onClick={() => handleSave(true)}>Update & Close</button>
           <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
         </div>
       </div>
@@ -760,6 +790,24 @@ const EditChargeModal = ({
         initialData={paymentRequestData}
         jobNumber={jobNumber}
         jobYear={jobYear}
+        onSuccess={(requestNo) => {
+          // Update the localized formData state with the new number
+          const updated = [...formData];
+          const activeIndex = formData.findIndex(c => c.chargeHead === paymentRequestData.chargeHead);
+          if (activeIndex !== -1) {
+            const initialStatus = 'Pending';
+            updated[activeIndex].payment_request_no = requestNo;
+            updated[activeIndex].payment_request_status = initialStatus;
+            setFormData(updated);
+            // PERSIST IMMEDIATELY
+            if (updateCharge && updated[activeIndex]._id) {
+              updateCharge(updated[activeIndex]._id, { 
+                payment_request_no: requestNo, 
+                payment_request_status: initialStatus 
+              });
+            }
+          }
+        }}
       />
 
       <PurchaseBookModal 
@@ -767,6 +815,25 @@ const EditChargeModal = ({
         onClose={() => setPurchaseBookData(null)}
         initialData={purchaseBookData}
         jobNumber={jobNumber}
+        jobYear={jobYear}
+        onSuccess={(entryNo) => {
+          // Update the localized formData state with the new number
+          const updated = [...formData];
+          const activeIndex = formData.findIndex(c => c.chargeHead === purchaseBookData.chargeHead);
+          if (activeIndex !== -1) {
+            const initialStatus = 'Pending';
+            updated[activeIndex].purchase_book_no = entryNo;
+            updated[activeIndex].purchase_book_status = initialStatus;
+            setFormData(updated);
+            // PERSIST IMMEDIATELY
+            if (updateCharge && updated[activeIndex]._id) {
+              updateCharge(updated[activeIndex]._id, { 
+                purchase_book_no: entryNo, 
+                purchase_book_status: initialStatus 
+              });
+            }
+          }
+        }}
       />
     </div>
   );

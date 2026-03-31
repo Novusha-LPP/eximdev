@@ -31,8 +31,8 @@ const defaults = {
   attendance_config: {
     grace_in_minutes: 15,
     grace_out_minutes: 15,
-    full_day_threshold_hours: 8,
-    half_day_threshold_hours: 4
+    full_day_threshold_hours: 8.5,
+    half_day_threshold_hours: 4.5
   },
   settings: {
     geo_fencing_enabled: false,
@@ -67,6 +67,9 @@ async function seed() {
     const code = generateCompanyCode(name, usedCodes);
     const update = {
       company_name: name,
+      timezone: defaults.timezone,
+      attendance_config: defaults.attendance_config,
+      settings: defaults.settings,
       status: 'active'
     };
 
@@ -74,10 +77,7 @@ async function seed() {
     const company = await Company.findOneAndUpdate(
       { company_name: name },
       {
-        $setOnInsert: {
-          ...update,
-          company_code: code
-        },
+        $setOnInsert: { ...update, company_code: code },
         $set: {
           timezone: defaults.timezone,
           'attendance_config.grace_in_minutes': defaults.attendance_config.grace_in_minutes,

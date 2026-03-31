@@ -13,30 +13,30 @@ import './HolidayCards.css';
 
 /* --- Holiday emoji / color config --- */
 const HOLIDAY_CONFIG = {
-  national: { emoji: '???', cls: 'national', label: 'National' },
-  company: { emoji: '??', cls: 'company', label: 'Company' },
-  optional: { emoji: '??', cls: 'optional', label: 'Optional' },
-  restricted: { emoji: '??', cls: 'restricted', label: 'Restricted' },
+  national: { emoji: '🏛️', cls: 'national', label: 'National' },
+  company: { emoji: '🏢', cls: 'company', label: 'Company' },
+  optional: { emoji: '🌟', cls: 'optional', label: 'Optional' },
+  restricted: { emoji: '🔒', cls: 'restricted', label: 'Restricted' },
 };
 
 const HOLIDAY_EMOJIS = {
-  holi: '??', diwali: '??', christmas: '??',
-  'new year': '??', eid: '??', independence: '????',
-  republic: '????', gandhi: '???', navratri: '??',
-  pongal: '??', ugadi: '??', onam: '??',
-  'good friday': '??', easter: '??', thanksgiving: '??',
-  dussehra: '??', janmashtami: '??', raksha: '??',
+  holi: '🎨', diwali: '🪔', christmas: '🎄',
+  'new year': '🎆', eid: '🌙', independence: '🇮🇳',
+  republic: '🇮🇳', gandhi: '🏛️', navratri: '🕉️',
+  pongal: '🍚', ugadi: '🌿', onam: '🥣',
+  'good friday': '✝️', easter: '🥚', thanksgiving: '🦃',
+  dussehra: '🏹', janmashtami: '🏺', raksha: '🧶',
 };
 
 const getHolidayEmoji = (name = '', type = '') => {
   const n = name.toLowerCase();
   const found = Object.entries(HOLIDAY_EMOJIS).find(([k]) => n.includes(k));
   if (found) return found[1];
-  return HOLIDAY_CONFIG[type]?.emoji || '??';
+  return HOLIDAY_CONFIG[type]?.emoji || '📅';
 };
 
 const getHolidayCfg = (type = '') =>
-  HOLIDAY_CONFIG[type] || { emoji: '??', cls: 'national', label: type };
+  HOLIDAY_CONFIG[type] || { emoji: '📅', cls: 'national', label: type };
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -84,10 +84,10 @@ const HolidayCardView = ({ holidays, loading }) => {
     ? Math.round((new Date(nextHoliday.holiday_date) - today) / (1000 * 60 * 60 * 24))
     : null;
 
-  /* type filter pills � built from actual data */
+  /* type filter pills – built from actual data */
   const allTypes = [...new Set(yearHols.map(h => h.holiday_type || 'national'))];
   const FILTERS = [
-    { key: 'all', emoji: '??', label: 'All', count: yearHols.length },
+    { key: 'all', emoji: '🗓️', label: 'All', count: yearHols.length },
     ...allTypes.map(t => ({
       key: t,
       emoji: getHolidayCfg(t).emoji,
@@ -102,35 +102,35 @@ const HolidayCardView = ({ holidays, loading }) => {
       {/* -- Header -- */}
       <div className="hc-header">
         <div className="hc-header-left">
-          <h1 className="hc-title">??? Holiday Calendar</h1>
+          <h1 className="hc-title">📅 Holiday Calendar</h1>
           <p className="hc-sub">Official holidays for {year}</p>
         </div>
         <div className="hc-year-nav">
-          <button className="hc-ynav-btn" onClick={() => setYear(y => y - 1)} aria-label="Previous year">�</button>
+          <button className="hc-ynav-btn" onClick={() => setYear(y => y - 1)} aria-label="Previous year">‹</button>
           <span className="hc-year-lbl">{year}</span>
-          <button className="hc-ynav-btn" onClick={() => setYear(y => y + 1)} aria-label="Next year">�</button>
+          <button className="hc-ynav-btn" onClick={() => setYear(y => y + 1)} aria-label="Next year">›</button>
         </div>
       </div>
 
       {/* -- Summary strip -- */}
       <div className="hc-summary">
         <div className="hc-sum-tile">
-          <div className="hc-sum-emoji">??</div>
+          <div className="hc-sum-emoji">📅</div>
           <div className="hc-sum-val">{counts.total}</div>
           <div className="hc-sum-lbl">Total Holidays</div>
         </div>
         <div className="hc-sum-tile">
-          <div className="hc-sum-emoji">???</div>
+          <div className="hc-sum-emoji">🏛️</div>
           <div className="hc-sum-val">{counts.national}</div>
           <div className="hc-sum-lbl">National</div>
         </div>
         <div className="hc-sum-tile">
-          <div className="hc-sum-emoji">??</div>
+          <div className="hc-sum-emoji">🌟</div>
           <div className="hc-sum-val">{counts.optional}</div>
           <div className="hc-sum-lbl">Optional</div>
         </div>
         <div className="hc-sum-tile">
-          <div className="hc-sum-emoji">?</div>
+          <div className="hc-sum-emoji">🚀</div>
           <div className="hc-sum-val">{counts.upcoming}</div>
           <div className="hc-sum-lbl">Upcoming</div>
         </div>
@@ -148,7 +148,7 @@ const HolidayCardView = ({ holidays, loading }) => {
             {new Date(nextHoliday.holiday_date).toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })}
           </div>
           {daysUntilNext === 0 ? (
-            <span className="hc-next-days-badge">Today! ??</span>
+            <span className="hc-next-days-badge">Today! 🎉</span>
           ) : daysUntilNext === 1 ? (
             <span className="hc-next-days-badge">Tomorrow</span>
           ) : daysUntilNext <= 30 ? (
@@ -176,11 +176,11 @@ const HolidayCardView = ({ holidays, loading }) => {
       {loading ? (
         <div className="hc-loading">
           <div className="hc-spin" aria-label="Loading..." role="status" />
-          <span>Loading holidays�</span>
+          <span>Loading holidays...</span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="hc-empty" role="status">
-          <div className="hc-empty-icon">??</div>
+          <div className="hc-empty-icon">🏜️</div>
           <p>No holidays found for this filter.</p>
         </div>
       ) : (
@@ -234,7 +234,7 @@ const HolidayCardView = ({ holidays, loading }) => {
                             {cfg.emoji} {cfg.label}
                           </span>
                           {isNext && !isToday && (
-                            <span className="hc-next-chip">Next ?</span>
+                            <span className="hc-next-chip">Next!</span>
                           )}
                         </div>
                       </div>
@@ -257,6 +257,7 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
   const [holidays, setHolidays] = useState([]);
   const [loadingHolidays, setLoadingHolidays] = useState(true);
 
+  const [showAddModal, setShowAddModal] = useState(false);
   const [newHoliday, setNewHoliday] = useState({
     holiday_date: '',
     holiday_name: '',
@@ -272,9 +273,11 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
       setLoadingHolidays(true);
       const res = await masterAPI.getHolidays({ limit: 1000 });
       setHolidays(res.data || []);
+      setLoadingHolidays(false);
     } catch (err) {
-      toast.error('Failed to load holidays');
-    } finally {
+      console.error('Holiday load error:', err);
+      toast.error('Failed to load holidays: ' + (err.message || 'Unknown error'));
+      setHolidays([]);
       setLoadingHolidays(false);
     }
   };
@@ -350,6 +353,7 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
     try {
       await masterAPI.createHoliday(newHoliday);
       setNewHoliday({ holiday_date: '', holiday_name: '', holiday_type: 'national' });
+      setShowAddModal(false);
       toast.success('Holiday added successfully');
       loadHolidays();
     } catch (err) {
@@ -396,6 +400,13 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
               : dayHolidays.length > 0 ? "has-event" : ""
               }`}
             key={day}
+            onClick={() => {
+              if (!readOnly) {
+                setNewHoliday({ ...newHoliday, holiday_date: format(cloneDay, 'yyyy-MM-dd') });
+                setShowAddModal(true);
+              }
+            }}
+            style={{ cursor: readOnly ? 'default' : 'pointer' }}
           >
             <span className="calendar-number">{formattedDate}</span>
             <div className="calendar-events">
@@ -448,6 +459,12 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
             <p>Configure company holidays and observances with enterprise-level tools.</p>
           </div>
           <div className="settings-header-actions" style={{ display: 'flex', gap: '1rem' }}>
+            {!readOnly && (
+              <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                <FiPlus size={18} style={{ marginRight: 8 }} />
+                Add Holiday
+              </button>
+            )}
             <div className="view-toggle">
               <button
                 className={viewMode === 'list' ? 'active' : ''}
@@ -485,49 +502,59 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
         </div>
       )}
 
-      {!readOnly && (
-        <div className="card" style={{ marginBottom: '2rem' }}>
-          <h3>
-            <FiPlus size={20} />
-            Add New Holiday
-          </h3>
-          <div className="elite-form-grid">
-            <div className="form-group">
-              <label>Holiday Date</label>
-              <input
-                type="date"
-                className="form-input"
-                value={newHoliday.holiday_date}
-                onChange={e => setNewHoliday({ ...newHoliday, holiday_date: e.target.value })}
-              />
+      {/* -- ADD HOLIDAY MODAL -- */}
+      {!readOnly && showAddModal && (
+        <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <FiPlus size={18} color="#fff" />
+              <h3>Add Company Holiday</h3>
+              <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
-            <div className="form-group">
-              <label>Holiday Name</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g., Diwali, New Year's Day"
-                value={newHoliday.holiday_name}
-                onChange={e => setNewHoliday({ ...newHoliday, holiday_name: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Holiday Type</label>
-              <select
-                className="form-select"
-                value={newHoliday.holiday_type}
-                onChange={e => setNewHoliday({ ...newHoliday, holiday_type: e.target.value })}
-              >
-                <option value="national">National Holiday</option>
-                <option value="company">Company Specific</option>
-                <option value="optional">Optional Holiday</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ justifyContent: 'flex-end', paddingTop: '1.5rem' }}>
-              <Button variant="primary" onClick={handleAdd}>
-                <FiPlus size={18} style={{ marginRight: 8 }} />
-                Add Holiday
-              </Button>
+            <div className="modal-body" style={{ background: '#fff', padding: '1.5rem' }}>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '.875rem' }}>Holiday Date</label>
+                <input
+                  type="date"
+                  style={{ width: '100%', padding: '0.75rem', border: '1px solid #eef0f7', borderRadius: '8px' }}
+                  value={newHoliday.holiday_date}
+                  onChange={e => setNewHoliday({ ...newHoliday, holiday_date: e.target.value })}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '.875rem' }}>Holiday Name</label>
+                <input
+                  type="text"
+                  style={{ width: '100%', padding: '0.75rem', border: '1px solid #eef0f7', borderRadius: '8px' }}
+                  placeholder="e.g., Diwali, New Year's Day"
+                  value={newHoliday.holiday_name}
+                  onChange={e => setNewHoliday({ ...newHoliday, holiday_name: e.target.value })}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '2rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '.875rem' }}>Holiday Type</label>
+                <select
+                  style={{ width: '100%', padding: '0.75rem', border: '1px solid #eef0f7', borderRadius: '8px', appearance: 'none', background: 'white' }}
+                  value={newHoliday.holiday_type}
+                  onChange={e => setNewHoliday({ ...newHoliday, holiday_type: e.target.value })}
+                >
+                  <option value="national">National Holiday</option>
+                  <option value="company">Company Specific</option>
+                  <option value="optional">Optional Holiday</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                  onClick={() => setShowAddModal(false)}
+                >Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={handleAdd}
+                >Add Holiday</button>
+              </div>
             </div>
           </div>
         </div>
@@ -549,5 +576,3 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
 };
 
 export default HolidayManagement;
-
-

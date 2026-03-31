@@ -20,11 +20,17 @@ const fmtLate = mins => {
   return m < 60 ? `+${m}m` : `+${Math.floor(m / 60)}h ${m % 60}m`;
 };
 const DEPT_COLORS = ['#0c9e6e', '#1a56db', '#c87f0a', '#6c3fc8', '#d63031', '#0891b2', '#047857', '#9333ea'];
-const HOLIDAY_EMOJIS = { holi: '??', diwali: '??', christmas: '??', 'new year': '??', eid: '??', independence: '????', republic: '????', gandhi: '???', navratri: '??', pongal: '??', onam: '??' };
+
+const HOLIDAY_EMOJIS = {
+  holi: '🎨', diwali: '🪔', christmas: '🎄',
+  'new year': '🎆', eid: '🌙', independence: '🇮🇳',
+  republic: '🇮🇳', gandhi: '🏛️', navratri: '🕉️',
+  pongal: '🍚', onam: '🥣'
+};
 const getHolidayEmoji = (name = '', type = '') => {
   const n = name.toLowerCase();
   const found = Object.entries(HOLIDAY_EMOJIS).find(([k]) => n.includes(k));
-  return found ? found[1] : (type === 'national' ? '???' : '??');
+  return found ? found[1] : (type === 'national' ? '🏛️' : '📅');
 };
 
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
@@ -46,11 +52,11 @@ const AdminDashboard = () => {
   });
 
   const quickActions = [
-    { icon: <FiActivity size={14} />, label: 'Attendance Report', desc: 'Company-wide records & export', path: '/admin/attendance' },
-    { icon: <FiCalendar size={14} />, label: 'Manage Holidays', desc: 'Configure public & optional', path: '/admin/holidays' },
-    { icon: <FiClock size={14} />, label: 'Shift Management', desc: 'Timings, grace & week-offs', path: '/admin/shifts' },
-    { icon: <FiBookOpen size={14} />, label: 'Leave Policies', desc: 'Quotas, accrual & rules', path: '/admin/leave-policies' },
-    { icon: <FiSettings size={14} />, label: 'System Settings', desc: 'Company & security config', path: '/admin/settings' },
+    { icon: <FiActivity size={14} />, label: 'Attendance Report', desc: 'Company-wide records & export', path: '/attendance/admin/attendance' },
+    { icon: <FiCalendar size={14} />, label: 'Manage Holidays', desc: 'Configure public & optional', path: '/attendance/admin/holidays' },
+    { icon: <FiClock size={14} />, label: 'Shift Management', desc: 'Timings, grace & week-offs', path: '/attendance/admin/shifts' },
+    { icon: <FiBookOpen size={14} />, label: 'Leave Policies', desc: 'Quotas, accrual & rules', path: '/attendance/admin/leave-policies' },
+    { icon: <FiSettings size={14} />, label: 'System Settings', desc: 'Company & security config', path: '/attendance/admin/settings' },
   ];
 
   const load = useCallback(async () => {
@@ -91,7 +97,7 @@ const AdminDashboard = () => {
     setApproving(p => ({ ...p, [id]: true }));
     try {
       await attendanceAPI.approveRequest(type, id, status);
-      toast.success(status === 'approved' ? 'Approved ?' : 'Rejected');
+      toast.success(status === 'approved' ? 'Approved' : 'Rejected');
       load();
     } catch { toast.error('Action failed'); }
     finally { setApproving(p => ({ ...p, [id]: false })); }
@@ -100,7 +106,7 @@ const AdminDashboard = () => {
   useEffect(() => { load(); }, [load]);
 
   if (loading) return (
-    <div className="loading-state"><div className="spinner" /><p>Loading dashboard�</p></div>
+    <div className="loading-state"><div className="spinner" /><p>Loading dashboard...</p></div>
   );
 
   const { stats = {}, departments = [], absentToday = [], lateToday = [],
@@ -145,7 +151,7 @@ const AdminDashboard = () => {
                 onClick={handlePunch} disabled={punching}
               >
                 {isIn ? <FiLogOut size={13} /> : <FiLogIn size={13} />}
-                {punching ? 'Please wait�' : isIn ? 'Punch Out' : 'Punch In'}
+                {punching ? 'Please wait...' : isIn ? 'Punch Out' : 'Punch In'}
               </button>
             </div>
 
@@ -238,7 +244,7 @@ const AdminDashboard = () => {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {absentToday.length > 0 && <span className="db-card-badge dbb-red">{absentToday.length} absent</span>}
-                <button className="db-view-all" onClick={() => navigate('/admin/attendance')}>
+                <button className="db-view-all" onClick={() => navigate('/attendance/admin/attendance')}>
                   View all <FiChevronRight size={12} />
                 </button>
               </div>
@@ -258,8 +264,8 @@ const AdminDashboard = () => {
               )) : (
                 <div className="db-empty">
                   <FiCheckCircle size={32} style={{ color: '#b6e8d6' }} />
-                  <p>Full house today!</p>
-                  <span>No unexplained absences � great attendance.</span>
+                  <p>Full house today! 🎉</p>
+                  <span>No unexplained absences – great attendance.</span>
                 </div>
               )}
             </div>
@@ -384,9 +390,9 @@ const AdminDashboard = () => {
                         {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
                       </span>
                       {req._kind === 'leave' && req.totalDays && (
-                        req.is_half_day ? ` � Half Day (${formatSession(req.half_day_session)})` : ` � ${req.totalDays}d`
+                        req.is_half_day ? ` • Half Day (${formatSession(req.half_day_session)})` : ` • ${req.totalDays}d`
                       )}
-                      {req._kind === 'reg' && req.date && ` � ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}`}
+                      {req._kind === 'reg' && req.date && ` • ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}`}
                       {req.attachment_urls?.length > 0 && (
                         <a
                           href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`}
@@ -414,7 +420,7 @@ const AdminDashboard = () => {
               )) : (
                 <div className="db-empty-sm">
                   <FiCheckCircle size={22} style={{ color: '#b6e8d6' }} />
-                  <p>No pending approvals</p>
+                  <p>No pending approvals ✨</p>
                 </div>
               )}
             </div>
@@ -427,7 +433,7 @@ const AdminDashboard = () => {
                 <FiCalendar size={13} className="db-card-title-icon" />
                 Upcoming Holidays
               </span>
-              <button className="db-view-all" onClick={() => navigate('/admin/holidays')}>
+              <button className="db-view-all" onClick={() => navigate('/attendance/admin/holidays')}>
                 Manage <FiChevronRight size={12} />
               </button>
             </div>
@@ -484,6 +490,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-
-

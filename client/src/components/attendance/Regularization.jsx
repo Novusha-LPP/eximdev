@@ -97,11 +97,11 @@ const Regularization = () => {
                 </div>
 
                 <div className="rg-foot">
-                  <span>Submitted {formatDate(r.createdAt, 'dd MMM � hh:mm a')}</span>
+                  <span>Submitted {formatDate(r.createdAt, 'dd MMM   hh:mm a')}</span>
                   {r.status === 'pending' && (
                     <button className="rg-cancel-btn" onClick={() => cancel(r._id)}>Cancel Request</button>
                   )}
-                  {r.approved_by && <span>� Reviewed by Manager</span>}
+                  {r.approved_by && <span>  Reviewed by Manager</span>}
                 </div>
               </div>
             </div>
@@ -148,11 +148,11 @@ const Regularization = () => {
               </div>
               <div className="mfg">
                 <label>Reason</label>
-                <textarea value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} required rows={3} placeholder="Explain why the correction is needed�" />
+                <textarea value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} required rows={3} placeholder="Explain why the correction is needed " />
               </div>
               <div className="rg-mactions">
                 <button type="button" className="rg-mcancel" onClick={() => setModal(false)}>Cancel</button>
-                <button type="submit" className="rg-msub" disabled={submitting}>{submitting ? 'Submitting�' : 'Submit'}</button>
+                <button type="submit" className="rg-msub" disabled={submitting}>{submitting ? 'Submitting ' : 'Submit'}</button>
               </div>
             </form>
           </div>

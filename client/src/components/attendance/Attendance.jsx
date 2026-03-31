@@ -37,7 +37,7 @@ const badgeClass = (r) => {
 const badgeLabel = (r) => {
   if (r.status === 'half_day') return formatSession(r.half_day_session);
   if (r.is_late && r.status === 'present') return 'Late';
-  return (r.status || '�').replace('_', ' ');
+  return (r.status || ' ').replace('_', ' ');
 };
 
 /* -- Component -- */
@@ -60,13 +60,20 @@ const Attendance = () => {
   const load = async () => {
     try {
       setLoading(true);
+      console.log('Loading attendance for employee:', user?.id || user?._id);
       const r = await attendanceAPI.getHistory({
         limit: 2000,
         employee_id: user?.id || user?._id,
       });
-      setAll((r?.data || []).sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date)));
-    } catch { toast.error('Failed to load attendance'); }
-    finally   { setLoading(false); }
+      const data = (r?.data || []).sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
+      console.log('Attendance data loaded:', data.length, 'records');
+      setAll(data);
+    } catch (err) { 
+      console.error('Error loading attendance:', err);
+      toast.error(err?.message || 'Failed to load attendance'); 
+      setAll([]);
+    }
+    finally { setLoading(false); }
   };
 
   const process = () => {
@@ -126,17 +133,17 @@ const Attendance = () => {
   };
 
   const STATS = [
-    { icon: FiUserCheck,     label: 'Present',   value: stats?.present  ?? '�', c: 'g' },
-    { icon: FiAlertTriangle, label: 'Late',       value: stats?.late     ?? '�', c: 'a' },
-    { icon: FiUserMinus,     label: 'Absent',     value: stats?.absent   ?? '�', c: 'r' },
-    { icon: FiSun,           label: 'On Leave',   value: stats?.leave    ?? '�', c: 'p' },
-    { icon: FiLogIn,         label: 'Early In',   value: stats?.earlyIn  ?? '�', c: 'g' },
-    { icon: FiLogOut,        label: 'Early Out',  value: stats?.earlyOut ?? '�', c: 'r' },
+    { icon: FiUserCheck,     label: 'Present',   value: stats?.present  ?? ' ', c: 'g' },
+    { icon: FiAlertTriangle, label: 'Late',       value: stats?.late     ?? ' ', c: 'a' },
+    { icon: FiUserMinus,     label: 'Absent',     value: stats?.absent   ?? ' ', c: 'r' },
+    { icon: FiSun,           label: 'On Leave',   value: stats?.leave    ?? ' ', c: 'p' },
+    { icon: FiLogIn,         label: 'Early In',   value: stats?.earlyIn  ?? ' ', c: 'g' },
+    { icon: FiLogOut,        label: 'Early Out',  value: stats?.earlyOut ?? ' ', c: 'r' },
     {
       icon: FiClock, label: 'Avg Hours', c: 'b',
       value: stats?.avg
         ? `${Math.floor(stats.avg)}h ${String(Math.round((stats.avg % 1) * 60)).padStart(2,'0')}m`
-        : '�',
+        : ' ',
     },
   ];
 
@@ -242,7 +249,7 @@ const Attendance = () => {
                               {formatTime12Hr(r.first_in)}
                             </span>
                           ) : (
-                            <span className="cell-dash">�</span>
+                            <span className="cell-dash"> </span>
                           )}
                           {r.is_late && r.status !== 'half_day' && (
                             <span className="late-tag">Late</span>
@@ -259,7 +266,7 @@ const Attendance = () => {
                               {formatTime12Hr(r.last_out)}
                             </span>
                           ) : (
-                            <span className="cell-dash">�</span>
+                            <span className="cell-dash"> </span>
                           )}
                         </td>
 
@@ -272,7 +279,7 @@ const Attendance = () => {
                               {r.is_early_exit&& <span className="amt amt-early-out">? {minutesToHours(r.early_exit_minutes)} early out</span>}
                             </div>
                           ) : (
-                            <span className="cell-dash">�</span>
+                            <span className="cell-dash"> </span>
                           )}
                         </td>
 
@@ -286,7 +293,7 @@ const Attendance = () => {
                               </div>
                             </div>
                           ) : (
-                            <span className="cell-dash">�</span>
+                            <span className="cell-dash"> </span>
                           )}
                         </td>
 
@@ -315,7 +322,7 @@ const Attendance = () => {
             {totalPages > 1 && (
               <div className="atn-pages">
                 <span className="atn-pinfo">
-                  Showing {(page.cur - 1) * page.per + 1}�{Math.min(page.cur * page.per, page.total)} of {page.total}
+                  Showing {(page.cur - 1) * page.per + 1} {Math.min(page.cur * page.per, page.total)} of {page.total}
                 </span>
                 <div className="atn-pnums">
                   <button
@@ -333,14 +340,14 @@ const Attendance = () => {
                     const right = Math.min(totalPages - 1, page.cur + delta);
 
                     range.push(1);
-                    if (left > 2) range.push('�');
+                    if (left > 2) range.push(' ');
                     for (let n = left; n <= right; n++) range.push(n);
-                    if (right < totalPages - 1) range.push('�');
+                    if (right < totalPages - 1) range.push(' ');
                     if (totalPages > 1) range.push(totalPages);
 
                     return range.map((n, idx) =>
-                      n === '�' ? (
-                        <span key={`e${idx}`} style={{ padding: '0 4px', color: '#9ca3af', fontSize: '.8125rem' }}>�</span>
+                      n === ' ' ? (
+                        <span key={`e${idx}`} style={{ padding: '0 4px', color: '#9ca3af', fontSize: '.8125rem' }}> </span>
                       ) : (
                         <button
                           key={n}

@@ -1,9 +1,10 @@
 import apiClient from '../attendanceApiClient';
 
 const leaveAPI = {
-  getBalance: async () => {
+  getBalance: async (employee_id) => {
     try {
-      const response = await apiClient.get('/leave/balance');
+      const params = employee_id ? { employee_id } : {};
+      const response = await apiClient.get('/leave/balance', { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch balance' };

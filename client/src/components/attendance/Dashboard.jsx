@@ -24,7 +24,7 @@ const greeting = () => {
 };
 
 const fmtTime = iso => {
-  if (!iso) return '�';
+  if (!iso) return '-';
   const d = new Date(iso);
   if (isNaN(d)) return iso;
   let h = d.getHours(), m = String(d.getMinutes()).padStart(2, '0'), ap = h >= 12 ? 'PM' : 'AM';
@@ -43,27 +43,27 @@ const DEPT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06
 
 const getHolidayEmoji = (name = '', type = '') => {
   const n = (name + type).toLowerCase();
-  if (n.includes('diwali')) return '??';
-  if (n.includes('holi')) return '??';
-  if (n.includes('eid')) return '??';
-  if (n.includes('christmas')) return '??';
-  if (n.includes('new year')) return '??';
-  if (n.includes('independence') || n.includes('republic')) return '????';
-  if (type === 'national') return '???';
-  return '??';
+  if (n.includes('diwali')) return '🪔';
+  if (n.includes('holi')) return '🎨';
+  if (n.includes('eid')) return '🌙';
+  if (n.includes('christmas')) return '🎄';
+  if (n.includes('new year')) return '🎆';
+  if (n.includes('independence') || n.includes('republic')) return '🇮🇳';
+  if (type === 'national') return '🏛️';
+  return '📅';
 };
 
 const LEAVE_ICONS = [
-  { keys: ['casual', 'cl'], emoji: '???', color: '#3b82f6' },
-  { keys: ['sick', 'sl', 'medical'], emoji: '??', color: '#10b981' },
-  { keys: ['earned', 'el', 'annual'], emoji: '?', color: '#8b5cf6' },
-  { keys: ['comp', 'co'], emoji: '?', color: '#f59e0b' },
-  { keys: ['wfh', 'work from'], emoji: '??', color: '#06b6d4' },
-  { keys: ['unpaid', 'lwp'], emoji: '??', color: '#9ca3af' },
+  { keys: ['casual', 'cl'], emoji: '🍃', color: '#3b82f6' },
+  { keys: ['sick', 'sl', 'medical'], emoji: '🤒', color: '#10b981' },
+  { keys: ['earned', 'el', 'annual'], emoji: '⭐', color: '#8b5cf6' },
+  { keys: ['comp', 'co'], emoji: '🎁', color: '#f59e0b' },
+  { keys: ['wfh', 'work from'], emoji: '🏠', color: '#06b6d4' },
+  { keys: ['unpaid', 'lwp'], emoji: '⏳', color: '#9ca3af' },
 ];
 const getLeaveIcon = (name = '') => {
   const n = name.toLowerCase();
-  return LEAVE_ICONS.find(c => c.keys.some(k => n.includes(k))) || { emoji: '??', color: '#9ca3af' };
+  return LEAVE_ICONS.find(c => c.keys.some(k => n.includes(k))) || { emoji: '📝', color: '#9ca3af' };
 };
 
 const formatSession = (s) => {
@@ -81,7 +81,7 @@ const calClass = (rec, isCurrentDay, punchStatus) => {
   return { absent: 'absent', holiday: 'holiday', weekly_off: 'off', leave: 'leave' }[rec.status] || '';
 };
 
-const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '�', leave: 'LV', holiday: 'H', weekly_off: '�', empty: '' };
+const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'H', weekly_off: 'O', empty: '' };
 
 /* ------------------------------------------
    DASHBOARD
@@ -192,7 +192,7 @@ export default function Dashboard() {
     setApproving(p => ({ ...p, [id]: true }));
     try {
       await attendanceAPI.approveRequest(kind === 'leave' ? 'leave' : 'regularization', id, status);
-      toast.success(status === 'approved' ? 'Approved ?' : 'Rejected');
+      toast.success(status === 'approved' ? 'Approved' : 'Rejected');
       load(month.getMonth() + 1, month.getFullYear());
     } catch { toast.error('Action failed'); }
     finally { setApproving(p => ({ ...p, [id]: false })); }
@@ -241,7 +241,7 @@ export default function Dashboard() {
 
   /* -- Loading -- */
   if (loading && !dash) return (
-    <div className="db-loading"><div className="db-spin" /><p>Loading�</p></div>
+    <div className="db-loading"><div className="db-spin" /><p>Loading...</p></div>
   );
 
   /* -- Derived -- */
@@ -266,29 +266,29 @@ export default function Dashboard() {
 
   const upcomingHolidays = (dash?.upcomingHolidays || []).slice(0, 4);
 
-  /* -- Personal stat tiles � always 4 -- */
+  /* -- Personal stat tiles – always 4 -- */
   const personalTiles = [
     { cls: 'green', val: ms?.present ?? 0, lbl: 'Days Present', sub: `of ${ms?.workingDays ?? 0} working days` },
     { cls: 'blue', val: balances.reduce((s, b) => s + (b.available || b.balance || 0), 0), lbl: 'Leave Balance', sub: `${balances.reduce((s, b) => s + (b.consumed || 0), 0)} used this month` },
     { cls: 'amber', val: ms?.late ?? 0, lbl: 'Late Arrivals', sub: ms?.avgLateMinutes ? `avg ${ms.avgLateMinutes} min late` : 'this month' },
-    { cls: 'gray', val: ms?.weeklyAvgHours ? `${Math.floor(ms.weeklyAvgHours)}h${Math.floor((ms.weeklyAvgHours % 1) * 60)}m` : '�', lbl: 'Weekly Avg Hours', sub: 'based on days worked' },
+    { cls: 'gray', val: ms?.weeklyAvgHours ? `${Math.floor(ms.weeklyAvgHours)}h${Math.floor((ms.weeklyAvgHours % 1) * 60)}m` : '-', lbl: 'Weekly Avg Hours', sub: 'based on days worked' },
   ];
 
   /* -- HOD quick actions -- */
   const hodActions = [
-    { icon: <FiCheckSquare size={14} />, lbl: 'Leave Approvals', sub: `${pendingLeaves.length} pending`, path: '/hod/leave-approval', count: pendingLeaves.length },
-    { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/hod/regularization-approval', count: pendingRegs.length },
-    { icon: <FiActivity size={14} />, lbl: 'Team Report', sub: 'Attendance & analytics', path: '/hod/attendance', count: 0 },
-    { icon: <FiCalendar size={14} />, lbl: 'Apply My Leave', sub: 'Submit a leave request', path: '/leave', count: 0 },
+    { icon: <FiCheckSquare size={14} />, lbl: 'Leave Approvals', sub: `${pendingLeaves.length} pending`, path: '/attendance/hod/leave-approval', count: pendingLeaves.length },
+    { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/attendance/hod/regularization-approval', count: pendingRegs.length },
+    { icon: <FiActivity size={14} />, lbl: 'Team Report', sub: 'Attendance & analytics', path: '/attendance/hod/report', count: 0 },
+    { icon: <FiCalendar size={14} />, lbl: 'Apply My Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
   ];
 
   /* -- Admin quick actions -- */
   const adminActions = [
-    { icon: <FiActivity size={14} />, lbl: 'Attendance Report', sub: 'Company-wide records', path: '/admin/attendance' },
-    { icon: <FiCalendar size={14} />, lbl: 'Manage Holidays', sub: 'Add or edit holidays', path: '/admin/holidays' },
-    { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Timings & grace periods', path: '/admin/shifts' },
-    { icon: <FiBookOpen size={14} />, lbl: 'Leave Policies', sub: 'Quotas & accrual rules', path: '/admin/leave-policies' },
-    { icon: <FiSettings size={14} />, lbl: 'System Settings', sub: 'Company configuration', path: '/admin/settings' },
+    { icon: <FiActivity size={14} />, lbl: 'Attendance Report', sub: 'Company-wide records', path: '/attendance/admin/attendance' },
+    { icon: <FiCalendar size={14} />, lbl: 'Manage Holidays', sub: 'Add or edit holidays', path: '/attendance/admin/holidays' },
+    { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Timings & grace periods', path: '/attendance/admin/shifts' },
+    { icon: <FiBookOpen size={14} />, lbl: 'Leave Policies', sub: 'Quotas & accrual rules', path: '/attendance/admin/leave-policies' },
+    { icon: <FiSettings size={14} />, lbl: 'System Settings', sub: 'Company configuration', path: '/attendance/admin/settings' },
   ];
 
   return (
@@ -298,7 +298,7 @@ export default function Dashboard() {
       <div className="db-hero">
         <div className="db-hero-inner">
           <div>
-            <h1>{isAdmin ? 'Admin Dashboard' : isHOD ? 'Department Overview' : `${greeting()}, ${firstName}`}</h1>
+            <h1>{isAdmin ? 'Admin Dashboard' : isHOD ? 'Team Overview' : `${greeting()}, ${firstName}`}</h1>
             <p>{new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="punch-widget">
@@ -319,7 +319,7 @@ export default function Dashboard() {
               disabled={punching}
             >
               {isIn ? <FiLogOut size={13} /> : <FiLogIn size={13} />}
-              {punching ? '�' : isIn ? 'Punch Out' : 'Punch In'}
+              {punching ? '...' : isIn ? 'Punch Out' : 'Punch In'}
             </button>
           </div>
         </div>
@@ -344,7 +344,7 @@ export default function Dashboard() {
         {/* -- LEFT / MAIN -- */}
         <div className="db-main">
 
-          {/* Personal punch hero � all roles */}
+          {/* Personal punch hero – all roles */}
           <div className="ph-card">
             <div className="ph-top">
               <div>
@@ -359,17 +359,17 @@ export default function Dashboard() {
                 <div className="ph-meta">
                   <div className="ph-meta-item">
                     <span className="ph-meta-key">Punched In</span>
-                    <span className="ph-meta-val">{ps?.firstIn ? fmtTime(ps.firstIn) : '�'}</span>
+                    <span className="ph-meta-val">{ps?.firstIn ? fmtTime(ps.firstIn) : '-'}</span>
                   </div>
                   <div className="ph-meta-item">
                     <span className="ph-meta-key">Punched Out</span>
                     <span className={`ph-meta-val ${showMiss ? 'red' : ''}`}>
-                      {showMiss ? 'Miss' : ps?.lastOut ? fmtTime(ps.lastOut) : '�'}
+                      {showMiss ? 'Miss' : ps?.lastOut ? fmtTime(ps.lastOut) : '-'}
                     </span>
                   </div>
                   <div className="ph-meta-item">
                     <span className="ph-meta-key">Status</span>
-                    <span className={`ph-meta-val ${isIn ? 'green' : ''}`}>{ps?.status || '�'}</span>
+                    <span className={`ph-meta-val ${isIn ? 'green' : ''}`}>{ps?.status || '-'}</span>
                   </div>
                   {ps?.isLate && (
                     <div className="ph-meta-item">
@@ -388,7 +388,7 @@ export default function Dashboard() {
                   ? <FiLogOut size={22} color="#ef4444" />
                   : <FiLogIn size={22} color="#10b981" />
                 }
-                <span className="ph-ring-lbl">{punching ? '�' : isIn ? 'Out' : 'In'}</span>
+                <span className="ph-ring-lbl">{punching ? '...' : isIn ? 'Out' : 'In'}</span>
               </button>
             </div>
           </div>
@@ -398,7 +398,7 @@ export default function Dashboard() {
             <div className="card insight-mini">
               <div className="card-head">
                 <span className="card-title">{isAdmin ? 'Company Overview' : 'Team Overview'}</span>
-                <button className="card-link" onClick={() => navigate(isAdmin ? '/admin/attendance' : '/hod/attendance')}>
+                <button className="card-link" onClick={() => navigate(isAdmin ? '/attendance/admin/attendance' : '/attendance/hod/report')}>
                   Full report <FiArrowRight size={12} />
                 </button>
               </div>
@@ -444,13 +444,13 @@ export default function Dashboard() {
                   {(mgmtData?.absentToday || []).length > 0 && (
                     <span className="card-badge badge-red">{(mgmtData?.absentToday || []).length}</span>
                   )}
-                  <button className="card-link" onClick={() => navigate('/admin/attendance')}>
+                  <button className="card-link" onClick={() => navigate('/attendance/admin/attendance')}>
                     View all <FiArrowRight size={12} />
                   </button>
                 </div>
               </div>
               {(mgmtData?.absentToday || []).length === 0 ? (
-                <div className="empty-msg">Everyone is present today ?</div>
+                <div className="empty-msg">Everyone is present today! 🎉</div>
               ) : (mgmtData.absentToday).slice(0, 8).map((emp, i) => (
                 <div key={i} className="absent-emp-row">
                   <div className="absent-emp-av">{(emp.name || '?')[0].toUpperCase()}</div>
@@ -473,7 +473,7 @@ export default function Dashboard() {
                 <div>
                   <div className="card-title">Team Availability</div>
                   <div style={{ fontSize: '.75rem', color: 'var(--ink4)', marginTop: 2 }}>
-                    {weekDays[0].toLocaleDateString('en', { day: 'numeric', month: 'short' })} �{' '}
+                    {weekDays[0].toLocaleDateString('en', { day: 'numeric', month: 'short' })} –{' '}
                     {weekDays[6].toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>
@@ -560,14 +560,14 @@ export default function Dashboard() {
             <div className="card cal-card">
               <div className="card-head">
                 <span className="card-title">Attendance Calendar</span>
-                <button className="card-link" onClick={() => navigate('/attendance')}>
+                <button className="card-link" onClick={() => navigate('/attendance/my-attendance')}>
                   Full report <FiArrowRight size={12} />
                 </button>
               </div>
               <div className="cal-nav">
-                <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>�</button>
+                <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
                 <span>{monthName}</span>
-                <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>�</button>
+                <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
               </div>
               <div className="cal-grid">
                 {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => <div key={d} className="cal-dname">{d}</div>)}
@@ -594,7 +594,7 @@ export default function Dashboard() {
                       onClick={() => openDay(day)}
                     >
                       {day}
-                      {rec?.status === 'half_day' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>�</span>}
+                      {rec?.status === 'half_day' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>½</span>}
                     </div>
                   );
                 })}
@@ -659,7 +659,7 @@ export default function Dashboard() {
         {/* -- RIGHT SIDEBAR -- */}
         <div className="db-side">
 
-          {/* Pending approvals � HOD & Admin */}
+          {/* Pending approvals – HOD & Admin */}
           {isManager && (
             <div className="card">
               <div className="card-head">
@@ -670,7 +670,7 @@ export default function Dashboard() {
                 }
               </div>
               {allPending.length === 0 ? (
-                <div className="empty-msg">Nothing pending right now ?</div>
+                <div className="empty-msg">Nothing pending right now! ✨</div>
               ) : allPending.slice(0, 6).map((req, i) => (
                 <div key={i} className="approval-row">
                   <div className="approval-av">{(req.employeeName || '?')[0]}</div>
@@ -679,9 +679,9 @@ export default function Dashboard() {
                     <div className="approval-meta">
                       {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
                       {req._kind === 'leave' && req.totalDays ? (
-                        req.is_half_day ? ` � Half Day (${formatSession(req.half_day_session)})` : ` � ${req.totalDays} day${req.totalDays > 1 ? 's' : ''}`
+                        req.is_half_day ? ` • Half Day (${formatSession(req.half_day_session)})` : ` • ${req.totalDays} day${req.totalDays > 1 ? 's' : ''}`
                       ) : ''}
-                      {req._kind === 'reg' && req.date ? ` � ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}` : ''}
+                      {req._kind === 'reg' && req.date ? ` • ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}` : ''}
                     </div>
                     <div className="approval-actions">
                       <button
@@ -704,7 +704,7 @@ export default function Dashboard() {
               ))}
               {allPending.length > 6 && (
                 <div style={{ padding: '.75rem 1.25rem', borderTop: '1px solid var(--border)' }}>
-                  <button className="card-link" onClick={() => navigate(isHOD ? '/hod/leave-approval' : '/admin/attendance-management')}>
+                  <button className="card-link" onClick={() => navigate(isHOD ? '/attendance/hod/leave-approval' : '/attendance/admin/attendance')}>
                     +{allPending.length - 6} more <FiArrowRight size={12} />
                   </button>
                 </div>
@@ -712,11 +712,11 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Leave balance � all roles */}
+          {/* Leave balance – all roles */}
           <div className="card">
             <div className="card-head">
               <span className="card-title">Leave Balance</span>
-              <button className="card-link" onClick={() => navigate('/leave')}>
+              <button className="card-link" onClick={() => navigate('/attendance/leave')}>
                 Apply leave <FiArrowRight size={12} />
               </button>
             </div>
@@ -734,7 +734,7 @@ export default function Dashboard() {
                     <span className="leave-emoji">{icon.emoji}</span>
                     <div className="leave-info">
                       <div className="leave-name">{b.name || b.leave_type}</div>
-                      <div className="leave-sub">{consumed} used{b.pending > 0 ? ` � ${b.pending} pending` : ''}</div>
+                      <div className="leave-sub">{consumed} used{b.pending > 0 ? ` • ${b.pending} pending` : ''}</div>
                       <div className="leave-bar">
                         <div className="leave-fill" style={{ width: `${pct}%`, background: icon.color }} />
                       </div>
@@ -748,12 +748,12 @@ export default function Dashboard() {
             }
           </div>
 
-          {/* Upcoming holidays � all roles */}
+          {/* Upcoming holidays – all roles */}
           <div className="card">
             <div className="card-head">
               <span className="card-title">Upcoming Holidays</span>
               {isAdmin && (
-                <button className="card-link" onClick={() => navigate('/admin/holidays')}>
+                <button className="card-link" onClick={() => navigate('/attendance/admin/holidays')}>
                   Manage <FiArrowRight size={12} />
                 </button>
               )}
@@ -779,15 +779,15 @@ export default function Dashboard() {
             })}
           </div>
 
-          {/* Quick actions � role-specific */}
+          {/* Quick actions – role-specific */}
           <div className="card">
             <div className="card-head">
               <span className="card-title">Quick Actions</span>
             </div>
             {(isAdmin ? adminActions : isHOD ? hodActions : [
-              { icon: <FiFileText size={14} />, lbl: 'Apply Leave', sub: 'Submit a leave request', path: '/leave', count: 0 },
-              { icon: <FiActivity size={14} />, lbl: 'My Attendance', sub: 'View full punch history', path: '/attendance', count: 0 },
-              { icon: <FiCalendar size={14} />, lbl: 'Holiday Calendar', sub: 'View upcoming holidays', path: '/holiday-calendar', count: 0 },
+              { icon: <FiFileText size={14} />, lbl: 'Apply Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
+              { icon: <FiActivity size={14} />, lbl: 'My Attendance', sub: 'View full punch history', path: '/attendance/my-attendance', count: 0 },
+              { icon: <FiCalendar size={14} />, lbl: 'Holiday Calendar', sub: 'View upcoming holidays', path: '/attendance/holiday-calendar', count: 0 },
             ]).map((item, i) => (
               <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
                 <div className="qa-icon">{item.icon}</div>
@@ -828,7 +828,7 @@ export default function Dashboard() {
                 <strong>
                   {typeof dayDetail?.hours === 'number'
                     ? `${Math.floor(dayDetail.hours)}h ${Math.round((dayDetail.hours % 1) * 60)}m`
-                    : (dayDetail?.hours || '�')}
+                    : (dayDetail?.hours || '-')}
                 </strong>
               </div>
               {dayDetail?.isLate && (
@@ -840,12 +840,12 @@ export default function Dashboard() {
               <div className="time-boxes">
                 <div className="time-box">
                   <span>Check In</span>
-                  <strong>{dayDetail?.inTime ? fmtTime(dayDetail.inTime) : '�'}</strong>
+                  <strong>{dayDetail?.inTime ? fmtTime(dayDetail.inTime) : '-'}</strong>
                 </div>
                 <div className="time-box">
                   <span>Check Out</span>
                   <strong style={!dayDetail?.outTime && dayDetail?.inTime ? { color: 'var(--red-text)' } : {}}>
-                    {(!dayDetail?.outTime && dayDetail?.inTime) ? 'Miss' : dayDetail?.outTime ? fmtTime(dayDetail.outTime) : '�'}
+                    {(!dayDetail?.outTime && dayDetail?.inTime) ? 'Miss' : dayDetail?.outTime ? fmtTime(dayDetail.outTime) : '-'}
                   </strong>
                 </div>
               </div>
@@ -857,5 +857,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-

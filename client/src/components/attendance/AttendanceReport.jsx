@@ -19,7 +19,7 @@ const StatusPill = ({ status, session }) => {
     const [label, cls] = map[status] || [status, 'default'];
     return (
         <span className={`ar-status-pill ar-pill-${cls}`}>
-            {status === 'half_day' ? (session ? (session === 'first_half' ? '1st Half' : '2nd Half') : '� Day') : label}
+            {status === 'half_day' ? (session ? (session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
         </span>
     );
 };
@@ -132,6 +132,21 @@ const AttendanceReport = ({ isAdmin }) => {
         finally { setLoadingHistory(false); }
     };
 
+    const handleQuickPunch = async (empId, currentStatus, empName) => {
+        const type = currentStatus === 'Present' || currentStatus === 'present' ? 'OUT' : 'IN';
+        try {
+            await attendanceAPI.punch({ 
+                type, 
+                employee_id: empId, 
+                method: 'Admin-Report-Panel' 
+            });
+            toast.success(`Quick punch ${type} recorded for ${empName}!`);
+            fetchReport(); // refresh the list to show new status
+        } catch (err) {
+            toast.error(err?.message || 'Quick punch failed');
+        }
+    };
+
     const fetchBrowseHistory = async () => {
         if (!selectedEmp) return;
         setLoadingHistory(true);
@@ -205,7 +220,6 @@ const AttendanceReport = ({ isAdmin }) => {
     );
 
     const totalEmp = filtered.length;
-    const avgPresent = filtered.length ? (filtered.reduce((s, e) => s + e.present, 0) / filtered.length).toFixed(1) : '0';
 
     return (
         <div className="ar-console">
@@ -216,7 +230,7 @@ const AttendanceReport = ({ isAdmin }) => {
                     <div>
                         <h1 className="ar-hero-title">{isAdmin ? 'Organisation Report' : 'Team Report'}</h1>
                         <p className="ar-hero-sub">
-                            {isAdmin ? 'Company-wide attendance summary & compliance analysis' : "Your department's attendance performance"}
+                            {isAdmin ? 'Company-wide attendance summary & compliance analysis' : "Your team's attendance performance"}
                         </p>
                     </div>
                     <div className="ar-hero-controls">
@@ -286,7 +300,7 @@ const AttendanceReport = ({ isAdmin }) => {
                 <div className="ar-filter-bar">
                     <div className="ar-search">
                         <FiSearch size={14} />
-                        <input placeholder="Search by name or department�" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <input placeholder="Search by name or department" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
 
                     {/* Heatmap Legend */}
@@ -301,7 +315,7 @@ const AttendanceReport = ({ isAdmin }) => {
                     <div className="ar-filter-right">
                         <div className="ar-date-group">
                             <input type="date" className="ar-input-ctrl" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                            <span>?</span>
+                            <span>—</span>
                             <input type="date" className="ar-input-ctrl" value={endDate} onChange={e => setEndDate(e.target.value)} />
                         </div>
                         {isAdmin && (
@@ -328,13 +342,13 @@ const AttendanceReport = ({ isAdmin }) => {
                 {/* Table card */}
                 <div className="ar-table-card">
                     {loading ? (
-                        <div className="ar-loading"><div className="ar-spinner" /><p>Generating report�</p></div>
+                        <div className="ar-loading"><div className="ar-spinner" /><p>Generating report...</p></div>
                     ) : (
                         <div className="ar-table-scroll">
                             <table className="ar-table">
                                 <thead>
                                     <tr>
-                                        <th>Employee & Hub Code</th>
+                                        <th>Employee & Department</th>
                                         <th>In/Out</th>
                                         <th>Continuity Pattern</th>
                                         <th style={{ textAlign: 'center' }}>P</th>
@@ -351,9 +365,26 @@ const AttendanceReport = ({ isAdmin }) => {
                                         <tr key={emp.id} className="ar-row">
                                             <td onClick={() => openDrawer(emp, 'attendance')}>
                                                 <div className="ar-emp-cell">
-                                                    <div className="ar-avatar">{emp.name?.[0]}</div>
+                                                    <div className="ar-avatar" style={{ position: 'relative' }}>
+                                                        {emp.name?.[0]}
+                                                        <span className={`status-dot ${emp.latestRecord?.status === 'present' ? 'online' : 'offline'}`} />
+                                                    </div>
                                                     <div>
-                                                        <div className="ar-emp-name">{emp.name}</div>
+                                                        <div className="ar-emp-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {emp.name}
+                                                            {isAdmin && (
+                                                                <button 
+                                                                    className={`ar-quick-punch ${emp.latestRecord?.status === 'present' ? 'punch-out' : 'punch-in'}`}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleQuickPunch(emp.id, emp.latestRecord?.status, emp.name);
+                                                                    }}
+                                                                    title={`Record ${emp.latestRecord?.status === 'present' ? 'OUT' : 'IN'} punch`}
+                                                                >
+                                                                    {emp.latestRecord?.status === 'present' ? '🔴 Out' : '🟢 In'}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                         <div className="ar-emp-code">{emp.department}</div>
                                                     </div>
                                                 </div>
@@ -406,7 +437,7 @@ const AttendanceReport = ({ isAdmin }) => {
                 </div>
             </div>
 
-            {/* -- 360� PERSONNEL HUB (DRAWER) -- */}
+            {/* -- 360° PERSONNEL HUB (DRAWER) -- */}
             <div className={`ar-overlay${selectedEmp ? ' open' : ''}`} onClick={() => setSelectedEmp(null)}>
                 <div className="ar-drawer" onClick={e => e.stopPropagation()}>
                     <div className="ar-drawer-head">
@@ -438,7 +469,7 @@ const AttendanceReport = ({ isAdmin }) => {
 
                     <div className="ar-drawer-body">
                         {loadingHistory ? (
-                            <div className="ar-loading-full"><div className="ar-spinner" /><p>Consulting HR Database�</p></div>
+                            <div className="ar-loading-full"><div className="ar-spinner" /><p>Consulting HR Database...</p></div>
                         ) : (
                             <div className="ar-tab-pane">
                                 {activeTab === 'attendance' && (
@@ -633,7 +664,7 @@ const AttendanceReport = ({ isAdmin }) => {
                             <button className="ar-edit-close" onClick={() => setEditingId(null)}><FiX size={18} /></button>
                         </div>
                         <div className="ar-alert-box" style={{ backgroundColor: '#fff4e5', color: '#663c00', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #ffe8cc' }}>
-                            ?? <strong>Security Warning:</strong> You cannot modify raw biometric/web punch events. You are adjusting the official summary record.
+                            💡 <strong>Security Warning:</strong> You cannot modify raw biometric/web punch events. You are adjusting the official summary record.
                         </div>
                         <div className="ar-edit-grid">
                             <div className="ar-edit-field">
@@ -651,7 +682,7 @@ const AttendanceReport = ({ isAdmin }) => {
                             <div className="ar-edit-field"><label>Official Out-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.last_out} onChange={e => setEditForm({ ...editForm, last_out: e.target.value })} /></div>
                         </div>
                         <div className="ar-edit-field" style={{ marginTop: '15px' }}><label>Administrative Remarks</label>
-                            <textarea placeholder="Reason for change�" value={editForm.remarks} onChange={e => setEditForm({ ...editForm, remarks: e.target.value })} />
+                            <textarea placeholder="Reason for change..." value={editForm.remarks} onChange={e => setEditForm({ ...editForm, remarks: e.target.value })} />
                         </div>
                         <div className="ar-edit-actions">
                             <button className="ar-cancel" onClick={() => setEditingId(null)}>Discard</button>
@@ -663,9 +694,11 @@ const AttendanceReport = ({ isAdmin }) => {
 
             {isAdmin && selectedEmp && (
                 <div className="ar-fixed-footer">
-                    <button className="ar-drawer-footer-btn" onClick={() => { setSelectedEmp(null); navigate('/admin/attendance-management'); }}>
+                    <button className="ar-drawer-footer-btn" onClick={() => { setSelectedEmp(null); navigate('/attendance/admin/attendance'); }}>
                         <FiEdit size={14} /> Global Adjustment Center
                     </button>
+                    {/* Note: In EXIM integration, this button likely points to the same page or a specialized management page.
+                        For now, corrected to the valid integrated route. */}
                 </div>
             )}
         </div>
@@ -673,5 +706,3 @@ const AttendanceReport = ({ isAdmin }) => {
 };
 
 export default AttendanceReport;
-
-

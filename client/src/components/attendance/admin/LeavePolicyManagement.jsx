@@ -22,20 +22,20 @@ const LEAVE_TYPES = [
 
 const EMPLOYMENT_TYPES = ['full_time', 'permanent', 'probation', 'contract', 'intern', 'part_time'];
 
-/* -- Leave type ? emoji + color class -- */
+/* -- Leave type emoji + color class -- */
 const POLICY_CONFIG = {
-    casual: { emoji: '???', cls: 'casual', label: 'Casual' },
-    sick: { emoji: '??', cls: 'sick', label: 'Sick' },
-    earned: { emoji: '?', cls: 'earned', label: 'Earned' },
-    privilege: { emoji: '???', cls: 'earned', label: 'Privilege' },
-    maternity: { emoji: '??', cls: 'maternity', label: 'Maternity' },
-    paternity: { emoji: '?????', cls: 'maternity', label: 'Paternity' },
-    compensatory: { emoji: '?', cls: 'compoff', label: 'Comp Off' },
-    unpaid: { emoji: '??', cls: 'unpaid', label: 'Unpaid' },
+    casual: { emoji: '🍃', cls: 'casual', label: 'Casual' },
+    sick: { emoji: '🤒', cls: 'sick', label: 'Sick' },
+    earned: { emoji: '⭐', cls: 'earned', label: 'Earned' },
+    privilege: { emoji: '🎖️', cls: 'earned', label: 'Privilege' },
+    maternity: { emoji: '🍼', cls: 'maternity', label: 'Maternity' },
+    paternity: { emoji: '🍼', cls: 'maternity', label: 'Paternity' },
+    compensatory: { emoji: '🎁', cls: 'compoff', label: 'Comp Off' },
+    unpaid: { emoji: '⏳', cls: 'unpaid', label: 'Unpaid' },
 };
 const getPolicyCfg = (leaveType = '') => {
     const key = Object.keys(POLICY_CONFIG).find(k => leaveType.toLowerCase().includes(k));
-    return POLICY_CONFIG[key] || { emoji: '??', cls: 'default', label: leaveType };
+    return POLICY_CONFIG[key] || { emoji: '📝', cls: 'default', label: leaveType };
 };
 
 /* -- Read-only Policy Card -- */
@@ -47,18 +47,18 @@ const PolicyCard = ({ policy }) => {
     const acc = policy.accrual || {};
 
     const ruleChips = [
-        { emoji: '??', val: `${rules.max_days_per_application ?? '�'} days`, lbl: 'Max per App' },
-        { emoji: '?', val: `${rules.advance_notice_days ?? '�'} days`, lbl: 'Advance Notice' },
-        { emoji: '??', val: `${rules.min_days_per_application ?? '�'} day`, lbl: 'Minimum Days' },
-        { emoji: '??', val: `${rules.max_consecutive_days ?? '�'} days`, lbl: 'Max Consecutive' },
+        { emoji: '📏', val: `${rules.max_days_per_application ?? '-'} days`, lbl: 'Max per App' },
+        { emoji: '🕒', val: `${rules.advance_notice_days ?? '-'} days`, lbl: 'Advance Notice' },
+        { emoji: '🖇️', val: `${rules.min_days_per_application ?? '-'} day`, lbl: 'Minimum Days' },
+        { emoji: '⛓️', val: `${rules.max_consecutive_days ?? '-'} days`, lbl: 'Max Consecutive' },
     ];
 
     const flags = [
-        { val: rules.half_day_allowed, label: '?? Half Day' },
-        { val: rules.can_apply_on_probation, label: '?? On Probation' },
-        { val: rules.backdated_allowed, label: '? Backdated' },
-        { val: rules.sandwich_rule_enabled, label: '?? Sandwich Rule' },
-        { val: rules.requires_document, label: '?? Doc Required' },
+        { val: rules.half_day_allowed, label: 'Half Day' },
+        { val: rules.can_apply_on_probation, label: 'On Probation' },
+        { val: rules.backdated_allowed, label: 'Backdated' },
+        { val: rules.sandwich_rule_enabled, label: 'Sandwich Rule' },
+        { val: rules.requires_document, label: 'Doc Required' },
     ];
 
     return (
@@ -75,7 +75,7 @@ const PolicyCard = ({ policy }) => {
                         <span className="lpc-code">{policy.leave_code}</span>
                     </div>
                 </div>
-                <span className="lpc-quota">?? {policy.leave_type === 'unpaid' ? 'Unlimited' : `${policy.annual_quota} days`}</span>
+                <span className="lpc-quota">💰 {policy.leave_type === 'unpaid' ? 'Unlimited' : `${policy.annual_quota} days`}</span>
             </div>
             <div className="lpc-body">
                 <div className="lpc-sec-title"><FiClock size={10} /> Application Rules</div>
@@ -94,7 +94,7 @@ const PolicyCard = ({ policy }) => {
                 <div className="lpc-flags">
                     {flags.map((f, i) => (
                         <span key={i} className={`lpc-flag ${f.val ? 'yes' : 'no'}`}>
-                            {f.val ? '?' : '?'} {f.label}
+                            {f.val ? '✓' : '✗'} {f.label}
                         </span>
                     ))}
                 </div>
@@ -103,31 +103,31 @@ const PolicyCard = ({ policy }) => {
                         <div className="lpc-sec-title"><FiUsers size={10} /> Eligible For</div>
                         <div className="lpc-elig">
                             {elig.employment_types.map((et, i) => (
-                                <span key={i} className="lpc-elig-tag">?? {et}</span>
+                                <span key={i} className="lpc-elig-tag">👤 {et}</span>
                             ))}
                             {elig.gender && (
                                 <span className="lpc-elig-tag">
-                                    {elig.gender === 'female' ? '??' : '??'} {elig.gender} only
+                                    {elig.gender === 'female' ? '👩' : '👨'} {elig.gender} only
                                 </span>
                             )}
                             {elig.min_service_months > 0 && (
-                                <span className="lpc-elig-tag">??? {elig.min_service_months}m service</span>
+                                <span className="lpc-elig-tag">⏳ {elig.min_service_months}m service</span>
                             )}
                         </div>
                     </>
                 )}
                 <div className="lpc-footer">
                     <div className="lpc-foot-item">
-                        <span className="lpc-foot-val">{cf.allowed ? `${cf.max_days || 0} days` : '�'}</span>
-                        <span className="lpc-foot-lbl">?? Carry Forward</span>
+                        <span className="lpc-foot-val">{cf.allowed ? `${cf.max_days || 0} days` : '-'}</span>
+                        <span className="lpc-foot-lbl">🔄 Carry Forward</span>
                     </div>
                     <div className="lpc-foot-item">
-                        <span className="lpc-foot-val">{cf.encashment_allowed ? `${cf.encashment_percentage || 0}%` : '�'}</span>
-                        <span className="lpc-foot-lbl">?? Encashment</span>
+                        <span className="lpc-foot-val">{cf.encashment_allowed ? `${cf.encashment_percentage || 0}%` : '-'}</span>
+                        <span className="lpc-foot-lbl">💵 Encashment</span>
                     </div>
                     <div className="lpc-foot-item">
                         <span className="lpc-foot-val" style={{ textTransform: 'capitalize' }}>{acc.accrual_type || 'Yearly'}</span>
-                        <span className="lpc-foot-lbl">?? Accrual</span>
+                        <span className="lpc-foot-lbl">📈 Accrual</span>
                     </div>
                 </div>
             </div>
@@ -283,7 +283,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     </div>
                     <div>
                         <div style={{ fontWeight: 800, color: 'var(--as-t1)', fontSize: '1rem' }}>
-                            {row.leave_type === 'unpaid' ? '8' : val}
+                            {row.leave_type === 'unpaid' ? '∞' : val}
                         </div>
                         <div style={{ fontSize: '.625rem', color: 'var(--as-t4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.4px' }}>
                             Days / Year
@@ -304,7 +304,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     </div>
                     {row.eligibility?.gender && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '.6875rem', color: 'var(--as-amber)', fontWeight: 600 }}>
-                            {row.eligibility.gender === 'female' ? '??' : '??'} {row.eligibility.gender} Only
+                            {row.eligibility.gender === 'female' ? '👩' : '👨'} {row.eligibility.gender} Only
                         </div>
                     )}
                 </div>
@@ -685,22 +685,22 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     {/* Summary strip */}
                     <div className="lpc-summary">
                         <div className="lpc-sum-tile">
-                            <div className="lpc-sum-emoji">??</div>
+                            <div className="lpc-sum-emoji">📊</div>
                             <div className="lpc-sum-val">{policies.length}</div>
                             <div className="lpc-sum-lbl">Total Policies</div>
                         </div>
                         <div className="lpc-sum-tile">
-                            <div className="lpc-sum-emoji">??</div>
+                            <div className="lpc-sum-emoji">📅</div>
                             <div className="lpc-sum-val">{policies.reduce((s, p) => s + (p.annual_quota || 0), 0)}</div>
                             <div className="lpc-sum-lbl">Total Days / Year</div>
                         </div>
                         <div className="lpc-sum-tile">
-                            <div className="lpc-sum-emoji">??</div>
+                            <div className="lpc-sum-emoji">🌓</div>
                             <div className="lpc-sum-val">{policies.filter(p => p.rules?.half_day_allowed).length}</div>
                             <div className="lpc-sum-lbl">Half-Day Allowed</div>
                         </div>
                         <div className="lpc-sum-tile">
-                            <div className="lpc-sum-emoji">??</div>
+                            <div className="lpc-sum-emoji">🔄</div>
                             <div className="lpc-sum-val">{policies.filter(p => p.carry_forward?.allowed).length}</div>
                             <div className="lpc-sum-lbl">Carry Forward</div>
                         </div>
@@ -709,7 +709,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     {/* Filter pills */}
                     <div className="lpc-filter-bar">
                         {[
-                            { key: 'all', emoji: '??', label: 'All', count: policies.length },
+                            { key: 'all', emoji: '🔍', label: 'All', count: policies.length },
                             ...[...new Set(policies.map(p => p.leave_type))].map(t => ({
                                 key: t, emoji: getPolicyCfg(t).emoji,
                                 label: getPolicyCfg(t).label,
@@ -733,7 +733,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                             <div className="lpc-load"><div className="lpc-spin" /></div>
                         ) : policies.filter(p => typeFilter === 'all' || p.leave_type === typeFilter).length === 0 ? (
                             <div className="lpc-empty">
-                                <div style={{ fontSize: '2.25rem', marginBottom: 6 }}>??</div>
+                                <div style={{ fontSize: '2.25rem', marginBottom: 6 }}>🏜️</div>
                                 <p>No leave policies found.</p>
                             </div>
                         ) : (
@@ -760,5 +760,3 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
 };
 
 export default LeavePolicyManagement;
-
-

@@ -1,13 +1,10 @@
 import express from 'express';
-import { createRequire } from 'module';
 import attendanceAuthBridge from '../../middleware/attendanceAuthBridge.mjs';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-const require = createRequire(import.meta.url);
-const leaveCtrl = require('./controllers/leave.controller.js');
+import * as leaveCtrl from '../../controllers/attendance/leave.controller.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();

@@ -27,7 +27,7 @@ const ShiftManagement = () => {
     {
       label: 'Timings', render: (_, row) =>
         <span style={{ fontFamily: 'monospace', background: 'var(--as-s2)', padding: '4px 9px', borderRadius: 6, fontSize: '.8rem', color: 'var(--as-t1)', fontWeight: 600 }}>
-          {row.start_time || 'N/A'} � {row.end_time || 'N/A'}
+          {row.start_time || 'N/A'}   {row.end_time || 'N/A'}
         </span>
     },
     { label: 'Grace', render: (_, row) => <span style={{ fontSize: '.8125rem', color: 'var(--as-t2)' }}>{row.grace_in_minutes}m</span> },
@@ -183,7 +183,7 @@ const ShiftManagement = () => {
         title="Available Shifts"
         columns={columns}
         fetchData={fetchShifts}
-        searchPlaceholder="Search shifts�"
+        searchPlaceholder="Search shifts "
         selectable={false}
       />
     </div>

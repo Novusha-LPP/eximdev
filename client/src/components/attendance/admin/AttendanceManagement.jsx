@@ -209,7 +209,7 @@ const AttendanceManagement = () => {
                 <div className="am-filter-bar">
                     <div className="am-search">
                         <FiSearch size={14} />
-                        <input placeholder="Search employee�" value={search} onChange={e => setSearch(e.target.value)} />
+                        <input placeholder="Search employee " value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                     <div className="am-filter-right">
                         <div className="am-quick-pills">
@@ -241,7 +241,7 @@ const AttendanceManagement = () => {
                 <div className="am-table-card">
                     <div className="am-table-scroll">
                         {loading ? (
-                            <div className="am-loading"><div className="am-spinner" /><span>Loading records�</span></div>
+                            <div className="am-loading"><div className="am-spinner" /><span>Loading records </span></div>
                         ) : filtered.length === 0 ? (
                             <div className="am-empty"><FiSearch size={28} /><p>No records found</p></div>
                         ) : (
@@ -274,8 +274,8 @@ const AttendanceManagement = () => {
                                                             </div>
                                                             <div className="am-emp-sub">
                                                                 {mode === 'daily' 
-                                                                    ? `${row.employee_id?.employee_code || '---'} � ${row.employee_id?.designation || 'Staff'}` 
-                                                                    : `${row.department || 'General'} � ${row.designation || 'Staff'}`}
+                                                                    ? `${row.employee_id?.employee_code || '---'}   ${row.employee_id?.designation || 'Staff'}` 
+                                                                    : `${row.department || 'General'}   ${row.designation || 'Staff'}`}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -361,7 +361,7 @@ const AttendanceManagement = () => {
                                         <div className="am-ctx-name">
                                             {drawer.rec.employee_id?.first_name} {drawer.rec.employee_id?.last_name}
                                         </div>
-                                        <div className="am-ctx-sub">{fmtDate(drawer.rec.attendance_date)} � {drawer.rec.status}</div>
+                                        <div className="am-ctx-sub">{fmtDate(drawer.rec.attendance_date)}   {drawer.rec.status}</div>
                                     </div>
                                 </div>
                                 <div className="am-alert-box" style={{backgroundColor: '#fff4e5', color: '#663c00', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #ffe8cc'}}>
@@ -404,13 +404,13 @@ const AttendanceManagement = () => {
                                 <div className="am-field">
                                     <label>Remarks</label>
                                     <textarea className="am-field-ctrl am-field-ta" rows={3}
-                                        placeholder="Required for audit trail�"
+                                        placeholder="Required for audit trail "
                                         value={editForm.remarks}
                                         onChange={e => setEditForm({ ...editForm, remarks: e.target.value })} />
                                 </div>
 
                                 <button type="submit" className="am-drawer-submit" disabled={saving}>
-                                    {saving ? 'Saving�' : 'Save Changes'}
+                                    {saving ? 'Saving ' : 'Save Changes'}
                                 </button>
                             </form>
                         )}
@@ -422,7 +422,7 @@ const AttendanceManagement = () => {
                                     <div className="am-avatar" style={{ flexShrink: 0 }}>{drawer.rec.name?.[0]}</div>
                                     <div>
                                         <div className="am-ctx-name">{drawer.rec.name}</div>
-                                        <div className="am-ctx-sub">{drawer.rec.department} � {startDate} ? {endDate}</div>
+                                        <div className="am-ctx-sub">{drawer.rec.department}   {startDate} ? {endDate}</div>
                                     </div>
                                 </div>
                                 <div className="am-timeline">

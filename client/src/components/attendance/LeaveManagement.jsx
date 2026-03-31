@@ -26,7 +26,7 @@ const PER_PAGE = 15;
 
 const LeaveManagement = () => {
   const [loading, setLoading] = useState(true);
-  const [balances, setBalances] = useState([]);
+  const [balances, setBalances] = useState([24]);
   const [applications, setApplications] = useState([]);
   const [settings, setSettings] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -200,7 +200,7 @@ const LeaveManagement = () => {
                 <div className="bal-body">
                   <div className="bal-nums">
                     {b.leave_type === 'unpaid' ? (
-                      <span className="bal-big" style={{ fontSize: '1.375rem' }}>8</span>
+                      <span className="bal-big" style={{ fontSize: '1.375rem' }}>∞</span>
                     ) : (
                       <>
                         <span className="bal-big">{available}</span>
@@ -229,7 +229,7 @@ const LeaveManagement = () => {
         <div className="lm-alert">
           <div className="lm-alert-head">
             <FiAlertCircle size={14} />
-            <h3>Awaiting Approval � {pending.length} request{pending.length > 1 ? 's' : ''}</h3>
+            <h3>Awaiting Approval • {pending.length} request{pending.length > 1 ? 's' : ''}</h3>
           </div>
           <div className="lm-alert-rows">
             {pending.map(app => (
@@ -237,7 +237,7 @@ const LeaveManagement = () => {
                 <div className="lm-alert-info">
                   <span className="lm-alert-type">{app.leave_type}</span>
                   <span className="lm-alert-dates">
-                    {formatDate(app.from_date, 'dd MMM')} � {formatDate(app.to_date, 'dd MMM')} � {app.is_half_day ? `Half Day (${formatSession(app.half_day_session)})` : `${app.total_days}d`}
+                    {formatDate(app.from_date, 'dd MMM')} – {formatDate(app.to_date, 'dd MMM')} • {app.is_half_day ? `Half Day (${formatSession(app.half_day_session)})` : `${app.total_days}d`}
                   </span>
                 </div>
                 <button className="lm-cancel" onClick={() => cancel(app._id)}>Cancel</button>
@@ -257,7 +257,7 @@ const LeaveManagement = () => {
               <FiSearch size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--t3)', pointerEvents: 'none' }} />
               <input
                 type="text"
-                placeholder="Search�"
+                placeholder="Search..."
                 value={search}
                 onChange={e => onSearch(e.target.value)}
                 className="sf-input"
@@ -311,7 +311,7 @@ const LeaveManagement = () => {
                     <div className="dt-dates">
                       <span className="dt-date-range">
                         {formatDate(app.from_date, 'dd MMM yyyy')}
-                        {app.from_date !== app.to_date && ` � ${formatDate(app.to_date, 'dd MMM yyyy')}`}
+                        {app.from_date !== app.to_date && ` – ${formatDate(app.to_date, 'dd MMM yyyy')}`}
                       </span>
                       {app.half_day_session && (
                         <span className="dt-date-days" style={{ textTransform: 'none' }}>
@@ -329,7 +329,7 @@ const LeaveManagement = () => {
                   {/* Status badge */}
                   <td>
                     <span className={`lmbadge ${app.status || 'default'}`}>
-                      {app.status || '�'}
+                      {app.status || '-'}
                     </span>
                   </td>
 
@@ -351,7 +351,7 @@ const LeaveManagement = () => {
                         <FiFileText size={12} />
                       </a>
                     )}
-                    {app.reason || '�'}
+                    {app.reason || '-'}
                   </td>
 
                 </tr>
@@ -368,7 +368,7 @@ const LeaveManagement = () => {
         {totalPages > 1 && (
           <div className="atn-pages">
             <span className="atn-pinfo">
-              Showing {(curPage - 1) * PER_PAGE + 1}�{Math.min(curPage * PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {(curPage - 1) * PER_PAGE + 1} to {Math.min(curPage * PER_PAGE, filtered.length)} of {filtered.length}
             </span>
             <div className="atn-pnums">
               <button className="atn-pnum" disabled={curPage === 1} onClick={() => goPage(curPage - 1)}>
@@ -379,12 +379,12 @@ const LeaveManagement = () => {
                 const left = Math.max(2, curPage - 2);
                 const right = Math.min(totalPages - 1, curPage + 2);
                 range.push(1);
-                if (left > 2) range.push('�');
+                if (left > 2) range.push('...');
                 for (let n = left; n <= right; n++) range.push(n);
-                if (right < totalPages - 1) range.push('�');
+                if (right < totalPages - 1) range.push('...');
                 if (totalPages > 1) range.push(totalPages);
-                return range.map((n, idx) => n === '�' ? (
-                  <span key={`e${idx}`} style={{ padding: '0 4px', color: 'var(--t3)', fontSize: '.8125rem' }}>�</span>
+                return range.map((n, idx) => n === '...' ? (
+                  <span key={`e${idx}`} style={{ padding: '0 4px', color: 'var(--t3)', fontSize: '.8125rem' }}>...</span>
                 ) : (
                   <button key={n} className={`atn-pnum${curPage === n ? ' on' : ''}`} onClick={() => goPage(n)}>{n}</button>
                 ));
@@ -417,13 +417,12 @@ const LeaveManagement = () => {
                   onChange={e => setForm({ ...form, leave_policy_id: e.target.value })}
                   required
                 >
-                  <option value="">Select leave type�</option>
+                  <option value="">Select leave type...</option>
                   {balances
-                    .filter(b => b.leave_type === 'unpaid' || (b.available || b.balance) > 0)
                     .map(b => (
                       <option key={b._id} value={b._id}>
                         {b.name}
-                        {b.leave_type !== 'unpaid' ? ` � ${b.available || b.balance} days left` : ' (Unlimited)'}
+                        {b.leave_type !== 'unpaid' ? ` • ${b.available || b.balance} days left` : ' (Unlimited)'}
                       </option>
                     ))
                   }
@@ -439,7 +438,7 @@ const LeaveManagement = () => {
                   </div>
                   <div className="ph-item">
                     <FiInfo size={12} className="ph-icon" />
-                    Max/app: <span className="ph-val">{selectedPolicy.policy?.max_days_per_application || '�'}d</span>
+                    Max/app: <span className="ph-val">{selectedPolicy.policy?.max_days_per_application || '-'}d</span>
                   </div>
                   <div className="ph-item">
                     <FiActivity size={12} className="ph-icon" />
@@ -499,7 +498,7 @@ const LeaveManagement = () => {
                 <div className="fg ani-in">
                   <label>Session</label>
                   <select value={form.half_day_session} onChange={e => setForm({ ...form, half_day_session: e.target.value })} required>
-                    <option value="">Select session�</option>
+                    <option value="">Select session...</option>
                     <option value="first_half">First Half (Morning)</option>
                     <option value="second_half">Second Half (Afternoon)</option>
                   </select>
@@ -514,7 +513,7 @@ const LeaveManagement = () => {
                   onChange={e => setForm({ ...form, reason: e.target.value })}
                   required
                   rows={3}
-                  placeholder="Briefly describe the reason�"
+                  placeholder="Briefly describe the reason..."
                 />
               </div>
 
@@ -526,7 +525,7 @@ const LeaveManagement = () => {
 
               <div className="lm-mfooter">
                 <button type="submit" className="lm-submit" disabled={submitting}>
-                  {submitting ? 'Submitting�' : <><FiSend size={14} /> Submit Request</>}
+                  {submitting ? 'Submitting...' : <><FiSend size={14} /> Submit Request</>}
                 </button>
               </div>
             </form>
@@ -539,5 +538,3 @@ const LeaveManagement = () => {
 };
 
 export default LeaveManagement;
-
-

@@ -1,28 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   FiHome, FiClock, FiFileText, FiCalendar, FiUser,
-  FiCheckSquare, FiUsers, FiActivity, FiSettings
+  FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut
 } from 'react-icons/fi';
 import { useContext } from 'react';
 import { UserContext } from '../../../contexts/UserContext';
 import FloatingPunchButton from '../common/FloatingPunchButton';
+import attendanceAPI from '../../../api/attendance/attendance.api';
+import toast from 'react-hot-toast';
+import '../styles/variables.css';
 import './AttendanceLayout.css';
 
 const EMPLOYEE_MENU = [
+  { section: 'Overview' },
+  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
   { section: 'My Attendance' },
   { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
   { section: 'Leave' },
   { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
   { section: 'Calendar' },
   { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
-  { section: 'Account' },
-  { path: '/attendance/profile', icon: FiUser, label: 'My Profile' },
 ];
 
 const HOD_MENU = [
   { section: 'Overview' },
-  { path: '/attendance/hod-dashboard', icon: FiHome, label: 'Dashboard' },
+  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
   { section: 'My Attendance' },
   { path: '/attendance/my-attendance', icon: FiClock, label: 'My Report' },
   { section: 'My Leave' },
@@ -32,13 +35,11 @@ const HOD_MENU = [
   { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
   { section: 'Calendar' },
   { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
-  { section: 'Account' },
-  { path: '/attendance/profile', icon: FiUser, label: 'My Profile' },
 ];
 
 const ADMIN_MENU = [
   { section: 'Overview' },
-  { path: '/attendance/admin', icon: FiHome, label: 'Dashboard' },
+  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
   { section: 'My Attendance' },
   { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
   { section: 'Company' },
@@ -49,12 +50,13 @@ const ADMIN_MENU = [
   { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holidays' },
   { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts' },
   { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies' },
-//   { path: '/attendance/admin/settings', icon: FiSettings, label: 'Settings' },
 ];
 
 const AttendanceLayout = () => {
     const { user } = useContext(UserContext);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [punchStatus, setPunchStatus] = useState(null);
+    const [punching, setPunching] = useState(false);
 
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
@@ -63,6 +65,29 @@ const AttendanceLayout = () => {
     const menu = role === 'Admin' || role === 'ADMIN' ? ADMIN_MENU :
                  role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU : 
                  EMPLOYEE_MENU;
+
+    const fetchPunchStatus = useCallback(async () => {
+        try {
+            const res = await attendanceAPI.getTodayStatus();
+            setPunchStatus(res);
+        } catch { /* silently fail */ }
+    }, []);
+
+    useEffect(() => { fetchPunchStatus(); }, [fetchPunchStatus]);
+
+    const handleQuickPunch = async () => {
+        const isIn = punchStatus?.isInSession ?? (punchStatus?.first_in && !punchStatus?.last_out);
+        setPunching(true);
+        try {
+            await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB' });
+            toast.success(`Punched ${isIn ? 'OUT' : 'IN'} successfully!`);
+            fetchPunchStatus();
+        } catch (e) {
+            toast.error(e?.message || 'Punch failed');
+        } finally {
+            setPunching(false);
+        }
+    };
 
     return (
         <div className="attendance-layout">
@@ -105,6 +130,9 @@ const AttendanceLayout = () => {
                         )
                     )}
                 </nav>
+
+                {/* Quick Punch Widget at the bottom of sidebar */}
+               
             </div>
 
             {/* Main Content Area */}

@@ -1,14 +1,11 @@
 import { useContext } from 'react';
 import { UserContext } from '../../contexts/UserContext';
 import React from 'react';
-// CHANGE THIS LINE:
 
-// Import all dashboards
-import Dashboard from '../pages/Dashboard';
-import HODDashboard from '../pages/HODDashboard';
-import AdminDashboard from '../pages/AdminDashboard';
-
-// ... imports ...
+// Import dashboards from the correct locations in eximdev
+import Dashboard from './Dashboard';
+import HODDashboard from './HODDashboard';
+import AdminDashboard from './AdminDashboard';
 
 const DashboardSwitch = () => {
     const { user } = useContext(UserContext);
@@ -17,7 +14,15 @@ const DashboardSwitch = () => {
         return <div>Loading user data...</div>;
     }
 
-    // Unified Dashboard: Everyone lands on the single, role-aware dashboard.
+    const role = user.role || 'EMPLOYEE';
+
+    // Role-based dashboard selection
+    if (role === 'Admin' || role === 'ADMIN') {
+        return <AdminDashboard />;
+    } else if (role === 'Head_of_Department' || role === 'HOD') {
+        return <HODDashboard />;
+    }
+
     return <Dashboard />;
 };
 

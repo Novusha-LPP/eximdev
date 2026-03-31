@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiUsers, FiClock, FiCalendar, FiCheckCircle, FiFileText,
+  FiUsers, FiClock, FiCalendar, FiCheckCircle, FiXCircle, FiFileText,
   FiChevronLeft, FiChevronRight, FiCheck, FiX, FiAlertCircle, FiTrendingUp, FiLogOut, FiLogIn,
   FiAlertTriangle, FiCheckSquare, FiArrowRight, FiRefreshCw, FiActivity, FiSunset, FiCoffee
 } from 'react-icons/fi';
@@ -23,12 +23,12 @@ const fmt = (date, f) => {
     .replace('MMM',  d.toLocaleDateString('en', { month: 'short' }))
     .replace('yyyy', d.getFullYear());
 };
-const fmtTime = s => { if (!s) return '�'; const d = new Date(s); if (isNaN(d)) return s; let h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0'), ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; };
+const fmtTime = s => { if (!s) return ' '; const d = new Date(s); if (isNaN(d)) return s; let h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0'), ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; };
 const fmtLate = mins => { if (!mins) return ''; const m=parseInt(mins); if(m<60) return `${m}m late`; return `${Math.floor(m/60)}h ${m%60}m late`; };
 const initials = (n='') => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
-const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:'�', leave:'LV', holiday:'H', weekly_off:'�', empty:'' };
+const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:' ½', leave:'LV', holiday:'H', weekly_off:' ', empty:'' };
 
 const HODDashboard = () => {
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ const HODDashboard = () => {
   };
 
   const weekDays  = getWeekDays(weekOff);
-  const weekRange = `${fmt(weekDays[0],'dd MMM')} � ${fmt(weekDays[6],'dd MMM yyyy')}`;
+  const weekRange = `${fmt(weekDays[0],'dd MMM')} — ${fmt(weekDays[6],'dd MMM yyyy')}`;
   const todayStr  = new Date().toDateString();
 
   const handleLeaveAction = async (id, status) => {
@@ -86,7 +86,7 @@ const HODDashboard = () => {
 
   if (loading) return (
     <div className="hod-page">
-      <div className="hod-loading"><div className="hod-spin" /><span>Loading dashboard�</span></div>
+      <div className="hod-loading"><div className="hod-spin" /><span>Loading dashboard...</span></div>
     </div>
   );
 
@@ -94,12 +94,12 @@ const HODDashboard = () => {
   const leaveCount = pendingLeaves.length, regCount = pendingRegularization.length;
 
   const STATS = [
-    { icon:'??', cls:'present', val:summary?.present  ??0, lbl:'Present',   pill:'Today', pillCls:'green' },
-    { icon:'?', cls:'absent',  val:summary?.absent   ??0, lbl:'Absent',    pill:'Today', pillCls:'red'   },
-    { icon:'?', cls:'late',    val:summary?.late     ??0, lbl:'Late In',   pill:'Today', pillCls:'amber' },
-    { icon:'??', cls:'early',   val:summary?.earlyOut ??0, lbl:'Early Out', pill:'Today', pillCls:'amber' },
-    { icon:'??', cls:'halfday', val:summary?.halfDay  ??0, lbl:'Half Day',  pill:'Today', pillCls:'grey'  },
-    { icon:'???', cls:'leave',   val:summary?.onLeave  ??0, lbl:'On Leave',  pill:'Today', pillCls:'grey'  },
+    { icon:'✅', cls:'present', val:summary?.present  ??0, lbl:'Present',   pill:'Today', pillCls:'green' },
+    { icon:'❌', cls:'absent',  val:summary?.absent   ??0, lbl:'Absent',    pill:'Today', pillCls:'red'   },
+    { icon:'🕒', cls:'late',    val:summary?.late     ??0, lbl:'Late In',   pill:'Today', pillCls:'amber' },
+    { icon:'🌅', cls:'early',   val:summary?.earlyOut ??0, lbl:'Early Out', pill:'Today', pillCls:'amber' },
+    { icon:'🌗', cls:'halfday', val:summary?.halfDay  ??0, lbl:'Half Day',  pill:'Today', pillCls:'grey'  },
+    { icon:'🌴', cls:'leave',   val:summary?.onLeave  ??0, lbl:'On Leave',  pill:'Today', pillCls:'grey'  },
   ];
 
   return (
@@ -108,8 +108,8 @@ const HODDashboard = () => {
       {/* HEADER */}
       <div className="hod-header">
         <div className="hod-header-left">
-          <h1>?? Department Overview</h1>
-          <p>Real-time attendance � Approvals � Analytics</p>
+          <h1>📊 Department Overview</h1>
+          <p>Real-time attendance • Approvals • Analytics</p>
         </div>
         <div className="hod-header-right">
           <div className="hod-personal-punch">
@@ -191,7 +191,7 @@ const HODDashboard = () => {
                 </thead>
                 <tbody>
                   {teamCalendar.length===0 ? (
-                    <tr><td colSpan={8}><div className="hod-empty"><div className="hod-empty-icon">??</div><span>No team members found</span></div></td></tr>
+                    <tr><td colSpan={8}><div className="hod-empty"><div className="hod-empty-icon">👥</div><span>No team members found</span></div></td></tr>
                   ) : teamCalendar.map((emp,ei) => (
                     <tr key={ei}>
                       <td>
@@ -215,7 +215,7 @@ const HODDashboard = () => {
                           const sess = emp.attendance?.[`${ds}_session`];
                           tip = `Half Day (${formatSession(sess)})`;
                         } else if (lateBy) {
-                          tip = `${status.replace(/_/g,' ')} � ${fmtLate(lateBy)}`;
+                          tip = `${status.replace(/_/g,' ')} • ${fmtLate(lateBy)}`;
                         }
                         return (
                           <td key={di} className={`hod-dot-cell${isToday?' td-today':''}`}>
@@ -243,10 +243,10 @@ const HODDashboard = () => {
             <div className="hod-card">
               <div className="hod-card-head">
                 <div className="hod-card-title">
-                  ? Late Today
+                  🕒 Late Today
                   <span style={{fontSize:'.6875rem',fontWeight:600,padding:'2px 8px',borderRadius:'999px',background:'#fef4e0',color:'#92610a'}}>{late.length}</span>
                 </div>
-                <button className="hod-btn" onClick={()=>navigate('/hod/attendance')}>Report <FiArrowRight size={12}/></button>
+                <button className="hod-btn" onClick={()=>navigate('/attendance/hod/report')}>Report <FiArrowRight size={12}/></button>
               </div>
               <div className="hod-person-list">
                 {late.map((emp,i)=>(
@@ -256,7 +256,7 @@ const HODDashboard = () => {
                       <div className="hod-person-name">{emp.name}</div>
                       <div className="hod-person-sub">Arrived {fmtTime(emp.inTime)}</div>
                     </div>
-                    <span className="hod-late-badge">?? {fmtLate(emp.lateBy)}</span>
+                    <span className="hod-late-badge">⚠️ {fmtLate(emp.lateBy)}</span>
                   </div>
                 ))}
               </div>
@@ -268,7 +268,7 @@ const HODDashboard = () => {
             <div className="hod-card">
               <div className="hod-card-head">
                 <div className="hod-card-title">
-                  ?? Half Day Today
+                  🌗 Half Day Today
                   <span style={{fontSize:'.6875rem',fontWeight:600,padding:'2px 8px',borderRadius:'999px',background:'#e0f2fe',color:'#0369a1'}}>{halfDay.length}</span>
                 </div>
               </div>
@@ -292,7 +292,7 @@ const HODDashboard = () => {
             <div className="hod-card">
               <div className="hod-card-head">
                 <div className="hod-card-title">
-                  ? Absent Today
+                  ❌ Absent Today
                   <span style={{fontSize:'.6875rem',fontWeight:600,padding:'2px 8px',borderRadius:'999px',background:'#fdeaea',color:'#b53535'}}>{absent.length}</span>
                 </div>
               </div>
@@ -318,16 +318,16 @@ const HODDashboard = () => {
           {/* Quick Actions */}
           <div className="hod-card">
             <div className="hod-card-head">
-              <div className="hod-card-title">? Quick Actions</div>
+              <div className="hod-card-title">⚡ Quick Actions</div>
             </div>
             <div className="hod-shortcuts">
               {[
-                { icon:<FiCheckSquare size={15}/>, title:'Leave Approvals', sub:`${leaveCount} pending request${leaveCount!==1?'s':''}`, path:'/hod/leave-approval', count:leaveCount },
-                { icon:<FiFileText size={15}/>,    title:'Regularization',  sub:`${regCount} pending request${regCount!==1?'s':''}`,   path:'/hod/regularization-approval', count:regCount },
-                { icon:<FiActivity size={15}/>,    title:'Team Attendance Report',sub:'Team attendance & analytics', path:'/hod/attendance', count:0 },
-                { icon:<FiArrowRight size={15}/>,  title:'My Attendance Report',sub:'View my own punch history', path:'/attendance', count:0 },
-                { icon:<FiCalendar size={15}/>,    title:'Apply My Leave', sub:'Submit your leave request',       path:'/leave', count:0 },
-                { icon:<FiSunset size={15}/>,    title:'Holiday Calendar', sub:'View upcoming holidays',       path:'/hod/leave-approval', state:{tab:'holiday'}, count:0 },
+                { icon:<FiCheckSquare size={15}/>, title:'Leave Approvals', sub:`${leaveCount} pending request${leaveCount!==1?'s':''}`, path:'/attendance/hod/leave-approval', count:leaveCount },
+                { icon:<FiFileText size={15}/>,    title:'Regularization',  sub:`${regCount} pending request${regCount!==1?'s':''}`,   path:'/attendance/hod/regularization-approval', count:regCount },
+                { icon:<FiActivity size={15}/>,    title:'Team Attendance Report',sub:'Team attendance & analytics', path:'/attendance/hod/report', count:0 },
+                { icon:<FiArrowRight size={15}/>,  title:'My Attendance Report',sub:'View my own punch history', path:'/attendance/my-attendance', count:0 },
+                { icon:<FiCalendar size={15}/>,    title:'Apply My Leave', sub:'Submit your leave request',       path:'/attendance/leave', count:0 },
+                { icon:<FiSunset size={15}/>,    title:'Holiday Calendar', sub:'View upcoming holidays',       path:'/attendance/holiday-calendar', count:0 },
               ].map((sc,i)=>(
                 <div key={i} className="hod-shortcut" onClick={()=>navigate(sc.path,sc.state?{state:sc.state}:undefined)}>
                   <div className="hod-sc-icon">{sc.icon}</div>
@@ -348,13 +348,13 @@ const HODDashboard = () => {
           <div className="hod-card">
             <div className="hod-card-head">
               <div>
-                <div className="hod-card-title">??? Pending Leaves</div>
+                <div className="hod-card-title">🌴 Pending Leaves</div>
                 <div className="hod-card-sub">{leaveCount} awaiting approval</div>
               </div>
-              {leaveCount>0&&<button className="hod-btn" onClick={()=>navigate('/hod/leave-approval')}>All <FiArrowRight size={12}/></button>}
+              {leaveCount>0&&<button className="hod-btn" onClick={()=>navigate('/attendance/hod/leave-approval')}>All <FiArrowRight size={12}/></button>}
             </div>
             {leaveCount===0 ? (
-              <div className="hod-empty"><div className="hod-empty-icon">?</div><span>All caught up!</span></div>
+              <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>All caught up!</span></div>
             ) : (
               <div className="hod-pending-list">
                 {pendingLeaves.slice(0,4).map((req,i)=>(
@@ -364,7 +364,7 @@ const HODDashboard = () => {
                       <div className="hod-pending-info">
                         <div className="hod-pending-name">{req.employeeName}</div>
                         <div className="hod-pending-meta">
-                          {req.leaveType} � {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} � {fmt(req.fromDate,'dd MMM')}�{fmt(req.toDate,'dd MMM')}
+                          {req.leaveType} • {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} • {fmt(req.fromDate,'dd MMM')} - {fmt(req.toDate,'dd MMM')}
                           {req.attachment_urls?.length > 0 && (
                             <a 
                               href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`} 
@@ -387,7 +387,7 @@ const HODDashboard = () => {
                     </div>
                   </div>
                 ))}
-                {leaveCount>4&&<div style={{padding:'.75rem 1.125rem',textAlign:'center'}}><button className="hod-btn" onClick={()=>navigate('/hod/leave-approval')}>+{leaveCount-4} more � View All</button></div>}
+                {leaveCount>4&&<div style={{padding:'.75rem 1.125rem',textAlign:'center'}}><button className="hod-btn" onClick={()=>navigate('/attendance/hod/leave-approval')}>+{leaveCount-4} more • View All</button></div>}
               </div>
             )}
           </div>
@@ -397,10 +397,10 @@ const HODDashboard = () => {
             <div className="hod-card">
               <div className="hod-card-head">
                 <div>
-                  <div className="hod-card-title">?? Regularizations</div>
+                  <div className="hod-card-title">📝 Regularizations</div>
                   <div className="hod-card-sub">{regCount} pending</div>
                 </div>
-                <button className="hod-btn" onClick={()=>navigate('/hod/regularization-approval')}>All <FiArrowRight size={12}/></button>
+                <button className="hod-btn" onClick={()=>navigate('/attendance/hod/regularization-approval')}>All <FiArrowRight size={12}/></button>
               </div>
               <div className="hod-pending-list">
                 {pendingRegularization.slice(0,3).map((req,i)=>(
@@ -409,7 +409,7 @@ const HODDashboard = () => {
                       <div className="hod-pending-av">{initials(req.employeeName)}</div>
                       <div className="hod-pending-info">
                         <div className="hod-pending-name">{req.employeeName}</div>
-                        <div className="hod-pending-meta">{req.type?.replace(/_/g,' ')} � {fmt(req.date,'dd MMM yyyy')}</div>
+                        <div className="hod-pending-meta">{req.type?.replace(/_/g,' ')} • {fmt(req.date,'dd MMM yyyy')}</div>
                       </div>
                       <span className="hod-pending-type reg">Reg</span>
                     </div>
@@ -427,5 +427,3 @@ const HODDashboard = () => {
 };
 
 export default HODDashboard;
-
-

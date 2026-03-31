@@ -21,6 +21,7 @@ import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from "@mui/icons-material/Delete";
 import FileUpload from "../gallery/FileUpload";
 import kpiPioneerBadge from "../../assets/images/kpi-pioneer-badge.png";
+import { FiLogIn, FiLogOut } from 'react-icons/fi';
 
 
 
@@ -164,15 +165,17 @@ const UserProfile = ({ username: propUsername }) => {
         fetchGlobalAssets();
     }, []);
 
-    // Attendance data fetcher
     const fetchAttendanceData = useCallback(async () => {
-        if (!isOwnProfile) return;
+        const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department';
+        if (!canViewAttendance || !profileData?._id) return;
+
         setAttendanceLoading(true);
         try {
+            const queryParams = !isOwnProfile ? { employee_id: profileData._id } : {};
             const [dashData, leaveBalData, leaveApps] = await Promise.all([
-                attendanceAPI.getDashboardData().catch(() => null),
-                leaveAPI.getBalance().catch(() => ({ balances: [] })),
-                leaveAPI.getApplications({ limit: 10 }).catch(() => ({ applications: [] }))
+                attendanceAPI.getDashboardData(queryParams).catch(() => null),
+                leaveAPI.getBalance(profileData._id).catch(() => ({ balances: [] })),
+                leaveAPI.getApplications({ employee_id: profileData._id, limit: 10 }).catch(() => ({ applications: [] }))
             ]);
             setAttendanceData(dashData);
             setLeaveBalance(leaveBalData?.balances || []);
@@ -182,13 +185,11 @@ const UserProfile = ({ username: propUsername }) => {
         } finally {
             setAttendanceLoading(false);
         }
-    }, [isOwnProfile]);
+    }, [isOwnProfile, loggedInUser?.role, profileData?._id]);
 
     useEffect(() => {
-        if (activeTab === 4 && isOwnProfile) {
-            fetchAttendanceData();
-        }
-    }, [activeTab, isOwnProfile, fetchAttendanceData]);
+        fetchAttendanceData();
+    }, [fetchAttendanceData]);
 
 
     const handlePhotoClick = (event) => {
@@ -766,7 +767,10 @@ const UserProfile = ({ username: propUsername }) => {
     const handlePunch = async (type) => {
         setPunchLoading(true);
         try {
-            await attendanceAPI.punch({ type, method: 'web' });
+            const punchParams = { type, method: 'web' };
+            if (!isOwnProfile) punchParams.employee_id = profileData._id;
+            
+            await attendanceAPI.punch(punchParams);
             setSnackbar({ open: true, message: `Punch ${type} recorded successfully!`, severity: 'success' });
             // Refresh data
             setTimeout(() => fetchAttendanceData(), 500);
@@ -1013,7 +1017,36 @@ const UserProfile = ({ username: propUsername }) => {
                         <MenuItem onClick={handleRemovePhoto}>Remove Photo</MenuItem>
                     </Menu>
                     <div className="header-text">
-                        <h1>{fullName}</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <h1 style={{ margin: 0 }}>{fullName}</h1>
+                            {(isOwnProfile || loggedInUser?.role === 'Admin') && attendanceData?.punchStatus && (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        className={`profile-punch-btn ${attendanceData.punchStatus.status === 'Checked In' ? 'punch-out' : 'punch-in'}`}
+                                        onClick={() => handlePunch(attendanceData.punchStatus.status === 'Checked In' ? 'OUT' : 'IN')}
+                                        disabled={punchLoading}
+                                        style={{
+                                            padding: '4px 12px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            color: 'white',
+                                            background: attendanceData.punchStatus.status === 'Checked In' ? '#ef4444' : '#22c55e',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {punchLoading ? <CircularProgress size={12} color="inherit" /> : (
+                                            attendanceData.punchStatus.status === 'Checked In' ? <><FiLogOut size={12} /> Punch OUT</> : <><FiLogIn size={12} /> Punch IN</>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <div className="sub-text">
                             <span className="designation">{profileData.designation || 'No Designation'}</span>
                             {profileData.department && (
@@ -1059,7 +1092,7 @@ const UserProfile = ({ username: propUsername }) => {
                     <Tab label={`Modules (${profileData.modules?.length || 0})`} />
                     <Tab label={`Importers (${profileData.assigned_importer_name?.length || 0})`} />
                     <Tab label={`Open Points (${openPointsCount})`} />
-                    {isOwnProfile && <Tab label="Attendance" />}
+                    {(isOwnProfile || loggedInUser?.role === 'Admin') && <Tab label="Attendance" />}
                     {(profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) && (
                         <Tab label="Marketing Assets" />
                     )}
@@ -1073,8 +1106,8 @@ const UserProfile = ({ username: propUsername }) => {
                     {activeTab === 1 && <ModulesTab key="modules" />}
                     {activeTab === 2 && <ImportersTab key="importers" />}
                     {activeTab === 3 && <OpenPointsTab key="openpoints" />}
-                    {activeTab === 4 && isOwnProfile && <AttendanceTab key="attendance" />}
-                    {activeTab === (isOwnProfile ? 5 : 4) && <MarketingAssetsTab key="marketing" />}
+                    {activeTab === 4 && (isOwnProfile || loggedInUser?.role === 'Admin') && <AttendanceTab key="attendance" />}
+                    {activeTab === ((isOwnProfile || loggedInUser?.role === 'Admin') ? 5 : 4) && <MarketingAssetsTab key="marketing" />}
                 </AnimatePresence>
             </div>
 

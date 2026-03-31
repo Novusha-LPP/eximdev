@@ -107,7 +107,7 @@ const Settings = () => {
               <input type="text" className="form-input" value={settings.financial_year_start || ''} onChange={e => setSettings({ ...settings, financial_year_start: e.target.value })} />
             </div>
           </div>
-          <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving�' : 'Save Changes'}</button>
+          <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving ' : 'Save Changes'}</button>
         </div>
       )}
 
@@ -133,7 +133,7 @@ const Settings = () => {
               <input type="number" className="form-input" value={settings.attendance_config?.half_day_threshold_hours || ''} onChange={e => setNested('attendance_config', 'half_day_threshold_hours', Number(e.target.value))} />
             </div>
           </div>
-          <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving�' : 'Save Changes'}</button>
+          <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving ' : 'Save Changes'}</button>
         </div>
       )}
 
@@ -163,7 +163,7 @@ const Settings = () => {
                 {departments.length > 0 ? departments.map(dept => (
                   <tr key={dept._id}>
                     <td style={{ fontWeight: 600 }}>{dept.department_name}</td>
-                    <td>{dept.hod_id ? `${dept.hod_id.first_name || ''} ${dept.hod_id.last_name || ''}`.trim() : '�'}</td>
+                    <td>{dept.hod_id ? `${dept.hod_id.first_name || ''} ${dept.hod_id.last_name || ''}`.trim() : ' '}</td>
                     <td>{dept.employee_count}</td>
                   </tr>
                 )) : <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--as-t4)', padding: '2.5rem' }}>No departments found</td></tr>}
@@ -201,7 +201,7 @@ const Settings = () => {
               </label>
             </div>
           </div>
-          <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving�' : 'Save Changes'}</button>
+          <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving ' : 'Save Changes'}</button>
         </div>
       )}
     </div>

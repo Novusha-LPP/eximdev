@@ -22,6 +22,7 @@ import DocumentationJob from "../components/documentation/DocumentationJob.js";
 // Attendance
 import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
 import AttendanceDashboard from "../components/attendance/Dashboard.jsx";
+import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
 import AttendancePage from "../components/attendance/Attendance.jsx";
 import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
 import Regularization from "../components/attendance/Regularization.jsx";
@@ -900,11 +901,14 @@ function HomePageContent() {
                 />
 
                 {/* Attendance Module */}
+                <Route path="/admin/attendance" element={<Navigate to="/attendance/admin/attendance" replace />} />
                 <Route path="/attendance" element={<ProtectedRoute requiredModule="Attendance"><AttendanceLayout /></ProtectedRoute>}>
-                  <Route path="dashboard" element={<AttendanceDashboard />} />
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<DashboardSwitch />} />
                   <Route path="my-attendance" element={<AttendancePage />} />
                   <Route path="leave" element={<LeaveManagement />} />
                   <Route path="regularization" element={<Regularization />} />
+                  <Route path="holiday-calendar" element={<HolidayManagement />} />
                   <Route path="hod-dashboard" element={<HODDashboard />} />
                   <Route path="hod/leave-approval" element={<LeaveApproval />} />
                   <Route path="hod/regularization-approval" element={<RegularizationApproval />} />

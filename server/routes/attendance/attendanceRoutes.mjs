@@ -1,13 +1,10 @@
 import express from 'express';
-import { createRequire } from 'module';
 import attendanceAuthBridge from '../../middleware/attendanceAuthBridge.mjs';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-
-const require = createRequire(import.meta.url);
-const attendanceCtrl = require('./controllers/attendance.controller.js');
-const hodCtrl = require('./controllers/HOD.controller.js');
+import * as attendanceCtrl from '../../controllers/attendance/attendance.controller.js';
+import * as hodCtrl from '../../controllers/attendance/HOD.controller.js';
 
 const router = express.Router();
 

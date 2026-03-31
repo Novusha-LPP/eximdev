@@ -19,11 +19,15 @@ const attendanceAPI = {
   /**
    * Get dashboard data
    */
-  getDashboardData: async (month, year) => {
+  getDashboardData: async (monthOrOptions, year) => {
     try {
-      const params = {};
-      if (month) params.month = month;
-      if (year) params.year = year;
+      let params = {};
+      if (typeof monthOrOptions === 'object') {
+        params = { ...monthOrOptions };
+      } else {
+        if (monthOrOptions) params.month = monthOrOptions;
+        if (year) params.year = year;
+      }
       const response = await apiClient.get('/attendance/dashboard', { params });
       return response.data;
     } catch (error) {

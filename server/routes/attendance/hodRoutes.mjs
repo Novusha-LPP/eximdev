@@ -1,9 +1,6 @@
 import express from 'express';
-import { createRequire } from 'module';
 import attendanceAuthBridge from '../../middleware/attendanceAuthBridge.mjs';
-
-const require = createRequire(import.meta.url);
-const hodCtrl = require('./controllers/HOD.controller.js');
+import * as hodCtrl from '../../controllers/attendance/HOD.controller.js';
 
 const router = express.Router();
 

@@ -682,6 +682,9 @@ export const getRegularizations = async (req, res) => {
 
 export const getAdminDashboardData = async (req, res) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Only admins can access admin dashboard' });
+        }
         const companyId = req.user.company_id;
         const company = await Company.findById(companyId);
         const tz = 'Asia/Kolkata'; // Standardizing for this business
@@ -916,6 +919,9 @@ export const getAdminDashboardData = async (req, res) => {
 
 export const lockMonthAttendance = async (req, res) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Only admins can lock attendance' });
+        }
         const { year_month } = req.body;
         const companyId = req.user.company_id;
 
@@ -947,6 +953,9 @@ export const lockMonthAttendance = async (req, res) => {
 
 export const getPayrollData = async (req, res) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Only admins can view payroll data' });
+        }
         const { month, year } = req.query;
         const companyId = req.user.company_id;
 
@@ -1048,6 +1057,9 @@ export const getMyTodayAttendance = async (req, res) => {
 
 export const getPayrollLocks = async (req, res) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Only admins can view payroll locks' });
+        }
         const companyId = req.user.company_id;
         const result = await QueryBuilder.build(
             PayrollLock,
@@ -1064,6 +1076,9 @@ export const getPayrollLocks = async (req, res) => {
 
 export const togglePayrollLock = async (req, res) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Only admins can toggle payroll locks' });
+        }
         const { year_month, is_locked } = req.body;
         const companyId = req.user.company_id;
 
@@ -1469,6 +1484,16 @@ export const getEmployeeFullProfile = async (req, res) => {
 
         if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
             return res.status(403).json({ message: 'Unauthorized profile access' });
+        }
+
+        if (req.user.role === 'HOD') {
+            const hodTeams = await TeamModel.find({ hodId: req.user._id, isActive: { $ne: false } });
+            const isInTeam = hodTeams.some(team =>
+                team.members?.some(m => m.userId?.toString() === id.toString())
+            );
+            if (!isInTeam) {
+                return res.status(403).json({ message: 'Employee not in your team' });
+            }
         }
 
         const employee = await User.findById(id)

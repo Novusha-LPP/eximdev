@@ -225,6 +225,7 @@ const Attendance = ({ employeeId }) => {
                     const fc = p >= 90 ? '' : p >= 50 ? 'mid' : 'low';
                     const isMiss = r.is_auto_punch_out || (!r.last_out && r.first_in &&
                       new Date(r.attendance_date) < new Date().setHours(0, 0, 0, 0));
+                    const missLabel = 'Miss';
 
                     return (
                       <tr key={i} className={rowClass(r)}>
@@ -259,7 +260,7 @@ const Attendance = ({ employeeId }) => {
                         {/* Punch Out */}
                         <td>
                           {isMiss ? (
-                            <span className="cell-miss">Miss</span>
+                            <span className="cell-miss">{missLabel}</span>
                           ) : r.last_out ? (
                             <span className="cell-time">
                               <FiLogOut size={11} />

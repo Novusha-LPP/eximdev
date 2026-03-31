@@ -77,7 +77,8 @@ const HODDashboard = () => {
 
   const weekDays  = getWeekDays(weekOff);
   const weekRange = `${fmt(weekDays[0],'dd MMM')} — ${fmt(weekDays[6],'dd MMM yyyy')}`;
-  const todayStr  = new Date().toDateString();
+  const dayKey    = d => new Date(d).toLocaleDateString('en-CA');
+  const todayKey  = dayKey(new Date());
 
   const handleLeaveAction = async (id, status) => {
     try { await attendanceAPI.approveRequest('leave', id, status); toast.success(`Leave ${status}`); fetchData(); }
@@ -175,7 +176,7 @@ const HODDashboard = () => {
                   <tr>
                     <th className="col-name">Member</th>
                     {weekDays.map((d,i) => {
-                      const isToday = d.toDateString()===todayStr;
+                      const isToday = dayKey(d)===todayKey;
                       const isWknd  = d.getDay()===0||d.getDay()===6;
                       return (
                         <th key={i} className={`col-day ${isToday?'col-today':''}`} style={{opacity:isWknd&&!isToday?.55:1}}>
@@ -204,11 +205,11 @@ const HODDashboard = () => {
                         </div>
                       </td>
                       {weekDays.map((d,di) => {
-                        const ds     = d.toISOString().split('T')[0];
+                        const ds     = dayKey(d);
                         const status = emp.attendance?.[ds]||'empty';
                         const lateBy = emp.attendance?.[`${ds}_late_by`];
                         const isWknd = d.getDay()===0||d.getDay()===6;
-                        const isToday= d.toDateString()===todayStr;
+                        const isToday= ds===todayKey;
                         const dotCls = isWknd?'weekend':(status||'empty');
                         let tip = status.replace(/_/g,' ');
                         if (status === 'half_day') {

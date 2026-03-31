@@ -4,6 +4,7 @@ const ALLOWED_USERNAMES = new Set([
   'manu_pilai',
   'suraj_rajan',
   'rajan_aranamkatte',
+  'uday_zope'
 ]);
 
 export default function requireAllowedAdmin(req, res, next) {

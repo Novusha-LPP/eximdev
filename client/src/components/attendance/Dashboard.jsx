@@ -249,7 +249,9 @@ export default function Dashboard() {
   const ps = dash?.punchStatus;
   const ms = dash?.monthStats;
   const isIn = ps?.action === 'OUT';
-  const firstName = user?.name?.split(' ')[0] || 'there';
+  const displayName = user?.first_name 
+    ? `${user.first_name} ${user.last_name || ''}`.trim() 
+    : (user?.name || 'there');
   const monthName = month.toLocaleString('default', { month: 'long', year: 'numeric' });
 
   const showMiss = ps?.isAutoPunchOut || (!ps?.lastOut && ps?.firstIn && !isToday(ps?.date));
@@ -311,7 +313,7 @@ export default function Dashboard() {
       <div className="db-hero">
         <div className="db-hero-inner">
           <div>
-            <h1>{`${greeting()}, ${firstName}`}</h1>
+            <h1>{`${greeting()}, ${displayName}`}</h1>
             <p>{new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="punch-widget">

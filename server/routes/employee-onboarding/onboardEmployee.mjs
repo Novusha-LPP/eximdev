@@ -68,7 +68,7 @@ router.post("/api/onboard-employee", auditMiddleware("User"), async (req, res) =
       company: company.toUpperCase(),
       username,
       password: hashedPassword,
-      modules: ["Employee KYC", "Employee Onboarding"],
+      modules: ["Employee KYC", "Employee Onboarding", "Attendance"],
       role: "User",
       employment_type: employment_type,
     });

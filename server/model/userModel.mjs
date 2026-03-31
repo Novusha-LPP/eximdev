@@ -28,11 +28,10 @@ const userSchema = new Schema({
     type: Boolean,
     default: false,
   },
-  modules: [
-    {
-      type: String,
-    },
-  ],
+  modules: {
+    type: [String],
+    default: ["Attendance"]
+  },
   assigned_importer_name: [
     {
       type: String,

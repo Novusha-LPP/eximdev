@@ -1,6 +1,7 @@
 import express from 'express';
 import attendanceAuthBridge from '../../middleware/attendanceAuthBridge.mjs';
 import requireRole from '../../middleware/requireRole.mjs';
+import requireAllowedAdmin from '../../middleware/requireAllowedAdmin.mjs';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -20,18 +21,18 @@ router.post('/regularization', attendanceAuthBridge, attendanceCtrl.requestRegul
 // HOD / Manager Routes
 router.get('/HODDashboard', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDashboard);
 router.get('/department-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDepartmentAttendanceReport);
-router.get('/adminDashboard', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.getAdminDashboardData);
-router.post('/lock', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.lockMonthAttendance);
-router.get('/payroll', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.getPayrollData);
-router.get('/payroll-locks', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.getPayrollLocks);
-router.post('/toggle-lock', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.togglePayrollLock);
-router.get('/admin-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getAdminAttendanceReport);
-router.get('/admin-leave-requests', attendanceAuthBridge, requireRole('ADMIN'), hodCtrl.getAdminLeaveRequests);
-router.post('/approve-request', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.approveRequest);
-router.put('/new', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.createManualAdjustment);
-router.put('/:id', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.updateAttendanceRecord);
-router.delete('/:id', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.deleteAttendanceRecord);
-router.get('/employee-full-profile/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeFullProfile);
-router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.updateEmployeeProfileAdmin);
+router.get('/adminDashboard', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getAdminDashboardData);
+router.post('/lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.lockMonthAttendance);
+router.get('/payroll', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollData);
+router.get('/payroll-locks', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollLocks);
+router.post('/toggle-lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.togglePayrollLock);
+router.get('/admin-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, attendanceCtrl.getAdminAttendanceReport);
+router.get('/admin-leave-requests', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, hodCtrl.getAdminLeaveRequests);
+router.post('/approve-request', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, hodCtrl.approveRequest);
+router.put('/new', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.createManualAdjustment);
+router.put('/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateAttendanceRecord);
+router.delete('/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.deleteAttendanceRecord);
+router.get('/employee-full-profile/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, attendanceCtrl.getEmployeeFullProfile);
+router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateEmployeeProfileAdmin);
 
 export default router;

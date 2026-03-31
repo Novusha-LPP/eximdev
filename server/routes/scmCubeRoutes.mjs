@@ -156,7 +156,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           "Running SequenceNo": validateNum(job.sequence_number, 6, 0, true, "Running SequenceNo"),
           "RNoPrifix": validateChar("", 6, false, "RNoPrifix"),
           "RNoSufix": validateChar("", 6, false, "RNoSufix"),
-          "User Job No.": validateNum(job.job_no, 15, 0, false, "User Job No."),
+          "User Job No.": validateChar  (job.job_no, 15, 0, false, "User Job No."),
           "User Job Date": validateDate(job.job_date, false, "User Job Date"),
           "BE Type": (() => {
             let beType = "";
@@ -165,7 +165,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
             else if (job.type_of_b_e === "Ex-Bond") beType = "X";
             return validateChar(beType, 4, true, "BE Type");
           })(),
-          "IEC Code": validateNum(job.ie_code_no, 10, 0, true, "IEC Code"),
+          "IEC Code": validateChar(job.ie_code_no, 10, 0, true, "IEC Code"),
           "Branch Sr. No": validateNum(job.branchSrNo, 3, 0, true, "Branch Sr. No"),
           "Name of the importer": validateChar(job.importer, 50, false, "Name of the importer"),
           "Address 1": validateChar(job.importer_address, 35, false, "Address 1"),

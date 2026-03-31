@@ -68,6 +68,19 @@ const JobMigrationUtility = () => {
 
                 const allYears = Array.from(new Set([...existingYears, ...generatedYears])).sort((a, b) => b.localeCompare(a));
                 setYears(allYears);
+
+                // Set default target year to the NEXT upcoming financial year
+                // If today is Mar 2026, startYear is 2025 (FY 25-26). Next FY is 26-27.
+                const nextFyYear = startYear + 1;
+                const nextFyStr = `${nextFyYear.toString().slice(-2)}-${(nextFyYear + 1).toString().slice(-2)}`;
+                
+                // If the next FY is in our list, set it as default
+                if (allYears.includes(nextFyStr)) {
+                    setTargetYear(nextFyStr);
+                } else if (allYears.length > 0) {
+                    setTargetYear(allYears[0]); // Fallback to most recent
+                }
+
             } catch (err) {
                 console.error("Error fetching years:", err);
             }

@@ -783,6 +783,26 @@ jobSchema.pre("save", function (next) {
   next();
 });
 
+// Systematic fix for address object transition
+jobSchema.pre("validate", function (next) {
+  // If importer_address is a string, convert it to an object with the string in 'details'
+  if (typeof this.importer_address === "string") {
+    const originalValue = this.importer_address;
+    this.importer_address = {
+      details: originalValue,
+    };
+  }
+
+  // If hss_address is a string, convert it to an object with the string in 'details'
+  if (typeof this.hss_address === "string") {
+    const originalValue = this.hss_address;
+    this.hss_address = {
+      details: originalValue,
+    };
+  }
+  next();
+});
+
 // ==================== PERFORMANCE OPTIMIZATION INDEXES ====================
 // These indexes dramatically improve search performance for the most common queries
 

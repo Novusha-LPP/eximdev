@@ -15,12 +15,11 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/tally/test",
+							"raw": "{{base_url}}/tally/test",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"test"
 							]
@@ -40,12 +39,11 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/tally/job-data?job_number=AMD/IMP/SEA/01800/25-26",
+							"raw": "{{base_url}}/tally/job-data?job_number=AMD/IMP/SEA/01800/25-26",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"job-data"
 							],
@@ -80,12 +78,11 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_url}}/api/tally/purchase-entry",
+							"raw": "{{base_url}}/tally/purchase-entry",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"purchase-entry"
 							]
@@ -100,12 +97,11 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/tally/purchase-entry?entry_no=PB/01/AMD/IMP/SEA/01800/25-26",
+							"raw": "{{base_url}}/tally/purchase-entry?entry_no=PB/01/AMD/IMP/SEA/01800/25-26",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"purchase-entry"
 							],
@@ -134,12 +130,11 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_url}}/api/tally/purchase-entry/status",
+							"raw": "{{base_url}}/tally/purchase-entry/status",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"purchase-entry",
 								"status"
@@ -168,12 +163,11 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_url}}/api/tally/payment-request",
+							"raw": "{{base_url}}/tally/payment-request",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"payment-request"
 							]
@@ -187,12 +181,11 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/tally/payment-request?request_no=R1/AMD/IMP/SEA/01800/25-26",
+							"raw": "{{base_url}}/tally/payment-request?request_no=R1/AMD/IMP/SEA/01800/25-26",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"payment-request"
 							],
@@ -221,12 +214,11 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_url}}/api/tally/payment-request/status",
+							"raw": "{{base_url}}/tally/payment-request/status",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
 								"tally",
 								"payment-request",
 								"status"
@@ -281,12 +273,12 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:9006",
+			"value": "https://eximbot.alvision.in/import/api",
 			"type": "string"
 		},
 		{
 			"key": "api_key",
-			"value": "8ee991284105b70062b129ec14bce5c06f718f3a7421aa852a34fcbcd1142865",
+			"value": "ee30006ba8a59c0becb30a598764e8410965f1c90e1fe066c7eb47202d1fa79d",
 			"type": "string"
 		}
 	]

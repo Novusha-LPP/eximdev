@@ -86,7 +86,7 @@ const Attendance = ({ employeeId }) => {
 
     const worked = mo.filter(r => r.total_work_hours > 0);
     setStats({
-      present:  mo.filter(r => r.status === 'present').length,
+      present:  mo.filter(r => ['present', 'half_day'].includes(r.status)).length,
       absent:   mo.filter(r => r.status === 'absent').length,
       late:     mo.filter(r => r.is_late).length,
       earlyIn:  mo.filter(r => r.is_early_in).length,

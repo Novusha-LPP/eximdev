@@ -77,14 +77,14 @@ async function seed() {
     const company = await Company.findOneAndUpdate(
       { company_name: name },
       {
-        $setOnInsert: { ...update, company_code: code },
+        $setOnInsert: { 
+          company_code: code 
+        },
         $set: {
           timezone: defaults.timezone,
-          'attendance_config.grace_in_minutes': defaults.attendance_config.grace_in_minutes,
-          'attendance_config.full_day_threshold_hours': defaults.attendance_config.full_day_threshold_hours,
-          'attendance_config.half_day_threshold_hours': defaults.attendance_config.half_day_threshold_hours,
-          'settings.geo_fencing_enabled': defaults.settings.geo_fencing_enabled,
-          'settings.ip_restriction_enabled': defaults.settings.ip_restriction_enabled
+          attendance_config: defaults.attendance_config,
+          settings: defaults.settings,
+          status: 'active'
         }
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }

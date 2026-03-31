@@ -45,6 +45,8 @@ const AdminDashboard = () => {
   const [approving, setApproving] = useState({});
   const [myStatus, setMyStatus] = useState(null);
   const [holidays, setHolidays] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [companyId, setCompanyId] = useState('');
   const [data, setData] = useState({
     stats: { total: 0, present: 0, absent: 0, onLeave: 0, late: 0, trends: {} },
     departments: [], absentToday: [], lateToday: [],
@@ -59,13 +61,13 @@ const AdminDashboard = () => {
     { icon: <FiSettings size={14} />, label: 'System Settings', desc: 'Company & security config', path: '/attendance/admin/settings' },
   ];
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (selectedCompanyId) => {
     try {
       setLoading(true);
       const [dashRes, myRes, holRes] = await Promise.all([
-        attendanceAPI.getAdminDashboard(),
+        attendanceAPI.getAdminDashboard(selectedCompanyId ? { company_id: selectedCompanyId } : {}),
         attendanceAPI.getTodayStatus().catch(() => null),
-        masterAPI.getHolidays({ limit: 5 }).catch(() => null),
+        masterAPI.getHolidays({ limit: 5, company_id: selectedCompanyId }).catch(() => null),
       ]);
       if (dashRes?.success) setData(dashRes.data);
       if (myRes) setMyStatus(myRes);
@@ -81,6 +83,22 @@ const AdminDashboard = () => {
     } catch { toast.error('Failed to load dashboard'); }
     finally { setLoading(false); }
   }, []);
+
+  const loadCompanies = useCallback(async () => {
+    try {
+      const res = await masterAPI.getCompanies();
+      const list = res?.data || [];
+      setCompanies(list);
+      if (!companyId && list.length > 0) {
+        setCompanyId(list[0]._id);
+        await load(list[0]._id);
+        return;
+      }
+    } catch {
+      // non-admins or fetch failure can ignore
+    }
+    await load(companyId);
+  }, [companyId, load]);
 
   const handlePunch = async () => {
     try {
@@ -103,7 +121,7 @@ const AdminDashboard = () => {
     finally { setApproving(p => ({ ...p, [id]: false })); }
   };
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadCompanies(); }, [loadCompanies]);
 
   if (loading) return (
     <div className="loading-state"><div className="spinner" /><p>Loading dashboard...</p></div>
@@ -126,12 +144,22 @@ const AdminDashboard = () => {
       {/* --- HERO BANNER --- */}
       <div className="db-hero">
         <div className="db-hero-top">
-          <div>
-            <h1 className="db-hero-title">Executive Dashboard</h1>
-            <p className="db-hero-sub">
-              {new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
-          </div>
+              <div>
+                <h1 className="db-hero-title">Executive Dashboard</h1>
+                <p className="db-hero-sub">
+                  {new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              {companies.length > 0 && (
+                <select
+                  className="ar-input-ctrl ar-select"
+                  value={companyId}
+                  onChange={e => { setCompanyId(e.target.value); load(e.target.value); }}
+                  style={{ minWidth: 220 }}
+                >
+                  {companies.map(c => <option key={c._id} value={c._id}>{c.company_name}</option>)}
+                </select>
+              )}
 
           <div className="db-hero-right">
             <div className="db-punch-widget">

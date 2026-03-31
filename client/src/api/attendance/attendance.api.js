@@ -130,9 +130,11 @@ const attendanceAPI = {
   /**
    * Get Admin Dashboard Data
    */
-  getAdminDashboard: async () => {
+  getAdminDashboard: async (options = {}) => {
     try {
-      const response = await apiClient.get('/attendance/adminDashboard');
+      const params = {};
+      if (options.company_id) params.company_id = options.company_id;
+      const response = await apiClient.get('/attendance/adminDashboard', { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch admin dashboard' };
@@ -154,9 +156,11 @@ const attendanceAPI = {
   /**
    * Get Payroll Export Data
    */
-  getPayrollData: async (month, year) => {
+  getPayrollData: async (month, year, companyId) => {
     try {
-      const response = await apiClient.get('/attendance/payroll', { params: { month, year } });
+      const params = { month, year };
+      if (companyId) params.company_id = companyId;
+      const response = await apiClient.get('/attendance/payroll', { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch payroll data' };
@@ -173,10 +177,14 @@ const attendanceAPI = {
     return response.data;
   },
 
-  getAdminAttendanceReport: async (startDate, endDate, departmentId, designation) => {
+  getAdminAttendanceReport: async (startDate, endDate, departmentId, designation, companyId) => {
     try {
+      const params = { startDate, endDate };
+      if (departmentId) params.departmentId = departmentId;
+      if (designation) params.designation = designation;
+      if (companyId) params.company_id = companyId;
       const response = await apiClient.get('/attendance/admin-report', {
-        params: { startDate, endDate, departmentId, designation }
+        params
       });
       return response.data;
     } catch (error) {
@@ -211,10 +219,10 @@ const attendanceAPI = {
   /**
    * Get employee full profile (Admin only)
    */
-  getEmployeeFullProfile: async (id, startDate, endDate) => {
+  getEmployeeFullProfile: async (id, startDate, endDate, companyId) => {
     try {
       const response = await apiClient.get(`/attendance/employee-full-profile/${id}`, {
-        params: { startDate, endDate }
+        params: { startDate, endDate, company_id: companyId }
       });
       return response.data;
     } catch (error) {

@@ -16,6 +16,7 @@ router.post('/holidays/bulk-delete', attendanceAuthBridge, masterCtrl.bulkDelete
 
 router.get('/company-settings', attendanceAuthBridge, masterCtrl.getCompanySettings);
 router.put('/company-settings', attendanceAuthBridge, masterCtrl.updateCompanySettings);
+router.get('/companies', attendanceAuthBridge, masterCtrl.listCompanies);
 
 router.post('/leave-policies', attendanceAuthBridge, masterCtrl.createLeavePolicy);
 router.get('/leave-policies', attendanceAuthBridge, masterCtrl.getLeavePolicies);

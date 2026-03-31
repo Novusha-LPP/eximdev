@@ -86,8 +86,8 @@ const masterAPI = {
     /**
      * Departments
      */
-    getDepartments: async () => {
-        const response = await apiClient.get('/master/departments');
+    getDepartments: async (params) => {
+        const response = await apiClient.get('/master/departments', { params });
         return response.data;
     },
 
@@ -96,6 +96,14 @@ const masterAPI = {
      */
     getDesignations: async () => {
         const response = await apiClient.get('/master/designations');
+        return response.data;
+    },
+
+    /**
+     * Companies (Admin only)
+     */
+    getCompanies: async () => {
+        const response = await apiClient.get('/master/companies');
         return response.data;
     }
 };

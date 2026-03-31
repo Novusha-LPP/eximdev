@@ -22,11 +22,18 @@ import QueryBuilder from '../../services/attendance/QueryBuilder.js';
 import PayrollLock from '../../model/attendance/PayrollLock.js';
 
 
+const resolveCompanyId = (req) => {
+    if (req.user?.role === 'ADMIN') {
+        return req.query.company_id || req.body.company_id || req.user.company_id;
+    }
+    return req.user.company_id;
+};
+
 // --- HELPER: Record Activity ---
 const logActivity = async (req, module, action, details, metadata = {}) => {
     try {
         const activity = new ActivityLog({
-            company_id: req.user.company_id,
+            company_id: resolveCompanyId(req),
             user_id: req.user._id,
             module,
             action,
@@ -685,7 +692,7 @@ export const getAdminDashboardData = async (req, res) => {
         if (req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Only admins can access admin dashboard' });
         }
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
         const company = await Company.findById(companyId);
         const tz = 'Asia/Kolkata'; // Standardizing for this business
         const istNow = moment().tz(tz);
@@ -923,7 +930,7 @@ export const lockMonthAttendance = async (req, res) => {
             return res.status(403).json({ message: 'Only admins can lock attendance' });
         }
         const { year_month } = req.body;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         if (!year_month) {
             return res.status(400).json({ message: 'Month is required' });
@@ -957,7 +964,7 @@ export const getPayrollData = async (req, res) => {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
         const { month, year } = req.query;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         // Fix: Provide defaults and ensure month is string for padStart
         const targetMonth = month || (moment().month() + 1).toString();
@@ -1060,7 +1067,7 @@ export const getPayrollLocks = async (req, res) => {
         if (req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Only admins can view payroll locks' });
         }
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
         const result = await QueryBuilder.build(
             PayrollLock,
             req.query,
@@ -1080,7 +1087,7 @@ export const togglePayrollLock = async (req, res) => {
             return res.status(403).json({ message: 'Only admins can toggle payroll locks' });
         }
         const { year_month, is_locked } = req.body;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         const lock = await PayrollLock.findOneAndUpdate(
             { company_id: companyId, year_month },
@@ -1103,7 +1110,7 @@ export const togglePayrollLock = async (req, res) => {
 export const getAdminAttendanceReport = async (req, res) => {
     try {
         const { startDate, endDate, departmentId } = req.query;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         if (!startDate || !endDate) {
             return res.status(400).json({ message: 'startDate and endDate are required' });
@@ -1275,7 +1282,7 @@ export const updateAttendanceRecord = async (req, res) => {
     try {
         const { id } = req.params;
         const { status, first_in, last_out, remarks, employee_id } = req.body;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         if (req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Only admins can edit attendance records' });
@@ -1325,7 +1332,7 @@ export const updateAttendanceRecord = async (req, res) => {
 export const createManualAdjustment = async (req, res) => {
     try {
         const { attendance_date, employee_id, status, first_in, last_out, remarks } = req.body;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         if (req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Authorization denied' });
@@ -1445,7 +1452,7 @@ async function syncUserTodayStatus(record, company) {
 export const deleteAttendanceRecord = async (req, res) => {
     try {
         const { id } = req.params;
-        const companyId = req.user.company_id;
+        const companyId = resolveCompanyId(req);
 
         if (req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Only admins can delete attendance records' });

@@ -9,11 +9,19 @@ import Department from '../../model/attendance/Department.js';
 
 
 
+// --- HELPERS ---
+const resolveCompanyId = (req) => {
+  if (req.user?.role === 'ADMIN') {
+    return req.query.company_id || req.body.company_id || req.user.company_id;
+  }
+  return req.user.company_id;
+};
+
 // --- HELPER: Record Activity ---
 const logActivity = async (req, module, action, details, metadata = {}) => {
   try {
     const activity = new ActivityLog({
-      company_id: req.user.company_id,
+      company_id: resolveCompanyId(req),
       user_id: req.user._id,
       module,
       action,
@@ -30,7 +38,7 @@ const logActivity = async (req, module, action, details, metadata = {}) => {
 
 export const createShift = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     // Schema handles defaults, but we can add explicit validation here if needed
 
     const shift = new Shift({
@@ -48,7 +56,7 @@ export const createShift = async (req, res) => {
 
 export const getShifts = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const result = await QueryBuilder.build(
       Shift,
       req.query,
@@ -63,7 +71,8 @@ export const getShifts = async (req, res) => {
 
 export const deleteShift = async (req, res) => {
   try {
-    const shift = await Shift.findByIdAndDelete(req.params.id);
+    const companyId = resolveCompanyId(req);
+    const shift = await Shift.findOneAndDelete({ _id: req.params.id, company_id: companyId });
     if (shift) {
       await logActivity(req, 'SHIFT', 'DELETE_SHIFT', `Deleted shift: ${shift.shift_name}`);
     }
@@ -76,11 +85,14 @@ export const deleteShift = async (req, res) => {
 export const bulkAssignShifts = async (req, res) => {
   try {
     const { employeeIds, shiftId } = req.body;
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
 
     if (!employeeIds || !shiftId) {
       return res.status(400).json({ message: 'employeeIds and shiftId are required' });
     }
+
+    const shift = await Shift.findOne({ _id: shiftId, company_id: companyId });
+    if (!shift) return res.status(404).json({ message: 'Shift not found for this company' });
 
     const result = await User.updateMany(
       { _id: { $in: employeeIds }, company_id: companyId },
@@ -96,7 +108,7 @@ export const bulkAssignShifts = async (req, res) => {
 
 export const createHoliday = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const { holiday_date, holiday_name, holiday_type } = req.body;
 
     const holiday = new Holiday({
@@ -117,7 +129,7 @@ export const createHoliday = async (req, res) => {
 
 export const getHolidays = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const result = await QueryBuilder.build(
       Holiday,
       req.query,
@@ -132,7 +144,8 @@ export const getHolidays = async (req, res) => {
 
 export const deleteHoliday = async (req, res) => {
   try {
-    const holiday = await Holiday.findByIdAndDelete(req.params.id);
+    const companyId = resolveCompanyId(req);
+    const holiday = await Holiday.findOneAndDelete({ _id: req.params.id, company_id: companyId });
     if (holiday) {
       await logActivity(req, 'HOLIDAY', 'DELETE_HOLIDAY', `Deleted holiday: ${holiday.holiday_name}`);
     }
@@ -145,7 +158,7 @@ export const deleteHoliday = async (req, res) => {
 export const bulkDeleteHolidays = async (req, res) => {
   try {
     const { ids } = req.body;
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const result = await Holiday.deleteMany({ _id: { $in: ids }, company_id: companyId });
     await logActivity(req, 'HOLIDAY', 'BULK_DELETE', `Deleted ${result.deletedCount} holidays`);
     res.json({ success: true, deletedCount: result.deletedCount });
@@ -160,7 +173,7 @@ export const bulkDeleteHolidays = async (req, res) => {
 
 export const getCompanySettings = async (req, res) => {
   try {
-    const company = await Company.findById(req.user.company_id);
+    const company = await Company.findById(resolveCompanyId(req));
     res.json(company);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -170,7 +183,7 @@ export const getCompanySettings = async (req, res) => {
 export const updateCompanySettings = async (req, res) => {
   try {
     const company = await Company.findByIdAndUpdate(
-      req.user.company_id,
+      resolveCompanyId(req),
       req.body,
       { returnDocument: 'after' }
     );
@@ -186,7 +199,7 @@ export const updateCompanySettings = async (req, res) => {
 // ==========================================
 export const createLeavePolicy = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const policy = new LeavePolicy({
       ...req.body,
       company_id: companyId
@@ -202,7 +215,7 @@ export const createLeavePolicy = async (req, res) => {
 
 export const getLeavePolicies = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const filter = { company_id: companyId, status: 'active' };
     
     // For non-admins, show only policies they are eligible for
@@ -246,7 +259,7 @@ export const getLeavePolicies = async (req, res) => {
 export const updateLeavePolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
 
     const policy = await LeavePolicy.findOneAndUpdate(
       { _id: id, company_id: companyId },
@@ -268,7 +281,7 @@ export const updateLeavePolicy = async (req, res) => {
 export const deleteLeavePolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
 
     // Soft delete - just mark as inactive
     const policy = await LeavePolicy.findOneAndUpdate(
@@ -290,7 +303,7 @@ export const deleteLeavePolicy = async (req, res) => {
 
 export const getDepartments = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const departments = await Department.find({ company_id: companyId })
       .populate('hod_id', 'first_name last_name username');
     res.json({ success: true, data: departments });
@@ -301,7 +314,7 @@ export const getDepartments = async (req, res) => {
 
 export const getDesignations = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = resolveCompanyId(req);
     const users = await User.find({ company_id: companyId })
       .select('designation department_id status')
       .populate('department_id', 'department_name');
@@ -325,6 +338,19 @@ export const getDesignations = async (req, res) => {
     });
 
     res.json({ success: true, data: Object.values(desigMap) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const listCompanies = async (req, res) => {
+  try {
+    if (req.user?.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Only admins can list companies' });
+    }
+    const companies = await Company.find({})
+      .select('company_name company_code timezone attendance_config settings status createdAt updatedAt');
+    res.json({ success: true, data: companies });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

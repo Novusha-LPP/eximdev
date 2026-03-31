@@ -54,6 +54,8 @@ const AttendanceReport = ({ isAdmin }) => {
     const [departments, setDepartments] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDept, setSelectedDept] = useState('all');
+    const [companies, setCompanies] = useState([]);
+    const [companyId, setCompanyId] = useState('');
     const [selectedEmp, setSelectedEmp] = useState(null);
     const [empHistory, setEmpHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -76,12 +78,23 @@ const AttendanceReport = ({ isAdmin }) => {
     const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);
     const [browseYear, setBrowseYear] = useState(now.getFullYear());
 
-    useEffect(() => { if (isAdmin) fetchDepts(); }, [isAdmin]);
-    useEffect(() => { fetchReport(); }, [selectedDept, startDate, endDate]);
+    useEffect(() => { if (isAdmin) fetchCompanies(); }, [isAdmin]);
+    useEffect(() => { if (isAdmin) fetchDepts(); }, [isAdmin, companyId]);
+    useEffect(() => { fetchReport(); }, [selectedDept, startDate, endDate, companyId]);
+
+    const fetchCompanies = async () => {
+        try {
+            const res = await masterAPI.getCompanies();
+            const list = res?.data || [];
+            setCompanies(list);
+            if (!companyId && list.length > 0) setCompanyId(list[0]._id);
+        } catch { /* ignore for non-admins */ }
+    };
 
     const fetchDepts = async () => {
         try {
-            const [dr, sr] = await Promise.all([masterAPI.getDepartments(), masterAPI.getShifts()]);
+            const params = companyId ? { company_id: companyId } : {};
+            const [dr, sr] = await Promise.all([masterAPI.getDepartments(params), masterAPI.getShifts(params)]);
             setDepartments(dr?.data || []);
             setShifts(sr?.data || []);
         } catch { }
@@ -90,7 +103,7 @@ const AttendanceReport = ({ isAdmin }) => {
     const fetchReport = async () => {
         try {
             setLoading(true);
-            const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, selectedDept);
+            const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, selectedDept, undefined, companyId);
             setReportData(r?.data || []);
         } catch { toast.error('Failed to load report'); }
         finally { setLoading(false); }
@@ -112,7 +125,7 @@ const AttendanceReport = ({ isAdmin }) => {
         try {
             const startMonth = moment(rangeStart).startOf('month').format('YYYY-MM-DD');
             const endMonth = moment(rangeStart).endOf('month').format('YYYY-MM-DD');
-            const r = await attendanceAPI.getEmployeeFullProfile(emp.id, startMonth, endMonth);
+            const r = await attendanceAPI.getEmployeeFullProfile(emp.id, startMonth, endMonth, companyId);
             setProfileData(r);
             setEmpHistory(r?.attendance || []);
             setJobForm({
@@ -154,7 +167,7 @@ const AttendanceReport = ({ isAdmin }) => {
         try {
             const start = moment([browseYear, browseMonth - 1]).startOf('month').format('YYYY-MM-DD');
             const end = moment([browseYear, browseMonth - 1]).endOf('month').format('YYYY-MM-DD');
-            const r = await attendanceAPI.getEmployeeFullProfile(selectedEmp.id, start, end);
+            const r = await attendanceAPI.getEmployeeFullProfile(selectedEmp.id, start, end, companyId);
             setProfileData(r);
             setEmpHistory(r?.attendance || []);
         } catch {
@@ -302,6 +315,16 @@ const AttendanceReport = ({ isAdmin }) => {
                         <FiSearch size={14} />
                         <input placeholder="Search by name or department" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
+                    {isAdmin && companies.length > 0 && (
+                        <select
+                            className="ar-input-ctrl ar-select"
+                            value={companyId}
+                            onChange={e => setCompanyId(e.target.value)}
+                            style={{ minWidth: 220 }}
+                        >
+                            {companies.map(c => <option key={c._id} value={c._id}>{c.company_name}</option>)}
+                        </select>
+                    )}
 
                     {/* Heatmap Legend */}
                     <div className="ar-legend">

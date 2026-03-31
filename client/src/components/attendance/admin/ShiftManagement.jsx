@@ -11,6 +11,8 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 
 const ShiftManagement = () => {
   const [showForm, setShowForm] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [companyId, setCompanyId] = useState('');
   const [formData, setFormData] = useState({
     shift_name: '', shift_code: '', shift_type: 'fixed', status: 'active',
     start_time: '', end_time: '', is_cross_day: false, night_shift: false,
@@ -43,7 +45,7 @@ const ShiftManagement = () => {
     },
   ];
 
-  const fetchShifts = async (params) => masterAPI.getShifts(params);
+  const fetchShifts = async (params) => masterAPI.getShifts({ ...params, company_id: companyId || undefined });
   const toggleDay = i => {
     const cur = formData.weekly_off_days;
     setFormData({ ...formData, weekly_off_days: cur.includes(i) ? cur.filter(d => d !== i) : [...cur, i] });
@@ -52,7 +54,11 @@ const ShiftManagement = () => {
   const handleAddShift = async () => {
     if (!formData.shift_name || !formData.start_time || !formData.end_time) { toast.error('Fill required fields'); return; }
     try {
-      await masterAPI.createShift({ ...formData, shift_code: formData.shift_code || formData.shift_name.slice(0, 3).toUpperCase() });
+      await masterAPI.createShift({
+        ...formData,
+        shift_code: formData.shift_code || formData.shift_name.slice(0, 3).toUpperCase(),
+        company_id: companyId || undefined
+      });
       toast.success('Shift created'); setShowForm(false);
       setFormData({ shift_name: '', shift_code: '', shift_type: 'fixed', status: 'active', start_time: '', end_time: '', is_cross_day: false, night_shift: false, break_time_minutes: 60, break_included_in_work_hours: false, grace_in_minutes: 15, grace_out_minutes: 0, full_day_hours: 8, half_day_hours: 4, weekly_off_days: [], alternate_saturday_pattern: '' });
       window.location.reload();
@@ -65,6 +71,20 @@ const ShiftManagement = () => {
     catch (err) { toast.error(err.message || 'Failed'); }
   };
 
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await masterAPI.getCompanies();
+        const list = res?.data || [];
+        setCompanies(list);
+        if (!companyId && list.length > 0) setCompanyId(list[0]._id);
+      } catch {
+        // ignore
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="settings-container">
       {/* Hero header */}
@@ -74,6 +94,16 @@ const ShiftManagement = () => {
           <p>Define work timings, grace periods and weekly off patterns</p>
         </div>
         <div className="settings-header-actions">
+          {companies.length > 0 && (
+            <select
+              className="ar-input-ctrl ar-select"
+              value={companyId}
+              onChange={e => setCompanyId(e.target.value)}
+              style={{ minWidth: 220 }}
+            >
+              {companies.map(c => <option key={c._id} value={c._id}>{c.company_name}</option>)}
+            </select>
+          )}
           <button className="btn btn-outline" onClick={() => setShowForm(f => !f)}>
             {showForm ? <><FiMinus size={13} /> Cancel</> : <><FiPlus size={13} /> New Shift</>}
           </button>
@@ -185,6 +215,7 @@ const ShiftManagement = () => {
         fetchData={fetchShifts}
         searchPlaceholder="Search shifts "
         selectable={false}
+        key={companyId || 'default-company'}
       />
     </div>
   );

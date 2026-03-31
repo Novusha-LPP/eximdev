@@ -13,6 +13,7 @@ import ChangePassword from "../components/home/ChangePassword.js";
 import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
 import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
+import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
@@ -231,6 +232,7 @@ function HomePageContent() {
                 <Route path="/assign" element={<Assign />} />
                 <Route path="/admin/branches" element={<BranchManagement />} />
                 <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
+                <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
 
 
                 {/* HOD Management - For Head of Department users */}

@@ -241,6 +241,7 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
+import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
@@ -551,6 +552,7 @@ app.use(dgftRoutes);
 
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
+app.use("/api/admin/job-migration", jobMigrationRouter);
 
 app.use(userAssetsRoutes);
 

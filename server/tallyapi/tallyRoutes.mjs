@@ -62,31 +62,40 @@ router.get("/job-data", authApiKey, async (req, res) => {
  */
 router.get("/next-sequence", authApiKey, async (req, res) => {
   try {
-    const { type, jobNo } = req.query;
+    const { type, jobNo, year } = req.query;
     if (!type || !jobNo) {
       return res.status(400).json({ error: "type (purchase/payment) and jobNo are required query parameters" });
+    }
+
+    // Standardize jobNo: Use structured job_number (canonical reference) if possible
+    let canonicalJobNo = jobNo;
+    if (!jobNo.includes('/')) {
+      const query = { job_no: jobNo };
+      if (year) query.year = year;
+      const job = await JobModel.findOne(query).select('job_number').lean();
+      if (job && job.job_number) canonicalJobNo = job.job_number;
     }
 
     let count = 0;
     let prefix = "";
     if (type === "purchase") {
-      count = await PurchaseBookEntryModel.countDocuments({ jobNo });
+      count = await PurchaseBookEntryModel.countDocuments({ jobNo: canonicalJobNo });
       prefix = "PB";
     } else if (type === "payment") {
-      count = await PaymentRequestModel.countDocuments({ jobNo });
+      count = await PaymentRequestModel.countDocuments({ jobNo: canonicalJobNo });
       prefix = "R1";
     } else {
       return res.status(400).json({ error: "Invalid type. Must be 'purchase' or 'payment'" });
     }
 
     const nextIndex = (count + 1).toString().padStart(2, '0');
-    const fullNo = `${prefix}/${nextIndex}/${jobNo}`;
+    const fullNo = `${prefix}/${nextIndex}/${canonicalJobNo}`;
 
     res.status(200).json({ 
       success: true, 
       nextIndex, 
       fullNo,
-      jobNo 
+      jobNo: canonicalJobNo 
     });
 
   } catch (error) {

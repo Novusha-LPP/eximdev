@@ -29,15 +29,16 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
     useEffect(() => {
         const fetchNextSequence = async () => {
             if (isOpen && initialData) {
-                // Generate request number: R1/01/JOB_NO
-                const jobRefStr = initialData.jobDisplayNumber || jobNumber || '';
+                // Generate request number using canonical job reference (e.g. IMP/24-25/0001)
+                const jobRefStr = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
                 
-                // Fetch next sequence from backend
+                // Fetch next sequence from backend using canonical job identifier
                 let finalRequestNo = `R1/01/${jobRefStr}`;
                 try {
                     const API_KEY = "TALLY_INTEGRATION_KEY";
+                    const yearParam = jobYear ? `&year=${jobYear}` : '';
                     const response = await axios.get(
-                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=payment&jobNo=${jobRefStr}`,
+                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=payment&jobNo=${jobRefStr}${yearParam}`,
                         { headers: { 'x-api-key': API_KEY } }
                     );
                     if (response.data.success && response.data.fullNo) {
@@ -62,7 +63,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                     "Bank Name": account.bankName || '',
                     "IFSC Code": account.ifsc || '',
                     "Status": '',
-                    "Job No": jobRefStr,
+                    "jobNo": jobRefStr,
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || ''
                 }));

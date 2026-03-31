@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './charges.css';
 
-const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, onSuccess }) => {
+const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         "Entry No": '',
@@ -44,14 +44,15 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, onSuccess 
                 const branchIndex = initialData.branchIndex || 0;
                 const branch = party?.branches?.[branchIndex] || {};
                 
-                const jobNum = initialData.jobDisplayNumber || jobNumber || '';
+                const jobNum = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
                 
-                // Fetch next sequence from backend
+                // Fetch next sequence from backend using canonical job reference
                 let finalEntryNo = `PB/01/${jobNum}`;
                 try {
                     const API_KEY = "TALLY_INTEGRATION_KEY";
+                    const yearParam = jobYear ? `&year=${jobYear}` : '';
                     const response = await axios.get(
-                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=purchase&jobNo=${jobNum}`,
+                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=purchase&jobNo=${jobNum}${yearParam}`,
                         { headers: { 'x-api-key': API_KEY } }
                     );
                     if (response.data.success && response.data.fullNo) {

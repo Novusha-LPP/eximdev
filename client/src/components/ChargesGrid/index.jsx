@@ -106,14 +106,12 @@ const ChargesGrid = ({
 
   const handleAttachFiles = async (urls) => {
     if (fileModalCharge) {
-      const { charge, tab } = fileModalCharge;
+      const { charge } = fileModalCharge;
       const updateData = {};
       
-      if (tab === 'revenue' || tab === 'particulars') {
-        updateData.revenue = { ...(charge.revenue || {}), url: urls };
-      } else if (tab === 'cost') {
-        updateData.cost = { ...(charge.cost || {}), url: urls };
-      }
+      // Synchronize 'url' (attachments) between revenue and cost
+      updateData.revenue = { ...(charge.revenue || {}), url: urls };
+      updateData.cost = { ...(charge.cost || {}), url: urls };
       
       await updateCharge(charge._id, updateData);
       setFileModalCharge(null);
@@ -122,11 +120,9 @@ const ChargesGrid = ({
 
   const handleRemoveAttachment = async (charge, tab, newUrls) => {
     const updateData = {};
-    if (tab === 'revenue' || tab === 'particulars') {
-      updateData.revenue = { ...(charge.revenue || {}), url: newUrls };
-    } else if (tab === 'cost') {
-      updateData.cost = { ...(charge.cost || {}), url: newUrls };
-    }
+    // Synchronize 'url' (attachments) between revenue and cost
+    updateData.revenue = { ...(charge.revenue || {}), url: newUrls };
+    updateData.cost = { ...(charge.cost || {}), url: newUrls };
     await updateCharge(charge._id, updateData);
   };
 

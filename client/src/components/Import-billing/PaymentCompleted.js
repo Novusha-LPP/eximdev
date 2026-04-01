@@ -25,6 +25,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext.js";
@@ -698,6 +700,38 @@ function PaymentCompleted() {
                     </Grid>
                   </Box>
 
+                  {/* Charge Grid Attachments Section (Moved Up) */}
+                  {selectedPaymentRequest.attachments && selectedPaymentRequest.attachments.length > 0 && (
+                    <Box sx={{ mb: 4, p: 2, borderRadius: 2, backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9' }}>
+                      <Typography variant="overline" color="success.main" fontWeight="bold" mb={1} display="block">
+                        Attached Documents from Charge Grid
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
+                        {selectedPaymentRequest.attachments.map((url, index) => (
+                          <Button
+                            key={index}
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            startIcon={<AttachFileIcon />}
+                            endIcon={<OpenInNewIcon />}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ 
+                              textTransform: 'none', 
+                              borderRadius: '20px',
+                              boxShadow: 'none',
+                              '&:hover': { boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }
+                            }}
+                          >
+                            View Attachment {selectedPaymentRequest.attachments.length > 1 ? index + 1 : ""}
+                          </Button>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
                   {/* Financial Section */}
                   <Box sx={{ mb: 4, p: 3, backgroundColor: '#f1f3f4', borderRadius: 2 }}>
                     <Grid container spacing={2} alignItems="center">
@@ -765,6 +799,7 @@ function PaymentCompleted() {
                       </Grid>
                     </Grid>
                   </Box>
+
                 </Box>
               </Paper>
             </Box>

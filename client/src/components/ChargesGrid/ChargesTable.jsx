@@ -171,7 +171,7 @@ const ChargesTable = ({
                     <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.remark || ''}>
                       {ch.remark || ''}
                     </td>
-                    {renderAttachmentCell(ch, ch.revenue?.url)}
+                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
                   </>
                 )}
 
@@ -185,7 +185,7 @@ const ChargesTable = ({
                     <td className="number">{formatNumber(ch.revenue?.rate)}</td>
                     <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.revenue?.amount)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#0a5080' }}>{formatNumber(ch.revenue?.amountINR)}</td>
-                    {renderAttachmentCell(ch, ch.revenue?.url)}
+                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
                   </>
                 )}
 
@@ -220,7 +220,7 @@ const ChargesTable = ({
                         <span style={{ fontSize: '10px', color: '#ccc', fontStyle: 'italic' }}>No PR</span>
                       )}
                     </td>
-                    {renderAttachmentCell(ch, ch.cost?.url)}
+                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
                   </>
                 )}
               </tr>

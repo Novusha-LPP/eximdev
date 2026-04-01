@@ -144,6 +144,13 @@ const EditChargeModal = ({
       updated[index][section] = updated[index][section] || {};
       updated[index][section][field] = value;
       
+      // Synchronize 'url' (attachments) between revenue and cost
+      if (field === 'url') {
+        const otherSection = section === 'revenue' ? 'cost' : 'revenue';
+        updated[index][otherSection] = updated[index][otherSection] || {};
+        updated[index][otherSection][field] = value;
+      }
+      
       // Auto-populate TDS if selecting a shipping line
       if (section === 'cost' && field === 'partyName') {
         const matchedSL = shippingLines.find(sl => sl.name?.toUpperCase() === value?.toUpperCase());
@@ -547,25 +554,31 @@ const EditChargeModal = ({
                             </div>
                             <div className="ep-desc-row">
                                 <span className="ep-label">Attachment</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                    {row.cost?.url ? (
-                                        <Chip
-                                            icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
-                                            label={extractFileName(row.cost.url)}
-                                            size="small"
-                                            onDelete={() => handleFieldChange(i, 'url', null, 'cost')}
-                                            component="a"
-                                            href={row.cost.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            clickable
-                                            sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
-                                        />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+                                    {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? (
+                                        row.cost.url.map((url, urlIdx) => (
+                                            <Chip
+                                                key={urlIdx}
+                                                icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
+                                                label={extractFileName(url)}
+                                                size="small"
+                                                onDelete={() => {
+                                                    const newUrls = row.cost.url.filter((_, i) => i !== urlIdx);
+                                                    handleFieldChange(i, 'url', newUrls, 'cost');
+                                                }}
+                                                component="a"
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                clickable
+                                                sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
+                                            />
+                                        ))
                                     ) : (
-                                        <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No file attached</span>
+                                        <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
                                     )}
                                     <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
-                                        {row.cost?.url ? 'Change' : 'Upload File'}
+                                        {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? 'Edit Files' : 'Upload Files'}
                                     </button>
                                 </div>
                             </div>

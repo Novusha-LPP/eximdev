@@ -946,7 +946,65 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       return res.status(404).json({ message: "Payment Request not found" });
     }
 
-    res.status(200).json(request);
+    // Fetch associated charge attachments from the Job record
+    let attachments = [];
+    let jobRef = request.jobRef;
+    let chargeRef = request.chargeRef;
+
+    // Fallback: If references are missing but jobNo is present
+    if (!jobRef && request.jobNo) {
+      try {
+        // Try exact match first, then partial match if needed
+        let job = await JobModel.findOne({ 
+          $or: [{ job_number: request.jobNo }, { job_no: request.jobNo }] 
+        }).select('_id').lean();
+        
+        if (!job) {
+          // Try to find by parts of the job number if it contains slashes (e.g. 01800)
+          const parts = request.jobNo.split('/');
+          const shortNo = parts.find(p => p.length >= 4 && !isNaN(p));
+          if (shortNo) {
+             job = await JobModel.findOne({ job_no: shortNo }).select('_id').lean();
+          }
+        }
+        
+        if (job) jobRef = job._id;
+      } catch (err) {
+        console.error("Error finding job by jobNo fallback:", err);
+      }
+    }
+
+    if (jobRef) {
+      try {
+        const job = await JobModel.findById(jobRef).select('charges').lean();
+        if (job && job.charges) {
+          let linkedCharge;
+          if (chargeRef) {
+            linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
+          }
+          
+          // Further fallback: Find by party name or description if chargeRef is missing or not found
+          if (!linkedCharge) {
+            linkedCharge = job.charges.find(c => 
+              (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
+              (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
+            );
+          }
+
+          if (linkedCharge) {
+            const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
+            const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
+            
+            // Combine and deduplicate
+            attachments = [...new Set([...revUrls, ...costUrls])];
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching linked charge attachments:", err);
+      }
+    }
+
+    res.status(200).json({ ...request, attachments });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
     res.status(500).json({ message: "Internal server error" });

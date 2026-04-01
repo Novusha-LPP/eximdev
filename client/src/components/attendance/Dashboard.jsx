@@ -39,7 +39,6 @@ const fmtLate = mins => {
 
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
-const DEPT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#14b8a6'];
 
 const getHolidayEmoji = (name = '', type = '') => {
   const n = (name + type).toLowerCase();
@@ -258,7 +257,6 @@ export default function Dashboard() {
 
   /* Management data */
   const stats = mgmtData?.stats || mgmtData?.summary || dash?.mgmtSnapshot || {};
-  const departments = mgmtData?.departments || [];
   const pendingLeaves = mgmtData?.pendingLeaves || [];
   const pendingRegs = mgmtData?.pendingRegularization || [];
   const teamCalendar = mgmtData?.teamCalendar || [];
@@ -488,7 +486,7 @@ export default function Dashboard() {
                   <div className="absent-emp-av">{(emp.name || '?')[0].toUpperCase()}</div>
                   <div className="absent-emp-info">
                     <div className="absent-emp-name">{emp.name}</div>
-                    <div className="absent-emp-dept">{emp.department || 'Team Member'}</div>
+                    <div className="absent-emp-dept">Team Member</div>
                   </div>
                   <span className={`absent-emp-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
                     {emp.status === 'leave' ? 'On Leave' : 'Absent'}
@@ -645,45 +643,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* -- ADMIN: Department performance -- */}
-          {isAdmin && departments.length > 0 && (
-            <div className="card">
-              <div className="card-head">
-                <span className="card-title">Department Performance</span>
-                <span className="card-badge badge-gray">{departments.length} depts</span>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="dept-table">
-                  <thead><tr><th>Department</th><th>Total</th><th>Present</th><th>Absent</th><th style={{ minWidth: 160 }}>Rate</th></tr></thead>
-                  <tbody>
-                    {departments.map((dept, i) => {
-                      const r = dept.rate ?? 0;
-                      const fillColor = r >= 90 ? '#10b981' : r >= 75 ? '#f59e0b' : '#ef4444';
-                      return (
-                        <tr key={i}>
-                          <td>
-                            <div className="dept-name-wrap">
-                              <div className="dept-dot" style={{ background: DEPT_COLORS[i % DEPT_COLORS.length] }} />
-                              <span className="dept-name">{dept.name}</span>
-                            </div>
-                          </td>
-                          <td className="dept-mono">{dept.total}</td>
-                          <td style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: '.75rem', fontWeight: 600, color: '#065f46' }}>{dept.present}</td>
-                          <td style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: '.75rem', fontWeight: 600, color: '#991b1b' }}>{dept.absent}</td>
-                          <td>
-                            <div className="dept-rate-wrap">
-                              <span className="dept-pct">{r}%</span>
-                              <div className="dept-bar"><div className="dept-fill" style={{ width: `${r}%`, background: fillColor }} /></div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* -- RIGHT SIDEBAR -- */}

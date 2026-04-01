@@ -19,7 +19,6 @@ const fmtLate = mins => {
   const m = parseInt(mins || 0);
   return m < 60 ? `+${m}m` : `+${Math.floor(m / 60)}h ${m % 60}m`;
 };
-const DEPT_COLORS = ['#0c9e6e', '#1a56db', '#c87f0a', '#6c3fc8', '#d63031', '#0891b2', '#047857', '#9333ea'];
 
 const HOLIDAY_EMOJIS = {
   holi: '🎨', diwali: '🪔', christmas: '🎄',
@@ -49,7 +48,7 @@ const AdminDashboard = () => {
   const [companyId, setCompanyId] = useState('');
   const [data, setData] = useState({
     stats: { total: 0, present: 0, absent: 0, onLeave: 0, late: 0, trends: {} },
-    departments: [], absentToday: [], lateToday: [],
+    absentToday: [], lateToday: [],
     pendingLeaves: [], pendingRegularization: [],
   });
 
@@ -127,7 +126,7 @@ const AdminDashboard = () => {
     <div className="loading-state"><div className="spinner" /><p>Loading dashboard...</p></div>
   );
 
-  const { stats = {}, departments = [], absentToday = [], lateToday = [],
+  const { stats = {}, absentToday = [], lateToday = [],
     pendingLeaves = [], pendingRegularization = [] } = data;
 
   const attendanceRate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
@@ -253,7 +252,7 @@ const AdminDashboard = () => {
           </div>
           <div className="stat-tile-value">{stats.total ?? 0}</div>
           <div className="stat-tile-label">Total Employees</div>
-          <div className="stat-tile-sub">across all departments</div>
+          <div className="stat-tile-sub">across all teams</div>
         </div>
       </div>
 
@@ -283,7 +282,7 @@ const AdminDashboard = () => {
                   <div className="absent-avatar">{(emp.name || '?')[0].toUpperCase()}</div>
                   <div className="absent-info">
                     <div className="absent-name">{emp.name}</div>
-                    <div className="absent-dept">{emp.department || 'Team Member'}</div>
+                    <div className="absent-dept">Team Member</div>
                   </div>
                   <span className={`absent-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
                     {emp.status === 'leave' ? 'On Leave' : 'Absent'}
@@ -324,72 +323,6 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Department Performance */}
-          <div className="db-card">
-            <div className="db-card-header">
-              <span className="db-card-title">
-                <FiGrid size={13} className="db-card-title-icon" />
-                Department Performance
-              </span>
-              {departments.length > 0 && (
-                <span className="db-card-badge dbb-neutral">{departments.length} depts</span>
-              )}
-            </div>
-            {departments.length > 0 ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="dept-table">
-                  <thead>
-                    <tr>
-                      <th>Department</th>
-                      <th>Total</th>
-                      <th>Present</th>
-                      <th>Absent</th>
-                      <th style={{ minWidth: 160 }}>Attendance Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {departments.map((dept, i) => {
-                      const r = dept.rate ?? 0;
-                      const barColor = r >= 90 ? '#0c9e6e' : r >= 75 ? '#c87f0a' : '#d63031';
-                      const chipStyle = r >= 90
-                        ? { background: '#eaf7f2', color: '#0c9e6e', border: '1px solid #b6e8d6' }
-                        : r >= 75
-                          ? { background: '#fdf6e8', color: '#c87f0a', border: '1px solid #fde5aa' }
-                          : { background: '#fdf2f2', color: '#d63031', border: '1px solid #f8c4c4' };
-                      return (
-                        <tr key={i}>
-                          <td>
-                            <div className="dept-name-cell">
-                              <div className="dept-color-dot" style={{ background: DEPT_COLORS[i % DEPT_COLORS.length] }} />
-                              <span className="dept-name-text">{dept.name}</span>
-                            </div>
-                          </td>
-                          <td className="td-mono">{dept.total}</td>
-                          <td className="td-green">{dept.present}</td>
-                          <td className="td-red">{dept.absent}</td>
-                          <td>
-                            <div className="dept-rate-cell">
-                              <span className="dept-rate-pct">{r}%</span>
-                              <div className="dept-bar">
-                                <div className="dept-bar-fill" style={{ width: `${r}%`, background: barColor }} />
-                              </div>
-                              <span className="dept-rate-chip" style={chipStyle}>{r >= 90 ? 'Good' : r >= 75 ? 'Fair' : 'Low'}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="db-empty">
-                <FiGrid size={30} style={{ color: '#e4eaf2' }} />
-                <p>No department data yet</p>
-                <span>Assign employees to departments to see stats here.</span>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* -- RIGHT SIDEBAR -- */}

@@ -106,7 +106,7 @@ const PayrollExport = () => {
           <p>Transparent salary calculations, LOP tracking, and audit-ready exports.</p>
         </div>
         <div className="settings-header-actions">
-          <button className="btn btn-outline" onClick={() => navigate('/admin-dashboard')}>
+          <button className="btn btn-outline" onClick={() => navigate('/attendance/admin')}>
             <FiArrowLeft size={18} />
             Back to Dashboard
           </button>

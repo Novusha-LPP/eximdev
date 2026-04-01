@@ -40,9 +40,7 @@ const AttendanceManagement = () => {
     const [mode, setMode] = useState('daily');
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState([]);
-    const [departments, setDepartments] = useState([]);
     const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, late: 0 });
-    const [selectedDept, setSelectedDept] = useState('all');
     const [designations, setDesignations] = useState([]);
     const [selectedDesignation, setSelectedDesignation] = useState('all');
     const [search, setSearch] = useState('');
@@ -54,7 +52,7 @@ const AttendanceManagement = () => {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => { fetchDesignations(); }, []);
-    useEffect(() => { fetchData(); }, [mode, startDate, endDate, selectedDept, selectedDesignation]);
+    useEffect(() => { fetchData(); }, [mode, startDate, endDate, selectedDesignation]);
 
     const fetchDesignations = async () => {
         try { const r = await masterAPI.getDesignations(); setDesignations(r?.data || []); } catch { }
@@ -66,7 +64,6 @@ const AttendanceManagement = () => {
             if (mode === 'daily') {
                 const r = await attendanceAPI.getHistory({
                     startDate, endDate,
-                    department_id: selectedDept !== 'all' ? selectedDept : undefined,
                     designation: selectedDesignation !== 'all' ? selectedDesignation : undefined,
                     limit: 500,
                 });
@@ -79,7 +76,7 @@ const AttendanceManagement = () => {
                     late: recs.filter(x => x.status === 'late' || x.is_late).length,
                 });
             } else {
-                const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, selectedDept, selectedDesignation);
+                const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, selectedDesignation);
                 const recs = r?.data || [];
                 setData(recs);
                 setStats({
@@ -138,10 +135,10 @@ const AttendanceManagement = () => {
     const exportCSV = () => {
         const h = mode === 'daily'
             ? ['Employee', 'Date', 'Status', 'In', 'Out', 'Hours']
-            : ['Employee', 'Dept', 'Present', 'Absent', 'Late', 'Avg Hours'];
+            : ['Employee', 'Present', 'Absent', 'Late', 'Avg Hours'];
         const rows = data.map(d => mode === 'daily'
             ? [`${d.employee_id?.first_name} ${d.employee_id?.last_name}`, d.attendance_date, d.status, d.first_in, d.last_out, d.total_work_hours]
-            : [d.name, d.department, d.present, d.absent, d.late, d.avgHours]);
+            : [d.name, d.present, d.absent, d.late, d.avgHours]);
         const csv = [h, ...rows].map(r => r.join(',')).join('\n');
         Object.assign(document.createElement('a'), {
             href: 'data:text/csv,' + encodeURIComponent(csv),
@@ -220,10 +217,6 @@ const AttendanceManagement = () => {
                             <span>?</span>
                             <input type="date" className="am-input-ctrl" value={endDate} onChange={e => setEndDate(e.target.value)} />
                         </div>
-                        <select className="am-input-ctrl am-select" value={selectedDept} onChange={e => setSelectedDept(e.target.value)}>
-                            <option value="all">All Departments</option>
-                            {departments.map(d => <option key={d._id} value={d._id}>{d.department_name}</option>)}
-                        </select>
                         <select className="am-input-ctrl am-select" value={selectedDesignation} onChange={e => setSelectedDesignation(e.target.value)}>
                             <option value="all">All Positions</option>
                             {[...new Set(designations.map(d => d.designation_name))].sort().map(d => (
@@ -248,7 +241,7 @@ const AttendanceManagement = () => {
                                         {mode === 'daily' ? (
                                             <><th>Date</th><th>Status</th><th>Punch Timeline</th><th>Hours</th><th style={{ textAlign: 'right' }}>Action</th></>
                                         ) : (
-                                            <><th>Department</th><th style={{ textAlign: 'center' }}>Present</th><th style={{ textAlign: 'center' }}>Absent</th><th style={{ textAlign: 'center' }}>Late</th><th>Avg Hours</th><th style={{ textAlign: 'right' }}>Audit</th></>
+                                            <><th style={{ textAlign: 'center' }}>Present</th><th style={{ textAlign: 'center' }}>Absent</th><th style={{ textAlign: 'center' }}>Late</th><th>Avg Hours</th><th style={{ textAlign: 'right' }}>Audit</th></>
                                         )}
                                     </tr>
                                 </thead>
@@ -269,9 +262,9 @@ const AttendanceManagement = () => {
                                                                 {mode === 'daily' ? `${row.employee_id?.first_name} ${row.employee_id?.last_name}` : row.name}
                                                             </div>
                                                             <div className="am-emp-sub">
-                                                                {mode === 'daily' 
-                                                                    ? `${row.employee_id?.employee_code || '---'}   ${row.employee_id?.designation || 'Staff'}` 
-                                                                    : `${row.department || 'General'}   ${row.designation || 'Staff'}`}
+                                                                {mode === 'daily'
+                                                                    ? `${row.employee_id?.employee_code || '---'}   ${row.employee_id?.designation || 'Staff'}`
+                                                                    : `${row.designation || 'Staff'}`}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -297,7 +290,6 @@ const AttendanceManagement = () => {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <td><span className="am-dept-pill">{row.department}</span></td>
                                                         <td style={{ textAlign: 'center' }}><span className="am-count-pill am-pill-green">{row.present}</span></td>
                                                         <td style={{ textAlign: 'center' }}><span className="am-count-pill am-pill-red">{row.absent}</span></td>
                                                         <td style={{ textAlign: 'center' }}><span className="am-count-pill am-pill-amber">{row.late}</span></td>

@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { UserContext } from '../../contexts/UserContext';
 import React from 'react';
-import { FiMail, FiUser, FiBriefcase, FiShield, FiPhone, FiMapPin } from 'react-icons/fi';
+import { FiMail, FiUser, FiShield, FiPhone, FiMapPin } from 'react-icons/fi';
 import { getInitials } from './utils/helpers';
 import './Profile.css';
 
@@ -10,15 +10,13 @@ const Profile = () => {
   const name       = user?.name       || 'User Name';
   const email      = user?.email      || 'email@example.com';
   const role       = user?.role       || 'Employee';
-  const department = user?.department?.name || 'General';
-  const phone      = user?.phone      || '—';
-  const location   = user?.location   || '—';
+  const phone      = user?.phone      || 'ï¿½';
+  const location   = user?.location   || 'ï¿½';
   const avatar     = user?.avatar;
 
   const INFO = [
     { icon: FiUser,     label: 'Full Name',   value: name       },
     { icon: FiMail,     label: 'Email',        value: email      },
-    { icon: FiBriefcase,label: 'Department',   value: department },
     { icon: FiShield,   label: 'Role',         value: role       },
     { icon: FiPhone,    label: 'Phone',        value: phone      },
     { icon: FiMapPin,   label: 'Location',     value: location   },
@@ -32,7 +30,7 @@ const Profile = () => {
       </div>
 
       <div className="profile-layout">
-        {/* Left — avatar card */}
+        {/* Left ï¿½ avatar card */}
         <div className="profile-card-main">
           <div className="card-top-bg" />
           <div className="card-content">
@@ -48,10 +46,6 @@ const Profile = () => {
             </div>
             <div className="user-stats">
               <div className="stat-item">
-                <span className="stat-val">{department}</span>
-                <span className="stat-lbl">Department</span>
-              </div>
-              <div className="stat-item">
                 <span className="stat-val">{role}</span>
                 <span className="stat-lbl">Access Level</span>
               </div>
@@ -59,7 +53,7 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Right — details */}
+        {/* Right ï¿½ details */}
         <div className="profile-details-card">
           <h3>Personal Information</h3>
           <div className="info-grid">

@@ -84,6 +84,18 @@ const attendanceAPI = {
   },
 
   /**
+   * Cancel a pending regularization request
+   */
+  cancelRegularization: async (id) => {
+    try {
+      const response = await apiClient.post(`/attendance/regularization/cancel/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to cancel regularization request' };
+    }
+  },
+
+  /**
    * Get HOD Dashboard Data (also used for HOD leave approvals)
    * Admins can pass ?teamId to filter
    */

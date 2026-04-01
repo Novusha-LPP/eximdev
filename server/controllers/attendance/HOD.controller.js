@@ -1,6 +1,5 @@
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
-import Department from '../../model/attendance/Department.js';
 import Holiday from '../../model/attendance/Holiday.js';
 import moment from 'moment';
 import fs from 'fs';
@@ -53,10 +52,9 @@ export const getDashboard = async (req, res) => {
                     debugLog.push(`Admin filtered by teamId ${teamId}: Team not found or empty`);
                 }
             } else {
-                const userQuery = { 
-                    company_id: companyId, 
-                    isActive: true,
-                    role: { $in: ['EMPLOYEE', 'HOD', 'ADMIN'] }
+                const userQuery = {
+                    company_id: companyId,
+                    isActive: true
                 };
                 employees = await User.find(userQuery).select('_id first_name last_name username email role department_id');
                 debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
@@ -133,9 +131,11 @@ export const getDashboard = async (req, res) => {
         debugLog.push(`Searching for attendance on: ${dateStr} for ${employeeIds.length} employees`);
 
         // 2. Get attendance records for the date
+        const dayStart = targetDate.clone().startOf('day').toDate();
+        const dayEnd = targetDate.clone().endOf('day').toDate();
         const attendanceRecords = await AttendanceRecord.find({
             employee_id: { $in: employeeIds },
-            attendance_date: dateStr
+            attendance_date: { $gte: dayStart, $lte: dayEnd }
         }).populate('employee_id', 'first_name last_name username');
 
         debugLog.push(`Found attendance records: ${attendanceRecords.length}`);
@@ -263,12 +263,7 @@ export const getDashboard = async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(10);
 
-        // 7. Get department info
-        const hodDeptId = hod.department_id?._id || hod.department_id;
-        let department = null;
-        if (hodDeptId) {
-            department = await Department.findById(hodDeptId).select('department_name');
-        }
+        // Department data is not used in attendance reporting.
 
         // 8. Build Team Calendar (7 days view)
         // Get current week's date range
@@ -699,10 +694,9 @@ export const getDepartmentAttendanceReport = async (req, res) => {
 
         if (hod.role === 'ADMIN') {
             // Admin sees all employees
-            const userQuery = { 
-                company_id: companyId, 
-                isActive: true,
-                role: { $in: ['EMPLOYEE', 'HOD', 'ADMIN'] }
+            const userQuery = {
+                company_id: companyId,
+                isActive: true
             };
             employees = await User.find(userQuery).select('_id first_name last_name username');
         } else {
@@ -879,10 +873,17 @@ export const getAdminLeaveRequests = async (req, res) => {
         const leaveQuery = { company_id: companyId };
         if (employeeFilter) leaveQuery.employee_id = employeeFilter;
 
-        // Fetch all teams for dropdown
-        const teams = await TeamModel.find({ isActive: { $ne: false } })
+        // Fetch all teams for dropdown (scoped to company by member user IDs)
+        const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
+        const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
+
+        const allTeams = await TeamModel.find({ isActive: { $ne: false } })
             .select('_id name hodUsername members')
             .lean();
+
+        const teams = allTeams.filter(team =>
+            team.members?.some(m => m.userId && companyUserIds.has(m.userId.toString()))
+        );
 
         // Fetch pending leaves
         const pendingLeaves = await LeaveApplication.find({

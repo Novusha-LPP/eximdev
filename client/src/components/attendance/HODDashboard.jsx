@@ -109,7 +109,7 @@ const HODDashboard = () => {
       {/* HEADER */}
       <div className="hod-header">
         <div className="hod-header-left">
-          <h1>📊 Department Overview</h1>
+          <h1>📊 Team Overview</h1>
           <p>Real-time attendance • Approvals • Analytics</p>
         </div>
         <div className="hod-header-right">

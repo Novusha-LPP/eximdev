@@ -42,8 +42,13 @@ const Regularization = () => {
 
   const cancel = async (id) => {
     if (!window.confirm('Cancel this request?')) return;
-    try { toast.success('Request cancelled'); load(); }
-    catch { toast.error('Failed to cancel'); }
+    try {
+      await attendanceAPI.cancelRegularization(id);
+      toast.success('Request cancelled');
+      load();
+    } catch {
+      toast.error('Failed to cancel');
+    }
   };
 
   return (

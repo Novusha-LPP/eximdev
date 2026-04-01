@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiClock, FiFileText, FiUsers, FiShield, FiBriefcase, FiPlus } from 'react-icons/fi';
+import { FiClock, FiFileText, FiShield, FiBriefcase, FiPlus } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
@@ -10,7 +10,6 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('company_info');
-  const [departments, setDepartments] = useState([]);
   const [settings, setSettings] = useState({
     company_name: '', address: { line1: '', city: '' },
     timezone: 'Asia/Kolkata', financial_year_start: 'April',
@@ -56,7 +55,6 @@ const Settings = () => {
     { key: 'company_info', icon: <FiBriefcase size={13} />, label: 'Company' },
     { key: 'attendance_policy', icon: <FiClock size={13} />, label: 'Attendance' },
     { key: 'leave_policy', icon: <FiFileText size={13} />, label: 'Leave Policy' },
-    { key: 'departments', icon: <FiUsers size={13} />, label: 'Departments' },
     { key: 'security_rules', icon: <FiShield size={13} />, label: 'Security' },
   ];
 
@@ -147,28 +145,6 @@ const Settings = () => {
         </div>
       )}
 
-      {/* -- Departments -- */}
-      {activeTab === 'departments' && (
-        <div className="card ui-card animation-fade-in">
-          <h3><FiUsers size={16} /> Departments</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table">
-              <thead>
-                <tr><th>Department Name</th><th>HOD</th><th>Employees</th></tr>
-              </thead>
-              <tbody>
-                {departments.length > 0 ? departments.map(dept => (
-                  <tr key={dept._id}>
-                    <td style={{ fontWeight: 600 }}>{dept.department_name}</td>
-                    <td>{dept.hod_id ? `${dept.hod_id.first_name || ''} ${dept.hod_id.last_name || ''}`.trim() : ' '}</td>
-                    <td>{dept.employee_count}</td>
-                  </tr>
-                )) : <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--as-t4)', padding: '2.5rem' }}>No departments found</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* -- Security Rules -- */}
       {activeTab === 'security_rules' && (

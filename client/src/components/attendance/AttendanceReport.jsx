@@ -52,9 +52,7 @@ const AttendanceReport = ({ isAdmin }) => {
     const location = useLocation();
     const [loading, setLoading] = useState(true);
     const [reportData, setReportData] = useState([]);
-    const [departments, setDepartments] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDept, setSelectedDept] = useState('all');
     const [companies, setCompanies] = useState([]);
     const [companyId, setCompanyId] = useState('');
     const [companiesLoaded, setCompaniesLoaded] = useState(false); // guard: wait until company is resolved
@@ -162,7 +160,6 @@ const AttendanceReport = ({ isAdmin }) => {
                 last_name: r.employee.last_name,
                 email: r.employee.email,
                 employee_code: r.employee.employee_code,
-                department_id: r.employee.department_id?._id || r.employee.department_id,
                 shift_id: r.employee.shift_id?._id || r.employee.shift_id,
                 role: r.employee.role,
                 isActive: r.employee.isActive
@@ -276,8 +273,8 @@ const AttendanceReport = ({ isAdmin }) => {
     };
 
     const exportCSV = () => {
-        const cols = ['Employee', 'Department', 'Present', 'Absent', 'Late', 'Early In', 'Early Out', 'Leaves', 'Avg Hours'];
-        const rows = filtered.map(e => [e.name, e.department, e.present, e.absent, e.late, e.earlyIn || 0, e.earlyOut || 0, e.leaves, e.avgHours]);
+        const cols = ['Employee', 'Present', 'Absent', 'Late', 'Early In', 'Early Out', 'Leaves', 'Avg Hours'];
+        const rows = filtered.map(e => [e.name, e.present, e.absent, e.late, e.earlyIn || 0, e.earlyOut || 0, e.leaves, e.avgHours]);
         const csv = [cols, ...rows].map(r => r.join(',')).join('\n');
         Object.assign(document.createElement('a'), {
             href: 'data:text/csv,' + encodeURIComponent(csv),
@@ -319,7 +316,7 @@ const AttendanceReport = ({ isAdmin }) => {
                         <div className="ar-sum-icon" style={{ background: '#e0f2fe', color: '#0369a1' }}><FiUsers size={16} /></div>
                     </div>
                     <div className="ar-sum-val">{totalEmp}</div>
-                    <span className="ar-sum-sub">Active members in {selectedDept === 'all' ? 'Scope' : departments.find(d => d._id === selectedDept)?.department_name}</span>
+                    <span className="ar-sum-sub">Active members in scope</span>
                 </div>
 
                 <div className="ar-sum-card">
@@ -520,7 +517,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                 <div className="ar-hub-avatar">{selectedEmp?.name?.[0]}</div>
                                 <div className="ar-hub-meta">
                                     <h2>{selectedEmp?.name}</h2>
-                                    <span className="ar-hub-dept">{selectedEmp?.department}</span>
+                                    <span className="ar-hub-dept">Team Member</span>
                                 </div>
                             </div>
                             <button className="ar-drawer-close" onClick={() => setSelectedEmp(null)} title="Close Drawer"><FiX size={15} /></button>
@@ -723,13 +720,6 @@ const AttendanceReport = ({ isAdmin }) => {
                                             <div className="ar-job-fields">
                                                 <div className="ar-field-group"><label>Official Name</label><div className="ar-field-val">{selectedEmp?.name}</div></div>
                                                 <div className="ar-field-group"><label>Employee Code</label><div className="ar-field-val">{jobForm.employee_code}</div></div>
-                                                <div className="ar-field-group"><label>Department</label>
-                                                    {isAdmin ? (
-                                                        <select className="ar-select-mini" value={jobForm.department_id} onChange={e => setJobForm({ ...jobForm, department_id: e.target.value })}>
-                                                            {departments.map(d => <option key={d._id} value={d._id}>{d.department_name}</option>)}
-                                                        </select>
-                                                    ) : <div className="ar-field-val">{selectedEmp?.department || 'General'}</div>}
-                                                </div>
                                                 <div className="ar-field-group"><label>Work Shift</label>
                                                     <select className="ar-select-mini" value={jobForm.shift_id} onChange={e => setJobForm({ ...jobForm, shift_id: e.target.value })}>
                                                         {shifts.map(s => <option key={s._id} value={s._id}>{s.shift_name}</option>)}

@@ -17,6 +17,7 @@ router.get('/dashboard', attendanceAuthBridge, attendanceCtrl.getDashboardData);
 router.get('/history', attendanceAuthBridge, attendanceCtrl.getHistory);
 router.get('/regularizations', attendanceAuthBridge, attendanceCtrl.getRegularizations);
 router.post('/regularization', attendanceAuthBridge, attendanceCtrl.requestRegularization);
+router.post('/regularization/cancel/:id', attendanceAuthBridge, attendanceCtrl.cancelRegularization);
 
 // HOD / Manager Routes
 router.get('/HODDashboard', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDashboard);

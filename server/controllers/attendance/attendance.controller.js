@@ -66,6 +66,24 @@ const isHODauthorized = async (hodId, employeeId) => {
     return authorized;
 };
 
+const getHodTeamMemberIds = async (hodId) => {
+    const hodTeams = await TeamModel.find({
+        hodId: mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId),
+        isActive: { $ne: false }
+    });
+
+    const memberIds = new Set();
+    hodTeams.forEach(team => {
+        if (team.members && Array.isArray(team.members)) {
+            team.members.forEach(member => {
+                if (member.userId) memberIds.add(member.userId.toString());
+            });
+        }
+    });
+
+    return Array.from(memberIds).map(id => new mongoose.Types.ObjectId(id));
+};
+
 import QueryBuilder from '../../services/attendance/QueryBuilder.js';
 import PayrollLock from '../../model/attendance/PayrollLock.js';
 
@@ -236,6 +254,31 @@ export const requestRegularization = async (req, res) => {
         res.json({ message: 'Regularization request submitted successfully' });
     } catch (err) {
         console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+export const cancelRegularization = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?._id;
+
+        const request = await RegularizationRequest.findOne({
+            _id: id,
+            employee_id: userId,
+            status: 'pending'
+        });
+
+        if (!request) {
+            return res.status(404).json({ message: 'Pending request not found' });
+        }
+
+        await request.deleteOne();
+        await logActivity(req, 'ATTENDANCE', 'CANCEL_REGULARIZATION', `Cancelled regularization ${id}`, { request_id: id });
+
+        res.json({ success: true, message: 'Regularization request cancelled' });
+    } catch (err) {
+        console.error('Cancel Regularization Error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -654,14 +697,19 @@ export const getHistory = async (req, res) => {
         if (req.user.role === 'EMPLOYEE') {
             baseFilters.employee_id = req.user._id?._id || req.user._id;
         } else if (req.user.role === 'HOD') {
-            baseFilters.department_id = req.user.department_id;
+            const teamMemberIds = await getHodTeamMemberIds(req.user._id);
+            if (teamMemberIds.length === 0) {
+                return res.json({ data: [], total: 0 });
+            }
+            baseFilters.employee_id = { $in: teamMemberIds };
         }
 
-        const { department_id, designation } = req.query;
-        if (department_id || designation) {
-            const userSubQuery = { company_id: companyId };
-            if (department_id && department_id !== 'all') userSubQuery.department_id = department_id;
-            if (designation && designation !== 'all') userSubQuery.designation = designation;
+        const { designation } = req.query;
+        if (designation && designation !== 'all') {
+            const userSubQuery = { company_id: companyId, designation };
+            if (baseFilters.employee_id?.$in?.length) {
+                userSubQuery._id = { $in: baseFilters.employee_id.$in };
+            }
 
             const matchedUsers = await User.find(userSubQuery).select('_id');
             baseFilters.employee_id = { $in: matchedUsers.map(u => u._id) };
@@ -690,8 +738,11 @@ export const getRegularizations = async (req, res) => {
         if (req.user.role === 'EMPLOYEE') {
             baseFilters.employee_id = req.user._id?._id || req.user._id;
         } else if (req.user.role === 'HOD') {
-            // HODs should see requests for their whole department, not just themselves
-            baseFilters.department_id = req.user.department_id;
+            const teamMemberIds = await getHodTeamMemberIds(req.user._id);
+            if (teamMemberIds.length === 0) {
+                return res.json({ data: [], total: 0 });
+            }
+            baseFilters.employee_id = { $in: teamMemberIds };
         }
 
         const result = await QueryBuilder.build(
@@ -775,40 +826,7 @@ export const getAdminDashboardData = async (req, res) => {
             is_late: true
         });
 
-        const departments = await Department.find({ company_id: companyId });
-
-        const deptPerformance = await Promise.all(departments.map(async (dept) => {
-            const deptEmployees = await User.find({
-                company_id: companyId,
-                department_id: dept._id,
-                role: { $ne: 'ADMIN' }
-            }).select('_id');
-
-            const deptEmpIds = deptEmployees.map(e => e._id.toString());
-            const totalDept = deptEmpIds.length;
-
-            // Filter existing company-wide ID arrays for this department
-            const deptPresentCount = presentUserIds.filter(id => deptEmpIds.includes(id)).length;
-            const deptOnLeaveCount = onLeaveUserIds.filter(id => deptEmpIds.includes(id)).length;
-
-            // Calculate uniquely accounted for (department level)
-            const deptAccountedSet = new Set([
-                ...presentUserIds.filter(id => deptEmpIds.includes(id)),
-                ...onLeaveUserIds.filter(id => deptEmpIds.includes(id))
-            ]);
-
-            const deptAbsentCount = Math.max(0, totalDept - deptAccountedSet.size);
-            const rate = totalDept > 0 ? ((deptPresentCount / totalDept) * 100).toFixed(1) : 0;
-
-            return {
-                name: dept.department_name,
-                total: totalDept,
-                present: deptPresentCount,
-                absent: deptAbsentCount,
-                onLeave: deptOnLeaveCount,
-                rate: parseFloat(rate)
-            };
-        }));
+        const deptPerformance = [];
 
         const pendingRegsCount = await RegularizationRequest.countDocuments({ company_id: companyId, status: 'pending' });
         const pendingLeavesCount = await LeaveApplication.countDocuments({ company_id: companyId, approval_status: 'pending' });
@@ -850,8 +868,7 @@ export const getAdminDashboardData = async (req, res) => {
                 role: { $ne: 'ADMIN' },
                 _id: { $nin: [...presentUserIds, ...onLeaveUserIds] }
             })
-                .limit(50)
-                .populate('department_id', 'department_name'),
+                .limit(50),
 
             // Late arrivals (those with record but marked late)
             AttendanceRecord.find({
@@ -884,7 +901,6 @@ export const getAdminDashboardData = async (req, res) => {
             return {
                 id: r._id,
                 name: emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username : 'Unknown',
-                department: emp?.department_id?.department_name || r.department || 'Staff',
                 status: status,
                 first_in: r.first_in,
                 late_by: r.late_by_minutes

@@ -934,7 +934,7 @@ router.get(
   }
 );
 
-router.get("/api/get-payment-request-details/:requestNo", async (req, res) => {
+router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) => {
   try {
     const { requestNo } = req.params;
     if (!requestNo) {

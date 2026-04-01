@@ -43,17 +43,20 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
                 const party = initialData.partyDetails;
                 const branchIndex = initialData.branchIndex || 0;
                 const branch = party?.branches?.[branchIndex] || {};
-                
+
                 const jobNum = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
-                
+
                 // Fetch next sequence from backend using canonical job reference
                 let finalEntryNo = `PB01/${jobNum}`;
                 try {
-                    const API_KEY = "TALLY_INTEGRATION_KEY";
+                    const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';
                     const response = await axios.get(
                         `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=purchase&jobNo=${jobNum}${yearParam}`,
-                        { headers: { 'x-api-key': API_KEY } }
+                        {
+                            headers: { 'x-api-key': API_KEY },
+                            withCredentials: true
+                        }
                     );
                     if (response.data.success && response.data.fullNo) {
                         finalEntryNo = response.data.fullNo;
@@ -109,17 +112,18 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
         if (e && e.preventDefault) e.preventDefault();
         setLoading(true);
         try {
-            const API_KEY = "TALLY_INTEGRATION_KEY"; 
-            
+            const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
+
             // Fixed URL: process.env.REACT_APP_API_STRING already contains '/api'
             const response = await axios.post(
-                `${process.env.REACT_APP_API_STRING}/tally/purchase-entry`, 
+                `${process.env.REACT_APP_API_STRING}/tally/purchase-entry`,
                 formData,
                 {
-                    headers: { 'x-api-key': API_KEY }
+                    headers: { 'x-api-key': API_KEY },
+                    withCredentials: true
                 }
             );
-            
+
             if (response.data.success) {
                 alert("Purchase Book Entry Submitted Successfully to Tally!");
                 if (onSuccess) onSuccess(formData["Entry No"]);

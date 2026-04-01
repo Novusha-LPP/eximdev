@@ -9,27 +9,35 @@
  */
 
 import mongoose from 'mongoose';
-import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const require = createRequire(import.meta.url);
+// Load .env from server directory
+dotenv.config({ path: resolve(__dirname, '../.env') });
 
 // Database connection
-const MONGODB_URI = process.env.PROD_MONGODB_URI;
+const MONGODB_URI = process.env.PROD_MONGODB_URI
+  
+
 async function migrateTeamIds() {
     try {
         console.log('🔌 Connecting to database...');
+        if (!MONGODB_URI) {
+            throw new Error('MONGODB_URI not found in .env (DEV/PROD/SERVER)');
+        }
         await mongoose.connect(MONGODB_URI);
         console.log('✅ Connected to MongoDB\n');
 
         // Import models dynamically
         const TeamModule = await import('../model/teamModel.mjs');
         const TeamModel = TeamModule.default;
-        const AttendanceRecord = require('../routes/attendance/models/AttendanceRecord');
-        const LeaveApplication = require('../routes/attendance/models/LeaveApplication');
+        const AttendanceRecordModule = await import('../model/attendance/AttendanceRecord.js');
+        const LeaveApplicationModule = await import('../model/attendance/LeaveApplication.js');
+        const AttendanceRecord = AttendanceRecordModule.default;
+        const LeaveApplication = LeaveApplicationModule.default;
 
         // Get all active teams
         console.log('📋 Fetching all active teams...');

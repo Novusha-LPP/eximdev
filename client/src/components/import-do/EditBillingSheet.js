@@ -28,7 +28,8 @@ import { useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
-import Charges from "../Charges/Charges.js";
+import ChargesGrid from "../ChargesGrid";
+
 import QueriesComponent from "../../utils/QueriesComponent.js";
 
 // Excel-like styles
@@ -404,7 +405,17 @@ function EditBillingSheet() {
         </div>
       )}
 
-      <Charges job_no={job_no} year={year} branch_code={branch_code} trade_type={trade_type} />
+      <ChargesGrid
+        parentId={jobId}
+        parentModule="Job"
+        initialTab="cost"
+        hideTabs={true}
+        shippingLineAirline={data?.shipping_line_airline}
+        jobNumber={job_no}
+        jobYear={year}
+      />
+
+
 
       <div className="job-details-container">
         <form id="billing-sheet-form" onSubmit={formik.handleSubmit}>

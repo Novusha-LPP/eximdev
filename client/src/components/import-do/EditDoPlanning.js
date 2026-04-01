@@ -29,7 +29,7 @@ import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import QueriesComponent from "../../utils/QueriesComponent.js";
-import ImportDoChargesTable from "./ImportDoChargesTable";
+
 import ChargesGrid from "../ChargesGrid";
 
 
@@ -507,9 +507,7 @@ function EditDoPlanning() {
             },
           ];
 
-      const otherDoDocuments = Array.isArray(data.other_do_documents)
-        ? data.other_do_documents
-        : [];
+
       const updatedData = {
         ...data,
         shipping_line_invoice:
@@ -518,17 +516,16 @@ function EditDoPlanning() {
         shipping_line_invoice_date: formatDate(data.shipping_line_invoice_date),
         payment_made: data.payment_made === "Yes" || data.payment_made === true, // Handle similar cases for payment_made
         do_processed: data.do_processed === "Yes" || data.do_processed === true, // Handle similar cases for do_processed
-        other_invoices:
+          other_invoices:
           data.other_invoices === "Yes" || data.other_invoices === true, // Handle similar cases for other_invoices
         security_deposit:
           data.security_deposit === "Yes" || data.security_deposit === true, // Handle similar cases for security_deposit
         // do_completed is already handled in getData()
-        do_Revalidation_Completed: data.do_Revalidation_Completed,
-        dsr_queries: data.dsr_queries || [],
-        container_nos: data.container_nos || [],
+        do_Revalidation_Completed: data?.do_Revalidation_Completed || false,
+        do_copies: data?.do_copies || [],
+        container_nos: data?.container_nos || [],
         do_shipping_line_invoice: doShippingLineInvoice,
         insurance_copy: insuranceCopy,
-        other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
         do_list: data.do_list || "",
         is_do_doc_recieved: data.is_do_doc_recieved || false, // Add this field
@@ -716,19 +713,20 @@ function EditDoPlanning() {
     ));
   };
 
-  const renderChargesSection = () => (
-    <ImportDoChargesTable
-      formik={formik}
-      user={user}
-      setFileSnackbar={setFileSnackbar}
-    />
-  );
-
-  if (loading) return <p>Loading...</p>; // Show loading state
-
-  if (!data) return <p>Failed to load job details.</p>; // Handle missing data
 
 
+
+
+  const handleDoCopiesUpload = (urls) => {
+    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+  };
+
+  const handleRemoveDoCopy = (urlToRemove) => {
+    formik.setFieldValue(
+      "do_copies",
+      formik.values.do_copies.filter((url) => url !== urlToRemove)
+    );
+  };
 
   if (!job_no || !year) {
     return (
@@ -776,18 +774,20 @@ function EditDoPlanning() {
 
       {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
-      <div>
-        <QueriesComponent
-          queries={data.dsr_queries}
-          currentModule="Do Planning"
-          onQueriesChange={handleQueriesChange}
-          title="Do Queries"
-          showResolveButton={true}
-          readOnlyReply={false}
-          onResolveQuery={handleResolveQuery}
-          userName={user?.username}
-        />
-      </div>
+      {data && (
+        <div>
+          <QueriesComponent
+            queries={data.dsr_queries}
+            currentModule="Do Planning"
+            onQueriesChange={handleQueriesChange}
+            title="Do Queries"
+            showResolveButton={true}
+            readOnlyReply={false}
+            onResolveQuery={handleResolveQuery}
+            userName={user?.username}
+          />
+        </div>
+      )}
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
@@ -818,7 +818,7 @@ function EditDoPlanning() {
                 jobNumber={data?.job_no}
                 jobYear={data?.year}
               />
-              {renderChargesSection()}
+
 
 
               <div className="job-details-container">
@@ -969,6 +969,21 @@ function EditDoPlanning() {
 
                 {renderContainerDetails()}
               </div>
+
+              {/* DO Copies Section */}
+              <div className="upload-container">
+                <div className="section-header">
+                  <h3 className="section-title">DO COPIES</h3>
+                </div>
+                <div className="upload-content">
+                  <FileUpload onUpload={handleDoCopiesUpload} />
+                  <ImagePreview
+                    images={formik.values.do_copies}
+                    onRemove={handleRemoveDoCopy}
+                  />
+                </div>
+              </div>
+
               <Box sx={{ height: "60px" }} />
             </form>
           </div>
@@ -998,6 +1013,41 @@ function EditDoPlanning() {
       >
         Submit
       </Button>
+
+      <style>
+        {`
+          .upload-container {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #ffffff;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          }
+          
+          .section-header {
+            background-color: #f8fafc;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+
+          .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0;
+          }
+
+          .upload-content {
+            padding: 20px;
+          }
+        `}
+      </style>
 
       <Snackbar
         open={fileSnackbar}

@@ -80,7 +80,7 @@ const Charges = ({ job_no, year, branch_code, trade_type }) => {
     } finally {
       setLoading(false);
     }
-  }, [stableJobNo, stableYear]);
+  }, [stableJobNo, stableYear, stableBranchCode, stableTradeType]);
 
   useEffect(() => {
     fetchCharges();
@@ -102,8 +102,6 @@ const Charges = ({ job_no, year, branch_code, trade_type }) => {
       dateLabel: 'Check Date',
       docs: [item.url].flat().filter(Boolean)
     }));
-
-    // 2. E-Sanchit - Handled separately now
 
     // 3. DO - Shipping Line Invoice
     data.do_shipping_line_invoice?.forEach((item, idx) => push({
@@ -167,7 +165,7 @@ const Charges = ({ job_no, year, branch_code, trade_type }) => {
       });
     }
 
-    return { generalRows: list, esanchitRows: data.esanchitCharges || [] };
+    return { generalRows: list };
   }, [data]);
 
   if (!job_no || !year) {
@@ -186,7 +184,7 @@ const Charges = ({ job_no, year, branch_code, trade_type }) => {
     return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
   }
 
-  if (!data || (rows.generalRows.length === 0 && rows.esanchitRows.length === 0)) {
+  if (!data || rows.generalRows.length === 0) {
     return <Alert severity="info" sx={{ m: 2 }}>No charges data available.</Alert>;
   }
 
@@ -216,84 +214,7 @@ const Charges = ({ job_no, year, branch_code, trade_type }) => {
         <Chip label={`Job: ${job_no} | ${year}`} color="primary" variant="outlined" />
       </Box>
 
-      {/* E-Sanchit Charges Table */}
-      {rows.esanchitRows && rows.esanchitRows.length > 0 && (
-        <React.Fragment>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1e293b', mb: 1, mt: 2 }}>
-            NIMS/SIMS/PIMS Charges
-          </Typography>
-          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', mb: 3 }}>
-            <Table size="small" sx={{ minWidth: 800 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={headerStyle}>Document Name</TableCell>
-                  <TableCell sx={headerStyle}>Ref No</TableCell>
-                  <TableCell sx={headerStyle}>Amount</TableCell>
-                  <TableCell sx={headerStyle}>Registration Details</TableCell>
-                  <TableCell sx={{ ...headerStyle, textAlign: 'center' }}>Docs</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.esanchitRows.map((row, index) => {
-                  const showRegDetails = row.is_registration_charges;
-                  return (
-                    <TableRow key={`esanchit-${index}`} hover sx={{ '&:hover': { backgroundColor: '#f8fafc' } }}>
-                      <TableCell sx={cellStyle}>{row.document_name || '-'}</TableCell>
-                      <TableCell sx={cellStyle}>
-                        {row.document_charge_refrence_no ? (
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                            {row.document_charge_refrence_no}
-                          </Typography>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell sx={{ ...cellStyle, fontWeight: 600, color: '#0f172a' }}>
-                        {row.document_charge_recipt_copy || '-'}
-                      </TableCell>
-                      <TableCell sx={cellStyle}>
-                        {showRegDetails ? (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            <Typography variant="caption" sx={{ color: '#475569' }}>
-                              Rcpt: <span style={{ fontWeight: 500, color: '#0f172a' }}>{row.registration_receipt_no || '-'}</span>
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#475569' }}>
-                              Amt: <span style={{ fontWeight: 500, color: '#0f172a' }}>{row.registration_amount || '-'}</span>
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <span style={{ color: '#cbd5e1' }}>-</span>
-                        )}
-                      </TableCell>
-                      <TableCell sx={{ ...cellStyle, textAlign: 'center' }}>
-                        {row.url && row.url.length > 0 ? (
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                            {row.url.map((url, i) => (
-                              <Tooltip key={i} title="View Document">
-                                <IconButton
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  size="small"
-                                  sx={{
-                                    color: '#3b82f6',
-                                    '&:hover': { backgroundColor: '#eff6ff' },
-                                    padding: 0.5
-                                  }}
-                                >
-                                  {i === 0 ? <AttachFileIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
-                                </IconButton>
-                              </Tooltip>
-                            ))}
-                          </Box>
-                        ) : '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </React.Fragment>
-      )}
+
 
       {/* General Charges Table */}
       {rows.generalRows.length > 0 && (

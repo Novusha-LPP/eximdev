@@ -62,23 +62,9 @@ const cthDocumentSchema = new mongoose.Schema({
   send_date: { type: String, trim: true },
 });
 
-const DsrchargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-});
 
-const esanchitChargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_charge_refrence_no: { type: String, trim: true },
-  document_charge_recipt_copy: { type: String, trim: true },
-  is_registration_charges: { type: Boolean, default: false },
-  registration_receipt_no: { type: String, trim: true },
-  registration_amount: { type: String, trim: true },
-});
+
+
 
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
@@ -636,12 +622,9 @@ const jobSchema = new mongoose.Schema({
     },
   ],
 
-  /////////////////////////////////// Charges Details
-  DsrCharges: [DsrchargesSchema],
   charges: [ChargeSchema],
 
-  /////////////////////////////////// esanchit Charges Details
-  esanchitCharges: [esanchitChargesSchema],
+
 
   /////////////////////////////////// Do Charges Details
   // 1. Updated Schema (Backend) - Add this to your schema

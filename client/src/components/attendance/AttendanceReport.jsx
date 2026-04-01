@@ -487,11 +487,11 @@ const AttendanceReport = ({ isAdmin }) => {
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
                                                 <div className="ar-actions-cell">
-                                                    {isAdmin && (
+                                                    {/* {isAdmin && (
                                                         <button className="ar-act-btn ar-btn-edit" onClick={() => openDrawer(emp, 'details')} title="Edit Profile & Job">
                                                             <FiEdit size={13} />
                                                         </button>
-                                                    )}
+                                                    )} */}
                                                     <button className="ar-act-btn ar-btn-log" onClick={() => openDrawer(emp, 'attendance')} title={isAdmin ? "View & Edit Attendance Log" : "View Attendance Log"}>
                                                         <FiFileText size={13} />
                                                     </button>
@@ -527,13 +527,13 @@ const AttendanceReport = ({ isAdmin }) => {
                             <button className={`ar-tab-link ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
                                 <FiActivity size={14} /> Performance
                             </button>
-                            <button className={`ar-tab-link ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
+                            {/* <button className={`ar-tab-link ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
                                 <FiCalendar size={14} /> Leave Hub
                                 {profileData?.pendingLeaves?.length > 0 && <span className="ar-tab-badge">{profileData.pendingLeaves.length}</span>}
                             </button>
                             <button className={`ar-tab-link ${activeTab === 'details' ? 'active' : ''}`} onClick={() => setActiveTab('details')}>
                                 <FiUser size={14} /> Job Profile
-                            </button>
+                            </button> */}
                         </div>
                     </div>
 

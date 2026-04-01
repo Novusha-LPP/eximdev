@@ -38,6 +38,7 @@ import DocsCell from "../gallery/DocsCell.js";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import logo from "../../assets/images/logo.webp";
 
 function PaymentRequested() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -751,34 +752,31 @@ function PaymentRequested() {
           ) : selectedPaymentRequest ? (
             <Box id="payment-request-printable" sx={{ p: 4 }}>
               <Paper variant="outlined" sx={{ p: 4, position: 'relative', overflow: 'hidden', backgroundColor: '#fff', borderRadius: 2 }}>
-                {/* Status Watermark */}
-                <Typography 
-                  variant="h2" 
+                {/* Status Watermark - Using Logo */}
+                <Box 
+                  component="img"
+                  src={logo}
                   sx={{ 
                     position: 'absolute', 
-                    top: '40%', 
+                    top: '50%', 
                     left: '50%', 
-                    transform: 'translate(-50%, -50%) rotate(-30deg)',
-                    opacity: 0.05,
-                    fontSize: '12rem',
-                    fontWeight: 900,
+                    transform: 'translate(-50%, -50%)',
+                    opacity: 0.1,
+                    width: '60%',
                     pointerEvents: 'none',
-                    color: selectedPaymentRequest.status === 'Paid' ? '#2e7d32' : '#fbc02d',
-                    zIndex: 0
+                    zIndex: 0,
+                    filter: 'grayscale(100%) brightness(1.2)'
                   }}
-                >
-                  {selectedPaymentRequest.status === 'Paid' ? 'PAID' : 'PENDING'}
-                </Typography>
+                />
 
                 <Box sx={{ position: 'relative', zIndex: 1 }}>
                   {/* Header Section */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 2 }}>
                     <Box>
-                      <Typography variant="h5" color="primary" fontWeight="bold">EXIMDEV PVT LTD.</Typography>
-                      <Typography variant="body2" color="text.secondary">Import Billing Services</Typography>
+                      <Typography variant="h6" color="text.secondary" fontWeight="500">Import Billing Services</Typography>
                     </Box>
                     <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="body1" fontWeight="bold">Date: {selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
+                      <Typography variant="body2" fontWeight="bold">Date: {selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
                       <Typography variant="body2" color="text.secondary">Ref: {selectedPaymentRequest.jobNo}</Typography>
                     </Box>
                   </Box>

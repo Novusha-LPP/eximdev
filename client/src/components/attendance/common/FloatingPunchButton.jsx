@@ -9,8 +9,8 @@ const FloatingPunchButton = () => {
     const [liveWorkHours, setLiveWorkHours] = useState('0h 0m 0s');
     const [isDragging, setIsDragging] = useState(false);
     const [pos, setPos] = useState(() => {
-        const saved = localStorage.getItem('punch_btn_pos');
-        return saved ? JSON.parse(saved) : { bottom: '2rem', right: '2rem' };
+        const saved = localStorage.getItem('punch_btn_pos_v2');
+        return saved ? JSON.parse(saved) : { bottom: '24px', right: '24px' };
     });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [hasMoved, setHasMoved] = useState(false);
@@ -126,7 +126,7 @@ const FloatingPunchButton = () => {
         const handleEnd = () => {
             if (isDragging) {
                 setIsDragging(false);
-                localStorage.setItem('punch_btn_pos', JSON.stringify({
+                localStorage.setItem('punch_btn_pos_v2', JSON.stringify({
                     right: pos.right,
                     bottom: pos.bottom
                 }));

@@ -35,10 +35,7 @@ const Settings = () => {
           timezone: data.timezone || 'Asia/Kolkata',
           financial_year_start: 'April',
         });
-      } else if (activeTab === 'departments') {
-        const res = await masterAPI.getDepartments();
-        setDepartments(res?.data || (Array.isArray(res) ? res : []));
-      }
+      } 
     } catch (err) { toast.error(err.message || 'Failed to load settings'); }
     finally { setLoading(false); }
   };

@@ -11,7 +11,7 @@ import Department from '../../model/attendance/Department.js';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
-  if (req.user?.role === 'ADMIN') {
+  if (req.user?.role?.toUpperCase() === 'ADMIN') {
     return req.query.company_id || req.body.company_id || req.user.company_id;
   }
   return req.user.company_id;
@@ -301,16 +301,7 @@ export const deleteLeavePolicy = async (req, res) => {
   }
 };
 
-export const getDepartments = async (req, res) => {
-  try {
-    const companyId = resolveCompanyId(req);
-    const departments = await Department.find({ company_id: companyId })
-      .populate('hod_id', 'first_name last_name username');
-    res.json({ success: true, data: departments });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+
 
 export const getDesignations = async (req, res) => {
   try {
@@ -351,6 +342,141 @@ export const listCompanies = async (req, res) => {
     const companies = await Company.find({})
       .select('company_name company_code timezone attendance_config settings status createdAt updatedAt');
     res.json({ success: true, data: companies });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const createCompany = async (req, res) => {
+  try {
+    const { company_name, company_code } = req.body;
+    if (!company_name || !company_code) {
+      return res.status(400).json({ message: 'company_name and company_code are required' });
+    }
+
+    const company = new Company({
+      ...req.body,
+      created_by: req.user._id
+    });
+
+    await company.save();
+    await logActivity(req, 'COMPANY', 'CREATE_COMPANY', `Created new company: ${company.company_name}`, { company_id: company._id });
+    res.status(201).json({ success: true, data: company });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const company = await Company.findByIdAndUpdate(
+      id,
+      { ...req.body, updated_by: req.user._id },
+      { new: true, runValidators: true }
+    );
+
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    await logActivity(req, 'COMPANY', 'UPDATE_COMPANY', `Updated company: ${company.company_name}`, { company_id: company._id });
+    res.json({ success: true, data: company });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const deleteCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if users are assigned to this company
+    const userCount = await User.countDocuments({ company_id: id });
+    if (userCount > 0) {
+      return res.status(400).json({ message: `Cannot delete company. There are ${userCount} users still assigned to it.` });
+    }
+
+    const company = await Company.findByIdAndDelete(id);
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    await logActivity(req, 'COMPANY', 'DELETE_COMPANY', `Deleted company: ${company.company_name}`);
+    res.json({ success: true, message: 'Company deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const migrateUser = async (req, res) => {
+  try {
+    const { userId, targetCompanyId, targetShiftId, targetDepartmentId } = req.body;
+
+    if (!userId || !targetCompanyId) {
+      return res.status(400).json({ message: 'userId and targetCompanyId are required' });
+    }
+
+    const targetCompany = await Company.findById(targetCompanyId);
+    if (!targetCompany) return res.status(404).json({ message: 'Target company not found' });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const sourceCompanyId = user.company_id;
+    const sourceCompanyName = user.company;
+
+    // Update user record
+    user.company_id = targetCompanyId;
+    user.company = targetCompany.company_name;
+    user.shift_id = targetShiftId || null;
+    user.department_id = targetDepartmentId || null;
+    
+    // Reset company-specific policies
+    if (user.leave_settings) {
+      user.leave_settings.special_leave_policies = [];
+    }
+
+    await user.save();
+
+    await logActivity(req, 'USER', 'MIGRATE_USER', `Migrated user ${user.username} from ${sourceCompanyName} to ${targetCompany.company_name}`, {
+      userId: user._id,
+      sourceCompanyId,
+      targetCompanyId,
+      targetShiftId,
+      targetDepartmentId
+    });
+
+    res.json({ success: true, message: 'User migrated successfully', data: user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+
+export const getUsers = async (req, res) => {
+  try {
+    const { all_companies, department_id } = req.query;
+    
+    let query = {};
+    const username = (req.user?.username || '').toLowerCase();
+    const isGlobalAdmin = (req.user?.role === 'ADMIN' && ALLOWED_USERNAMES.has(username));
+
+    if (all_companies === 'true' && isGlobalAdmin) {
+      // Global admin can see users from all companies if explicitly requested
+      query = {};
+    } else {
+      const companyId = resolveCompanyId(req);
+      query = { company_id: companyId };
+    }
+
+    if (department_id && department_id !== 'all') {
+      query.department_id = department_id;
+    }
+
+    const users = await User.find(query)
+      .select('-password')
+      .populate('department_id', 'department_name')
+      .populate('shift_id', 'shift_name');
+
+    res.json({ success: true, data: users });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

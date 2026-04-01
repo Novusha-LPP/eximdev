@@ -83,13 +83,7 @@ const masterAPI = {
         return response.data;
     },
 
-    /**
-     * Departments
-     */
-    getDepartments: async (params) => {
-        const response = await apiClient.get('/master/departments', { params });
-        return response.data;
-    },
+ 
 
     /**
      * Designations
@@ -99,13 +93,44 @@ const masterAPI = {
         return response.data;
     },
 
-    /**
-     * Companies (Admin only)
-     */
-    getCompanies: async () => {
-        const response = await apiClient.get('/master/companies');
-        return response.data;
-    }
+  /**
+   * Companies (Admin only)
+   */
+  getCompanies: async () => {
+      const response = await apiClient.get('/master/companies');
+      return response.data;
+  },
+
+  createCompany: async (companyData) => {
+      const response = await apiClient.post('/master/companies', companyData);
+      return response.data;
+  },
+
+  updateCompany: async (id, companyData) => {
+      const response = await apiClient.put(`/master/companies/${id}`, companyData);
+      return response.data;
+  },
+
+  deleteCompany: async (id) => {
+      const response = await apiClient.delete(`/master/companies/${id}`);
+      return response.data;
+  },
+
+  /**
+   * User Migration
+   */
+  migrateUser: async (migrationData) => {
+      const response = await apiClient.post('/master/users/migrate', migrationData);
+      return response.data;
+  },
+
+  /**
+   * Users (Admin only)
+   */
+  getUsers: async (params) => {
+      const response = await apiClient.get('/master/users', { params });
+      return response.data;
+  }
 };
 
 export default masterAPI;

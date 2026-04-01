@@ -177,11 +177,9 @@ const attendanceAPI = {
     return response.data;
   },
 
-  getAdminAttendanceReport: async (startDate, endDate, departmentId, designation, companyId) => {
+  getAdminAttendanceReport: async (startDate, endDate, designation, companyId) => {
     try {
       const params = { startDate, endDate };
-      // Only add departmentId if it's a valid value (not 'all' or empty)
-      if (departmentId && departmentId !== 'all') params.departmentId = departmentId;
       if (designation && designation !== 'all') params.designation = designation;
       if (companyId) params.company_id = companyId;
       const response = await apiClient.get('/attendance/admin-report', {
@@ -189,7 +187,20 @@ const attendanceAPI = {
       });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { message: 'Failed to fetch admin department report' };
+      throw error.response?.data || { message: 'Failed to fetch admin report' };
+    }
+  },
+
+  getTeamAttendanceReport: async (startDate, endDate, teamId) => {
+    try {
+      const params = { startDate, endDate };
+      if (teamId && teamId !== 'all') params.teamId = teamId;
+      const response = await apiClient.get('/attendance/team-report', {
+        params
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch team report' };
     }
   },
 
@@ -202,6 +213,15 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to update record' };
+    }
+  },
+
+  createManualAdjustment: async (data) => {
+    try {
+      const response = await apiClient.put('/attendance/new', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to create manual adjustment' };
     }
   },
 
@@ -228,6 +248,18 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch employee profile' };
+    }
+  },
+
+  /**
+   * Update employee profile (HOD version - shift only)
+   */
+  updateEmployeeProfileHOD: async (id, data) => {
+    try {
+      const response = await apiClient.put(`/attendance/employee-profile-hod/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update employee shift' };
     }
   },
 

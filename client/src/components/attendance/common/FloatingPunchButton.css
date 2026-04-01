@@ -6,8 +6,8 @@
 
 .floating-punch-container {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 24px;
+  right: 24px;
   z-index: 1000;
   display: flex;
   flex-direction: column;

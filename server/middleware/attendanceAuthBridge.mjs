@@ -23,7 +23,7 @@ dotenv.config();
  */
 function mapRole(eximRole) {
   if (eximRole === "Admin") return "ADMIN";
-  if (eximRole === "Head_of_Department") return "HOD";
+  if (eximRole === "Head_of_Department" || eximRole === "HOD") return "HOD";
   return "EMPLOYEE";
 }
 

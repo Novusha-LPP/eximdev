@@ -27,11 +27,13 @@ router.get('/payroll', attendanceAuthBridge, requireRole('ADMIN'), requireAllowe
 router.get('/payroll-locks', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollLocks);
 router.post('/toggle-lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.togglePayrollLock);
 router.get('/admin-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getAdminAttendanceReport);
+router.get('/team-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getTeamAttendanceReport);
 router.get('/admin-leave-requests', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, hodCtrl.getAdminLeaveRequests);
-router.post('/approve-request', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, hodCtrl.approveRequest);
-router.put('/new', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.createManualAdjustment);
-router.put('/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateAttendanceRecord);
-router.delete('/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.deleteAttendanceRecord);
+router.put('/employee-profile-hod/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.updateEmployeeProfileHOD);
+router.post('/approve-request', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.approveRequest);
+router.put('/new', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, attendanceCtrl.createManualAdjustment);
+router.put('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, attendanceCtrl.updateAttendanceRecord);
+router.delete('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, attendanceCtrl.deleteAttendanceRecord);
 router.get('/employee-full-profile/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeFullProfile);
 router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateEmployeeProfileAdmin);
 

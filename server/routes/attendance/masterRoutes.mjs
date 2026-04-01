@@ -1,5 +1,6 @@
 import express from 'express';
 import attendanceAuthBridge from '../../middleware/attendanceAuthBridge.mjs';
+import requireAllowedAdmin from '../../middleware/requireAllowedAdmin.mjs';
 import * as masterCtrl from '../../controllers/attendance/master.controller.js';
 
 const router = express.Router();
@@ -16,14 +17,23 @@ router.post('/holidays/bulk-delete', attendanceAuthBridge, masterCtrl.bulkDelete
 
 router.get('/company-settings', attendanceAuthBridge, masterCtrl.getCompanySettings);
 router.put('/company-settings', attendanceAuthBridge, masterCtrl.updateCompanySettings);
+
+// Company Management
 router.get('/companies', attendanceAuthBridge, masterCtrl.listCompanies);
+router.post('/companies', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.createCompany);
+router.put('/companies/:id', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.updateCompany);
+router.delete('/companies/:id', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.deleteCompany);
+
+// User Migration
+router.post('/users/migrate', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.migrateUser);
 
 router.post('/leave-policies', attendanceAuthBridge, masterCtrl.createLeavePolicy);
 router.get('/leave-policies', attendanceAuthBridge, masterCtrl.getLeavePolicies);
 router.put('/leave-policies/:id', attendanceAuthBridge, masterCtrl.updateLeavePolicy);
 router.delete('/leave-policies/:id', attendanceAuthBridge, masterCtrl.deleteLeavePolicy);
 
-router.get('/departments', attendanceAuthBridge, masterCtrl.getDepartments);
+
 router.get('/designations', attendanceAuthBridge, masterCtrl.getDesignations);
+router.get('/users', attendanceAuthBridge, masterCtrl.getUsers);
 
 export default router;

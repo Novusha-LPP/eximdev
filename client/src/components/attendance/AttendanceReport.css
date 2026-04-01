@@ -2665,3 +2665,121 @@
 .status-dot.offline {
     background: var(--ink5);
 }
+/* ══ HOD MANAGEMENT ENHANCEMENTS ══ */
+.ar-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--red);
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 800;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 99px;
+    margin-left: 6px;
+    box-shadow: 0 2px 4px rgba(214, 48, 49, 0.3);
+}
+
+.ar-pending-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.ar-pending-item {
+    background: #fff;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    transition: box-shadow 0.2s;
+}
+
+.ar-pending-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.ar-pending-info {
+    flex: 1;
+}
+
+.ar-p-type {
+    font-weight: 700;
+    font-size: 0.8125rem;
+    color: var(--navy);
+    margin-bottom: 2px;
+}
+
+.ar-p-dates {
+    font-size: 0.75rem;
+    color: var(--ink3);
+    font-weight: 500;
+}
+
+.ar-p-days {
+    color: var(--blue);
+    margin-left: 6px;
+    font-weight: 600;
+}
+
+.ar-p-reason {
+    font-size: 0.75rem;
+    color: var(--ink4);
+    margin-top: 4px;
+    font-style: italic;
+    background: #f8fafc;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.ar-pending-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.ar-p-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+}
+
+.ar-p-btn.approve {
+    background: var(--green);
+    color: #fff;
+}
+
+.ar-p-btn.approve:hover {
+    background: #098a5f;
+}
+
+.ar-p-btn.reject {
+    background: #fff;
+    color: var(--red);
+    border-color: #fee2e2;
+}
+
+.ar-p-btn.reject:hover {
+    background: var(--red-lt);
+    border-color: var(--red-mid);
+}
+
+@media (max-width: 500px) {
+    .ar-pending-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ar-pending-actions {
+        margin-top: 10px;
+        justify-content: flex-end;
+    }
+}

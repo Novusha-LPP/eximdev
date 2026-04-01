@@ -84,7 +84,7 @@ const AttendanceReport = ({ isAdmin }) => {
         if (isAdmin) fetchCompanies();
         else setCompaniesLoaded(true); // non-admin: no company fetch needed, proceed immediately
     }, [isAdmin]);
-    useEffect(() => { if (isAdmin) fetchDepts(); }, [isAdmin, companyId]);
+ 
     // Guard: only fetch report after companyId is resolved (companiesLoaded = true)
     useEffect(() => {
         if (!companiesLoaded) return;
@@ -113,20 +113,23 @@ const AttendanceReport = ({ isAdmin }) => {
         }
     };
 
-    const fetchDepts = async () => {
-        try {
-            const params = companyId ? { company_id: companyId } : {};
-            const [dr, sr] = await Promise.all([masterAPI.getDepartments(params), masterAPI.getShifts(params)]);
-            setDepartments(dr?.data || []);
-            setShifts(sr?.data || []);
-        } catch { }
-    };
+    // const fetchDepts = async () => {
+    //     try {
+    //         const params = companyId ? { company_id: companyId } : {};
+    //         const [sr] = await Promise.all([masterAPI.getShifts(params)]);
+    //         setShifts(sr?.data || []);
+    //     } catch { }
+    // };
 
     const fetchReport = async () => {
         try {
             setLoading(true);
-            // For Company Report (admin), don't filter by department - pass 'all'
-            const r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, 'all', undefined, companyId);
+            let r;
+            if (isAdmin) {
+                r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, companyId);
+            } else {
+                r = await attendanceAPI.getTeamAttendanceReport(startDate, endDate, 'all');
+            }
             setReportData(r?.data || []);
         } catch (err) {
             console.error('[AttendanceReport] fetchReport error:', err?.response?.status, err?.response?.data || err?.message);
@@ -171,6 +174,24 @@ const AttendanceReport = ({ isAdmin }) => {
         finally { setLoadingHistory(false); }
     };
 
+    const handleApproveLeave = async (leaveId, status) => {
+        try {
+            await attendanceAPI.approveRequest('leave', leaveId, status);
+            toast.success(`Leave ${status} successfully`);
+            
+            // Refresh data
+            if (selectedEmp) {
+                const start = moment([browseYear, browseMonth - 1]).startOf('month').format('YYYY-MM-DD');
+                const end = moment([browseYear, browseMonth - 1]).endOf('month').format('YYYY-MM-DD');
+                const r = await attendanceAPI.getEmployeeFullProfile(selectedEmp.id, start, end, companyId);
+                setProfileData(r);
+            }
+            fetchReport();
+        } catch (err) {
+            toast.error(err.message || 'Action failed');
+        }
+    };
+
     const handleQuickPunch = async (empId, currentStatus, empName) => {
         const type = currentStatus === 'Present' || currentStatus === 'present' ? 'OUT' : 'IN';
         try {
@@ -206,7 +227,11 @@ const AttendanceReport = ({ isAdmin }) => {
     const saveEdit = async () => {
         setSaving(true);
         try {
-            await attendanceAPI.updateAttendanceRecord(editingId, editForm);
+            if (editingId === 'new') {
+                await attendanceAPI.createManualAdjustment(editForm);
+            } else {
+                await attendanceAPI.updateAttendanceRecord(editingId, editForm);
+            }
             toast.success('Record updated');
             setEditingId(null);
             // Refresh local logs
@@ -220,7 +245,12 @@ const AttendanceReport = ({ isAdmin }) => {
     const saveProfile = async () => {
         setUpdatingProfile(true);
         try {
-            await attendanceAPI.updateEmployeeProfile(selectedEmp.id, jobForm);
+            if (isAdmin) {
+                await attendanceAPI.updateEmployeeProfile(selectedEmp.id, jobForm);
+            } else {
+                // HOD version - shift only
+                await attendanceAPI.updateEmployeeProfileHOD(selectedEmp.id, { shift_id: jobForm.shift_id });
+            }
             toast.success('Employee profile updated');
             // Refresh main report
             fetchReport();
@@ -237,8 +267,10 @@ const AttendanceReport = ({ isAdmin }) => {
             attendance_date: rec.attendance_date,
             employee_id: selectedEmp.id,
             status: rec.status || 'present',
-            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : '',
-            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : '',
+            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : 
+                     (rec._id ? '' : moment(rec.attendance_date).set({ hour: 9, minute: 0 }).format('YYYY-MM-DDTHH:mm')),
+            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : 
+                     (rec._id ? '' : moment(rec.attendance_date).set({ hour: 18, minute: 0 }).format('YYYY-MM-DDTHH:mm')),
             remarks: rec.remarks || ''
         });
     };
@@ -255,7 +287,7 @@ const AttendanceReport = ({ isAdmin }) => {
 
     const filtered = reportData.filter(e =>
         e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.department?.toLowerCase().includes(searchTerm.toLowerCase())
+        e.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const totalEmp = filtered.length;
@@ -339,7 +371,7 @@ const AttendanceReport = ({ isAdmin }) => {
                 <div className="ar-filter-bar">
                     <div className="ar-search">
                         <FiSearch size={14} />
-                        <input placeholder="Search by name or department" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <input placeholder="Search by name" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
                     {isAdmin && companies.length > 0 && (
                         <select
@@ -391,7 +423,7 @@ const AttendanceReport = ({ isAdmin }) => {
                             <table className="ar-table">
                                 <thead>
                                     <tr>
-                                        <th>Employee & Department</th>
+                                        <th>Employee</th>
                                         <th>In/Out</th>
                                         <th>Continuity Pattern</th>
                                         <th style={{ textAlign: 'center' }}>P</th>
@@ -413,25 +445,24 @@ const AttendanceReport = ({ isAdmin }) => {
                                                         <span className={`status-dot ${emp.latestRecord?.status === 'present' ? 'online' : 'offline'}`} />
                                                     </div>
                                                     <div>
-                                                        <div className="ar-emp-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            {emp.name}
-                                                            {isAdmin && (
-                                                                <button 
-                                                                    className={`ar-quick-punch ${emp.latestRecord?.status === 'present' ? 'punch-out' : 'punch-in'}`}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleQuickPunch(emp.id, emp.latestRecord?.status, emp.name);
-                                                                    }}
-                                                                    title={`Record ${emp.latestRecord?.status === 'present' ? 'OUT' : 'IN'} punch`}
-                                                                >
-                                                                    {emp.latestRecord?.status === 'present' ? '🔴 Out' : '🟢 In'}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                        <div className="ar-emp-code">{emp.department}</div>
+                                                    <div className="ar-emp-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {emp.name}
+                                                        {isAdmin && (
+                                                            <button 
+                                                                className={`ar-quick-punch ${emp.latestRecord?.status === 'present' ? 'punch-out' : 'punch-in'}`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleQuickPunch(emp.id, emp.latestRecord?.status, emp.name);
+                                                                }}
+                                                                title={`Record ${emp.latestRecord?.status === 'present' ? 'OUT' : 'IN'} punch`}
+                                                            >
+                                                                {emp.latestRecord?.status === 'present' ? '🔴 Out' : '🟢 In'}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            </td>
+                                            </div>
+                                        </td>
                                             <td>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                                     <div className="ar-punch-cell">
@@ -501,12 +532,11 @@ const AttendanceReport = ({ isAdmin }) => {
                             </button>
                             <button className={`ar-tab-link ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
                                 <FiCalendar size={14} /> Leave Hub
+                                {profileData?.pendingLeaves?.length > 0 && <span className="ar-tab-badge">{profileData.pendingLeaves.length}</span>}
                             </button>
-                            {isAdmin && (
-                                <button className={`ar-tab-link ${activeTab === 'details' ? 'active' : ''}`} onClick={() => setActiveTab('details')}>
-                                    <FiUser size={14} /> Job Profile
-                                </button>
-                            )}
+                            <button className={`ar-tab-link ${activeTab === 'details' ? 'active' : ''}`} onClick={() => setActiveTab('details')}>
+                                <FiUser size={14} /> Job Profile
+                            </button>
                         </div>
                     </div>
 
@@ -558,7 +588,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                                                 key={day}
                                                                 className={`ar-cal-cell ${rec?.status || 'none'} ${isToday ? 'today' : ''}`}
                                                                 onClick={() => {
-                                                                    if (!isAdmin) return; // ONLY ADMIN CAN MANUALLY EDIT
+                                                                    // Allowing both ADMIN and HOD to edit/adjust
                                                                     if (rec) startEdit(rec);
                                                                     else startEdit({ attendance_date: dateStr, status: 'absent' });
                                                                 }}
@@ -594,6 +624,30 @@ const AttendanceReport = ({ isAdmin }) => {
 
                                 {activeTab === 'leaves' && (
                                     <div className="ar-leaves-hub">
+                                        {profileData?.pendingLeaves?.length > 0 && (
+                                            <div className="ar-job-card" style={{ borderLeft: '4px solid #f59e0b', marginBottom: 20 }}>
+                                                <h4 className="ar-job-section-title" style={{ color: '#b45309' }}><FiAlertTriangle size={14} /> Action Required: Pending Leaves</h4>
+                                                <div className="ar-pending-list">
+                                                    {profileData.pendingLeaves.map(leave => (
+                                                        <div key={leave._id} className="ar-pending-item">
+                                                            <div className="ar-pending-info">
+                                                                <div className="ar-p-type">{leave.leave_policy_id?.policy_name || leave.leave_type}</div>
+                                                                <div className="ar-p-dates">
+                                                                    {moment(leave.from_date).format('DD MMM')} - {moment(leave.to_date).format('DD MMM')} 
+                                                                    <span className="ar-p-days">({leave.total_days} days)</span>
+                                                                </div>
+                                                                {leave.reason && <div className="ar-p-reason">"{leave.reason}"</div>}
+                                                            </div>
+                                                            <div className="ar-pending-actions">
+                                                                <button className="ar-p-btn reject" onClick={() => handleApproveLeave(leave._id, 'rejected')}>Reject</button>
+                                                                <button className="ar-p-btn approve" onClick={() => handleApproveLeave(leave._id, 'approved')}>Approve</button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="ar-job-card">
                                             <h4 className="ar-job-section-title">Leave Balance & Usage</h4>
                                             <div className="ar-leave-balances">
@@ -670,9 +724,11 @@ const AttendanceReport = ({ isAdmin }) => {
                                                 <div className="ar-field-group"><label>Official Name</label><div className="ar-field-val">{selectedEmp?.name}</div></div>
                                                 <div className="ar-field-group"><label>Employee Code</label><div className="ar-field-val">{jobForm.employee_code}</div></div>
                                                 <div className="ar-field-group"><label>Department</label>
-                                                    <select className="ar-select-mini" value={jobForm.department_id} onChange={e => setJobForm({ ...jobForm, department_id: e.target.value })}>
-                                                        {departments.map(d => <option key={d._id} value={d._id}>{d.department_name}</option>)}
-                                                    </select>
+                                                    {isAdmin ? (
+                                                        <select className="ar-select-mini" value={jobForm.department_id} onChange={e => setJobForm({ ...jobForm, department_id: e.target.value })}>
+                                                            {departments.map(d => <option key={d._id} value={d._id}>{d.department_name}</option>)}
+                                                        </select>
+                                                    ) : <div className="ar-field-val">{selectedEmp?.department || 'General'}</div>}
                                                 </div>
                                                 <div className="ar-field-group"><label>Work Shift</label>
                                                     <select className="ar-select-mini" value={jobForm.shift_id} onChange={e => setJobForm({ ...jobForm, shift_id: e.target.value })}>
@@ -682,9 +738,16 @@ const AttendanceReport = ({ isAdmin }) => {
                                                 <div className="ar-field-group"><label>System Role</label><div className="ar-field-val">{jobForm.role}</div></div>
                                                 <div className="ar-field-group">
                                                     <label>Security Status</label>
-                                                    <div className={`ar-field-val ${jobForm.isActive ? 'ar-c-green' : 'ar-c-red'}`}>
-                                                        {jobForm.isActive ? 'Authorized / Active' : 'Deactivated'}
-                                                    </div>
+                                                    {isAdmin ? (
+                                                        <select className="ar-select-mini" value={jobForm.isActive ? 'true' : 'false'} onChange={e => setJobForm({ ...jobForm, isActive: e.target.value === 'true' })}>
+                                                            <option value="true">Authorized / Active</option>
+                                                            <option value="false">Deactivated</option>
+                                                        </select>
+                                                    ) : (
+                                                        <div className={`ar-field-val ${jobForm.isActive ? 'ar-c-green' : 'ar-c-red'}`}>
+                                                            {jobForm.isActive ? 'Authorized / Active' : 'Deactivated'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div style={{ marginTop: 30, display: 'flex', justifyContent: 'flex-end' }}>

@@ -1,5 +1,5 @@
 // Restricts attendance admin access to an allowlist of usernames.
-const ALLOWED_USERNAMES = new Set([
+export const ALLOWED_USERNAMES = new Set([
   'shalini_arun',
   'manu_pilai',
   'suraj_rajan',

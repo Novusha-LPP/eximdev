@@ -37,7 +37,7 @@ class AttendanceEngine {
                 const autoPunchThreshold = shiftEnd.clone().add(2, 'hours'); // Auto punch 2 hours after shift end
 
                 if (!isToday || (isToday && now.isAfter(autoPunchThreshold))) {
-                    console.log(`[ENGINE] Auto-punching OUT for user ${user._id} on ${date}`);
+                   // console.log(`[ENGINE] Auto-punching OUT for user ${user._id} on ${date}`);
                     const autoPunch = new AttendancePunch({
                         employee_id: user._id,
                         company_id: user.company_id,

@@ -18,23 +18,22 @@ import AttendanceEngine from '../../services/attendance/AttendanceEngine.js';
 import ValidationEngine from '../../services/attendance/ValidationEngine.js';
 import PayrollEngine from '../../services/attendance/PayrollEngine.js';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
-import QueryBuilder from '../../services/attendance/QueryBuilder.js';
-import PayrollLock from '../../model/attendance/PayrollLock.js';
 
-
+// --- HELPERS ---
 const resolveCompanyId = (req) => {
-    if (req.user?.role === 'ADMIN') {
-        return req.query.company_id || req.body.company_id || req.user.company_id;
-    }
-    return req.user.company_id;
+    // If explicit company_id provided in query/body (for admin views)
+    const explicitId = req.query?.company_id || req.body?.company_id;
+    if (explicitId) return explicitId;
+
+    // Fallback to user's company context
+    return req.user?.company_id?._id || req.user?.company_id;
 };
 
-// --- HELPER: Record Activity ---
 const logActivity = async (req, module, action, details, metadata = {}) => {
     try {
         const activity = new ActivityLog({
             company_id: resolveCompanyId(req),
-            user_id: req.user._id,
+            user_id: req.user?._id,
             module,
             action,
             details,
@@ -47,6 +46,28 @@ const logActivity = async (req, module, action, details, metadata = {}) => {
         console.error('Activity Log Error:', err);
     }
 };
+
+const isHODauthorized = async (hodId, employeeId) => {
+    if (!employeeId) return false;
+    // Ensure hodId is treated correctly for query
+    const hodTeams = await TeamModel.find({ 
+        hodId: mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId), 
+        isActive: { $ne: false } 
+    });
+    
+    const authorized = hodTeams.some(team => 
+        team.members?.some(m => m.userId && m.userId.toString() === employeeId.toString())
+    );
+
+    if (!authorized) {
+        console.warn(`[AttendanceAuth] HOD ${hodId} attempted unauthorized access to employee ${employeeId}. Teams found: ${hodTeams.map(t => t.name).join(', ')}`);
+    }
+
+    return authorized;
+};
+
+import QueryBuilder from '../../services/attendance/QueryBuilder.js';
+import PayrollLock from '../../model/attendance/PayrollLock.js';
 
 // --- HELPER: Process Daily Attendance (Multi-Tenant & Rule-Driven) ---
 async function processDailyAttendance(user, date) {
@@ -1141,22 +1162,17 @@ export const getAdminAttendanceReport = async (req, res) => {
 
         const { designation } = req.query;
 
-        // Role-based filtering
-        if (req.user.role === 'HOD') {
-            userQuery.role = 'EMPLOYEE';
-            userQuery.department_id = req.user.department_id;
-        } else {
-            // Admin sees all staff in the company. No role filter needed.
-            if (departmentId && departmentId !== 'all') {
-                userQuery.department_id = departmentId;
-            }
-            if (designation && designation !== 'all') {
-                userQuery.designation = designation;
-            }
+        // Admin sees all staff in the company.
+       
+        if (designation && designation !== 'all') {
+            userQuery.designation = designation;
+        }
+        if (departmentId && departmentId !== 'all') {
+            userQuery.department_id = departmentId;
         }
 
         const employees = await User.find(userQuery)
-            .populate('department_id')
+            .populate('company_id')
             .populate('shift_id');
         
         // Debug: Check how many users exist with this company_id
@@ -1262,7 +1278,6 @@ export const getAdminAttendanceReport = async (req, res) => {
             return {
                 id: emp._id,
                 name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
-                department: emp.department_id?.department_name || '---',
                 designation: emp.designation || 'Staff',
                 present: actualPresent,
                 absent: actualAbsent,
@@ -1275,6 +1290,8 @@ export const getAdminAttendanceReport = async (req, res) => {
                 raw_total_hours: actualTotalHours,
                 raw_total_present_days: actualPresent + actualHalfDay,
                 history: compactHistory,
+                company_id: emp.company_id?._id || emp.company_id,
+                company_name: emp.company_id?.company_name || '---',
 
                 // New fields for punch times
                 latestRecord: latestRecord ? {
@@ -1301,14 +1318,183 @@ export const getAdminAttendanceReport = async (req, res) => {
     }
 };
 
+export const getTeamAttendanceReport = async (req, res) => {
+    try {
+        const { startDate, endDate, teamId } = req.query;
+        const hodId = req.user._id;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ message: 'startDate and endDate are required' });
+        }
+
+        const start = moment(startDate).startOf('day').toDate();
+        const end = moment(endDate).endOf('day').toDate();
+
+        // 1. Discover Team Members
+        let teamQuery = { hodId, isActive: { $ne: false } };
+        if (teamId && teamId !== 'all') {
+            teamQuery._id = teamId;
+        }
+
+        const teams = await TeamModel.find(teamQuery);
+        const memberUserIds = new Set();
+        teams.forEach(team => {
+            if (team.members) {
+                team.members.forEach(m => {
+                    if (m.userId) memberUserIds.add(m.userId.toString());
+                });
+            }
+        });
+
+        if (memberUserIds.size === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // 2. Fetch Employee Details
+        const employees = await User.find({
+            _id: { $in: Array.from(memberUserIds) },
+            isActive: true
+        }).populate('company_id').populate('shift_id');
+
+        if (employees.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // Use the first company found for global settings (assuming HOD teams are within one company or settings are similar)
+        const companyId = employees[0].company_id?._id || employees[0].company_id;
+        const company = await Company.findById(companyId);
+
+        const employeeIds = employees.map(e => e._id);
+
+        // 3. Fetch Attendance Data
+        const [attendanceRecords, approvedLeaves, holidays] = await Promise.all([
+            AttendanceRecord.find({
+                employee_id: { $in: employeeIds },
+                attendance_date: { $gte: start, $lte: end }
+            }),
+            LeaveApplication.find({
+                employee_id: { $in: employeeIds },
+                approval_status: 'approved',
+                $or: [
+                    { from_date: { $lte: end }, to_date: { $gte: start } }
+                ]
+            }),
+            Holiday.find({
+                company_id: companyId,
+                holiday_date: { $gte: start, $lte: end }
+            })
+        ]);
+
+        const holidayDates = holidays.map(h => moment.utc(h.holiday_date).format('YYYY-MM-DD'));
+
+        // 4. Generate Report (Identical logic to Admin report)
+        const reportData = employees.map(emp => {
+            const records = attendanceRecords.filter(r => r.employee_id.toString() === emp._id.toString());
+            const empLeaves = approvedLeaves.filter(l => l.employee_id.toString() === emp._id.toString());
+
+            let actualPresent = 0, actualAbsent = 0, actualLate = 0, actualEarlyIn = 0, actualEarlyOut = 0, actualLeaves = 0, actualHalfDay = 0, actualTotalHours = 0;
+            const compactHistory = [];
+            let curr = moment.utc(startDate);
+            const stop = moment.utc(endDate);
+
+            while (curr.isSameOrBefore(stop, 'day')) {
+                const dayStr = curr.format('YYYY-MM-DD');
+                const rec = records.find(r => moment.utc(r.attendance_date).format('YYYY-MM-DD') === dayStr);
+
+                let hStatus = 'absent';
+                let hSession = null;
+
+                if (rec) {
+                    hStatus = rec.status?.toLowerCase();
+                    hSession = rec.half_day_session;
+                    if (hStatus === 'present') actualPresent++;
+                    else if (hStatus === 'half_day') actualHalfDay++;
+                    else if (hStatus === 'absent') actualAbsent++;
+                    else if (hStatus === 'leave') actualLeaves++;
+
+                    if (rec.is_late) {
+                        actualLate++;
+                        if (hStatus === 'present') hStatus = 'late';
+                    }
+                    if (rec.is_early_in) actualEarlyIn++;
+                    if (rec.is_early_exit) actualEarlyOut++;
+                    actualTotalHours += rec.total_work_hours || 0;
+                } else {
+                    const isWeeklyOff = WorkingDayEngine.isWeeklyOff(dayStr, company, emp.shift_id, emp.department_id);
+                    const isHoliday = holidayDates.includes(dayStr);
+                    const leave = empLeaves.find(l => {
+                        const lStart = moment.utc(l.from_date).startOf('day');
+                        const lEnd = moment.utc(l.to_date).endOf('day');
+                        return curr.isSameOrAfter(lStart) && curr.isSameOrBefore(lEnd);
+                    });
+
+                    if (isWeeklyOff) hStatus = 'weekly_off';
+                    else if (isHoliday) hStatus = 'holiday';
+                    else if (leave) {
+                        hStatus = leave.is_half_day ? 'absent' : 'leave';
+                        hSession = leave.half_day_session;
+                        if (!leave.is_half_day) actualLeaves++;
+                        else actualAbsent++;
+                    } else if (curr.isBefore(moment(), 'day')) {
+                        actualAbsent++;
+                    }
+                }
+                compactHistory.push({ date: dayStr, status: hStatus || 'absent', session: hSession });
+                curr.add(1, 'days');
+            }
+
+            let avgHours = (actualPresent + actualHalfDay) > 0 ? (actualTotalHours / (actualPresent + actualHalfDay)) : 0;
+            const h = Math.floor(avgHours), m = Math.floor((avgHours - h) * 60);
+            const exactDateStr = moment.utc(endDate).format('YYYY-MM-DD');
+            const latestRecord = records.find(r => moment.utc(r.attendance_date).format('YYYY-MM-DD') === exactDateStr);
+
+            return {
+                id: emp._id,
+                name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
+                designation: emp.designation || 'Staff',
+                department: emp.department_id?.department_name || 'General',
+                present: actualPresent,
+                absent: actualAbsent,
+                late: actualLate,
+                earlyIn: actualEarlyIn,
+                earlyOut: actualEarlyOut,
+                leaves: actualLeaves,
+                halfDay: actualHalfDay,
+                avgHours: `${h}h ${m}m`,
+                history: compactHistory,
+                latestRecord: latestRecord ? {
+                    id: latestRecord._id,
+                    first_in: latestRecord.first_in,
+                    last_out: latestRecord.last_out,
+                    status: latestRecord.status,
+                    is_late: latestRecord.is_late
+                } : null
+            };
+        });
+
+        res.json({ success: true, data: reportData });
+    } catch (err) {
+        console.error('Team Report Error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 export const updateAttendanceRecord = async (req, res) => {
     try {
         const { id } = req.params;
         const { status, first_in, last_out, remarks, employee_id } = req.body;
         const companyId = resolveCompanyId(req);
 
-        if (req.user.role !== 'ADMIN') {
-            return res.status(403).json({ message: 'Only admins can edit attendance records' });
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+            return res.status(403).json({ message: 'Unauthorized: Only admins and HODs can edit records' });
+        }
+
+        // HOD Authorization Check: Must be their team member
+        if (req.user.role === 'HOD') {
+            const targetEmployeeId = employee_id || (await AttendanceRecord.findById(id))?.employee_id;
+            if (!await isHODauthorized(req.user._id, targetEmployeeId)) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
         }
 
         // 1. Validate ID Format
@@ -1357,8 +1543,15 @@ export const createManualAdjustment = async (req, res) => {
         const { attendance_date, employee_id, status, first_in, last_out, remarks } = req.body;
         const companyId = resolveCompanyId(req);
 
-        if (req.user.role !== 'ADMIN') {
-            return res.status(403).json({ message: 'Authorization denied' });
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+            return res.status(403).json({ message: 'Authorization denied: Only admins and HODs can create adjustments' });
+        }
+
+        // HOD Authorization Check: Must be their team member
+        if (req.user.role === 'HOD') {
+            if (!await isHODauthorized(req.user._id, employee_id)) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
         }
 
         if (!attendance_date || !employee_id) {
@@ -1477,8 +1670,16 @@ export const deleteAttendanceRecord = async (req, res) => {
         const { id } = req.params;
         const companyId = resolveCompanyId(req);
 
-        if (req.user.role !== 'ADMIN') {
-            return res.status(403).json({ message: 'Only admins can delete attendance records' });
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+            return res.status(403).json({ message: 'Only admins and HODs can delete attendance records' });
+        }
+
+        // HOD Authorization Check: Must be their team member
+        if (req.user.role === 'HOD') {
+            const record = await AttendanceRecord.findById(id);
+            if (!record || !await isHODauthorized(req.user._id, record.employee_id)) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
         }
 
         const record = await AttendanceRecord.findOne({ _id: id, company_id: companyId });
@@ -1541,7 +1742,7 @@ export const getEmployeeFullProfile = async (req, res) => {
             end = moment().endOf('month').toDate();
         }
 
-        const [attendance, balances, leaves, holidays] = await Promise.all([
+        const results = await Promise.all([
             AttendanceRecord.find({
                 employee_id: id,
                 attendance_date: { $gte: start, $lte: end }
@@ -1549,12 +1750,12 @@ export const getEmployeeFullProfile = async (req, res) => {
 
             LeaveBalance.find({
                 employee_id: id,
-                company_id: employee.company_id
+                company_id: employee.company_id?._id || employee.company_id
             }).lean(),
 
             LeaveApplication.find({
                 employee_id: id,
-                status: 'approved',
+                approval_status: 'approved',
                 $or: [
                     { from_date: { $gte: start, $lte: end } },
                     { to_date: { $gte: start, $lte: end } }
@@ -1562,22 +1763,79 @@ export const getEmployeeFullProfile = async (req, res) => {
             }).lean(),
 
             Holiday.find({
-                company_id: employee.company_id,
+                company_id: employee.company_id?._id || employee.company_id,
                 holiday_date: { $gte: start, $lte: end }
+            }).lean(),
+
+            LeaveApplication.find({
+                employee_id: id,
+                approval_status: 'pending'
+            }).populate('leave_policy_id', 'leave_type policy_name').lean(),
+
+            RegularizationRequest.find({
+                employee_id: id,
+                status: 'pending'
             }).lean()
         ]);
 
-        res.json({
+        const [attendance, balances, leaves, holidays, pendingLeaves, pendingRegularizations] = results;
+
+        return res.json({
             success: true,
             employee,
             attendance,
             balances,
             leaves,
-            holidays
+            holidays,
+            pendingLeaves: pendingLeaves || [],
+            pendingRegularizations: pendingRegularizations || []
         });
     } catch (err) {
         console.error('>>> [CRITICAL_ERROR] getEmployeeFullProfile failed:', err);
         res.status(500).json({ message: 'Server error: ' + err.message });
+    }
+};
+
+export const updateEmployeeProfileHOD = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { shift_id } = req.body;
+
+        if (req.user.role !== 'HOD' && req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Unauthorized profile update' });
+        }
+
+        // Verify employee is in HOD's team
+        const teams = await TeamModel.find({ 
+            hodId: req.user._id,
+            isActive: { $ne: false }
+        });
+        
+        const memberIds = [];
+        teams.forEach(team => {
+            if (team.members) {
+                team.members.forEach(m => memberIds.push(m.userId?.toString()));
+            }
+        });
+
+        if (req.user.role !== 'ADMIN' && !memberIds.includes(id)) {
+            return res.status(403).json({ message: 'Employee not in your team' });
+        }
+
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Update ONLY shift_id (Shift Only)
+        if (shift_id) user.shift_id = shift_id;
+
+        await user.save();
+        
+        await logActivity(req, 'ATTENDANCE', 'UPDATE_PROFILE_HOD', `HOD ${req.user.username} updated shift for ${user.username}`, { target_id: id, shift_id });
+
+        res.json({ success: true, message: 'Shift updated successfully', user });
+    } catch (err) {
+        console.error('HOD Profile Update Error:', err);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 

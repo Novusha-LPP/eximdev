@@ -52,6 +52,14 @@ const ADMIN_MENU = [
   { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies' },
 ];
 
+const ALLOWED_USERNAMES = new Set([
+    'shalini_arun',
+    'manu_pilai',
+    'suraj_rajan',
+    'rajan_aranamkatte',
+    'uday_zope'
+]);
+
 const AttendanceLayout = () => {
     const { user } = useContext(UserContext);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -60,11 +68,20 @@ const AttendanceLayout = () => {
 
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
+    const username = (user?.username || '').toLowerCase();
     
     // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
-    const menu = role === 'Admin' || role === 'ADMIN' ? ADMIN_MENU :
-                 role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU : 
-                 EMPLOYEE_MENU;
+    let menu = role === 'Admin' || role === 'ADMIN' ? [...ADMIN_MENU] :
+               role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU : 
+               EMPLOYEE_MENU;
+
+    // Add Company Management for allowed users
+    if ((role === 'Admin' || role === 'ADMIN') && ALLOWED_USERNAMES.has(username)) {
+        menu.push(
+            { section: 'Administration' },
+            { path: '/attendance/admin/companies', icon: FiUsers, label: 'Manage Companies' }
+        );
+    }
 
     const fetchPunchStatus = useCallback(async () => {
         try {

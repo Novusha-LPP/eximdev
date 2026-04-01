@@ -53,12 +53,8 @@ const AttendanceManagement = () => {
     const [editForm, setEditForm] = useState({});
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => { fetchDepts(); fetchDesignations(); }, []);
+    useEffect(() => { fetchDesignations(); }, []);
     useEffect(() => { fetchData(); }, [mode, startDate, endDate, selectedDept, selectedDesignation]);
-
-    const fetchDepts = async () => {
-        try { const r = await masterAPI.getDepartments(); setDepartments(r?.data || []); } catch { }
-    };
 
     const fetchDesignations = async () => {
         try { const r = await masterAPI.getDesignations(); setDesignations(r?.data || []); } catch { }

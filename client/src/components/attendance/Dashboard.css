@@ -1628,6 +1628,12 @@
   font-weight: 500;
 }
 
+.attendance-modal .badge--success { background: var(--green-bg); color: var(--green-text); }
+.attendance-modal .badge--warning { background: var(--amber-bg); color: var(--amber-text); }
+.attendance-modal .badge--error { background: var(--red-bg); color: var(--red-text); }
+.attendance-modal .badge--info { background: var(--blue-bg); color: var(--blue-text); }
+.attendance-modal .badge--default { background: var(--surface2); color: var(--ink2); border: 1px solid var(--border); }
+
 .time-boxes {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -122,8 +122,11 @@ import getImportBilling from "./routes/import-billing/getImportBilling.js";
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
+import assignModuleToAll from "./routes/home/assignModuleToAll.mjs";
+import assignUsersToModule from "./routes/assignUsersToModule.mjs";
 import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
+import unassignModuleFromAll from "./routes/unassignModuleFromAll.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
@@ -434,9 +437,12 @@ app.use(updateESanchitJob);
 
 // Home
 app.use(assignModules);
+app.use(assignModuleToAll);
+app.use(assignUsersToModule);
 app.use(assignRole);
 app.use("/api", assignDepartment);
 app.use(unassignModule);
+app.use(unassignModuleFromAll);
 app.use(changePassword);
 app.use(assignIcdCode);
 app.use(assignEximBot);

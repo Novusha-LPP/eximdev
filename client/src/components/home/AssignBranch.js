@@ -79,6 +79,29 @@ function AssignBranch({ selectedUser }) {
         }
     };
 
+    const handleAssignAll = async () => {
+        if (!selectedBranchId) {
+            message.warning("Please select a branch first");
+            return;
+        }
+
+        setAssigning(true);
+        try {
+            const res = await axios.post(
+                `${process.env.REACT_APP_API_STRING}/admin/assign-branch-to-all`,
+                { branch_id: selectedBranchId },
+                { withCredentials: true }
+            );
+            message.success(res.data.message || "Branch assigned to all users");
+            fetchUserBranches();
+        } catch (error) {
+            console.error("Error assigning branch to all users:", error);
+            message.error(error.response?.data?.error || "Failed to assign branch to all users");
+        } finally {
+            setAssigning(false);
+        }
+    };
+
     const handleUnassign = async (userBranchId) => {
         try {
             await axios.delete(`${process.env.REACT_APP_API_STRING}/admin/unassign-branch/${userBranchId}`, { withCredentials: true });
@@ -146,14 +169,26 @@ function AssignBranch({ selectedUser }) {
                             ))}
                         </Select>
                     </div>
-                    <Button
-                        type="primary"
-                        icon={<EnvironmentOutlined />}
-                        onClick={handleAssign}
-                        loading={assigning}
-                    >
-                        Assign Branch
-                    </Button>
+                    <Space>
+                        <Popconfirm
+                            title="Assign this branch to all users?"
+                            onConfirm={handleAssignAll}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <Button loading={assigning}>
+                                Assign To All
+                            </Button>
+                        </Popconfirm>
+                        <Button
+                            type="primary"
+                            icon={<EnvironmentOutlined />}
+                            onClick={handleAssign}
+                            loading={assigning}
+                        >
+                            Assign Branch
+                        </Button>
+                    </Space>
                 </div>
 
                 <Divider style={{ margin: '12px 0' }} />

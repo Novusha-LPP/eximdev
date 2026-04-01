@@ -92,8 +92,8 @@ async function run() {
             console.log('Creating standard shift...');
             shift = new Shift({
                 name: 'Standard Shift',
-                start_time: '09:00',
-                end_time: '18:00',
+                start_time: '10:00',
+                end_time: '19:00',
                 weekly_off_days: [0]
             });
             await shift.save();

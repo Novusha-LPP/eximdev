@@ -63,6 +63,98 @@ router.post("/api/admin/assign-icd-code", authMiddleware, auditMiddleware("User"
   }
 });
 
+// Route to assign ICD Codes to all users
+router.post("/api/admin/assign-icd-code-to-all", authMiddleware, auditMiddleware("User"), async (req, res) => {
+  const { selectedIcdCodes, adminUsername } = req.body;
+
+  try {
+    if (!selectedIcdCodes || !adminUsername) {
+      return res.status(400).json({
+        message: "Selected ICD codes and admin username are required"
+      });
+    }
+
+    const icdCodesArray = Array.isArray(selectedIcdCodes) ? selectedIcdCodes : [selectedIcdCodes];
+
+    const adminUser = await UserModel.findOne({ username: adminUsername });
+    const allowedRoles = ["Admin", "Head_of_Department"];
+    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
+      return res.status(403).json({
+        message: "Unauthorized. Admin or HOD privileges required."
+      });
+    }
+
+    const branches = await BranchModel.find({ is_active: true });
+    const validIcdCodes = [...new Set(branches.flatMap(b => b.ports.map(p => p.port_name)))];
+
+    const invalidCodes = icdCodesArray.filter(code => !validIcdCodes.includes(code));
+    if (invalidCodes.length > 0) {
+      return res.status(400).json({
+        message: `Invalid ICD codes selected: ${invalidCodes.join(', ')}`
+      });
+    }
+
+    const result = await UserModel.updateMany(
+      {},
+      { $addToSet: { selected_icd_codes: { $each: icdCodesArray } } }
+    );
+
+    res.status(200).json({
+      message: `ICD codes assigned to ${result.modifiedCount} users successfully`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (err) {
+    console.error("Error assigning ICD codes to all users:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Route to assign ICD Codes to selected users
+router.post("/api/admin/assign-icd-code-to-users", authMiddleware, auditMiddleware("User"), async (req, res) => {
+  const { userIds, selectedIcdCodes, adminUsername } = req.body;
+
+  try {
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0 || !selectedIcdCodes || !adminUsername) {
+      return res.status(400).json({
+        message: "User IDs, selected ICD codes, and admin username are required"
+      });
+    }
+
+    const icdCodesArray = Array.isArray(selectedIcdCodes) ? selectedIcdCodes : [selectedIcdCodes];
+
+    const adminUser = await UserModel.findOne({ username: adminUsername });
+    const allowedRoles = ["Admin", "Head_of_Department"];
+    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
+      return res.status(403).json({
+        message: "Unauthorized. Admin or HOD privileges required."
+      });
+    }
+
+    const branches = await BranchModel.find({ is_active: true });
+    const validIcdCodes = [...new Set(branches.flatMap(b => b.ports.map(p => p.port_name)))];
+
+    const invalidCodes = icdCodesArray.filter(code => !validIcdCodes.includes(code));
+    if (invalidCodes.length > 0) {
+      return res.status(400).json({
+        message: `Invalid ICD codes selected: ${invalidCodes.join(', ')}`
+      });
+    }
+
+    const result = await UserModel.updateMany(
+      { _id: { $in: userIds } },
+      { $addToSet: { selected_icd_codes: { $each: icdCodesArray } } }
+    );
+
+    res.status(200).json({
+      message: `ICD codes assigned to ${result.modifiedCount} users successfully`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (err) {
+    console.error("Error assigning ICD codes to users:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Route to remove ICD Code from a user
 router.post("/api/admin/remove-icd-code", authMiddleware, auditMiddleware("User"), async (req, res) => {
   const { username, adminUsername, icdCodesToRemove } = req.body;

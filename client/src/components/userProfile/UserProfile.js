@@ -951,6 +951,9 @@ const UserProfile = ({ username: propUsername }) => {
 
             {/* Tabs Navigation */}
             <div className="profile-tabs-wrapper">
+                {(() => {
+                    const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
+                    return (
                 <Tabs
                     value={activeTab}
                     onChange={(e, v) => setActiveTab(v)}
@@ -962,22 +965,32 @@ const UserProfile = ({ username: propUsername }) => {
                     <Tab label={`Modules (${profileData.modules?.length || 0})`} />
                     <Tab label={`Importers (${profileData.assigned_importer_name?.length || 0})`} />
                     <Tab label={`Open Points (${openPointsCount})`} />
-                    {(isOwnProfile || loggedInUser?.role === 'Admin') && <Tab label="Attendance" />}
+                    {canViewAttendance && <Tab label="Attendance" />}
                     {(profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) && (
                         <Tab label="Marketing Assets" />
                     )}
                 </Tabs>
+                    );
+                })()}
             </div>
 
             {/* Main Content Area */}
             <div className="profile-body">
                 <AnimatePresence mode="wait">
-                    {activeTab === 0 && <OverviewTab key="overview" />}
-                    {activeTab === 1 && <ModulesTab key="modules" />}
-                    {activeTab === 2 && <ImportersTab key="importers" />}
-                    {activeTab === 3 && <OpenPointsTab key="openpoints" />}
-                    {activeTab === 4 && (isOwnProfile || loggedInUser?.role === 'Admin') && <AttendanceTab key="attendance" />}
-                    {activeTab === ((isOwnProfile || loggedInUser?.role === 'Admin') ? 5 : 4) && <MarketingAssetsTab key="marketing" />}
+                    {(() => {
+                        const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
+                        const marketingIndex = canViewAttendance ? 5 : 4;
+                        return (
+                            <>
+                                {activeTab === 0 && <OverviewTab key="overview" />}
+                                {activeTab === 1 && <ModulesTab key="modules" />}
+                                {activeTab === 2 && <ImportersTab key="importers" />}
+                                {activeTab === 3 && <OpenPointsTab key="openpoints" />}
+                                {activeTab === 4 && canViewAttendance && <AttendanceTab key="attendance" />}
+                                {activeTab === marketingIndex && <MarketingAssetsTab key="marketing" />}
+                            </>
+                        );
+                    })()}
                 </AnimatePresence>
             </div>
 

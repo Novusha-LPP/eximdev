@@ -1,5 +1,6 @@
 import express from "express";
 import BranchModel from "../../model/branchModel.mjs";
+import UserModel from "../../model/userModel.mjs";
 import UserBranchModel from "../../model/userBranchModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 
@@ -211,6 +212,89 @@ router.post("/assign-branch", authMiddleware, async (req, res) => {
         res.status(201).json({ message: "Branch assigned successfully.", assignment });
     } catch (error) {
         console.error("Error assigning branch:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// Assign a branch to all users
+router.post("/assign-branch-to-all", authMiddleware, async (req, res) => {
+    try {
+        const { branch_id } = req.body;
+
+        if (!branch_id) {
+            return res.status(400).json({ error: "Branch ID is required." });
+        }
+
+        const branch = await BranchModel.findById(branch_id).select("_id");
+        if (!branch) {
+            return res.status(404).json({ error: "Branch not found." });
+        }
+
+        const users = await UserModel.find({ isActive: true }).select("_id");
+        const userIds = users.map(u => u._id);
+
+        const existing = await UserBranchModel.find({ branch_id, user_id: { $in: userIds } }).select("user_id");
+        const existingIds = new Set(existing.map(e => e.user_id.toString()));
+
+        const toInsert = userIds
+            .filter(id => !existingIds.has(id.toString()))
+            .map(id => ({ user_id: id, branch_id }));
+
+        if (toInsert.length > 0) {
+            await UserBranchModel.insertMany(toInsert);
+        }
+
+        res.status(200).json({
+            message: `Branch assigned to ${toInsert.length} users`,
+            modifiedCount: toInsert.length
+        });
+    } catch (error) {
+        console.error("Error assigning branch to all users:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// Assign a branch to selected users
+router.post("/assign-branch-to-users", authMiddleware, async (req, res) => {
+    try {
+        const { branch_id, branch_ids, userIds } = req.body;
+        const branchIds = Array.isArray(branch_ids) && branch_ids.length > 0
+            ? branch_ids
+            : (branch_id ? [branch_id] : []);
+
+        if (branchIds.length === 0 || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ error: "Branch ID(s) and user IDs are required." });
+        }
+
+        const branches = await BranchModel.find({ _id: { $in: branchIds } }).select("_id");
+        if (branches.length !== branchIds.length) {
+            return res.status(404).json({ error: "Branch not found." });
+        }
+
+        const existing = await UserBranchModel.find({ branch_id: { $in: branchIds }, user_id: { $in: userIds } })
+            .select("user_id branch_id");
+        const existingPairs = new Set(existing.map(e => `${e.user_id.toString()}-${e.branch_id.toString()}`));
+
+        const toInsert = [];
+        userIds.forEach(userId => {
+            branchIds.forEach(branchId => {
+                const key = `${userId.toString()}-${branchId.toString()}`;
+                if (!existingPairs.has(key)) {
+                    toInsert.push({ user_id: userId, branch_id: branchId });
+                }
+            });
+        });
+
+        if (toInsert.length > 0) {
+            await UserBranchModel.insertMany(toInsert);
+        }
+
+        res.status(200).json({
+            message: `Branches assigned to ${toInsert.length} user-branch pair(s)`,
+            modifiedCount: toInsert.length
+        });
+    } catch (error) {
+        console.error("Error assigning branch to users:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

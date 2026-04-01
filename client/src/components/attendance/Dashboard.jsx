@@ -224,7 +224,9 @@ export default function Dashboard() {
       else if (rec.isLate) status = 'Present (Late)';
       else if (rec.isEarlyExit) status = 'Present (Early Exit)';
     } else if (rec?.status === 'half_day') {
-      status = `Half Day (${formatSession(rec.half_day_session)})`;
+      status = rec?.half_day_session
+        ? `Half Day (${formatSession(rec.half_day_session)})`
+        : 'Half Day';
     }
     setSelectedDay(ds);
     setDayDetail(rec ? { ...rec, status } : { status: 'No Data', hours: '0h 0m' });
@@ -806,7 +808,11 @@ export default function Dashboard() {
             <div className="attendance-modal-body">
               <div className="attendance-modal-row">
                 <span>Status</span>
-                <Badge variant={getStatusVariant(dayDetail?.is_half_day ? 'half_day' : dayDetail?.status)}>{dayDetail?.status}</Badge>
+                <Badge variant={getStatusVariant(dayDetail?.is_half_day ? 'half_day' : dayDetail?.status)}>
+                  {dayDetail?.is_half_day
+                    ? (dayDetail?.half_day_session ? `Half Day (${formatSession(dayDetail.half_day_session)})` : 'Half Day')
+                    : (dayDetail?.status ? String(dayDetail.status).replace(/_/g, ' ') : 'No Data')}
+                </Badge>
               </div>
               <div className="attendance-modal-row">
                 <span>Duration</span>

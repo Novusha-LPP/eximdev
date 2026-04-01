@@ -38,18 +38,18 @@ const HOD_MENU = [
 ];
 
 const ADMIN_MENU = [
-  { section: 'Overview' },
-  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-  { section: 'My Attendance' },
-  { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
-  { section: 'Company' },
-  { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report' },
-  { section: 'Leave' },
-  { path: '/attendance/hod/leave-approval', icon: FiFileText, label: 'Leave Approvals' },
-  { section: 'Configuration' },
-  { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holidays' },
-  { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts' },
-  { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies' },
+    { section: 'Overview' },
+    { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
+    { section: 'My Attendance' },
+    { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
+    { section: 'Company' },
+    { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
+    { section: 'Leave' },
+    { path: '/attendance/hod/leave-approval', icon: FiFileText, label: 'Leave Approvals' },
+    { section: 'Configuration' },
+    { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holidays' },
+    { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts' },
+    { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies' },
 ];
 
 const ALLOWED_USERNAMES = new Set([
@@ -74,6 +74,11 @@ const AttendanceLayout = () => {
     let menu = role === 'Admin' || role === 'ADMIN' ? [...ADMIN_MENU] :
                role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU : 
                EMPLOYEE_MENU;
+
+    // Hide Company Report unless admin is allowed
+    if (role === 'Admin' || role === 'ADMIN') {
+        menu = menu.filter(item => !item.requiresAllowedAdmin || ALLOWED_USERNAMES.has(username));
+    }
 
     // Add Company Management for allowed users
     if ((role === 'Admin' || role === 'ADMIN') && ALLOWED_USERNAMES.has(username)) {

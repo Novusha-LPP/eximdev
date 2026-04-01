@@ -36,9 +36,10 @@ import { useSearchParams } from "react-router-dom";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import QueriesComponent from "../../utils/QueriesComponent.js";
-import ImportDoChargesTable from "../import-do/ImportDoChargesTable";
+
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import ChargesGrid from "../ChargesGrid";
 
 function EditPaymentRequest() {
   const [someReceiptsUploaded, setsomeReceiptsUploaded] = useState(false);
@@ -170,24 +171,7 @@ function EditPaymentRequest() {
           document_amount_details: "",
         };
 
-        const otherDoDocuments = jobData.other_do_documents || [
-          {
-            document_name: "",
-            url: [],
-            document_check_date: "",
-            document_amount_details: "",
-            currency: "INR",
-            charge_basis: "",
-            charge_rate: "",
-            exchange_rate: "1",
-            amount_inr: "",
-            receivable: "",
-            cost_rate: "",
-            cost_amount: "",
-            cost_amount_inr: "",
-            payable: "",
-          }
-        ];
+
 
         setData({
           ...jobData,
@@ -199,7 +183,6 @@ function EditPaymentRequest() {
           do_completed,
           do_shipping_line_invoice: doShippingLineInvoice,
           insurance_copy: insuranceCopy,
-          other_do_documents: otherDoDocuments,
         });
 
         setLoading(false);
@@ -231,30 +214,7 @@ function EditPaymentRequest() {
       container_nos: data?.container_nos || [],
       dsr_queries: data?.dsr_queries || [],
       shipping_line_airline: data?.shipping_line_airline || "", // Pass this to formik so child components can access it
-      esanchitCharges: data?.esanchitCharges && data.esanchitCharges.length > 0
-        ? data.esanchitCharges
-        : [
-          {
-            document_name: "NFIMS/SIMS",
-            url: [],
-            document_check_date: "",
-            document_charge_refrence_no: "",
-            document_charge_recipt_copy: "",
-            is_registration_charges: false,
-            registration_receipt_no: "",
-            registration_amount: "",
-          },
-          {
-            document_name: "PIMS",
-            url: [],
-            document_check_date: "",
-            document_charge_refrence_no: "",
-            document_charge_recipt_copy: "",
-            is_registration_charges: false,
-            registration_receipt_no: "",
-            registration_amount: "",
-          },
-        ],
+
 
       do_shipping_line_invoice: Array.isArray(data?.do_shipping_line_invoice) && data?.do_shipping_line_invoice.length > 0
         ? data.do_shipping_line_invoice
@@ -262,28 +222,8 @@ function EditPaymentRequest() {
           {
             document_name: "Shipping Line Invoice",
             url: [],
-            is_draft: false,
-            is_final: false,
             document_check_date: "",
             document_check_status: false,
-            payment_mode: "",
-            wire_transfer_method: "",
-            document_amount_details: "",
-            payment_request_date: "",
-            payment_made_date: "",
-            is_tds: false,
-            is_non_tds: false,
-            payment_recipt: [],
-            currency: "INR",
-            charge_basis: "",
-            charge_rate: "",
-            exchange_rate: "1",
-            amount_inr: "",
-            receivable: "",
-            cost_rate: "",
-            cost_amount: "",
-            cost_amount_inr: "",
-            payable: "",
           },
         ],
 
@@ -294,40 +234,10 @@ function EditPaymentRequest() {
             document_name: "Insurance",
             url: [],
             document_check_date: "",
-            document_amount_details: "",
-            currency: "INR",
-            charge_basis: "",
-            charge_rate: "",
-            exchange_rate: "1",
-            amount_inr: "",
-            receivable: "",
-            cost_rate: "",
-            cost_amount: "",
-            cost_amount_inr: "",
-            payable: "",
           },
         ],
 
-      other_do_documents: Array.isArray(data?.other_do_documents) && data?.other_do_documents.length > 0
-        ? data.other_do_documents
-        : [
-          {
-            document_name: "",
-            url: [],
-            document_check_date: "",
-            document_amount_details: "",
-            currency: "INR",
-            charge_basis: "",
-            charge_rate: "",
-            exchange_rate: "1",
-            amount_inr: "",
-            receivable: "",
-            cost_rate: "",
-            cost_amount: "",
-            cost_amount_inr: "",
-            payable: "",
-          }
-        ],
+
 
       security_deposit: Array.isArray(data?.security_deposit) && data?.security_deposit.length > 0
         ? data.security_deposit
@@ -336,19 +246,6 @@ function EditPaymentRequest() {
             document_name: "Security Deposit",
             url: [],
             document_check_date: "",
-            document_amount_details: "",
-            utr: "",
-            Validity_upto: "",
-            currency: "INR",
-            charge_basis: "",
-            charge_rate: "",
-            exchange_rate: "1",
-            amount_inr: "",
-            receivable: "",
-            cost_rate: "",
-            cost_amount: "",
-            cost_amount_inr: "",
-            payable: "",
           },
         ],
     },
@@ -370,18 +267,11 @@ function EditPaymentRequest() {
             values.do_completed.trim() !== ""
             ? new Date(values.do_completed).toISOString()
             : "",
-        do_shipping_line_invoice: values.do_shipping_line_invoice.map(
-          (doc) => ({
-            ...doc,
-            payment_mode: Array.isArray(doc.payment_mode)
-              ? doc.payment_mode.join(",")
-              : doc.payment_mode || "", // Ensure it falls back to empty string if undefined/null
-          })
-        ),
+        do_shipping_line_invoice: values.do_shipping_line_invoice,
         insurance_copy: values.insurance_copy,
-        other_do_documents: values.other_do_documents,
+
         security_deposit: values.security_deposit,
-        esanchitCharges: values.esanchitCharges,
+
       };
 
       try {
@@ -436,14 +326,7 @@ function EditPaymentRequest() {
     // You can add API calls, notifications, etc.
   };
 
-  useEffect(() => {
-    if (formik.values.do_shipping_line_invoice) {
-      const someUpload = formik.values.do_shipping_line_invoice.some(
-        (doc) => doc.payment_recipt && doc.payment_recipt.length > 0
-      );
-      setsomeReceiptsUploaded(someUpload);
-    }
-  }, [formik.values.do_shipping_line_invoice]);
+
 
   // Fetch KYC documents once data is loaded
   // Fetch KYC documents once data is loaded
@@ -467,16 +350,18 @@ function EditPaymentRequest() {
     }
   }, [data]);
 
-  // Render editable charges section
-  const renderChargesSection = () => (
-    <ImportDoChargesTable
-      formik={formik}
-      user={user}
-      setFileSnackbar={setFileSnackbar}
-      allowPaymentMade={true}
-      allowPaymentReceipt={true}
-    />
-  );
+
+
+  const handleDoCopiesUpload = (urls) => {
+    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+  };
+
+  const handleRemoveDoCopy = (urlToRemove) => {
+    formik.setFieldValue(
+      "do_copies",
+      formik.values.do_copies.filter((url) => url !== urlToRemove)
+    );
+  };
 
   const handleCopy = useCallback((event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -706,9 +591,23 @@ function EditPaymentRequest() {
                 <strong>KYC Valid Upto:&nbsp;</strong>
                 {kycData.kyc_valid_upto}
                 <br />
-                <strong>BL Status:&nbsp;</strong>
-                {data.obl_telex_bl || "N/A"}
-                <br />
+              </div>
+              
+              <div className="job-details-container">
+                <JobDetailsRowHeading heading="Charges Details" />
+                <ChargesGrid 
+                  parentId={jobId} 
+                  parentModule="Job" 
+                  shippingLineAirline={data?.shipping_line_airline} 
+                  importerName={data?.importer}
+                  jobNumber={data?.job_no}
+                  jobDisplayNumber={data?.job_number}
+                  jobYear={data?.year}
+                  invoiceNumber={data?.invoice_number}
+                  invoiceDate={data?.invoice_date}
+                  invoiceValue={data?.total_inv_value}
+                  cthNo={data?.cth_no}
+                />
               </div>
 
               {/* DO Completed Section with Date Display and Admin Input */}
@@ -774,7 +673,28 @@ function EditPaymentRequest() {
                 {renderContainerDetails()}
               </div>
 
-              {renderChargesSection()}
+              {/* DO Copies Section */}
+              <div className="upload-container">
+                <div className="section-header">
+                  <strong>DO Copies</strong>
+                </div>
+                <FileUpload
+                  label="UPLOAD INV/BILL"
+                  onFilesUploaded={handleDoCopiesUpload}
+                  multiple={true}
+                  setFileSnackbar={setFileSnackbar}
+                />
+                {formik.values.do_copies && formik.values.do_copies.length > 0 && (
+                  <div style={{ marginTop: "10px" }}>
+                    <ImagePreview
+                      images={formik.values.do_copies}
+                      onRemove={handleRemoveDoCopy}
+                    />
+                  </div>
+                )}
+              </div>
+
+
               <Button
                 type="submit"
                 variant="contained"

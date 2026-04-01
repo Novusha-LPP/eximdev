@@ -62,23 +62,9 @@ const cthDocumentSchema = new mongoose.Schema({
   send_date: { type: String, trim: true },
 });
 
-const DsrchargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-});
 
-const esanchitChargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_charge_refrence_no: { type: String, trim: true },
-  document_charge_recipt_copy: { type: String, trim: true },
-  is_registration_charges: { type: Boolean, default: false },
-  registration_receipt_no: { type: String, trim: true },
-  registration_amount: { type: String, trim: true },
-});
+
+
 
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
@@ -488,7 +474,38 @@ const jobSchema = new mongoose.Schema({
   shipping_line_invoice_received_date: { type: String, trim: true },
   shipping_line_insurance: [{ type: String, trim: true }],
   // *******
-  security_deposit: { type: String },
+  do_shipping_line_invoice: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+    },
+  ],
+
+  insurance_copy: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+    },
+  ],
+
+  security_deposit: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+    },
+  ],
   security_amount: { type: String },
   utr: [
     {
@@ -636,96 +653,9 @@ const jobSchema = new mongoose.Schema({
     },
   ],
 
-  /////////////////////////////////// Charges Details
-  DsrCharges: [DsrchargesSchema],
   charges: [ChargeSchema],
 
-  /////////////////////////////////// esanchit Charges Details
-  esanchitCharges: [esanchitChargesSchema],
 
-  /////////////////////////////////// Do Charges Details
-  // 1. Updated Schema (Backend) - Add this to your schema
-  do_shipping_line_invoice: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      is_draft: { type: Boolean },
-      is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      payment_request_date: { type: String, trim: true },
-      payment_made_date: { type: String, trim: true },
-      is_tds: { type: Boolean, default: false },
-      is_payment_made: { type: Boolean, default: false },
-      is_payment_requested: { type: Boolean, default: false },
-      is_non_tds: { type: Boolean, default: false },
-      payment_recipt: [{ type: String, trim: true }],
-      payment_recipt_date: { type: String, trim: true },
-    },
-  ],
-
-  insurance_copy: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      is_draft: { type: Boolean },
-      is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      payment_request_date: { type: String, trim: true },
-      payment_made_date: { type: String, trim: true },
-      is_tds: { type: Boolean, default: false },
-      is_payment_made: { type: Boolean, default: false },
-      is_payment_requested: { type: Boolean, default: false },
-      is_non_tds: { type: Boolean, default: false },
-      payment_recipt: [{ type: String, trim: true }],
-      payment_recipt_date: { type: String, trim: true },
-    },
-  ],
-
-
-  security_deposit: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      document_check_date: { type: String, trim: true },
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      utr: { type: Number, trim: true },
-      Validity_upto: { type: String, trim: true },
-    },
-  ],
-
-  other_do_documents: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      is_draft: { type: Boolean },
-      is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      payment_request_date: { type: String, trim: true },
-      payment_made_date: { type: String, trim: true },
-      is_tds: { type: Boolean, default: false },
-      is_payment_made: { type: Boolean, default: false },
-      is_payment_requested: { type: Boolean, default: false },
-      is_non_tds: { type: Boolean, default: false },
-      payment_recipt: [{ type: String, trim: true }],
-      payment_recipt_date: { type: String, trim: true },
-    },
-  ],
 
 
   ////////////////////////////////////////////////////// Submission

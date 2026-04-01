@@ -31,15 +31,18 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
             if (isOpen && initialData) {
                 // Generate request number using canonical job reference (e.g. IMP/24-25/0001)
                 const jobRefStr = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
-                
+
                 // Fetch next sequence from backend using canonical job identifier
-                let finalRequestNo = `R1/01/${jobRefStr}`;
+                let finalRequestNo = `R01/${jobRefStr}`;
                 try {
-                    const API_KEY = "TALLY_INTEGRATION_KEY";
+                    const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';
                     const response = await axios.get(
                         `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=payment&jobNo=${jobRefStr}${yearParam}`,
-                        { headers: { 'x-api-key': API_KEY } }
+                        {
+                            headers: { 'x-api-key': API_KEY },
+                            withCredentials: true
+                        }
                     );
                     if (response.data.success && response.data.fullNo) {
                         finalRequestNo = response.data.fullNo;
@@ -84,17 +87,18 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
         if (e && e.preventDefault) e.preventDefault();
         setLoading(true);
         try {
-            const API_KEY = "TALLY_INTEGRATION_KEY"; 
-            
+            const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
+
             // Fixed URL: process.env.REACT_APP_API_STRING already contains '/api'
             const response = await axios.post(
-                `${process.env.REACT_APP_API_STRING}/tally/payment-request`, 
+                `${process.env.REACT_APP_API_STRING}/tally/payment-request`,
                 formData,
                 {
-                    headers: { 'x-api-key': API_KEY }
+                    headers: { 'x-api-key': API_KEY },
+                    withCredentials: true
                 }
             );
-            
+
             if (response.data.success) {
                 alert("Payment Request Submitted Successfully to Tally!");
                 if (onSuccess) onSuccess(formData["Request No"]);
@@ -178,6 +182,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                                     <option value="RTGS">RTGS</option>
                                     <option value="IMPS">IMPS</option>
                                     <option value="CHEQUE">CHEQUE</option>
+                                    <option value="CASH">CASH</option>
                                 </select>
                             </div>
                             <div className="ep-row">

@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 // import ImagePreview from "../gallery/ImagePreview";
-import Charges from "../Charges/Charges";
+
 import QueriesComponent from "../../utils/QueriesComponent";
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 
@@ -772,8 +772,7 @@ const ViewBillingJob = () => {
                 </div>
               </div>
             )}
-            {/* Charges Section (below Billing Details) */}
-            <Charges job_no={job_no} year={year} branch_code={branch_code} trade_type={trade_type} />
+
             {/* Bill Completion Section */}
             <div className="job-details-container">
               <JobDetailsRowHeading heading="All Cleared Documentation" />

@@ -182,7 +182,7 @@ router.patch("/api/update-esanchit-job/:mode/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
     const { mode, job_no, year } = req.params;
-    const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
+    const { cth_documents, queries, esanchit_completed_date_time, dsr_queries } = req.body;
 
     try {
       const job = await JobModel.findOne({ mode: mode.toUpperCase(), job_no, year });
@@ -195,9 +195,7 @@ router.patch("/api/update-esanchit-job/:mode/:job_no/:year",
         job.cth_documents = cth_documents;
       }
 
-      if (esanchitCharges) {
-        job.esanchitCharges = esanchitCharges;
-      }
+
 
       if (queries) {
         job.eSachitQueries = queries;

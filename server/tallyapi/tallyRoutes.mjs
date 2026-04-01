@@ -83,13 +83,13 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
       prefix = "PB";
     } else if (type === "payment") {
       count = await PaymentRequestModel.countDocuments({ jobNo: canonicalJobNo });
-      prefix = "R1";
+      prefix = "R";
     } else {
       return res.status(400).json({ error: "Invalid type. Must be 'purchase' or 'payment'" });
     }
 
     const nextIndex = (count + 1).toString().padStart(2, '0');
-    const fullNo = `${prefix}/${nextIndex}/${canonicalJobNo}`;
+    const fullNo = `${prefix}${nextIndex}/${canonicalJobNo}`;
 
     res.status(200).json({ 
       success: true, 
@@ -281,6 +281,19 @@ router.post("/payment-request", authApiKey, async (req, res) => {
 
     console.log("Saving Payment Request:", data.requestNo);
     const request = await PaymentRequestModel.create(data);
+
+    if (data.jobRef && data.chargeRef) {
+      await JobModel.updateOne(
+        { _id: data.jobRef, "charges._id": data.chargeRef },
+        { 
+          $set: { 
+            "charges.$.payment_request_no": request.requestNo,
+            "charges.$.payment_request_status": "Pending" 
+          }
+        }
+      );
+    }
+
     res.status(201).json({ 
       success: true, 
       message: "Payment Request saved and submitted successfully",

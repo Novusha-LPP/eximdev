@@ -13,6 +13,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import BusinessIcon from "@mui/icons-material/Business";
+import PersonIcon from "@mui/icons-material/Person";
+import EmailIcon from "@mui/icons-material/Email";
+import PhoneIcon from "@mui/icons-material/Phone";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -26,6 +29,7 @@ const ShippingLineDirectory = () => {
     name: "",
     active: "Yes",
     tds_percent: 0,
+    contacts: [],
     credit_terms: "",
     cin: "",
     branches: []
@@ -103,6 +107,32 @@ const ShippingLineDirectory = () => {
     const updatedBranches = [...formData.branches];
     updatedBranches[branchIndex].accounts[accountIndex][field] = value.toUpperCase();
     setFormData({ ...formData, branches: updatedBranches });
+  };
+
+  const addContact = () => {
+    setFormData({
+      ...formData,
+      contacts: [
+        ...formData.contacts,
+        { name: "", email: "", phone: "" }
+      ]
+    });
+  };
+
+  const removeContact = (index) => {
+    const updatedContacts = [...formData.contacts];
+    updatedContacts.splice(index, 1);
+    setFormData({ ...formData, contacts: updatedContacts });
+  };
+
+  const handleContactChange = (index, field, value) => {
+    const updatedContacts = [...formData.contacts];
+    let processedValue = value;
+    if (field === 'name') processedValue = value.toUpperCase();
+    if (field === 'email') processedValue = value.toLowerCase();
+    
+    updatedContacts[index][field] = processedValue;
+    setFormData({ ...formData, contacts: updatedContacts });
   };
 
   const addAccount = (branchIndex) => {
@@ -204,6 +234,7 @@ const ShippingLineDirectory = () => {
       name: line.name,
       active: line.active || "Yes",
       tds_percent: line.tds_percent || 0,
+      contacts: line.contacts || [],
       credit_terms: line.credit_terms || "",
       cin: line.cin || "",
       branches: (line.branches || []).map(b => ({
@@ -223,6 +254,7 @@ const ShippingLineDirectory = () => {
       name: "",
       active: "Yes",
       tds_percent: 0,
+      contacts: [],
       credit_terms: "",
       cin: "",
       branches: [{
@@ -398,6 +430,64 @@ const ShippingLineDirectory = () => {
               value={formData.cin}
               onChange={(e) => setFormData({ ...formData, cin: e.target.value.toUpperCase() })}
             />
+
+            <Box sx={{ gridColumn: 'span 2', mt: 3 }}>
+                <Divider sx={{ mb: 2 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PersonIcon color="primary" /> Contact Persons ({formData.contacts.length})
+                    </Typography>
+                    <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={addContact}>
+                        Add Contact
+                    </Button>
+                </Box>
+                
+                {formData.contacts.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                        No contact persons added yet. Click "Add Contact" to include details.
+                    </Typography>
+                ) : (
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
+                        {formData.contacts.map((contact, idx) => (
+                            <Box key={idx} sx={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr 1fr auto', 
+                                gap: 2, 
+                                p: 2, 
+                                border: '1px solid #e0e0e0', 
+                                borderRadius: 1,
+                                alignItems: 'center',
+                                position: 'relative'
+                            }}>
+                                <TextField 
+                                    label="Person Name" 
+                                    fullWidth 
+                                    size="small"
+                                    value={contact.name} 
+                                    onChange={(e) => handleContactChange(idx, "name", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="Email Address" 
+                                    fullWidth 
+                                    size="small"
+                                    value={contact.email} 
+                                    onChange={(e) => handleContactChange(idx, "email", e.target.value)} 
+                                />
+                                <TextField 
+                                    label="Contact Number" 
+                                    fullWidth 
+                                    size="small"
+                                    value={contact.phone} 
+                                    onChange={(e) => handleContactChange(idx, "phone", e.target.value)} 
+                                />
+                                <IconButton color="error" onClick={() => removeContact(idx)}>
+                                    <RemoveCircleOutlineIcon />
+                                </IconButton>
+                            </Box>
+                        ))}
+                    </Box>
+                )}
+            </Box>
 
             <Box sx={{ gridColumn: 'span 2', mt: 2 }}>
               <Divider sx={{ mb: 2 }} />

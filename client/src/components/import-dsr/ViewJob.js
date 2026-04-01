@@ -325,15 +325,6 @@ function JobDetails() {
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
-    // Charges related
-    DsrCharges,
-    setDsrCharges,
-    selectedChargesDocuments,
-    setSelectedChargesDocuments,
-    selectedChargesDocument,
-    setSelectedChargesDocument,
-    newChargesDocumentName,
-    setNewChargesDocumentName,
     setData,
     // schemeOptions,
   } = useFetchJobDetails(
@@ -3144,124 +3135,8 @@ function JobDetails() {
           {/* charges section */}
           {viewJobTab === 6 && (
             <div className="job-details-container">
-              {/* Charges Section */}
-              <JobDetailsRowHeading heading="Charges" />
-              <div className="table-responsive">
-                <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
-                  <thead style={{ backgroundColor: "#f8f9fa" }}>
-                    <tr>
-                      <th style={{ width: "25%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
-                      <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Amount Details</th>
-                      <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
-                      <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {DsrCharges?.map((doc, index) => {
-                      const selectedChargesDoc = selectedChargesDocuments.find(s => s.document_name === doc.document_name) || {};
-                      const isCustom = !["Notary", "Duty", "MISC", "CE Certification Charges", "ADC/NOC Charges"].includes(doc.document_name);
 
-                      return (
-                        <tr key={`charges-${index}`}>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
-                              {isCustom && (
-                                <IconButton size="small" color="error" onClick={() => {
-                                  const updatedDsrCharges = DsrCharges.filter((_, i) => i !== index);
-                                  setDsrCharges(updatedDsrCharges);
-                                  const updatedSelected = selectedChargesDocuments.filter(s => s.document_name !== doc.document_name);
-                                  setSelectedChargesDocuments(updatedSelected);
-                                }} style={{ padding: "4px" }}>
-                                  <Delete style={{ fontSize: "1rem" }} fontSize="small" />
-                                </IconButton>
-                              )}
-                            </div>
-                          </td>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              placeholder="Amount"
-                              type="number"
-                              variant="outlined"
-                              value={selectedChargesDoc.document_amount_details || ""}
-                              inputProps={{ min: 0, step: "0.01", pattern: "[0-9]+(\\.[0-9]+)?" }}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === "" || /^\d+(\.\d*)?$/.test(value)) {
-                                  const updated = [...selectedChargesDocuments];
-                                  const idx = updated.findIndex(s => s.document_name === doc.document_name);
-                                  if (idx !== -1) updated[idx].document_amount_details = value;
-                                  else updated.push({ document_name: doc.document_name, url: [], document_check_date: "", document_amount_details: value });
-                                  setSelectedChargesDocuments(updated);
-                                }
-                              }}
-                              sx={{
-                                ...compactInputSx,
-                                "& .MuiOutlinedInput-root": { height: "30px" }, // Match table row height better
-                              }}
-                            />
-                          </td>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
-                            <FileUpload
-                              label="Upload"
-                              bucketPath={`charges-documents/${doc.document_name}`}
-                              multiple={true}
-                              containerStyles={{ marginTop: 0 }}
-                              buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
-                              onFilesUploaded={(urls) => {
-                                const updated = [...selectedChargesDocuments];
-                                const idx = updated.findIndex(s => s.document_name === doc.document_name);
-                                if (idx !== -1) updated[idx].url = [...(updated[idx].url || []), ...urls];
-                                else updated.push({ document_name: doc.document_name, url: urls, document_check_date: "", document_amount_details: "" });
-                                setSelectedChargesDocuments(updated);
-                              }}
-                            />
-                          </td>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                            <ImagePreview
-                              images={selectedChargesDoc.url || []}
-                              readOnly={false}
-                              onDeleteImage={(delIdx) => {
-                                const updated = [...selectedChargesDocuments];
-                                const idx = updated.findIndex(s => s.document_name === doc.document_name);
-                                if (idx !== -1) {
-                                  updated[idx].url = updated[idx].url.filter((_, i) => i !== delIdx);
-                                  setSelectedChargesDocuments(updated);
-                                }
-                              }}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Add Custom Charge */}
-              <div style={{ background: "#f8f9fa", borderRadius: "8px", border: "1px dashed #ced4da", padding: "20px", marginTop: "10px", marginBottom: "30px" }}>
-                <h6 style={{ fontSize: "0.9rem", fontWeight: "700", color: "#495057", marginBottom: "15px" }}>Add Custom Charge Document</h6>
-                <Row className="align-items-center">
-                  <Col xs={12} lg={6}>
-                    <TextField fullWidth size="small" label="Document Name" variant="outlined" value={newChargesDocumentName}
-                      onChange={(e) => setNewChargesDocumentName(e.target.value)} onKeyDown={preventFormSubmitOnEnter} sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} lg={2}>
-                    <Button variant="contained" color="primary"
-                      disabled={!(user?.role === "Admin") && (!newChargesDocumentName.trim() || DsrCharges.some(d => d.document_name === newChargesDocumentName.trim()))}
-                      onClick={() => {
-                        if (newChargesDocumentName.trim() && !DsrCharges.some(d => d.document_name === newChargesDocumentName.trim())) {
-                          setDsrCharges([...DsrCharges, { document_name: newChargesDocumentName.trim() }]);
-                          setNewChargesDocumentName("");
-                        }
-                      }}>
-                      Add
-                    </Button>
-                  </Col>
-                </Row>
-              </div>
+              {/* NEW CHARGES COMPONENT */}
 
               {/* NEW CHARGES COMPONENT */}
               <div style={{ marginTop: '40px' }}>

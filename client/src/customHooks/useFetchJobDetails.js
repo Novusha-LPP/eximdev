@@ -71,27 +71,7 @@ function useFetchJobDetails(
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
 
-  // Charges section state
-  const [DsrCharges, setDsrCharges] = useState([
-    {
-      document_name: "Notary",
-    },
-    {
-      document_name: "Duty",
-    },
-    {
-      document_name: "MISC",
-    },
-    {
-      document_name: "CE Certification Charges",
-    },
-    {
-      document_name: "ADC/NOC Charges",
-    },
-  ]);
-  const [selectedChargesDocuments, setSelectedChargesDocuments] = useState([]);
-  const [selectedChargesDocument, setSelectedChargesDocument] = useState(""); // State for custom charges dropdown
-  const [newChargesDocumentName, setNewChargesDocumentName] = useState("");
+
 
   const additionalDocs = [
     // {
@@ -222,32 +202,6 @@ function useFetchJobDetails(
       const response = await axios.get(url);
       setData(response.data);
       setSelectedDocuments(response.data.documents);
-      setSelectedChargesDocuments(response.data.DsrCharges || []);
-
-      // Update DsrCharges to include custom charges from database
-      if (response.data.DsrCharges && response.data.DsrCharges.length > 0) {
-        const predefinedCharges = [
-          { document_name: "Notary" },
-          { document_name: "Duty" },
-          { document_name: "MISC" },
-          { document_name: "CE Certification Charges" },
-          { document_name: "ADC/NOC Charges" },
-        ];
-
-        // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = response.data.DsrCharges
-          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
-          .map(charge => ({ document_name: charge.document_name }));
-
-        // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
-          index === self.findIndex(c => c.document_name === charge.document_name)
-        );
-
-        // Combine predefined and unique custom charges
-        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setDsrCharges(allCharges);
-      }
     }
 
     getJobDetails();
@@ -338,7 +292,6 @@ function useFetchJobDetails(
 
     if (data) {
       setSelectedDocuments(data.documents);
-      setSelectedChargesDocuments(data.DsrCharges || []);
     }
 
     getCthDocs();
@@ -659,7 +612,6 @@ function useFetchJobDetails(
           penalty_amount: values.penalty_amount,
           total_duty: values.total_duty,
           client_remark: values.client_remark,
-          DsrCharges: selectedChargesDocuments,
           dsr_queries: values.dsr_queries,
           other_charges_details: values.other_charges_details,
           misc_charges: values.misc_charges,
@@ -944,7 +896,6 @@ function useFetchJobDetails(
         type_of_Do: safeValue(data.type_of_Do),
         obl_telex_bl: safeValue(data.obl_telex_bl),
 
-        DsrCharges: safeValue(data.DsrCharges, []),
         dsr_queries: safeValue(data.dsr_queries, []),
         other_charges_details: safeValue(data.other_charges_details, {
           is_single_for_all: true,
@@ -960,30 +911,6 @@ function useFetchJobDetails(
         }),
         misc_charges: safeValue(data.misc_charges, []),
       });
-      // Update DsrCharges state to include custom charges from database
-      if (data.DsrCharges && data.DsrCharges.length > 0) {
-        const predefinedCharges = [
-          { document_name: "Notary" },
-          { document_name: "Duty" },
-          { document_name: "MISC" },
-          { document_name: "CE Certification Charges" },
-          { document_name: "ADC/NOC Charges" },
-        ];
-
-        // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = data.DsrCharges
-          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
-          .map(charge => ({ document_name: charge.document_name }));
-
-        // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
-          index === self.findIndex(c => c.document_name === charge.document_name)
-        );
-
-        // Combine predefined and unique custom charges
-        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setDsrCharges(allCharges);
-      }
     }
     // eslint-disable-next-line
   }, [data]);
@@ -1223,15 +1150,6 @@ function useFetchJobDetails(
     canChangeClearance,
     resetOtherDetails,
 
-    // Charges related exports
-    DsrCharges,
-    setDsrCharges,
-    selectedChargesDocuments,
-    setSelectedChargesDocuments,
-    selectedChargesDocument,
-    setSelectedChargesDocument,
-    newChargesDocumentName,
-    setNewChargesDocumentName,
     setData
   };
 }

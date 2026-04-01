@@ -14,7 +14,7 @@ import { useSearchParams } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import QueriesComponent from "../../utils/QueriesComponent";
-import ImportDoChargesTable from "./ImportDoChargesTable";
+
 import ChargesGrid from "../ChargesGrid";
 
 import {
@@ -30,20 +30,34 @@ function EditDoList() {
   // CSS styles for upload containers
   const uploadContainerStyles = `
     .upload-container {
-      border: 2px solid #e3e8ef;
-      border-radius: 12px;
-      padding: 20px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
       background-color: #ffffff;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
     .section-header {
+      background-color: #f8fafc;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e2e8f0;
       display: flex;
       align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e3e8ef;
+      justify-content: space-between;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+
+    .upload-content {
+      padding: 20px;
     }
     
     .form-field {
@@ -191,7 +205,6 @@ function EditDoList() {
           shipping_line_insurance: kycRes.data.shipping_line_insurance || [],
           do_shipping_line_invoice: jobRes.data.do_shipping_line_invoice || [],
           insurance_copy: jobRes.data.insurance_copy || [],
-          other_do_documents: jobRes.data.other_do_documents || [],
           do_copies: jobRes.data.do_copies || [],
           security_deposit: jobRes.data.security_deposit || [],
         };
@@ -240,7 +253,6 @@ function EditDoList() {
               document_check_date: "",
               document_amount_details: "",
             }],
-          other_do_documents: mergedData.other_do_documents,
           security_deposit: mergedData.security_deposit || [],
         });
 
@@ -258,7 +270,9 @@ function EditDoList() {
   const handleQueriesChange = (updatedQueries) => {
     setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries,
+      do_validity: data?.do_validity || "",
+      do_copies: data?.do_copies || [],
+      do_queries: updatedQueries,
     }));
   };
 
@@ -305,7 +319,6 @@ function EditDoList() {
           document_amount_details: "",
         },
       ],
-      other_do_documents: [],
       do_copies: [],
       security_deposit: [],
     },
@@ -392,6 +405,16 @@ function EditDoList() {
       </div>
     );
   }
+
+  const handleDoCopiesUpload = (urls) => {
+    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+  };
+
+  const handleRemoveDoCopy = (index) => {
+    const updatedCopies = [...formik.values.do_copies];
+    updatedCopies.splice(index, 1);
+    formik.setFieldValue("do_copies", updatedCopies);
+  };
 
   if (loading) {
     return (
@@ -646,11 +669,26 @@ function EditDoList() {
           jobNumber={job_no}
           jobYear={year}
         />
-        <ImportDoChargesTable
-          formik={formik}
-          user={user}
-          setFileSnackbar={setFileSnackbar}
-        />
+
+        {/* DO Copies Section */}
+        <div className="upload-container">
+          <div className="section-header">
+            <h3 className="section-title">DO COPIES</h3>
+          </div>
+          <div className="upload-content">
+            <FileUpload 
+              label="UPLOAD DO COPIES"
+              onFilesUploaded={handleDoCopiesUpload} 
+            />
+            <ImagePreview
+              images={formik.values.do_copies}
+              onDeleteImage={(index) => {
+                handleRemoveDoCopy(index);
+              }}
+            />
+          </div>
+        </div>
+
 
 
         <div className="submit-section">

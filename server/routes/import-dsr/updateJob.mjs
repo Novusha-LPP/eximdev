@@ -205,7 +205,7 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
       }
 
       const sanitizedUpdate = sanitizeJobPayload(updatedFields);
-      
+
       // ✅ Protect critical fields from being overwritten by empty/undefined values
       delete sanitizedUpdate.branch_code;
       delete sanitizedUpdate.job_number;
@@ -213,6 +213,14 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
       delete sanitizedUpdate.job_no;
       delete sanitizedUpdate.year;
       delete sanitizedUpdate.financial_year;
+
+      // ✅ Support legacy address formats (strings) by converting them to objects before assignment
+      if (typeof sanitizedUpdate.importer_address === 'string') {
+        sanitizedUpdate.importer_address = { details: sanitizedUpdate.importer_address };
+      }
+      if (typeof sanitizedUpdate.hss_address === 'string') {
+        sanitizedUpdate.hss_address = { details: sanitizedUpdate.hss_address };
+      }
 
       Object.assign(matchingJob, sanitizedUpdate);
 
@@ -371,6 +379,14 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
 
       if (!matchingJob) {
         return res.status(404).json({ error: "Job not found" });
+      }
+
+      // ✅ Support legacy address formats (strings) by converting them to objects before assignment
+      if (typeof updateData.importer_address === 'string') {
+        updateData.importer_address = { details: updateData.importer_address };
+      }
+      if (typeof updateData.hss_address === 'string') {
+        updateData.hss_address = { details: updateData.hss_address };
       }
 
       // Allow editing anything

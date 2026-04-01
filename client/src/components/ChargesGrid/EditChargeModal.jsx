@@ -34,6 +34,7 @@ const EditChargeModal = ({
   const [suppliers, setSuppliers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState({ index: null, section: null }); // Track which row/section has open dropdown
+  const [paymentDetailsAudit, setPaymentDetailsAudit] = useState({});
   const dropdownRef = useRef(null);
   const modalRef = useRef(null);
 
@@ -75,6 +76,37 @@ const EditChargeModal = ({
     };
     fetchMasterData();
   }, []);
+
+  // Fetch Payment Request Audit Info on demand
+  useEffect(() => {
+    const fetchAudits = async () => {
+      const prNos = [...new Set(formData.map(r => r.payment_request_no).filter(Boolean))];
+      const newAudits = { ...paymentDetailsAudit };
+      let changed = false;
+
+      for (const pr of prNos) {
+        if (!newAudits[pr]) {
+          try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/api/get-payment-request-details/${encodeURIComponent(pr)}`);
+            if (res.data) {
+              newAudits[pr] = res.data;
+              changed = true;
+            }
+          } catch (err) {
+            console.error("Error fetching PR audit for", pr, err);
+          }
+        }
+      }
+
+      if (changed) {
+        setPaymentDetailsAudit(newAudits);
+      }
+    };
+
+    if (isOpen && formData.length > 0) {
+      fetchAudits();
+    }
+  }, [isOpen, formData]);
 
   useEffect(() => {
     if (isOpen) {
@@ -274,11 +306,27 @@ const EditChargeModal = ({
                   </div>
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label" style={{ color: '#d32f2f', fontWeight: 'bold' }}>PR No</span>
-                    <div className="ep-inline">
-                        <input type="text" readOnly className="form-input" style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
-                        <span className="ep-status-pill" style={{ marginLeft: '10px', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: row.payment_request_status ? '#e8f5e9' : '#f5f5f5', color: row.payment_request_status === 'Active' ? '#2e7d32' : '#757575', border: '1px solid #ddd' }}>
-                            {row.payment_request_status || 'Pending'}
-                        </span>
+                    <div className="ep-inline" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+                            <input type="text" readOnly className="form-input" style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
+                            <span className="ep-status-pill" style={{ 
+                                marginLeft: '10px', 
+                                fontSize: '11px', 
+                                padding: '2px 8px', 
+                                borderRadius: '10px', 
+                                background: (row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#e8f5e9' : '#fff3e0', 
+                                color: (row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#2e7d32' : '#ef6c00', 
+                                border: '1px solid #ffe0e0' 
+                            }}>
+                                {(row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? 'Payment Done' : (row.payment_request_status || 'Pending')}
+                            </span>
+                        </div>
+                        {paymentDetailsAudit[row.payment_request_no]?.utrNumber && (
+                            <div style={{ fontSize: '10px', color: '#2e7d32', marginTop: '4px', fontWeight: '500', display: 'flex', flexDirection: 'column' }}>
+                                <span>UTR: {paymentDetailsAudit[row.payment_request_no].utrNumber}</span>
+                                <span style={{ opacity: 0.8 }}>By {paymentDetailsAudit[row.payment_request_no].utrAddedBy || 'Accounts'} on {new Date(paymentDetailsAudit[row.payment_request_no].utrAddedAt).toLocaleString('en-GB')}</span>
+                            </div>
+                        )}
                     </div>
                   </div>
 

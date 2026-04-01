@@ -721,11 +721,10 @@ function EditDoPlanning() {
     formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
   };
 
-  const handleRemoveDoCopy = (urlToRemove) => {
-    formik.setFieldValue(
-      "do_copies",
-      formik.values.do_copies.filter((url) => url !== urlToRemove)
-    );
+  const handleRemoveDoCopy = (index) => {
+    const updatedCopies = [...formik.values.do_copies];
+    updatedCopies.splice(index, 1);
+    formik.setFieldValue("do_copies", updatedCopies);
   };
 
   if (!job_no || !year) {
@@ -976,10 +975,15 @@ function EditDoPlanning() {
                   <h3 className="section-title">DO COPIES</h3>
                 </div>
                 <div className="upload-content">
-                  <FileUpload onUpload={handleDoCopiesUpload} />
+                  <FileUpload 
+                    label="UPLOAD DO COPIES"
+                    onFilesUploaded={handleDoCopiesUpload} 
+                  />
                   <ImagePreview
                     images={formik.values.do_copies}
-                    onRemove={handleRemoveDoCopy}
+                    onDeleteImage={(index) => {
+                      handleRemoveDoCopy(index);
+                    }}
                   />
                 </div>
               </div>

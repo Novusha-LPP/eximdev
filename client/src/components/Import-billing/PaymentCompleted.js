@@ -13,6 +13,15 @@ import {
   MenuItem,
   Autocomplete,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+  Divider,
+  Paper,
+  Grid,
+  Button,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -40,6 +49,27 @@ function PaymentCompleted() {
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
   const [importers, setImporters] = useState("");
+  const [openDetailModal, setOpenDetailModal] = useState(false);
+  const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
+  const [isModalLoading, setIsModalLoading] = useState(false);
+
+  const fetchPaymentRequestDetails = async (requestNo) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(requestNo)}`
+      );
+      setSelectedPaymentRequest(res.data);
+    } catch (err) {
+      console.error("Error fetching payment request details:", err);
+    }
+  };
+
+  const handleViewPaymentRequest = async (requestNo) => {
+    setIsModalLoading(true);
+    setOpenDetailModal(true);
+    await fetchPaymentRequestDetails(requestNo);
+    setIsModalLoading(false);
+  };
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -379,6 +409,68 @@ function PaymentCompleted() {
         },
       },
       {
+        accessorKey: "payment_request_no",
+        header: "Payment Request No",
+        size: 450,
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const prs = [...new Set(charges.map(c => c.payment_request_no).filter(Boolean))];
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {prs.map(pr => (
+                <Chip
+                  key={pr}
+                  label={pr}
+                  size="small"
+                  onClick={() => handleViewPaymentRequest(pr)}
+                  color="success"
+                  variant="outlined"
+                  sx={{ cursor: "pointer", fontWeight: 'bold', width: 'fit-content' }}
+                />
+              ))}
+            </Box>
+          );
+        }
+      },
+      {
+        accessorKey: "completion_date",
+        header: "Completion Date",
+        size: 250,
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const prs = [...new Set(charges.map(c => c.payment_request_no).filter(Boolean))];
+          
+          if (prs.length === 0) return "-";
+
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {prs.map((pr, idx) => {
+                // Find all charges for this PR and take the latest date
+                const chargesForPr = charges.filter(c => c.payment_request_no === pr);
+                const dates = chargesForPr
+                  .map(c => c.utrAddedAt || c.updatedAt)
+                  .filter(Boolean)
+                  .sort((a, b) => new Date(b) - new Date(a));
+                
+                const date = dates.length > 0 ? dates[0] : null;
+
+                return (
+                  <Typography key={idx} variant="body2" sx={{ height: '24px', display: 'flex', alignItems: 'center' }}>
+                    {date ? new Date(date).toLocaleString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : "-"}
+                  </Typography>
+                );
+              })}
+            </Box>
+          );
+        }
+      },
+      {
         accessorKey: "be_no",
         header: "BE Number & Date",
         enableSorting: false,
@@ -522,6 +614,188 @@ function PaymentCompleted() {
           />
         </Box>
       </>
+
+      <Dialog
+        open={openDetailModal}
+        onClose={() => setOpenDetailModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          backgroundColor: '#2e7d32', 
+          color: 'white', 
+          fontWeight: 'bold',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          py: 2
+        }}>
+          <span>PAYMENT COMPLETED</span>
+          <Chip 
+            label={selectedPaymentRequest?.requestNo || "N/A"} 
+            size="medium" 
+            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} 
+          />
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, backgroundColor: '#f8f9fa' }}>
+          {isModalLoading ? (
+            <Box display="flex" justifyContent="center" p={8}>
+              <CircularProgress size={60} />
+            </Box>
+          ) : selectedPaymentRequest ? (
+            <Box id="payment-request-printable" sx={{ p: 4 }}>
+              <Paper variant="outlined" sx={{ p: 4, position: 'relative', overflow: 'hidden', backgroundColor: '#fff', borderRadius: 2 }}>
+                {/* Status Watermark */}
+                <Typography 
+                  variant="h2" 
+                  sx={{ 
+                    position: 'absolute', 
+                    top: '40%', 
+                    left: '50%', 
+                    transform: 'translate(-50%, -50%) rotate(-30deg)',
+                    opacity: 0.05,
+                    fontSize: '12rem',
+                    fontWeight: 900,
+                    pointerEvents: 'none',
+                    color: '#2e7d32',
+                    zIndex: 0
+                  }}
+                >
+                  PAID
+                </Typography>
+
+                <Box sx={{ position: 'relative', zIndex: 1 }}>
+                  {/* Header Section */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+                    <Box>
+                      <Typography variant="h5" color="success.main" fontWeight="bold">EXIMDEV PVT LTD.</Typography>
+                      <Typography variant="body2" color="text.secondary">Import Billing Services</Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body1" fontWeight="bold">Date: {selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
+                      <Typography variant="body2" color="text.secondary">Ref: {selectedPaymentRequest.jobNo}</Typography>
+                    </Box>
+                  </Box>
+
+                  <Divider sx={{ mb: 4 }} />
+
+                  {/* Beneficiary Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Beneficiary Information</Typography>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Beneficiary Name</Typography>
+                        <Typography variant="h6" fontWeight="bold">{selectedPaymentRequest.paymentTo || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Against Bill / Reference</Typography>
+                        <Typography variant="body1">{selectedPaymentRequest.againstBill || "-"}</Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  {/* Financial Section */}
+                  <Box sx={{ mb: 4, p: 3, backgroundColor: '#f1f3f4', borderRadius: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Requested Amount</Typography>
+                        <Typography variant="h4" color="success.main" fontWeight="bold">
+                          ₹ {selectedPaymentRequest.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                          <Box>
+                            <Typography variant="subtitle2" color="text.secondary">Transaction</Typography>
+                            <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.transactionType || "NEFT"}</Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="subtitle2" color="text.secondary">Transfer Mode</Typography>
+                            <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.transferMode || "Online"}</Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  {/* Bank Details Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Bank Details</Typography>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="subtitle2" color="text.secondary">Bank Name</Typography>
+                        <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.bankName || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="subtitle2" color="text.secondary">Account Number</Typography>
+                        <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.accountNo || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="subtitle2" color="text.secondary">IFSC Code</Typography>
+                        <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.ifscCode || "N/A"}</Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  <Divider sx={{ mb: 3 }} />
+                  <Box>
+                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Payment Confirmation</Typography>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="subtitle2" color="text.secondary">UTR Number</Typography>
+                        <Typography variant="body1" fontWeight="bold" color="success.main">
+                          {selectedPaymentRequest.utrNumber || selectedPaymentRequest.instrumentNo || "-"}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="subtitle2" color="text.secondary">Added By</Typography>
+                        <Typography variant="body1">{selectedPaymentRequest.utrAddedBy || "Accounts Team"}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="subtitle2" color="text.secondary">Added On</Typography>
+                        <Typography variant="body1">
+                          {selectedPaymentRequest.utrAddedAt 
+                            ? new Date(selectedPaymentRequest.utrAddedAt).toLocaleString('en-GB') 
+                            : selectedPaymentRequest.instrumentDate || "-"}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Box>
+              </Paper>
+            </Box>
+          ) : (
+            <Box p={8} textAlign="center">
+              <Typography color="error" variant="h6">Failed to load payment request details.</Typography>
+              <Typography color="text.secondary">Please try again after some time.</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, backgroundColor: '#e9ecef', borderTop: '1px solid #dee2e6' }}>
+          <Button 
+            onClick={() => window.print()}
+            startIcon={<SearchIcon />}
+            variant="outlined" 
+            sx={{ fontWeight: 'bold' }}
+          >
+            Download / Print
+          </Button>
+          <Button 
+            onClick={() => setOpenDetailModal(false)} 
+            variant="contained" 
+            color="primary"
+            sx={{ fontWeight: 'bold', px: 4 }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

@@ -313,11 +313,10 @@ function EditFreeDaysConf() {
         formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
     };
 
-    const handleRemoveDoCopy = (urlToRemove) => {
-        formik.setFieldValue(
-            "do_copies",
-            formik.values.do_copies.filter((url) => url !== urlToRemove)
-        );
+    const handleRemoveDoCopy = (index) => {
+        const updatedCopies = [...formik.values.do_copies];
+        updatedCopies.splice(index, 1);
+        formik.setFieldValue("do_copies", updatedCopies);
     };
 
     if (!job_no || !year) {
@@ -427,14 +426,15 @@ function EditFreeDaysConf() {
                     </div>
                     <div className="upload-content">
                         <FileUpload
-                            onUpload={(urls) => {
+                            label="UPLOAD DO COPIES"
+                            onFilesUploaded={(urls) => {
                                 handleDoCopiesUpload(urls);
                             }}
                         />
                         <ImagePreview
                             images={formik.values.do_copies}
-                            onRemove={(url) => {
-                                handleRemoveDoCopy(url);
+                            onDeleteImage={(index) => {
+                                handleRemoveDoCopy(index);
                             }}
                         />
                     </div>

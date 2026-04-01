@@ -63,6 +63,7 @@ const ChargesTable = ({
       <th style={{ width: '95px' }}>Total Amount</th>
       <th style={{ width: '95px' }}>Total Amt (INR)</th>
       <th style={{ width: '95px' }}>Net Payable</th>
+      <th style={{ width: '120px' }}>Payment Status</th>
       <th style={{ width: '180px' }}>Attach</th>
     </>
   );
@@ -199,6 +200,26 @@ const ChargesTable = ({
                     <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.cost?.amount)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#6c4a30' }}>{formatNumber(ch.cost?.amountINR)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#d32f2f' }}>{formatNumber(ch.cost?.netPayable)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      {ch.payment_request_no ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                          <span style={{ fontSize: '10px', color: '#1565c0', fontWeight: 'bold' }}>{ch.payment_request_no}</span>
+                          <span style={{ 
+                            fontSize: '9px', 
+                            padding: '1px 6px', 
+                            borderRadius: '8px', 
+                            background: ch.payment_request_status === 'Paid' ? '#e8f5e9' : '#fff3e0',
+                            color: ch.payment_request_status === 'Paid' ? '#2e7d32' : '#ef6c00',
+                            border: '1px solid currentColor',
+                            fontWeight: 'bold'
+                          }}>
+                            {ch.payment_request_status === 'Paid' ? 'Payment Done' : (ch.payment_request_status || 'Pending')}
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '10px', color: '#ccc', fontStyle: 'italic' }}>No PR</span>
+                      )}
+                    </td>
                     {renderAttachmentCell(ch, ch.cost?.url)}
                   </>
                 )}

@@ -33,7 +33,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                 const jobRefStr = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
                 
                 // Fetch next sequence from backend using canonical job identifier
-                let finalRequestNo = `R1/01/${jobRefStr}`;
+                let finalRequestNo = `R01/${jobRefStr}`;
                 try {
                     const API_KEY = "TALLY_INTEGRATION_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';

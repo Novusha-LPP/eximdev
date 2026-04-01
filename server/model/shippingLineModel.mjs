@@ -21,6 +21,11 @@ const shippingLineSchema = new mongoose.Schema({
     }]
   }],
   tds_percent: { type: Number, default: 0 },
+  contacts: [{
+    name: { type: String, trim: true, uppercase: true },
+    email: { type: String, trim: true, lowercase: true },
+    phone: { type: String, trim: true },
+  }],
   credit_terms: { type: String, trim: true, uppercase: true },
   cin: { type: String, trim: true, uppercase: true },
   created_at: { type: Date, default: Date.now },

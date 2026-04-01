@@ -56,7 +56,7 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
         { job_no: { $ne: null } }, // Ensure job_no is not null
         {
           $or: [
-            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+            { documentation_completed_date_time: { $exists: true, $nin: [null, ""] } },
           ],
         },
         {

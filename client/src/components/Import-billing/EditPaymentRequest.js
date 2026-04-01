@@ -39,6 +39,7 @@ import QueriesComponent from "../../utils/QueriesComponent.js";
 
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import ChargesGrid from "../ChargesGrid";
 
 function EditPaymentRequest() {
   const [someReceiptsUploaded, setsomeReceiptsUploaded] = useState(false);
@@ -590,9 +591,23 @@ function EditPaymentRequest() {
                 <strong>KYC Valid Upto:&nbsp;</strong>
                 {kycData.kyc_valid_upto}
                 <br />
-                <strong>BL Status:&nbsp;</strong>
-                {data.obl_telex_bl || "N/A"}
-                <br />
+              </div>
+              
+              <div className="job-details-container">
+                <JobDetailsRowHeading heading="Charges Details" />
+                <ChargesGrid 
+                  parentId={jobId} 
+                  parentModule="Job" 
+                  shippingLineAirline={data?.shipping_line_airline} 
+                  importerName={data?.importer}
+                  jobNumber={data?.job_no}
+                  jobDisplayNumber={data?.job_number}
+                  jobYear={data?.year}
+                  invoiceNumber={data?.invoice_number}
+                  invoiceDate={data?.invoice_date}
+                  invoiceValue={data?.total_inv_value}
+                  cthNo={data?.cth_no}
+                />
               </div>
 
               {/* DO Completed Section with Date Display and Admin Input */}
@@ -664,7 +679,8 @@ function EditPaymentRequest() {
                   <strong>DO Copies</strong>
                 </div>
                 <FileUpload
-                  onUpload={handleDoCopiesUpload}
+                  label="UPLOAD INV/BILL"
+                  onFilesUploaded={handleDoCopiesUpload}
                   multiple={true}
                   setFileSnackbar={setFileSnackbar}
                 />

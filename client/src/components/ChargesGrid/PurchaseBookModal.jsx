@@ -47,7 +47,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
                 const jobNum = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
                 
                 // Fetch next sequence from backend using canonical job reference
-                let finalEntryNo = `PB/01/${jobNum}`;
+                let finalEntryNo = `PB01/${jobNum}`;
                 try {
                     const API_KEY = "TALLY_INTEGRATION_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';

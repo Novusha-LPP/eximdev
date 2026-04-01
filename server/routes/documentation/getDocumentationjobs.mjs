@@ -59,7 +59,7 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
         { be_no: { $in: [null, ""] } },
         { awb_bl_no: { $ne: null, $ne: "" } },
         { job_no: { $ne: null } },
-        { out_of_charge: { $eq: "" } },
+        { out_of_charge: { $in: [null, ""] } },
         {
           detailed_status: {
             $in: statusOrder,
@@ -68,10 +68,10 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
         {
           $or: [
             { documentation_completed_date_time: { $exists: false } },
-            { documentation_completed_date_time: "" },
+            { documentation_completed_date_time: { $in: [null, ""] } },
             {
               $and: [
-                { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                { documentation_completed_date_time: { $exists: true, $nin: [null, ""] } },
                 { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
               ]
             }

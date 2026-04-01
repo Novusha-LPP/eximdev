@@ -19,6 +19,9 @@ const paymentRequestSchema = new mongoose.Schema({
   instrumentDate: { type: String },
   transferMode: { type: String, default: 'Online' },
   beneficiaryCode: { type: String },
+  utrNumber: { type: String },
+  utrAddedBy: { type: String },
+  utrAddedAt: { type: Date },
   status: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 

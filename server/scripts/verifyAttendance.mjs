@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.PROD_MONGODB_URI;
 
 async function verify() {
     try {

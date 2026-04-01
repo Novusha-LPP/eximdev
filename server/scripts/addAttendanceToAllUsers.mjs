@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '../.env') });
 
 // Use the appropriate URI from the .env file
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.PROD_MONGODB_URI || process.env.SERVER_MONGODB_URI;
+const MONGODB_URI = process.env.PROD_MONGODB_URI;
 
 async function migrate() {
     try {

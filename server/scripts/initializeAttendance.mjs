@@ -9,8 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envPath });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/exim';
-
+const MONGODB_URI = process.env.PROD_MONGODB_URI 
 async function run() {
     try {
         console.log('Connecting to MongoDB...');
@@ -51,14 +50,8 @@ async function run() {
             weekly_off_days: { type: [Number], default: [0] } // Sunday
         }, { versionKey: false, timestamps: true });
 
-        const DepartmentSchema = new mongoose.Schema({
-            department_name: String,
-            company_id: mongoose.Schema.Types.ObjectId
-        }, { versionKey: false, timestamps: true });
-
         const Company = mongoose.models.Company || mongoose.model('Company', CompanySchema);
         const Shift = mongoose.models.Shift || mongoose.model('Shift', ShiftSchema);
-        const Department = mongoose.models.Department || mongoose.model('Department', DepartmentSchema);
         
         // Load User model - assuming it's already registered via the main app, 
         // but we'll register it just in case for this standalone script.
@@ -102,21 +95,7 @@ async function run() {
             console.log('Standard shift already exists.');
         }
 
-        // 3. Create General Department
-        let department = await Department.findOne({ department_name: 'General' });
-        if (!department) {
-            console.log('Creating general department...');
-            department = new Department({
-                department_name: 'General',
-                company_id: company._id
-            });
-            await department.save();
-            console.log('Department created:', department._id);
-        } else {
-            console.log('General department already exists.');
-        }
-
-        // 4. MAP USERS
+        // 3. MAP USERS
         console.log('Mapping users to defaults...');
         const result = await User.updateMany(
             { $or: [ { company_id: { $exists: false } }, { company_id: null } ] },
@@ -124,7 +103,6 @@ async function run() {
                 $set: {
                     company_id: company._id,
                     shift_id: shift._id,
-                    department_id: department._id,
                     current_status: 'out_office'
                 }
             }

@@ -18,8 +18,7 @@ const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
 // Database connection
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || 'mongodb://localhost:27017/exim';
-
+const MONGODB_URI = process.env.PROD_MONGODB_URI;
 async function migrateTeamIds() {
     try {
         console.log('🔌 Connecting to database...');

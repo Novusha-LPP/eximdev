@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  FiHome, FiClock, FiFileText, FiCalendar, FiUser,
-  FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut
+    FiHome, FiClock, FiFileText, FiCalendar, FiUser,
+    FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut
 } from 'react-icons/fi';
 import { useContext } from 'react';
 import { UserContext } from '../../../contexts/UserContext';
@@ -13,28 +13,28 @@ import '../styles/variables.css';
 import './AttendanceLayout.css';
 
 const EMPLOYEE_MENU = [
-  { section: 'Overview' },
-  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-  { section: 'My Attendance' },
-  { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
-  { section: 'Leave' },
-  { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-  { section: 'Calendar' },
-  { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
+    { section: 'Overview' },
+    { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
+    { section: 'My Attendance' },
+    { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
+    { section: 'Leave' },
+    { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
+    { section: 'Calendar' },
+    { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
 ];
 
 const HOD_MENU = [
-  { section: 'Overview' },
-  { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-  { section: 'My Attendance' },
-  { path: '/attendance/my-attendance', icon: FiClock, label: 'My Report' },
-  { section: 'My Leave' },
-  { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-  { section: 'Team' },
-  { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
-  { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
-  { section: 'Calendar' },
-  { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
+    { section: 'Overview' },
+    { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
+    { section: 'My Attendance' },
+    { path: '/attendance/my-attendance', icon: FiClock, label: 'My Report' },
+    { section: 'My Leave' },
+    { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
+    { section: 'Team' },
+    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
+    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
+    { section: 'Calendar' },
+    { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
 ];
 
 const ADMIN_MENU = [
@@ -54,7 +54,7 @@ const ADMIN_MENU = [
 
 const ALLOWED_USERNAMES = new Set([
     'shalini_arun',
-    'manu_pilai',
+    'manu_pillai',
     'suraj_rajan',
     'rajan_aranamkatte',
     'uday_zope'
@@ -69,11 +69,11 @@ const AttendanceLayout = () => {
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
     const username = (user?.username || '').toLowerCase();
-    
+
     // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
     let menu = role === 'Admin' || role === 'ADMIN' ? [...ADMIN_MENU] :
-               role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU : 
-               EMPLOYEE_MENU;
+        role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU :
+            EMPLOYEE_MENU;
 
     // Hide Company Report unless admin is allowed
     if (role === 'Admin' || role === 'ADMIN') {
@@ -118,7 +118,7 @@ const AttendanceLayout = () => {
                 <div className="attendance-brand">
                     {!isSidebarCollapsed && (
                         <>
-                            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span className="brand-dot"></span>
                                 <span>Attendance</span>
                             </div>
@@ -154,7 +154,7 @@ const AttendanceLayout = () => {
                 </nav>
 
                 {/* Quick Punch Widget at the bottom of sidebar */}
-               
+
             </div>
 
             {/* Main Content Area */}

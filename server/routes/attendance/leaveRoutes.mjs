@@ -28,4 +28,7 @@ router.get('/applications', attendanceAuthBridge, leaveCtrl.getApplications);
 router.post('/apply', attendanceAuthBridge, upload.single('attachment'), leaveCtrl.applyLeave);
 router.post('/cancel/:id', attendanceAuthBridge, leaveCtrl.cancelLeave);
 
+// Admin Routes - Update Leave Balance
+router.post('/admin/update-balance/:employee_id', attendanceAuthBridge, leaveCtrl.updateBalance);
+
 export default router;

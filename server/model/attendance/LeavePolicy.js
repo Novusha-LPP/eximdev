@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const leavePolicySchema = new mongoose.Schema({
   company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
   policy_name: { type: String, required: true },
-  leave_type: { type: String, enum: ['casual', 'sick', 'earned', 'privilege', 'maternity', 'paternity', 'compensatory', 'unpaid'], required: true },
+  leave_type: { type: String, enum: ['casual', 'sick', 'earned', 'privilege', 'maternity', 'paternity', 'compensatory', 'lwp'], required: true },
   leave_code: { type: String, required: true },
 
   annual_quota: { type: Number, required: true, default: 24 },

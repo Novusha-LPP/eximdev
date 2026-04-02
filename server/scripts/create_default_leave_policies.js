@@ -11,14 +11,24 @@
 
 import mongoose from 'mongoose';
 import { createRequire } from 'module';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 const require = createRequire(import.meta.url);
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 // Database connection
-const MONGODB_URI = process.env.PROD_MONGODB_URI;
+const MONGODB_URI =  process.env.PROD_MONGODB_URI
+  
 async function createDefaultLeavePolicies() {
     try {
         console.log('🔌 Connecting to database...');
+        if (!MONGODB_URI) {
+            throw new Error('MONGODB_URI not found in .env (DEV/PROD/SERVER)');
+        }
         await mongoose.connect(MONGODB_URI);
         console.log('✅ Connected to MongoDB\n');
 
@@ -55,7 +65,7 @@ async function createDefaultLeavePolicies() {
                     policy_name: 'Privilege Leave',
                     leave_type: 'privilege',
                     leave_code: 'PL',
-                    annual_quota: 24,
+                    annual_quota: 25,
                     status: 'active',
                     eligibility: {
                         employment_types: [],
@@ -80,9 +90,9 @@ async function createDefaultLeavePolicies() {
                 },
                 {
                     company_id: companyId,
-                    policy_name: 'Unpaid Leave',
-                    leave_type: 'unpaid',
-                    leave_code: 'UL',
+                    policy_name: 'Leave Without Pay',
+                    leave_type: 'lwp',
+                    leave_code: 'LWP',
                     annual_quota: 999, // Unlimited (no balance check)
                     status: 'active',
                     eligibility: {

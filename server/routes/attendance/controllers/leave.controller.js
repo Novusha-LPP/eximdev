@@ -78,12 +78,9 @@ exports.getBalance = async (req, res) => {
             );
 
             // Calculate consumed (approved leaves only)
-            // Default to 24 days if policy quota is not set
-            const defaultQuota = 24;
-            const policyQuota = policy.annual_quota || defaultQuota;
-            
-            const total = userBalance ? (userBalance.opening_balance + (userBalance.credited || 0)) : policyQuota;
-            const available = userBalance ? userBalance.closing_balance : policyQuota;
+            // Balance defaults to ZERO - admin must explicitly set the opening balance
+            const total = userBalance ? (userBalance.opening_balance + (userBalance.credited || 0)) : 0;
+            const available = userBalance ? userBalance.closing_balance : 0;
             const pending = userBalance ? userBalance.pending_approval : 0;
             const consumed = userBalance ? userBalance.consumed : 0;
             
@@ -226,8 +223,10 @@ exports.applyLeave = async (req, res) => {
             await balanceRecord.save();
         }
 
-        // Proceed with validation (Skip for unpaid leave)
-        if (policy.leave_type !== 'unpaid' && balanceRecord.closing_balance < total_days) {
+        const isUnpaidLeave = ['unpaid', 'lwp'].includes(String(policy.leave_type || '').toLowerCase());
+
+        // Proceed with validation (Skip for unpaid/LWP leave)
+        if (!isUnpaidLeave && balanceRecord.closing_balance < total_days) {
             return res.status(400).json({
                 message: `Insufficient leave balance. Available: ${balanceRecord.closing_balance}, Required: ${total_days}`
             });
@@ -291,7 +290,7 @@ exports.applyLeave = async (req, res) => {
 
         // 7. Update Balance (Lock Pending)
         balanceRecord.pending_approval += total_days;
-        if (policy.leave_type !== 'unpaid') {
+        if (!isUnpaidLeave) {
             balanceRecord.closing_balance -= total_days;
         }
         await balanceRecord.save();
@@ -341,7 +340,7 @@ exports.cancelLeave = async (req, res) => {
 
         if (balanceRecord) {            
             balanceRecord.pending_approval -= application.total_days;
-            if (application.leave_type !== 'unpaid') {
+            if (!['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase())) {
                 balanceRecord.closing_balance += application.total_days;
             }
             await balanceRecord.save();
@@ -349,6 +348,95 @@ exports.cancelLeave = async (req, res) => {
         res.json({ message: 'Leave application cancelled successfully' });
     } catch (err) {
         console.error('Error in cancelLeave:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// Admin - Update Leave Balance (Create or Modify)
+exports.updateBalance = async (req, res) => {
+    try {
+        const admin = req.user;
+        const { employee_id } = req.params;
+        const { leave_policy_id, opening_balance, credited, consumed } = req.body;
+
+        // Verify admin has permission
+        if (!admin || !['ADMIN', 'Admin'].includes(admin.role)) {
+            return res.status(403).json({ message: 'Only admins can update leave balances' });
+        }
+
+        // Validate inputs
+        if (!employee_id || !leave_policy_id) {
+            return res.status(400).json({ message: 'employee_id and leave_policy_id are required' });
+        }
+
+        if (opening_balance === undefined || opening_balance === null) {
+            return res.status(400).json({ message: 'opening_balance is required' });
+        }
+
+        // Get the current year
+        const currentYear = new Date().getFullYear();
+
+        // Find or create the leave balance record
+        let balanceRecord = await LeaveBalance.findOne({
+            employee_id: employee_id,
+            leave_policy_id: leave_policy_id,
+            year: currentYear
+        });
+
+        // Get employee to extract company_id
+        const User = require('../../../model/userModel.mjs').default;
+        const employee = await User.findById(employee_id);
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        const companyId = employee.company_id?._id || employee.company_id;
+        const policy = await LeavePolicy.findOne({ _id: leave_policy_id, company_id: companyId });
+        if (!policy) {
+            return res.status(404).json({ message: 'Leave policy not found' });
+        }
+
+        if (!balanceRecord) {
+            // Create new balance record
+            balanceRecord = new LeaveBalance({
+                employee_id: employee_id,
+                company_id: companyId,
+                leave_policy_id: leave_policy_id,
+                leave_type: policy.leave_type,
+                year: currentYear,
+                opening_balance: opening_balance || 0,
+                credited: credited || 0,
+                consumed: consumed || 0,
+                pending_approval: 0,
+                closing_balance: (opening_balance || 0) + (credited || 0) - (consumed || 0)
+            });
+        } else {
+            // Update existing balance record
+            balanceRecord.opening_balance = opening_balance;
+            if (credited !== undefined) balanceRecord.credited = credited;
+            if (consumed !== undefined) balanceRecord.consumed = consumed;
+            // Recalculate closing balance
+            balanceRecord.closing_balance = opening_balance + (credited || 0) - (consumed || 0) - (balanceRecord.pending_approval || 0);
+        }
+
+        balanceRecord.last_updated = new Date();
+        await balanceRecord.save();
+
+        res.json({
+            message: 'Leave balance updated successfully',
+            data: {
+                employee_id: balanceRecord.employee_id,
+                leave_type: balanceRecord.leave_type,
+                opening_balance: balanceRecord.opening_balance,
+                credited: balanceRecord.credited,
+                consumed: balanceRecord.consumed,
+                pending_approval: balanceRecord.pending_approval,
+                closing_balance: balanceRecord.closing_balance,
+                year: balanceRecord.year
+            }
+        });
+    } catch (err) {
+        console.error('Error in updateBalance:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

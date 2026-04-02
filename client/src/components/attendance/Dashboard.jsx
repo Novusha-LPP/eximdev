@@ -148,7 +148,11 @@ export default function Dashboard() {
   useEffect(() => {
     const h = () => load(month.getMonth() + 1, month.getFullYear());
     window.addEventListener('attendance-updated', h);
-    return () => window.removeEventListener('attendance-updated', h);
+    window.addEventListener('leave-balance-updated', h);
+    return () => {
+      window.removeEventListener('attendance-updated', h);
+      window.removeEventListener('leave-balance-updated', h);
+    };
   }, [month, load]);
 
   /* Live timer */
@@ -731,7 +735,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className={`leave-count ${countCls}`}>
-                      {b.leave_type === 'unpaid' ? '8' : available}
+                      {available}
                     </div>
                   </div>
                 );

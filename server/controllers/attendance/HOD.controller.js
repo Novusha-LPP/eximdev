@@ -586,7 +586,7 @@ export const approveRequest = async (req, res) => {
             }
 
             debug.push(`Updating LeaveBalance...`);
-            const isUnpaid = application.leave_type === 'unpaid';
+            const isUnpaid = ['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase());
 
             if (status === 'approved') {
                 balanceRecord.consumed += application.total_days;
@@ -870,8 +870,16 @@ export const getAdminLeaveRequests = async (req, res) => {
         }
 
         // Build leave query
-        const leaveQuery = { company_id: companyId };
-        if (employeeFilter) leaveQuery.employee_id = employeeFilter;
+        // Include admin's own leaves as a safety net so self-applied requests are visible
+        // even if company/team mappings are temporarily inconsistent.
+        const leaveQuery = employeeFilter
+            ? { company_id: companyId, employee_id: employeeFilter }
+            : {
+                $or: [
+                    { company_id: companyId },
+                    { employee_id: admin._id }
+                ]
+            };
 
         // Fetch all teams for dropdown (scoped to company by member user IDs)
         const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();

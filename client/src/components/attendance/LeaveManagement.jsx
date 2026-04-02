@@ -200,7 +200,7 @@ const LeaveManagement = () => {
                 <div className="bal-body">
                   <div className="bal-nums">
                     {b.leave_type === 'unpaid' ? (
-                      <span className="bal-big" style={{ fontSize: '1.375rem' }}>∞</span>
+                      <span className="bal-big" style={{ fontSize: '1.375rem' }}>0</span>
                     ) : (
                       <>
                         <span className="bal-big">{available}</span>
@@ -447,6 +447,23 @@ const LeaveManagement = () => {
                   <div className="ph-item">
                     <FiFileText size={12} className="ph-icon" />
                     Doc req: <span className="ph-val">{selectedPolicy.policy?.document_required_after_days ? `>${selectedPolicy.policy.document_required_after_days}d` : 'No'}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Zero-balance warning specifically for PL */}
+              {selectedPolicy && 
+               (selectedPolicy.leave_type === 'privilege' || selectedPolicy.leave_code === 'PL') && 
+               (selectedPolicy.available <= 0) && (
+                <div className="lm-alert ani-in" style={{ 
+                    margin: '10px 0', 
+                    padding: '10px 12px', 
+                    background: 'var(--s-red-bg)', 
+                    borderColor: 'var(--s-red-br, var(--s-red-bg))' 
+                }}>
+                  <div className="lm-alert-head" style={{ marginBottom: 0, color: 'var(--s-red)' }}>
+                    <FiXCircle size={14} />
+                    <h3 style={{ color: 'var(--s-red)', fontSize: '.8125rem' }}>Contact admin for update PL</h3>
                   </div>
                 </div>
               )}

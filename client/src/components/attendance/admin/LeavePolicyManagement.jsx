@@ -283,7 +283,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     </div>
                     <div>
                         <div style={{ fontWeight: 800, color: 'var(--as-t1)', fontSize: '1rem' }}>
-                            {row.leave_type === 'unpaid' ? '∞' : val}
+                            {row.leave_type === 'unpaid' ? '0' : val}
                         </div>
                         <div style={{ fontSize: '.625rem', color: 'var(--as-t4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.4px' }}>
                             Days / Year

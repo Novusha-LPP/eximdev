@@ -219,6 +219,14 @@ export const applyLeave = async (req, res) => {
         }
 
         const isUnpaidLeave = ['unpaid', 'lwp'].includes(String(policy.leave_type || '').toLowerCase());
+        const isPL = ['privilege', 'pl'].includes(String(policy.leave_type || '').toLowerCase());
+
+        // New specific check for PL already at zero
+        if (isPL && balanceRecord.closing_balance <= 0) {
+            return res.status(400).json({
+                message: 'Contact admin for update PL'
+            });
+        }
 
         // Proceed with validation (Skip for unpaid/LWP leave)
         if (!isUnpaidLeave && balanceRecord.closing_balance < total_days) {

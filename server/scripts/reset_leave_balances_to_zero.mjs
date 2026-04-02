@@ -7,10 +7,10 @@ import LeaveBalance from '../model/attendance/LeaveBalance.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const uri = process.env.DEV_MONGODB_URI 
+// const uri = process.env.DEV_MONGODB_URI 
 
 
-// const uri = process.env.PROD_MONGODB_URI 
+const uri = process.env.PROD_MONGODB_URI 
 if (!uri) {
   console.error('❌ MongoDB URI not found in .env file');
   process.exit(1);

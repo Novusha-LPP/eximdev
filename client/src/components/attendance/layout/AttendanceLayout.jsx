@@ -32,7 +32,7 @@ const HOD_MENU = [
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
     { section: 'Team' },
     { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
-    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
+    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals', requiresAllowedAdmin: true },
     { section: 'Calendar' },
     { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
 ];
@@ -45,7 +45,7 @@ const ADMIN_MENU = [
     { section: 'Company' },
     { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
     { section: 'Leave' },
-    { path: '/attendance/hod/leave-approval', icon: FiFileText, label: 'Leave Approvals' },
+    { path: '/attendance/hod/leave-approval', icon: FiFileText, label: 'Leave Approvals', requiresAllowedAdmin: true },
     { section: 'Configuration' },
     { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holidays' },
     { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts' },
@@ -75,8 +75,8 @@ const AttendanceLayout = () => {
         role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU :
             EMPLOYEE_MENU;
 
-    // Hide Company Report unless admin is allowed
-    if (role === 'Admin' || role === 'ADMIN') {
+    // Filter menu items based on requiresAllowedAdmin
+    if (role === 'Admin' || role === 'ADMIN' || role === 'Head_of_Department' || role === 'HOD') {
         menu = menu.filter(item => !item.requiresAllowedAdmin || ALLOWED_USERNAMES.has(username));
     }
 

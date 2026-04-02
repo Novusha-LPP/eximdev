@@ -1171,10 +1171,14 @@ export const getAdminAttendanceReport = async (req, res) => {
         const end = moment(endDate).endOf('day').toDate();
 
         // 1. Build Query
+        const normalizedCompanyId = String(companyId).trim();
+        
         const userQuery = {
-            company_id: companyId,
             isActive: true
         };
+        if (normalizedCompanyId !== 'all') {
+            userQuery.company_id = companyId;
+        }
 
         const { designation } = req.query;
 
@@ -1191,19 +1195,31 @@ export const getAdminAttendanceReport = async (req, res) => {
             .populate('company_id')
             .populate('shift_id');
         
-        // Debug: Check how many users exist with this company_id
-        const totalUsersWithCompany = await User.countDocuments({ company_id: companyId });
-        const totalActiveUsers = await User.countDocuments({ company_id: companyId, isActive: true });
+        // Debug: Check how many users exist
+        const totalUsersQuery = normalizedCompanyId === 'all' ? {} : { company_id: companyId };
+        const activeUsersQuery = normalizedCompanyId === 'all' ? { isActive: true } : { company_id: companyId, isActive: true };
+        const totalUsersWithCompany = await User.countDocuments(totalUsersQuery);
+        const totalActiveUsers = await User.countDocuments(activeUsersQuery);
         console.log(`[Admin Report] Company ${companyId}: Total users=${totalUsersWithCompany}, Active=${totalActiveUsers}, Query result=${employees.length}`);
         
         const employeeIds = employees.map(e => e._id);
 
-
         // 2. Fetch Bulk Data (Records, Leaves, Holidays)
-        const company = await Company.findById(companyId); // Fetch company here for WorkingDayEngine
-        if (!company) {
-            return res.status(400).json({ message: `Company not found for id: ${companyId}. Please select a valid company.` });
+        let companiesMap = {};
+        let targetCompanyIds = [];
+        if (normalizedCompanyId === 'all') {
+            const companies = await Company.find({});
+            companies.forEach(c => companiesMap[c._id.toString()] = c);
+            targetCompanyIds = companies.map(c => c._id);
+        } else {
+            const company = await Company.findById(companyId);
+            if (!company) {
+                return res.status(400).json({ message: `Company not found for id: ${companyId}. Please select a valid company.` });
+            }
+            companiesMap[company._id.toString()] = company;
+            targetCompanyIds = [company._id];
         }
+
         const [attendanceRecords, approvedLeaves, holidays] = await Promise.all([
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
@@ -1217,13 +1233,18 @@ export const getAdminAttendanceReport = async (req, res) => {
                 ]
             }),
             Holiday.find({
-                company_id: company._id,
+                company_id: { $in: targetCompanyIds },
                 holiday_date: { $gte: start, $lte: end }
             })
         ]);
 
         // Pre-index for O(1) lookups
-        const holidayDates = holidays.map(h => moment.utc(h.holiday_date).format('YYYY-MM-DD'));
+        const holidayDatesByCompany = {};
+        holidays.forEach(h => {
+            const cid = h.company_id.toString();
+            if (!holidayDatesByCompany[cid]) holidayDatesByCompany[cid] = [];
+            holidayDatesByCompany[cid].push(moment.utc(h.holiday_date).format('YYYY-MM-DD'));
+        });
 
         const reportData = employees.map(emp => {
             const records = attendanceRecords.filter(r => r.employee_id.toString() === emp._id.toString());
@@ -1261,8 +1282,10 @@ export const getAdminAttendanceReport = async (req, res) => {
                     if (rec.is_early_exit) actualEarlyOut++;
                     actualTotalHours += rec.total_work_hours || 0;
                 } else {
-                    const isWeeklyOff = WorkingDayEngine.isWeeklyOff(dayStr, company, emp.shift_id, emp.department_id);
-                    const isHoliday = holidayDates.includes(dayStr);
+                    const empCompanyId = emp.company_id?._id?.toString() || emp.company_id?.toString();
+                    const empCompany = companiesMap[empCompanyId];
+                    const isWeeklyOff = empCompany ? WorkingDayEngine.isWeeklyOff(dayStr, empCompany, emp.shift_id, emp.department_id) : false;
+                    const isHoliday = holidayDatesByCompany[empCompanyId]?.includes(dayStr);
                     const leave = empLeaves.find(l => {
                         const lStart = moment.utc(l.from_date).startOf('day');
                         const lEnd = moment.utc(l.to_date).endOf('day');

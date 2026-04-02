@@ -31,6 +31,8 @@ const companySchema = new mongoose.Schema({
   timezone: { type: String, default: 'Asia/Kolkata' }, // CRITICAL FIELD
   currency: { type: String, default: 'INR' },
   financial_year_start: { type: Date },
+  shift_policy: { type: String, enum: ['fixed', 'rotational', 'flexible'], default: 'fixed' },
+  branch_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
 
   // === STATUS & SUBSCRIPTION ===
   status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },

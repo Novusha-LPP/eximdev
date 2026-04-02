@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     FiX, FiLogIn, FiLogOut, FiEdit, FiFileText, FiUsers, FiAlertTriangle,
-    FiUser, FiBriefcase, FiActivity, FiArrowRight, FiRefreshCw, FiDownload, FiCalendar, FiSearch, FiCheckCircle, FiClock
+    FiUser, FiBriefcase, FiActivity, FiArrowRight, FiRefreshCw, FiDownload, FiCalendar, FiSearch, FiCheckCircle, FiClock, FiList, FiGrid,
+    FiChevronDown, FiChevronRight
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import attendanceAPI from '../../api/attendance/attendance.api';
@@ -9,6 +10,7 @@ import masterAPI from '../../api/attendance/master.api';
 import { formatTime12Hr, minutesToHours, formatDate } from './utils/helpers';
 import moment from 'moment';
 import toast from 'react-hot-toast';
+import { UserContext } from '../../contexts/UserContext';
 import './AttendanceReport.css';
 
 const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
@@ -47,16 +49,100 @@ const RenderHeatmap = ({ history, startDate, endDate }) => {
     );
 };
 
+const DailySummaryView = ({ groups, startDate, endDate }) => {
+    const [collapsed, setCollapsed] = useState({});
+
+    const toggleCollapse = (title) => {
+        setCollapsed(prev => ({ ...prev, [title]: !prev[title] }));
+    };
+
+    return (
+        <div className="ar-daily-summary-container" style={{ padding: '20px' }}>
+            {Object.entries(groups).map(([sectionTitle, employees]) => {
+                if (employees.length === 0) return null;
+                const isCollapsed = collapsed[sectionTitle];
+                const sectionColorObj = {
+                    'Present': '#10b981', 'Late': '#f59e0b', 'Half Day': '#3b82f6',
+                    'Absent': '#ef4444', 'Leave': '#8b5cf6', 'Other': '#64748b'
+                };
+                const bgColors = {
+                    'Present': '#ecfdf5', 'Late': '#fffbeb', 'Half Day': '#eff6ff',
+                    'Absent': '#fef2f2', 'Leave': '#f5f3ff', 'Other': '#f8fafc'
+                };
+                const color = sectionColorObj[sectionTitle] || '#64748b';
+                const bg = bgColors[sectionTitle] || '#f8fafc';
+                
+                return (
+                    <div key={sectionTitle} className="ar-summary-group" style={{ marginBottom: '24px' }}>
+                        <div 
+                            className="ar-summary-header" 
+                            onClick={() => toggleCollapse(sectionTitle)}
+                            style={{ 
+                                backgroundColor: bg, 
+                                borderLeft: `4px solid ${color}`, 
+                                padding: '10px 16px', 
+                                borderRadius: '4px', 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                marginBottom: isCollapsed ? '0' : '12px',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                transition: 'margin 0.2s ease'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                {isCollapsed ? <FiChevronRight style={{ color, marginRight: '8px' }} /> : <FiChevronDown style={{ color, marginRight: '8px' }} />}
+                                <span style={{ color: color, fontWeight: 700, letterSpacing: '0.5px' }}>{sectionTitle.toUpperCase()}</span>
+                            </div>
+                            <span className="ar-summary-count" style={{ backgroundColor: color, color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>{employees.length}</span>
+                        </div>
+                        
+                        {!isCollapsed && (
+                            <div className="ar-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+                                {employees.map(e => (
+                                    <div key={e.id} className="ar-summary-item" style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                        <div className="ar-si-name" style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
+                                        <div className="ar-si-meta" style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', marginTop: '4px', marginBottom: '8px' }}>
+                                            <FiBriefcase size={10} style={{ marginRight: 4 }}/> 
+                                            <span className="ar-si-co" title={e.company_name}>{e.company_name?.substring(0, 20) || '-'}</span>
+                                        </div>
+                                        <div className="ar-si-stats" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                                            <span title="Present Count">P: <span style={{ color: '#0f172a', fontWeight: '500' }}>{e.present}</span></span>
+                                            <span title="Absent Count">A: <span style={{ color: '#0f172a', fontWeight: '500' }}>{e.absent}</span></span>
+                                            <span title="Late Count">L: <span style={{ color: '#0f172a', fontWeight: '500' }}>{e.late}</span></span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+            {Object.values(groups).every(arr => arr.length === 0) && (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                    No data found for the selected range.
+                </div>
+            )}
+        </div>
+    );
+};
+
 const AttendanceReport = ({ isAdmin }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [loading, setLoading] = useState(true);
     const [reportData, setReportData] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [companies, setCompanies] = useState([]);
     const [companyId, setCompanyId] = useState('');
     const [companiesLoaded, setCompaniesLoaded] = useState(false); // guard: wait until company is resolved
     const [selectedEmp, setSelectedEmp] = useState(null);
+    const { user } = React.useContext(UserContext);
+    const ALLOWED_USERNAMES = React.useMemo(() => new Set(['uday_zope', 'h.chavan']), []);
+    const isAllowedUser = ALLOWED_USERNAMES.has(user?.username);
+    const [showDailySummary, setShowDailySummary] = useState(false);
     const [empHistory, setEmpHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -100,8 +186,8 @@ const AttendanceReport = ({ isAdmin }) => {
             if (passedCompanyId && list.some(c => c._id === passedCompanyId)) {
                 setCompanyId(passedCompanyId);
             } else if (list.length > 0) {
-                // Always pick first company if none is set yet
-                setCompanyId(prev => prev || list[0]._id);
+                // Default to all companies for admin
+                setCompanyId(prev => prev || 'all');
             }
         } catch (err) {
             console.error('[AttendanceReport] fetchCompanies failed:', err);
@@ -272,22 +358,113 @@ const AttendanceReport = ({ isAdmin }) => {
         });
     };
 
-    const exportCSV = () => {
-        const cols = ['Employee', 'Present', 'Absent', 'Late', 'Early In', 'Early Out', 'Leaves', 'Avg Hours'];
-        const rows = filtered.map(e => [e.name, e.present, e.absent, e.late, e.earlyIn || 0, e.earlyOut || 0, e.leaves, e.avgHours]);
-        const csv = [cols, ...rows].map(r => r.join(',')).join('\n');
-        Object.assign(document.createElement('a'), {
-            href: 'data:text/csv,' + encodeURIComponent(csv),
-            download: `report-${startDate}-${endDate}.csv`,
-        }).click();
+    const exportExcel = async () => {
+        // Dynamic import so it doesn't block initial page load
+        const ExcelJS = await import('exceljs');
+        const { saveAs } = await import('file-saver');
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Exim Application';
+        const worksheet = workbook.addWorksheet(`Attendance`);
+
+        const cols = ['Employee', 'Company', 'P', 'A', 'L', 'Early In', 'Early Out', 'Leaves', 'Avg Hours'];
+        
+        // Report Header
+        const reportHeader = worksheet.addRow([`Attendance Report: ${startDate} to ${endDate}`]);
+        reportHeader.font = { bold: true, size: 14 };
+        worksheet.addRow([]); // Empty row
+        
+        for (const [sectionTitle, employees] of Object.entries(groups)) {
+            if (employees.length === 0) continue;
+            
+            const titleRow = worksheet.addRow([`${sectionTitle.toUpperCase()} (${employees.length})`]);
+            titleRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+            titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } }; // Slate color
+            worksheet.mergeCells(`A${titleRow.number}:I${titleRow.number}`);
+
+            const headerRow = worksheet.addRow(cols);
+            headerRow.font = { bold: true, color: { argb: 'FF0F172A' } };
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // Slate 100
+                cell.border = {
+                    top: { style: 'thin' }, left: { style: 'thin' },
+                    bottom: { style: 'thin' }, right: { style: 'thin' }
+                };
+            });
+            
+            employees.forEach(e => {
+                worksheet.addRow([
+                    e.name, 
+                    e.company_name || '-', 
+                    e.present, 
+                    e.absent, 
+                    e.late, 
+                    e.earlyIn || 0, 
+                    e.earlyOut || 0, 
+                    e.leaves, 
+                    e.avgHours
+                ]);
+            });
+            worksheet.addRow([]); // Empty row
+        }
+
+        // Auto format width lengths
+        worksheet.columns.forEach((column) => {
+            let maxLength = 0;
+            column.eachCell({ includeEmpty: true }, (cell) => {
+                const columnLength = cell.value ? cell.value.toString().length : 10;
+                if (columnLength > maxLength) {
+                    maxLength = columnLength;
+                }
+            });
+            column.width = Math.min(maxLength < 10 ? 10 : maxLength + 2, 50); // Min 10, Max 50
+        });
+
+        // Trigger Download
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `AttendanceReport_${startDate}_to_${endDate}.xlsx`);
     };
 
-    const filtered = reportData.filter(e =>
-        e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = reportData.filter(e => {
+        const matchesSearch = e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              e.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        let matchesStatus = true;
+        if (statusFilter !== 'all') {
+            // Find the robust processed status for the specific targeted end date
+            const targetDateReport = e.history?.find(h => h.date === endDate);
+            let targetStatus = targetDateReport ? targetDateReport.status.toLowerCase() : 'absent';
+            
+            matchesStatus = targetStatus === statusFilter.toLowerCase();
+        }
+        
+        return matchesSearch && matchesStatus;
+    });
 
     const totalEmp = filtered.length;
+
+    const groups = React.useMemo(() => {
+        const g = {
+            'Present': [],
+            'Late': [],
+            'Half Day': [],
+            'Absent': [],
+            'Leave': [],
+            'Other': []
+        };
+        filtered.forEach(e => {
+            const targetDateReport = e.history?.find(h => h.date === endDate);
+            let targetStatus = targetDateReport ? targetDateReport.status.toLowerCase() : 'absent';
+            
+            if (targetStatus === 'present') g['Present'].push(e);
+            else if (targetStatus === 'late') g['Late'].push(e);
+            else if (targetStatus === 'half_day') g['Half Day'].push(e);
+            else if (targetStatus === 'absent') g['Absent'].push(e);
+            else if (targetStatus === 'leave') g['Leave'].push(e);
+            else g['Other'].push(e);
+        });
+        return g;
+    }, [filtered, endDate]);
 
     return (
         <div className="ar-console">
@@ -303,7 +480,13 @@ const AttendanceReport = ({ isAdmin }) => {
                     </div>
                     <div className="ar-hero-controls">
                         <button className="ar-hero-btn" onClick={fetchReport}><FiRefreshCw size={13} /> Refresh</button>
-                        <button className="ar-hero-btn ar-btn-primary" onClick={exportCSV}><FiDownload size={13} /> Export CSV</button>
+                        {isAllowedUser && (
+                            <button className={`ar-hero-btn ${showDailySummary ? 'ar-btn-active' : ''}`} onClick={() => setShowDailySummary(!showDailySummary)}>
+                                {showDailySummary ? <FiList size={13} style={{ marginRight: '6px' }} /> : <FiGrid size={13} style={{ marginRight: '6px' }} />}
+                                {showDailySummary ? 'Table View' : 'Daily Summary'}
+                            </button>
+                        )}
+                        <button className="ar-hero-btn ar-btn-primary" onClick={exportExcel}><FiDownload size={13} /> Export Excel</button>
                     </div>
                 </div>
             </div>
@@ -370,6 +553,21 @@ const AttendanceReport = ({ isAdmin }) => {
                         <FiSearch size={14} />
                         <input placeholder="Search by name" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
+                    
+                    <select
+                        className="ar-input-ctrl ar-select"
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value)}
+                        style={{ minWidth: 120 }}
+                    >
+                        <option value="all">All Status</option>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="late">Late</option>
+                        <option value="half_day">Half Day</option>
+                        <option value="leave">Leave</option>
+                    </select>
+
                     {isAdmin && companies.length > 0 && (
                         <select
                             className="ar-input-ctrl ar-select"
@@ -377,6 +575,7 @@ const AttendanceReport = ({ isAdmin }) => {
                             onChange={e => setCompanyId(e.target.value)}
                             style={{ minWidth: 220 }}
                         >
+                            <option value="all">All Companies</option>
                             {companies.map(c => <option key={c._id} value={c._id}>{c.company_name}</option>)}
                         </select>
                     )}
@@ -411,10 +610,12 @@ const AttendanceReport = ({ isAdmin }) => {
                     </div>
                 </div>
 
-                {/* Table card */}
-                <div className="ar-table-card">
+                {/* Table or Summary View */}
+                <div className="ar-table-card" style={showDailySummary ? { backgroundColor: 'transparent', boxShadow: 'none' } : {}}>
                     {loading ? (
                         <div className="ar-loading"><div className="ar-spinner" /><p>Generating report...</p></div>
+                    ) : showDailySummary ? (
+                        <DailySummaryView groups={groups} startDate={startDate} endDate={endDate} />
                     ) : (
                         <div className="ar-table-scroll">
                             <table className="ar-table">

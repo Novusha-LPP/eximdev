@@ -6,6 +6,7 @@ import ActivityLog from '../../model/attendance/ActivityLog.js';
 import QueryBuilder from '../../services/attendance/QueryBuilder.js';
 import User from '../../model/userModel.mjs';
 import Department from '../../model/attendance/Department.js';
+import UserBranchModel from '../../model/userBranchModel.mjs';
 
 
 
@@ -340,26 +341,74 @@ export const listCompanies = async (req, res) => {
       return res.status(403).json({ message: 'Only admins can list companies' });
     }
     const companies = await Company.find({})
-      .select('company_name company_code timezone attendance_config settings status createdAt updatedAt');
+      .select('company_name company_code shift_policy branch_ids attendance_config settings status createdAt updatedAt')
+      .populate('branch_ids', 'branch_name branch_code category');
     res.json({ success: true, data: companies });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
+const assignUsersToCompany = async ({ selectedUserIds = [], company, defaultShiftId = null, branchIds = [] }) => {
+  if (!Array.isArray(selectedUserIds) || selectedUserIds.length === 0) return;
+
+  const uniqueUserIds = [...new Set(selectedUserIds.map(String))];
+  const userUpdate = {
+    company_id: company._id,
+    company: company.company_name
+  };
+
+  if (defaultShiftId) {
+    userUpdate.shift_id = defaultShiftId;
+  }
+
+  await User.updateMany(
+    { _id: { $in: uniqueUserIds } },
+    { $set: userUpdate }
+  );
+
+  if (Array.isArray(branchIds) && branchIds.length > 0) {
+    const uniqueBranchIds = [...new Set(branchIds.map(String))];
+    const assignments = [];
+
+    for (const userId of uniqueUserIds) {
+      for (const branchId of uniqueBranchIds) {
+        assignments.push({ user_id: userId, branch_id: branchId });
+      }
+    }
+
+    if (assignments.length > 0) {
+      await UserBranchModel.insertMany(assignments, { ordered: false }).catch(() => {
+        // Ignore duplicate assignment errors from unique index.
+      });
+    }
+  }
+};
+
 export const createCompany = async (req, res) => {
   try {
-    const { company_name, company_code } = req.body;
+    const { company_name, company_code, selected_user_ids, default_shift_id, branch_ids } = req.body;
     if (!company_name || !company_code) {
       return res.status(400).json({ message: 'company_name and company_code are required' });
     }
 
+    const sanitizedBranchIds = Array.isArray(branch_ids) ? [...new Set(branch_ids.map(String))] : [];
+
     const company = new Company({
       ...req.body,
+      branch_ids: sanitizedBranchIds,
       created_by: req.user._id
     });
 
     await company.save();
+
+    await assignUsersToCompany({
+      selectedUserIds: selected_user_ids,
+      company,
+      defaultShiftId: default_shift_id,
+      branchIds: sanitizedBranchIds
+    });
+
     await logActivity(req, 'COMPANY', 'CREATE_COMPANY', `Created new company: ${company.company_name}`, { company_id: company._id });
     res.status(201).json({ success: true, data: company });
   } catch (err) {
@@ -370,13 +419,32 @@ export const createCompany = async (req, res) => {
 export const updateCompany = async (req, res) => {
   try {
     const { id } = req.params;
+    const { selected_user_ids, default_shift_id, branch_ids } = req.body;
+    const sanitizedBranchIds = Array.isArray(branch_ids) ? [...new Set(branch_ids.map(String))] : undefined;
+
+    const updatePayload = {
+      ...req.body,
+      updated_by: req.user._id
+    };
+
+    if (sanitizedBranchIds) {
+      updatePayload.branch_ids = sanitizedBranchIds;
+    }
+
     const company = await Company.findByIdAndUpdate(
       id,
-      { ...req.body, updated_by: req.user._id },
+      updatePayload,
       { new: true, runValidators: true }
     );
 
     if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    await assignUsersToCompany({
+      selectedUserIds: selected_user_ids,
+      company,
+      defaultShiftId: default_shift_id,
+      branchIds: sanitizedBranchIds || company.branch_ids || []
+    });
 
     await logActivity(req, 'COMPANY', 'UPDATE_COMPANY', `Updated company: ${company.company_name}`, { company_id: company._id });
     res.json({ success: true, data: company });

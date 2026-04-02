@@ -52,6 +52,70 @@
     box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
+.cm-overview-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.cm-overview-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%);
+    border: 1px solid #dbe7ff;
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.cm-overview-card span {
+    display: block;
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.cm-overview-card strong {
+    font-size: 1.2rem;
+    color: #0f172a;
+}
+
+.cm-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.cm-search-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    border-radius: 10px;
+    padding: 0 12px;
+    min-height: 40px;
+    color: #64748b;
+}
+
+.cm-search-wrap input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 0.9rem;
+    color: #111827;
+}
+
+.cm-filter-select {
+    min-width: 220px;
+    min-height: 40px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: #fff;
+    padding: 0 10px;
+    font-size: 0.9rem;
+}
+
 .cm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -154,6 +218,39 @@
     font-size: 1.25rem;
     font-weight: 700;
     color: #111827;
+}
+
+.cm-stat-tag {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: inline-block;
+    background: #eaf2ff;
+    color: #1e40af;
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.cm-branch-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.cm-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    color: #334155;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 4px 8px;
+}
+
+.cm-pill-muted {
+    color: #64748b;
 }
 
 .cm-user-list-toggle {
@@ -263,7 +360,9 @@
     background: white;
     border-radius: 16px;
     width: 100%;
-    max-width: 500px;
+    max-width: 850px;
+    max-height: 85vh;
+    overflow: hidden;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
@@ -294,6 +393,19 @@
 
 .cm-modal-body {
     padding: 24px;
+    max-height: calc(85vh - 120px);
+    overflow-y: auto;
+}
+
+.cm-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.cm-modal-column {
+    display: flex;
+    flex-direction: column;
 }
 
 .cm-form-group {
@@ -316,6 +428,54 @@
     border-radius: 8px;
     font-size: 0.95rem;
     transition: border-color 0.2s;
+}
+
+.cm-selection-grid {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #fafafa;
+}
+
+.cm-user-selection-grid {
+    max-height: 220px;
+}
+
+.cm-check-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.cm-check-row:last-child {
+    border-bottom: none;
+}
+
+.cm-check-row input {
+    margin-top: 2px;
+}
+
+.cm-check-row span {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.cm-check-row small {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 0.72rem;
+}
+
+.cm-field-note {
+    margin: -2px 0 8px;
+    color: #64748b;
+    font-size: 0.78rem;
 }
 
 .cm-form-group input:focus,
@@ -365,4 +525,50 @@
 .cm-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.cm-empty-state {
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    padding: 28px;
+    text-align: center;
+    background: #f8fafc;
+    margin-top: 8px;
+}
+
+.cm-empty-state h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.05rem;
+}
+
+.cm-empty-state p {
+    margin: 8px 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+    .cm-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .cm-overview-row {
+        grid-template-columns: 1fr;
+    }
+
+    .cm-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cm-filter-select {
+        width: 100%;
+    }
+
+    .cm-grid {
+        grid-template-columns: 1fr;
+    }
 }

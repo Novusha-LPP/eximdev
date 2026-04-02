@@ -10,20 +10,20 @@ import User from '../model/userModel.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.PROD_MONGODB_URI;
 
 const PROVIDED_COMPANIES = [
   'Suraj Forwarders Private Limited',
   'Suraj Forwarders & Shipping Agencies',
   'Suraj Forwarders',
-  'EXIMBIZ Enterprise',
+  'Eximbiz Enterprise',
   'Sansar Tradelink',
   'Paramount Propack Private Limited',
   'SR Container Carriers',
   'RABS Industries India Private Limited',
   'Novusha Consulting Services India LLP',
   'Alluvium IoT Solutions Private Limited',
-  'EXIM Global'
+
 ];
 
 const defaults = {
@@ -126,16 +126,24 @@ async function seed() {
     // Escape special regex characters in company name
     const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const userUpdate = await User.updateMany(
-      { 
-        company: { $regex: new RegExp(`^${escapedName}$`, 'i') }, 
-        $or: [{ company_id: { $exists: false } }, { company_id: null }] 
-      },
-      { $set: { company_id: company._id, shift_id: shift._id } }
+      { company: { $regex: new RegExp(`^${escapedName}$`, 'i') } },
+      { $set: { company_id: company._id } }
     );
     if (userUpdate.modifiedCount > 0) {
       console.log(`[seed] Linked ${userUpdate.modifiedCount} users to "${name}"`);
     }
     summary.usersLinked += userUpdate.modifiedCount;
+
+    const shiftUpdate = await User.updateMany(
+      {
+        company: { $regex: new RegExp(`^${escapedName}$`, 'i') },
+        $or: [{ shift_id: { $exists: false } }, { shift_id: null }]
+      },
+      { $set: { shift_id: shift._id } }
+    );
+    if (shiftUpdate.modifiedCount > 0) {
+      console.log(`[seed] Set default shift for ${shiftUpdate.modifiedCount} users in "${name}"`);
+    }
   }
 
   // Final check: How many users still don't have company_id?

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './charges.css';
 
-const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, onSuccess }) => {
+const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplayNumber, jobYear, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         "Entry No": '',
@@ -44,10 +44,10 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
                 const branchIndex = initialData.branchIndex || 0;
                 const branch = party?.branches?.[branchIndex] || {};
 
-                const jobNum = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
+                const jobNum = initialData.jobDisplayNumber || jobDisplayNumber || initialData.jobNumber || jobNumber || '';
 
-                // Fetch next sequence from backend using canonical job reference
                 let finalEntryNo = `PB01/${jobNum}`;
+                let updatedJobNum = jobNum;
                 try {
                     const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';
@@ -58,8 +58,9 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
                             withCredentials: true
                         }
                     );
-                    if (response.data.success && response.data.fullNo) {
-                        finalEntryNo = response.data.fullNo;
+                    if (response.data.success) {
+                        if (response.data.fullNo) finalEntryNo = response.data.fullNo;
+                        if (response.data.jobNo) updatedJobNum = response.data.jobNo;
                     }
                 } catch (error) {
                     console.error("Error fetching sequence:", error);
@@ -68,7 +69,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
                 setFormData(prev => ({
                     ...prev,
                     "Entry No": finalEntryNo,
-                    "Job No": jobNum,
+                    "Job No": updatedJobNum,
                     "Supplier Inv No": initialData.invoice_number || '',
                     "Supplier Inv Date": initialData.invoice_date || '',
                     "Supplier Name": initialData.partyName || '',
@@ -99,7 +100,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, o
         };
 
         fetchNextSequence();
-    }, [isOpen, initialData, jobNumber]);
+    }, [isOpen, initialData, jobNumber, jobDisplayNumber, jobYear]);
 
     if (!isOpen) return null;
 

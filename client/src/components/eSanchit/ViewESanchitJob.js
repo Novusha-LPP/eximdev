@@ -23,6 +23,8 @@ import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import QueriesComponent from "../../utils/QueriesComponent.js";
+import ChargesGrid from "../ChargesGrid/index.jsx";
+
 
 const cth_Dropdown = [
   { document_name: "Certificate of Origin", document_code: "861000" },
@@ -296,9 +298,17 @@ function ViewESanchitJob() {
   // Auto-update esanchit_completed_date_time from CTH docs
   useEffect(() => {
     const docs = getRelevantDocs();
+    const hasNfimsSimsCharges = data.charges?.some(c => 
+      [
+        "NFMIMS APPLICATION FEES",
+        "NFMIMS REGISTRATION CHARGES",
+        "SIMS APPLICATION FEES",
+        "SIMS REGISTRATION CHARGES"
+      ].includes(c.chargeHead)
+    );
 
-    // If no relevant docs at all, always clear
-    if (docs.length === 0) {
+    // If no relevant docs at all, clear only if NOT an NFIMS job
+    if (docs.length === 0 && !hasNfimsSimsCharges) {
       if (formik.values.esanchit_completed_date_time) {
         formik.setFieldValue("esanchit_completed_date_time", "");
       }
@@ -316,17 +326,17 @@ function ViewESanchitJob() {
           .toISOString()
           .slice(0, 16);
 
-        if (formik.values.esanchit_completed_date_time !== localISO) {
+        if (formik.values.esanchit_completed_date_time !== localISO && !formik.values.esanchit_completed_date_time) {
           formik.setFieldValue("esanchit_completed_date_time", localISO);
         }
       }
     } else {
-      // NOT all approved -> clear completion time, even if it exists in DB
-      if (formik.values.esanchit_completed_date_time) {
+      // NOT all approved -> clear completion time ONLY if not an NFIMS job
+      if (formik.values.esanchit_completed_date_time && !hasNfimsSimsCharges) {
         formik.setFieldValue("esanchit_completed_date_time", "");
       }
     }
-  }, [formik.values.cth_documents]); // keep deps as just docs
+  }, [formik.values.cth_documents, data.charges]); // Added data.charges to deps
 
 
 
@@ -649,6 +659,20 @@ function ViewESanchitJob() {
               {renderAllDocuments(data.all_documents)}
             </div>
 
+            <div className="job-details-container" style={{ marginTop: "20px" }}>
+              <h4>Billing & Charges</h4>
+              <Box sx={{ p: 1, backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '4px' }}>
+                <ChargesGrid 
+                  parentId={data._id}
+                  parentModule="Job"
+                  jobNumber={data.job_no}
+                  jobDisplayNumber={data.job_number}
+                  importerName={data.importer}
+                  jobYear={data.year}
+                />
+              </Box>
+            </div>
+
             <div className="job-details-container">
               <h4>All Cleared E-Sanchit</h4>
               <Row>
@@ -660,7 +684,16 @@ function ViewESanchitJob() {
                     <strong>E-Sanchit Completed:&nbsp;</strong>
                     <Checkbox
                       checked={!!formik.values.esanchit_completed_date_time}
-                      disabled // Automatically handled; no manual interaction
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        if (isChecked) {
+                          const localISO = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                          formik.setFieldValue("esanchit_completed_date_time", localISO);
+                        } else {
+                          formik.setFieldValue("esanchit_completed_date_time", "");
+                        }
+                      }}
+                      disabled={isDisabled}
                     />
                     {formik.values.esanchit_completed_date_time && (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>

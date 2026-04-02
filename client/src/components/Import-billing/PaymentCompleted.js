@@ -32,6 +32,12 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext.js";
 import DocsCell from "../gallery/DocsCell.js";
 import { BranchContext } from "../../contexts/BranchContext.js";
+import TuneIcon from "@mui/icons-material/Tune";
+import TodayIcon from "@mui/icons-material/Today";
+import DateRangeIcon from "@mui/icons-material/DateRange";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import EventIcon from "@mui/icons-material/Event";
+import { Popover } from "@mui/material";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 import logo from "../../assets/images/logo.webp";
@@ -55,6 +61,56 @@ function PaymentCompleted() {
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [completionStartDate, setCompletionStartDate] = useState("");
+  const [completionEndDate, setCompletionEndDate] = useState("");
+  const [dateFilterType, setDateFilterType] = useState("single"); // 'single', 'range', 'today', 'week', 'month', 'year'
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleAdvancedClick = (event) => setAnchorEl(event.currentTarget);
+  const handleAdvancedClose = () => setAnchorEl(null);
+
+  const calculateDates = useCallback(() => {
+    const today = new Date();
+    let start = "";
+    let end = "";
+
+    switch (dateFilterType) {
+      case "single":
+        if (completionStartDate) {
+          start = completionStartDate;
+          end = completionStartDate;
+        }
+        break;
+      case "today":
+        start = end = today.toISOString().split("T")[0];
+        break;
+      case "week": {
+        const d_start = new Date(today);
+        d_start.setDate(today.getDate() - today.getDay());
+        const d_end = new Date(d_start);
+        d_end.setDate(d_start.getDate() + 6);
+        start = d_start.toISOString().split("T")[0];
+        end = d_end.toISOString().split("T")[0];
+        break;
+      }
+      case "month": {
+        start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
+        break;
+      }
+      case "year":
+        start = new Date(today.getFullYear(), 0, 1).toISOString().split("T")[0];
+        end = new Date(today.getFullYear(), 11, 31).toISOString().split("T")[0];
+        break;
+      case "range":
+        start = completionStartDate;
+        end = completionEndDate;
+        break;
+      default:
+        break;
+    }
+    return { start, end };
+  }, [dateFilterType, completionStartDate, completionEndDate]);
 
   const fetchPaymentRequestDetails = async (requestNo) => {
     try {
@@ -147,7 +203,9 @@ function PaymentCompleted() {
       selectedYearState,
       username,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      startDate = "",
+      endDate = ""
     ) => {
       setLoading(true);
       try {
@@ -163,6 +221,8 @@ function PaymentCompleted() {
               username: username || "",
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
+              startDate,
+              endDate
             },
           }
         );
@@ -192,6 +252,7 @@ function PaymentCompleted() {
   // Fetch jobs when dependencies change
   useEffect(() => {
     if (selectedYearState && user?.username) {
+      const { start, end } = calculateDates();
       fetchJobs(
         page,
         debouncedSearchQuery,
@@ -199,7 +260,9 @@ function PaymentCompleted() {
         selectedYearState,
         user.username,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        start,
+        end
       );
     }
   }, [
@@ -211,6 +274,7 @@ function PaymentCompleted() {
     fetchJobs,
     selectedBranch,
     selectedCategory,
+    calculateDates
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -417,20 +481,68 @@ function PaymentCompleted() {
         size: 450,
         Cell: ({ cell }) => {
           const charges = cell.row.original.charges || [];
-          const prs = [...new Set(charges.map(c => c.payment_request_no).filter(Boolean))];
+          // Group charge heads by payment request number
+          const reqGroups = charges.reduce((acc, c) => {
+            if (c.payment_request_no) {
+              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
+              acc[c.payment_request_no].push(c.chargeHead);
+            }
+            return acc;
+          }, {});
+
+          const prs = Object.keys(reqGroups);
+
           return (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {prs.map(pr => (
-                <Chip
-                  key={pr}
-                  label={pr}
-                  size="small"
-                  onClick={() => handleViewPaymentRequest(pr)}
-                  color="success"
-                  variant="outlined"
-                  sx={{ cursor: "pointer", fontWeight: 'bold', width: 'fit-content' }}
-                />
-              ))}
+              {prs.length > 0 ? (
+                prs.map((pr, idx) => {
+                  const uniqueHeads = [...new Set(reqGroups[pr])].join(", ");
+                  const chargesForThisPR = charges.filter(c => c.payment_request_no === pr);
+                  const isApproved = chargesForThisPR.some(c => c.payment_request_is_approved);
+
+                  return (
+                    <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: idx < prs.length - 1 ? '1px dashed #eee' : 'none', pb: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Chip
+                          key={pr}
+                          label={pr}
+                          size="small"
+                          onClick={() => handleViewPaymentRequest(pr)}
+                          color="success"
+                          variant="outlined"
+                          sx={{ 
+                            cursor: "pointer", 
+                            fontWeight: 'bold', 
+                            height: '20px',
+                            '& .MuiChip-label': { px: 1, fontSize: '0.65rem' }
+                          }}
+                        />
+                        {isApproved && (
+                          <Chip 
+                            label="APPROVED" 
+                            size="small" 
+                            color="success" 
+                            variant="outlined"
+                            sx={{ 
+                              fontSize: '0.55rem', 
+                              height: '16px', 
+                              fontWeight: '900',
+                              borderColor: '#2e7d32', 
+                              color: '#2e7d32',
+                              '& .MuiChip-label': { px: 0.5 }
+                            }} 
+                          />
+                        )}
+                      </Box>
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#555', fontSize: '0.65rem', lineHeight: 1.2 }}>
+                        : {uniqueHeads}
+                      </Typography>
+                    </Box>
+                  );
+                })
+              ) : (
+                "-"
+              )}
             </Box>
           );
         }
@@ -598,6 +710,129 @@ function PaymentCompleted() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+        {/* Completion Date Filter */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#1a237e' }}>COMPLETED ON:</Typography>
+          <TextField
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={completionStartDate}
+            onChange={(e) => {
+              setCompletionStartDate(e.target.value);
+              setDateFilterType("single");
+              setPage(1);
+            }}
+            sx={{ width: '150px', '& .MuiOutlinedInput-root': { borderRadius: '20px' } }}
+          />
+          
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleAdvancedClick}
+            startIcon={<TuneIcon />}
+            sx={{ borderRadius: '20px', textTransform: 'none', fontWeight: 'bold' }}
+          >
+            Advanced
+          </Button>
+
+          <Popover
+            open={Boolean(anchorEl)}
+            anchorEl={anchorEl}
+            onClose={handleAdvancedClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            PaperProps={{ sx: { p: 2, width: '320px', mt: 1, borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' } }}
+          >
+            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>QUICK FILTERS</Typography>
+            <Grid container spacing={1} sx={{ mb: 3 }}>
+              {[
+                { label: 'Today', type: 'today', icon: <TodayIcon fontSize="small" /> },
+                { label: 'Week', type: 'week', icon: <DateRangeIcon fontSize="small" /> },
+                { label: 'Month', type: 'month', icon: <CalendarMonthIcon fontSize="small" /> },
+                { label: 'Year', type: 'year', icon: <EventIcon fontSize="small" /> }
+              ].map((preset) => (
+                <Grid item xs={6} key={preset.type}>
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant={dateFilterType === preset.type ? "contained" : "outlined"}
+                    startIcon={preset.icon}
+                    onClick={() => {
+                      setDateFilterType(preset.type);
+                      setCompletionStartDate("");
+                      setCompletionEndDate("");
+                      setPage(1);
+                      handleAdvancedClose();
+                    }}
+                    sx={{ borderRadius: '10px', textTransform: 'none' }}
+                  >
+                    {preset.label}
+                  </Button>
+                </Grid>
+              ))}
+            </Grid>
+
+            <Divider sx={{ mb: 2 }} />
+            
+            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>CUSTOM RANGE</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                type="date"
+                size="small"
+                label="Start Date"
+                InputLabelProps={{ shrink: true }}
+                value={completionStartDate}
+                onChange={(e) => {
+                  setCompletionStartDate(e.target.value);
+                  setDateFilterType("range");
+                  setPage(1);
+                }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="End Date"
+                InputLabelProps={{ shrink: true }}
+                value={completionEndDate}
+                onChange={(e) => {
+                  setCompletionEndDate(e.target.value);
+                  setDateFilterType("range");
+                  setPage(1);
+                }}
+              />
+            </Box>
+            
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button 
+                size="small" 
+                color="error" 
+                onClick={() => {
+                  setCompletionStartDate("");
+                  setCompletionEndDate("");
+                  setDateFilterType("single");
+                  setPage(1);
+                  handleAdvancedClose();
+                }}
+              >
+                Clear All
+              </Button>
+            </Box>
+          </Popover>
+
+          {dateFilterType !== "single" && (
+            <Chip 
+              label={dateFilterType.toUpperCase()} 
+              size="small" 
+              color="primary" 
+              onDelete={() => {
+                setDateFilterType("single");
+                setPage(1);
+              }}
+              sx={{ borderRadius: '5px', fontWeight: 'bold' }}
+            />
+          )}
+        </Box>
       </div>
     ),
   };
@@ -774,31 +1009,113 @@ function PaymentCompleted() {
                       </Grid>
                     </Grid>
                   </Box>
+                  {(selectedPaymentRequest.status === "Paid" ||
+                    selectedPaymentRequest.utrNumber) && (
+                    <>
+                      <Divider sx={{ mb: 3 }} />
+                      <Box
+                        sx={{
+                          p: 2,
+                          border: "1px solid #c8e6c9",
+                          borderRadius: 2,
+                          backgroundColor: "#f1f8e9",
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle2"
+                          color="success.main"
+                          fontWeight="bold"
+                          mb={2}
+                        >
+                          Payment Confirmation
+                        </Typography>
 
-                  <Divider sx={{ mb: 3 }} />
-                  <Box>
-                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Payment Confirmation</Typography>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">UTR Number</Typography>
-                        <Typography variant="body1" fontWeight="bold" color="success.main">
-                          {selectedPaymentRequest.utrNumber || selectedPaymentRequest.instrumentNo || "-"}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">Added By</Typography>
-                        <Typography variant="body1">{selectedPaymentRequest.utrAddedBy || "Accounts Team"}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">Added On</Typography>
-                        <Typography variant="body1">
-                          {selectedPaymentRequest.utrAddedAt 
-                            ? new Date(selectedPaymentRequest.utrAddedAt).toLocaleString('en-GB') 
-                            : selectedPaymentRequest.instrumentDate || "-"}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
+                        {selectedPaymentRequest.isApproved && (
+                          <Box
+                            sx={{
+                              mb: 2,
+                              p: 1.5,
+                              backgroundColor: "rgba(255,255,255,0.8)",
+                              borderRadius: 1,
+                              borderLeft: "4px solid #2e7d32",
+                            }}
+                          >
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  Approved By
+                                </Typography>
+                                <Typography variant="body2" fontWeight="bold">
+                                  {selectedPaymentRequest.approvedByFirst}{" "}
+                                  {selectedPaymentRequest.approvedByLast}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  Approved On
+                                </Typography>
+                                <Typography variant="body2" fontWeight="bold">
+                                  {new Date(
+                                    selectedPaymentRequest.approvedAt
+                                  ).toLocaleString("en-GB")}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          </Box>
+                        )}
+
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              UTR Number
+                            </Typography>
+                            <Typography
+                              variant="body1"
+                              fontWeight="bold"
+                              sx={{ color: "#1b5e20" }}
+                            >
+                              {selectedPaymentRequest.utrNumber}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Marked Paid By
+                            </Typography>
+                            <Typography variant="body1" fontWeight="bold">
+                              {selectedPaymentRequest.utrAddedBy || "System"}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Payment Completed On
+                            </Typography>
+                            <Typography variant="body2" fontWeight="bold">
+                              {selectedPaymentRequest.utrAddedAt
+                                ? new Date(
+                                    selectedPaymentRequest.utrAddedAt
+                                  ).toLocaleString("en-GB")
+                                : "N/A"}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </>
+                  )}
 
                 </Box>
               </Paper>

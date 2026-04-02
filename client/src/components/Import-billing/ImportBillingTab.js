@@ -5,6 +5,7 @@ import useTabs from "../../customHooks/useTabs";
 import ImportBilling from "./ImportBilling";
 import ClearanceCompleted from "./ClearanceCompleted";
 import PaymentRequested from "./PaymentRequested";
+import PaymentPending from "./PaymentPending";
 import PaymentCompleted from "./PaymentCompleted";
 import ImportCompletedBilling from './ImportCompletedBilling.js'
 
@@ -63,8 +64,9 @@ function ImportBillingTab() {
             <Tab label="Import Billing" {...a11yProps(0)} />
             <Tab label="Clearance Completed" {...a11yProps(1)} />
             <Tab label="Payment Requested" {...a11yProps(2)} />
-            <Tab label="Payment Completed" {...a11yProps(3)} />
-            <Tab label="Import Completed Billing" {...a11yProps(4)} />
+            <Tab label="Payment" {...a11yProps(3)} />
+            <Tab label="Payment Completed" {...a11yProps(4)} />
+            <Tab label="Import Completed Billing" {...a11yProps(5)} />
           </Tabs>
         </Box>
 
@@ -79,9 +81,12 @@ function ImportBillingTab() {
           <PaymentRequested />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={3}>
-          <PaymentCompleted />
+          <PaymentPending />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={4}>
+          <PaymentCompleted />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={5}>
           <ImportCompletedBilling />
         </CustomTabPanel>
       </Box>

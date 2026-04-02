@@ -155,6 +155,13 @@ const ChargeSchema = new mongoose.Schema({
   purchase_book_status: { type: String, default: '' },
   payment_request_no: { type: String, trim: true },
   payment_request_status: { type: String, default: '' },
+  payment_request_is_approved: { type: Boolean, default: false },
+  payment_request_approved_byFirst: { type: String, trim: true },
+  payment_request_approved_byLast: { type: String, trim: true },
+  payment_request_approved_at: { type: Date },
+  utrNumber: { type: String, trim: true },
+  utrAddedBy: { type: String, trim: true },
+  utrAddedAt: { type: Date },
 
   revenue: ChargeLineSchema,
   cost: ChargeLineSchema,
@@ -705,6 +712,22 @@ jobSchema.pre("save", function (next) {
     this.row_color = getRowColorFromStatus(detStatus);
     this.status_rank = getJobStatusRank(detStatus);
     this.status_sort_date = getJobSortDate(jobObj, detStatus);
+
+    // Automatic Container Count Calculation
+    if (this.container_nos && Array.isArray(this.container_nos)) {
+      const counts = {};
+      this.container_nos.forEach(container => {
+        const size = container.size || "Unknown";
+        counts[size] = (counts[size] || 0) + 1;
+      });
+
+      const summary = Object.entries(counts)
+        .map(([size, count]) => `${count}x${size}`)
+        .join(", ");
+
+      this.no_of_container = summary;
+      this.container_count = this.container_nos.length.toString();
+    }
   } catch (err) {
     console.error("Error computing derived job fields:", err);
     // Don't block save, but maybe log?

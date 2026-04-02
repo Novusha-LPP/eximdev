@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './charges.css';
 
-const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear, onSuccess }) => {
+const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplayNumber, jobYear, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         "Request No": '',
@@ -25,15 +25,17 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
         "jobRef": ''
     });
 
+    const [errorPopup, setErrorPopup] = useState({ isOpen: false, messages: [] });
+
 
     useEffect(() => {
         const fetchNextSequence = async () => {
             if (isOpen && initialData) {
                 // Generate request number using canonical job reference (e.g. IMP/24-25/0001)
-                const jobRefStr = initialData.jobDisplayNumber || initialData.jobNumber || jobNumber || '';
+                const jobRefStr = initialData.jobDisplayNumber || jobDisplayNumber || initialData.jobNumber || jobNumber || '';
 
-                // Fetch next sequence from backend using canonical job identifier
                 let finalRequestNo = `R01/${jobRefStr}`;
+                let updatedJobNo = jobRefStr;
                 try {
                     const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';
@@ -44,8 +46,9 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                             withCredentials: true
                         }
                     );
-                    if (response.data.success && response.data.fullNo) {
-                        finalRequestNo = response.data.fullNo;
+                    if (response.data.success) {
+                        if (response.data.fullNo) finalRequestNo = response.data.fullNo;
+                        if (response.data.jobNo) updatedJobNo = response.data.jobNo;
                     }
                 } catch (error) {
                     console.error("Error fetching sequence:", error);
@@ -66,7 +69,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                     "Bank Name": account.bankName || '',
                     "IFSC Code": account.ifsc || '',
                     "Status": '',
-                    "jobNo": jobRefStr,
+                    "jobNo": updatedJobNo,
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || ''
                 }));
@@ -74,7 +77,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
         };
 
         fetchNextSequence();
-    }, [isOpen, initialData, jobNumber, jobYear]);
+    }, [isOpen, initialData, jobNumber, jobDisplayNumber, jobYear]);
 
     if (!isOpen) return null;
 
@@ -85,6 +88,33 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
 
     const handleSubmit = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+
+        // Mandatory fields except "Beneficiary Code"
+        const requiredFields = [
+            "Request No",
+            "Request Date",
+            "Payment To",
+            "Against Bill",
+            "Amount",
+            "Transfer Mode",
+            "Account No",
+            "IFSC Code",
+            "Bank Name",
+            "Transaction Type"
+        ];
+
+        // Conditional mandatory fields
+        if (formData["Transaction Type"] === 'CHEQUE') {
+            requiredFields.push("Instrument No", "Instrument Date");
+        }
+
+        const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
+
+        if (missingFields.length > 0) {
+            setErrorPopup({ isOpen: true, messages: missingFields });
+            return;
+        }
+
         setLoading(true);
         try {
             const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
@@ -123,66 +153,70 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                     <div className="modal-body">
                         <div className="ep-grid" style={{ gridTemplateColumns: '1fr 1fr 30px', gap: '10px 20px', marginRight: '10px' }}>
                             <div className="ep-row">
-                                <span className="ep-label">Request No</span>
+                                <span className="ep-label">Request No <span style={{ color: 'red' }}>*</span></span>
                                 <input type="text" name="Request No" className="ep-desc-input" value={formData["Request No"]} onChange={handleInputChange} />
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">Request Date</span>
+                                <span className="ep-label">Request Date <span style={{ color: 'red' }}>*</span></span>
                                 <input type="date" name="Request Date" className="ep-desc-input" value={formData["Request Date"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                             <div className="ep-row">
                                 <span className="ep-label">Bank From</span>
                                 <select name="Bank From" className="ep-select" value={formData["Bank From"]} onChange={handleInputChange}>
-                                    <option value="">Select Bank</option>
-                                    <option value="HDFC">HDFC Bank</option>
-                                    <option value="ICICI">ICICI Bank</option>
-                                    <option value="SBI">SBI Bank</option>
+                                    <option value="">SELECT BANK</option>
+                                    <option value="HDFC BANK">HDFC BANK</option>
+                                    <option value="ICICI BANK">ICICI BANK</option>
+                                    <option value="SBI BANK">SBI BANK</option>
+                                    <option value="KOTAK BANK">KOTAK BANK</option>
+                                    <option value="IDBI BANK">IDBI BANK</option>
+                                    <option value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</option>
                                 </select>
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">Payment to</span>
+                                <span className="ep-label">Payment to <span style={{ color: 'red' }}>*</span></span>
                                 <input type="text" name="Payment To" className="ep-desc-input" value={formData["Payment To"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                             <div className="ep-row">
-                                <span className="ep-label">Against Bill</span>
+                                <span className="ep-label">Against Bill <span style={{ color: 'red' }}>*</span></span>
                                 <input type="text" name="Against Bill" className="ep-desc-input" value={formData["Against Bill"]} onChange={handleInputChange} />
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">Amount</span>
+                                <span className="ep-label">Amount <span style={{ color: 'red' }}>*</span></span>
                                 <input type="number" name="Amount" className="ep-desc-input" value={formData["Amount"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                             <div className="ep-row">
-                                <span className="ep-label">Transfer Mode</span>
+                                <span className="ep-label">Transfer Mode <span style={{ color: 'red' }}>*</span></span>
                                 <select name="Transfer Mode" className="ep-select" value={formData["Transfer Mode"]} onChange={handleInputChange}>
                                     <option value="Online">Online</option>
                                     <option value="Offline">Offline</option>
                                 </select>
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">A/c No</span>
+                                <span className="ep-label">A/c No <span style={{ color: 'red' }}>*</span></span>
                                 <input type="text" name="Account No" className="ep-desc-input" value={formData["Account No"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                             <div className="ep-row">
-                                <span className="ep-label">IFS Code</span>
+                                <span className="ep-label">IFS Code <span style={{ color: 'red' }}>*</span></span>
                                 <input type="text" name="IFSC Code" className="ep-desc-input" value={formData["IFSC Code"]} onChange={handleInputChange} />
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">Bank Name</span>
+                                <span className="ep-label">Bank Name <span style={{ color: 'red' }}>*</span></span>
                                 <input type="text" name="Bank Name" className="ep-desc-input" value={formData["Bank Name"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                             <div className="ep-row">
-                                <span className="ep-label">Transaction Type</span>
+                                <span className="ep-label">Transaction Type <span style={{ color: 'red' }}>*</span></span>
                                 <select name="Transaction Type" className="ep-select" value={formData["Transaction Type"]} onChange={handleInputChange}>
                                     <option value="NEFT">NEFT</option>
                                     <option value="RTGS">RTGS</option>
                                     <option value="IMPS">IMPS</option>
                                     <option value="CHEQUE">CHEQUE</option>
                                     <option value="CASH">CASH</option>
+                                    <option value="ODEX">ODEX</option>
                                 </select>
                             </div>
                             <div className="ep-row">
@@ -190,14 +224,14 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                                 <input type="text" name="Beneficiary Code" className="ep-desc-input" value={formData["Beneficiary Code"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                            {formData["Transaction Type"] === 'CHEQUE' && (
+                             {formData["Transaction Type"] === 'CHEQUE' && (
                                 <>
                                     <div className="ep-row">
-                                        <span className="ep-label">Instrument No</span>
+                                        <span className="ep-label">Instrument No <span style={{ color: 'red' }}>*</span></span>
                                         <input type="text" name="Instrument No" className="ep-desc-input" value={formData["Instrument No"]} onChange={handleInputChange} />
                                     </div>
                                     <div className="ep-row">
-                                        <span className="ep-label">Instrument Date</span>
+                                        <span className="ep-label">Instrument Date <span style={{ color: 'red' }}>*</span></span>
                                         <input type="date" name="Instrument Date" className="ep-desc-input" value={formData["Instrument Date"]} onChange={handleInputChange} />
                                     </div>
                                 </>
@@ -212,6 +246,37 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobYear,
                     </div>
                 </form>
             </div>
+
+            {/* Validation Error Popup */}
+            {errorPopup.isOpen && (
+                <div className="modal-overlay active" style={{ zIndex: 1200 }}>
+                    <div className="edit-charge-modal" style={{ width: '400px' }}>
+                        <div className="modal-title" style={{ background: 'linear-gradient(to bottom, #d32f2f, #b71c1c)' }}>
+                            Validation Error
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ color: '#333', marginBottom: '10px', fontWeight: 'bold' }}>
+                                Please fill in the following mandatory fields:
+                            </div>
+                            <ul style={{ color: '#d32f2f', paddingLeft: '20px', margin: 0 }}>
+                                {errorPopup.messages.map((msg, i) => (
+                                    <li key={i} style={{ marginBottom: '4px' }}>{msg}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="modal-footer" style={{ justifyContent: 'center' }}>
+                            <button 
+                                type="button" 
+                                className="btn" 
+                                onClick={() => setErrorPopup({ isOpen: false, messages: [] })}
+                                style={{ background: 'linear-gradient(to bottom, #7fa8d0, #5580a8)', color: 'white' }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

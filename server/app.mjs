@@ -116,6 +116,8 @@ import getESanchitJobs from "./routes/e-sanchit/getESanchitJobs.mjs";
 import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJobs.mjs";
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
+import getNfimsSimsJobs from "./routes/e-sanchit/getNfimsSimsJobs.mjs";
+
 
 // import - billing
 import getImportBilling from "./routes/import-billing/getImportBilling.js";
@@ -434,6 +436,8 @@ app.use(getESanchitJobs);
 app.use(getESanchitCompletedJobs);
 app.use(getJobDetail);
 app.use(updateESanchitJob);
+app.use(getNfimsSimsJobs);
+
 
 // Home
 app.use(assignModules);

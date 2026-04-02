@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import useTabs from "../../customHooks/useTabs";
 import ESanchit from "./ESanchit.js";
 import ESanchitCompleted from "./ESanchitCompleted.js";
+import NfimsSimsJobs from "./NfimsSimsJobs.js";
+
 
 // Create a context to share tab state between components
 export const TabContext = React.createContext({
@@ -59,6 +61,7 @@ function ESanchitTab() {
           >
             <Tab label="ESanchit" {...a11yProps(0)} />
             <Tab label="ESanchit Completed" {...a11yProps(1)} />
+            <Tab label="NFIMS/SIMS Request" {...a11yProps(2)} />
           </Tabs>
         </Box>
 
@@ -68,6 +71,9 @@ function ESanchitTab() {
         </CustomTabPanel>
         <CustomTabPanel value={value} index={1}>
           <ESanchitCompleted />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={2}>
+          <NfimsSimsJobs />
         </CustomTabPanel>
       </Box>
     </TabContext.Provider>

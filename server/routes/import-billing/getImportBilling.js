@@ -586,6 +586,7 @@ router.get(
                           { $ne: ["$$charge.payment_request_no", ""] },
                           { $ne: ["$$charge.payment_request_no", null] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
+                          { $ne: ["$$charge.payment_request_is_approved", true] },
                         ],
                       },
                     },
@@ -708,6 +709,7 @@ router.get(
                           { $ne: ["$$charge.payment_request_no", ""] },
                           { $ne: ["$$charge.payment_request_no", null] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
+                          { $ne: ["$$charge.payment_request_is_approved", true] },
                         ],
                       },
                     },
@@ -749,10 +751,141 @@ router.get(
 );
 
 router.get(
+  "/api/get-approved-payment-jobs",
+  applyUserIcdFilter,
+  async (req, res) => {
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      importer,
+      year,
+      unresolvedOnly,
+      branchId,
+      category,
+    } = req.query;
+
+    const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.toString() : null;
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      return res.status(400).json({ message: "Invalid page number" });
+    }
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      return res.status(400).json({ message: "Invalid limit value" });
+    }
+
+    try {
+      const skip = (pageNumber - 1) * limitNumber;
+
+      const matchConditions = {
+        $and: [
+          { status: { $regex: /^pending$/i } },
+          { "charges.payment_request_no": { $exists: true, $ne: "" } },
+          { "charges.payment_request_is_approved": true }
+        ],
+      };
+
+      if (req.userIcdFilter) {
+        matchConditions.$and.push(req.userIcdFilter);
+      }
+
+      if (selectedYear) {
+        matchConditions.$and.push({ year: selectedYear });
+      }
+
+      if (decodedImporter && decodedImporter !== "Select Importer") {
+        matchConditions.$and.push({
+          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+        });
+      }
+
+      const branchMatch = getBranchMatch(branchId, category);
+      matchConditions.$and.push(branchMatch);
+
+      if (search && search.trim()) {
+        matchConditions.$and.push({
+          $or: [
+            { job_no: { $regex: search, $options: "i" } },
+            { be_no: { $regex: search, $options: "i" } },
+            { importer: { $regex: search, $options: "i" } },
+          ],
+        });
+      }
+
+      const pipeline = [
+        { $match: matchConditions },
+        {
+          $addFields: {
+            has_approved_payments: {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ["$charges", []] },
+                      as: "charge",
+                      cond: {
+                        $and: [
+                          { $ne: ["$$charge.payment_request_no", ""] },
+                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: ["$$charge.payment_request_is_approved", true] },
+                          { $ne: ["$$charge.payment_request_status", "Paid"] },
+                        ],
+                      },
+                    },
+                  },
+                },
+                0,
+              ],
+            },
+          },
+        },
+        { $match: { has_approved_payments: true } },
+        {
+          $project: {
+            priorityJob: 1,
+            eta: 1,
+            be_date: 1,
+            be_no: 1,
+            job_number: 1, job_no: 1,
+            year: 1,
+            importer: 1,
+            custom_house: 1,
+            consignment_type: 1,
+            type_of_b_e: 1,
+            awb_bl_no: 1,
+            container_nos: 1,
+            charges: 1,
+            branch_code: 1,
+          },
+        },
+      ];
+
+      const allJobs = await JobModel.aggregate(pipeline);
+      const rankedJobs = sortJobsByColorPriority(allJobs);
+      const totalJobs = rankedJobs.length;
+      const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
+
+      return res.status(200).json({
+        totalJobs,
+        totalPages: Math.ceil(totalJobs / limitNumber),
+        currentPage: pageNumber,
+        jobs: paginatedJobs,
+      });
+    } catch (err) {
+      console.error("Error fetching approved payment jobs:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
+);
+
+router.get(
   "/api/get-payment-completed-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const { page = 1, limit = 100, search = "", importer, year, branchId, category } = req.query;
+    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const pageNumber = parseInt(page, 10);
@@ -775,6 +908,35 @@ router.get(
           { "charges.payment_request_no": { $exists: true, $ne: "" } }
         ],
       };
+
+      // Add Date filtering if provided
+      if (startDate || endDate) {
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        } else if (startDate) {
+          // If only startDate is provided, set endDate to end of that day
+          const end = new Date(startDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        }
+        
+        // Match if any charge has utrAddedAt or updatedAt in range
+        matchConditions.$and.push({
+          $or: [
+            { "charges.utrAddedAt": dateFilter },
+            {
+              $and: [
+                { "charges.utrAddedAt": { $exists: false } },
+                { "charges.updatedAt": dateFilter }
+              ]
+            }
+          ]
+        });
+      }
 
       if (req.icdFilterCondition) {
         matchConditions.$and.push(req.icdFilterCondition);
@@ -1011,13 +1173,67 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
   }
 });
 
+router.post("/api/approve-payment-request", async (req, res) => {
+  try {
+    const { requestNo, firstName, lastName } = req.body;
+
+    if (!requestNo || !firstName || !lastName) {
+      return res.status(400).json({ message: "Request No, First Name, and Last Name are required" });
+    }
+
+    // 1. Update PaymentRequestModel
+    const updatedRequest = await PaymentRequestModel.findOneAndUpdate(
+      { requestNo: requestNo },
+      { 
+        $set: { 
+          isApproved: true,
+          approvedByFirst: firstName,
+          approvedByLast: lastName,
+          approvedAt: new Date()
+        } 
+      },
+      { new: true }
+    );
+
+    if (!updatedRequest) {
+      return res.status(404).json({ message: "Payment Request not found" });
+    }
+
+    // 2. Update JobModel charges for all matching request numbers
+    await JobModel.updateMany(
+      { "charges.payment_request_no": requestNo },
+      { 
+        $set: { 
+          "charges.$[elem].payment_request_is_approved": true,
+          "charges.$[elem].payment_request_approved_byFirst": firstName,
+          "charges.$[elem].payment_request_approved_byLast": lastName,
+          "charges.$[elem].payment_request_approved_at": new Date()
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.payment_request_no": requestNo }] 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Payment request approved and synced successfully",
+      data: updatedRequest 
+    });
+
+  } catch (err) {
+    console.error("Error approving payment request:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.patch("/api/update-payment-utr", async (req, res) => {
   try {
-    const { requestNo, utrNumber } = req.body;
+    const { requestNo, utrNumber, bankFrom } = req.body;
     const username = req.headers.username || "System";
 
-    if (!requestNo || !utrNumber) {
-      return res.status(400).json({ message: "Request No and UTR Number are required" });
+    if (!requestNo || !utrNumber || !bankFrom) {
+      return res.status(400).json({ message: "Request No, UTR Number, and Bank From are required" });
     }
 
     // 1. Update PaymentRequestModel
@@ -1026,6 +1242,7 @@ router.patch("/api/update-payment-utr", async (req, res) => {
       { 
         $set: { 
           utrNumber: utrNumber,
+          bankFrom: bankFrom,
           utrAddedBy: username,
           utrAddedAt: new Date(),
           status: "Paid"
@@ -1062,6 +1279,74 @@ router.patch("/api/update-payment-utr", async (req, res) => {
 
   } catch (err) {
     console.error("Error updating UTR:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+router.get("/api/get-approved-payment-jobs", async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "", importer = "", year = "" } = req.query;
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      {
+        $match: {
+          importer: { $regex: importer, $options: "i" },
+          $and: [
+            { year: { $regex: year, $options: "i" } },
+            {
+              $or: [
+                { job_no: { $regex: search, $options: "i" } },
+                { importer: { $regex: search, $options: "i" } },
+                { awb_bl_no: { $regex: search, $options: "i" } },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          approved_request_count: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$charges", []] },
+                as: "charge",
+                cond: {
+                  $and: [
+                    { $ne: ["$$charge.payment_request_no", ""] },
+                    { $ne: ["$$charge.payment_request_no", null] },
+                    { $ne: ["$$charge.payment_request_status", "Paid"] },
+                    { $eq: ["$$charge.payment_request_is_approved", true] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      { $match: { approved_request_count: { $gt: 0 } } },
+      {
+        $facet: {
+          metadata: [{ $count: "totalJobs" }],
+          jobs: [{ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: parseInt(limit) }],
+        },
+      },
+    ];
+
+    const result = await JobModel.aggregate(pipeline);
+    const totalJobs = result[0].metadata[0]?.totalJobs || 0;
+    const totalPages = Math.ceil(totalJobs / limit);
+
+    res.status(200).json({
+      success: true,
+      totalJobs,
+      totalPages,
+      currentPage: parseInt(page),
+      jobs: result[0].jobs,
+    });
+  } catch (err) {
+    console.error("Error in get-approved-payment-jobs:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

@@ -850,6 +850,7 @@ const EditChargeModal = ({
         onClose={() => setPaymentRequestData(null)}
         initialData={paymentRequestData}
         jobNumber={jobNumber}
+        jobDisplayNumber={jobDisplayNumber}
         jobYear={jobYear}
         onSuccess={(requestNo) => {
           // Update the localized formData state with the new number
@@ -876,6 +877,7 @@ const EditChargeModal = ({
         onClose={() => setPurchaseBookData(null)}
         initialData={purchaseBookData}
         jobNumber={jobNumber}
+        jobDisplayNumber={jobDisplayNumber}
         jobYear={jobYear}
         onSuccess={(entryNo) => {
           // Update the localized formData state with the new number

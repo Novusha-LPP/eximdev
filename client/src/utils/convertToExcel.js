@@ -20,6 +20,18 @@ const formatContainerDates = (containers, dateField) => {
   return allDatesSame ? validDates[0] : validDates.join(",\n");
 };
 
+const getContainerSummary = (containers) => {
+  if (!containers || !Array.isArray(containers) || containers.length === 0) return "";
+  const counts = {};
+  containers.forEach((c) => {
+    const size = c.size || "Unknown";
+    counts[size] = (counts[size] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([size, count]) => `${count}x${size}`)
+    .join(", ");
+};
+
 export const convertToExcel = async (
   rows,
   importer,
@@ -215,7 +227,7 @@ export const convertToExcel = async (
         "SHIPPING LINE": item.shipping_line_airline || '',
         "CONTAINER NUM & SIZE": containerNumbersWithSizes,
         "WEIGHT EXCESS/SHORTAGE": weightExcessShortage,
-        "NUMBER OF CONTAINERS": item.no_of_container?.slice(0, -2) ?? "",
+        "NUMBER OF CONTAINERS": getContainerSummary(item.container_nos),
         "BE NUMBER AND DATE": beNoAndDate,
         REMARKS: remarks,
         "DETAILED STATUS": item.detailed_status || '',

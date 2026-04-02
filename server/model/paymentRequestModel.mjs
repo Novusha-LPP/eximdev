@@ -22,6 +22,10 @@ const paymentRequestSchema = new mongoose.Schema({
   utrNumber: { type: String },
   utrAddedBy: { type: String },
   utrAddedAt: { type: Date },
+  isApproved: { type: Boolean, default: false },
+  approvedByFirst: { type: String, trim: true },
+  approvedByLast: { type: String, trim: true },
+  approvedAt: { type: Date },
   status: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 

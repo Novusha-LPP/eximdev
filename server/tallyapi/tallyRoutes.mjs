@@ -79,10 +79,14 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
     let count = 0;
     let prefix = "";
     if (type === "purchase") {
-      count = await PurchaseBookEntryModel.countDocuments({ jobNo: canonicalJobNo });
+      count = await PurchaseBookEntryModel.countDocuments({ 
+        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }] 
+      });
       prefix = "PB";
     } else if (type === "payment") {
-      count = await PaymentRequestModel.countDocuments({ jobNo: canonicalJobNo });
+      count = await PaymentRequestModel.countDocuments({ 
+        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }] 
+      });
       prefix = "R";
     } else {
       return res.status(400).json({ error: "Invalid type. Must be 'purchase' or 'payment'" });
@@ -152,8 +156,29 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
     const rawData = req.body;
     const data = mapPurchaseEntryData(rawData);
     
+    // Standardize jobNo to canonicalJobNo if possible before saving
+    if (data.jobRef) {
+      const job = await JobModel.findById(data.jobRef).select('job_number').lean();
+      if (job && job.job_number) {
+        data.jobNo = job.job_number;
+      }
+    }
+
     console.log("Saving Purchase Entry:", data.entryNo);
     const entry = await PurchaseBookEntryModel.create(data);
+    
+    if (data.jobRef && data.chargeRef) {
+      await JobModel.updateOne(
+        { _id: data.jobRef, "charges._id": data.chargeRef },
+        { 
+          $set: { 
+            "charges.$.purchase_book_no": entry.entryNo,
+            "charges.$.purchase_book_status": "Pending" 
+          }
+        }
+      );
+    }
+
     res.status(201).json({ 
       success: true, 
       message: "Purchase Book Entry saved and submitted successfully",
@@ -278,6 +303,14 @@ router.post("/payment-request", authApiKey, async (req, res) => {
   try {
     const rawData = req.body;
     const data = mapPaymentRequestData(rawData);
+
+    // Standardize jobNo to canonicalJobNo if possible before saving
+    if (data.jobRef) {
+      const job = await JobModel.findById(data.jobRef).select('job_number').lean();
+      if (job && job.job_number) {
+        data.jobNo = job.job_number;
+      }
+    }
 
     console.log("Saving Payment Request:", data.requestNo);
     const request = await PaymentRequestModel.create(data);

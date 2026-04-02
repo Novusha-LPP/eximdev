@@ -5,6 +5,8 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import EditIcon from "@mui/icons-material/Edit";
+import HistoryIcon from "@mui/icons-material/History";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
@@ -22,6 +24,15 @@ function JobDetailsStaticData(props) {
   const isAdmin = user?.role === "Admin";
   const { branches, selectedBranch } = useContext(BranchContext);
   const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+
+  const [oldDocsModalOpen, setOldDocsModalOpen] = useState(false);
+
+  // Check if any legacy documents exist
+  const hasOldDocs = useMemo(() => {
+    const { do_shipping_line_invoice, insurance_copy, other_do_documents } = props.data || {};
+    const checkArray = (arr) => Array.isArray(arr) && arr.some(item => Array.isArray(item.url) && item.url.length > 0);
+    return checkArray(do_shipping_line_invoice) || checkArray(insurance_copy) || checkArray(other_do_documents);
+  }, [props.data]);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -301,6 +312,83 @@ function JobDetailsStaticData(props) {
     { value: 'T', label: 'TIN (Taxpayer Identification Number)' },
   ];
 
+  const renderOldDocsDialog = () => {
+    const { do_shipping_line_invoice, insurance_copy, other_do_documents } = props.data || {};
+    
+    const renderDocSection = (title, docs) => {
+      if (!Array.isArray(docs) || docs.length === 0) return null;
+      
+      // Filter out docs without URLs
+      const validDocs = docs.filter(doc => Array.isArray(doc.url) && doc.url.length > 0);
+      if (validDocs.length === 0) return null;
+
+      return (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#1976d2', borderBottom: '1px solid #e0e0e0', pb: 0.5, mb: 1 }}>
+            {title}
+          </Typography>
+          <Grid container spacing={2}>
+            {validDocs.map((doc, idx) => (
+              <Grid item xs={12} key={idx}>
+                <Box sx={{ p: 1.5, border: '1px solid #f0f0f0', borderRadius: '6px', background: '#fafafa' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                    {doc.document_name || "Unnamed Document"}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {doc.url.map((url, urlIdx) => (
+                      <Button
+                        key={urlIdx}
+                        variant="outlined"
+                        size="small"
+                        startIcon={<OpenInNewIcon />}
+                        href={url}
+                        target="_blank"
+                        sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                      >
+                        File {urlIdx + 1}
+                      </Button>
+                    ))}
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      );
+    };
+
+    return (
+      <Dialog 
+        open={oldDocsModalOpen} 
+        onClose={() => setOldDocsModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ borderBottom: '1px solid #eee', pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <HistoryIcon color="primary" />
+            <Typography variant="h6">Old/Legacy Documents</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {renderDocSection("Shipping Line Invoices", do_shipping_line_invoice)}
+          {renderDocSection("Insurance Copies", insurance_copy)}
+          {renderDocSection("Other Documents", other_do_documents)}
+          {!hasOldDocs && (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              No legacy documents found for this job.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid #eee', px: 3, py: 2 }}>
+          <Button onClick={() => setOldDocsModalOpen(false)} variant="contained" color="inherit">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   return (
     <div className="job-details-container" style={{ padding: "0px", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", transition: "all 0.3s ease" }}>
 
@@ -363,11 +451,41 @@ function JobDetailsStaticData(props) {
             )}
           </div>
 
-          <Tooltip title="Expand Details">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpanded(true); }}>
-              <KeyboardArrowDownIcon />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {hasOldDocs && (
+              <Tooltip title="View Old Documents">
+                <Button
+                  variant="outlined"
+                  color="info"
+                  size="small"
+                  startIcon={<HistoryIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOldDocsModalOpen(true);
+                  }}
+                  sx={{ 
+                    height: '32px', 
+                    borderRadius: '16px', 
+                    fontSize: '0.75rem', 
+                    textTransform: 'none',
+                    borderColor: '#1976d2',
+                    color: '#1976d2',
+                    '&:hover': {
+                      backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                    }
+                  }}
+                >
+                  Old Docs
+                </Button>
+              </Tooltip>
+            )}
+
+            <Tooltip title="Expand Details">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpanded(true); }}>
+                <KeyboardArrowDownIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </div>
       )}
 
@@ -405,6 +523,26 @@ function JobDetailsStaticData(props) {
                   )}
               </h5>
               <div>
+                {hasOldDocs && (
+                  <Button
+                    variant="outlined"
+                    color="info"
+                    size="small"
+                    startIcon={<HistoryIcon />}
+                    onClick={() => setOldDocsModalOpen(true)}
+                    sx={{ 
+                      mr: 2,
+                      height: '32px', 
+                      borderRadius: '16px', 
+                      fontSize: '0.75rem', 
+                      textTransform: 'none',
+                      borderColor: '#1976d2',
+                      color: '#1976d2'
+                    }}
+                  >
+                    Old Docs
+                  </Button>
+                )}
                 {isAdmin && (
                   <Tooltip title="Edit Job Static Data (Admin Only)">
                     <IconButton size="small" onClick={handleEditClick} style={{ marginRight: "10px" }}>
@@ -420,6 +558,8 @@ function JobDetailsStaticData(props) {
               </div>
             </Col>
           </Row>
+
+          {renderOldDocsDialog()}
 
           {/* Row 1: Payment, Clearance, FTA, Import Terms */}
           <Row style={compactRowStyle}>

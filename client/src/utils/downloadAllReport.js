@@ -19,6 +19,18 @@ const formatContainerDates = (containers, dateField) => {
   return allDatesSame ? validDates[0] : validDates.join(",\n");
 };
 
+const getContainerSummary = (containers) => {
+  if (!containers || !Array.isArray(containers) || containers.length === 0) return "";
+  const counts = {};
+  containers.forEach((c) => {
+    const size = c.size || "Unknown";
+    counts[size] = (counts[size] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([size, count]) => `${count}x${size}`)
+    .join(", ");
+};
+
 export const downloadAllReport = async (rows, status, detailedStatus) => {
   const rowsWithoutBillNo = rows.filter(
     (row) => row.bill_no === "" || row.bill_no === undefined
@@ -162,9 +174,8 @@ if (item.container_nos && item.container_nos.length > 0) {
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
-      "NUMBER OF CONTAINERS": item.no_of_container
-        ? item.no_of_container.slice(0, -2)
-        : "",      "BE NUMBER AND DATE": beNoAndDate,
+      "NUMBER OF CONTAINERS": getContainerSummary(item.container_nos),
+      "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,
       "FIRST CHECK": formatDate(item.firstCheck),

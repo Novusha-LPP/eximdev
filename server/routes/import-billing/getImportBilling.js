@@ -1136,37 +1136,44 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       }
     }
 
+    let importer = request.importer || "";
+
     if (jobRef) {
       try {
-        const job = await JobModel.findById(jobRef).select('charges').lean();
-        if (job && job.charges) {
-          let linkedCharge;
-          if (chargeRef) {
-            linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
-          }
-          
-          // Further fallback: Find by party name or description if chargeRef is missing or not found
-          if (!linkedCharge) {
-            linkedCharge = job.charges.find(c => 
-              (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
-              (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
-            );
-          }
+        const job = await JobModel.findById(jobRef).select('charges importer').lean();
+        if (job) {
+          // If importer is missing in request, get it from job
+          if (!importer) importer = job.importer || "";
 
-          if (linkedCharge) {
-            const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
-            const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
+          if (job.charges) {
+            let linkedCharge;
+            if (chargeRef) {
+              linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
+            }
             
-            // Combine and deduplicate
-            attachments = [...new Set([...revUrls, ...costUrls])];
+            // Further fallback: Find by party name or description if chargeRef is missing or not found
+            if (!linkedCharge) {
+              linkedCharge = job.charges.find(c => 
+                (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
+                (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
+              );
+            }
+
+            if (linkedCharge) {
+              const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
+              const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
+              
+              // Combine and deduplicate
+              attachments = [...new Set([...revUrls, ...costUrls])];
+            }
           }
         }
       } catch (err) {
-        console.error("Error fetching linked charge attachments:", err);
+        console.error("Error fetching linked job details:", err);
       }
     }
 
-    res.status(200).json({ ...request, attachments });
+    res.status(200).json({ ...request, importer, attachments });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -1223,6 +1230,62 @@ router.post("/api/approve-payment-request", async (req, res) => {
 
   } catch (err) {
     console.error("Error approving payment request:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/api/reject-payment-request", async (req, res) => {
+  try {
+    const { requestNo, firstName, lastName, reason } = req.body;
+
+    if (!requestNo || !firstName || !lastName || !reason) {
+      return res.status(400).json({ message: "Request No, First Name, Last Name, and Reason are required" });
+    }
+
+    // 1. Update PaymentRequestModel
+    const updatedRequest = await PaymentRequestModel.findOneAndUpdate(
+      { requestNo: requestNo },
+      { 
+        $set: { 
+          isRejected: true,
+          rejectedByFirst: firstName,
+          rejectedByLast: lastName,
+          rejectionReason: reason,
+          rejectedAt: new Date(),
+          status: 'Rejected'
+        } 
+      },
+      { new: true }
+    );
+
+    if (!updatedRequest) {
+      return res.status(404).json({ message: "Payment Request not found" });
+    }
+
+    // 2. Reset JobModel charges (IMPORTANT: removing the request link to allow re-submission)
+    await JobModel.updateMany(
+      { "charges.payment_request_no": requestNo },
+      { 
+        $set: { 
+          "charges.$[elem].payment_request_no": "",
+          "charges.$[elem].payment_request_status": "",
+          "charges.$[elem].payment_request_is_approved": false,
+          "charges.$[elem].payment_request_requested_by": ""
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.payment_request_no": requestNo }] 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Payment request rejected and linked charges reset",
+      data: updatedRequest 
+    });
+
+  } catch (err) {
+    console.error("Error rejecting payment request:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

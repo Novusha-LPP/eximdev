@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import './charges.css';
+import { UserContext } from '../../contexts/UserContext';
 
 const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplayNumber, jobYear, onSuccess }) => {
+    const { user } = useContext(UserContext);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         "Request No": '',
@@ -20,6 +22,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         "Transfer Mode": 'Online',
         "Beneficiary Code": '',
         "Status": '',
+        "Requested By": '',
         "jobNo": '',
         "chargeRef": '',
         "jobRef": ''
@@ -118,11 +121,16 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         setLoading(true);
         try {
             const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
+            
+            const submitData = {
+                ...formData,
+                "Requested By": user ? `${user.first_name} ${user.last_name}` : (localStorage.getItem("username") || "Unknown")
+            };
 
             // Fixed URL: process.env.REACT_APP_API_STRING already contains '/api'
             const response = await axios.post(
                 `${process.env.REACT_APP_API_STRING}/tally/payment-request`,
-                formData,
+                submitData,
                 {
                     headers: { 'x-api-key': API_KEY },
                     withCredentials: true

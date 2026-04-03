@@ -290,7 +290,9 @@ const mapPaymentRequestData = (data) => {
     jobRef: data.jobRef,
     instrumentNo: data["Instrument No"] || data.instrumentNo,
     instrumentDate: data["Instrument Date"] || data.instrumentDate,
+    importer: data["Importer"] || data.importer,
     transferMode: data["Transfer Mode"] || data.transferMode,
+    requestedBy: data["Requested By"] || data.requestedBy,
     beneficiaryCode: data["Beneficiary Code"] || data.beneficiaryCode,
     status: data["Status"] || data.status || ''
   };
@@ -306,9 +308,10 @@ router.post("/payment-request", authApiKey, async (req, res) => {
 
     // Standardize jobNo to canonicalJobNo if possible before saving
     if (data.jobRef) {
-      const job = await JobModel.findById(data.jobRef).select('job_number').lean();
-      if (job && job.job_number) {
-        data.jobNo = job.job_number;
+      const job = await JobModel.findById(data.jobRef).select('job_number importer').lean();
+      if (job) {
+        if (job.job_number) data.jobNo = job.job_number;
+        if (job.importer && !data.importer) data.importer = job.importer;
       }
     }
 
@@ -321,7 +324,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
         { 
           $set: { 
             "charges.$.payment_request_no": request.requestNo,
-            "charges.$.payment_request_status": "Pending" 
+            "charges.$.payment_request_status": "Pending",
+            "charges.$.payment_request_requested_by": request.requestedBy
           }
         }
       );

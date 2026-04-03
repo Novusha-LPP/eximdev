@@ -447,35 +447,6 @@ function PaymentCompleted() {
       },
 
       {
-        accessorKey: "container_numbers",
-        header: "Container Numbers and Size",
-        size: 200,
-        Cell: ({ cell }) => {
-          const containerNos = cell.row.original.container_nos;
-          return (
-            <React.Fragment>
-              {containerNos?.map((container, id) => (
-                <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} <ContainerTrackButton
-                    customHouse={cell?.row?.original?.custom_house}
-                    containerNo={container.container_number}
-                  />
-                  | "{container.size}"
-                  <IconButton
-                    size="small"
-                    onClick={(event) =>
-                      handleCopy(event, container.container_number)
-                    }
-                  >
-                    <ContentCopyIcon fontSize="inherit" />
-                  </IconButton>
-                </div>
-              ))}
-            </React.Fragment>
-          );
-        },
-      },
-      {
         accessorKey: "payment_request_no",
         header: "Payment Request No",
         size: 450,
@@ -599,6 +570,19 @@ function PaymentCompleted() {
             </div>
           );
         },
+      },
+      {
+        accessorKey: "requested_by",
+        header: "Requested By",
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const requesters = [...new Set(charges.map(c => c.payment_request_requested_by).filter(Boolean))];
+          return requesters.length > 0 ? (
+            <div style={{ fontSize: '0.75rem', fontWeight: '500' }}>
+              {requesters.map((r, i) => <div key={i}>{r}</div>)}
+            </div>
+          ) : "-";
+        }
       },
     ],
     [navigate, handleCopy]
@@ -853,297 +837,156 @@ function PaymentCompleted() {
         </Box>
       </>
 
-      <Dialog
-        open={openDetailModal}
-        onClose={() => setOpenDetailModal(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          backgroundColor: '#2e7d32', 
-          color: 'white', 
-          fontWeight: 'bold',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          py: 2
-        }}>
-          <span>PAYMENT COMPLETED</span>
-          <Chip 
-            label={selectedPaymentRequest?.requestNo || "N/A"} 
-            size="medium" 
-            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} 
-          />
+      <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: '2px solid #2e7d32' } }}>
+        <DialogTitle sx={{ backgroundColor: '#2e7d32', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
+          <span>PAYMENT COMPLETED DETAILS</span>
+          <Chip label="COMPLETED" size="small" sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} />
         </DialogTitle>
-        <DialogContent sx={{ p: 0, backgroundColor: '#f8f9fa' }}>
-          {isModalLoading ? (
-            <Box display="flex" justifyContent="center" p={8}>
-              <CircularProgress size={60} />
-            </Box>
-          ) : selectedPaymentRequest ? (
-            <Box id="payment-request-printable" sx={{ p: 4 }}>
-              <Paper variant="outlined" sx={{ p: 4, position: 'relative', overflow: 'hidden', backgroundColor: '#fff', borderRadius: 2 }}>
-                {/* Status Watermark - Using Logo */}
-                <Box 
-                  component="img"
-                  src={logo}
-                  sx={{ 
-                    position: 'absolute', 
-                    top: '50%', 
-                    left: '50%', 
-                    transform: 'translate(-50%, -50%)',
-                    opacity: 0.1,
-                    width: '60%',
-                    pointerEvents: 'none',
-                    zIndex: 0,
-                    filter: 'grayscale(100%) brightness(1.2)'
-                  }}
-                />
+        <DialogContent sx={{ p: 0, backgroundColor: '#fff' }}>
+          {isModalLoading ? <Box display="flex" justifyContent="center" p={4}><CircularProgress size={40} /></Box> : selectedPaymentRequest && (
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ border: '1px solid #ccc', mb: 2 }}>
+                <Grid container>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Request Date</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
+                  </Grid>
 
-                <Box sx={{ position: 'relative', zIndex: 1 }}>
-                  {/* Header Section */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 2 }}>
-                    <Box>
-                      <Typography variant="h6" color="text.secondary" fontWeight="500">Import Billing Services</Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="body2" fontWeight="bold">Date: {selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
-                      <Typography variant="body2" color="text.secondary">Ref: {selectedPaymentRequest.jobNo}</Typography>
-                    </Box>
-                  </Box>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Request No</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
+                  </Grid>
 
-                  <Divider sx={{ mb: 4 }} />
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Importer</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.importer}</Typography>
+                  </Grid>
 
-                  {/* Beneficiary Section */}
-                  <Box sx={{ mb: 4 }}>
-                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Beneficiary Information</Typography>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Beneficiary Name</Typography>
-                        <Typography variant="h6" fontWeight="bold">{selectedPaymentRequest.paymentTo || "N/A"}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Against Bill / Reference</Typography>
-                        <Typography variant="body1">{selectedPaymentRequest.againstBill || "-"}</Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Beneficiary</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" color="primary" fontWeight="bold">{selectedPaymentRequest.paymentTo || "N/A"}</Typography>
+                  </Grid>
 
-                  {/* Charge Grid Attachments Section (Moved Up) */}
-                  {selectedPaymentRequest.attachments && selectedPaymentRequest.attachments.length > 0 && (
-                    <Box sx={{ mb: 4, p: 2, borderRadius: 2, backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9' }}>
-                      <Typography variant="overline" color="success.main" fontWeight="bold" mb={1} display="block">
-                        Attached Documents from Charge Grid
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
-                        {selectedPaymentRequest.attachments.map((url, index) => (
-                          <Button
-                            key={index}
-                            variant="contained"
-                            color="success"
-                            size="small"
-                            startIcon={<AttachFileIcon />}
-                            endIcon={<OpenInNewIcon />}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{ 
-                              textTransform: 'none', 
-                              borderRadius: '20px',
-                              boxShadow: 'none',
-                              '&:hover': { boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }
-                            }}
-                          >
-                            View Attachment {selectedPaymentRequest.attachments.length > 1 ? index + 1 : ""}
-                          </Button>
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Bank Name</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.bankName || "N/A"}</Typography>
+                  </Grid>
 
-                  {/* Financial Section */}
-                  <Box sx={{ mb: 4, p: 3, backgroundColor: '#f1f3f4', borderRadius: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Requested Amount</Typography>
-                        <Typography variant="h4" color="success.main" fontWeight="bold">
-                          ₹ {selectedPaymentRequest.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary">Transaction</Typography>
-                            <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.transactionType || "NEFT"}</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary">Transfer Mode</Typography>
-                            <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.transferMode || "Online"}</Typography>
-                          </Box>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Account No</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{selectedPaymentRequest.accountNo || "N/A"}</Typography>
+                  </Grid>
 
-                  {/* Bank Details Section */}
-                  <Box sx={{ mb: 4 }}>
-                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Bank Details</Typography>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">Bank Name</Typography>
-                        <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.bankName || "N/A"}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">Account Number</Typography>
-                        <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.accountNo || "N/A"}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="subtitle2" color="text.secondary">IFSC Code</Typography>
-                        <Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.ifscCode || "N/A"}</Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                  {(selectedPaymentRequest.status === "Paid" ||
-                    selectedPaymentRequest.utrNumber) && (
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">IFSC Code</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.ifscCode || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Transaction Type</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.transactionType || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Transfer Mode</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.transferMode || "N/A"}</Typography>
+                  </Grid>
+
+                  {selectedPaymentRequest.transactionType === 'CHEQUE' && (
                     <>
-                      <Divider sx={{ mb: 3 }} />
-                      <Box
-                        sx={{
-                          p: 2,
-                          border: "1px solid #c8e6c9",
-                          borderRadius: 2,
-                          backgroundColor: "#f1f8e9",
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle2"
-                          color="success.main"
-                          fontWeight="bold"
-                          mb={2}
-                        >
-                          Payment Confirmation
-                        </Typography>
-
-                        {selectedPaymentRequest.isApproved && (
-                          <Box
-                            sx={{
-                              mb: 2,
-                              p: 1.5,
-                              backgroundColor: "rgba(255,255,255,0.8)",
-                              borderRadius: 1,
-                              borderLeft: "4px solid #2e7d32",
-                            }}
-                          >
-                            <Grid container spacing={2}>
-                              <Grid item xs={6}>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Approved By
-                                </Typography>
-                                <Typography variant="body2" fontWeight="bold">
-                                  {selectedPaymentRequest.approvedByFirst}{" "}
-                                  {selectedPaymentRequest.approvedByLast}
-                                </Typography>
-                              </Grid>
-                              <Grid item xs={6}>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Approved On
-                                </Typography>
-                                <Typography variant="body2" fontWeight="bold">
-                                  {new Date(
-                                    selectedPaymentRequest.approvedAt
-                                  ).toLocaleString("en-GB")}
-                                </Typography>
-                              </Grid>
-                            </Grid>
-                          </Box>
-                        )}
-
-                        <Grid container spacing={2}>
-                          <Grid item xs={6}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              UTR Number
-                            </Typography>
-                            <Typography
-                              variant="body1"
-                              fontWeight="bold"
-                              sx={{ color: "#1b5e20" }}
-                            >
-                              {selectedPaymentRequest.utrNumber}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              Marked Paid By
-                            </Typography>
-                            <Typography variant="body1" fontWeight="bold">
-                              {selectedPaymentRequest.utrAddedBy || "System"}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              Payment Completed On
-                            </Typography>
-                            <Typography variant="body2" fontWeight="bold">
-                              {selectedPaymentRequest.utrAddedAt
-                                ? new Date(
-                                    selectedPaymentRequest.utrAddedAt
-                                  ).toLocaleString("en-GB")
-                                : "N/A"}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </Box>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Instrument No</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.instrumentNo || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Instrument Date</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.instrumentDate || "N/A"}</Typography>
+                      </Grid>
                     </>
                   )}
 
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Amount</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="h6" color="error" fontWeight="bold">₹ {selectedPaymentRequest.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Requested By</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestedBy || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Against Bill</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.againstBill || "-"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Approved By</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.approvedByFirst} {selectedPaymentRequest.approvedByLast} ({new Date(selectedPaymentRequest.approvedAt).toLocaleDateString('en-GB')})</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">UTR Number</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" fontWeight="bold" color="success.main">{selectedPaymentRequest.utrNumber}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Paid By</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.utrAddedBy || "System"} ({selectedPaymentRequest.utrAddedAt ? new Date(selectedPaymentRequest.utrAddedAt).toLocaleDateString('en-GB') : "N/A"})</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {selectedPaymentRequest.attachments?.length > 0 && (
+                <Box sx={{ mb: 1, p: 1, border: '1px solid #bbdefb', backgroundColor: '#e3f2fd' }}>
+                  <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 1 }}>ATTACHMENTS</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {selectedPaymentRequest.attachments.map((url, idx) => (
+                      <Button key={idx} variant="outlined" size="small" startIcon={<AttachFileIcon />} href={url} target="_blank" sx={{ textTransform: 'none', py: 0, fontSize: '0.7rem' }}>View {idx + 1}</Button>
+                    ))}
+                  </Box>
                 </Box>
-              </Paper>
-            </Box>
-          ) : (
-            <Box p={8} textAlign="center">
-              <Typography color="error" variant="h6">Failed to load payment request details.</Typography>
-              <Typography color="text.secondary">Please try again after some time.</Typography>
+              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2.5, backgroundColor: '#e9ecef', borderTop: '1px solid #dee2e6' }}>
-          <Button 
-            onClick={() => window.print()}
-            startIcon={<SearchIcon />}
-            variant="outlined" 
-            sx={{ fontWeight: 'bold' }}
-          >
-            Download / Print
-          </Button>
-          <Button 
-            onClick={() => setOpenDetailModal(false)} 
-            variant="contained" 
-            color="primary"
-            sx={{ fontWeight: 'bold', px: 4 }}
-          >
-            Close
-          </Button>
+        <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc' }}>
+          <Button onClick={() => window.print()} size="small" variant="outlined">Print</Button>
+          <Button onClick={() => setOpenDetailModal(false)} size="small" variant="contained">Close</Button>
         </DialogActions>
       </Dialog>
     </div>

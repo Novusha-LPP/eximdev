@@ -68,105 +68,9 @@ function PaymentRequested() {
   // New States for Approval Workflow
   const [openApprovalPopup, setOpenApprovalPopup] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
-
-  const fetchPaymentRequestDetails = async (requestNo) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(requestNo)}`
-      );
-      setSelectedPaymentRequest(res.data);
-    } catch (err) {
-      console.error("Error fetching payment request details:", err);
-    }
-  };
-
-  const handleViewPaymentRequest = async (requestNo) => {
-    setIsModalLoading(true);
-    setOpenDetailModal(true);
-    await fetchPaymentRequestDetails(requestNo);
-    setIsModalLoading(false);
-  };
-
-  const handleApprove = async () => {
-    if (!user?.first_name || !user?.last_name) {
-      alert("User information not found. Please re-login.");
-      return;
-    }
-
-    setIsApproving(true);
-    try {
-      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/approve-payment-request`, {
-        requestNo: selectedPaymentRequest.requestNo,
-        firstName: user.first_name,
-        lastName: user.last_name
-      });
-
-      if (res.data.success) {
-        await fetchPaymentRequestDetails(selectedPaymentRequest.requestNo);
-        setOpenApprovalPopup(false);
-        // Refresh main table
-        fetchJobs(
-          page,
-          debouncedSearchQuery,
-          selectedImporter,
-          selectedYearState,
-          showUnresolvedOnly,
-          user?.username,
-          selectedBranch,
-          selectedCategory
-        );
-        // If approved, it moves out of this tab, so close modal
-        setOpenDetailModal(false);
-      }
-    } catch (err) {
-      console.error("Error approving payment request:", err);
-      alert("Failed to approve payment request. Please try again.");
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
-  React.useEffect(() => {
-    async function getImporterList() {
-      if (selectedYearState) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
-        );
-        setImporters(res.data);
-      }
-    }
-    getImporterList();
-  }, [selectedYearState]);
-
-  const getUniqueImporterNames = (importerData) => {
-    if (!importerData || !Array.isArray(importerData)) return [];
-    const uniqueImporters = new Set();
-    return importerData
-      .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
-        return true;
-      })
-      .map((importer, index) => ({
-        label: importer.importer,
-        key: `${importer.importer}-${index}`,
-      }));
-  };
-
-  const importerNames = [...getUniqueImporterNames(importers)];
-
-  useEffect(() => {
-    async function getYears() {
-      try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-years`);
-        const filteredYears = res.data.filter((year) => year !== null);
-        setYears(filteredYears);
-      } catch (error) {
-        console.error("Error fetching years:", error);
-      }
-    }
-    getYears();
-  }, []);
+  const [openRejectPopup, setOpenRejectPopup] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const fetchJobs = useCallback(
     async (
@@ -214,6 +118,138 @@ function PaymentRequested() {
     },
     [limit]
   );
+
+  const fetchPaymentRequestDetails = async (requestNo) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(requestNo)}`
+      );
+      setSelectedPaymentRequest(res.data);
+    } catch (err) {
+      console.error("Error fetching payment request details:", err);
+    }
+  };
+
+  const handleViewPaymentRequest = async (requestNo) => {
+    setIsModalLoading(true);
+    setOpenDetailModal(true);
+    await fetchPaymentRequestDetails(requestNo);
+    setIsModalLoading(false);
+  };
+
+  const handleApprove = async () => {
+    if (!user?.first_name || !user?.last_name) {
+      alert("User information not found. Please re-login.");
+      return;
+    }
+
+    setIsApproving(true);
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/approve-payment-request`, {
+        requestNo: selectedPaymentRequest.requestNo,
+        firstName: user.first_name,
+        lastName: user.last_name
+      });
+
+      if (res.data.success) {
+        await fetchPaymentRequestDetails(selectedPaymentRequest.requestNo);
+        setOpenApprovalPopup(false);
+        // Refresh main table
+        fetchJobs(
+          page,
+          debouncedSearchQuery,
+          selectedImporter,
+          selectedYearState,
+          showUnresolvedOnly,
+          user?.username,
+          selectedBranch,
+          selectedCategory
+        );
+      }
+    } catch (err) {
+      console.error("Error approving payment request:", err);
+      alert("Failed to approve payment request.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please provide a rejection reason.");
+      return;
+    }
+
+    setIsRejecting(true);
+    try {
+      await axios.post(`${process.env.REACT_APP_API_STRING}/reject-payment-request`, {
+        requestNo: selectedPaymentRequest.requestNo,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        reason: rejectionReason
+      });
+      setOpenRejectPopup(false);
+      setOpenDetailModal(false);
+      setRejectionReason("");
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        showUnresolvedOnly,
+        user?.username,
+        selectedBranch,
+        selectedCategory
+      );
+    } catch (err) {
+      console.error("Error rejecting payment request:", err);
+      alert("Failed to reject payment request.");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYearState) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+        );
+        setImporters(res.data);
+      }
+    }
+    getImporterList();
+  }, [selectedYearState]);
+
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  };
+
+  const importerNames = [...getUniqueImporterNames(importers)];
+
+  useEffect(() => {
+    async function getYears() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-years`);
+        const filteredYears = res.data.filter((year) => year !== null);
+        setYears(filteredYears);
+      } catch (error) {
+        console.error("Error fetching years:", error);
+      }
+    }
+    getYears();
+  }, []);
 
   useEffect(() => {
     if (selectedYearState && user?.username) {
@@ -277,20 +313,6 @@ function PaymentRequested() {
       },
       { accessorKey: "importer", header: "Importer", size: 150 },
       {
-        accessorKey: "container_numbers",
-        header: "Container Numbers",
-        Cell: ({ cell }) => (
-          <React.Fragment>
-            {cell.row.original.container_nos?.map((container, id) => (
-              <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number} <ContainerTrackButton customHouse={cell.row.original.custom_house} containerNo={container.container_number} /> | "{container.size}"
-                <IconButton size="small" onClick={(e) => handleCopy(e, container.container_number)}><ContentCopyIcon fontSize="inherit" /></IconButton>
-              </div>
-            ))}
-          </React.Fragment>
-        ),
-      },
-      {
         accessorKey: "be_no",
         header: "BE Number & Date",
         Cell: ({ cell }) => (
@@ -324,6 +346,19 @@ function PaymentRequested() {
           );
         },
       },
+      {
+        accessorKey: "requested_by",
+        header: "Requested By",
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const requesters = [...new Set(charges.map(c => c.payment_request_requested_by).filter(Boolean))];
+          return requesters.length > 0 ? (
+            <div style={{ fontSize: '0.75rem', fontWeight: '500' }}>
+              {requesters.map((r, i) => <div key={i}>{r}</div>)}
+            </div>
+          ) : "-";
+        }
+      },
     ],
     [handleCopy]
   );
@@ -352,105 +387,204 @@ function PaymentRequested() {
       <MaterialReactTable {...tableConfig} />
       <Box display="flex" justifyContent="center" mt={2}><Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" /></Box>
 
-      <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ backgroundColor: '#1a237e', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>PAYMENT REQUEST</span>
-          <Chip label={selectedPaymentRequest?.requestNo || "N/A"} size="medium" sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+      <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: '2px solid #1a237e' } }}>
+        <DialogTitle sx={{ backgroundColor: '#1a237e', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
+          <span>PAYMENT REQUEST DETAILS</span>
+          <Typography variant="subtitle2" sx={{ color: '#fff', opacity: 0.8 }}>{selectedPaymentRequest?.requestNo || "N/A"}</Typography>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, backgroundColor: '#f8f9fa' }}>
-          {isModalLoading ? <Box display="flex" justifyContent="center" p={8}><CircularProgress size={60} /></Box> : selectedPaymentRequest && (
-            <Box sx={{ p: 4 }}>
-              <Paper variant="outlined" sx={{ p: 4, position: 'relative', overflow: 'hidden', backgroundColor: '#fff', borderRadius: 2 }}>
-                <Box component="img" src={logo} sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.1, width: '60%', pointerEvents: 'none' }} />
-                <Box sx={{ position: 'relative', zIndex: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 2 }}>
-                    <Typography variant="h6" color="text.secondary">Import Billing Services</Typography>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="body2" fontWeight="bold">Date: {selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
-                      <Typography variant="body2" color="text.secondary">Ref: {selectedPaymentRequest.jobNo}</Typography>
-                    </Box>
-                  </Box>
-                  <Divider sx={{ mb: 4 }} />
-                  <Box sx={{ mb: 4 }}>
-                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Beneficiary Information</Typography>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Beneficiary Name</Typography>
-                        <Typography variant="h6" fontWeight="bold">{selectedPaymentRequest.paymentTo || "N/A"}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Against Bill / Reference</Typography>
-                        <Typography variant="body1">{selectedPaymentRequest.againstBill || "-"}</Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
+        <DialogContent sx={{ p: 0, backgroundColor: '#fff' }}>
+          {isModalLoading ? <Box display="flex" justifyContent="center" p={4}><CircularProgress size={40} /></Box> : selectedPaymentRequest && (
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ border: '1px solid #ccc', mb: 2 }}>
+                <Grid container>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Request Date</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
+                  </Grid>
 
-                  {selectedPaymentRequest.attachments?.length > 0 && (
-                    <Box sx={{ mb: 4, p: 2, borderRadius: 2, backgroundColor: '#e3f2fd', border: '1px solid #bbdefb' }}>
-                      <Typography variant="overline" color="primary" fontWeight="bold" mb={1} display="block">Attachments</Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                        {selectedPaymentRequest.attachments.map((url, idx) => (
-                          <Button key={idx} variant="contained" size="small" startIcon={<AttachFileIcon />} href={url} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none', borderRadius: '20px' }}>View Attachment {idx + 1}</Button>
-                        ))}
-                      </Box>
-                    </Box>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Job Number</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.jobNo}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Beneficiary</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" color="primary" fontWeight="bold">{selectedPaymentRequest.paymentTo || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Bank Name</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.bankName || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Account No</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{selectedPaymentRequest.accountNo || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">IFSC Code</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.ifscCode || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Transaction Type</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.transactionType || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Transfer Mode</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.transferMode || "N/A"}</Typography>
+                  </Grid>
+
+                  {selectedPaymentRequest.transactionType === 'CHEQUE' && (
+                    <>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Instrument No</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.instrumentNo || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Instrument Date</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.instrumentDate || "N/A"}</Typography>
+                      </Grid>
+                    </>
                   )}
 
-                  <Box sx={{ mb: 4, p: 3, backgroundColor: '#f1f3f4', borderRadius: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Requested Amount</Typography>
-                        <Typography variant="h4" color="primary" fontWeight="bold">₹ {selectedPaymentRequest.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 2 }}>
-                        <Box><Typography variant="subtitle2" color="text.secondary">Transaction</Typography><Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.transactionType || "NEFT"}</Typography></Box>
-                        <Box><Typography variant="subtitle2" color="text.secondary">Transfer Mode</Typography><Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.transferMode || "Online"}</Typography></Box>
-                      </Grid>
-                    </Grid>
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Amount</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="h6" color="error" fontWeight="bold">₹ {selectedPaymentRequest.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Requested By</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestedBy || "N/A"}</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Against Bill</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ p: 1 }}>
+                    <Typography variant="body2">{selectedPaymentRequest.againstBill || "-"}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {selectedPaymentRequest.attachments?.length > 0 && (
+                <Box sx={{ mb: 2, p: 1, border: '1px solid #bbdefb', backgroundColor: '#e3f2fd' }}>
+                  <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 1 }}>ATTACHMENTS</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {selectedPaymentRequest.attachments.map((url, idx) => (
+                      <Button key={idx} variant="outlined" size="small" startIcon={<AttachFileIcon />} href={url} target="_blank" sx={{ textTransform: 'none', py: 0, fontSize: '0.7rem' }}>View {idx + 1}</Button>
+                    ))}
                   </Box>
-
-                  <Box sx={{ mb: 4 }}>
-                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Bank Details</Typography>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                      <Grid item xs={12} sm={4}><Typography variant="subtitle2" color="text.secondary">Bank Name</Typography><Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.bankName || "N/A"}</Typography></Grid>
-                      <Grid item xs={12} sm={4}><Typography variant="subtitle2" color="text.secondary">Account Number</Typography><Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.accountNo || "N/A"}</Typography></Grid>
-                      <Grid item xs={12} sm={4}><Typography variant="subtitle2" color="text.secondary">IFSC Code</Typography><Typography variant="body1" fontWeight="bold">{selectedPaymentRequest.ifscCode || "N/A"}</Typography></Grid>
-                    </Grid>
-                  </Box>
-
-                  <Divider sx={{ my: 4 }} />
-
-                  {!selectedPaymentRequest.isApproved && (
-                    <Box sx={{ p: 3, border: '1px solid #1976d2', borderRadius: 2, backgroundColor: '#f0f7ff', textAlign: 'center' }}>
-                      <Typography variant="h6" color="primary" fontWeight="bold" gutterBottom>Request Approval</Typography>
-                      <Typography variant="body2" color="text.secondary" mb={3}>Checking the box will capture your identity for approval.</Typography>
-                      <FormControlLabel
-                        control={<Checkbox checked={openApprovalPopup} onChange={(e) => setOpenApprovalPopup(e.target.checked)} sx={{ '& .MuiSvgIcon-root': { fontSize: 28 } }} />}
-                        label={<Typography variant="body1" fontWeight="bold">I approve this payment request</Typography>}
-                      />
-                    </Box>
-                  )}
                 </Box>
-              </Paper>
+              )}
+
+              {!selectedPaymentRequest.isApproved && !selectedPaymentRequest.isRejected && (
+                <Box sx={{ p: 1.5, border: '1px solid #ccc', backgroundColor: '#fafafa' }}>
+                  <Typography variant="caption" fontWeight="bold" sx={{ display: 'block', mb: 1, textAlign: 'center', color: '#666' }}>ACTION REQUIRED</Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button 
+                      fullWidth 
+                      variant="contained" 
+                      color="success" 
+                      size="small" 
+                      onClick={() => setOpenApprovalPopup(true)}
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      Approve
+                    </Button>
+                    <Button 
+                      fullWidth 
+                      variant="outlined" 
+                      color="error" 
+                      size="small" 
+                      onClick={() => setOpenRejectPopup(true)}
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      Reject
+                    </Button>
+                  </Box>
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => window.print()} startIcon={<SearchIcon />} variant="outlined">Print</Button>
-          <Button onClick={() => setOpenDetailModal(false)} variant="contained">Close</Button>
+        <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc' }}>
+          <Button onClick={() => window.print()} size="small" variant="outlined">Print</Button>
+          <Button onClick={() => setOpenDetailModal(false)} size="small" variant="contained">Close</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openApprovalPopup} onClose={() => !isApproving && setOpenApprovalPopup(false)} PaperProps={{ sx: { borderRadius: 2, width: '400px' } }}>
-        <DialogTitle sx={{ backgroundColor: '#2e7d32', color: 'white', fontWeight: 'bold' }}>Confirm Approval</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body1" sx={{ mb: 2, fontWeight: 'bold' }}>Confirm Approval</Typography>
-          <Typography variant="body2">Are you sure you want to approve this request as:</Typography>
-          <Typography variant="h6" sx={{ color: '#2e7d32', fontWeight: 'bold' }}>{user?.first_name} {user?.last_name}</Typography>
+      <Dialog open={openApprovalPopup} onClose={() => !isApproving && setOpenApprovalPopup(false)} PaperProps={{ sx: { borderRadius: 0, width: '400px', border: '2px solid #2e7d32' } }}>
+        <DialogTitle sx={{ backgroundColor: '#2e7d32', color: 'white', fontWeight: 'bold', py: 1.5 }}>CONFIRM APPROVAL</DialogTitle>
+        <DialogContent sx={{ p: 2, mt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>Are you sure you want to approve this payment request?</Typography>
+          <Typography variant="subtitle2" fontWeight="bold" color="primary">{selectedPaymentRequest?.requestNo}</Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenApprovalPopup(false)} disabled={isApproving}>Cancel</Button>
-          <Button variant="contained" color="success" onClick={handleApprove} disabled={isApproving}>{isApproving ? <CircularProgress size={24} /> : "Confirm Approval"}</Button>
+        <DialogActions sx={{ p: 1, borderTop: '1px solid #eee' }}>
+          <Button onClick={() => setOpenApprovalPopup(false)} size="small" disabled={isApproving}>Cancel</Button>
+          <Button onClick={handleApprove} variant="contained" color="success" size="small" disabled={isApproving}>
+            {isApproving ? <CircularProgress size={20} color="inherit" /> : "Confirm Approve"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openRejectPopup} onClose={() => !isRejecting && setOpenRejectPopup(false)} PaperProps={{ sx: { borderRadius: 0, width: '450px', border: '2px solid #d32f2f' } }}>
+        <DialogTitle sx={{ backgroundColor: '#d32f2f', color: 'white', fontWeight: 'bold', py: 1.5 }}>REJECT PAYMENT REQUEST</DialogTitle>
+        <DialogContent sx={{ p: 2 }}>
+          <Typography variant="body2" sx={{ mt: 2, mb: 1 }}>Please provide a reason for rejecting this request:</Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            size="small"
+            placeholder="Enter rejection reason here..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            disabled={isRejecting}
+            error={!rejectionReason && isRejecting}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Note: Rejecting will reset the charges in the Job record, allowing them to be edited and re-requested.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 1, borderTop: '1px solid #eee' }}>
+          <Button onClick={() => setOpenRejectPopup(false)} size="small" disabled={isRejecting}>Cancel</Button>
+          <Button 
+            onClick={handleReject} 
+            variant="contained" 
+            color="error" 
+            size="small" 
+            disabled={isRejecting || !rejectionReason.trim()}
+          >
+            {isRejecting ? <CircularProgress size={20} color="inherit" /> : "Confirm Reject"}
+          </Button>
         </DialogActions>
       </Dialog>
     </div>

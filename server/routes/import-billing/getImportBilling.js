@@ -583,8 +583,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
                           { $ne: ["$$charge.payment_request_is_approved", true] },
                         ],
@@ -616,7 +617,7 @@ router.get(
             }
           },
         },
-        { $match: { $or: [{ has_pending_payments: true }, { has_unresolved_accounts_queries: true }] } },
+        { $match: { has_pending_payments: true } },
         {
           $project: {
             priorityJob: 1,
@@ -829,8 +830,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $eq: ["$$charge.payment_request_is_approved", true] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
                         ],
@@ -980,8 +982,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
                         ],
                       },
@@ -1000,8 +1003,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $eq: ["$$charge.payment_request_status", "Paid"] },
                         ],
                       },
@@ -1347,74 +1351,6 @@ router.patch("/api/update-payment-utr", async (req, res) => {
 
   } catch (err) {
     console.error("Error updating UTR:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-
-router.get("/api/get-approved-payment-jobs", async (req, res) => {
-  try {
-    const { page = 1, limit = 10, search = "", importer = "", year = "" } = req.query;
-    const skip = (page - 1) * limit;
-
-    const pipeline = [
-      {
-        $match: {
-          importer: { $regex: importer, $options: "i" },
-          $and: [
-            { year: { $regex: year, $options: "i" } },
-            {
-              $or: [
-                { job_no: { $regex: search, $options: "i" } },
-                { importer: { $regex: search, $options: "i" } },
-                { awb_bl_no: { $regex: search, $options: "i" } },
-              ],
-            },
-          ],
-        },
-      },
-      {
-        $addFields: {
-          approved_request_count: {
-            $size: {
-              $filter: {
-                input: { $ifNull: ["$charges", []] },
-                as: "charge",
-                cond: {
-                  $and: [
-                    { $ne: ["$$charge.payment_request_no", ""] },
-                    { $ne: ["$$charge.payment_request_no", null] },
-                    { $ne: ["$$charge.payment_request_status", "Paid"] },
-                    { $eq: ["$$charge.payment_request_is_approved", true] },
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
-      { $match: { approved_request_count: { $gt: 0 } } },
-      {
-        $facet: {
-          metadata: [{ $count: "totalJobs" }],
-          jobs: [{ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: parseInt(limit) }],
-        },
-      },
-    ];
-
-    const result = await JobModel.aggregate(pipeline);
-    const totalJobs = result[0].metadata[0]?.totalJobs || 0;
-    const totalPages = Math.ceil(totalJobs / limit);
-
-    res.status(200).json({
-      success: true,
-      totalJobs,
-      totalPages,
-      currentPage: parseInt(page),
-      jobs: result[0].jobs,
-    });
-  } catch (err) {
-    console.error("Error in get-approved-payment-jobs:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

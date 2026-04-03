@@ -65,6 +65,11 @@ function PaymentPending() {
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState("");
 
+  // New States for Rejection (Restored)
+  const [openRejectPopup, setOpenRejectPopup] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   const fetchPaymentRequestDetails = async (requestNo) => {
     try {
       const res = await axios.get(
@@ -150,6 +155,46 @@ function PaymentPending() {
       alert("Failed to update UTR. Please try again.");
     } finally {
       setIsSubmittingUtr(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please provide a rejection reason.");
+      return;
+    }
+    if (!user?.first_name || !user?.last_name) {
+      alert("User information not found. Please re-login.");
+      return;
+    }
+
+    setIsRejecting(true);
+    try {
+      await axios.post(`${process.env.REACT_APP_API_STRING}/reject-payment-request`, {
+        requestNo: selectedPaymentRequest.requestNo,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        reason: rejectionReason
+      });
+
+      setOpenRejectPopup(false);
+      setOpenDetailModal(false);
+      setRejectionReason("");
+      // Refresh main table
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        user?.username,
+        selectedBranch,
+        selectedCategory
+      );
+    } catch (err) {
+      console.error("Error rejecting payment request:", err);
+      alert("Failed to reject payment request.");
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -362,8 +407,11 @@ function PaymentPending() {
           const charges = cell.row.original.charges || [];
           const reqGroups = charges.reduce((acc, c) => {
             if (c.payment_request_no) {
-              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
-              acc[c.payment_request_no].push(c.chargeHead);
+              if (!acc[c.payment_request_no]) {
+                acc[c.payment_request_no] = { heads: [], isApproved: false };
+              }
+              acc[c.payment_request_no].heads.push(c.chargeHead);
+              if (c.payment_request_is_approved) acc[c.payment_request_no].isApproved = true;
             }
             return acc;
           }, {});
@@ -371,16 +419,43 @@ function PaymentPending() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {Object.keys(reqGroups).map((no, idx) => (
                 <Box key={idx} sx={{ display: 'flex', alignItems: 'flex-start', flexDirection: 'column', gap: 0.5 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }}>{[...new Set(reqGroups[no])].join(", ")}:</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }}>{reqGroups[no].heads.join(", ")}:</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Chip label={no} size="small" color="primary" variant="outlined" onClick={() => handleViewPaymentRequest(no)} sx={{ fontWeight: 'bold', height: '20px' }} />
-                    <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
+                    {reqGroups[no].isApproved && (
+                      <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
+                    )}
                   </Box>
                 </Box>
               ))}
             </Box>
           );
         },
+      },
+      {
+        accessorKey: "transaction_type",
+        header: "Transaction Mode",
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const reqGroups = charges.reduce((acc, c) => {
+            if (c.payment_request_no) {
+              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
+              acc[c.payment_request_no].push(c.payment_request_transaction_type || "-");
+            }
+            return acc;
+          }, {});
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {Object.keys(reqGroups).map((no, idx) => (
+                <Box key={idx} sx={{ height: '36px', display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#1976d2' }}>
+                    {reqGroups[no][0]}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          );
+        }
       },
       {
         accessorKey: "requested_by",
@@ -420,25 +495,37 @@ function PaymentPending() {
       <MaterialReactTable {...tableConfig} />
       <Box display="flex" justifyContent="center" mt={2}><Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" /></Box>
 
-      <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: '2px solid #2e7d32' } }}>
-        <DialogTitle sx={{ backgroundColor: '#2e7d32', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
+      <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: `2px solid ${selectedPaymentRequest?.isApproved ? '#2e7d32' : '#9e9e9e'}` } }}>
+        <DialogTitle sx={{ backgroundColor: selectedPaymentRequest?.isApproved ? '#2e7d32' : '#757575', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
           <span>PAYMENT APPROVAL & UTR ENTRY</span>
-          <Chip label="APPROVED" size="small" sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} />
+          <Chip 
+            label={selectedPaymentRequest?.isApproved ? "APPROVED" : "AWAITING APPROVAL"} 
+            size="small" 
+            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} 
+          />
         </DialogTitle>
         <DialogContent sx={{ p: 0, backgroundColor: '#fff' }}>
           {isModalLoading ? <Box display="flex" justifyContent="center" p={4}><CircularProgress size={40} /></Box> : selectedPaymentRequest && (
             <Box sx={{ p: 2 }}>
               {/* Approval Info Section */}
-              <Box sx={{ mb: 2, p: 1, backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9', display: 'flex', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="caption" fontWeight="bold" color="success.main" display="block">Approved By</Typography>
-                  <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.approvedByFirst} {selectedPaymentRequest.approvedByLast}</Typography>
+              {selectedPaymentRequest.isApproved ? (
+                <Box sx={{ mb: 2, p: 1, backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9', display: 'flex', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="caption" fontWeight="bold" color="success.main" display="block">Approved By</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.approvedByFirst} {selectedPaymentRequest.approvedByLast}</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="caption" fontWeight="bold" color="success.main" display="block">Approved On</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.approvedAt ? new Date(selectedPaymentRequest.approvedAt).toLocaleString('en-GB') : "-"}</Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="caption" fontWeight="bold" color="success.main" display="block">Approved On</Typography>
-                  <Typography variant="body2" fontWeight="bold">{new Date(selectedPaymentRequest.approvedAt).toLocaleString('en-GB')}</Typography>
+              ) : (
+                <Box sx={{ mb: 2, p: 1, backgroundColor: '#fff3e0', border: '1px solid #ffe0b2', textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#e65100' }}>
+                    ⚠️ This request is pending approval. UTR entry is disabled.
+                  </Typography>
                 </Box>
-              </Box>
+              )}
 
               <Box sx={{ border: '1px solid #ccc', mb: 2 }}>
                 <Grid container>
@@ -558,7 +645,7 @@ function PaymentPending() {
 
               <Box sx={{ p: 1.5, border: '1px solid #1976d2', backgroundColor: '#f0f7ff' }}>
                 <Typography variant="caption" color="primary" fontWeight="bold" sx={{ display: 'block', mb: 1 }}>UTR ENTRY</Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, opacity: selectedPaymentRequest.isApproved ? 1 : 0.6 }}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <TextField 
                       select 
@@ -566,6 +653,7 @@ function PaymentPending() {
                       size="small" 
                       label="Bank From" 
                       required 
+                      disabled={!selectedPaymentRequest.isApproved}
                       value={bankFromInput} 
                       onChange={(e) => setBankFromInput(e.target.value)}
                     >
@@ -577,6 +665,7 @@ function PaymentPending() {
                       <MenuItem value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</MenuItem>
                       <MenuItem value="AXIS BANK">AXIS BANK</MenuItem>
                       <MenuItem value="ODEX VAN">ODEX VAN</MenuItem>
+                      <MenuItem value="CASH">CASH</MenuItem>
                     </TextField>
                     <TextField 
                       fullWidth 
@@ -584,6 +673,7 @@ function PaymentPending() {
                       label="Enter UTR Number" 
                       variant="outlined" 
                       required
+                      disabled={!selectedPaymentRequest.isApproved}
                       value={utrInput} 
                       onChange={(e) => setUtrInput(e.target.value)} 
                     />
@@ -594,12 +684,14 @@ function PaymentPending() {
                       component="label"
                       size="small"
                       startIcon={<AttachFileIcon />}
+                      disabled={!selectedPaymentRequest.isApproved}
                       sx={{ textTransform: 'none' }}
                     >
                       {selectedReceipt ? "Change Receipt" : "Attach Receipt (Optional)"}
                       <input
                         type="file"
                         hidden
+                        disabled={!selectedPaymentRequest.isApproved}
                         onChange={(e) => setSelectedReceipt(e.target.files[0])}
                       />
                     </Button>
@@ -609,23 +701,58 @@ function PaymentPending() {
                       </Typography>
                     )}
                   </Box>
-                  <Button 
-                    variant="contained" 
-                    color="primary" 
-                    size="small"
-                    onClick={handleUpdateUTR} 
-                    disabled={!utrInput.trim() || !bankFromInput || isSubmittingUtr || isUploadingReceipt} 
-                    sx={{ fontWeight: 'bold' }}
-                  >
-                    {isSubmittingUtr || isUploadingReceipt ? <CircularProgress size={20} /> : "MARK AS PAID"}
-                  </Button>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={handleUpdateUTR}
+                      disabled={!selectedPaymentRequest.isApproved || !utrInput.trim() || !bankFromInput || isSubmittingUtr || isUploadingReceipt}
+                      sx={{ flexGrow: 1, fontWeight: 'bold' }}
+                    >
+                      {isSubmittingUtr || isUploadingReceipt ? <CircularProgress size={20} color="inherit" /> : "Save UTR & Mark Paid"}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => setOpenRejectPopup(true)}
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      Reject Request
+                    </Button>
+                  </Box>
                 </Box>
               </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc' }}>
-          <Button onClick={() => setOpenDetailModal(false)} size="small">Cancel</Button>
+          <Button onClick={() => setOpenDetailModal(false)} size="small" variant="outlined">Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rejection Dialog */}
+      <Dialog open={openRejectPopup} onClose={() => !isRejecting && setOpenRejectPopup(false)} PaperProps={{ sx: { borderRadius: 0, width: '450px', border: '2px solid #d32f2f' } }}>
+        <DialogTitle sx={{ backgroundColor: '#d32f2f', color: 'white', fontWeight: 'bold', py: 1.5 }}>REJECT PAYMENT REQUEST</DialogTitle>
+        <DialogContent sx={{ p: 2 }}>
+          <Typography variant="body2" sx={{ mt: 2, mb: 1 }}>Please provide a reason for rejecting this request:</Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            size="small"
+            placeholder="Enter rejection reason..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 1, borderTop: '1px solid #eee' }}>
+          <Button onClick={() => setOpenRejectPopup(false)} size="small" disabled={isRejecting}>Cancel</Button>
+          <Button onClick={handleReject} variant="contained" color="error" size="small" disabled={isRejecting}>
+            {isRejecting ? <CircularProgress size={20} color="inherit" /> : "Confirm Reject"}
+          </Button>
         </DialogActions>
       </Dialog>
     </div>

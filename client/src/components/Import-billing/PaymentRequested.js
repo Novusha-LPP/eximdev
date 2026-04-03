@@ -386,29 +386,35 @@ function PaymentRequested() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {Object.keys(reqGroups).map((no, idx) => {
                 const chargesForThisPR = charges.filter(c => c.payment_request_no === no);
+                const isApproved = chargesForThisPR.some(c => c.payment_request_is_approved);
                 const receiptUrl = chargesForThisPR.find(c => c.payment_request_receipt_url)?.payment_request_receipt_url;
 
                 return (
-                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip 
-                      label={no} 
-                      size="small" 
-                      color="primary" 
-                      variant="outlined" 
-                      onClick={() => handleViewPaymentRequest(no)} 
-                      sx={{ fontWeight: 'bold', height: '20px' }} 
-                    />
-                    {receiptUrl && (
-                      <IconButton 
+                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Chip 
+                        label={no} 
                         size="small" 
-                        href={receiptUrl} 
-                        target="_blank" 
-                        sx={{ p: 0, color: '#2e7d32' }}
-                        title="View Payment Receipt"
-                      >
-                        <OpenInNewIcon sx={{ fontSize: '14px' }} />
-                      </IconButton>
-                    )}
+                        color="primary" 
+                        variant="outlined" 
+                        onClick={() => handleViewPaymentRequest(no)} 
+                        sx={{ fontWeight: 'bold', height: '20px' }} 
+                      />
+                      {isApproved && (
+                        <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
+                      )}
+                      {receiptUrl && (
+                        <IconButton 
+                          size="small" 
+                          href={receiptUrl} 
+                          target="_blank" 
+                          sx={{ p: 0, color: '#2e7d32' }}
+                          title="View Payment Receipt"
+                        >
+                          <OpenInNewIcon sx={{ fontSize: '14px' }} />
+                        </IconButton>
+                      )}
+                    </Box>
                     <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }}>: {[...new Set(reqGroups[no])].join(", ")}</Typography>
                   </Box>
                 );
@@ -416,6 +422,31 @@ function PaymentRequested() {
             </Box>
           );
         },
+      },
+      {
+        accessorKey: "transaction_type",
+        header: "Transaction Mode",
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const reqGroups = charges.reduce((acc, c) => {
+            if (c.payment_request_no) {
+              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
+              acc[c.payment_request_no].push(c.payment_request_transaction_type || "-");
+            }
+            return acc;
+          }, {});
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {Object.keys(reqGroups).map((no, idx) => (
+                <Box key={idx} sx={{ height: '20px', display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#1976d2' }}>
+                    {reqGroups[no][0]}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          );
+        }
       },
       {
         accessorKey: "requested_by",
@@ -593,39 +624,37 @@ function PaymentRequested() {
                 </Box>
               )}
 
-              {!selectedPaymentRequest.isApproved && !selectedPaymentRequest.isRejected && (
-                <Box sx={{ p: 1.5, border: '1px solid #ccc', backgroundColor: '#fafafa' }}>
-                  <Typography variant="caption" fontWeight="bold" sx={{ display: 'block', mb: 1, textAlign: 'center', color: '#666' }}>ACTION REQUIRED</Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button 
-                      fullWidth 
-                      variant="contained" 
-                      color="success" 
-                      size="small" 
-                      onClick={() => setOpenApprovalPopup(true)}
-                      sx={{ fontWeight: 'bold' }}
-                    >
-                      Approve
-                    </Button>
-                    <Button 
-                      fullWidth 
-                      variant="outlined" 
-                      color="error" 
-                      size="small" 
-                      onClick={() => setOpenRejectPopup(true)}
-                      sx={{ fontWeight: 'bold' }}
-                    >
-                      Reject
-                    </Button>
-                  </Box>
-                </Box>
-              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc' }}>
-          <Button onClick={() => window.print()} size="small" variant="outlined">Print</Button>
-          <Button onClick={() => setOpenDetailModal(false)} size="small" variant="contained">Close</Button>
+        <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={() => window.print()} size="small" variant="outlined">Print</Button>
+            <Button onClick={() => setOpenDetailModal(false)} size="small" variant="outlined">Close</Button>
+          </Box>
+          
+          {!isModalLoading && selectedPaymentRequest && !selectedPaymentRequest.isApproved && !selectedPaymentRequest.isRejected && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                variant="contained" 
+                color="error" 
+                size="small" 
+                onClick={() => setOpenRejectPopup(true)}
+                sx={{ fontWeight: 'bold' }}
+              >
+                Reject Request
+              </Button>
+              <Button 
+                variant="contained" 
+                color="success" 
+                size="small" 
+                onClick={() => setOpenApprovalPopup(true)}
+                sx={{ fontWeight: 'bold' }}
+              >
+                Approve Request
+              </Button>
+            </Box>
+          )}
         </DialogActions>
       </Dialog>
 

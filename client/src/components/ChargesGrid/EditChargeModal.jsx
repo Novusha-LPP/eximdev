@@ -873,7 +873,7 @@ const EditChargeModal = ({
         onSuccess={(requestNo) => {
           // Update the localized formData state with the new number
           const updated = [...formData];
-          const activeIndex = formData.findIndex(c => c.chargeHead === paymentRequestData.chargeHead);
+          const activeIndex = formData.findIndex(c => c._id === paymentRequestData.chargeId || c.chargeHead === paymentRequestData.chargeHead);
           if (activeIndex !== -1) {
             const initialStatus = 'Pending';
             updated[activeIndex].payment_request_no = requestNo;

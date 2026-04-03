@@ -325,7 +325,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
           $set: { 
             "charges.$.payment_request_no": request.requestNo,
             "charges.$.payment_request_status": "Pending",
-            "charges.$.payment_request_requested_by": request.requestedBy
+            "charges.$.payment_request_requested_by": request.requestedBy,
+            "charges.$.payment_request_transaction_type": request.transactionType
           }
         }
       );

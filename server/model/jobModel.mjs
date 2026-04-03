@@ -162,6 +162,7 @@ const ChargeSchema = new mongoose.Schema({
   payment_request_approved_byLast: { type: String, trim: true },
   payment_request_approved_at: { type: Date },
   payment_request_requested_by: { type: String, trim: true },
+  payment_request_transaction_type: { type: String, trim: true },
   payment_request_receipt_url: { type: String, trim: true },
   utrNumber: { type: String, trim: true },
   utrAddedBy: { type: String, trim: true },

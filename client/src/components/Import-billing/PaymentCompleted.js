@@ -608,6 +608,31 @@ function PaymentCompleted() {
         }
       },
       {
+        accessorKey: "transaction_type",
+        header: "Transaction Mode",
+        Cell: ({ cell }) => {
+          const charges = cell.row.original.charges || [];
+          const reqGroups = charges.reduce((acc, c) => {
+            if (c.payment_request_no) {
+              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
+              acc[c.payment_request_no].push(c.payment_request_transaction_type || "-");
+            }
+            return acc;
+          }, {});
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {Object.keys(reqGroups).map((no, idx) => (
+                <Box key={idx} sx={{ height: '24px', display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#1976d2' }}>
+                    {reqGroups[no][0]}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          );
+        }
+      },
+      {
         accessorKey: "requested_by",
         header: "Requested By",
         Cell: ({ cell }) => {

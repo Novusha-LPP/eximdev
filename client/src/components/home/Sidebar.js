@@ -1,7 +1,8 @@
 import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/sidebar.scss";
-import { Avatar, IconButton, ListItemButton, Tooltip } from "@mui/material";
+import { Avatar, IconButton, ListItemButton, Tooltip, Badge } from "@mui/material";
+import VerifiedIcon from "@mui/icons-material/Verified";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -52,7 +53,24 @@ function Sidebar() {
         placement="right"
       >
         <IconButton onClick={() => navigate(`/profile/${user.username}`)}>
-          <Avatar src={user.employee_photo} alt="Employee Photo" />
+          <Badge
+            overlap="circular"
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            badgeContent={
+              user.is_verified ? (
+                <VerifiedIcon
+                  sx={{
+                    color: "#1d9bf0 !important",
+                    fontSize: "0.9rem",
+                    bgcolor: "white",
+                    borderRadius: "50%",
+                  }}
+                />
+              ) : null
+            }
+          >
+            <Avatar src={user.employee_photo} alt="Employee Photo" />
+          </Badge>
         </IconButton>
       </Tooltip>
 

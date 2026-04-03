@@ -21,7 +21,9 @@ import {
     useTheme,
     Fade,
     Zoom,
-    Badge
+    Badge,
+    Stack,
+    Paper
 } from '@mui/material';
 import { 
     Search as SearchIcon, 
@@ -38,8 +40,12 @@ import {
     Download as DownloadIcon,
     MoreVert as MoreIcon,
     CheckCircle as CheckCircleIcon,
+    Verified as VerifiedIcon,
     Image as ImageIcon,
-    Description as FileIcon
+    Description as FileIcon,
+    KeyboardArrowRight as ArrowIcon,
+    GppGood as GuardIcon,
+    Info as InfoIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { UserContext } from '../../contexts/UserContext';
@@ -47,6 +53,183 @@ import { message } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MotionBox = motion(Box);
+const MotionCard = motion(Card);
+
+// --- Sub-components for a cleaner UI ---
+
+const StatCard = ({ icon: Icon, title, value, color }) => (
+    <Paper sx={{ 
+        p: 1.5, 
+        borderRadius: 3, 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1.5,
+        boxShadow: 'none',
+        border: '1px solid',
+        borderColor: alpha('#000', 0.05),
+        bgcolor: alpha(color, 0.03)
+    }}>
+        <Box sx={{ 
+            p: 1, 
+            borderRadius: 2, 
+            bgcolor: alpha(color, 0.1), 
+            color: color,
+            display: 'flex'
+        }}>
+            <Icon sx={{ fontSize: 18 }} />
+        </Box>
+        <Box>
+            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.65rem' }}>
+                {title}
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Paper>
+);
+
+const GlobalAssetCard = ({ asset, onDelete, theme }) => (
+    <Zoom in={true}>
+        <Card sx={{ 
+            p: 1.5,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: alpha('#000', 0.05),
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.06)',
+                borderColor: 'primary.main'
+            }
+        }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <FileIcon sx={{ color: 'primary.main', fontSize: 16 }} />
+                </Box>
+                <Stack direction="row" spacing={0.5}>
+                    <IconButton component="a" href={asset.link} target="_blank" size="small" sx={{ color: 'primary.main' }}>
+                        <DownloadIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                    <IconButton onClick={() => onDelete(asset._id)} size="small" sx={{ color: 'error.main' }}>
+                        <DeleteIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                </Stack>
+            </Box>
+            <Typography sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5, fontSize: '0.85rem' }} noWrap>
+                {asset.name}
+            </Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem' }}>
+                <PersonIcon sx={{ fontSize: 10 }} /> {asset.updatedBy}
+            </Typography>
+        </Card>
+    </Zoom>
+);
+
+const EmployeeCard = ({ emp, onClick, theme }) => (
+    <Fade in={true}>
+        <MotionCard 
+            whileHover={{ y: -2 }}
+            onClick={() => onClick(emp)}
+            sx={{ 
+                p: 1.5,
+                cursor: 'pointer',
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: alpha('#000', 0.05),
+                bgcolor: 'white',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+                    borderColor: theme.palette.primary.main,
+                }
+            }}
+        >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Badge
+                    overlap="circular"
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    badgeContent={
+                        emp.is_verified ? 
+                        <VerifiedIcon sx={{ color: '#1d9bf0 !important', fontSize: 16, bgcolor: 'white', borderRadius: '50%' }} /> : 
+                        null
+                    }
+                >
+                    <Avatar src={emp.employee_photo} sx={{ width: 44, height: 44 }}>
+                        {emp.first_name[0]}{emp.last_name[0]}
+                    </Avatar>
+                </Badge>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: '#1e293b' }} noWrap>
+                        {emp.first_name} {emp.last_name}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: -0.2 }} noWrap>
+                        {emp.designation || 'No designation'}
+                    </Typography>
+                </Box>
+                <ArrowIcon sx={{ color: alpha('#000', 0.1), fontSize: 18 }} />
+            </Box>
+        </MotionCard>
+    </Fade>
+);
+
+const AssetVerificationCard = ({ type, proof, onAction, theme }) => {
+    const isApproved = proof?.status === 'Approved';
+    const isRejected = proof?.status === 'Rejected';
+    const isPending = !proof?.status || proof?.status === 'Pending';
+    const statusColor = isApproved ? 'success' : isRejected ? 'error' : 'warning';
+    
+    return (
+        <Paper sx={{ 
+            p: 2, 
+            borderRadius: 3, 
+            border: '1px solid',
+            borderColor: alpha(theme.palette[statusColor].main, 0.2),
+            bgcolor: alpha(theme.palette[statusColor].main, 0.02),
+        }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 900, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 0.5, textTransform: 'uppercase' }}>
+                    {type === 'profile_photo' ? <PhotoIcon sx={{ fontSize: 14 }} /> : <EmailIcon sx={{ fontSize: 14 }} />}
+                    {type === 'profile_photo' ? 'Photo' : 'Signature'}
+                </Typography>
+                <Chip label={proof?.status || 'Pending'} size="small" color={statusColor} sx={{ fontWeight: 800, height: 18, fontSize: '0.65rem' }} />
+            </Stack>
+
+            <Button
+                component="a" href={proof?.url} target="_blank" fullWidth variant="outlined" color={statusColor} size="small"
+                startIcon={<ImageIcon sx={{ fontSize: 14 }} />}
+                sx={{ borderRadius: 2, textTransform: 'none', mb: isApproved ? 1.5 : 0, fontWeight: 700, fontSize: '0.75rem' }}
+            >
+                Preview
+            </Button>
+
+            {isApproved && (
+                <Box sx={{ bgcolor: alpha(theme.palette.success.main, 0.05), p: 1, borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: 'success.dark', fontWeight: 700, fontSize: '0.65rem' }}>
+                        Approved by {proof.approvedBy}
+                    </Typography>
+                </Box>
+            )}
+
+            {isPending && (
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <Button fullWidth variant="contained" color="success" size="small" onClick={() => onAction(type, 'Approved')} sx={{ borderRadius: 2, color: 'white !important', fontWeight: 700, textTransform: 'none', fontSize: '0.7rem' }}>Approve</Button>
+                    <Button fullWidth variant="contained" color="error" size="small" onClick={() => onAction(type, 'Rejected')} sx={{ borderRadius: 2, color: 'white !important', fontWeight: 700, textTransform: 'none', fontSize: '0.7rem' }}>Reject</Button>
+                </Stack>
+            )}
+        </Paper>
+    );
+};
+
+// --- Main Component ---
 
 const UpdateEmployeeData = () => {
     const theme = useTheme();
@@ -58,9 +241,7 @@ const UpdateEmployeeData = () => {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [globalAssets, setGlobalAssets] = useState([]);
-    const [activeTab, setActiveTab] = useState('employees'); // 'employees' or 'global'
-
-    // Asset modification state
+    const [activeTab, setActiveTab] = useState('employees');
     const [additionalAsset, setAdditionalAsset] = useState({ name: '', file: null, value: '' });
 
     useEffect(() => {
@@ -90,14 +271,10 @@ const UpdateEmployeeData = () => {
         }
     };
 
-    const handleEmployeeClick = (emp) => {
-        setSelectedEmployee(emp);
-        setDialogOpen(true);
-    };
+    const handleEmployeeClick = (emp) => { setSelectedEmployee(emp); setDialogOpen(true); };
 
     const handleUpload = async (assetType, file, assetName = '') => {
         if (!file && assetType !== 'variable') return;
-
         try {
             setUploading(true);
             const formData = new FormData();
@@ -106,13 +283,12 @@ const UpdateEmployeeData = () => {
             if (file) formData.append('file', file);
             if (assetName) formData.append('assetName', assetName);
             if (assetType === 'variable' && !file) formData.append('value', additionalAsset.value);
- 
+
             const endpoint = assetType === 'global' ? '/hr/global-asset/upload' : '/hr/asset/upload';
             const res = await axios.post(`${process.env.REACT_APP_API_STRING}${endpoint}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                withCredentials: true
+                headers: { 'Content-Type': 'multipart/form-data' }, withCredentials: true
             });
- 
+
             message.success(`${assetType} updated successfully`);
             if (assetType === 'global') {
                 fetchGlobalAssets();
@@ -135,19 +311,20 @@ const UpdateEmployeeData = () => {
             const endpoint = assetType === 'global' ? `/hr/global-asset/${assetId}` : `/hr/asset/${selectedEmployee._id}/${assetId}?assetType=${assetType}`;
             const res = await axios.delete(`${process.env.REACT_APP_API_STRING}${endpoint}`, { withCredentials: true });
             message.success(`${assetType} deleted successfully`);
-            
-            if (assetType === 'global') {
-                fetchGlobalAssets();
-            } else {
-                setSelectedEmployee(res.data.user);
-                fetchEmployees();
-            }
-        } catch (err) {
-            console.error(err);
-            message.error("Deletion failed");
-        } finally {
-            setUploading(false);
-        }
+            if (assetType === 'global') { fetchGlobalAssets(); } else { setSelectedEmployee(res.data.user); fetchEmployees(); }
+        } catch (err) { console.error(err); message.error("Deletion failed"); } finally { setUploading(false); }
+    };
+
+    const handleVerificationAction = async (assetType, action) => {
+        try {
+            setUploading(true);
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/hr/marketing-proof-action`, {
+                userId: selectedEmployee._id, assetType, action
+            }, { withCredentials: true });
+            message.success(`${assetType.replace('_', ' ')} verification ${action.toLowerCase()}`);
+            setSelectedEmployee(res.data.user);
+            fetchEmployees();
+        } catch (err) { console.error(err); message.error("Action failed"); } finally { setUploading(false); }
     };
 
     const filteredCompanies = useMemo(() => {
@@ -162,742 +339,162 @@ const UpdateEmployeeData = () => {
         }, {});
     }, [employeesByCompany, searchQuery]);
 
-    if (user.role !== 'Admin' && user.department !== 'Marketing' && !user.modules?.includes('Update Employee Data')) {
-        return (
-            <Box sx={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
-            }}>
-                <Card sx={{ p: 5, textAlign: 'center', maxWidth: 500, borderRadius: 4, boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: '#ef4444', mb: 2 }}>Access Denied</Typography>
-                    <Typography variant="body1" color="textSecondary">You do not have permission to access this module. Please contact your administrator if you believe this is an error.</Typography>
-                </Card>
-            </Box>
-        );
-    }
-
+    const stats = useMemo(() => {
+        let total = 0; let verified = 0;
+        Object.values(employeesByCompany).forEach(list => { total += list.length; verified += list.filter(e => e.is_verified).length; });
+        return { total, verified, pending: total - verified };
+    }, [employeesByCompany]);
 
     return (
-        <Box sx={{ 
-            minHeight: '100vh',
-            bgcolor: '#f8fafc',
-            width: '100%'
-        }}>
-            {/* Header */}
-            <Box sx={{ 
-                bgcolor: 'white',
-                borderBottom: '1px solid',
-                borderColor: alpha(theme.palette.primary.main, 0.1),
-                px: { xs: 2, md: 4 },
-                py: 2,
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                backdropFilter: 'blur(10px)',
-                backgroundColor: alpha('#fff', 0.9)
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', pb: 4 }}>
+            <Paper elevation={0} sx={{ 
+                bgcolor: 'white', borderBottom: '1px solid', borderColor: alpha('#000', 0.05),
+                position: 'sticky', top: 0, zIndex: 100, backdropFilter: 'blur(12px)', backgroundColor: alpha('#fff', 0.8)
             }}>
-                <Box sx={{ 
-                    maxWidth: '1600px', 
-                    margin: '0 auto',
-                    display: 'flex',
-                    flexDirection: { xs: 'column', md: 'row' },
-                    alignItems: { xs: 'stretch', md: 'center' },
-                    justifyContent: 'space-between',
-                    gap: 2
-                }}>
-                    <Box>
-                        <Typography variant="h4" sx={{ 
-                            fontWeight: 800, 
-                            background: 'linear-gradient(135deg, #0f172a 0%, #2563eb 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            mb: 0.5
-                        }}>
-                            Employee Data Hub
-                        </Typography>
-                        <Typography color="textSecondary" variant="body2">
-                            Manage employee profiles, assets, and marketing variables
-                        </Typography>
-                    </Box>
-                    
-                    <Box sx={{ 
-                        display: 'flex', 
-                        gap: 2, 
-                        alignItems: 'center',
-                        flexWrap: 'wrap'
-                    }}>
-                        <Box sx={{ 
-                            display: 'flex', 
-                            gap: 1, 
-                            bgcolor: alpha('#000', 0.04), 
-                            p: 0.5, 
-                            borderRadius: 3 
-                        }}>
-                            <Button
-                                onClick={() => setActiveTab('employees')}
-                                sx={{ 
-                                    borderRadius: 2,
-                                    px: 3,
-                                    py: 1,
-                                    bgcolor: activeTab === 'employees' ? 'white' : 'transparent',
-                                    color: activeTab === 'employees' ? 'primary.main' : 'text.secondary',
-                                    boxShadow: activeTab === 'employees' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
-                                    '&:hover': {
-                                        bgcolor: activeTab === 'employees' ? 'white' : alpha('#000', 0.02)
-                                    }
-                                }}
-                            >
-                                <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
-                                Employees
-                            </Button>
-                            <Button
-                                onClick={() => setActiveTab('global')}
-                                sx={{ 
-                                    borderRadius: 2,
-                                    px: 3,
-                                    py: 1,
-                                    bgcolor: activeTab === 'global' ? 'white' : 'transparent',
-                                    color: activeTab === 'global' ? 'primary.main' : 'text.secondary',
-                                    boxShadow: activeTab === 'global' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
-                                    '&:hover': {
-                                        bgcolor: activeTab === 'global' ? 'white' : alpha('#000', 0.02)
-                                    }
-                                }}
-                            >
-                                <BusinessIcon sx={{ mr: 1, fontSize: 20 }} />
-                                Global Assets
-                            </Button>
+                <Box sx={{ maxWidth: '1400px', mx: 'auto', px: 3, py: 1.5 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                            <Typography sx={{ fontWeight: 900, color: '#0f172a', fontSize: '1.1rem' }}>Data Hub</Typography>
+                            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600 }}>Marketing Module</Typography>
                         </Box>
-                        
-                        <TextField
-                            placeholder="Search by name, username, or designation..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            sx={{ 
-                                width: { xs: '100%', md: 320 },
-                                bgcolor: 'white',
-                                borderRadius: 3,
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: 3,
-                                    '&:hover fieldset': {
-                                        borderColor: 'primary.main',
-                                    },
-                                },
-                            }}
-                            size="small"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon sx={{ color: 'primary.main' }} />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                    </Box>
-                </Box>
-            </Box>
-
-            {/* Main Content */}
-            <Box sx={{ 
-                maxWidth: '1600px', 
-                margin: '0 auto', 
-                px: { xs: 2, md: 4 },
-                py: 4
-            }}>
-                {loading ? (
-                    <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        alignItems: 'center',
-                        minHeight: '60vh'
-                    }}>
-                        <CircularProgress size={60} thickness={4} sx={{ color: 'primary.main' }} />
-                    </Box>
-                ) : activeTab === 'global' ? (
-                    <MotionBox
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        {/* Global Assets Section */}
-                        <Card sx={{ 
-                            borderRadius: 4,
-                            overflow: 'hidden',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
-                            border: '1px solid',
-                            borderColor: alpha(theme.palette.primary.main, 0.1)
-                        }}>
-                            <Box sx={{ p: 4, bgcolor: 'white' }}>
-                                <Typography variant="h5" sx={{ fontWeight: 800, mb: 3 }}>
-                                    Global Marketing Assets
-                                    <Chip 
-                                        label={`${globalAssets.length} assets`} 
-                                        size="small" 
-                                        sx={{ ml: 2, bgcolor: alpha(theme.palette.primary.main, 0.1), fontWeight: 600 }}
-                                    />
-                                </Typography>
-
-                                {/* Add Global Asset */}
-                                <Card sx={{ 
-                                    p: 3, 
-                                    mb: 4, 
-                                    bgcolor: alpha(theme.palette.primary.main, 0.02),
-                                    border: '2px dashed',
-                                    borderColor: alpha(theme.palette.primary.main, 0.2),
-                                    borderRadius: 3
-                                }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-                                        Add New Global Asset
-                                    </Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} md={8}>
-                                            <TextField 
-                                                fullWidth 
-                                                placeholder="Enter asset name" 
-                                                value={additionalAsset.name} 
-                                                onChange={(e) => setAdditionalAsset({...additionalAsset, name: e.target.value})}
-                                                sx={{ bgcolor: 'white', borderRadius: 2 }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={4}>
-                                            <Button 
-                                                component="label" 
-                                                variant="contained" 
-                                                disabled={!additionalAsset.name}
-                                                sx={{ 
-                                                    borderRadius: 2,
-                                                    color: 'white !important',
-                                                    px: 4,
-                                                    py: 1.2,
-                                                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important',
-                                                    '&.Mui-disabled': {
-                                                        background: '#cbd5e1 !important',
-                                                        color: '#64748b !important'
-                                                    },
-                                                    '&:hover': {
-                                                        background: 'linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%) !important',
-                                                    }
-                                                }}
-                                                startIcon={<UploadIcon />}
-                                            >
-                                                Upload File
-                                                <input type="file" hidden onChange={(e) => handleUpload('global', e.target.files[0], additionalAsset.name)} />
-                                            </Button>
-                                        </Grid>
-                                    </Grid>
-                                </Card>
-
-                                {/* Assets Grid */}
-                                <Grid container spacing={3}>
-                                    {globalAssets.map((asset, index) => (
-                                        <Grid item xs={12} sm={6} md={4} lg={3} key={asset._id}>
-                                            <Zoom in={true} style={{ transitionDelay: `${index * 50}ms` }}>
-                                                <Card sx={{ 
-                                                    p: 2,
-                                                    borderRadius: 3,
-                                                    border: '1px solid',
-                                                    borderColor: alpha(theme.palette.primary.main, 0.1),
-                                                    transition: 'all 0.3s ease',
-                                                    '&:hover': {
-                                                        transform: 'translateY(-4px)',
-                                                        boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
-                                                        borderColor: 'primary.main'
-                                                    }
-                                                }}>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                                                        <Box sx={{ 
-                                                            width: 40, 
-                                                            height: 40, 
-                                                            borderRadius: 2,
-                                                            bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center'
-                                                        }}>
-                                                            <FileIcon sx={{ color: 'primary.main' }} />
-                                                        </Box>
-                                                        <Box>
-                                                            <IconButton 
-                                                                component="a" 
-                                                                href={asset.link} 
-                                                                target="_blank" 
-                                                                size="small"
-                                                                sx={{ color: 'primary.main' }}
-                                                            >
-                                                                <DownloadIcon fontSize="small" />
-                                                            </IconButton>
-                                                            <IconButton 
-                                                                onClick={() => handleDelete('global', asset._id)} 
-                                                                size="small"
-                                                                sx={{ color: 'error.main' }}
-                                                            >
-                                                                <DeleteIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Box>
-                                                    </Box>
-                                                    
-                                                    <Typography sx={{ fontWeight: 700, mb: 1 }} noWrap>
-                                                        {asset.name}
-                                                    </Typography>
-                                                    
-                                                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-                                                        Added by <strong>{asset.updatedBy}</strong>
-                                                    </Typography>
-                                                    <Typography variant="caption" color="textSecondary">
-                                                        {new Date(asset.updatedAt).toLocaleDateString()}
-                                                    </Typography>
-                                                </Card>
-                                            </Zoom>
-                                        </Grid>
-                                    ))}
-                                </Grid>
-                            </Box>
-                        </Card>
-                    </MotionBox>
-                ) : (
-                    <MotionBox
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        {/* Employees by Company */}
-                        {Object.keys(filteredCompanies).map((company, companyIndex) => (
-                            <Card key={company} sx={{ 
-                                mb: 4,
-                                borderRadius: 4,
-                                overflow: 'hidden',
-                                boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
-                                border: '1px solid',
-                                borderColor: alpha(theme.palette.primary.main, 0.1)
-                            }}>
-                                <Box sx={{ 
-                                    p: 3, 
-                                    bgcolor: 'white',
-                                    borderBottom: '1px solid',
-                                    borderColor: alpha(theme.palette.primary.main, 0.1),
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 2
-                                }}>
-                                    <Avatar sx={{ 
-                                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                        color: 'primary.main',
-                                        width: 48,
-                                        height: 48
-                                    }}>
-                                        <BusinessIcon />
-                                    </Avatar>
-                                    <Box>
-                                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                                            {company}
-                                        </Typography>
-                                        <Typography variant="body2" color="textSecondary">
-                                            {filteredCompanies[company].length} team members
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                
-                                <Box sx={{ p: 3, bgcolor: '#fafbfc' }}>
-                                    <Grid container spacing={2}>
-                                        {filteredCompanies[company].map((emp, index) => (
-                                            <Grid item xs={12} sm={6} md={4} lg={3} key={emp._id}>
-                                                <Fade in={true} style={{ transitionDelay: `${index * 50}ms` }}>
-                                                    <Card 
-                                                        sx={{ 
-                                                            p: 2,
-                                                            cursor: 'pointer',
-                                                            borderRadius: 3,
-                                                            border: '1px solid',
-                                                            borderColor: alpha(theme.palette.primary.main, 0.1),
-                                                            transition: 'all 0.3s ease',
-                                                            '&:hover': {
-                                                                transform: 'translateY(-4px)',
-                                                                boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
-                                                                borderColor: 'primary.main',
-                                                                bgcolor: 'white',
-                                                                '& .employee-name': {
-                                                                    color: 'primary.main'
-                                                                },
-                                                                '& .employee-avatar': {
-                                                                    borderColor: 'primary.main'
-                                                                }
-                                                            }
-                                                        }}
-                                                        onClick={() => handleEmployeeClick(emp)}
-                                                    >
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                            <Badge
-                                                                overlap="circular"
-                                                                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                                                                badgeContent={
-                                                                    emp.employee_photo ? 
-                                                                    <CheckCircleIcon sx={{ color: 'success.main', fontSize: 16 }} /> : 
-                                                                    null
-                                                                }
-                                                            >
-                                                                <Avatar 
-                                                                    src={emp.employee_photo} 
-                                                                    className="employee-avatar"
-                                                                    sx={{ 
-                                                                        width: 56, 
-                                                                        height: 56,
-                                                                        border: '2px solid',
-                                                                        borderColor: 'transparent',
-                                                                        transition: 'all 0.3s ease'
-                                                                    }}
-                                                                >
-                                                                    {emp.first_name[0]}{emp.last_name[0]}
-                                                                </Avatar>
-                                                            </Badge>
-                                                            <Box sx={{ flex: 1 }}>
-                                                                <Typography 
-                                                                    className="employee-name"
-                                                                    sx={{ 
-                                                                        fontWeight: 700, 
-                                                                        fontSize: '1rem',
-                                                                        color: 'text.primary',
-                                                                        transition: 'color 0.3s ease'
-                                                                    }}>
-                                                                    {emp.first_name} {emp.last_name}
-                                                                </Typography>
-                                                                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 500 }}>
-                                                                    {emp.designation || 'No designation'}
-                                                                </Typography>
-                                                                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                                                    {emp.email_signature && (
-                                                                        <Tooltip title="Has email signature">
-                                                                            <EmailIcon sx={{ fontSize: 14, color: 'success.main' }} />
-                                                                        </Tooltip>
-                                                                    )}
-                                                                    {emp.marketing_assets?.length > 0 && (
-                                                                        <Tooltip title={`${emp.marketing_assets.length} assets`}>
-                                                                            <FileIcon sx={{ fontSize: 14, color: 'info.main' }} />
-                                                                        </Tooltip>
-                                                                    )}
-                                                                </Box>
-                                                            </Box>
-                                                        </Box>
-                                                    </Card>
-                                                </Fade>
-                                            </Grid>
-                                        ))}
-                                    </Grid>
-                                </Box>
-                            </Card>
-                        ))}
-
-                        {Object.keys(filteredCompanies).length === 0 && (
-                            <Card sx={{ 
-                                p: 8, 
-                                textAlign: 'center',
-                                borderRadius: 4,
-                                bgcolor: 'white'
-                            }}>
-                                <SearchIcon sx={{ fontSize: 60, color: alpha(theme.palette.primary.main, 0.3), mb: 2 }} />
-                                <Typography variant="h6" color="textSecondary">No employees found</Typography>
-                                <Typography variant="body2" color="textSecondary">Try adjusting your search</Typography>
-                            </Card>
-                        )}
-                    </MotionBox>
-                )}
-            </Box>
-
-            {/* Employee Management Dialog */}
-            <Dialog 
-                open={dialogOpen} 
-                onClose={() => setDialogOpen(false)} 
-                maxWidth="md" 
-                fullWidth
-                TransitionComponent={Fade}
-                PaperProps={{
-                    sx: {
-                        borderRadius: 4,
-                        overflow: 'hidden',
-                        boxShadow: '0 25px 50px rgba(0,0,0,0.15)'
-                    }
-                }}
-            >
-                {selectedEmployee && (
-                    <>
-                        <DialogTitle sx={{ 
-                            p: 3, 
-                            bgcolor: 'white',
-                            borderBottom: '1px solid',
-                            borderColor: alpha(theme.palette.primary.main, 0.1)
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Avatar 
-                                        src={selectedEmployee.employee_photo}
-                                        sx={{ width: 64, height: 64, border: '2px solid', borderColor: 'primary.main' }}
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Box sx={{ bgcolor: alpha('#000', 0.04), p: 0.4, borderRadius: 2.5, display: 'flex' }}>
+                                {['employees', 'global'].map(tab => (
+                                    <Button key={tab} size="small" onClick={() => setActiveTab(tab)}
+                                        sx={{ 
+                                            borderRadius: 2, px: 2, py: 0.5, fontSize: '0.75rem', fontWeight: 700, textTransform: 'none',
+                                            bgcolor: activeTab === tab ? 'white' : 'transparent', color: activeTab === tab ? 'primary.main' : 'text.secondary',
+                                            boxShadow: activeTab === tab ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                                        }}
                                     >
-                                        {selectedEmployee.first_name[0]}
-                                    </Avatar>
-                                    <Box>
-                                        <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                                            {selectedEmployee.first_name} {selectedEmployee.last_name}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                            <BusinessIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                            <Typography variant="body2" color="textSecondary">
-                                                {selectedEmployee.company}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                </Box>
-                                <IconButton onClick={() => setDialogOpen(false)} sx={{ color: 'text.secondary' }}>
-                                    <CloseIcon />
-                                </IconButton>
+                                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    </Button>
+                                ))}
                             </Box>
-                        </DialogTitle>
-                        
-                        <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                
-                                {/* Profile Picture Section */}
-                                <Card sx={{ p: 3, borderRadius: 3 }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <ImageIcon sx={{ color: 'primary.main' }} />
-                                        Profile Picture
-                                    </Typography>
-                                    
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-                                        {selectedEmployee.employee_photo ? (
-                                            <Box sx={{ position: 'relative' }}>
-                                                <Avatar 
-                                                    src={selectedEmployee.employee_photo} 
-                                                    sx={{ width: 100, height: 100, border: '2px solid', borderColor: 'primary.main' }}
-                                                />
-                                                <IconButton 
-                                                    size="small" 
-                                                    sx={{ 
-                                                        position: 'absolute', 
-                                                        top: -8, 
-                                                        right: -8, 
-                                                        bgcolor: 'white',
-                                                        boxShadow: 2,
-                                                        '&:hover': { bgcolor: 'error.main', color: 'white' }
-                                                    }}
-                                                    onClick={() => handleDelete('photo')}
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </Box>
-                                        ) : (
-                                            <Box sx={{ 
-                                                width: 100, 
-                                                height: 100, 
-                                                borderRadius: 2,
-                                                border: '2px dashed',
-                                                borderColor: alpha(theme.palette.primary.main, 0.3),
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                bgcolor: alpha(theme.palette.primary.main, 0.02)
-                                            }}>
-                                                <PhotoIcon sx={{ fontSize: 40, color: alpha(theme.palette.primary.main, 0.3) }} />
-                                            </Box>
-                                        )}
-                                        
-                                        <Box sx={{ flex: 1 }}>
-                                            <Button
-                                                component="label"
-                                                variant="contained"
-                                                startIcon={<UploadIcon />}
-                                                sx={{ 
-                                                    borderRadius: 2,
-                                                    color: 'white !important',
-                                                    px: 3,
-                                                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important',
-                                                    mb: 1
-                                                }}
-                                            >
-                                                {selectedEmployee.employee_photo ? 'Change Photo' : 'Upload Photo'}
-                                                <input type="file" hidden accept="image/*" onChange={(e) => handleUpload('photo', e.target.files[0])} />
-                                            </Button>
-                                            
-                                            {selectedEmployee.employee_photo_updatedBy && (
-                                                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                                                    Last updated by <strong>{selectedEmployee.employee_photo_updatedBy}</strong> on {new Date(selectedEmployee.employee_photo_updatedAt).toLocaleDateString()}
-                                                </Typography>
-                                            )}
-                                        </Box>
-                                    </Box>
-                                </Card>
+                            <TextField placeholder="Search..." size="small" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                                InputProps={{ startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: 18 }} />,
+                                    sx: { borderRadius: 2, bgcolor: alpha('#000', 0.02), '& fieldset': { border: 'none' }, width: 200 } }}
+                            />
+                        </Stack>
+                    </Stack>
+                </Box>
+            </Paper>
 
-                                {/* Email Signature Section */}
-                                <Card sx={{ p: 3, borderRadius: 3 }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <EmailIcon sx={{ color: 'primary.main' }} />
-                                        Email Signature
-                                    </Typography>
-                                    
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                                        {selectedEmployee.email_signature ? (
-                                            <>
-                                                <Button
-                                                    component="a"
-                                                    href={selectedEmployee.email_signature}
-                                                    target="_blank"
-                                                    variant="outlined"
-                                                    startIcon={<DownloadIcon />}
-                                                    sx={{ borderRadius: 2 }}
-                                                >
-                                                    View Signature
-                                                </Button>
-                                                <IconButton 
-                                                    onClick={() => handleDelete('signature')}
-                                                    sx={{ color: 'error.main' }}
-                                                >
-                                                    <DeleteIcon />
-                                                </IconButton>
-                                            </>
-                                        ) : (
-                                            <Button
-                                                component="label"
-                                                variant="outlined"
-                                                startIcon={<UploadIcon />}
-                                                sx={{ borderRadius: 2 }}
-                                            >
-                                                Upload Signature
-                                                <input type="file" hidden accept="image/*,application/pdf" onChange={(e) => handleUpload('signature', e.target.files[0])} />
-                                            </Button>
-                                        )}
-                                        
-                                        {selectedEmployee.email_signature_updatedBy && (
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                By <strong>{selectedEmployee.email_signature_updatedBy}</strong> on {new Date(selectedEmployee.email_signature_updatedAt).toLocaleDateString()}
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </Card>
-
-                                {/* Marketing Assets Section */}
-                                <Card sx={{ p: 3, borderRadius: 3 }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <FileIcon sx={{ color: 'primary.main' }} />
-                                        Marketing Assets & Variables
-                                    </Typography>
-                                    
-                                    {selectedEmployee.marketing_assets?.length > 0 && (
-                                        <Box sx={{ mb: 3 }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Current Assets:</Typography>
-                                            <Grid container spacing={2}>
-                                                {selectedEmployee.marketing_assets.map((asset) => (
-                                                    <Grid item xs={12} sm={6} key={asset._id}>
-                                                        <Card sx={{ 
-                                                            p: 1.5, 
-                                                            bgcolor: alpha(theme.palette.primary.main, 0.02),
-                                                            borderRadius: 2,
-                                                            border: '1px solid',
-                                                            borderColor: alpha(theme.palette.primary.main, 0.1),
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between'
-                                                        }}>
-                                                            <Box>
-                                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>{asset.name}</Typography>
-                                                                <Typography variant="caption" color="textSecondary">
-                                                                    By {asset.updatedBy}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box>
-                                                                <Tooltip title="Copy Link">
-                                                                    <IconButton 
-                                                                        size="small" 
-                                                                        onClick={() => { navigator.clipboard.writeText(asset.link); message.success("Link copied!"); }}
-                                                                        sx={{ color: 'primary.main' }}
-                                                                    >
-                                                                        <LinkIcon fontSize="small" />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                                <IconButton 
-                                                                    size="small" 
-                                                                    onClick={() => handleDelete('variable', asset._id)}
-                                                                    sx={{ color: 'error.main' }}
-                                                                >
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Box>
-                                                        </Card>
-                                                    </Grid>
-                                                ))}
-                                            </Grid>
-                                        </Box>
-                                    )}
-
-                                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 2 }}>Add New Asset:</Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={8}>
-                                            <TextField 
-                                                fullWidth
-                                                size="small"
-                                                placeholder="Asset name"
-                                                value={additionalAsset.name}
-                                                onChange={(e) => setAdditionalAsset({ ...additionalAsset, name: e.target.value })}
-                                                sx={{ bgcolor: 'white', borderRadius: 2 }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sm={4}>
-                                            <Button 
-                                                component="label" 
-                                                variant="contained" 
-                                                disabled={!additionalAsset.name}
-                                                startIcon={<UploadIcon />}
-                                                sx={{ 
-                                                    borderRadius: 2,
-                                                    color: 'white !important',
-                                                    px: 3,
-                                                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important',
-                                                    mb: 1
-                                                }}
-                                            >
-                                                Upload File
-                                                <input 
-                                                    type="file" 
-                                                    hidden 
-                                                    onChange={(e) => handleUpload('variable', e.target.files[0], additionalAsset.name)} 
-                                                />
-                                            </Button>
-                                        </Grid>
-                                    </Grid>
-                                </Card>
-                            </Box>
-                        </DialogContent>
-                        
-                        <DialogActions sx={{ p: 3, bgcolor: 'white', borderTop: '1px solid', borderColor: alpha(theme.palette.primary.main, 0.1) }}>
-                            <Button 
-                                onClick={() => setDialogOpen(false)}
-                                variant="outlined"
-                                sx={{ borderRadius: 2 }}
-                            >
-                                Close
-                            </Button>
-                        </DialogActions>
-                    </>
+            <Box sx={{ maxWidth: '1400px', mx: 'auto', px: 3, mt: 3 }}>
+                {activeTab === 'employees' && (
+                    <Grid container spacing={2} sx={{ mb: 4 }}>
+                        <Grid item xs={4}><StatCard icon={PersonIcon} title="Total" value={stats.total} color={theme.palette.primary.main} /></Grid>
+                        <Grid item xs={4}><StatCard icon={VerifiedIcon} title="Verified" value={stats.verified} color={theme.palette.success.main} /></Grid>
+                        <Grid item xs={4}><StatCard icon={HistoryIcon} title="Pending" value={stats.pending} color={theme.palette.warning.main} /></Grid>
+                    </Grid>
                 )}
-                
-                {uploading && (
-                    <Box sx={{ 
-                        position: 'absolute', 
-                        top: 0, 
-                        left: 0, 
-                        right: 0, 
-                        bottom: 0, 
-                        bgcolor: alpha('#fff', 0.9),
-                        zIndex: 10, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        backdropFilter: 'blur(4px)'
-                    }}>
-                        <Box sx={{ textAlign: 'center' }}>
-                            <CircularProgress size={60} thickness={4} sx={{ color: 'primary.main', mb: 2 }} />
-                            <Typography>Uploading...</Typography>
+
+                {loading ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={30} /></Box> :
+                activeTab === 'global' ? (
+                    <Box>
+                        <Paper sx={{ p: 1.5, mb: 3, borderRadius: 3, border: '1px solid', borderColor: alpha('#000', 0.05), boxShadow: 'none' }}>
+                            <Stack direction="row" spacing={2}>
+                                <TextField fullWidth placeholder="New Global Asset Name" size="small" value={additionalAsset.name} 
+                                    onChange={(e) => setAdditionalAsset({...additionalAsset, name: e.target.value})}
+                                    InputProps={{ sx: { borderRadius: 2, bgcolor: alpha('#000', 0.02) } }}
+                                />
+                                <Button component="label" variant="contained" disabled={!additionalAsset.name} size="small"
+                                    sx={{ borderRadius: 2, px: 3, fontWeight: 700, textTransform: 'none', color: 'white !important', bgcolor: '#1e293b !important' }}
+                                >
+                                    Upload <input type="file" hidden onChange={(e) => handleUpload('global', e.target.files[0], additionalAsset.name)} />
+                                </Button>
+                            </Stack>
+                        </Paper>
+                        <Grid container spacing={2}>{globalAssets.map(asset => (<Grid item xs={6} sm={4} md={2.4} key={asset._id}><GlobalAssetCard asset={asset} onDelete={(id) => handleDelete('global', id)} theme={theme} /></Grid>))}</Grid>
+                    </Box>
+                ) : (
+                    Object.keys(filteredCompanies).map(company => (
+                        <Box key={company} sx={{ mb: 4 }}>
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                                <Typography sx={{ fontWeight: 900, color: '#1e293b', fontSize: '1rem' }}>{company}</Typography>
+                                <Chip label={filteredCompanies[company].length} size="small" sx={{ fontWeight: 800, height: 20, fontSize: '0.7rem' }} />
+                            </Stack>
+                            <Grid container spacing={2}>{filteredCompanies[company].map(emp => (<Grid item xs={12} sm={6} md={3} key={emp._id}><EmployeeCard emp={emp} onClick={handleEmployeeClick} theme={theme} /></Grid>))}</Grid>
                         </Box>
+                    ))
+                )}
+            </Box>
+
+            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden' } }}>
+                {selectedEmployee && (
+                    <Box sx={{ bgcolor: '#fff' }}>
+                        <Box sx={{ p: 2, background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: 'white', position: 'relative' }}>
+                            <IconButton onClick={() => setDialogOpen(false)} size="small" sx={{ position: 'absolute', right: 12, top: 12, color: 'white' }}><CloseIcon fontSize="small" /></IconButton>
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Avatar src={selectedEmployee.employee_photo} sx={{ width: 60, height: 60, border: '2px solid rgba(255,255,255,0.2)' }}>{selectedEmployee.first_name[0]}</Avatar>
+                                <Box>
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Typography sx={{ fontWeight: 900, fontSize: '1.2rem' }}>{selectedEmployee.first_name} {selectedEmployee.last_name}</Typography>
+                                        {selectedEmployee.is_verified && <VerifiedIcon sx={{ color: '#1d9bf0', fontSize: 20 }} />}
+                                    </Stack>
+                                    <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block' }}>{selectedEmployee.designation}</Typography>
+                                </Box>
+                            </Stack>
+                        </Box>
+
+                        <DialogContent sx={{ p: 2, bgcolor: '#f8fafc' }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} md={7}>
+                                    <Stack spacing={2}>
+                                        <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: alpha('#000', 0.05) }}>
+                                            <Typography variant="caption" sx={{ fontWeight: 900, mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5, color: '#1e293b' }}><PhotoIcon sx={{ fontSize: 14 }} /> PHOTO</Typography>
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                <Button component="label" variant="contained" size="small" sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: '#1e293b !important', color: 'white !important' }}>
+                                                    Upload <input type="file" hidden accept="image/*" onChange={(e) => handleUpload('photo', e.target.files[0])} />
+                                                </Button>
+                                                {selectedEmployee.employee_photo && <Button variant="text" color="error" size="small" onClick={() => handleDelete('photo')} sx={{ fontWeight: 700, textTransform: 'none' }}>Remove</Button>}
+                                            </Stack>
+                                        </Paper>
+                                        <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: alpha('#000', 0.05) }}>
+                                            <Typography variant="caption" sx={{ fontWeight: 900, mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5, color: '#1e293b' }}><EmailIcon sx={{ fontSize: 14 }} /> SIGNATURE</Typography>
+                                            <Stack direction="row" spacing={1}>
+                                                <Button component="label" variant="contained" size="small" sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: '#1e293b !important', color: 'white !important' }}>
+                                                    Upload <input type="file" hidden accept="image/*,application/pdf" onChange={(e) => handleUpload('signature', e.target.files[0])} />
+                                                </Button>
+                                                {selectedEmployee.email_signature && <Button variant="outlined" size="small" component="a" href={selectedEmployee.email_signature} target="_blank" sx={{ borderRadius: 2 }}>View</Button>}
+                                            </Stack>
+                                        </Paper>
+                                        <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: alpha('#000', 0.05) }}>
+                                            <Typography variant="caption" sx={{ fontWeight: 900, mb: 1, display: 'flex', alignItems: 'center', gap: 0.5, color: '#1e293b' }}><FileIcon sx={{ fontSize: 14 }} /> LINKS</Typography>
+                                            <Stack spacing={1} sx={{ mb: 2 }}>
+                                                {selectedEmployee.marketing_assets?.map(asset => (
+                                                    <Box key={asset._id} sx={{ p: 1, borderRadius: 2, bgcolor: alpha('#000', 0.03), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700 }} noWrap>{asset.name}</Typography>
+                                                        <Stack direction="row">
+                                                            <IconButton onClick={() => { navigator.clipboard.writeText(asset.link); message.success("Copied!"); }} size="small" color="primary"><LinkIcon sx={{ fontSize: 14 }} /></IconButton>
+                                                            <IconButton onClick={() => handleDelete('variable', asset._id)} size="small" color="error"><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
+                                                        </Stack>
+                                                    </Box>
+                                                ))}
+                                            </Stack>
+                                            <Stack direction="row" spacing={1}>
+                                                <TextField fullWidth size="small" placeholder="Name" value={additionalAsset.name} onChange={(e) => setAdditionalAsset({ ...additionalAsset, name: e.target.value })} InputProps={{ sx: { borderRadius: 2, fontSize: '0.75rem' } }} />
+                                                <Button component="label" variant="contained" disabled={!additionalAsset.name} size="small" sx={{ borderRadius: 2, bgcolor: '#1e293b !important', color: 'white !important', textTransform: 'none' }}>
+                                                    Add <input type="file" hidden onChange={(e) => handleUpload('variable', e.target.files[0], additionalAsset.name)} />
+                                                </Button>
+                                            </Stack>
+                                        </Paper>
+                                    </Stack>
+                                </Grid>
+                                <Grid item xs={12} md={5}>
+                                    <Stack spacing={2}>
+                                        <Typography variant="caption" sx={{ fontWeight: 900, color: '#1e293b', ml: 1 }}>VERIFICATION</Typography>
+                                        {selectedEmployee.profile_photo_proof && <AssetVerificationCard type="profile_photo" proof={selectedEmployee.profile_photo_proof} onAction={handleVerificationAction} theme={theme} />}
+                                        {selectedEmployee.email_signature_proof && <AssetVerificationCard type="email_signature" proof={selectedEmployee.email_signature_proof} onAction={handleVerificationAction} theme={theme} />}
+                                    </Stack>
+                                </Grid>
+                            </Grid>
+                        </DialogContent>
+                    </Box>
+                )}
+                {uploading && (
+                    <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: alpha('#fff', 0.6), zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CircularProgress size={30} />
                     </Box>
                 )}
             </Dialog>

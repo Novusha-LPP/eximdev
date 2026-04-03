@@ -302,6 +302,22 @@ const userSchema = new Schema({
       updatedBy: { type: String },
     },
   ],
+  profile_photo_proof: {
+    url: String,
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected', null], default: null },
+    approvedAt: Date,
+    approvedBy: String,
+  },
+  email_signature_proof: {
+    url: String,
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected', null], default: null },
+    approvedAt: Date,
+    approvedBy: String,
+  },
+  is_verified: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });

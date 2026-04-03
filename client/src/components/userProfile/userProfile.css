@@ -89,6 +89,10 @@
     color: #111827;
 }
 
+.header-text h1 svg {
+    color: #1d9bf0 !important;
+}
+
 .sub-text {
     font-size: 15px;
     color: #4b5563;

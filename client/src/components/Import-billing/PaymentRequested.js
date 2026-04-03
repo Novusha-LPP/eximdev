@@ -311,16 +311,64 @@ function PaymentRequested() {
           );
         },
       },
-      { accessorKey: "importer", header: "Importer", size: 150 },
+      {
+        accessorKey: "importer_shipping_line",
+        header: "Importer & Shipping Line",
+        size: 220,
+        Cell: ({ cell }) => {
+          const { importer, shipping_line_airline } = cell.row.original;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div style={{ fontWeight: "bold", color: "#333", fontSize: "0.8rem" }}>
+                {importer || "-"}
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "#1976d2", fontWeight: "500" }}>
+                Line: {shipping_line_airline || "-"}
+              </div>
+            </div>
+          );
+        },
+      },
       {
         accessorKey: "be_no",
-        header: "BE Number & Date",
-        Cell: ({ cell }) => (
-          <div>
-            {cell.row.original.be_no || "-"} <br />
-            {cell.row.original.be_date ? new Date(cell.row.original.be_date).toLocaleDateString("en-GB") : "-"}
-          </div>
-        ),
+        header: "BE NO and BL NO",
+        Cell: ({ cell }) => {
+          const { be_no, be_date, awb_bl_no } = cell.row.original;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div style={{ fontSize: "11px", fontWeight: "bold", color: "#1a237e", display: "flex", alignItems: "center" }}>
+                BE NO: {be_no || "-"}
+                {be_no && (
+                  <IconButton size="small" onClick={(e) => handleCopy(e, be_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                    <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                  </IconButton>
+                )}
+              </div>
+              <div style={{ fontSize: "10px", color: "#666" }}>
+                 {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
+              </div>
+              <div style={{ 
+                fontSize: "11px", 
+                fontWeight: "bold", 
+                color: "#2e7d32", 
+                marginTop: "4px",
+                padding: "2px 4px",
+                backgroundColor: "#e8f5e9",
+                borderRadius: "4px",
+                width: "fit-content",
+                display: "flex",
+                alignItems: "center"
+              }}>
+                BL NO: {awb_bl_no || "-"}
+                {awb_bl_no && (
+                  <IconButton size="small" onClick={(e) => handleCopy(e, awb_bl_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                    <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                  </IconButton>
+                )}
+              </div>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "payment_request_nos",
@@ -336,12 +384,35 @@ function PaymentRequested() {
           }, {});
           return (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {Object.keys(reqGroups).map((no, idx) => (
-                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip label={no} size="small" color="primary" variant="outlined" onClick={() => handleViewPaymentRequest(no)} sx={{ fontWeight: 'bold', height: '20px' }} />
-                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }}>: {[...new Set(reqGroups[no])].join(", ")}</Typography>
-                </Box>
-              ))}
+              {Object.keys(reqGroups).map((no, idx) => {
+                const chargesForThisPR = charges.filter(c => c.payment_request_no === no);
+                const receiptUrl = chargesForThisPR.find(c => c.payment_request_receipt_url)?.payment_request_receipt_url;
+
+                return (
+                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip 
+                      label={no} 
+                      size="small" 
+                      color="primary" 
+                      variant="outlined" 
+                      onClick={() => handleViewPaymentRequest(no)} 
+                      sx={{ fontWeight: 'bold', height: '20px' }} 
+                    />
+                    {receiptUrl && (
+                      <IconButton 
+                        size="small" 
+                        href={receiptUrl} 
+                        target="_blank" 
+                        sx={{ p: 0, color: '#2e7d32' }}
+                        title="View Payment Receipt"
+                      >
+                        <OpenInNewIcon sx={{ fontSize: '14px' }} />
+                      </IconButton>
+                    )}
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }}>: {[...new Set(reqGroups[no])].join(", ")}</Typography>
+                  </Box>
+                );
+              })}
             </Box>
           );
         },
@@ -371,7 +442,7 @@ function PaymentRequested() {
     muiTableContainerProps: { sx: { maxHeight: "650px" } },
     renderTopToolbarCustomActions: () => (
       <div style={{ display: "flex", alignItems: "center", width: "100%", padding: '10px', gap: '20px' }}>
-        <Typography variant="h6" sx={{ fontWeight: "bold" }}>Total Jobs: {totalJobs}</Typography>
+        <Typography variant="h6" sx={{ fontWeight: "bold" }}>Payment Requested: {totalJobs}</Typography>
         <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "150px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
         <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "300px" }} />
@@ -494,13 +565,31 @@ function PaymentRequested() {
               </Box>
 
               {selectedPaymentRequest.attachments?.length > 0 && (
-                <Box sx={{ mb: 2, p: 1, border: '1px solid #bbdefb', backgroundColor: '#e3f2fd' }}>
-                  <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 1 }}>ATTACHMENTS</Typography>
+                <Box sx={{ mb: 1.5, p: 1, border: '1px solid #bbdefb', backgroundColor: '#e3f2fd' }}>
+                  <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 1 }}>CHARGE ATTACHMENTS</Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {selectedPaymentRequest.attachments.map((url, idx) => (
                       <Button key={idx} variant="outlined" size="small" startIcon={<AttachFileIcon />} href={url} target="_blank" sx={{ textTransform: 'none', py: 0, fontSize: '0.7rem' }}>View {idx + 1}</Button>
                     ))}
                   </Box>
+                </Box>
+              )}
+
+              {selectedPaymentRequest.paymentReceiptUrl && (
+                <Box sx={{ mb: 1.5, p: 1.5, border: '1px solid #2e7d32', backgroundColor: '#e8f5e9', borderRadius: '4px' }}>
+                  <Typography variant="caption" fontWeight="bold" color="success.main" sx={{ display: 'block', mb: 1 }}>PAYMENT RECEIPT</Typography>
+                  <Button 
+                    variant="contained" 
+                    color="success" 
+                    size="small" 
+                    fullWidth
+                    startIcon={<OpenInNewIcon />} 
+                    href={selectedPaymentRequest.paymentReceiptUrl} 
+                    target="_blank" 
+                    sx={{ textTransform: 'none', py: 1, fontSize: '0.85rem', fontWeight: 'bold' }}
+                  >
+                    View Official Payment Receipt
+                  </Button>
                 </Box>
               )}
 

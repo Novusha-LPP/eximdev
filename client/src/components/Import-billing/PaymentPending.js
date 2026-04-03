@@ -61,6 +61,9 @@ function PaymentPending() {
   const [utrInput, setUtrInput] = useState("");
   const [bankFromInput, setBankFromInput] = useState("");
   const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState("");
 
   const fetchPaymentRequestDetails = async (requestNo) => {
     try {
@@ -76,8 +79,31 @@ function PaymentPending() {
   const handleViewPaymentRequest = async (requestNo) => {
     setIsModalLoading(true);
     setOpenDetailModal(true);
+    setReceiptUrl("");
+    setSelectedReceipt(null);
     await fetchPaymentRequestDetails(requestNo);
     setIsModalLoading(false);
+  };
+
+  const handleReceiptUpload = async (file) => {
+    if (!file) return "";
+    const formData = new FormData();
+    formData.append("files", file);
+    formData.append("bucketPath", "payment-receipts");
+
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data.urls && res.data.urls.length > 0) {
+        return res.data.urls[0];
+      }
+      return "";
+    } catch (err) {
+      console.error("Error uploading receipt:", err);
+      alert("Failed to upload receipt file.");
+      return "";
+    }
   };
 
   const handleUpdateUTR = async () => {
@@ -87,17 +113,27 @@ function PaymentPending() {
     }
     setIsSubmittingUtr(true);
     try {
+      let finalReceiptUrl = receiptUrl;
+      if (selectedReceipt) {
+        setIsUploadingReceipt(true);
+        finalReceiptUrl = await handleReceiptUpload(selectedReceipt);
+        setIsUploadingReceipt(false);
+      }
+
       const displayName = user ? `${user.first_name} ${user.last_name}` : (localStorage.getItem("username") || "Unknown");
       await axios.patch(`${process.env.REACT_APP_API_STRING}/update-payment-utr`, {
         requestNo: selectedPaymentRequest.requestNo,
         utrNumber: utrInput,
-        bankFrom: bankFromInput
+        bankFrom: bankFromInput,
+        paymentReceiptUrl: finalReceiptUrl
       }, {
         headers: { username: displayName }
       });
       
       setUtrInput("");
       setBankFromInput("");
+      setReceiptUrl("");
+      setSelectedReceipt(null);
       setOpenDetailModal(false);
       // Refresh main table
       fetchJobs(
@@ -260,16 +296,64 @@ function PaymentPending() {
           );
         },
       },
-      { accessorKey: "importer", header: "Importer", size: 150 },
+      {
+        accessorKey: "importer_shipping_line",
+        header: "Importer & Shipping Line",
+        size: 220,
+        Cell: ({ cell }) => {
+          const { importer, shipping_line_airline } = cell.row.original;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div style={{ fontWeight: "bold", color: "#333", fontSize: "0.8rem" }}>
+                {importer || "-"}
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "#1976d2", fontWeight: "500" }}>
+                Line: {shipping_line_airline || "-"}
+              </div>
+            </div>
+          );
+        },
+      },
       {
         accessorKey: "be_no",
-        header: "BE Number & Date",
-        Cell: ({ cell }) => (
-          <div>
-            {cell.row.original.be_no || "-"} <br />
-            {cell.row.original.be_date ? new Date(cell.row.original.be_date).toLocaleDateString("en-GB") : "-"}
-          </div>
-        ),
+        header: "BE NO and BL NO",
+        Cell: ({ cell }) => {
+          const { be_no, be_date, awb_bl_no } = cell.row.original;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div style={{ fontSize: "11px", fontWeight: "bold", color: "#1a237e", display: "flex", alignItems: "center" }}>
+                BE NO: {be_no || "-"}
+                {be_no && (
+                  <IconButton size="small" onClick={(e) => handleCopy(e, be_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                    <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                  </IconButton>
+                )}
+              </div>
+              <div style={{ fontSize: "10px", color: "#666" }}>
+                 {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
+              </div>
+              <div style={{ 
+                fontSize: "11px", 
+                fontWeight: "bold", 
+                color: "#2e7d32", 
+                marginTop: "4px",
+                padding: "2px 4px",
+                backgroundColor: "#e8f5e9",
+                borderRadius: "4px",
+                width: "fit-content",
+                display: "flex",
+                alignItems: "center"
+              }}>
+                BL NO: {awb_bl_no || "-"}
+                {awb_bl_no && (
+                  <IconButton size="small" onClick={(e) => handleCopy(e, awb_bl_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                    <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                  </IconButton>
+                )}
+              </div>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "payment_request_nos",
@@ -323,8 +407,8 @@ function PaymentPending() {
     muiTableContainerProps: { sx: { maxHeight: "650px" } },
     renderTopToolbarCustomActions: () => (
       <div style={{ display: "flex", alignItems: "center", width: "100%", padding: '10px', gap: '20px' }}>
-        <Typography variant="h6" sx={{ fontWeight: "bold" }}>Approved Payments: {totalJobs}</Typography>
-        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Filter Importer" />} />
+        <Typography variant="h6" sx={{ fontWeight: "bold" }}>Payment Approved: {totalJobs}</Typography>
+        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "150px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
         <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "300px" }} />
       </div>
@@ -491,6 +575,8 @@ function PaymentPending() {
                       <MenuItem value="KOTAK BANK">KOTAK BANK</MenuItem>
                       <MenuItem value="IDBI BANK">IDBI BANK</MenuItem>
                       <MenuItem value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</MenuItem>
+                      <MenuItem value="AXIS BANK">AXIS BANK</MenuItem>
+                      <MenuItem value="ODEX VAN">ODEX VAN</MenuItem>
                     </TextField>
                     <TextField 
                       fullWidth 
@@ -502,15 +588,36 @@ function PaymentPending() {
                       onChange={(e) => setUtrInput(e.target.value)} 
                     />
                   </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      size="small"
+                      startIcon={<AttachFileIcon />}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {selectedReceipt ? "Change Receipt" : "Attach Receipt (Optional)"}
+                      <input
+                        type="file"
+                        hidden
+                        onChange={(e) => setSelectedReceipt(e.target.files[0])}
+                      />
+                    </Button>
+                    {selectedReceipt && (
+                      <Typography variant="caption" sx={{ color: 'text.secondary', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedReceipt.name}
+                      </Typography>
+                    )}
+                  </Box>
                   <Button 
                     variant="contained" 
                     color="primary" 
                     size="small"
                     onClick={handleUpdateUTR} 
-                    disabled={!utrInput.trim() || !bankFromInput || isSubmittingUtr} 
+                    disabled={!utrInput.trim() || !bankFromInput || isSubmittingUtr || isUploadingReceipt} 
                     sx={{ fontWeight: 'bold' }}
                   >
-                    {isSubmittingUtr ? <CircularProgress size={20} /> : "MARK AS PAID"}
+                    {isSubmittingUtr || isUploadingReceipt ? <CircularProgress size={20} /> : "MARK AS PAID"}
                   </Button>
                 </Box>
               </Box>

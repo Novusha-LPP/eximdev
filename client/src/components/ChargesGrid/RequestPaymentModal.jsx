@@ -100,11 +100,13 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
             "Against Bill",
             "Amount",
             "Transfer Mode",
-            "Account No",
-            "IFSC Code",
-            "Bank Name",
             "Transaction Type"
         ];
+
+        // Conditional mandatory fields for Online transfer
+        if (formData["Transfer Mode"] === 'Online') {
+            requiredFields.push("Account No", "IFSC Code", "Bank Name");
+        }
 
         // Conditional mandatory fields
         if (formData["Transaction Type"] === 'CHEQUE') {
@@ -203,16 +205,16 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                 </select>
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">A/c No <span style={{ color: 'red' }}>*</span></span>
+                                <span className="ep-label">A/c No {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
                                 <input type="text" name="Account No" className="ep-desc-input" value={formData["Account No"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                             <div className="ep-row">
-                                <span className="ep-label">IFS Code <span style={{ color: 'red' }}>*</span></span>
+                                <span className="ep-label">IFS Code {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
                                 <input type="text" name="IFSC Code" className="ep-desc-input" value={formData["IFSC Code"]} onChange={handleInputChange} />
                             </div>
                             <div className="ep-row">
-                                <span className="ep-label">Bank Name <span style={{ color: 'red' }}>*</span></span>
+                                <span className="ep-label">Bank Name {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
                                 <input type="text" name="Bank Name" className="ep-desc-input" value={formData["Bank Name"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}

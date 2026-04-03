@@ -23,6 +23,7 @@ const paymentRequestSchema = new mongoose.Schema({
   utrNumber: { type: String },
   utrAddedBy: { type: String },
   utrAddedAt: { type: Date },
+  paymentReceiptUrl: { type: String },
   isApproved: { type: Boolean, default: false },
   approvedByFirst: { type: String, trim: true },
   approvedByLast: { type: String, trim: true },

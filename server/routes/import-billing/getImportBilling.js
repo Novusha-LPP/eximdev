@@ -151,6 +151,7 @@ router.get(
       unresolvedOnly,
       branchId,
       category,
+      transactionType,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -211,6 +212,12 @@ router.get(
       if (decodedImporter && decodedImporter !== "Select Importer") {
         baseQuery.$and.push({
           importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+        });
+      }
+
+      if (transactionType && transactionType !== "All") {
+        baseQuery.$and.push({
+          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${transactionType}$`, "i") },
         });
       }
 
@@ -513,6 +520,7 @@ router.get(
       unresolvedOnly,
       branchId,
       category,
+      transactionType,
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -559,6 +567,12 @@ router.get(
 
       const branchMatch = getBranchMatch(branchId, category);
       matchConditions.$and.push(branchMatch);
+
+      if (transactionType && transactionType !== "All") {
+        matchConditions.$and.push({
+          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
+      }
 
       if (search && search.trim()) {
         matchConditions.$and.push({

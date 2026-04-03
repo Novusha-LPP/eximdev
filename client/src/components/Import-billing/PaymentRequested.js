@@ -60,7 +60,7 @@ function PaymentRequested() {
   const limit = 100;
   const [totalJobs, setTotalJobs] = useState(0);
   const navigate = useNavigate();
-  const [importers, setImporters] = useState("");
+  const [importers, setImporters] = useState([]);
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
@@ -71,6 +71,7 @@ function PaymentRequested() {
   const [openRejectPopup, setOpenRejectPopup] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedTransactionType, setSelectedTransactionType] = useState("All");
 
   const fetchJobs = useCallback(
     async (
@@ -81,7 +82,8 @@ function PaymentRequested() {
       unresolvedOnly = false,
       username,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      transactionType = "All"
     ) => {
       setLoading(true);
       try {
@@ -98,6 +100,7 @@ function PaymentRequested() {
               unresolvedOnly: unresolvedOnly.toString(),
               branchId: selectedBranch || "all",
               category: selectedCategory || "all",
+              transactionType: transactionType || "All"
             },
           }
         );
@@ -252,28 +255,28 @@ function PaymentRequested() {
   }, []);
 
   useEffect(() => {
-    if (selectedYearState && user?.username) {
-      fetchJobs(
-        page,
-        debouncedSearchQuery,
-        selectedImporter,
-        selectedYearState,
-        showUnresolvedOnly,
-        user.username,
-        selectedBranch,
-        selectedCategory
-      );
-    }
+    fetchJobs(
+      page,
+      debouncedSearchQuery,
+      selectedImporter,
+      selectedYearState,
+      showUnresolvedOnly,
+      user?.username,
+      selectedBranch,
+      selectedCategory,
+      selectedTransactionType
+    );
   }, [
     page,
     debouncedSearchQuery,
     selectedImporter,
     selectedYearState,
-    user?.username,
     showUnresolvedOnly,
     fetchJobs,
+    user?.username,
     selectedBranch,
     selectedCategory,
+    selectedTransactionType
   ]);
 
   useEffect(() => {
@@ -474,12 +477,22 @@ function PaymentRequested() {
     renderTopToolbarCustomActions: () => (
       <div style={{ display: "flex", alignItems: "center", width: "100%", padding: '10px', gap: '20px' }}>
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>Payment Requested: {totalJobs}</Typography>
-        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
-        <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "150px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
-        <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "300px" }} />
-        <Badge badgeContent={unresolvedCount} color="error">
-          <Button variant="contained" size="small" onClick={() => setShowUnresolvedOnly(p => !p)}>{showUnresolvedOnly ? "Show All" : "Pending Queries"}</Button>
-        </Badge>
+        <Autocomplete sx={{ width: "250px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
+        <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "100px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
+        <TextField 
+          select 
+          size="small" 
+          label="Transaction Type" 
+          value={selectedTransactionType} 
+          onChange={(e) => setSelectedTransactionType(e.target.value)} 
+          sx={{ width: "180px" }}
+        >
+          {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT"].map(type => (
+            <MenuItem key={type} value={type}>{type}</MenuItem>
+          ))}
+        </TextField>
+        <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "250px" }} />
+        <Button variant="contained" color="primary" onClick={() => setShowUnresolvedOnly(!showUnresolvedOnly)}>{showUnresolvedOnly ? "SHOW ALL" : "PENDING QUERIES"}</Button>
       </div>
     ),
   };

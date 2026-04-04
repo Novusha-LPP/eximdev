@@ -16,7 +16,9 @@ const fieldSchema = new mongoose.Schema({
     enum: ["text", "number", "date", "select", "boolean"],
   },
   required: { type: Boolean, default: false },
-  options: [{ type: String }], // For select fields
+  options: [{ type: String }], // For select field
+
+
   order: { type: Number, default: 0 },
 });
 
@@ -159,6 +161,9 @@ const ChargeSchema = new mongoose.Schema({
   payment_request_approved_byFirst: { type: String, trim: true },
   payment_request_approved_byLast: { type: String, trim: true },
   payment_request_approved_at: { type: Date },
+  payment_request_requested_by: { type: String, trim: true },
+  payment_request_transaction_type: { type: String, trim: true },
+  payment_request_receipt_url: { type: String, trim: true },
   utrNumber: { type: String, trim: true },
   utrAddedBy: { type: String, trim: true },
   utrAddedAt: { type: Date },

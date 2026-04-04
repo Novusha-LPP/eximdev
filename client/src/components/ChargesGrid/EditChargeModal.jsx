@@ -332,6 +332,24 @@ const EditChargeModal = ({
                             <div style={{ fontSize: '10px', color: '#2e7d32', marginTop: '4px', fontWeight: '500', display: 'flex', flexDirection: 'column' }}>
                                 <span>UTR: {paymentDetailsAudit[row.payment_request_no].utrNumber}</span>
                                 <span style={{ opacity: 0.8 }}>By {paymentDetailsAudit[row.payment_request_no].utrAddedBy || 'Accounts'} on {new Date(paymentDetailsAudit[row.payment_request_no].utrAddedAt).toLocaleString('en-GB')}</span>
+                                {paymentDetailsAudit[row.payment_request_no].paymentReceiptUrl && (
+                                    <a 
+                                        href={paymentDetailsAudit[row.payment_request_no].paymentReceiptUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        style={{ 
+                                            color: '#1565c0', 
+                                            textDecoration: 'underline', 
+                                            marginTop: '4px',
+                                            fontWeight: 'bold',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}
+                                    >
+                                        <DescriptionIcon style={{ fontSize: '12px' }} /> View Payment Receipt
+                                    </a>
+                                )}
                             </div>
                         )}
                     </div>
@@ -855,7 +873,7 @@ const EditChargeModal = ({
         onSuccess={(requestNo) => {
           // Update the localized formData state with the new number
           const updated = [...formData];
-          const activeIndex = formData.findIndex(c => c.chargeHead === paymentRequestData.chargeHead);
+          const activeIndex = formData.findIndex(c => c._id === paymentRequestData.chargeId || c.chargeHead === paymentRequestData.chargeHead);
           if (activeIndex !== -1) {
             const initialStatus = 'Pending';
             updated[activeIndex].payment_request_no = requestNo;

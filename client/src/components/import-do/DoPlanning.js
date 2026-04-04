@@ -868,17 +868,10 @@ function DoPlanning() {
           setIsOgDocRecieved(row.original.is_og_doc_recieved || false);
         }, [row.original.is_do_doc_prepared, row.original.is_og_doc_recieved]);
 
-        // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
-        const doShippingLineInvoice = row.original.do_shipping_line_invoice;
-        let paymentReciptDate = "";
-        let paymentRequestDate = "";
-        if (
-          Array.isArray(doShippingLineInvoice) &&
-          doShippingLineInvoice.length > 0
-        ) {
-          paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
-          paymentRequestDate = doShippingLineInvoice[0].payment_request_date;
-        }
+        // Get payment request info from charges array
+        const charges = row.original.charges || [];
+        const paymentRequests = charges.filter(c => c.payment_request_no && c.payment_request_no !== "");
+        const paymentsMade = charges.filter(c => c.utrNumber && c.utrNumber !== "");
 
         const handleToggleDoDocPrepared = async (event) => {
           const newValue = event.target.checked;
@@ -994,74 +987,63 @@ function DoPlanning() {
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
-            {/* Show payment request info if available */}
-            {paymentRequestDate && (
-              <>
+            {/* Show payment request info if available from charges */}
+            {paymentRequests.length > 0 && (
+              <div style={{ marginTop: 4 }}>
                 <div
                   style={{
                     color: "#d32f2f",
                     fontWeight: 500,
                     fontSize: "12px",
-                    marginTop: 4,
                   }}
                 >
-                  Payment request sent to billing team
+                  Payment request(s) sent to billing team ({paymentRequests.length})
                 </div>
-                <div
-                  style={{
-                    color: "#0288d1",
-                    fontWeight: 500,
-                    fontSize: "12px",
-                    marginBottom: 2,
-                  }}
-                >
-                  Payment Request Date:{" "}
-                  {new Date(paymentRequestDate).toLocaleString("en-IN", {
-                    hour12: true,
-                  })}
-                </div>
-              </>
-            )}
-            {/* Show payment receipt links if available */}
-            {Array.isArray(doShippingLineInvoice) &&
-              doShippingLineInvoice.length > 0 &&
-              doShippingLineInvoice.map((invoice, idx) =>
-                invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
+                {paymentRequests.map((req, idx) => (
                   <div
                     key={idx}
                     style={{
+                      color: "#0288d1",
+                      fontWeight: 500,
                       fontSize: "11px",
-                      color: "#388e3c",
-                      marginTop: "2px",
                     }}
                   >
-                    {invoice.payment_recipt.map((url, i) => (
+                    Req No: {req.payment_request_no} | {req.payment_request_requested_by || ""}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Show payment receipt links if available from charges */}
+            {paymentsMade.length > 0 && (
+              <div style={{ marginTop: "4px" }}>
+                <div style={{ fontSize: "11px", color: "#388e3c", fontWeight: "bold" }}>
+                  Payments Made ({paymentsMade.length}):
+                </div>
+                {paymentsMade.map((payment, idx) => (
+                  <div key={idx} style={{ marginBottom: "2px" }}>
+                    <div style={{ fontSize: "10px", color: "#1976d2" }}>
+                      UTR: {payment.utrNumber} | {payment.utrAddedAt ? new Date(payment.utrAddedAt).toLocaleDateString() : ""}
+                    </div>
+                    {payment.payment_request_receipt_url && (
                       <a
-                        key={i}
-                        href={url}
+                        href={payment.payment_request_receipt_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                          color: "#388e3c",
+                          color: "#1565c0",
                           textDecoration: "underline",
-                          marginRight: 8,
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          display: "block",
+                          marginTop: "2px"
                         }}
                       >
-                        View Payment Receipt{" "}
-                        {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ""}
+                        View Official Receipt
                       </a>
-                    ))}
+                    )}
                   </div>
-                ) : null
-              )}
-            {paymentReciptDate && (
-              <div
-                style={{ fontSize: "11px", color: "#1976d2", marginTop: "2px" }}
-              >
-                Payment Receipt Uploaded:{" "}
-                {new Date(paymentReciptDate).toLocaleString("en-IN", {
-                  hour12: true,
-                })}
+                ))}
               </div>
             )}
             <br />

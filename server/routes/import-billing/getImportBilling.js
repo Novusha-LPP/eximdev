@@ -151,6 +151,7 @@ router.get(
       unresolvedOnly,
       branchId,
       category,
+      transactionType,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -214,6 +215,12 @@ router.get(
         });
       }
 
+      if (transactionType && transactionType !== "All") {
+        baseQuery.$and.push({
+          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
+      }
+
       const branchMatch = getBranchMatch(branchId, category);
       baseQuery.$and.push(branchMatch);
 
@@ -223,7 +230,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode"
         )
         .lean();
 
@@ -337,7 +344,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode"
         )
         .lean();
 
@@ -469,7 +476,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob _id eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing branch_code trade_type mode"
+        "priorityJob _id eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing branch_code trade_type mode"
       )
       .lean();
 
@@ -513,6 +520,7 @@ router.get(
       unresolvedOnly,
       branchId,
       category,
+      transactionType,
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -560,6 +568,12 @@ router.get(
       const branchMatch = getBranchMatch(branchId, category);
       matchConditions.$and.push(branchMatch);
 
+      if (transactionType && transactionType !== "All") {
+        matchConditions.$and.push({
+          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
+      }
+
       if (search && search.trim()) {
         matchConditions.$and.push({
           $or: [
@@ -583,8 +597,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
                           { $ne: ["$$charge.payment_request_is_approved", true] },
                         ],
@@ -616,7 +631,7 @@ router.get(
             }
           },
         },
-        { $match: { $or: [{ has_pending_payments: true }, { has_unresolved_accounts_queries: true }] } },
+        { $match: { has_pending_payments: true } },
         {
           $project: {
             priorityJob: 1,
@@ -631,6 +646,7 @@ router.get(
             job_number: 1, job_no: 1,
             year: 1,
             importer: 1,
+            shipping_line_airline: 1,
             custom_house: 1,
             gateway_igm_date: 1,
             discharge_date: 1,
@@ -828,8 +844,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $eq: ["$$charge.payment_request_is_approved", true] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
                         ],
@@ -852,6 +869,7 @@ router.get(
             job_number: 1, job_no: 1,
             year: 1,
             importer: 1,
+            shipping_line_airline: 1,
             custom_house: 1,
             consignment_type: 1,
             type_of_b_e: 1,
@@ -978,8 +996,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $ne: ["$$charge.payment_request_status", "Paid"] },
                         ],
                       },
@@ -998,8 +1017,9 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
+                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
+                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
+                          { $ne: ["$$charge.payment_request_no", "undefined"] },
                           { $eq: ["$$charge.payment_request_status", "Paid"] },
                         ],
                       },
@@ -1046,6 +1066,7 @@ router.get(
             job_number: 1, job_no: 1,
             year: 1,
             importer: 1,
+            shipping_line_airline: 1,
             custom_house: 1,
             gateway_igm_date: 1,
             discharge_date: 1,
@@ -1136,37 +1157,44 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       }
     }
 
+    let importer = request.importer || "";
+
     if (jobRef) {
       try {
-        const job = await JobModel.findById(jobRef).select('charges').lean();
-        if (job && job.charges) {
-          let linkedCharge;
-          if (chargeRef) {
-            linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
-          }
-          
-          // Further fallback: Find by party name or description if chargeRef is missing or not found
-          if (!linkedCharge) {
-            linkedCharge = job.charges.find(c => 
-              (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
-              (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
-            );
-          }
+        const job = await JobModel.findById(jobRef).select('charges importer').lean();
+        if (job) {
+          // If importer is missing in request, get it from job
+          if (!importer) importer = job.importer || "";
 
-          if (linkedCharge) {
-            const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
-            const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
+          if (job.charges) {
+            let linkedCharge;
+            if (chargeRef) {
+              linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
+            }
             
-            // Combine and deduplicate
-            attachments = [...new Set([...revUrls, ...costUrls])];
+            // Further fallback: Find by party name or description if chargeRef is missing or not found
+            if (!linkedCharge) {
+              linkedCharge = job.charges.find(c => 
+                (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
+                (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
+              );
+            }
+
+            if (linkedCharge) {
+              const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
+              const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
+              
+              // Combine and deduplicate
+              attachments = [...new Set([...revUrls, ...costUrls])];
+            }
           }
         }
       } catch (err) {
-        console.error("Error fetching linked charge attachments:", err);
+        console.error("Error fetching linked job details:", err);
       }
     }
 
-    res.status(200).json({ ...request, attachments });
+    res.status(200).json({ ...request, importer, attachments });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -1227,6 +1255,62 @@ router.post("/api/approve-payment-request", async (req, res) => {
   }
 });
 
+router.post("/api/reject-payment-request", async (req, res) => {
+  try {
+    const { requestNo, firstName, lastName, reason } = req.body;
+
+    if (!requestNo || !firstName || !lastName || !reason) {
+      return res.status(400).json({ message: "Request No, First Name, Last Name, and Reason are required" });
+    }
+
+    // 1. Update PaymentRequestModel
+    const updatedRequest = await PaymentRequestModel.findOneAndUpdate(
+      { requestNo: requestNo },
+      { 
+        $set: { 
+          isRejected: true,
+          rejectedByFirst: firstName,
+          rejectedByLast: lastName,
+          rejectionReason: reason,
+          rejectedAt: new Date(),
+          status: 'Rejected'
+        } 
+      },
+      { new: true }
+    );
+
+    if (!updatedRequest) {
+      return res.status(404).json({ message: "Payment Request not found" });
+    }
+
+    // 2. Reset JobModel charges (IMPORTANT: removing the request link to allow re-submission)
+    await JobModel.updateMany(
+      { "charges.payment_request_no": requestNo },
+      { 
+        $set: { 
+          "charges.$[elem].payment_request_no": "",
+          "charges.$[elem].payment_request_status": "",
+          "charges.$[elem].payment_request_is_approved": false,
+          "charges.$[elem].payment_request_requested_by": ""
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.payment_request_no": requestNo }] 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Payment request rejected and linked charges reset",
+      data: updatedRequest 
+    });
+
+  } catch (err) {
+    console.error("Error rejecting payment request:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.patch("/api/update-payment-utr", async (req, res) => {
   try {
     const { requestNo, utrNumber, bankFrom } = req.body;
@@ -1245,6 +1329,7 @@ router.patch("/api/update-payment-utr", async (req, res) => {
           bankFrom: bankFrom,
           utrAddedBy: username,
           utrAddedAt: new Date(),
+          paymentReceiptUrl: req.body.paymentReceiptUrl || "",
           status: "Paid"
         } 
       },
@@ -1263,7 +1348,8 @@ router.patch("/api/update-payment-utr", async (req, res) => {
           "charges.$[elem].payment_request_status": "Paid",
           "charges.$[elem].utrNumber": utrNumber,
           "charges.$[elem].utrAddedBy": username,
-          "charges.$[elem].utrAddedAt": new Date()
+          "charges.$[elem].utrAddedAt": new Date(),
+          "charges.$[elem].payment_request_receipt_url": req.body.paymentReceiptUrl || ""
         } 
       },
       { 
@@ -1279,74 +1365,6 @@ router.patch("/api/update-payment-utr", async (req, res) => {
 
   } catch (err) {
     console.error("Error updating UTR:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-
-router.get("/api/get-approved-payment-jobs", async (req, res) => {
-  try {
-    const { page = 1, limit = 10, search = "", importer = "", year = "" } = req.query;
-    const skip = (page - 1) * limit;
-
-    const pipeline = [
-      {
-        $match: {
-          importer: { $regex: importer, $options: "i" },
-          $and: [
-            { year: { $regex: year, $options: "i" } },
-            {
-              $or: [
-                { job_no: { $regex: search, $options: "i" } },
-                { importer: { $regex: search, $options: "i" } },
-                { awb_bl_no: { $regex: search, $options: "i" } },
-              ],
-            },
-          ],
-        },
-      },
-      {
-        $addFields: {
-          approved_request_count: {
-            $size: {
-              $filter: {
-                input: { $ifNull: ["$charges", []] },
-                as: "charge",
-                cond: {
-                  $and: [
-                    { $ne: ["$$charge.payment_request_no", ""] },
-                    { $ne: ["$$charge.payment_request_no", null] },
-                    { $ne: ["$$charge.payment_request_status", "Paid"] },
-                    { $eq: ["$$charge.payment_request_is_approved", true] },
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
-      { $match: { approved_request_count: { $gt: 0 } } },
-      {
-        $facet: {
-          metadata: [{ $count: "totalJobs" }],
-          jobs: [{ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: parseInt(limit) }],
-        },
-      },
-    ];
-
-    const result = await JobModel.aggregate(pipeline);
-    const totalJobs = result[0].metadata[0]?.totalJobs || 0;
-    const totalPages = Math.ceil(totalJobs / limit);
-
-    res.status(200).json({
-      success: true,
-      totalJobs,
-      totalPages,
-      currentPage: parseInt(page),
-      jobs: result[0].jobs,
-    });
-  } catch (err) {
-    console.error("Error in get-approved-payment-jobs:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

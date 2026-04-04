@@ -204,17 +204,54 @@ const ChargesTable = ({
                       {ch.payment_request_no ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                           <span style={{ fontSize: '10px', color: '#1565c0', fontWeight: 'bold' }}>{ch.payment_request_no}</span>
-                          <span style={{ 
-                            fontSize: '9px', 
-                            padding: '1px 6px', 
-                            borderRadius: '8px', 
-                            background: ch.payment_request_status === 'Paid' ? '#e8f5e9' : '#fff3e0',
-                            color: ch.payment_request_status === 'Paid' ? '#2e7d32' : '#ef6c00',
-                            border: '1px solid currentColor',
-                            fontWeight: 'bold'
-                          }}>
-                            {ch.payment_request_status === 'Paid' ? 'Payment Done' : (ch.payment_request_status || 'Pending')}
-                          </span>
+                          {ch.payment_request_status === 'Paid' ? (
+                            ch.payment_request_receipt_url ? (
+                              <a 
+                                href={ch.payment_request_receipt_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ 
+                                  fontSize: '9px', 
+                                  padding: '1px 6px', 
+                                  borderRadius: '8px', 
+                                  background: '#e8f5e9',
+                                  color: '#2e7d32',
+                                  border: '1px solid currentColor',
+                                  fontWeight: 'bold',
+                                  textDecoration: 'none',
+                                  cursor: 'pointer'
+                                }}
+                                title="Click to view receipt"
+                              >
+                                Payment Done
+                              </a>
+                            ) : (
+                              <span style={{ 
+                                fontSize: '9px', 
+                                padding: '1px 6px', 
+                                borderRadius: '8px', 
+                                background: '#e8f5e9',
+                                color: '#2e7d32',
+                                border: '1px solid currentColor',
+                                fontWeight: 'bold'
+                              }}>
+                                Payment Done
+                              </span>
+                            )
+                          ) : (
+                            <span style={{ 
+                              fontSize: '9px', 
+                              padding: '1px 6px', 
+                              borderRadius: '8px', 
+                              background: '#fff3e0',
+                              color: '#ef6c00',
+                              border: '1px solid currentColor',
+                              fontWeight: 'bold'
+                            }}>
+                              {ch.payment_request_status || 'Pending'}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span style={{ fontSize: '10px', color: '#ccc', fontStyle: 'italic' }}>No PR</span>

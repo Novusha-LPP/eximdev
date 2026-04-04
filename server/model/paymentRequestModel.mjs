@@ -7,6 +7,7 @@ const paymentRequestSchema = new mongoose.Schema({
   jobNo: { type: String, index: true },
   chargeRef: { type: String, index: true },
   jobRef: { type: String, index: true },
+  importer: { type: String },
   bankFrom: { type: String },
   paymentTo: { type: String, index: true },
   againstBill: { type: String },
@@ -22,11 +23,18 @@ const paymentRequestSchema = new mongoose.Schema({
   utrNumber: { type: String },
   utrAddedBy: { type: String },
   utrAddedAt: { type: Date },
+  paymentReceiptUrl: { type: String },
   isApproved: { type: Boolean, default: false },
   approvedByFirst: { type: String, trim: true },
   approvedByLast: { type: String, trim: true },
   approvedAt: { type: Date },
+  isRejected: { type: Boolean, default: false },
+  rejectedByFirst: { type: String, trim: true },
+  rejectedByLast: { type: String, trim: true },
+  rejectedAt: { type: Date },
+  rejectionReason: { type: String },
   status: { type: String, default: '' },
+  requestedBy: { type: String },
   createdAt: { type: Date, default: Date.now }
 
 }, { timestamps: true });

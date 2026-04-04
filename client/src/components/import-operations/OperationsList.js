@@ -516,6 +516,7 @@ function OperationsList() {
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
+        const { checklist } = row.original;
         // 1) Create a ref for the JobStickerPDF child
         const pdfRef = React.useRef(null);
 
@@ -524,8 +525,41 @@ function OperationsList() {
           pdfRef.current?.generatePdf();
         };
 
+        const getFirstLink = (input) => {
+          if (Array.isArray(input)) {
+            return input.length > 0 ? input[0] : null;
+          }
+          return input || null;
+        };
+
+        const checklistLink = getFirstLink(checklist);
+
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* Checklist Visibility */}
+            {checklistLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={checklistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  View Checklist
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray", fontSize: "14px" }}>No Checklist</span>
+              </div>
+            )}
+
             {/* 3) The invisible child that has .generatePdf() */}
             <JobStickerPDF ref={pdfRef} data={row.original} />
 
@@ -534,7 +568,7 @@ function OperationsList() {
               onClick={handleGenerate}
               style={{
                 padding: "10px 20px",
-                fontSize: "16px",
+                fontSize: "14px",
                 borderRadius: "6px",
                 boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                 cursor: "pointer",

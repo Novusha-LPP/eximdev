@@ -28,6 +28,7 @@ import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
+import { isAirMode, getContainerOrPackageLabel } from "../../utils/modeLogic";
 
 const CFS_OPTIONS = [
 "ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED",
@@ -75,6 +76,48 @@ function ViewOperationsJob() {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedJobId, searchQuery, page } = location.state || {};
+
+  const handleAddContainer = () => {
+    const newContainer = {
+      container_number: "",
+      arrival_date: "",
+      detention_from: "",
+      size: "",
+      net_weight: "",
+      container_gross_weight: "",
+      pre_weighment: "",
+      post_weighment: "",
+      physical_weight: "",
+      tare_weight: "",
+      actual_weight: "",
+      weight_shortage: "",
+      weight_excess: "",
+      weighment_slip_images: [],
+      container_pre_damage_images: [],
+      container_images: [],
+      loose_material: [],
+      examination_videos: [],
+      transporter: "",
+      vehicle_no: "",
+      driver_name: "",
+      driver_phone: "",
+      seal_no: "",
+      do_revalidation_date: "",
+      do_validity_upto_container_level: "",
+      required_do_validity_upto: "",
+      seal_number: [],
+      wire_seal: [],
+      container_rail_out_date: "",
+      by_road_movement_date: "",
+      emptyContainerOffLoadDate: "",
+      net_weight_as_per_PL_document: "",
+      delivery_chalan_file: "",
+      delivery_date: "",
+      do_revalidation: [],
+    };
+    formik.setFieldValue("container_nos", [...formik.values.container_nos, newContainer]);
+    setSelectedContainerIndex(formik.values.container_nos.length);
+  };
 
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null); // Store search parameters from location state
@@ -456,7 +499,7 @@ function ViewOperationsJob() {
             >
               <Tab label="Dates" />
               <Tab label="Documents" />
-              <Tab label="Container" />
+              <Tab label={getContainerOrPackageLabel(data?.mode)} />
             </Tabs>
           </Box>
 
@@ -912,7 +955,7 @@ function ViewOperationsJob() {
           {/* ********************** Tab 2: Container ********************** */}
           {viewJobTab === 2 && (
             <div className="job-details-container">
-              <JobDetailsRowHeading heading="Container Details" />
+              <JobDetailsRowHeading heading={`${getContainerOrPackageLabel(data?.mode)} Details`} />
 
               <Row>
                 {/* Left Column: List of Containers */}
@@ -935,15 +978,26 @@ function ViewOperationsJob() {
                         }}
                       >
                         <div style={{ fontWeight: "600", color: "#495057", fontSize: "0.9rem" }}>
-                          {container.container_number || `Container ${i + 1}`}
+                          {container.container_number || `${getContainerOrPackageLabel(data?.mode)} ${i + 1}`}
                         </div>
-                        {container.size && (
+                        {container.size && !isAirMode(data?.mode) && (
                           <div style={{ fontSize: "0.75rem", color: "#6c757d" }}>
                             Size: {container.size}
                           </div>
                         )}
                       </div>
                     ))}
+                    {isAirMode(data?.mode) && (
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={handleAddContainer}
+                        sx={{ mt: 1, textTransform: 'none' }}
+                      >
+                        Add Package
+                      </Button>
+                    )}
                   </div>
                 </Col>
 
@@ -970,7 +1024,7 @@ function ViewOperationsJob() {
                             <div style={{ display: 'flex', alignItems: 'center', minHeight: '40px' }}>
                               <h6 style={{ margin: 0 }}>
                                 <strong>
-                                  {index + 1}. Container Number:&nbsp;
+                                  {index + 1}. {getContainerOrPackageLabel(data?.mode)} Number:&nbsp;
                                   <span ref={container_number_ref[index]}>
                                     <a
                                       href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
@@ -990,7 +1044,7 @@ function ViewOperationsJob() {
                                   >
                                     <ContentCopyIcon />
                                   </IconButton>
-                                  Size: {container.size}
+                                  {!isAirMode(data?.mode) && `Size: ${container.size}`}
                                 </strong>
                               </h6>
                             </div>
@@ -1139,6 +1193,55 @@ function ViewOperationsJob() {
                               </div>
                             </div>
                           </div>
+
+                          <Row className="job-detail-row">
+                            <Col xs={12} md={4}>
+                              <div className="job-detail-input-container">
+                                <strong>{getContainerOrPackageLabel(data?.mode)} Number:&nbsp;</strong>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].container_number`}
+                                  value={container.container_number}
+                                  onChange={formik.handleChange}
+                                />
+                              </div>
+                            </Col>
+                            <Col xs={12} md={4}>
+                              <div className="job-detail-input-container">
+                                <strong>Arrival Date:&nbsp;</strong>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].arrival_date`}
+                                  value={container.arrival_date}
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                />
+                              </div>
+                            </Col>
+                            {isAirMode(data?.mode) && (
+                              <Col xs={12} md={4}>
+                                <div className="job-detail-input-container">
+                                  <strong>Delivery Date:&nbsp;</strong>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="datetime-local"
+                                    variant="outlined"
+                                    name={`container_nos[${index}].delivery_date`}
+                                    value={container.delivery_date}
+                                    onChange={formik.handleChange}
+                                    InputLabelProps={{ shrink: true }}
+                                  />
+                                </div>
+                              </Col>
+                            )}
+                          </Row>
+
                           <Row className="job-detail-row">
                             <Col xs={12} md={2}>
                               <div className="job-detail-input-container">
@@ -1363,10 +1466,9 @@ function ViewOperationsJob() {
                           </Row>
 
                           <Row>
-                            {/* Container Images */}
                             <Col xs={6}>
                               <FileUpload
-                                label="Upload Container Images"
+                                label={`Upload ${getContainerOrPackageLabel(data?.mode)} Images`}
                                 bucketPath="container_images"
                                 onFilesUploaded={(uploadedFiles) =>
                                   handleFileUpload(
@@ -1388,26 +1490,25 @@ function ViewOperationsJob() {
                               />
                             </Col>
 
-                            {/* Loose Material Images */}
                             <Col xs={6}>
                               <FileUpload
-                                label="Upload Loose Material Images"
-                                bucketPath="loose_material"
+                                label={`Upload ${getContainerOrPackageLabel(data?.mode)} Pre-Damage Images`}
+                                bucketPath="container_pre_damage_images"
                                 onFilesUploaded={(uploadedFiles) =>
                                   handleFileUpload(
                                     uploadedFiles,
                                     container.container_number,
-                                    "loose_material"
+                                    "container_pre_damage_images"
                                   )
                                 }
                               />
                               <ImagePreview
-                                images={container.loose_material || []}
+                                images={container.container_pre_damage_images || []}
                                 onDeleteImage={(index) =>
                                   handleDeleteImage(
                                     index,
                                     container.container_number,
-                                    "loose_material"
+                                    "container_pre_damage_images"
                                   )
                                 }
                               />

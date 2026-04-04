@@ -268,6 +268,7 @@ const BLTrackingCell = ({
         location={selectedLocation}
         masterBlNo={selectedBL}
         isExtended={isExtended}
+        branchCode={branch_code}
         onUpdateSuccess={handleSeaCargoUpdate}
         invalidateCache={invalidateCache}
         selectedYear={selectedYear}

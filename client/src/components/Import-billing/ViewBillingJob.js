@@ -20,6 +20,7 @@ import FileUpload from "../gallery/FileUpload";
 
 import QueriesComponent from "../../utils/QueriesComponent";
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ChargesGrid from "../ChargesGrid";
 
 // Excel-like styles
 const excelStyles = {
@@ -624,6 +625,24 @@ const ViewBillingJob = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Charges Grid Section */}
+            <div className="job-details-container">
+              <JobDetailsRowHeading heading="Charges Details" />
+              <ChargesGrid 
+                parentId={data?._id} 
+                parentModule="Job" 
+                shippingLineAirline={data?.shipping_line_airline} 
+                importerName={data?.importer}
+                jobNumber={data?.job_no}
+                jobDisplayNumber={data?.job_number}
+                jobYear={data?.year}
+                invoiceNumber={data?.invoice_number}
+                invoiceDate={data?.invoice_date}
+                invoiceValue={data?.total_inv_value}
+                cthNo={data?.cth_no}
+              />
             </div>
 
             {/* CTH Documents Table */}

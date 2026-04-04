@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import axios from "axios";
 import {
   Box,
   Typography,
@@ -22,6 +23,26 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
     ooc_copies = [],
     in_bond_ooc_copies = [],
   } = row;
+  const [charges, setCharges] = useState([]);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  const handleFetchCharges = async () => {
+    if (hasFetched || !row._id) return;
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/charges`,
+        {
+          params: { parentId: row._id, parentModule: "Job" },
+        }
+      );
+      if (res.data.success) {
+        setCharges(res.data.data);
+        setHasFetched(true);
+      }
+    } catch (err) {
+      console.error("Error fetching charges for InvoiceDisplay:", err);
+    }
+  };
 
   // Combine shipping line invoices
   const getProcessedShippingLineInvoices = () => {
@@ -133,8 +154,9 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
               data.url.forEach((url, i) => {
                 options.push({
                   type: "item",
-                  label: `${name}${status} - Invoice ${data.url.length > 1 ? i + 1 : ""
-                    }`,
+                  label: `${name}${status} - Invoice ${
+                    data.url.length > 1 ? i + 1 : ""
+                  }`,
                   url: url,
                   key: `${section.key}-${idx}-inv-${i}`,
                   icon: <DescriptionIcon fontSize="small" />,
@@ -146,8 +168,9 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
               data.payment_recipt.forEach((url, i) => {
                 options.push({
                   type: "item",
-                  label: `${name}${status} - Receipt ${data.payment_recipt.length > 1 ? i + 1 : ""
-                    }`,
+                  label: `${name}${status} - Receipt ${
+                    data.payment_recipt.length > 1 ? i + 1 : ""
+                  }`,
                   url: url,
                   key: `${section.key}-${idx}-rec-${i}`,
                   icon: <ReceiptIcon fontSize="small" />,
@@ -184,7 +207,8 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
       });
       oocSection.items.forEach((item, idx) => {
         const url = typeof item === "string" ? item : item.url;
-        const name = typeof item === "string" ? `OOC Copy ${idx + 1}` : item.name;
+        const name =
+          typeof item === "string" ? `OOC Copy ${idx + 1}` : item.name;
         if (url) {
           options.push({
             type: "item",
@@ -206,7 +230,8 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
       });
       inBondOocSection.items.forEach((item, idx) => {
         const url = typeof item === "string" ? item : item.url;
-        const name = typeof item === "string" ? `In Bond OOC Copy ${idx + 1}` : item.name;
+        const name =
+          typeof item === "string" ? `In Bond OOC Copy ${idx + 1}` : item.name;
         if (url) {
           options.push({
             type: "item",
@@ -219,12 +244,68 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
       });
     }
 
+    // Charges Attachments
+    if (charges && charges.length > 0) {
+      let chargeItems = [];
+      charges.forEach((charge) => {
+        const { chargeHead, revenue, cost } = charge;
+
+        // Add revenue URLs
+        if (revenue && Array.isArray(revenue.url)) {
+          revenue.url.forEach((url, i) => {
+            if (url) {
+              chargeItems.push({
+                type: "item",
+                label: `${chargeHead} - ${
+                  revenue.url.length > 1 ? `Rev ${i + 1}` : "Revenue"
+                }`,
+                url: url,
+                key: `charge-rev-${charge._id}-${i}`,
+                icon: <DescriptionIcon fontSize="small" />,
+              });
+            }
+          });
+        }
+
+        // Add cost URLs
+        if (cost && Array.isArray(cost.url)) {
+          cost.url.forEach((url, i) => {
+            if (url) {
+              chargeItems.push({
+                type: "item",
+                label: `${chargeHead} - ${
+                  cost.url.length > 1 ? `Cost ${i + 1}` : "Cost"
+                }`,
+                url: url,
+                key: `charge-cost-${charge._id}-${i}`,
+                icon: <DescriptionIcon fontSize="small" />,
+              });
+            }
+          });
+        }
+      });
+
+      if (chargeItems.length > 0) {
+        options.push({
+          type: "header",
+          label: "Charges Attachments",
+          key: "charges-header",
+        });
+        options.push(...chargeItems);
+      }
+    }
+
     return options;
   };
 
   const options = getDropdownOptions();
 
-  if (options.length === 0) return null;
+  // If no documents found AND we already tried fetching charges, only then return null
+  // This ensures the component is visible initially so user can trigger the fetch
+  if (options.length === 0 && hasFetched) return null;
+
+  // If no ID is present, we can't do anything
+  if (!row._id) return null;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
@@ -254,6 +335,7 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
         }}
         SelectProps={{
           displayEmpty: true,
+          onOpen: handleFetchCharges,
           renderValue: () => (
             <Typography variant="body2" color="text.secondary">
               Select to view...
@@ -326,6 +408,13 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
         <MenuItem value="" disabled sx={{ display: "none" }}>
           Select to view...
         </MenuItem>
+        {options.length === 0 && (
+          <MenuItem disabled>
+            <Typography variant="body2" color="text.secondary">
+              No documents found
+            </Typography>
+          </MenuItem>
+        )}
         {options.map((opt) => {
           if (opt.type === "header") {
             return (

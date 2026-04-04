@@ -309,12 +309,61 @@ const ImportCreateJob = () => {
     isEditMode,
     jobNumber,
     populateJobData,
-    checkDuplicate
+    checkDuplicate,
+    importer_type,
+    setImporterType,
+    commercial_tax_type,
+    setCommercialTaxType,
+    importer_address,
+    setImporterAddress,
+    importer_address_details,
+    setImporterAddressDetails,
+    importer_city,
+    setImporterCity,
+    importer_state,
+    setImporterState,
+    importer_postal_code,
+    setImporterPostalCode,
+    importer_country,
+    setImporterCountry,
+    hss_state,
+    setHssState,
   } = useImportJobForm();
 
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [duplicateJob, setDuplicateJob] = useState(null);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [nextJobNumber, setNextJobNumber] = useState("");
+
+  const fetchNextJobNumber = async () => {
+    if (isEditMode) {
+      setNextJobNumber(jobNumber);
+      return;
+    }
+    if (!branch_id) {
+      const bc = branches.find(b => b._id === branch_id)?.branch_code || '???';
+      setNextJobNumber(`${bc}/${trade_type}/${mode}/XXXXX/${selectedYear}`);
+      return;
+    }
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-next-job-number`, {
+        params: { branch_id, trade_type, mode, financial_year: selectedYear }
+      });
+      console.log("Next Job Number fetched:", res.data.jobNumber);
+      setNextJobNumber(res.data.jobNumber);
+    } catch (error) {
+      console.error("Error fetching next job number:", error);
+      // Fallback to pattern
+      const bc = branches.find(b => b._id === branch_id)?.branch_code || '???';
+      setNextJobNumber(`${bc}/${trade_type}/${mode}/XXXXX/${selectedYear}`);
+    }
+  };
+
+  const handleFinalizeClick = async () => {
+    await fetchNextJobNumber();
+    setReviewDialogOpen(true);
+  };
 
   const handleBlBlur = async (e) => {
     const val = e.target.value;
@@ -340,7 +389,8 @@ const ImportCreateJob = () => {
     });
   };
 
-  const currencyOptions = ["USD", "EUR", "GBP", "JPY", "INR", "AUD", "CAD", "CHF", "CNY", "HKD", "SGD"];
+  const [currencies, setCurrencies] = useState([]);
+  const currencyOptions = currencies.map(c => c.code);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
@@ -352,10 +402,47 @@ const ImportCreateJob = () => {
     "(INHZA1) Hazira",
     "(INAMD4) Ahmedabad"
   ];
+
+  const importerTypeOptions = [
+    { value: 'G', label: 'Government Departments (Central & State)' },
+    { value: 'U', label: 'Government Undertakings (Central & State)' },
+    { value: 'O', label: 'Others' },
+    { value: 'P', label: 'Private' },
+    { value: 'J', label: 'Jobbing' },
+    { value: 'R', label: 'Repair' },
+    { value: 'E', label: 'Exhibition' },
+    { value: 'D', label: 'Destruction' },
+    { value: 'T', label: 'Sample Testing' },
+    { value: 'S', label: 'Ship Stores / Cruise Ship Purchase' },
+    { value: 'V', label: 'Vessels / Charter Vessels / Vessel Repair' },
+    { value: 'A', label: 'New Aircraft' },
+    { value: 'H', label: 'Hand Carriage (Applicable for Air Cargo – H Type BE)' },
+    { value: 'I', label: 'Unclaimed Cargo' },
+    { value: 'T', label: 'W Type BE in SEZ (Trading – SEZ to CBW)' },
+    { value: 'M', label: 'W Type BE in SEZ (Manufactured Goods – SEZ to CBW)' },
+    { value: 'W', label: 'Z Type BE in SEZ (CBW to SEZ)' },
+  ];
+
+  const commercialTaxTypeOptions = [
+    { value: 'V', label: 'VAT (Value Added Tax)' },
+    { value: 'C', label: 'CST (Central Sales Tax)' },
+    { value: 'S', label: 'Service Tax' },
+    { value: 'G', label: 'GST – Registered Taxpayer (India)' },
+    { value: 'N', label: 'GST – Non-Resident Taxpayer' },
+    { value: 'O', label: 'GST – Government Entity' },
+    { value: 'D', label: 'GST – Diplomat' },
+    { value: 'A', label: 'Aadhaar Number' },
+    { value: 'P', label: 'Passport Number' },
+    { value: 'I', label: 'Income Tax PAN' },
+    { value: 'T', label: 'TIN (Taxpayer Identification Number)' },
+  ];
+
   const [selectedYear, setSelectedYear] = useState("");
-  const years = ["24-25", "25-26", "26-27"];
+  const [years, setYears] = useState(["24-25", "25-26", "26-27"]);
   const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [importerBranches, setImporterBranches] = useState([]);
+  const [hssSellerBranches, setHssSellerBranches] = useState([]);
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
   const [suppliers, setSuppliers] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
@@ -364,17 +451,36 @@ const ImportCreateJob = () => {
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
 
   React.useEffect(() => {
-    async function getImporterList() {
-      if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
-        );
-        setImporters(res.data);
-        setSelectedImporter("Select Importer");
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-currencies`);
+        setCurrencies(res.data);
+      } catch (error) {
+        console.error("Error fetching currencies:", error);
+      }
+    };
+    fetchCurrencies();
+  }, []);
+
+  React.useEffect(() => {
+    async function getOrganizationList() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/organization`);
+        let orgData = res.data.organizations || (Array.isArray(res.data) ? res.data : []);
+        
+        // Ensure every organization has a 'name' field for the UI
+        const mappedOrgs = orgData.map(org => ({
+          ...org,
+          name: org.name || org.name_of_individual || "Unknown Organization"
+        }));
+        
+        setOrganizations(mappedOrgs);
+      } catch (error) {
+        console.error("Error fetching organizations:", error);
       }
     }
-    getImporterList();
-  }, [selectedYear]);
+    getOrganizationList();
+  }, []);
 
   React.useEffect(() => {
     async function getSupplierExporterList() {
@@ -393,31 +499,19 @@ const ImportCreateJob = () => {
     getSupplierExporterList();
   }, [selectedYear]);
 
-  const getUniqueImporterNames = (importerData) => {
-    if (!importerData || !Array.isArray(importerData)) return [];
-    const uniqueImporters = new Set();
-    return importerData
-      .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
-        return true;
-      })
-      .map((importer, index) => ({
-        label: importer.importer,
-        key: `${importer.importer}-${index}`,
-      }));
-  };
-
   const importerNames = [
     { label: "Select Importer" },
-    ...getUniqueImporterNames(importers),
+    ...organizations.map(org => ({ label: org.name, key: org._id }))
   ];
 
   useEffect(() => {
-    if (!selectedImporter) {
-      setSelectedImporter("Select Importer");
+    if (importer && organizations.length > 0) {
+      const org = organizations.find(o => o.name === importer);
+      if (org) {
+        setImporterBranches(org.branches || []);
+      }
     }
-  }, [importerNames]);
+  }, [importer, organizations]);
 
   useEffect(() => {
     const currentDate = new Date();
@@ -714,14 +808,70 @@ const ImportCreateJob = () => {
                         onChange={(event, newValue) => {
                           const sel = newValue || "";
                           setImporter(sel);
-                          const found = Array.isArray(importers)
-                            ? importers.find((it) => it.importer === sel)
-                            : null;
-                          if (found) {
-                            const code = found.ie_code_no || found.ieCode || found.iecode || found.ie_code || "";
-                            setIeCodeNo(code || "");
+                          const org = organizations.find((o) => o.name === sel);
+                          if (org) {
+                            setIeCodeNo(org.iec_no || "");
+                            const availableBranches = org.branches || [];
+                            setImporterBranches(availableBranches);
+                            
+                            // Handle Address Population
+                            if (availableBranches.length === 0) {
+                              // Fallback to Organization Permanent Address if no branches
+                              const addrObj = org.addressDetails || {};
+                              setImporterAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
+                              setImporterCity(addrObj.city || "");
+                              setImporterState(addrObj.state || "");
+                              setImporterPostalCode(addrObj.pinCode || "");
+                              setImporterCountry("India");
+                              setBranchSrNo("");
+                              
+                              // Keep the joined address for backward compatibility if needed
+                              const addr = [addrObj.line1, addrObj.line2, addrObj.city, addrObj.state, addrObj.pinCode].filter(Boolean).join(", ");
+                              setImporterAddress(addr);
+                            } else if (availableBranches.length === 1) {
+                              // If exactly one branch, auto-select it
+                              const branch = availableBranches[0];
+                              setBranchSrNo(branch.branch_code || "");
+                              setImporterAddressDetails(branch.address || "");
+                              setImporterCity(branch.city || "");
+                              setImporterState(branch.state || "");
+                              setImporterPostalCode(branch.postal_code || "");
+                              setImporterCountry(branch.country || "India");
+                              
+                              const addr = [branch.address, branch.city, branch.state, branch.postal_code, branch.country].filter(Boolean).join(", ");
+                              setImporterAddress(addr);
+                            } else {
+                              // Multiple branches: Clear selection and address, let user pick branch
+                              setBranchSrNo("");
+                              setImporterAddressDetails("");
+                              setImporterCity("");
+                              setImporterState("");
+                              setImporterPostalCode("");
+                              setImporterCountry("");
+                              setImporterAddress("");
+                            }
+
+                            // Handle bank details for AD code
+                            if (org.banks && org.banks.length > 0) {
+                              const bank = org.banks.find(b => b.adCode) || org.banks[0];
+                              setAdCode(bank.adCode || "");
+                              setBankName(bank.bankers_name || "");
+                            } else {
+                              setAdCode("");
+                              setBankName("");
+                            }
                           } else {
                             setIeCodeNo("");
+                            setImporterBranches([]);
+                            setBranchSrNo("");
+                            setImporterAddress("");
+                            setImporterAddressDetails("");
+                            setImporterCity("");
+                            setImporterState("");
+                            setImporterPostalCode("");
+                            setImporterCountry("");
+                            setAdCode("");
+                            setBankName("");
                           }
                         }}
                         renderInput={(params) => (
@@ -739,11 +889,179 @@ const ImportCreateJob = () => {
                     <FormField label="IE Code">
                       <TextField
                         value={ie_code_no || ""}
+                        onChange={(e) => setIeCodeNo(e.target.value)}
                         variant="outlined"
                         size="small"
                         fullWidth
-                        InputProps={{ readOnly: true }}
-                        sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Importer Branch">
+                      <Autocomplete
+                        options={importerBranches}
+                        getOptionLabel={(option) => option.branch_name ? `${option.branch_name} (${option.branch_code})` : ""}
+                        value={importerBranches.find(b => b.branch_code === branchSrNo) || null}
+                        onChange={(event, newValue) => {
+                          if (newValue) {
+                            setBranchSrNo(newValue.branch_code || "");
+                            setImporterAddressDetails(newValue.address || "");
+                            setImporterCity(newValue.city || "");
+                            setImporterState(newValue.state || "");
+                            setImporterPostalCode(newValue.postal_code || "");
+                            setImporterCountry(newValue.country || "India");
+                            
+                            const addr = [
+                              newValue.address,
+                              newValue.city,
+                              newValue.state,
+                              newValue.postal_code,
+                              newValue.country
+                            ].filter(Boolean).join(", ");
+                            setImporterAddress(addr);
+                          } else {
+                            setBranchSrNo("");
+                            const org = organizations.find((o) => o.name === importer);
+                            if (org && (!org.branches || org.branches.length === 0)) {
+                              const addrObj = org.addressDetails || {};
+                              setImporterAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
+                              setImporterCity(addrObj.city || "");
+                              setImporterState(addrObj.state || "");
+                              setImporterPostalCode(addrObj.pinCode || "");
+                              setImporterCountry("India");
+                              
+                              const addr = [addrObj.line1, addrObj.line2, addrObj.city, addrObj.state, addrObj.pinCode].filter(Boolean).join(", ");
+                              setImporterAddress(addr);
+                            } else {
+                              setImporterAddressDetails("");
+                              setImporterCity("");
+                              setImporterState("");
+                              setImporterPostalCode("");
+                              setImporterCountry("");
+                              setImporterAddress("");
+                            }
+                          }
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Branch"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Address Details" md={12}>
+                      <TextField
+                        multiline
+                        rows={2}
+                        value={importer_address_details || ""}
+                        onChange={(e) => setImporterAddressDetails(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        placeholder="Detailed Address"
+                        sx={{
+                          ...compactInput,
+                          '& .MuiInputBase-root': { height: 'auto', minHeight: '64px', fontSize: '0.8rem' },
+                        }}
+                      />
+                    </FormField>
+
+                    <FormField label="City" md={3}>
+                      <TextField
+                        value={importer_city || ""}
+                        onChange={(e) => setImporterCity(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="State" md={3}>
+                      <TextField
+                        value={importer_state || ""}
+                        onChange={(e) => setImporterState(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="PIN Code" md={3}>
+                      <TextField
+                        value={importer_postal_code || ""}
+                        onChange={(e) => setImporterPostalCode(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Country" md={3}>
+                       <Autocomplete
+                        freeSolo
+                        options={countryOptions}
+                        value={importer_country || ""}
+                        onInputChange={(event, newValue) => setImporterCountry(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Importer Type">
+                      <Autocomplete
+                        options={importerTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={importerTypeOptions.find(opt => opt.value === importer_type) || null}
+                        onChange={(event, newValue) => {
+                          setImporterType(newValue ? newValue.value : "");
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Type"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
+                    </FormField>
+
+                    <FormField label="Commercial Tax Type">
+                      <Autocomplete
+                        options={commercialTaxTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={commercialTaxTypeOptions.find(opt => opt.value === commercial_tax_type) || null}
+                        onChange={(event, newValue) => {
+                          setCommercialTaxType(newValue ? newValue.value : "");
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Tax Type"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
                       />
                     </FormField>
 
@@ -827,14 +1145,69 @@ const ImportCreateJob = () => {
                     {HSS && HSS === "Yes" && (
                       <Grid container item xs={12} spacing={2} sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eaedf2' }}>
                         <FormField label="Seller Name" md={6}>
-                          <TextField
-                            value={sallerName}
-                            onChange={(e) => setSallerName(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            placeholder="Seller Name"
-                            fullWidth
-                            sx={compactInput}
+                          <Autocomplete
+                            freeSolo
+                            options={importerNames.map((option) => option.label)}
+                            value={sallerName || ""}
+                            onInputChange={(event, newValue, reason) => {
+                              if (reason === "input") {
+                                setSallerName(newValue);
+                              } else if (reason === "clear") {
+                                setSallerName("");
+                              }
+                            }}
+                            onChange={(event, newValue) => {
+                              const sel = newValue || "";
+                              setSallerName(sel);
+                              const org = organizations.find((o) => o.name === sel);
+                              if (org) {
+                                setHssIeCodeNo(org.iec_no || "");
+                                
+                                // Set AD Code from banks
+                                if (org.banks && org.banks.length > 0) {
+                                  const bank = org.banks.find(b => b.adCode) || org.banks[0];
+                                  setHssAdCode(bank.adCode || "");
+                                } else {
+                                  setHssAdCode("");
+                                }
+
+                                const availableBranches = org.branches || [];
+                                if (availableBranches.length === 0) {
+                                  const addrObj = org.addressDetails || {};
+                                  setHssAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
+                                  setHssCity(addrObj.city || "");
+                                  setHssPostalCode(addrObj.pinCode || "");
+                                  setHssCountry("India");
+                                  setHssBranchId("");
+                                } else {
+                                  // Auto-fill from first branch
+                                  const branch = availableBranches[0];
+                                  setHssBranchId(branch.branch_code || "");
+                                  setHssAddressDetails(branch.address || "");
+                                  setHssCity(branch.city || "");
+                                  setHssPostalCode(branch.postal_code || "");
+                                  setHssCountry(branch.country || "India");
+                                }
+                              } else {
+                                setHssIeCodeNo("");
+                                setHssAdCode("");
+                                setHssBranchId("");
+                                setHssAddressDetails("");
+                                setHssCity("");
+                                setHssPostalCode("");
+                                setHssCountry("");
+                              }
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                variant="outlined"
+                                size="small"
+                                placeholder="Search Seller"
+                                fullWidth
+                                sx={compactInput}
+                              />
+                            )}
                           />
                         </FormField>
 
@@ -857,14 +1230,15 @@ const ImportCreateJob = () => {
                         <FormField label="Address Details" md={12}>
                           <TextField
                             multiline
-                            rows={3}
+                            rows={2}
                             fullWidth
                             value={hss_address_details}
                             onChange={(e) => setHssAddressDetails(e.target.value)}
                             variant="outlined"
                             size="small"
+                            placeholder="Street, Area, etc."
                             sx={{
-                              '& .MuiInputBase-root': { fontSize: '0.8rem', bgcolor: '#fdfceb' },
+                              '& .MuiInputBase-root': { fontSize: '0.8rem', bgcolor: '#fdfceb', height: 'auto', minHeight: '64px' },
                               '& .MuiOutlinedInput-input': { padding: '4px 8px !important' },
                             }}
                           />
@@ -1213,7 +1587,7 @@ const ImportCreateJob = () => {
                       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#f8fafc' }}>
-                            {['Sr', 'Invoice Number', 'Invoice Date', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
+                            {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO', 'PO Date', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
                               <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
                                 {h}
                               </th>
@@ -1236,13 +1610,34 @@ const ImportCreateJob = () => {
                                   sx={compactInput}
                                 />
                               </td>
-                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5' }}>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
                                 <TextField
                                   type="date"
                                   size="small"
                                   fullWidth
                                   value={row.invoice_date || ""}
                                   onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="PO No"
+                                  value={row.po_no || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                  sx={compactInput}
+                                />
+                              </td>
+                              <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
+                                <TextField
+                                  type="date"
+                                  size="small"
+                                  fullWidth
+                                  value={row.po_date || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
                                   InputLabelProps={{ shrink: true }}
                                   sx={compactInput}
                                 />
@@ -1258,19 +1653,23 @@ const ImportCreateJob = () => {
                                 />
                               </td>
                               <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
-                                <TextField
-                                  select
+                                <Autocomplete
+                                  freeSolo
                                   size="small"
-                                  fullWidth
+                                  options={currencyOptions}
                                   value={row.inv_currency || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
-                                  sx={compactInput}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  {currencyOptions.map((curr) => (
-                                    <MenuItem key={curr} value={curr}>{curr}</MenuItem>
-                                  ))}
-                                </TextField>
+                                  onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                  onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      variant="outlined"
+                                      size="small"
+                                      placeholder="Currency"
+                                      sx={compactInput}
+                                    />
+                                  )}
+                                />
                               </td>
                               <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
                                 <TextField
@@ -1385,22 +1784,29 @@ const ImportCreateJob = () => {
                                   {row.label}
                                 </td>
                                 <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '120px' }}>
-                                  <TextField
-                                    select
-                                    size="small"
-                                    fullWidth
-                                    value={other_charges_details?.[row.id]?.currency || ""}
-                                    onChange={(e) => setOtherChargesDetails({
-                                      ...other_charges_details,
-                                      [row.id]: { ...other_charges_details[row.id], currency: e.target.value }
-                                    })}
-                                    sx={compactInput}
-                                  >
-                                    <MenuItem value="">Select</MenuItem>
-                                    {["USD", "EUR", "GBP", "JPY", "INR", "AED", "CNY", "CHF"].map(c => (
-                                      <MenuItem key={c} value={c}>{c}</MenuItem>
-                                    ))}
-                                  </TextField>
+                                  <Autocomplete
+                                     freeSolo
+                                     size="small"
+                                     options={currencyOptions}
+                                     value={other_charges_details?.[row.id]?.currency || ""}
+                                     onInputChange={(event, newValue) => setOtherChargesDetails({
+                                       ...other_charges_details,
+                                       [row.id]: { ...other_charges_details[row.id], currency: newValue }
+                                     })}
+                                     onChange={(event, newValue) => setOtherChargesDetails({
+                                       ...other_charges_details,
+                                       [row.id]: { ...other_charges_details[row.id], currency: newValue || "" }
+                                     })}
+                                     renderInput={(params) => (
+                                       <TextField
+                                         {...params}
+                                         variant="outlined"
+                                         size="small"
+                                         placeholder="Currency"
+                                         sx={compactInput}
+                                       />
+                                     )}
+                                   />
                                 </td>
                                 <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
                                   <TextField
@@ -2127,7 +2533,7 @@ const ImportCreateJob = () => {
                   <Button 
                     variant="contained" 
                     size="large" 
-                    onClick={formik.handleSubmit} 
+                    onClick={handleFinalizeClick} 
                     sx={{ 
                       px: 8, 
                       py: 1.5, 
@@ -2250,6 +2656,91 @@ const ImportCreateJob = () => {
             sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
           >
             Fetch & Edit Details
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* JOB REVIEW DIALOG */}
+      <Dialog
+        open={reviewDialogOpen}
+        onClose={() => setReviewDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '16px', p: 1 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: 'primary.main', borderBottom: '1px solid #eee', mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Confirm Job Details
+          <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            Job No: {nextJobNumber}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3}>
+            {/* Row 1: General Info */}
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Branch & Mode</Typography>
+              <Typography variant="body2"><b>Branch:</b> {branches.find(b => b._id === branch_id)?.branch_name || 'N/A'}</Typography>
+              <Typography variant="body2"><b>Mode:</b> {mode}</Typography>
+              <Typography variant="body2"><b>Trade Type:</b> {trade_type}</Typography>
+              <Typography variant="body2"><b>Year:</b> {selectedYear}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Parties</Typography>
+              <Typography variant="body2"><b>Importer:</b> {importer}</Typography>
+              <Typography variant="body2"><b>Importer Type:</b> {importerTypeOptions.find(opt => opt.value === importer_type)?.label || 'N/A'}</Typography>
+              <Typography variant="body2"><b>Commercial Tax Type:</b> {commercialTaxTypeOptions.find(opt => opt.value === commercial_tax_type)?.label || 'N/A'}</Typography>
+              <Typography variant="body2"><b>Supplier:</b> {supplier_exporter}</Typography>
+              <Typography variant="body2"><b>Custom House:</b> {custom_house}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Shipping</Typography>
+              <Typography variant="body2"><b>B/L No:</b> {awb_bl_no}</Typography>
+              <Typography variant="body2"><b>B/L Date:</b> {awb_bl_date}</Typography>
+              <Typography variant="body2"><b>Vessel/Flight:</b> {vessel_berthing}</Typography>
+            </Grid>
+
+            {/* Row 2: Cargo & Value */}
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Cargo Details</Typography>
+              <Typography variant="body2"><b>Gross Wt:</b> {gross_weight}</Typography>
+              <Typography variant="body2"><b>Net Wt:</b> {job_net_weight}</Typography>
+              <Typography variant="body2"><b>Consignment:</b> {consignment_type}</Typography>
+              <Typography variant="body2"><b>Containers:</b> {container_nos.length}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Value & Currency</Typography>
+              <Typography variant="body2"><b>Invoice Val:</b> {total_inv_value}</Typography>
+              <Typography variant="body2"><b>Currency:</b> {inv_currency}</Typography>
+              <Typography variant="body2"><b>Incoterm:</b> {import_terms}</Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="overline" color="text.secondary" fontWeight={700}>Clearance</Typography>
+              <Typography variant="body2"><b>B/E Type:</b> {type_of_b_e}</Typography>
+              <Typography variant="body2"><b>Scheme:</b> {scheme}</Typography>
+            </Grid>
+          </Grid>
+          <Box sx={{ mt: 3, p: 2, bgcolor: '#fff9c4', borderRadius: '8px', border: '1px solid #fbc02d' }}>
+            <Typography variant="body2" sx={{ color: '#5f4b00', fontWeight: 500 }}>
+              Please carefully review the information above. Once created, some details may require administrative privileges to change.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button onClick={() => setReviewDialogOpen(false)} variant="outlined" sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+            Back to Edit
+          </Button>
+          <Button 
+            onClick={() => {
+              setReviewDialogOpen(false);
+              formik.handleSubmit();
+            }} 
+            variant="contained" 
+            color="primary" 
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, px: 4 }}
+          >
+            {isEditMode ? 'Confirm Update' : 'Confirm & Create Job'}
           </Button>
         </DialogActions>
       </Dialog>

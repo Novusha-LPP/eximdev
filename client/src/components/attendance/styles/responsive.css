@@ -1,0 +1,95 @@
+/* ═══════════════════════════════════════════════
+   SFTIME  ·  Global Responsiveness Layer
+   ═══════════════════════════════════════════════ */
+
+/* ── App Layout ── */
+@media (max-width: 1024px) {
+    .app-main--sidebar-open,
+    .app-main--sidebar-collapsed {
+        margin-left: 0 !important;
+    }
+    
+    .app-content {
+        padding: 1rem !important;
+    }
+}
+
+/* ── Global Grid Stacking ── */
+.responsive-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 640px) {
+    .responsive-grid--2 { grid-template-columns: repeat(2, 1fr); }
+    .responsive-grid--3 { grid-template-columns: repeat(3, 1fr); }
+    .responsive-grid--4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 639px) {
+    .responsive-grid--2,
+    .responsive-grid--3,
+    .responsive-grid--4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Typography Scaling ── */
+@media (max-width: 480px) {
+    html {
+        font-size: 14px;
+    }
+    
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.25rem; }
+}
+
+/* ── Table Responsiveness ── */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── Form Stacking ── */
+@media (max-width: 640px) {
+    .form-row {
+        flex-direction: column !important;
+        gap: 1rem !important;
+    }
+    
+    .form-group {
+        width: 100% !important;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
+
+/* ── Header Adjustments ── */
+@media (max-width: 768px) {
+    .hdr-clock, .hdr-date {
+        display: none !important;
+    }
+    
+    .header__page {
+        font-size: 0.9rem;
+    }
+    
+    .hdr-name {
+        display: none !important;
+    }
+}
+
+/* ── Sidebar Backdrop Fix ── */
+.sidebar-backdrop {
+    z-index: 1039;
+    background: rgba(12, 17, 32, 0.4);
+    backdrop-filter: blur(4px);
+}

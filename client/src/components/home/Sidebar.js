@@ -1,7 +1,8 @@
 import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/sidebar.scss";
-import { Avatar, IconButton, ListItemButton, Tooltip } from "@mui/material";
+import { Avatar, IconButton, ListItemButton, Tooltip, Badge } from "@mui/material";
+import VerifiedIcon from "@mui/icons-material/Verified";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -16,6 +17,9 @@ import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DomainIcon from "@mui/icons-material/Domain";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -50,7 +54,24 @@ function Sidebar() {
         placement="right"
       >
         <IconButton onClick={() => navigate(`/profile/${user.username}`)}>
-          <Avatar src={user.employee_photo} alt="Employee Photo" />
+          <Badge
+            overlap="circular"
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            badgeContent={
+              user.is_verified ? (
+                <VerifiedIcon
+                  sx={{
+                    color: "#1d9bf0 !important",
+                    fontSize: "0.9rem",
+                    bgcolor: "white",
+                    borderRadius: "50%",
+                  }}
+                />
+              ) : null
+            }
+          >
+            <Avatar src={user.employee_photo} alt="Employee Photo" />
+          </Badge>
         </IconButton>
       </Tooltip>
 
@@ -88,6 +109,30 @@ function Sidebar() {
             >
               <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
                 <DomainIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          <Tooltip title="API Key Management" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/admin/api-keys")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <VpnKeyIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          <Tooltip title="Job Migration Utility" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/admin/job-migration")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <SwapHorizIcon />
               </IconButton>
             </ListItemButton>
           </Tooltip>
@@ -132,6 +177,20 @@ function Sidebar() {
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <CurrencyExchangeIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
+
+      {/* Attendance Module */}
+      <Tooltip title="Attendance & Leave" enterDelay={0} placement="right">
+        <ListItemButton
+          sx={{ textAlign: "left" }}
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/attendance")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <CalendarMonthIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

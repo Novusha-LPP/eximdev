@@ -42,18 +42,20 @@ import Select from '@mui/material/Select';
 
 
 const CFS_OPTIONS = [
-  "Adani Ports and Special Economic Zone Limited",
-  "ALLCARGO TERMINALS LIMITED",
-  "AMEYA LOGISTICS PVT LTD",
-  "Ashutosh Container Services Pvt Ltd",
-  "Central Warehousing Corporation (NEW)",
-  "Hind Terminals Pvt Ltd.",
-  "Landmark CFS Pvt Ltd",
-  "Mundra International Container Terminal Pvt Ltd.",
-  "Mundhra Container Freight Station Pvt Ltd.",
-  "Saurashtra Freight Pvt Ltd.",
-  "Seabird Marine Services (Gujarat) Pvt. Ltd.",
-  "Transworld Terminals Pvt Ltd."
+"ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED",
+"ALLCARGO TERMINALS LIMITED",
+"AMEYA LOGISTICS PVT LTD",
+"ASHUTOSH CONTAINER SERVICES PVT LTD",
+"CENTRAL WAREHOUSING CORPORATION (NEW)",
+"HIND TERMINALS PVT LTD.",
+"LANDMARK CFS PVT LTD",
+"MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD.",
+"MUNDHRA CONTAINER FREIGHT STATION PVT LTD.",
+"SAURASHTRA FREIGHT PVT LTD.",
+"SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD.",
+"TRANSWORLD TERMINALS PVT LTD.",
+"SATURN GLOBAL TERMINAL PVT.LTD."
+
 ];
 
 
@@ -581,7 +583,7 @@ function ImportOperations() {
           const newCfs = event.target.value;
           try {
             const response = await axios.patch(
-              `${process.env.REACT_APP_API_STRING}/update-operations-job/${row.original.mode}/${row.original.year}/${row.original.job_no}`,
+              `${process.env.REACT_APP_API_STRING}/update-operations-job/${row.original.branch_code}/${row.original.trade_type}/${row.original.mode}/${row.original.year}/${row.original.job_no}`,
               { cfs_name: newCfs, _id: row.original._id }
             );
             
@@ -761,20 +763,53 @@ function ImportOperations() {
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
+        const { checklist } = row.original;
         const pdfRef = React.useRef(null);
 
         const handleGenerate = () => {
           pdfRef.current?.generatePdf();
         };
 
+        const getFirstLink = (input) => {
+          if (Array.isArray(input)) {
+            return input.length > 0 ? input[0] : null;
+          }
+          return input || null;
+        };
+
+        const checklistLink = getFirstLink(checklist);
+
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* Checklist Visibility */}
+            {checklistLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={checklistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  View Checklist
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray", fontSize: "14px" }}>No Checklist</span>
+              </div>
+            )}
             <JobStickerPDF ref={pdfRef} data={row.original} />
             <button
               onClick={handleGenerate}
               style={{
                 padding: "10px 20px",
-                fontSize: "16px",
+                fontSize: "14px",
                 borderRadius: "6px",
                 boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                 cursor: "pointer",

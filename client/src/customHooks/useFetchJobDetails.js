@@ -59,8 +59,8 @@ function useFetchJobDetails(
       document_code: "271000",
     },
     {
-      document_name: "Bill of Lading",
-      document_code: "704000",
+      document_name: params.mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+      document_code: params.mode === "AIR" ? "740000" : "704000",
     },
   ]);
 
@@ -71,27 +71,7 @@ function useFetchJobDetails(
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
 
-  // Charges section state
-  const [DsrCharges, setDsrCharges] = useState([
-    {
-      document_name: "Notary",
-    },
-    {
-      document_name: "Duty",
-    },
-    {
-      document_name: "MISC",
-    },
-    {
-      document_name: "CE Certification Charges",
-    },
-    {
-      document_name: "ADC/NOC Charges",
-    },
-  ]);
-  const [selectedChargesDocuments, setSelectedChargesDocuments] = useState([]);
-  const [selectedChargesDocument, setSelectedChargesDocument] = useState(""); // State for custom charges dropdown
-  const [newChargesDocumentName, setNewChargesDocumentName] = useState("");
+
 
   const additionalDocs = [
     // {
@@ -222,32 +202,6 @@ function useFetchJobDetails(
       const response = await axios.get(url);
       setData(response.data);
       setSelectedDocuments(response.data.documents);
-      setSelectedChargesDocuments(response.data.DsrCharges || []);
-
-      // Update DsrCharges to include custom charges from database
-      if (response.data.DsrCharges && response.data.DsrCharges.length > 0) {
-        const predefinedCharges = [
-          { document_name: "Notary" },
-          { document_name: "Duty" },
-          { document_name: "MISC" },
-          { document_name: "CE Certification Charges" },
-          { document_name: "ADC/NOC Charges" },
-        ];
-
-        // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = response.data.DsrCharges
-          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
-          .map(charge => ({ document_name: charge.document_name }));
-
-        // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
-          index === self.findIndex(c => c.document_name === charge.document_name)
-        );
-
-        // Combine predefined and unique custom charges
-        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setDsrCharges(allCharges);
-      }
     }
 
     getJobDetails();
@@ -338,7 +292,6 @@ function useFetchJobDetails(
 
     if (data) {
       setSelectedDocuments(data.documents);
-      setSelectedChargesDocuments(data.DsrCharges || []);
     }
 
     getCthDocs();
@@ -399,6 +352,8 @@ function useFetchJobDetails(
       required_do_validity_upto: "",
       invoice_number: "",
       invoice_date: "",
+      po_no: "",
+      po_date: "",
       invoice_details: [],
       total_inv_value: "",
       cth_no: "",
@@ -583,6 +538,8 @@ function useFetchJobDetails(
             values.description_details?.[0]?.sr_no_invoice ||
             values.invoice_number,
           invoice_date: values.invoice_details?.[0]?.invoice_date || values.invoice_date,
+          po_no: values.invoice_details?.[0]?.po_no || values.po_no,
+          po_date: values.invoice_details?.[0]?.po_date || values.po_date,
           total_inv_value: values.invoice_details?.[0]?.total_inv_value || values.total_inv_value,
           inv_currency: values.invoice_details?.[0]?.inv_currency || "",
           import_terms: values.invoice_details?.[0]?.toi || values.import_terms,
@@ -655,7 +612,6 @@ function useFetchJobDetails(
           penalty_amount: values.penalty_amount,
           total_duty: values.total_duty,
           client_remark: values.client_remark,
-          DsrCharges: selectedChargesDocuments,
           dsr_queries: values.dsr_queries,
           other_charges_details: values.other_charges_details,
           misc_charges: values.misc_charges,
@@ -909,14 +865,22 @@ function useFetchJobDetails(
         insurance: safeValue(data.insurance),
         invoice_number: safeValue(data.invoice_number),
         invoice_date: safeValue(data.invoice_date),
+        po_no: safeValue(data.po_no),
+        po_date: safeValue(data.po_date),
         total_inv_value: safeValue(data.total_inv_value),
         invoice_details:
           Array.isArray(data.invoice_details) && data.invoice_details.length > 0
-            ? data.invoice_details
+            ? safeValue(data.invoice_details, []).map(inv => ({
+                ...inv,
+                po_no: inv.po_no || "",
+                po_date: inv.po_date || ""
+              }))
             : [
                 {
                   invoice_number: safeValue(data.invoice_number),
                   invoice_date: safeValue(data.invoice_date),
+                  po_no: safeValue(data.po_no),
+                  po_date: safeValue(data.po_date),
                   total_inv_value: safeValue(data.total_inv_value),
                   inv_currency: safeValue(data.inv_currency),
                   toi: safeValue(data.import_terms) || "CIF",
@@ -932,7 +896,6 @@ function useFetchJobDetails(
         type_of_Do: safeValue(data.type_of_Do),
         obl_telex_bl: safeValue(data.obl_telex_bl),
 
-        DsrCharges: safeValue(data.DsrCharges, []),
         dsr_queries: safeValue(data.dsr_queries, []),
         other_charges_details: safeValue(data.other_charges_details, {
           is_single_for_all: true,
@@ -948,30 +911,6 @@ function useFetchJobDetails(
         }),
         misc_charges: safeValue(data.misc_charges, []),
       });
-      // Update DsrCharges state to include custom charges from database
-      if (data.DsrCharges && data.DsrCharges.length > 0) {
-        const predefinedCharges = [
-          { document_name: "Notary" },
-          { document_name: "Duty" },
-          { document_name: "MISC" },
-          { document_name: "CE Certification Charges" },
-          { document_name: "ADC/NOC Charges" },
-        ];
-
-        // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = data.DsrCharges
-          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
-          .map(charge => ({ document_name: charge.document_name }));
-
-        // Remove duplicates by document_name
-        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) =>
-          index === self.findIndex(c => c.document_name === charge.document_name)
-        );
-
-        // Combine predefined and unique custom charges
-        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setDsrCharges(allCharges);
-      }
     }
     // eslint-disable-next-line
   }, [data]);
@@ -1211,15 +1150,6 @@ function useFetchJobDetails(
     canChangeClearance,
     resetOtherDetails,
 
-    // Charges related exports
-    DsrCharges,
-    setDsrCharges,
-    selectedChargesDocuments,
-    setSelectedChargesDocuments,
-    selectedChargesDocument,
-    setSelectedChargesDocument,
-    newChargesDocumentName,
-    setNewChargesDocumentName,
     setData
   };
 }

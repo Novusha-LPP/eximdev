@@ -72,6 +72,12 @@ export const KPI_BLOCKER_CATEGORIES = [
             "Maximum Advance from Parties",
             "O/S Collection Pending"
         ]
+    },
+    {
+        name: "NONE",
+        blockers: [
+            "No blockers to select"
+        ]
     }
 ];
 
@@ -144,10 +150,17 @@ export const BUSINESS_LOSS_CATEGORIES = [
             { type: "Excess Bank Charges", description: "Unexpected LC/BG or banking fees", triggers: "LC amendments" },
             { type: "Stock Write‑off", description: "Physical stock less than book stock", triggers: "Damage, theft, counting error" }
         ]
+    },
+    {
+        name: "NONE",
+        losses: [
+            { type: "No business loss to select", description: "Use this if no specific loss occurred", triggers: "Standard operations" }
+        ]
     }
 ];
 
 export const OTHER_BUSINESS_LOSS = "OTHERS: Others";
+
 export const ALL_BUSINESS_LOSS_TYPES = [
     ...BUSINESS_LOSS_CATEGORIES.flatMap(cat => cat.losses.map(l => `${cat.name}: ${l.type}`)),
     OTHER_BUSINESS_LOSS

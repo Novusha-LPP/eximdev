@@ -35,16 +35,27 @@ const useImportJobForm = () => {
 
   // Initialize the state with the determined year pair
   const [year, setYear] = useState(defaultYearPair);
-  const [job_date, setJob_date] = useState("")
+  const [job_date, setJob_date] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editJobId, setEditJobId] = useState(null);
+  const [jobNumber, setJobNumber] = useState("");
 
   // Existing states:
   // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
   const [importer, setImporter] = useState("");
+  const [importer_type, setImporterType] = useState("");
+  const [commercial_tax_type, setCommercialTaxType] = useState("");
+  const [importer_address, setImporterAddress] = useState("");
   const [importerURL, setImporterURL] = useState("");
   const [shipping_line_airline, setShippingLineAirline] = useState("");
   const [branchSrNo, setBranchSrNo] = useState("");
   const [adCode, setAdCode] = useState("");
+  const [importer_address_details, setImporterAddressDetails] = useState("");
+  const [importer_city, setImporterCity] = useState("");
+  const [importer_state, setImporterState] = useState("");
+  const [importer_postal_code, setImporterPostalCode] = useState("");
+  const [importer_country, setImporterCountry] = useState("");
   const [supplier_exporter, setSupplierExporter] = useState("");
   const [awb_bl_no, setAwbBlNo] = useState("");
   const [awb_bl_date, setAwbBlDate] = useState("");
@@ -62,6 +73,8 @@ const useImportJobForm = () => {
   const [inv_currency, setInvCurrency] = useState("");
   const [invoice_number, setInvoiceNumber] = useState("");
   const [invoice_date, setInvoiceDate] = useState("");
+  const [po_no, setPoNo] = useState("");
+  const [po_date, setPoDate] = useState("");
   const [import_terms, setImportTerms] = useState("CIF");
   const [freight, setFreight] = useState("");
   const [insurance, setInsurance] = useState("");
@@ -77,6 +90,8 @@ const useImportJobForm = () => {
     {
       invoice_number: "",
       invoice_date: "",
+      po_no: "",
+      po_date: "",
       product_value: "",
       total_inv_value: "",
       inv_currency: "",
@@ -129,12 +144,39 @@ const useImportJobForm = () => {
       isDefault: true,
     },
     {
-      document_name: "Bill of Lading",
-      document_code: "704000",
+      document_name: mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+      document_code: mode === "AIR" ? "740000" : "704000",
       url: [],
       isDefault: true,
     },
   ]);
+
+  // Update default transport document when mode changes (only for new jobs)
+  useEffect(() => {
+    if (!isEditMode) {
+      const isAir = mode === "AIR";
+      const targetDocName = isAir ? "Air Way BL" : "Bill of Lading";
+      const targetDocCode = isAir ? "740000" : "704000";
+      const otherDocName = isAir ? "Bill of Lading" : "Air Way BL";
+
+      setCthDocuments((prev) => {
+        // If the target doc is already present, do nothing
+        if (prev.some(doc => doc.document_name === targetDocName)) return prev;
+
+        // Replace the other doc if it's there, otherwise just add it
+        const hasOther = prev.some(doc => doc.document_name === otherDocName);
+        if (hasOther) {
+          return prev.map(doc => 
+            doc.document_name === otherDocName 
+              ? { ...doc, document_name: targetDocName, document_code: targetDocCode, url: doc.url || [] }
+              : doc
+          );
+        } else {
+          return [...prev, { document_name: targetDocName, document_code: targetDocCode, url: [], isDefault: true }];
+        }
+      });
+    }
+  }, [mode, isEditMode]);
 
   const [scheme, setScheme] = useState("");
   const [in_bond_be_no, setBeNo] = useState("");
@@ -161,6 +203,7 @@ const useImportJobForm = () => {
   const [hss_address_details, setHssAddressDetails] = useState("");
   const [hss_branch_id, setHssBranchId] = useState("");
   const [hss_city, setHssCity] = useState("");
+  const [hss_state, setHssState] = useState("");
   const [hss_ie_code_no, setHssIeCodeNo] = useState("");
   const [hss_postal_code, setHssPostalCode] = useState("");
   const [hss_country, setHssCountry] = useState("");
@@ -177,10 +220,6 @@ const useImportJobForm = () => {
     revenue_deposit: { rate: 0, on: "Assessable" },
     landing_charge: { rate: 1 }
   });
-
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editJobId, setEditJobId] = useState(null);
-  const [jobNumber, setJobNumber] = useState("");
 
   useEffect(() => {
     if (importer) {
@@ -249,6 +288,8 @@ const useImportJobForm = () => {
     if (rowIndex === 0) {
       if (field === "invoice_number") setInvoiceNumber(value);
       if (field === "invoice_date") setInvoiceDate(value);
+      if (field === "po_no") setPoNo(value);
+      if (field === "po_date") setPoDate(value);
       if (field === "inv_currency") setInvCurrency(value);
       if (field === "toi") setImportTerms(value);
       if (field === "freight") setFreight(value);
@@ -271,6 +312,8 @@ const useImportJobForm = () => {
       {
         invoice_number: "",
         invoice_date: "",
+        po_no: "",
+        po_date: "",
         product_value: "",
         total_inv_value: "",
         inv_currency: invoice_details[0]?.inv_currency || "",
@@ -355,6 +398,10 @@ const useImportJobForm = () => {
     // setYear(defaultYearPair);
     setCustomHouse("");
     setImporter("");
+    setImporterType("");
+    setCommercialTaxType("");
+    setImporterAddress("");
+    setImporterURL("");
     setShippingLineAirline("");
     setBranchSrNo("");
     setAdCode("");
@@ -375,6 +422,8 @@ const useImportJobForm = () => {
     setInvCurrency("");
     setInvoiceNumber("");
     setInvoiceDate("");
+    setPoNo("");
+    setPoDate("");
     setDescription("");
     setDescriptionDetails([
       {
@@ -394,6 +443,8 @@ const useImportJobForm = () => {
       {
         invoice_number: "",
         invoice_date: "",
+        po_no: "",
+        po_date: "",
         product_value: "",
         total_inv_value: "",
         inv_currency: "",
@@ -430,8 +481,8 @@ const useImportJobForm = () => {
         isDefault: true,
       },
       {
-        document_name: "Bill of Lading",
-        document_code: "704000",
+        document_name: mode === "AIR" ? "Air Way BL" : "Bill of Lading",
+        document_code: mode === "AIR" ? "740000" : "704000",
         url: [],
         isDefault: true,
       },
@@ -452,10 +503,16 @@ const useImportJobForm = () => {
     setHssAddressDetails("");
     setHssBranchId("");
     setHssCity("");
+    setHssState("");
     setHssIeCodeNo("");
     setHssPostalCode("");
     setHssCountry("");
     setHssAdCode("");
+    setImporterAddressDetails("");
+    setImporterCity("");
+    setImporterState("");
+    setImporterPostalCode("");
+    setImporterCountry("");
     setOtherChargesDetails({
       is_single_for_all: true,
       miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
@@ -488,6 +545,9 @@ const useImportJobForm = () => {
     if (job.year) setYear(job.year);
     if (job.custom_house) setCustomHouse(job.custom_house);
     if (job.importer) setImporter(job.importer);
+    if (job.importer_type) setImporterType(job.importer_type);
+    if (job.commercial_tax_type) setCommercialTaxType(job.commercial_tax_type);
+    if (job.importer_address) setImporterAddress(job.importer_address);
     if (job.shipping_line_airline) setShippingLineAirline(job.shipping_line_airline);
     if (job.branchSrNo) setBranchSrNo(job.branchSrNo);
     if (job.adCode) setAdCode(job.adCode);
@@ -508,6 +568,8 @@ const useImportJobForm = () => {
     if (job.inv_currency) setInvCurrency(job.inv_currency);
     if (job.invoice_number) setInvoiceNumber(job.invoice_number);
     if (job.invoice_date) setInvoiceDate(job.invoice_date);
+    if (job.po_no) setPoNo(job.po_no);
+    if (job.po_date) setPoDate(job.po_date);
     if (job.total_inv_value || job.cifValue) setTermValue(job.total_inv_value || job.cifValue || "");
     if (job.consignment_type) setConsignmentType(job.consignment_type);
     if (job.description) setDescription(job.description);
@@ -516,11 +578,17 @@ const useImportJobForm = () => {
     }
     
     if (job.invoice_details && job.invoice_details.length > 0) {
-      setInvoiceDetails(job.invoice_details);
+      setInvoiceDetails(job.invoice_details.map(inv => ({
+        ...inv,
+        po_no: inv.po_no || "",
+        po_date: inv.po_date || ""
+      })));
     } else if (job.invoice_number || job.total_inv_value) {
       setInvoiceDetails([{
         invoice_number: job.invoice_number || "",
         invoice_date: job.invoice_date || "",
+        po_no: job.po_no || "",
+        po_date: job.po_date || "",
         product_value: job.product_value || job.total_inv_value || "",
         total_inv_value: job.total_inv_value || "",
         inv_currency: job.inv_currency || "",
@@ -566,14 +634,48 @@ const useImportJobForm = () => {
     if (job.saller_name) setSallerName(job.saller_name);
     if (job.hss) setHSS(job.hss);
     if (job.bank_name) setBankName(job.bank_name);
-    if (job.hss_address) setHssAddress(job.hss_address);
+    // HSS Address Refactor
+    if (job.hss_address) {
+      if (typeof job.hss_address === 'object' && !Array.isArray(job.hss_address)) {
+        const addr = job.hss_address;
+        if (addr.category) setHssAddress(addr.category);
+        if (addr.details) setHssAddressDetails(addr.details);
+        if (addr.city) setHssCity(addr.city);
+        if (addr.state) setHssState(addr.state);
+        if (addr.postal_code) setHssPostalCode(addr.postal_code);
+        if (addr.country) setHssCountry(addr.country);
+        if (addr.ad_code) setHssAdCode(addr.ad_code);
+      } else {
+        setHssAddress(job.hss_address);
+      }
+    }
     if (job.hss_address_details) setHssAddressDetails(job.hss_address_details);
     if (job.hss_branch_id) setHssBranchId(job.hss_branch_id);
     if (job.hss_city) setHssCity(job.hss_city);
+    if (job.hss_state) setHssState(job.hss_state);
     if (job.hss_ie_code_no) setHssIeCodeNo(job.hss_ie_code_no);
     if (job.hss_postal_code) setHssPostalCode(job.hss_postal_code);
     if (job.hss_country) setHssCountry(job.hss_country);
     if (job.hss_ad_code) setHssAdCode(job.hss_ad_code);
+    
+    // Importer Address Refactor
+    if (job.importer_address) {
+      if (typeof job.importer_address === "object" && !Array.isArray(job.importer_address)) {
+        const addr = job.importer_address;
+        if (addr.details) setImporterAddressDetails(addr.details);
+        if (addr.city) setImporterCity(addr.city);
+        if (addr.state) setImporterState(addr.state);
+        if (addr.postal_code) setImporterPostalCode(addr.postal_code);
+        if (addr.country) setImporterCountry(addr.country);
+      } else {
+        setImporterAddress(job.importer_address);
+      }
+    }
+    if (job.importer_address_details) setImporterAddressDetails(job.importer_address_details);
+    if (job.importer_city) setImporterCity(job.importer_city);
+    if (job.importer_state) setImporterState(job.importer_state);
+    if (job.importer_postal_code) setImporterPostalCode(job.importer_postal_code);
+    if (job.importer_country) setImporterCountry(job.importer_country);
     if (job.branch_id) setBranchId(job.branch_id);
     if (job.trade_type) setTradeType(job.trade_type);
     if (job.mode) setMode(job.mode);
@@ -618,6 +720,24 @@ const useImportJobForm = () => {
           job_date,
           custom_house,
           importer,
+          importer_type,
+          commercial_tax_type,
+          importer_address: {
+            details: importer_address_details,
+            city: importer_city,
+            state: importer_state,
+            postal_code: importer_postal_code,
+            country: importer_country,
+          },
+          hss_address: {
+            category: hss_address,
+            details: hss_address_details,
+            city: hss_city,
+            state: hss_state,
+            postal_code: hss_postal_code,
+            country: hss_country,
+            ad_code: hss_ad_code,
+          },
           importerURL,
           ie_code_no,
           shipping_line_airline,
@@ -640,6 +760,8 @@ const useImportJobForm = () => {
           inv_currency,
           invoice_number,
           invoice_date,
+          po_no,
+          po_date,
           invoice_details,
           other_charges_details,
           import_terms,
@@ -678,6 +800,7 @@ const useImportJobForm = () => {
            hss_address_details,
            hss_branch_id,
            hss_city,
+           hss_state,
            hss_ie_code_no: hss_ie_code_no,
            hss_postal_code,
            hss_country,
@@ -859,7 +982,6 @@ const useImportJobForm = () => {
 
   return {
     formik,
-    // Export states so the component can use them
     year,
     setYear,
     custom_house,
@@ -971,14 +1093,16 @@ const useImportJobForm = () => {
      setHssCity,
      hss_ie_code_no,
      setHssIeCodeNo,
-     hss_postal_code,
-     setHssPostalCode,
-     hss_country,
-     setHssCountry,
-     hss_ad_code,
-     setHssAdCode,
-     ie_code_no,
-    setIeCodeNo,
+      hss_postal_code,
+      setHssPostalCode,
+      hss_country,
+      setHssCountry,
+      hss_ad_code,
+      setHssAdCode,
+      hss_state,
+      setHssState,
+      ie_code_no,
+     setIeCodeNo,
     branch_id,
     setBranchId,
     trade_type,
@@ -1010,7 +1134,23 @@ const useImportJobForm = () => {
     setIsEditMode,
     jobNumber,
     populateJobData,
-    checkDuplicate
+    checkDuplicate,
+    importer_type,
+    setImporterType,
+    commercial_tax_type,
+    setCommercialTaxType,
+    importer_address,
+    setImporterAddress,
+    importer_address_details,
+    setImporterAddressDetails,
+    importer_city,
+    setImporterCity,
+    importer_state,
+    setImporterState,
+    importer_postal_code,
+    setImporterPostalCode,
+    importer_country,
+    setImporterCountry,
   };
 };
 

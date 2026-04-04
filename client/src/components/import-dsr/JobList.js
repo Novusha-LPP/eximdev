@@ -24,15 +24,17 @@ import {
   Snackbar,
   Alert,
   Autocomplete,
+  Box,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
-import {
-  MaterialReactTable,
-  useMaterialReactTable,
-} from "material-react-table";
+import { MaterialReactTable, useMaterialReactTable } from "material-react-table";
+import { Dialog, DialogContent, DialogTitle, Button } from "@mui/material";
+import MyDocRequests from "../document-collection/MyDocRequests";
 import DownloadIcon from "@mui/icons-material/Download";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import SelectImporterModal from "./SelectImporterModal";
+import { Tooltip } from "@mui/material";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
@@ -80,6 +82,7 @@ function JobList(props) {
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
   const [open, setOpen] = useState(false);
+  const [myRequestsOpen, setMyRequestsOpen] = useState(false); // Added state for MyDocRequests dialog
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
@@ -441,12 +444,14 @@ function JobList(props) {
           width: "100%",
         }}
       >
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
-        >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+          >
           {props.status} Jobs: {total}
         </Typography>
+      </Box>
 
         <TextField
           select
@@ -461,6 +466,10 @@ function JobList(props) {
           {dynamicICDs.map((icd, index) => (
             <MenuItem key={index} value={icd}>{icd}</MenuItem>
           ))}
+          {/* Fallback for selectedICD if not in dynamic list to prevent MUI warning */}
+          {selectedICD !== "all" && !dynamicICDs.includes(selectedICD) && (
+            <MenuItem value={selectedICD}>{selectedICD}</MenuItem>
+          )}
         </TextField>
 
         <TextField
@@ -544,7 +553,7 @@ function JobList(props) {
         />
 
         <IconButton onClick={handleOpen}>
-          <DownloadIcon />
+          <DownloadIcon titleAccess="Download Excel" />
         </IconButton>
       </div>
     ),
@@ -563,11 +572,11 @@ function JobList(props) {
       handleDetailedStatusChange,
       localInput,
       handleLocalInputChange,
-      handleClearSearch,
       handleOpen,
       selectedBeType, // dependency
       handleBeTypeChange, // dependency
       dynamicICDs,
+      myRequestsOpen, // Added myRequestsOpen to dependencies
     ]
   );
 
@@ -644,6 +653,21 @@ function JobList(props) {
         status={props.status}
         detailedStatus={detailedStatus}
       />
+
+      <Dialog
+        open={myRequestsOpen}
+        onClose={() => setMyRequestsOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: "#1a237e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          My Document Requests
+          <Button onClick={() => setMyRequestsOpen(false)}>Close</Button>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <MyDocRequests />
+        </DialogContent>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

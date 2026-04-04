@@ -36,7 +36,9 @@ export const SearchQueryContext = createContext({
   currentPageOpTab1: 1, // Examination Planning tab
   setCurrentPageOpTab1: () => { },
   currentPageOpTab2: 1, // Operations Completed tab
-  setCurrentPageOpTab2: () => { }
+  setCurrentPageOpTab2: () => { },
+  currentPageTabNFIMS: 1, // NFIMS/SIMS tab
+  setCurrentPageTabNFIMS: () => { }
 });
 
 // Provider component that wraps app
@@ -59,6 +61,7 @@ export const SearchQueryProvider = ({ children }) => {
   const [currentPageOpTab0, setCurrentPageOpTab0] = useState(1); // Operations List tab
   const [currentPageOpTab1, setCurrentPageOpTab1] = useState(1); // Examination Planning tab
   const [currentPageOpTab2, setCurrentPageOpTab2] = useState(1); // Operations Completed tab
+  const [currentPageTabNFIMS, setCurrentPageTabNFIMS] = useState(1); // NFIMS/SIMS tab
 
   return (
     <SearchQueryContext.Provider
@@ -94,6 +97,8 @@ export const SearchQueryProvider = ({ children }) => {
         setCurrentPageOpTab1,
         currentPageOpTab2,
         setCurrentPageOpTab2,
+        currentPageTabNFIMS,
+        setCurrentPageTabNFIMS,
         selectedBeType,
         setSelectedBeType,
         selectedMode,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import {
   Container,
   Typography,
@@ -81,7 +81,7 @@ const DetailedReport = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const { selectedBranch, selectedCategory, loading: branchLoading } = useContext(BranchContext);
 
   const gradeOptions = [
     { value: "", label: "All Grades" },
@@ -115,7 +115,8 @@ const DetailedReport = () => {
     { value: "12", label: "December" },
   ];
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (signal) => {
+    if (!year || branchLoading) return; // Prevent 404 with empty year or incorrect data before branch context
     setLoading(true);
     setError("");
     try {
@@ -132,20 +133,23 @@ const DetailedReport = () => {
       if (selectedCategory && selectedCategory !== 'all') {
         url.searchParams.append('category', selectedCategory);
       }
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { signal });
       if (!res.ok) throw new Error("Failed to fetch data");
       const json = await res.json();
       setData(json);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setError("Failed to fetch import clearance data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [year, month, isSrManager, gradeFilter, selectedBranch, selectedCategory, branchLoading]);
 
   useEffect(() => {
-    fetchData();
-  }, [year, month, gradeFilter, selectedBranch, selectedCategory]); // ✅ Added branch dependencies
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
+  }, [fetchData]);
 
   const handlePreviousMonth = () => {
     const prev = parseInt(month) - 1;

@@ -9,7 +9,9 @@
     "middleware",
     "services",
     ".env",
-    "logger.js"
+    "logger.js",
+    "scmCube",
+    "tallyapi"
   ],
   "ext": "js,json,mjs",
   "exec": "node app.mjs"

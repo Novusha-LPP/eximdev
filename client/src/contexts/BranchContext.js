@@ -10,6 +10,7 @@ export const BranchProvider = ({ children }) => {
     const [selectedBranchGroup, setSelectedBranchGroup] = useState(localStorage.getItem('selectedBranchGroup') || 'all');
     const [selectedCategory, setSelectedCategory] = useState(localStorage.getItem('selectedCategory') || 'SEA');
     const [loading, setLoading] = useState(true);
+    const [isChangingBranch, setIsChangingBranch] = useState(false);
 
     useEffect(() => {
         const fetchBranches = async () => {
@@ -66,11 +67,21 @@ export const BranchProvider = ({ children }) => {
                 }
             }
         }
+        
+        setIsChangingBranch(true);
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     };
 
     const handleCategoryChange = (category) => {
         setSelectedCategory(category);
         localStorage.setItem('selectedCategory', category);
+        
+        setIsChangingBranch(true);
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     };
 
     return (
@@ -82,6 +93,7 @@ export const BranchProvider = ({ children }) => {
             selectedCategory,
             setSelectedCategory: handleCategoryChange,
             loading,
+            isChangingBranch,
             isAdmin: user?.role === 'Admin'
         }}>
             {children}

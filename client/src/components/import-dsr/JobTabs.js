@@ -13,6 +13,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import ToolboxIcon from "@mui/icons-material/BuildCircle";
 import ApiIcon from "@mui/icons-material/Api";
 import JobList from "./JobList";
+import MyDocRequests from "../document-collection/MyDocRequests";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import ImportUtilityTool from "../import-utility-tool/ImportUtilityTool";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { useLocation } from "react-router-dom";
@@ -130,6 +132,7 @@ const API_CATEGORIES = [
 function JobTabs() {
   const [value, setValue] = React.useState(0);
   const [openUtilityTool, setOpenUtilityTool] = React.useState(false);
+  const [openMyRequests, setOpenMyRequests] = React.useState(false);
   const [openApiFetch, setOpenApiFetch] = React.useState(false);
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -323,7 +326,6 @@ function JobTabs() {
               Exim Bot
             </Button>
           )}
-
           <Button
             variant="contained"
             startIcon={<ToolboxIcon />}
@@ -332,6 +334,18 @@ function JobTabs() {
           >
             Utility Tool
           </Button>
+          <Tooltip title="My Doc Requests">
+            <IconButton
+              onClick={() => setOpenMyRequests(true)}
+              sx={{
+                background: "rgba(26, 35, 126, 0.05)",
+                color: "#1a237e",
+                "&:hover": { background: "rgba(26, 35, 126, 0.1)" }
+              }}
+            >
+              <AssignmentIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -572,6 +586,20 @@ function JobTabs() {
           </Box>
         </Dialog>
       )}
+      <Dialog
+        open={openMyRequests}
+        onClose={() => setOpenMyRequests(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: "#1a237e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          My Document Requests
+          <IconButton onClick={() => setOpenMyRequests(false)}><CloseIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <MyDocRequests />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

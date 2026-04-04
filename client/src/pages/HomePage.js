@@ -12,10 +12,33 @@ import Assign from "../components/home/Assign.js";
 import ChangePassword from "../components/home/ChangePassword.js";
 import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
+import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
+import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
+
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
 // Documentation
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
+
+// Attendance
+import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
+import AttendanceDashboard from "../components/attendance/Dashboard.jsx";
+import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
+import AttendancePage from "../components/attendance/Attendance.jsx";
+import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
+import Regularization from "../components/attendance/Regularization.jsx";
+import HODDashboard from "../components/attendance/HODDashboard.jsx";
+import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
+import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
+import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
+import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
+import HolidayManagement from "../components/attendance/admin/HolidayManagement.jsx";
+import ShiftManagement from "../components/attendance/admin/ShiftManagement.jsx";
+import LeavePolicyManagement from "../components/attendance/admin/LeavePolicyManagement.jsx";
+import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
+import PayrollExport from "../components/attendance/admin/PayrollExport.jsx";
+import AttendanceSettings from "../components/attendance/admin/Settings.jsx";
+import CompanyManagement from "../components/attendance/admin/CompanyManagement.jsx";
 // Submission
 import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
@@ -66,6 +89,18 @@ import MasterDirectory from "../components/master-directory/MasterDirectory.js";
 import CountryDirectory from "../components/master-directory/CountryDirectory.js";
 import AirlinesDirectory from "../components/master-directory/AirlinesDirectory.js";
 import UnitDirectory from "../components/master-directory/UnitDirectory.js";
+import OrganizationDirectory from "../components/master-directory/OrganizationDirectory.js";
+import OrganizationForm from "../components/master-directory/OrganizationForm.js";
+import ShippingLineDirectory from "../components/master-directory/ShippingLineDirectory.js";
+import SupplierDirectory from "../components/master-directory/SupplierDirectory.js";
+import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.js";
+import PortDirectory from "../components/master-directory/PortDirectory.js";
+import CustomHouseDirectory from "../components/master-directory/CustomHouseDirectory.js";
+
+// Document Collection
+import DocumentCollection from "../components/document-collection/DocumentCollection.js";
+
+
 
 //import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
@@ -96,12 +131,8 @@ import AllUsersPage from "./AllUsersPage.js";
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
 import { AnalyticsProvider } from "../components/analytics/AnalyticsContext";
-import OverviewDashboard from "../components/analytics/OverviewDashboard";
-import MovementDashboard from "../components/analytics/MovementDashboard";
-import CustomsDashboard from "../components/analytics/CustomsDashboard";
 import DocumentationDashboard from "../components/analytics/DocumentationDashboard";
 import DoManagementDashboard from "../components/analytics/DoManagementDashboard";
-import BillingDashboard from "../components/analytics/BillingDashboard";
 // import ExceptionsDashboard from "../components/analytics/ExceptionsDashboard";
 import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
@@ -141,47 +172,80 @@ import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetail
 // CRM Module
 import CRMModule from "../components/crm/CRMModule.jsx";
 
+import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
+
+import { useBranch } from "../contexts/BranchContext.js";
 
 const drawerWidth = 60;
 
-function HomePage() {
+function HomePageContent() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
+  
+  const { isChangingBranch } = useBranch();
+
+  if (isChangingBranch) {
+    return (
+      <Box sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(249, 250, 251, 0.7)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        backdropFilter: 'blur(8px)'
+      }}>
+        <CircularProgress size={60} thickness={4} sx={{ color: '#1a237e', mb: 2 }} />
+        <Typography variant="h5" sx={{ color: '#1a237e', fontWeight: 600, letterSpacing: '0.5px' }}>
+          Switching Branch...
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
+          Please wait while we prepare your workspace
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
-    <BranchProvider>
-      <TabValueContext.Provider value={{ tabValue, setTabValue }}>
-        <SearchQueryProvider>
-          <Box sx={{ display: "flex" }}>
-            <CssBaseline />
-            <AppbarComponent
-              mobileOpen={mobileOpen}
-              setMobileOpen={setMobileOpen}
-            />
+    <TabValueContext.Provider value={{ tabValue, setTabValue }}>
+      <SearchQueryProvider>
+        <Box sx={{ display: "flex" }}>
+          <CssBaseline />
+          <AppbarComponent
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
 
-            <DrawerComponent
-              mobileOpen={mobileOpen}
-              setMobileOpen={setMobileOpen}
-            />
+          <DrawerComponent
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
 
-            <Box
-              component="main"
-              sx={{
-                flexGrow: 1,
-                width: {
-                  lg: `calc(100% - ${drawerWidth}px)`,
-                  backgroundColor: "#F9FAFB",
-                  height: "100vh",
-                  overflow: "scroll",
-                  padding: "20px",
-                  paddingTop: 0,
-                },
-              }}
-            >
-              <Toolbar />
-              <Routes>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              width: {
+                lg: `calc(100% - ${drawerWidth}px)`,
+                backgroundColor: "#F9FAFB",
+                height: "100vh",
+                overflow: "scroll",
+                padding: "20px",
+                paddingTop: 0,
+              },
+            }}
+          >
+            <Toolbar />
+            <Routes>
+              {/* ... routes ... */}
                 {/* Public Routes - No protection needed */}
                 <Route path="/" element={<Home />} />
                 <Route path="/change-password" element={<ChangePassword />} />
@@ -190,6 +254,9 @@ function HomePage() {
                 {/* Protected Routes */}
                 <Route path="/assign" element={<Assign />} />
                 <Route path="/admin/branches" element={<BranchManagement />} />
+                <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
+                <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
+
 
                 {/* HOD Management - For Head of Department users */}
                 <Route path="/hod-management" element={<HodManagement />} />
@@ -503,6 +570,14 @@ function HomePage() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/custom-house-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <CustomHouseDirectory />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route
                   path="/country-directory"
@@ -530,6 +605,74 @@ function HomePage() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/organization-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <OrganizationDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/add-organization"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <OrganizationForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/edit-organization/:id"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <OrganizationForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/shipping-line-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <ShippingLineDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/supplier-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <SupplierDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/currency-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <CurrencyDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/port-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <PortDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+
+
+                {/* Document Collection */}
+                <Route
+                  path="/document-collection"
+                  element={
+                    <ProtectedRoute requiredModule="Document Collection">
+                      <DocumentCollection />
+                    </ProtectedRoute>
+                  }
+                />
+
 
                 <Route
                   path="/report"
@@ -773,11 +916,43 @@ function HomePage() {
                   path="/dgft/authorization-details/:id"
                   element={<ViewAuthorizationDetails />}
                 />
+
+                {/* Attendance Module */}
+                <Route path="/admin/attendance" element={<Navigate to="/attendance/admin/attendance" replace />} />
+                <Route path="/attendance" element={<ProtectedRoute requiredModule="Attendance"><AttendanceLayout /></ProtectedRoute>}>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<DashboardSwitch />} />
+                  <Route path="my-attendance" element={<AttendancePage />} />
+                  <Route path="leave" element={<LeaveManagement />} />
+                  <Route path="regularization" element={<Regularization />} />
+                  <Route path="holiday-calendar" element={<HolidayManagement />} />
+                  <Route path="hod-dashboard" element={<HODDashboard />} />
+                  <Route path="hod/leave-approval" element={<LeaveApproval />} />
+                  <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
+                  <Route path="admin" element={<AdminDashboard />} />
+                  <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
+                  <Route path="admin/holidays" element={<HolidayManagement />} />
+                  <Route path="admin/shifts" element={<ShiftManagement />} />
+                  <Route path="admin/leave-policies" element={<LeavePolicyManagement />} />
+                  <Route path="admin/companies" element={<CompanyManagement />} />
+                  <Route path="admin/lock" element={<LockAttendance />} />
+                  <Route path="admin/payroll" element={<PayrollExport />} />
+                  <Route path="admin/settings" element={<AttendanceSettings />} />
+                  <Route path="hod/report" element={<AttendanceReport />} />
+                  <Route path="report" element={<AttendanceReport isAdmin />} />
+                </Route>
               </Routes>
             </Box>
           </Box>
         </SearchQueryProvider>
       </TabValueContext.Provider>
+    );
+}
+
+function HomePage() {
+  return (
+    <BranchProvider>
+      <HomePageContent />
     </BranchProvider>
   );
 }

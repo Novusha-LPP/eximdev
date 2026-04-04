@@ -8,7 +8,7 @@ router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:y
   auditMiddleware('Job'),
   async (req, res) => {
     const { branch_code, trade_type, mode, job_no, year } = req.params;
-    const { cth_documents, documents, queries, esanchitCharges, dsr_queries, esanchit_completed_date_time } = req.body;
+    const { cth_documents, documents, queries, dsr_queries, esanchit_completed_date_time } = req.body;
 
     try {
       const matchingJob = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), job_no, year });
@@ -57,24 +57,7 @@ router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:y
         });
       }
 
-      // Update esanchitCharges
-      if (esanchitCharges && esanchitCharges.length > 0) {
-        esanchitCharges.forEach((incomingDoc) => {
-          const existingDocIndex = matchingJob.esanchitCharges.findIndex(
-            (doc) => doc.document_name === incomingDoc.document_name
-          );
-          if (existingDocIndex !== -1) {
-            // Update the existing document
-            matchingJob.esanchitCharges[existingDocIndex] = {
-              ...matchingJob.esanchitCharges[existingDocIndex],
-              ...incomingDoc,
-            };
-          } else {
-            // Add new document if it doesn't exist
-            matchingJob.esanchitCharges.push(incomingDoc);
-          }
-        });
-      }
+
 
       // Update queries
       if (queries) {

@@ -75,15 +75,20 @@
 /* ══ EDIT CHARGE MODAL ══ */
 .edit-charge-modal {
   background: #dde4ed; border: 2px solid #7a9cbf; border-radius: 4px;
-  width: 800px; font-size: 12px; box-shadow: 4px 4px 16px rgba(0,0,0,.4);
+  width: 900px; font-size: 12px; box-shadow: 4px 4px 16px rgba(0,0,0,.4);
   overflow: hidden; max-height: 90vh; display: flex; flex-direction: column;
 }
 .modal-title {
   background: linear-gradient(to bottom,#7fa8d0,#5580a8);
   color: white; font-weight: bold; font-size: 13px; padding: 6px 10px; flex-shrink: 0;
 }
-.modal-body { padding: 12px 16px 8px; overflow-y: auto; }
+.modal-body { padding: 12px 16px 8px; overflow-y: auto; margin-right: 20px; margin-left: 20px; }
 .form-section { display: flex; gap: 20px; margin-bottom: 10px; }
+.form-section-new { border-bottom: 1px solid #bfc7d1; padding-bottom: 12px; margin-bottom: 12px; }
+.form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; align-items: center; }
+.form-remark-row { margin-top: 10px; display: grid; grid-template-columns: 78px 1fr; gap: 8px; align-items: center; }
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 3; }
 .form-left { flex: 1; }
 .form-right { display: flex; flex-direction: column; gap: 4px; }
 .form-row { display: flex; align-items: center; margin-bottom: 7px; gap: 8px; }
@@ -125,6 +130,23 @@
 .ep-copy-row { display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 8px; color: #333; }
 .ep-desc-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .ep-desc-input { flex: 1; height: 20px; border: 1px solid #8faec7; padding: 1px 5px; background: white; border-radius: 2px; font-family: inherit; font-size: 12px;}
+
+/* ══ CUSTOM DROPDOWN ══ */
+.ep-search-container { position: relative; flex: 1; display: flex; }
+.ep-dropdown-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: white; border: 1px solid #7a9cbf; border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 1100;
+  max-height: 200px; overflow-y: auto; list-style: none; padding: 0; margin: 0;
+}
+.ep-dropdown-item {
+  padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f0f4f8;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ep-dropdown-item:last-child { border-bottom: none; }
+.ep-dropdown-item:hover { background: #eef4ff; }
+.ep-item-name { font-weight: bold; color: #1a3a5c; font-size: 11px; }
+.ep-item-sub { font-size: 10px; color: #7a9cbf; }
 
 .modal-footer {
   background: #c8d4e0; border-top: 1px solid #9aacbd;

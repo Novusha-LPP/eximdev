@@ -29,6 +29,8 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import mongoose from "mongoose";
 import compression from "compression";
@@ -114,14 +116,19 @@ import getESanchitJobs from "./routes/e-sanchit/getESanchitJobs.mjs";
 import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJobs.mjs";
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
+import getNfimsSimsJobs from "./routes/e-sanchit/getNfimsSimsJobs.mjs";
+
 
 // import - billing
 import getImportBilling from "./routes/import-billing/getImportBilling.js";
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
+import assignModuleToAll from "./routes/home/assignModuleToAll.mjs";
+import assignUsersToModule from "./routes/assignUsersToModule.mjs";
 import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
+import unassignModuleFromAll from "./routes/unassignModuleFromAll.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 import assignIcdCode from "./routes/home/assignIcdCode.mjs";
 import assignEximBot from "./routes/home/assignEximBot.mjs";
@@ -165,6 +172,7 @@ import updateJob from "./routes/import-dsr/updateJob.mjs";
 import viewDSR from "./routes/import-dsr/viewDSR.mjs";
 import containerTrack from "./routes/import-dsr/containerTrack.mjs";
 import checkDuplicateJob from "./routes/import-dsr/checkDuplicateJob.mjs";
+import getNextJobNumber from "./routes/import-dsr/getNextJobNumber.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -242,14 +250,39 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 import crmRoutes from "./routes/crm/crmRoutes.mjs";
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
+import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+
+// Document Collection Module
+import documentCollectionRoutes from "./routes/document-collection/documentCollectionRoutes.mjs";
 
 // Master Directory
 import countryRoutes from "./routes/master-directory/countryRoutes.mjs";
 import airlineRoutes from "./routes/master-directory/airlineRoutes.mjs";
 import unitRoutes from "./routes/master-directory/unitRoutes.mjs";
+import organizationRoutes from "./routes/master-directory/organizationRoutes.mjs";
+import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs";
+import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
+import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
+import portRoutes from "./routes/master-directory/portRoutes.mjs";
+import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
+
+// Tally API
+import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
+import apiKeyRoutes from "./routes/admin/apiKeyRoutes.mjs";
+
+// Attendance Module
+import attendanceRoutes from "./routes/attendance/attendanceRoutes.mjs";
+import leaveRoutes from "./routes/attendance/leaveRoutes.mjs";
+import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
+import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
+// scmCube API
+import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
+
+
+
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -318,7 +351,9 @@ app.use(
       "x-username",
       "x-tenant-id",
       "x-tenant-slug",
+      "x-api-key",
     ],
+
   })
 );
 
@@ -406,12 +441,17 @@ app.use(getESanchitJobs);
 app.use(getESanchitCompletedJobs);
 app.use(getJobDetail);
 app.use(updateESanchitJob);
+app.use(getNfimsSimsJobs);
+
 
 // Home
 app.use(assignModules);
+app.use(assignModuleToAll);
+app.use(assignUsersToModule);
 app.use(assignRole);
 app.use("/api", assignDepartment);
 app.use(unassignModule);
+app.use(unassignModuleFromAll);
 app.use(changePassword);
 app.use(assignIcdCode);
 app.use(assignEximBot);
@@ -454,6 +494,7 @@ app.use(updateJob);
 app.use(viewDSR);
 app.use(containerTrack);
 app.use(checkDuplicateJob);
+app.use("/api", getNextJobNumber);
 // app.use(ImportCreateJob);
 
 // Import Operations
@@ -536,13 +577,43 @@ app.use("/api/crm", crmRoutes);
 
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
+app.use("/api/admin/job-migration", jobMigrationRouter);
 
 app.use(userAssetsRoutes);
+
+// Document Collection Module
+app.use(documentCollectionRoutes);
 
 // Master Directory
 app.use("/api", countryRoutes);
 app.use("/api", airlineRoutes);
 app.use("/api", unitRoutes);
+app.use("/api", organizationRoutes);
+app.use("/api", shippingLineRoutes);
+app.use("/api", supplierRoutes);
+app.use("/api", currencyRoutes);
+app.use("/api", portRoutes);
+app.use("/api", customHouseRoutes);
+
+
+// Tally API
+app.use("/api/tally", tallyRoutes);
+app.use(apiKeyRoutes);
+
+// ─── Attendance Module ────────────────────────────────────────────────────────
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/leave', leaveRoutes);
+app.use('/api/hod-attendance', hodAttendanceRoutes);
+app.use('/api/master', masterAttendanceRoutes);
+app.use('/uploads/leaves', express.static(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
+));
+// ─────────────────────────────────────────────────────────────────────────────
+// scmCube API
+app.use(scmCubeRoutes);
+
+
+
 
 // Sentry Error Handler (Must be after controllers)
 Sentry.setupExpressErrorHandler(app);
@@ -660,3 +731,4 @@ if (cluster.isPrimary) {
 }
 
 export default app;
+ 

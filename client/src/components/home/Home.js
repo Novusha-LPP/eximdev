@@ -78,11 +78,27 @@ function Home() {
     });
   };
 
+  const [pendingDocCount, setPendingDocCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchPendingCount() {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/document-requests/count/pending`
+        );
+        setPendingDocCount(res.data.count);
+      } catch (err) {
+        console.error("Error fetching pending doc count:", err);
+      }
+    }
+    fetchPendingCount();
+  }, []);
+
   return (
     <div>
       {categorizedModules &&
         Object.keys(categorizedModules)
-          .filter(category => category !== "Uncategorized")
+          .filter((category) => category !== "Uncategorized")
           .sort()
           .map((category, idx) => (
             <div key={idx}>
@@ -99,9 +115,34 @@ function Home() {
                   <Col xs={12} md={4} lg={2} key={id} className="module-col">
                     <div
                       className="module-col-inner"
+                      style={{ position: "relative" }}
                       onClick={() => navigateToModule(module, navigate)}
                     >
                       <p>{module}</p>
+                      {module === "Document Collection" && pendingDocCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {pendingDocCount}
+                        </span>
+                      )}
                     </div>
                   </Col>
                 ))}

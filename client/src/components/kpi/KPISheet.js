@@ -484,14 +484,17 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         // Validation - All Summary fields are required, but 0 is acceptable
         const missingFields = [];
 
+        const bizLossAmt = Number(summary.business_loss) || 0;
         if (summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '') {
             missingFields.push('Business Loss amount in Rupees (INR)');
         }
-        if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
-            missingFields.push('Business Loss Type');
-        }
-        if (summary.root_cause?.includes('OTHERS: Others') && (!summary.root_cause_other || !summary.root_cause_other.trim())) {
-            missingFields.push('Specific details for "Others" business loss');
+        if (bizLossAmt > 0) {
+            if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
+                missingFields.push('Business Loss Type');
+            }
+            if (summary.root_cause?.includes('OTHERS: Others') && (!summary.root_cause_other || !summary.root_cause_other.trim())) {
+                missingFields.push('Specific details for "Others" business loss');
+            }
         }
         if (summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '') {
             missingFields.push('Action plan for business loss');
@@ -507,9 +510,6 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         }
         if (summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '') {
             missingFields.push('Rootcause (for blockers)');
-        }
-        if (summary.can_hod_solve === undefined || summary.can_hod_solve === null || summary.can_hod_solve === '') {
-            missingFields.push('Can HOD solve the problem');
         }
         if (summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') {
             missingFields.push('Total Month Workload %');
@@ -1184,7 +1184,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         <strong>Important:</strong> Once submitted, you will not be able to edit this sheet unless it is rejected by the approver.
                     </Typography>
                     {(summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '' ||
-                        summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '' ||
+                        (Number(summary.business_loss) > 0 && (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '')) ||
                         summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '' ||
                         summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '' ||
                         summary.blockers === undefined || summary.blockers === null || summary.blockers === '' ||
@@ -1309,7 +1309,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                                 <AssessmentIcon sx={{ color: '#10b981', fontSize: 18 }} />
                                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
-                                    Business Loss Type <span style={{ color: '#ef4444' }}>*</span>
+                                    Business Loss Type {Number(summary.business_loss) > 0 && <span style={{ color: '#ef4444' }}>*</span>}
                                 </Typography>
                             </Box>
                             

@@ -55,6 +55,11 @@ router.post("/api/login", async (req, res) => {
             _id: user._id,
             username: user.username,
             role: user.role,
+            company_id: user.company_id,
+            department_id: user.department_id,
+            shift_id: user.shift_id,
+            current_status: user.current_status,
+            last_punch_date: user.last_punch_date
           },
           process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod",
           { expiresIn: "10h" }

@@ -222,38 +222,68 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
 
   return (
     <div style={{ lineHeight: "1.5" }}>
-      <Tooltip title="Arrival Date" arrow>
-        <strong>Arrival: </strong>
-      </Tooltip>
       {containers.length > 0
         ? containers.map((container, id) => (
             <React.Fragment key={id}>
-              {formatDate(container.arrival_date)}
-              <FcCalendar
-                style={styles.icon}
-                onClick={() => handleEditStart("arrival_date", id)}
-              />
-              {editable === `arrival_date_${id}` && (
-                <div style={styles.editContainer}>
-                  <input
-                    type="datetime-local"
-                    value={tempDateValue}
-                    onChange={handleDateInputChange}
-                    style={dateError ? styles.errorInput : styles.dateInput}
+              <div style={{ marginBottom: "2px" }}>
+                <strong>Arrival: </strong>
+                {formatDate(container.arrival_date)}
+                <FcCalendar
+                  style={styles.icon}
+                  onClick={() => handleEditStart("arrival_date", id)}
+                />
+                {editable === `arrival_date_${id}` && (
+                  <div style={styles.editContainer}>
+                    <input
+                      type="datetime-local"
+                      value={tempDateValue}
+                      onChange={handleDateInputChange}
+                      style={dateError ? styles.errorInput : styles.dateInput}
+                    />
+                    <button
+                      style={styles.submitButton}
+                      onClick={() => handleDateSubmit("arrival_date", id)}
+                    >
+                      ✓
+                    </button>
+                    <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+                      ✕
+                    </button>
+                    {dateError && <div style={styles.errorText}>{dateError}</div>}
+                  </div>
+                )}
+              </div>
+
+              {row.original.mode === "AIR" && (
+                <div style={{ marginBottom: "2px" }}>
+                  <strong>Delivery: </strong>
+                  {formatDate(container.delivery_date)}
+                  <FcCalendar
+                    style={styles.icon}
+                    onClick={() => handleEditStart("delivery_date", id)}
                   />
-                  <button
-                    style={styles.submitButton}
-                    onClick={() => handleDateSubmit("arrival_date", id)}
-                  >
-                    ✓
-                  </button>
-                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>
-                    ✕
-                  </button>
-                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                  {editable === `delivery_date_${id}` && (
+                    <div style={styles.editContainer}>
+                      <input
+                        type="datetime-local"
+                        value={tempDateValue}
+                        onChange={handleDateInputChange}
+                        style={dateError ? styles.errorInput : styles.dateInput}
+                      />
+                      <button
+                        style={styles.submitButton}
+                        onClick={() => handleDateSubmit("delivery_date", id)}
+                      >
+                        ✓
+                      </button>
+                      <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+                        ✕
+                      </button>
+                      {dateError && <div style={styles.errorText}>{dateError}</div>}
+                    </div>
+                  )}
                 </div>
               )}
-              <br />
             </React.Fragment>
           ))
         : "N/A"}

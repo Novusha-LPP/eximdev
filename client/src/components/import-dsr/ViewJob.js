@@ -13,8 +13,10 @@ import {
   InputLabel,
   Select,
   Typography,
+  Autocomplete,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
+import axios from "axios";
 import "../../styles/job-details.scss";
 import useFetchJobDetails from "../../customHooks/useFetchJobDetails";
 import Checkbox from "@mui/material/Checkbox";
@@ -57,6 +59,8 @@ import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
+import JobDocRequests from "../document-collection/JobDocRequests.js";
+import DocRequestCheckbox from "../document-collection/DocRequestCheckbox.js";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import { BranchContext } from "../../contexts/BranchContext";
 import {
@@ -90,6 +94,19 @@ function JobDetails() {
 
   // State to track which containers have expanded seal number lists
   const [expandedSealIndices, setExpandedSealIndices] = useState({});
+  const [currencies, setCurrencies] = useState([]);
+
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-currencies`);
+        setCurrencies(res.data);
+      } catch (error) {
+        console.error("Error fetching currencies:", error);
+      }
+    };
+    fetchCurrencies();
+  }, []);
 
   const toggleSealExpansion = (index) => {
     setExpandedSealIndices(prev => ({
@@ -308,15 +325,6 @@ function JobDetails() {
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
-    // Charges related
-    DsrCharges,
-    setDsrCharges,
-    selectedChargesDocuments,
-    setSelectedChargesDocuments,
-    selectedChargesDocument,
-    setSelectedChargesDocument,
-    newChargesDocumentName,
-    setNewChargesDocumentName,
     setData,
     // schemeOptions,
   } = useFetchJobDetails(
@@ -906,6 +914,7 @@ function JobDetails() {
           {
             invoice_number: "",
             invoice_date: "",
+            po_no: "",
             product_value: "",
             other_charges: "",
             total_inv_value: "",
@@ -939,6 +948,7 @@ function JobDetails() {
     if (rowIndex === 0) {
       if (field === "invoice_number") formik.setFieldValue("invoice_number", value);
       if (field === "invoice_date") formik.setFieldValue("invoice_date", value);
+      if (field === "po_no") formik.setFieldValue("po_no", value);
       if (field === "total_inv_value") formik.setFieldValue("total_inv_value", value);
       if (field === "toi") formik.setFieldValue("import_terms", value);
       if (field === "freight") formik.setFieldValue("freight", value);
@@ -952,6 +962,7 @@ function JobDetails() {
       {
         invoice_number: "",
         invoice_date: "",
+        po_no: "",
         product_value: "",
         other_charges: "",
         total_inv_value: "",
@@ -1645,13 +1656,16 @@ function JobDetails() {
                 <JobDetailsRowHeading
                   heading="Tracking Status"
                   rightContent={
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
-                      <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
-                        <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
-                        <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
-                        <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
-                      </RadioGroup>
+                    <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                      <DocRequestCheckbox job={data} />
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
+                        <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
+                          <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
+                          <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
+                          <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
+                        </RadioGroup>
+                      </div>
                     </div>
                   }
                 />
@@ -1816,6 +1830,8 @@ function JobDetails() {
                     )}
                   </Row>
                 </div>
+
+                <JobDocRequests jobNumber={formik.values.job_number || formik.values.job_no} />
 
                 {/* --- Section: Clearance, Weights & BE Details --- */}
                 <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
@@ -1991,7 +2007,7 @@ function JobDetails() {
                         <div className="d-flex gap-2 align-items-center mb-2">
                           <JobStickerPDF ref={pdfRef} jobData={{
                             job_no: formik.values.job_no, year: formik.values.year, importer: formik.values.importer, be_no: formik.values.be_no, be_date: formik.values.be_date,
-                            invoice_number: formik.values.invoice_number, invoice_date: formik.values.invoice_date, loading_port: formik.values.loading_port,
+                            invoice_number: formik.values.invoice_number, invoice_date: formik.values.invoice_date, po_no: formik.values.po_no, loading_port: formik.values.loading_port,
                             no_of_pkgs: formik.values.no_of_pkgs, description: formik.values.description, gross_weight: formik.values.gross_weight,
                             job_net_weight: formik.values.job_net_weight, gateway_igm: formik.values.gateway_igm, gateway_igm_date: formik.values.gateway_igm_date,
                             igm_no: formik.values.igm_no, igm_date: formik.values.igm_date, awb_bl_no: formik.values.awb_bl_no, awb_bl_date: formik.values.awb_bl_date,
@@ -2319,7 +2335,7 @@ function JobDetails() {
                       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
                         <thead>
                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Invoice Number", "Date", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
+                            {["Sr No", "Invoice Number", "Date", "PO NO", "PO Date", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
                               <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
                                 {h}
                               </th>
@@ -2342,13 +2358,34 @@ function JobDetails() {
                                   placeholder="Invoice No"
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
                                   type="date"
                                   value={row.invoice_date || ""}
                                   onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                  InputLabelProps={{ shrink: true }}
+                                />
+                              </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={row.po_no || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                  placeholder="PO No"
+                                />
+                              </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  type="date"
+                                  value={row.po_date || ""}
+                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   InputLabelProps={{ shrink: true }}
                                 />
@@ -2369,24 +2406,25 @@ function JobDetails() {
                                 </TextField>
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.inv_currency || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "inv_currency", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  <MenuItem value="USD">USD</MenuItem>
-                                  <MenuItem value="EUR">EUR</MenuItem>
-                                  <MenuItem value="GBP">GBP</MenuItem>
-                                  <MenuItem value="JPY">JPY</MenuItem>
-                                  <MenuItem value="INR">INR</MenuItem>
-                                  <MenuItem value="AED">AED</MenuItem>
-                                  <MenuItem value="CNY">CNY</MenuItem>
-                                  <MenuItem value="CHF">CHF</MenuItem>
-                                </TextField>
+                                 <Autocomplete
+                                   freeSolo
+                                   size="small"
+                                   options={currencies.map(c => c.code)}
+                                   sx={compactInputSx}
+                                   value={row.inv_currency || ""}
+                                   onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                   onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                   disabled={isDescriptionTableReadOnly}
+                                   renderInput={(params) => (
+                                     <TextField
+                                       {...params}
+                                       variant="outlined"
+                                       size="small"
+                                       placeholder="Currency"
+                                       sx={compactInputSx}
+                                     />
+                                   )}
+                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
                                 <TextField
@@ -2497,19 +2535,24 @@ function JobDetails() {
                           <tr key={row.id}>
                             <td style={{ verticalAlign: "middle", fontWeight: "500" }}>{row.label}</td>
                             <td>
-                              <TextField
-                                select
-                                fullWidth
-                                size="small"
-                                sx={compactInputSx}
-                                value={formik.values.other_charges_details?.[row.id]?.currency || ""}
-                                onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, e.target.value)}
-                              >
-                                <MenuItem value="">Select</MenuItem>
-                                {["USD", "EUR", "GBP", "JPY", "INR", "AED", "CNY", "CHF"].map(c => (
-                                  <MenuItem key={c} value={c}>{c}</MenuItem>
-                                ))}
-                              </TextField>
+                               <Autocomplete
+                                 freeSolo
+                                 size="small"
+                                 options={currencies.map(c => c.code)}
+                                 sx={compactInputSx}
+                                 value={formik.values.other_charges_details?.[row.id]?.currency || ""}
+                                 onInputChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue)}
+                                 onChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "")}
+                                 renderInput={(params) => (
+                                   <TextField
+                                     {...params}
+                                     variant="outlined"
+                                     size="small"
+                                     placeholder="Currency"
+                                     sx={compactInputSx}
+                                   />
+                                 )}
+                               />
                             </td>
                             <td>
                               <TextField
@@ -2667,18 +2710,24 @@ function JobDetails() {
                               </TextField>
                             </td>
                             <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
-                              <TextField
-                                select
-                                size="small"
-                                fullWidth
-                                value={row.currency || "USD"}
-                                onChange={(e) => updateMiscChargeRow(rowIndex, "currency", e.target.value)}
-                                sx={compactInputSx}
-                              >
-                                {["USD", "EUR", "GBP", "JPY", "INR", "AED", "CNY", "CHF"].map((c) => (
-                                  <MenuItem key={c} value={c}>{c}</MenuItem>
-                                ))}
-                              </TextField>
+                               <Autocomplete
+                                 freeSolo
+                                 size="small"
+                                 options={currencies.map(c => c.code)}
+                                 sx={compactInputSx}
+                                 value={row.currency || "USD"}
+                                 onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
+                                 onChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue || "")}
+                                 renderInput={(params) => (
+                                   <TextField
+                                     {...params}
+                                     variant="outlined"
+                                     size="small"
+                                     placeholder="Currency"
+                                     sx={compactInputSx}
+                                   />
+                                 )}
+                               />
                             </td>
                             <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
                               <TextField
@@ -3086,129 +3135,26 @@ function JobDetails() {
           {/* charges section */}
           {viewJobTab === 6 && (
             <div className="job-details-container">
-              {/* Charges Section */}
-              <JobDetailsRowHeading heading="Charges" />
-              <div className="table-responsive">
-                <table className="table table-bordered table-hover" style={{ backgroundColor: "#fff", fontSize: "0.9rem" }}>
-                  <thead style={{ backgroundColor: "#f8f9fa" }}>
-                    <tr>
-                      <th style={{ width: "25%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Document Name</th>
-                      <th style={{ width: "20%", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Amount Details</th>
-                      <th style={{ width: "1%", fontWeight: "600", color: "#495057", padding: "4px 8px", whiteSpace: "nowrap" }}>Upload</th>
-                      <th style={{ width: "auto", fontWeight: "600", color: "#495057", padding: "4px 8px" }}>Files</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {DsrCharges?.map((doc, index) => {
-                      const selectedChargesDoc = selectedChargesDocuments.find(s => s.document_name === doc.document_name) || {};
-                      const isCustom = !["Notary", "Duty", "MISC", "CE Certification Charges", "ADC/NOC Charges"].includes(doc.document_name);
 
-                      return (
-                        <tr key={`charges-${index}`}>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ fontWeight: "600", color: "#212529" }}>{doc.document_name}</div>
-                              {isCustom && (
-                                <IconButton size="small" color="error" onClick={() => {
-                                  const updatedDsrCharges = DsrCharges.filter((_, i) => i !== index);
-                                  setDsrCharges(updatedDsrCharges);
-                                  const updatedSelected = selectedChargesDocuments.filter(s => s.document_name !== doc.document_name);
-                                  setSelectedChargesDocuments(updatedSelected);
-                                }} style={{ padding: "4px" }}>
-                                  <Delete style={{ fontSize: "1rem" }} fontSize="small" />
-                                </IconButton>
-                              )}
-                            </div>
-                          </td>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              placeholder="Amount"
-                              type="number"
-                              variant="outlined"
-                              value={selectedChargesDoc.document_amount_details || ""}
-                              inputProps={{ min: 0, step: "0.01", pattern: "[0-9]+(\\.[0-9]+)?" }}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === "" || /^\d+(\.\d*)?$/.test(value)) {
-                                  const updated = [...selectedChargesDocuments];
-                                  const idx = updated.findIndex(s => s.document_name === doc.document_name);
-                                  if (idx !== -1) updated[idx].document_amount_details = value;
-                                  else updated.push({ document_name: doc.document_name, url: [], document_check_date: "", document_amount_details: value });
-                                  setSelectedChargesDocuments(updated);
-                                }
-                              }}
-                              sx={{
-                                ...compactInputSx,
-                                "& .MuiOutlinedInput-root": { height: "30px" }, // Match table row height better
-                              }}
-                            />
-                          </td>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px", whiteSpace: "nowrap" }}>
-                            <FileUpload
-                              label="Upload"
-                              bucketPath={`charges-documents/${doc.document_name}`}
-                              multiple={true}
-                              containerStyles={{ marginTop: 0 }}
-                              buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
-                              onFilesUploaded={(urls) => {
-                                const updated = [...selectedChargesDocuments];
-                                const idx = updated.findIndex(s => s.document_name === doc.document_name);
-                                if (idx !== -1) updated[idx].url = [...(updated[idx].url || []), ...urls];
-                                else updated.push({ document_name: doc.document_name, url: urls, document_check_date: "", document_amount_details: "" });
-                                setSelectedChargesDocuments(updated);
-                              }}
-                            />
-                          </td>
-                          <td style={{ verticalAlign: "middle", padding: "4px 8px" }}>
-                            <ImagePreview
-                              images={selectedChargesDoc.url || []}
-                              readOnly={false}
-                              onDeleteImage={(delIdx) => {
-                                const updated = [...selectedChargesDocuments];
-                                const idx = updated.findIndex(s => s.document_name === doc.document_name);
-                                if (idx !== -1) {
-                                  updated[idx].url = updated[idx].url.filter((_, i) => i !== delIdx);
-                                  setSelectedChargesDocuments(updated);
-                                }
-                              }}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Add Custom Charge */}
-              <div style={{ background: "#f8f9fa", borderRadius: "8px", border: "1px dashed #ced4da", padding: "20px", marginTop: "10px", marginBottom: "30px" }}>
-                <h6 style={{ fontSize: "0.9rem", fontWeight: "700", color: "#495057", marginBottom: "15px" }}>Add Custom Charge Document</h6>
-                <Row className="align-items-center">
-                  <Col xs={12} lg={6}>
-                    <TextField fullWidth size="small" label="Document Name" variant="outlined" value={newChargesDocumentName}
-                      onChange={(e) => setNewChargesDocumentName(e.target.value)} onKeyDown={preventFormSubmitOnEnter} sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} lg={2}>
-                    <Button variant="contained" color="primary"
-                      disabled={!(user?.role === "Admin") && (!newChargesDocumentName.trim() || DsrCharges.some(d => d.document_name === newChargesDocumentName.trim()))}
-                      onClick={() => {
-                        if (newChargesDocumentName.trim() && !DsrCharges.some(d => d.document_name === newChargesDocumentName.trim())) {
-                          setDsrCharges([...DsrCharges, { document_name: newChargesDocumentName.trim() }]);
-                          setNewChargesDocumentName("");
-                        }
-                      }}>
-                      Add
-                    </Button>
-                  </Col>
-                </Row>
-              </div>
+              {/* NEW CHARGES COMPONENT */}
 
               {/* NEW CHARGES COMPONENT */}
               <div style={{ marginTop: '40px' }}>
                 <JobDetailsRowHeading heading="Charges Management (New)" />
-                <ChargesGrid parentId={data?._id} parentModule="Job" />
+                <ChargesGrid 
+                  parentId={data?._id} 
+                  parentModule="Job" 
+                  shippingLineAirline={data?.shipping_line_airline} 
+                  importerName={data?.importer} 
+                  jobNumber={data?.job_no}
+                  jobDisplayNumber={data?.job_number}
+                  jobYear={data?.year}
+                  invoiceNumber={data?.invoice_number}
+                  invoiceDate={data?.invoice_date}
+                  poNo={data?.po_no}
+                  invoiceValue={data?.total_inv_value}
+                  cthNo={data?.cth_no}
+                />
               </div>
 
             </div>

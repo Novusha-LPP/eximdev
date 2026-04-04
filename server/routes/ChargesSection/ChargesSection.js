@@ -19,8 +19,7 @@ router.get('/api/charges-section/job-details', async (req, res) => {
 
     const job = await JobModel.findOne(query)
       .select({
-        DsrCharges: 1,
-        esanchitCharges: 1,
+
         do_shipping_line_invoice: 1,
         insurance_copy: 1,
         other_do_documents: 1,

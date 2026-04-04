@@ -5,6 +5,8 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import EditIcon from "@mui/icons-material/Edit";
+import HistoryIcon from "@mui/icons-material/History";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
@@ -22,6 +24,15 @@ function JobDetailsStaticData(props) {
   const isAdmin = user?.role === "Admin";
   const { branches, selectedBranch } = useContext(BranchContext);
   const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+
+  const [oldDocsModalOpen, setOldDocsModalOpen] = useState(false);
+
+  // Check if any legacy documents exist
+  const hasOldDocs = useMemo(() => {
+    const { do_shipping_line_invoice, insurance_copy, other_do_documents } = props.data || {};
+    const checkArray = (arr) => Array.isArray(arr) && arr.some(item => Array.isArray(item.url) && item.url.length > 0);
+    return checkArray(do_shipping_line_invoice) || checkArray(insurance_copy) || checkArray(other_do_documents);
+  }, [props.data]);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -65,7 +76,22 @@ function JobDetailsStaticData(props) {
       igm_date: props.data?.igm_date || "",
       hss: props.data?.hss || "",
       saller_name: props.data?.saller_name || "",
-      importer_address: props.data?.importer_address || "",
+      // Flatten importer_address
+      importer_address_details: (typeof props.data?.importer_address === 'object' ? props.data?.importer_address?.details : props.data?.importer_address) || "",
+      importer_city: (typeof props.data?.importer_address === 'object' ? props.data?.importer_address?.city : props.data?.importer_city) || "",
+      importer_state: (typeof props.data?.importer_address === 'object' ? props.data?.importer_address?.state : props.data?.importer_state) || "",
+      importer_postal_code: (typeof props.data?.importer_address === 'object' ? props.data?.importer_address?.postal_code : props.data?.importer_postal_code) || "",
+      importer_country: (typeof props.data?.importer_address === 'object' ? props.data?.importer_address?.country : props.data?.importer_country) || "",
+      importer_type: props.data?.importer_type || "",
+      commercial_tax_type: props.data?.commercial_tax_type || "",
+      // Flatten hss_address
+      hss_address_category: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.category : props.data?.hss_address) || "",
+      hss_address_details: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.details : props.data?.hss_address_details) || "",
+      hss_city: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.city : props.data?.hss_city) || "",
+      hss_state: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.state : props.data?.hss_state) || "",
+      hss_postal_code: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.postal_code : props.data?.hss_postal_code) || "",
+      hss_country: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.country : props.data?.hss_country) || "",
+      hss_ad_code: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.ad_code : props.data?.hss_ad_code) || "",
     });
     setErrorMsg("");
     setEditModalOpen(true);
@@ -79,7 +105,40 @@ function JobDetailsStaticData(props) {
     try {
       setIsSaving(true);
       setErrorMsg("");
-      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.mode}/${props.data?.year}/${props.params.job_no}`, editFormData);
+      const payload = {
+        ...editFormData,
+        importer_address: {
+          details: editFormData.importer_address_details,
+          city: editFormData.importer_city,
+          state: editFormData.importer_state,
+          postal_code: editFormData.importer_postal_code,
+          country: editFormData.importer_country,
+        },
+        hss_address: {
+          category: editFormData.hss_address_category,
+          details: editFormData.hss_address_details,
+          city: editFormData.hss_city,
+          state: editFormData.hss_state,
+          postal_code: editFormData.hss_postal_code,
+          country: editFormData.hss_country,
+          ad_code: editFormData.hss_ad_code,
+        }
+      };
+      // Remove flattened fields to avoid polluting the model if they are no longer in schema
+      delete payload.importer_address_details;
+      delete payload.importer_city;
+      delete payload.importer_state;
+      delete payload.importer_postal_code;
+      delete payload.importer_country;
+      delete payload.hss_address_category;
+      delete payload.hss_address_details;
+      delete payload.hss_city;
+      delete payload.hss_state;
+      delete payload.hss_postal_code;
+      delete payload.hss_country;
+      delete payload.hss_ad_code;
+
+      await axios.put(`${process.env.REACT_APP_API_STRING}/admin/update-job-static/${props.data?.branch_code || "AMD"}/${props.data?.trade_type || "IMP"}/${props.data?.mode}/${props.data?.year}/${props.params.job_no}`, payload);
       window.location.reload();
     } catch (err) {
       console.error(err);
@@ -219,6 +278,117 @@ function JobDetailsStaticData(props) {
     fontWeight: "400",
   };
 
+  const importerTypeOptions = [
+    { value: 'G', label: 'Government Departments (Central & State)' },
+    { value: 'U', label: 'Government Undertakings (Central & State)' },
+    { value: 'O', label: 'Others' },
+    { value: 'P', label: 'Private' },
+    { value: 'J', label: 'Jobbing' },
+    { value: 'R', label: 'Repair' },
+    { value: 'E', label: 'Exhibition' },
+    { value: 'D', label: 'Destruction' },
+    { value: 'T', label: 'Sample Testing' },
+    { value: 'S', label: 'Ship Stores / Cruise Ship Purchase' },
+    { value: 'V', label: 'Vessels / Charter Vessels / Vessel Repair' },
+    { value: 'A', label: 'New Aircraft' },
+    { value: 'H', label: 'Hand Carriage (Applicable for Air Cargo – H Type BE)' },
+    { value: 'I', label: 'Unclaimed Cargo' },
+    { value: 'T', label: 'W Type BE in SEZ (Trading – SEZ to CBW)' },
+    { value: 'M', label: 'W Type BE in SEZ (Manufactured Goods – SEZ to CBW)' },
+    { value: 'W', label: 'Z Type BE in SEZ (CBW to SEZ)' },
+  ];
+
+  const commercialTaxTypeOptions = [
+    { value: 'V', label: 'VAT (Value Added Tax)' },
+    { value: 'C', label: 'CST (Central Sales Tax)' },
+    { value: 'S', label: 'Service Tax' },
+    { value: 'G', label: 'GST – Registered Taxpayer (India)' },
+    { value: 'N', label: 'GST – Non-Resident Taxpayer' },
+    { value: 'O', label: 'GST – Government Entity' },
+    { value: 'D', label: 'GST – Diplomat' },
+    { value: 'A', label: 'Aadhaar Number' },
+    { value: 'P', label: 'Passport Number' },
+    { value: 'I', label: 'Income Tax PAN' },
+    { value: 'T', label: 'TIN (Taxpayer Identification Number)' },
+  ];
+
+  const renderOldDocsDialog = () => {
+    const { do_shipping_line_invoice, insurance_copy, other_do_documents } = props.data || {};
+    
+    const renderDocSection = (title, docs) => {
+      if (!Array.isArray(docs) || docs.length === 0) return null;
+      
+      // Filter out docs without URLs
+      const validDocs = docs.filter(doc => Array.isArray(doc.url) && doc.url.length > 0);
+      if (validDocs.length === 0) return null;
+
+      return (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#1976d2', borderBottom: '1px solid #e0e0e0', pb: 0.5, mb: 1 }}>
+            {title}
+          </Typography>
+          <Grid container spacing={2}>
+            {validDocs.map((doc, idx) => (
+              <Grid item xs={12} key={idx}>
+                <Box sx={{ p: 1.5, border: '1px solid #f0f0f0', borderRadius: '6px', background: '#fafafa' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                    {doc.document_name || "Unnamed Document"}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {doc.url.map((url, urlIdx) => (
+                      <Button
+                        key={urlIdx}
+                        variant="outlined"
+                        size="small"
+                        startIcon={<OpenInNewIcon />}
+                        href={url}
+                        target="_blank"
+                        sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                      >
+                        File {urlIdx + 1}
+                      </Button>
+                    ))}
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      );
+    };
+
+    return (
+      <Dialog 
+        open={oldDocsModalOpen} 
+        onClose={() => setOldDocsModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ borderBottom: '1px solid #eee', pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <HistoryIcon color="primary" />
+            <Typography variant="h6">Old/Legacy Documents</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {renderDocSection("Shipping Line Invoices", do_shipping_line_invoice)}
+          {renderDocSection("Insurance Copies", insurance_copy)}
+          {renderDocSection("Other Documents", other_do_documents)}
+          {!hasOldDocs && (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              No legacy documents found for this job.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid #eee', px: 3, py: 2 }}>
+          <Button onClick={() => setOldDocsModalOpen(false)} variant="contained" color="inherit">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   return (
     <div className="job-details-container" style={{ padding: "0px", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", transition: "all 0.3s ease" }}>
 
@@ -281,11 +451,41 @@ function JobDetailsStaticData(props) {
             )}
           </div>
 
-          <Tooltip title="Expand Details">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpanded(true); }}>
-              <KeyboardArrowDownIcon />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {hasOldDocs && (
+              <Tooltip title="View Old Documents">
+                <Button
+                  variant="outlined"
+                  color="info"
+                  size="small"
+                  startIcon={<HistoryIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOldDocsModalOpen(true);
+                  }}
+                  sx={{ 
+                    height: '32px', 
+                    borderRadius: '16px', 
+                    fontSize: '0.75rem', 
+                    textTransform: 'none',
+                    borderColor: '#1976d2',
+                    color: '#1976d2',
+                    '&:hover': {
+                      backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                    }
+                  }}
+                >
+                  Old Docs
+                </Button>
+              </Tooltip>
+            )}
+
+            <Tooltip title="Expand Details">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpanded(true); }}>
+                <KeyboardArrowDownIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </div>
       )}
 
@@ -323,6 +523,26 @@ function JobDetailsStaticData(props) {
                   )}
               </h5>
               <div>
+                {hasOldDocs && (
+                  <Button
+                    variant="outlined"
+                    color="info"
+                    size="small"
+                    startIcon={<HistoryIcon />}
+                    onClick={() => setOldDocsModalOpen(true)}
+                    sx={{ 
+                      mr: 2,
+                      height: '32px', 
+                      borderRadius: '16px', 
+                      fontSize: '0.75rem', 
+                      textTransform: 'none',
+                      borderColor: '#1976d2',
+                      color: '#1976d2'
+                    }}
+                  >
+                    Old Docs
+                  </Button>
+                )}
                 {isAdmin && (
                   <Tooltip title="Edit Job Static Data (Admin Only)">
                     <IconButton size="small" onClick={handleEditClick} style={{ marginRight: "10px" }}>
@@ -338,6 +558,8 @@ function JobDetailsStaticData(props) {
               </div>
             </Col>
           </Row>
+
+          {renderOldDocsDialog()}
 
           {/* Row 1: Payment, Clearance, FTA, Import Terms */}
           <Row style={compactRowStyle}>
@@ -370,16 +592,25 @@ function JobDetailsStaticData(props) {
             </Col>
           </Row>
 
-          {/* Row 2: Importer, IE Code, Invoice No, Invoice Date */}
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Importer: </span>
               <span style={valueStyle}>{props.data.importer}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>Importer Type: </span>
+              <span style={valueStyle}>{importerTypeOptions.find(opt => opt.value === props.data.importer_type)?.label || props.data.importer_type || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>Comm. Tax Type: </span>
+              <span style={valueStyle}>{commercialTaxTypeOptions.find(opt => opt.value === props.data.commercial_tax_type)?.label || props.data.commercial_tax_type || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>IE Code: </span>
               <span style={valueStyle}>{props.data.ie_code_no}</span>
             </Col>
+          </Row>
+          <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Invoice No.: </span>
               <span style={valueStyle}>{props.data.invoice_number}</span>
@@ -387,6 +618,10 @@ function JobDetailsStaticData(props) {
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Invoice Date: </span>
               <span style={valueStyle}>{props.data.invoice_date}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
+               <span style={labelStyle}>Incoterm: </span>
+               <span style={valueStyle}>{props.data.import_terms}</span>
             </Col>
           </Row>
 
@@ -592,10 +827,33 @@ function JobDetailsStaticData(props) {
               <span style={valueStyle}>{props.data.hss}</span>
             </Col>
             {props.data.hss === "Yes" && (
-              <Col xs={12} md={6} lg={3}>
-                <span style={labelStyle}>Seller Name: </span>
-                <span style={valueStyle}>{props.data.saller_name}</span>
-              </Col>
+              <>
+                <Col xs={12} md={6} lg={3}>
+                  <span style={labelStyle}>Seller Name: </span>
+                  <span style={valueStyle}>{props.data.saller_name}</span>
+                </Col>
+                <Col xs={12}>
+                  <span style={labelStyle}>HSS Address: </span>
+                  <span style={valueStyle}>
+                     {typeof props.data.hss_address === 'object' 
+                      ? [
+                          props.data.hss_address.details,
+                          props.data.hss_address.city,
+                          props.data.hss_address.state,
+                          props.data.hss_address.postal_code,
+                          props.data.hss_address.country
+                        ].filter(Boolean).join(", ")
+                      : [
+                          props.data.hss_address_details,
+                          props.data.hss_city,
+                          props.data.hss_state,
+                          props.data.hss_postal_code,
+                          props.data.hss_country
+                        ].filter(Boolean).join(", ")
+                     }
+                  </span>
+                </Col>
+              </>
             )}
           </Row>
 
@@ -603,11 +861,50 @@ function JobDetailsStaticData(props) {
           <Row style={compactRowStyle}>
             <Col xs={12}>
               <span style={labelStyle}>Importer Address: </span>
-              <span style={valueStyle}>{props.data.importer_address}</span>
+              <span style={valueStyle}>
+                {typeof props.data.importer_address === 'object'
+                  ? [
+                      props.data.importer_address.details,
+                      props.data.importer_address.city,
+                      props.data.importer_address.state,
+                      props.data.importer_address.postal_code,
+                      props.data.importer_address.country
+                    ].filter(Boolean).join(", ")
+                  : (props.data.importer_address_details 
+                      ? [
+                          props.data.importer_address_details,
+                          props.data.importer_city,
+                          props.data.importer_state,
+                          props.data.importer_postal_code,
+                          props.data.importer_country
+                        ].filter(Boolean).join(", ")
+                      : props.data.importer_address
+                    )
+                }
+              </span>
               <Tooltip title="Copy Importer Address">
                 <IconButton
                   size="small"
-                  onClick={(event) => handleCopy(event, props.data.importer_address)}
+                  onClick={(event) => {
+                    const addr = typeof props.data.importer_address === 'object'
+                      ? [
+                          props.data.importer_address.details,
+                          props.data.importer_address.city,
+                          props.data.importer_address.state,
+                          props.data.importer_address.postal_code,
+                          props.data.importer_address.country
+                        ].filter(Boolean).join(", ")
+                      : (props.data.importer_address_details 
+                          ? [
+                              props.data.importer_address_details,
+                              props.data.importer_city,
+                              props.data.importer_state,
+                              props.data.importer_postal_code,
+                              props.data.importer_country
+                            ].filter(Boolean).join(", ")
+                          : props.data.importer_address);
+                    handleCopy(event, addr);
+                  }}
                 >
                   <ContentCopyIcon fontSize="inherit" />
                 </IconButton>
@@ -649,6 +946,50 @@ function JobDetailsStaticData(props) {
                             {...params}
                             size="small"
                             label="Port of Reporting"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                if (key === "importer_type") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        options={importerTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={importerTypeOptions.find(opt => opt.value === editFormData[key]) || null}
+                        onChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue ? newValue.value : "" }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Importer Type"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                if (key === "commercial_tax_type") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        options={commercialTaxTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={commercialTaxTypeOptions.find(opt => opt.value === editFormData[key]) || null}
+                        onChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue ? newValue.value : "" }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Commercial Tax Type"
                             fullWidth
                           />
                         )}

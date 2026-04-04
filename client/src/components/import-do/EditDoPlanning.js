@@ -29,45 +29,80 @@ import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import QueriesComponent from "../../utils/QueriesComponent.js";
-import ImportDoChargesTable from "./ImportDoChargesTable";
+
 import ChargesGrid from "../ChargesGrid";
 
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
 
-const doListOptions = [
+const doListOptionsAMD = [
   { value: "", label: "Select DO List" },
-  {
-    value: "ICD Khodiyar / ICD AHMEDABAD",
-    label: "ICD Khodiyar / ICD AHMEDABAD",
-  },
+  { value: "ICD Khodiyar / ICD AHMEDABAD", label: "ICD Khodiyar / ICD AHMEDABAD" },
   { value: "ICD SANAND", label: "ICD SANAND" },
-  {
-    value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
-    label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
-  },
+  { value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK", label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK" },
   { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
-  {
-    value: "Golden Horn Container Services (Nr. ICD Khodiyar)",
-    label: "Golden Horn Container Services (Nr. ICD Khodiyar)",
-  },
-  {
-    value: "Golden Horn Container Services (Nr. ICD SANAND)",
-    label: "Golden Horn Container Services (Nr. ICD SANAND)",
-  },
-  {
-    value: "JAY BHAVANI CONTAINERS YARD",
-    label: "JAY BHAVANI CONTAINERS YARD",
-  },
+  { value: "Golden Horn Container Services (Nr. ICD Khodiyar)", label: "Golden Horn Container Services (Nr. ICD Khodiyar)" },
+  { value: "Golden Horn Container Services (Nr. ICD SANAND)", label: "Golden Horn Container Services (Nr. ICD SANAND)" },
+  { value: "JAY BHAVANI CONTAINERS YARD", label: "JAY BHAVANI CONTAINERS YARD" },
   { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
-  {
-    value: "SATURN GLOBAL TERMINAL PVT LTD",
-    label: "SATURN GLOBAL TERMINAL PVT LTD",
-  },
+  { value: "SATURN GLOBAL TERMINAL PVT LTD", label: "SATURN GLOBAL TERMINAL PVT LTD" },
   { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
   { value: "ICD SACHANA", label: "ICD SACHANA" },
   { value: "SHREE SHIV SHAKTI EMPTY PARK LLP", label: "SHREE SHIV SHAKTI EMPTY PARK LLP" },
+  { value: "ANIKET ROADLINES", label: "ANIKET ROADLINES" },
+];
+
+const doListOptionsGIM = [
+  { value: "", label: "Select DO List" },
+  { value: "ASHTAVINAYAK ENTERPRISES", label: "ASHTAVINAYAK ENTERPRISES" },
+  { value: "CONTAINER SOLUTIONS INDIA PVT LTD", label: "CONTAINER SOLUTIONS INDIA PVT LTD" },
+  { value: "EMPEZAR LOGISTICS PRIVATE LIMITED", label: "EMPEZAR LOGISTICS PRIVATE LIMITED" },
+  { value: "J M J CONTAINER SOLUTION", label: "J M J CONTAINER SOLUTION" },
+  { value: "JDW TERMINALS PRIVATE LIMITED", label: "JDW TERMINALS PRIVATE LIMITED" },
+  { value: "KDPP Terminals", label: "KDPP Terminals" },
+  { value: "KEAVY GLOBAL LOGISITC PVT LTD", label: "KEAVY GLOBAL LOGISITC PVT LTD" },
+  { value: "KIAORA EMPTY YARD", label: "KIAORA EMPTY YARD" },
+  { value: "KMS MONDIALLE PVT LTD", label: "KMS MONDIALLE PVT LTD" },
+  { value: "KOTAK AGRO PROCESSING PVT LTD", label: "KOTAK AGRO PROCESSING PVT LTD" },
+  { value: "PANINDIA MARINE SERVICES PRIVATE LIMITED", label: "PANINDIA MARINE SERVICES PRIVATE LIMITED" },
+  { value: "PERFECT CONTAINER TERMINAL", label: "PERFECT CONTAINER TERMINAL" },
+  { value: "PERFECT MULTIMODAL LLP", label: "PERFECT MULTIMODAL LLP" },
+  { value: "SAI MARINE CONTAINER SERVICES", label: "SAI MARINE CONTAINER SERVICES" },
+  { value: "SAMVEDA CONTAINER CARE", label: "SAMVEDA CONTAINER CARE" },
+  { value: "SAMVEDA LOGISTICS RESOURCES", label: "SAMVEDA LOGISTICS RESOURCES" },
+  { value: "SHREE GANESH ENTERPRISES (GIM)", label: "SHREE GANESH ENTERPRISES (GIM)" },
+  { value: "SIDDHI VINAYAK LOGISTICS", label: "SIDDHI VINAYAK LOGISTICS" },
+  { value: "TURK MITHANI ENTERPRISE PVT LTD", label: "TURK MITHANI ENTERPRISE PVT LTD" },
+  { value: "UNITED FREIGHT CONTAINER TERMINAL", label: "UNITED FREIGHT CONTAINER TERMINAL" },
+  { value: "NAVDEEP SHIPPING PVT LTD", label: "NAVDEEP SHIPPING PVT LTD" },
+  { value: "KAMI-SAMA Marine Services Pvt. Ltd", label: "KAMI-SAMA Marine Services Pvt. Ltd" },
+  { value: "D & M MARINE LOGISTICS", label: "D & M MARINE LOGISTICS" },
+  { value: "SABARI CONTAINER TERMINAL PVT LTD.", label: "SABARI CONTAINER TERMINAL PVT LTD." },
+  { value: "ADMEK TERMINALS PVT. LTD", label: "ADMEK TERMINALS PVT. LTD" },
+  { value: "KK LOGISTICS AND SERVICES LLP", label: "KK LOGISTICS AND SERVICES LLP" },
+  { value: "OCEAN MEEN BOX LOGISTICS", label: "OCEAN MEEN BOX LOGISTICS" },
+  { value: "ARWA MARINE CONTAINER SERVICES", label: "ARWA MARINE CONTAINER SERVICES" },
+  { value: "JACT CONTAINER TERMINALS LLP", label: "JACT CONTAINER TERMINALS LLP" },
+  { value: "WILL MARINE CONTAINER SERVICES PVT LTD", label: "WILL MARINE CONTAINER SERVICES PVT LTD" },
+  { value: "KEJ MARINE CONTAINER SERVICE", label: "KEJ MARINE CONTAINER SERVICE" },
+  { value: "STAR TEX CONTAINER SERVICES LLP", label: "STAR TEX CONTAINER SERVICES LLP" },
+  { value: "SHUBHAM NEWPORT LLP", label: "SHUBHAM NEWPORT LLP" },
+  { value: "NAISHA EMPTY PARK PVT LTD.", label: "NAISHA EMPTY PARK PVT LTD." },
+  { value: "ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED", label: "ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED" },
+  { value: "ALLCARGO TERMINALS LIMITED", label: "ALLCARGO TERMINALS LIMITED" },
+  { value: "AMEYA LOGISTICS PVT LTD", label: "AMEYA LOGISTICS PVT LTD" },
+  { value: "ASHUTOSH CONTAINER SERVICES PVT LTD", label: "ASHUTOSH CONTAINER SERVICES PVT LTD" },
+  { value: "CENTRAL WAREHOUSING CORPORATION (NEW)", label: "CENTRAL WAREHOUSING CORPORATION (NEW)" },
+  { value: "HIND TERMINALS PVT LTD.", label: "HIND TERMINALS PVT LTD." },
+  { value: "LANDMARK CFS PVT LTD", label: "LANDMARK CFS PVT LTD" },
+  { value: "MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD.", label: "MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD." },
+  { value: "MUNDHRA CONTAINER FREIGHT STATION PVT LTD.", label: "MUNDHRA CONTAINER FREIGHT STATION PVT LTD." },
+  { value: "SAURASHTRA FREIGHT PVT LTD.", label: "SAURASHTRA FREIGHT PVT LTD." },
+  { value: "SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD.", label: "SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD." },
+  { value: "TRANSWORLD TERMINALS PVT LTD.", label: "TRANSWORLD TERMINALS PVT LTD." },
+  { value: "SATURN GLOBAL TERMINAL PVT.LTD.", label: "SATURN GLOBAL TERMINAL PVT.LTD." }
+
 ];
 
 function EditDoPlanning() {
@@ -472,9 +507,7 @@ function EditDoPlanning() {
             },
           ];
 
-      const otherDoDocuments = Array.isArray(data.other_do_documents)
-        ? data.other_do_documents
-        : [];
+
       const updatedData = {
         ...data,
         shipping_line_invoice:
@@ -483,17 +516,16 @@ function EditDoPlanning() {
         shipping_line_invoice_date: formatDate(data.shipping_line_invoice_date),
         payment_made: data.payment_made === "Yes" || data.payment_made === true, // Handle similar cases for payment_made
         do_processed: data.do_processed === "Yes" || data.do_processed === true, // Handle similar cases for do_processed
-        other_invoices:
+          other_invoices:
           data.other_invoices === "Yes" || data.other_invoices === true, // Handle similar cases for other_invoices
         security_deposit:
           data.security_deposit === "Yes" || data.security_deposit === true, // Handle similar cases for security_deposit
         // do_completed is already handled in getData()
-        do_Revalidation_Completed: data.do_Revalidation_Completed,
-        dsr_queries: data.dsr_queries || [],
-        container_nos: data.container_nos || [],
+        do_Revalidation_Completed: data?.do_Revalidation_Completed || false,
+        do_copies: data?.do_copies || [],
+        container_nos: data?.container_nos || [],
         do_shipping_line_invoice: doShippingLineInvoice,
         insurance_copy: insuranceCopy,
-        other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
         do_list: data.do_list || "",
         is_do_doc_recieved: data.is_do_doc_recieved || false, // Add this field
@@ -681,19 +713,19 @@ function EditDoPlanning() {
     ));
   };
 
-  const renderChargesSection = () => (
-    <ImportDoChargesTable
-      formik={formik}
-      user={user}
-      setFileSnackbar={setFileSnackbar}
-    />
-  );
-
-  if (loading) return <p>Loading...</p>; // Show loading state
-
-  if (!data) return <p>Failed to load job details.</p>; // Handle missing data
 
 
+
+
+  const handleDoCopiesUpload = (urls) => {
+    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+  };
+
+  const handleRemoveDoCopy = (index) => {
+    const updatedCopies = [...formik.values.do_copies];
+    updatedCopies.splice(index, 1);
+    formik.setFieldValue("do_copies", updatedCopies);
+  };
 
   if (!job_no || !year) {
     return (
@@ -741,18 +773,20 @@ function EditDoPlanning() {
 
       {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
 
-      <div>
-        <QueriesComponent
-          queries={data.dsr_queries}
-          currentModule="Do Planning"
-          onQueriesChange={handleQueriesChange}
-          title="Do Queries"
-          showResolveButton={true}
-          readOnlyReply={false}
-          onResolveQuery={handleResolveQuery}
-          userName={user?.username}
-        />
-      </div>
+      {data && (
+        <div>
+          <QueriesComponent
+            queries={data.dsr_queries}
+            currentModule="Do Planning"
+            onQueriesChange={handleQueriesChange}
+            title="Do Queries"
+            showResolveButton={true}
+            readOnlyReply={false}
+            onResolveQuery={handleResolveQuery}
+            userName={user?.username}
+          />
+        </div>
+      )}
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
@@ -774,8 +808,16 @@ function EditDoPlanning() {
                 {data.obl_telex_bl || "N/A"}
                 <br />
               </div>
-              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
-              {renderChargesSection()}
+              <ChargesGrid 
+                parentId={jobId} 
+                parentModule="Job" 
+                initialTab="cost" 
+                hideTabs={true} 
+                shippingLineAirline={data?.shipping_line_airline} 
+                jobNumber={data?.job_no}
+                jobYear={data?.year}
+              />
+
 
 
               <div className="job-details-container">
@@ -806,7 +848,7 @@ function EditDoPlanning() {
                         backgroundColor: "white",
                       }}
                     >
-                      {doListOptions.map((option, index) => (
+                      {(branch_code === "GIM" ? doListOptionsGIM : doListOptionsAMD).map((option, index) => (
                         <option key={index} value={option.value}>
                           {option.label}
                         </option>
@@ -926,6 +968,26 @@ function EditDoPlanning() {
 
                 {renderContainerDetails()}
               </div>
+
+              {/* DO Copies Section */}
+              <div className="upload-container">
+                <div className="section-header">
+                  <h3 className="section-title">DO COPIES</h3>
+                </div>
+                <div className="upload-content">
+                  <FileUpload 
+                    label="UPLOAD DO COPIES"
+                    onFilesUploaded={handleDoCopiesUpload} 
+                  />
+                  <ImagePreview
+                    images={formik.values.do_copies}
+                    onDeleteImage={(index) => {
+                      handleRemoveDoCopy(index);
+                    }}
+                  />
+                </div>
+              </div>
+
               <Box sx={{ height: "60px" }} />
             </form>
           </div>
@@ -955,6 +1017,41 @@ function EditDoPlanning() {
       >
         Submit
       </Button>
+
+      <style>
+        {`
+          .upload-container {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #ffffff;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          }
+          
+          .section-header {
+            background-color: #f8fafc;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+
+          .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0;
+          }
+
+          .upload-content {
+            padding: 20px;
+          }
+        `}
+      </style>
 
       <Snackbar
         open={fileSnackbar}

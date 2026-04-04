@@ -27,21 +27,20 @@ const s3Client = new S3Client({
 const marketingOnly = async (req, res, next) => {
     try {
         // Since JWT might not have latest modules/department, fetch from DB
-        const user = await UserModel.findById(req.user._id).select('role department modules');
+        const user = await UserModel.findById(req.user._id).select('role department modules first_name last_name');
         
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
+        if (!user) return res.status(404).json({ message: "User not found" });
 
-        const isAdmin = user.role === 'Admin';
         const isMarketing = user.department === 'Marketing';
-        const hasModuleAccess = user.modules && user.modules.includes('Update Employee Data');
+        const isAdmin = user.role === 'Admin';
+        const hasMarketingModule = user.modules?.some(m => m.name === 'Update Employee Data');
 
-        if (isAdmin || isMarketing || hasModuleAccess) {
-            next();
-        } else {
-            return res.status(403).json({ message: "Access restricted. Module not assigned." });
+        if (!isAdmin && !isMarketing && !hasMarketingModule) {
+            return res.status(403).json({ message: "Access Denied: Marketing/Admin Only" });
         }
+
+        req.full_name = `${user.first_name} ${user.last_name}`.trim();
+        next();
     } catch (err) {
         logger.error(`Permission check error: ${err.message}`);
         return res.status(500).json({ message: "Internal Server Error" });
@@ -51,7 +50,7 @@ const marketingOnly = async (req, res, next) => {
 // Get active employees grouped by company
 router.get("/api/hr/active-by-company", authMiddleware, marketingOnly, async (req, res) => {
     try {
-        const users = await UserModel.find({ isActive: true }, 'first_name last_name username company employee_photo employee_photo_updatedBy employee_photo_updatedAt email_signature email_signature_updatedBy email_signature_updatedAt marketing_assets department designation');
+        const users = await UserModel.find({ isActive: true }, 'first_name last_name username company employee_photo employee_photo_updatedBy employee_photo_updatedAt email_signature email_signature_updatedBy email_signature_updatedAt marketing_assets department designation profile_photo_proof email_signature_proof is_verified');
         
         const grouped = users.reduce((acc, user) => {
             const company = user.company || "Other";
@@ -103,7 +102,7 @@ router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single
                 await deleteFromS3(user.employee_photo);
             }
             user.employee_photo = fileUrl;
-            user.employee_photo_updatedBy = req.user.username;
+            user.employee_photo_updatedBy = req.full_name;
             user.employee_photo_updatedAt = new Date();
         } else if (assetType === 'signature') {
             // Delete old signature from S3 if exists
@@ -111,7 +110,7 @@ router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single
                 await deleteFromS3(user.email_signature);
             }
             user.email_signature = fileUrl;
-            user.email_signature_updatedBy = req.user.username;
+            user.email_signature_updatedBy = req.full_name;
             user.email_signature_updatedAt = new Date();
         } else if (assetType === 'variable') {
             const existingAssetIndex = user.marketing_assets.findIndex(a => a.name === assetName);
@@ -121,9 +120,9 @@ router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single
                 if (oldLink && oldLink.includes(process.env.REACT_APP_S3_BUCKET)) {
                     await deleteFromS3(oldLink);
                 }
-                user.marketing_assets[existingAssetIndex] = { name: assetName, link: fileUrl, updatedAt: new Date(), updatedBy: req.user.username };
+                user.marketing_assets[existingAssetIndex] = { name: assetName, link: fileUrl, updatedAt: new Date(), updatedBy: req.full_name };
             } else {
-                user.marketing_assets.push({ name: assetName, link: fileUrl, updatedAt: new Date(), updatedBy: req.user.username });
+                user.marketing_assets.push({ name: assetName, link: fileUrl, updatedAt: new Date(), updatedBy: req.full_name });
             }
         }
 
@@ -215,7 +214,7 @@ router.post("/api/hr/global-asset/upload", authMiddleware, marketingOnly, upload
             name: assetName,
             link,
             type: file ? 'file' : 'text',
-            updatedBy: req.user.username
+            updatedBy: req.full_name
         });
 
         await newAsset.save();
@@ -249,6 +248,93 @@ router.delete("/api/hr/global-asset/:id", authMiddleware, marketingOnly, auditMi
             logger.error(`Global asset deletion error: ${err.message}`);
             res.status(500).json({ message: "Server Error" });
         }
+    }
+});
+
+// User uploads proof of marketing assets
+router.post("/api/user/marketing-proof-upload", authMiddleware, upload.single('file'), auditMiddleware("UserMarketingProof"), async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { assetType } = req.body; // 'profile_photo' or 'email_signature'
+        const file = req.file;
+
+        if (!file || !['profile_photo', 'email_signature'].includes(assetType)) {
+            return res.status(400).json({ message: "File and valid assetType are required" });
+        }
+
+        const user = await UserModel.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const proofField = `${assetType}_proof`;
+        
+        // Delete old proof from S3 if exists
+        if (user[proofField]?.url && user[proofField].url.includes(process.env.REACT_APP_S3_BUCKET)) {
+            await deleteFromS3(user[proofField].url);
+        }
+
+        const timestamp = Date.now();
+        const extension = file.originalname.split('.').pop();
+        const key = `marketing/proofs/${userId}_${assetType}_${timestamp}.${extension}`;
+
+        const command = new PutObjectCommand({
+            Bucket: process.env.REACT_APP_S3_BUCKET,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+        });
+
+        await s3Client.send(command);
+        const fileUrl = `https://${process.env.REACT_APP_S3_BUCKET}.s3.${process.env.REACT_APP_AWS_REGION || "ap-south-1"}.amazonaws.com/${key}`;
+
+        user[proofField] = {
+            url: fileUrl,
+            status: 'Pending'
+        };
+        
+        await user.save();
+
+        res.json({ message: `${assetType} proof uploaded successfully. Pending approval.`, proofUrl: fileUrl, user });
+    } catch (err) {
+        logger.error(`Proof upload error: ${err.message}`);
+        res.status(500).json({ message: "Server Error", details: err.message });
+    }
+});
+
+// Marketing/Admin action on proof (Approve/Reject)
+router.post("/api/hr/marketing-proof-action", authMiddleware, marketingOnly, auditMiddleware("UserMarketingProofAction"), async (req, res) => {
+    try {
+        const { userId, assetType, action } = req.body; // action: 'Approved' or 'Rejected'
+
+        if (!userId || !assetType || !['Approved', 'Rejected'].includes(action)) {
+            return res.status(400).json({ message: "Invalid request parameters" });
+        }
+
+        const user = await UserModel.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const proofField = `${assetType}_proof`;
+        if (!user[proofField]) {
+            user[proofField] = {};
+        }
+
+        user[proofField].status = action;
+        if (action === 'Approved') {
+            user[proofField].approvedAt = new Date();
+            user[proofField].approvedBy = req.full_name;
+        }
+
+        // Check if both are Approved to set is_verified
+        if (user.profile_photo_proof?.status === 'Approved' && user.email_signature_proof?.status === 'Approved') {
+            user.is_verified = true;
+        } else {
+            user.is_verified = false;
+        }
+
+        await user.save();
+        res.json({ message: `${assetType} proof ${action} successfully`, user });
+    } catch (err) {
+        logger.error(`Proof action error: ${err.message}`);
+        res.status(500).json({ message: "Server Error" });
     }
 });
 

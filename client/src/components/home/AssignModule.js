@@ -30,12 +30,14 @@ const allModules = [
   "e-Sanchit",
   "Documentation",
   "CRM",
+  "Document Collection",
   "KPI",
   "Open Points",
   "MRM",
   "DGFT",
   "Pulse",
-  "MasterDirectory"
+  "MasterDirectory",
+  "Attendance"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

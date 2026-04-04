@@ -47,17 +47,12 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         {
           $addFields: {
             outOfChargeDate: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $ne: ["$out_of_charge", null] },
-                    { $ne: ["$out_of_charge", ""] },
-                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } },
-                  ],
-                },
-                then: { $toDate: "$out_of_charge" },
-                else: null,
-              },
+              $convert: {
+                input: "$out_of_charge",
+                to: "date",
+                onError: null,
+                onNull: null
+              }
             },
           },
         },
@@ -71,7 +66,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
               $sum: {
                 $size: {
                   $filter: {
-                    input: "$container_nos",
+                    input: { $ifNull: ["$container_nos", []] },
                     as: "container",
                     cond: { $eq: ["$$container.size", "20"] },
                   },
@@ -82,7 +77,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
               $sum: {
                 $size: {
                   $filter: {
-                    input: "$container_nos",
+                    input: { $ifNull: ["$container_nos", []] },
                     as: "container",
                     cond: { $eq: ["$$container.size", "40"] },
                   },
@@ -136,17 +131,12 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         {
           $addFields: {
             beDateObj: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $ne: ["$be_date", null] },
-                    { $ne: ["$be_date", ""] },
-                    { $regexMatch: { input: "$be_date", regex: /^\d{4}-\d{2}-\d{2}/ } },
-                  ],
-                },
-                then: { $toDate: "$be_date" },
-                else: null,
-              },
+              $convert: {
+                input: "$be_date",
+                to: "date",
+                onError: null,
+                onNull: null
+              }
             },
           },
         },
@@ -183,17 +173,12 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         {
           $addFields: {
             oocDateObj: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $ne: ["$out_of_charge", null] },
-                    { $ne: ["$out_of_charge", ""] },
-                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } },
-                  ],
-                },
-                then: { $toDate: "$out_of_charge" },
-                else: null,
-              },
+              $convert: {
+                input: "$out_of_charge",
+                to: "date",
+                onError: null,
+                onNull: null
+              }
             },
           },
         },

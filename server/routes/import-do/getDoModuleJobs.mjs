@@ -146,7 +146,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_number job_no year port_of_reporting do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved do_planning_date free_time mode branch_code trade_type"
+        "job_number job_no year port_of_reporting do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved do_planning_date free_time mode branch_code trade_type charges"
       )
       .lean();
 
@@ -183,45 +183,39 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
             return job.is_do_doc_prepared !== true;
 
           case "payment_request_sent":
-            return job.do_shipping_line_invoice &&
-              Array.isArray(job.do_shipping_line_invoice) &&
-              job.do_shipping_line_invoice.length > 0 &&
-              job.do_shipping_line_invoice.some(invoice =>
-                invoice.payment_request_date &&
-                invoice.payment_request_date !== "" &&
-                invoice.payment_request_date !== null
+            return job.charges &&
+              Array.isArray(job.charges) &&
+              job.charges.some(charge =>
+                charge.payment_request_no &&
+                charge.payment_request_no !== ""
               );
 
           case "payment_request_not_sent":
-            return !job.do_shipping_line_invoice ||
-              !Array.isArray(job.do_shipping_line_invoice) ||
-              job.do_shipping_line_invoice.length === 0 ||
-              !job.do_shipping_line_invoice.some(invoice =>
-                invoice.payment_request_date &&
-                invoice.payment_request_date !== "" &&
-                invoice.payment_request_date !== null
+            return !job.charges ||
+              !Array.isArray(job.charges) ||
+              !job.charges.some(charge =>
+                charge.payment_request_no &&
+                charge.payment_request_no !== ""
               );
 
           case "payment_made":
-            return job.do_shipping_line_invoice &&
-              Array.isArray(job.do_shipping_line_invoice) &&
-              job.do_shipping_line_invoice.length > 0 &&
-              job.do_shipping_line_invoice.some(invoice =>
-                invoice.is_payment_made === true ||
-                (invoice.payment_made_date &&
-                  invoice.payment_made_date !== "" &&
-                  invoice.payment_made_date !== null)
+            return job.charges &&
+              Array.isArray(job.charges) &&
+              job.charges.some(charge =>
+                charge.utrNumber &&
+                charge.utrNumber !== ""
               );
 
           case "payment_not_made":
-            return !job.do_shipping_line_invoice ||
-              !Array.isArray(job.do_shipping_line_invoice) ||
-              job.do_shipping_line_invoice.length === 0 ||
-              !job.do_shipping_line_invoice.some(invoice =>
-                invoice.is_payment_made === true ||
-                (invoice.payment_made_date &&
-                  invoice.payment_made_date !== "" &&
-                  invoice.payment_made_date !== null)
+            return job.charges &&
+              Array.isArray(job.charges) &&
+              job.charges.some(charge =>
+                charge.payment_request_no &&
+                charge.payment_request_no !== ""
+              ) &&
+              !job.charges.some(charge =>
+                charge.utrNumber &&
+                charge.utrNumber !== ""
               );
 
           case "obl_received":
@@ -255,45 +249,39 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       do_doc_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length,
       do_doc_not_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length,
       payment_request_sent: finalFilteredJobs.filter(job =>
-        job.do_shipping_line_invoice &&
-        Array.isArray(job.do_shipping_line_invoice) &&
-        job.do_shipping_line_invoice.length > 0 &&
-        job.do_shipping_line_invoice.some(invoice =>
-          invoice.payment_request_date &&
-          invoice.payment_request_date !== "" &&
-          invoice.payment_request_date !== null
+        job.charges &&
+        Array.isArray(job.charges) &&
+        job.charges.some(charge =>
+          charge.payment_request_no &&
+          charge.payment_request_no !== ""
         )
       ).length,
       payment_request_not_sent: finalFilteredJobs.filter(job =>
-        !job.do_shipping_line_invoice ||
-        !Array.isArray(job.do_shipping_line_invoice) ||
-        job.do_shipping_line_invoice.length === 0 ||
-        !job.do_shipping_line_invoice.some(invoice =>
-          invoice.payment_request_date &&
-          invoice.payment_request_date !== "" &&
-          invoice.payment_request_date !== null
+        !job.charges ||
+        !Array.isArray(job.charges) ||
+        !job.charges.some(charge =>
+          charge.payment_request_no &&
+          charge.payment_request_no !== ""
         )
       ).length,
       payment_made: finalFilteredJobs.filter(job =>
-        job.do_shipping_line_invoice &&
-        Array.isArray(job.do_shipping_line_invoice) &&
-        job.do_shipping_line_invoice.length > 0 &&
-        job.do_shipping_line_invoice.some(invoice =>
-          invoice.is_payment_made === true ||
-          (invoice.payment_made_date &&
-            invoice.payment_made_date !== "" &&
-            invoice.payment_made_date !== null)
+        job.charges &&
+        Array.isArray(job.charges) &&
+        job.charges.some(charge =>
+          charge.utrNumber &&
+          charge.utrNumber !== ""
         )
       ).length,
       payment_not_made: finalFilteredJobs.filter(job =>
-        !job.do_shipping_line_invoice ||
-        !Array.isArray(job.do_shipping_line_invoice) ||
-        job.do_shipping_line_invoice.length === 0 ||
-        !job.do_shipping_line_invoice.some(invoice =>
-          invoice.is_payment_made === true ||
-          (invoice.payment_made_date &&
-            invoice.payment_made_date !== "" &&
-            invoice.payment_made_date !== null)
+        job.charges &&
+        Array.isArray(job.charges) &&
+        job.charges.some(charge =>
+          charge.payment_request_no &&
+          charge.payment_request_no !== ""
+        ) &&
+        !job.charges.some(charge =>
+          charge.utrNumber &&
+          charge.utrNumber !== ""
         )
       ).length,
       obl_received: finalFilteredJobs.filter(job => job.is_obl_recieved === true).length,
@@ -503,7 +491,7 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_number job_no port_of_reporting year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no do_completed do_validity do_copies do_list ooc_copies in_bond_ooc_copies free_time mode branch_code trade_type"
+        "job_number job_no port_of_reporting year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no do_completed do_validity do_copies do_list ooc_copies in_bond_ooc_copies free_time mode branch_code trade_type charges"
       )
       .lean();
 
@@ -700,7 +688,7 @@ export async function getTodayJob(req, res) {
     // **Step 2: Fetch only today's eligible jobs**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_number job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos do_completed doPlanning met_do_billing_conditions_date do_shipping_line_invoice free_time mode branch_code trade_type"
+        "job_number job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos do_completed doPlanning met_do_billing_conditions_date do_shipping_line_invoice free_time mode branch_code trade_type charges"
       )
       .lean();
 

@@ -31,7 +31,7 @@ import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import QueriesComponent from "../../utils/QueriesComponent.js";
-import ImportDoChargesTable from "./ImportDoChargesTable";
+
 import ChargesGrid from "../ChargesGrid";
 
 
@@ -176,22 +176,7 @@ function EditDoCompleted() {
           document_amount_details: "",
         };
 
-        const otherDoDocuments = jobData.other_do_documents || {
-          document_name: "",
-          url: [],
-          document_check_date: "",
-          document_amount_details: "",
-          currency: "INR",
-          charge_basis: "",
-          charge_rate: "",
-          exchange_rate: "1",
-          amount_inr: "",
-          receivable: "",
-          cost_rate: "",
-          cost_amount: "",
-          cost_amount_inr: "",
-          payable: "",
-        };
+
 
         setData({
           ...jobData,
@@ -203,7 +188,6 @@ function EditDoCompleted() {
           do_completed,
           do_shipping_line_invoice: doShippingLineInvoice,
           insurance_copy: insuranceCopy,
-          other_do_documents: otherDoDocuments,
         });
 
         setLoading(false);
@@ -282,7 +266,7 @@ function EditDoCompleted() {
         },
       ],
 
-      other_do_documents: [],
+
 
       security_deposit: [
         {
@@ -330,7 +314,7 @@ function EditDoCompleted() {
           })
         ),
         insurance_copy: values.insurance_copy,
-        other_do_documents: values.other_do_documents,
+
         security_deposit: values.security_deposit,
       };
 
@@ -451,9 +435,7 @@ function EditDoCompleted() {
             },
           ];
 
-      const otherDoDocuments = Array.isArray(data.other_do_documents)
-        ? data.other_do_documents
-        : [];
+
 
       const updatedData = {
         ...data,
@@ -468,11 +450,12 @@ function EditDoCompleted() {
         security_deposit:
           data.security_deposit === "Yes" || data.security_deposit === true,
         do_Revalidation_Completed: data.do_Revalidation_Completed,
-        do_queries: data.do_queries || [{ query: "", reply: "" }],
+        do_validity: data?.do_validity || "",
+        do_copies: data?.do_copies || [],
+        do_queries: data?.do_queries || [{ query: "", reply: "" }],
         container_nos: data.container_nos || [],
         do_shipping_line_invoice: doShippingLineInvoice,
         insurance_copy: insuranceCopy,
-        other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
       };
 
@@ -497,14 +480,18 @@ function EditDoCompleted() {
   }, [data]);
 
   // Render editable charges section (all fields enabled, draft/final, add/remove, etc.)
-  const renderChargesSection = () => (
-    <ImportDoChargesTable
-      formik={formik}
-      user={user}
-      setFileSnackbar={setFileSnackbar}
-    />
-  );
 
+
+
+  const handleDoCopiesUpload = (urls) => {
+    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+  };
+
+  const handleRemoveDoCopy = (index) => {
+    const updatedCopies = [...formik.values.do_copies];
+    updatedCopies.splice(index, 1);
+    formik.setFieldValue("do_copies", updatedCopies);
+  };
 
   const handleCopy = useCallback((event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -805,8 +792,35 @@ function EditDoCompleted() {
                 {renderContainerDetails()}
               </div>
 
-              <ChargesGrid parentId={jobId} parentModule="Job" initialTab="cost" hideTabs={true} />
-              {renderChargesSection()}
+              <ChargesGrid 
+                parentId={jobId} 
+                parentModule="Job" 
+                initialTab="cost" 
+                hideTabs={true} 
+                shippingLineAirline={data?.shipping_line_airline} 
+                jobNumber={job_no}
+                jobYear={year}
+              />
+              
+              {/* DO Copies Section */}
+              <div className="upload-container">
+                <div className="section-header">
+                  <h3 className="section-title">DO COPIES</h3>
+                </div>
+                <div className="upload-content">
+                  <FileUpload 
+                    label="UPLOAD DO COPIES"
+                    onFilesUploaded={handleDoCopiesUpload} 
+                  />
+                  <ImagePreview
+                    images={formik.values.do_copies}
+                    onDeleteImage={(index) => {
+                      handleRemoveDoCopy(index);
+                    }}
+                  />
+                </div>
+              </div>
+
 
               <Box sx={{ height: "60px" }} />
             </form>

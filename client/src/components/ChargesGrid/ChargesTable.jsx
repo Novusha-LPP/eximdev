@@ -32,7 +32,8 @@ const ChargesTable = ({
   const renderParticularsHeaders = () => (
     <>
       <th>Category</th>
-      <th>Cost Center</th>
+      <th>Charge Description</th>
+      <th>Remarks</th>
       <th style={{ width: '100px' }}>Attach</th>
     </>
   );
@@ -45,8 +46,8 @@ const ChargesTable = ({
       <th style={{ width: '60px' }}>Ex. Rate</th>
       <th style={{ width: '50px' }}>Qty</th>
       <th style={{ width: '80px' }}>Rate</th>
-      <th style={{ width: '95px' }}>Amount</th>
-      <th style={{ width: '95px' }}>Amt (INR)</th>
+      <th style={{ width: '95px' }}>Total Amount</th>
+      <th style={{ width: '95px' }}>Total Amt (INR)</th>
       <th style={{ width: '180px' }}>Attach</th>
     </>
   );
@@ -59,17 +60,20 @@ const ChargesTable = ({
       <th style={{ width: '60px' }}>Ex. Rate</th>
       <th style={{ width: '50px' }}>Qty</th>
       <th style={{ width: '80px' }}>Rate</th>
-      <th style={{ width: '95px' }}>Amount</th>
-      <th style={{ width: '95px' }}>Amt (INR)</th>
+      <th style={{ width: '95px' }}>Total Amount</th>
+      <th style={{ width: '95px' }}>Total Amt (INR)</th>
+      <th style={{ width: '95px' }}>Net Payable</th>
+      <th style={{ width: '120px' }}>Payment Status</th>
       <th style={{ width: '180px' }}>Attach</th>
     </>
   );
 
-  const renderAttachmentCell = (ch, url) => (
+  const renderAttachmentCell = (ch, urls) => (
     <td className="upload-cell" onClick={(e) => e.stopPropagation()}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center", justifyContent: "center" }}>
-        {url && (
+        {Array.isArray(urls) && urls.map((url, urlIdx) => (
           <Chip
+              key={urlIdx}
               icon={<DescriptionIcon style={{ fontSize: "12px" }} />}
               label={
                 <a 
@@ -86,7 +90,8 @@ const ChargesTable = ({
               onDelete={readOnly ? undefined : (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                onRemoveAttachment(ch, activeTab);
+                const newUrls = urls.filter((_, i) => i !== urlIdx);
+                onRemoveAttachment(ch, activeTab, newUrls);
               }}
               clickable
               sx={{
@@ -105,7 +110,7 @@ const ChargesTable = ({
                   }
               }}
           />
-        )}
+        ))}
         <button 
            type="button"
            className="upload-btn" 
@@ -113,7 +118,7 @@ const ChargesTable = ({
            disabled={readOnly}
            style={{ padding: "1px 4px", fontSize: "9px" }}
         >
-          {url ? '+' : '⇧'}
+          {Array.isArray(urls) && urls.length > 0 ? '+' : '⇧'}
         </button>
       </div>
     </td>
@@ -160,8 +165,13 @@ const ChargesTable = ({
                 {activeTab === 'particulars' && (
                   <>
                     <td>{ch.category}</td>
-                    <td>{ch.costCenter}</td>
-                    {renderAttachmentCell(ch, ch.revenue?.url)}
+                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.cost?.chargeDescription || ch.revenue?.chargeDescription || ''}>
+                      {ch.cost?.chargeDescription || ch.revenue?.chargeDescription || ''}
+                    </td>
+                    <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.remark || ''}>
+                      {ch.remark || ''}
+                    </td>
+                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
                   </>
                 )}
 
@@ -175,7 +185,7 @@ const ChargesTable = ({
                     <td className="number">{formatNumber(ch.revenue?.rate)}</td>
                     <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.revenue?.amount)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#0a5080' }}>{formatNumber(ch.revenue?.amountINR)}</td>
-                    {renderAttachmentCell(ch, ch.revenue?.url)}
+                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
                   </>
                 )}
 
@@ -189,7 +199,65 @@ const ChargesTable = ({
                     <td className="number">{formatNumber(ch.cost?.rate)}</td>
                     <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.cost?.amount)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#6c4a30' }}>{formatNumber(ch.cost?.amountINR)}</td>
-                    {renderAttachmentCell(ch, ch.cost?.url)}
+                    <td className="number" style={{ fontWeight: 'bold', color: '#d32f2f' }}>{formatNumber(ch.cost?.netPayable)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      {ch.payment_request_no ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                          <span style={{ fontSize: '10px', color: '#1565c0', fontWeight: 'bold' }}>{ch.payment_request_no}</span>
+                          {ch.payment_request_status === 'Paid' ? (
+                            ch.payment_request_receipt_url ? (
+                              <a 
+                                href={ch.payment_request_receipt_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ 
+                                  fontSize: '9px', 
+                                  padding: '1px 6px', 
+                                  borderRadius: '8px', 
+                                  background: '#e8f5e9',
+                                  color: '#2e7d32',
+                                  border: '1px solid currentColor',
+                                  fontWeight: 'bold',
+                                  textDecoration: 'none',
+                                  cursor: 'pointer'
+                                }}
+                                title="Click to view receipt"
+                              >
+                                Payment Done
+                              </a>
+                            ) : (
+                              <span style={{ 
+                                fontSize: '9px', 
+                                padding: '1px 6px', 
+                                borderRadius: '8px', 
+                                background: '#e8f5e9',
+                                color: '#2e7d32',
+                                border: '1px solid currentColor',
+                                fontWeight: 'bold'
+                              }}>
+                                Payment Done
+                              </span>
+                            )
+                          ) : (
+                            <span style={{ 
+                              fontSize: '9px', 
+                              padding: '1px 6px', 
+                              borderRadius: '8px', 
+                              background: '#fff3e0',
+                              color: '#ef6c00',
+                              border: '1px solid currentColor',
+                              fontWeight: 'bold'
+                            }}>
+                              {ch.payment_request_status || 'Pending'}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '10px', color: '#ccc', fontStyle: 'italic' }}>No PR</span>
+                      )}
+                    </td>
+                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
                   </>
                 )}
               </tr>

@@ -16,7 +16,9 @@ const fieldSchema = new mongoose.Schema({
     enum: ["text", "number", "date", "select", "boolean"],
   },
   required: { type: Boolean, default: false },
-  options: [{ type: String }], // For select fields
+  options: [{ type: String }], // For select field
+
+
   order: { type: Number, default: 0 },
 });
 
@@ -62,23 +64,9 @@ const cthDocumentSchema = new mongoose.Schema({
   send_date: { type: String, trim: true },
 });
 
-const DsrchargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-});
 
-const esanchitChargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_charge_refrence_no: { type: String, trim: true },
-  document_charge_recipt_copy: { type: String, trim: true },
-  is_registration_charges: { type: Boolean, default: false },
-  registration_receipt_no: { type: String, trim: true },
-  registration_amount: { type: String, trim: true },
-});
+
+
 
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
@@ -92,6 +80,8 @@ const invoiceDetailsSchema = new mongoose.Schema(
   {
     invoice_number: { type: String, trim: true },
     invoice_date: { type: String, trim: true },
+    po_no: { type: String, trim: true },
+    po_date: { type: String, trim: true },
     total_inv_value: { type: String, trim: true },
     inv_currency: { type: String, trim: true },
     toi: { type: String, trim: true },
@@ -141,7 +131,17 @@ const ChargeLineSchema = new mongoose.Schema({
   partyName: { type: String },
   partyType: { type: String },
   branchCode: { type: String },
-  url: { type: String }
+  url: [{ type: String }],
+
+  // GST & TDS Fields
+  isGst: { type: Boolean, default: false },
+  gstRate: { type: Number, default: 18 },
+  gstAmount: { type: Number, default: 0 },
+  basicAmount: { type: Number, default: 0 },
+  isTds: { type: Boolean, default: false },
+  tdsPercent: { type: Number, default: 0 },
+  tdsAmount: { type: Number, default: 0 },
+  netPayable: { type: Number, default: 0 }
 }, { _id: false });
 
 const ChargeSchema = new mongoose.Schema({
@@ -150,6 +150,23 @@ const ChargeSchema = new mongoose.Schema({
   category: { type: String },
   costCenter: { type: String },
   remark: { type: String },
+  invoice_number: { type: String, trim: true },
+  invoice_date: { type: String, trim: true },
+  invoice_value: { type: String, trim: true },
+  purchase_book_no: { type: String, trim: true },
+  purchase_book_status: { type: String, default: '' },
+  payment_request_no: { type: String, trim: true },
+  payment_request_status: { type: String, default: '' },
+  payment_request_is_approved: { type: Boolean, default: false },
+  payment_request_approved_byFirst: { type: String, trim: true },
+  payment_request_approved_byLast: { type: String, trim: true },
+  payment_request_approved_at: { type: Date },
+  payment_request_requested_by: { type: String, trim: true },
+  payment_request_transaction_type: { type: String, trim: true },
+  payment_request_receipt_url: { type: String, trim: true },
+  utrNumber: { type: String, trim: true },
+  utrAddedBy: { type: String, trim: true },
+  utrAddedAt: { type: Date },
 
   revenue: ChargeLineSchema,
   cost: ChargeLineSchema,
@@ -217,9 +234,13 @@ const jobSchema = new mongoose.Schema({
   custom_house: { type: String, trim: true },
   job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
+  importer_type: { type: String, trim: true },
+  commercial_tax_type: { type: String, trim: true },
   supplier_exporter: { type: String, trim: true },
   invoice_number: { type: String, trim: true },
   invoice_date: { type: String, trim: true },
+  po_no: { type: String, trim: true },
+  po_date: { type: String, trim: true },
   awb_bl_no: { type: String, trim: true },
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
@@ -253,14 +274,17 @@ const jobSchema = new mongoose.Schema({
   branchSrNo: { type: String, trim: true },
   adCode: { type: String, trim: true },
   bank_name: { type: String, trim: true },
-  hss_address: { type: String, trim: true },
-  hss_address_details: { type: String, trim: true },
+  hss_address: {
+    category: { type: String, trim: true },
+    details: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    postal_code: { type: String, trim: true },
+    country: { type: String, trim: true },
+    ad_code: { type: String, trim: true },
+  },
   hss_branch_id: { type: String, trim: true },
-  hss_city: { type: String, trim: true },
   hss_ie_code_no: { type: String, trim: true },
-  hss_postal_code: { type: String, trim: true },
-  hss_country: { type: String, trim: true },
-  hss_ad_code: { type: String, trim: true },
   isDraftDoc: { type: Boolean },
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },
@@ -341,7 +365,13 @@ const jobSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-  importer_address: { type: String },
+  importer_address: {
+    details: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    postal_code: { type: String, trim: true },
+    country: { type: String, trim: true },
+  },
   vessel_flight: { type: String },
   voyage_no: { type: String },
   job_owner: { type: String },
@@ -456,7 +486,38 @@ const jobSchema = new mongoose.Schema({
   shipping_line_invoice_received_date: { type: String, trim: true },
   shipping_line_insurance: [{ type: String, trim: true }],
   // *******
-  security_deposit: { type: String },
+  do_shipping_line_invoice: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+    },
+  ],
+
+  insurance_copy: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+    },
+  ],
+
+  security_deposit: [
+    {
+      document_name: { type: String, trim: true },
+      url: [{ type: String, trim: true }],
+      is_draft: { type: Boolean },
+      is_final: { type: Boolean },
+      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+    },
+  ],
   security_amount: { type: String },
   utr: [
     {
@@ -604,96 +665,9 @@ const jobSchema = new mongoose.Schema({
     },
   ],
 
-  /////////////////////////////////// Charges Details
-  DsrCharges: [DsrchargesSchema],
   charges: [ChargeSchema],
 
-  /////////////////////////////////// esanchit Charges Details
-  esanchitCharges: [esanchitChargesSchema],
 
-  /////////////////////////////////// Do Charges Details
-  // 1. Updated Schema (Backend) - Add this to your schema
-  do_shipping_line_invoice: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      is_draft: { type: Boolean },
-      is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      payment_request_date: { type: String, trim: true },
-      payment_made_date: { type: String, trim: true },
-      is_tds: { type: Boolean, default: false },
-      is_payment_made: { type: Boolean, default: false },
-      is_payment_requested: { type: Boolean, default: false },
-      is_non_tds: { type: Boolean, default: false },
-      payment_recipt: [{ type: String, trim: true }],
-      payment_recipt_date: { type: String, trim: true },
-    },
-  ],
-
-  insurance_copy: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      is_draft: { type: Boolean },
-      is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      payment_request_date: { type: String, trim: true },
-      payment_made_date: { type: String, trim: true },
-      is_tds: { type: Boolean, default: false },
-      is_payment_made: { type: Boolean, default: false },
-      is_payment_requested: { type: Boolean, default: false },
-      is_non_tds: { type: Boolean, default: false },
-      payment_recipt: [{ type: String, trim: true }],
-      payment_recipt_date: { type: String, trim: true },
-    },
-  ],
-
-
-  security_deposit: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      document_check_date: { type: String, trim: true },
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      utr: { type: Number, trim: true },
-      Validity_upto: { type: String, trim: true },
-    },
-  ],
-
-  other_do_documents: [
-    {
-      document_name: { type: String, trim: true },
-      url: [{ type: String, trim: true }],
-      is_draft: { type: Boolean },
-      is_final: { type: Boolean },
-      document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-      document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-      payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-      wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-      document_amount_details: { type: String, trim: true },
-      cost_rate: { type: String, trim: true },
-      payment_request_date: { type: String, trim: true },
-      payment_made_date: { type: String, trim: true },
-      is_tds: { type: Boolean, default: false },
-      is_payment_made: { type: Boolean, default: false },
-      is_payment_requested: { type: Boolean, default: false },
-      is_non_tds: { type: Boolean, default: false },
-      payment_recipt: [{ type: String, trim: true }],
-      payment_recipt_date: { type: String, trim: true },
-    },
-  ],
 
 
   ////////////////////////////////////////////////////// Submission
@@ -743,11 +717,47 @@ jobSchema.pre("save", function (next) {
     this.row_color = getRowColorFromStatus(detStatus);
     this.status_rank = getJobStatusRank(detStatus);
     this.status_sort_date = getJobSortDate(jobObj, detStatus);
+
+    // Automatic Container Count Calculation
+    if (this.container_nos && Array.isArray(this.container_nos)) {
+      const counts = {};
+      this.container_nos.forEach(container => {
+        const size = container.size || "Unknown";
+        counts[size] = (counts[size] || 0) + 1;
+      });
+
+      const summary = Object.entries(counts)
+        .map(([size, count]) => `${count}x${size}`)
+        .join(", ");
+
+      this.no_of_container = summary;
+      this.container_count = this.container_nos.length.toString();
+    }
   } catch (err) {
     console.error("Error computing derived job fields:", err);
     // Don't block save, but maybe log?
   }
 
+  next();
+});
+
+// Systematic fix for address object transition
+jobSchema.pre("validate", function (next) {
+  // If importer_address is a string, convert it to an object with the string in 'details'
+  if (typeof this.importer_address === "string") {
+    const originalValue = this.importer_address;
+    this.importer_address = {
+      details: originalValue,
+    };
+  }
+
+  // If hss_address is a string, convert it to an object with the string in 'details'
+  if (typeof this.hss_address === "string") {
+    const originalValue = this.hss_address;
+    this.hss_address = {
+      details: originalValue,
+    };
+  }
   next();
 });
 

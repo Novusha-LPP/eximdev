@@ -59,7 +59,7 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
         { be_no: { $in: [null, ""] } },
         { awb_bl_no: { $ne: null, $ne: "" } },
         { job_no: { $ne: null } },
-        { out_of_charge: { $eq: "" } },
+        { out_of_charge: { $in: [null, ""] } },
         {
           detailed_status: {
             $in: statusOrder,
@@ -68,28 +68,23 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
         {
           $or: [
             { documentation_completed_date_time: { $exists: false } },
-            { documentation_completed_date_time: "" },
+            { documentation_completed_date_time: { $in: [null, ""] } },
             {
               $and: [
-                { documentation_completed_date_time: { $exists: true, $ne: "" } },
+                { documentation_completed_date_time: { $exists: true, $nin: [null, ""] } },
                 { dsr_queries: { $elemMatch: { select_module: "Documentation", resolved: { $ne: true } } } }
               ]
             }
           ],
         },
-        // All three required documents with valid URLs
+        // All three required documents with valid URLs (supports Sea & Air)
         {
           $and: [
             {
-              "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] }
+              "cth_documents.document_name": { $all: ["Packing List", "Commercial Invoice"] }
             },
             {
-              "cth_documents": {
-                $elemMatch: {
-                  document_name: "Bill of Lading",
-                  url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
-                }
-              }
+              "cth_documents.document_name": { $in: ["Bill of Lading", "Air Way BL", "Air Waybill"] }
             },
             {
               "cth_documents": {
@@ -103,6 +98,14 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
               "cth_documents": {
                 $elemMatch: {
                   document_name: "Commercial Invoice",
+                  url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+                }
+              }
+            },
+            {
+              "cth_documents": {
+                $elemMatch: {
+                  document_name: { $in: ["Bill of Lading", "Air Way BL", "Air Waybill"] },
                   url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
                 }
               }

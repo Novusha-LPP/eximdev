@@ -20,6 +20,7 @@ import Snackbar from "@mui/material/Snackbar";
 import useTabs from "../../customHooks/useTabs";
 import { UserContext } from "../../contexts/UserContext";
 import { TabValueContext } from "../../contexts/TabValueContext";
+import MyDocRequests from "../document-collection/MyDocRequests";
 
 function ImportDSR() {
   const { a11yProps, CustomTabPanel } = useTabs();

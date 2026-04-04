@@ -7,13 +7,15 @@ const MasterDirectory = () => {
   const navigate = useNavigate();
 
   const masterCategories = [
-    { title: "Importers", path: "/ImportersInfo", description: "Manage importer details and contacts." },
-    { title: "Custom Houses", path: "#", description: "List of supported custom houses (ICD)." },
-    { title: "Shipping Lines", path: "#", description: "Database of shipping line partners." },
+    { title: "Custom Houses", path: "/custom-house-directory", description: "List of supported custom houses (ICD)." },
+    { title: "Shipping Lines", path: "/shipping-line-directory", description: "Database of shipping line partners." },
+    { title: "Suppliers", path: "/supplier-directory", description: "Database of international and local suppliers." },
+    { title: "Currencies", path: "/currency-directory", description: "Database of global currencies and codes." },
     { title: "Countries", path: "/country-directory", description: "Global country master list with codes." },
     { title: "Airlines", path: "/airlines-directory", description: "Comprehensive airline database and tracking." },
     { title: "Units", path: "/unit-directory", description: "Standardized unit of measurement master list." },
-    { title: "Ports", path: "#", description: "Port of loading and discharge master." },
+    { title: "Ports", path: "/port-directory", description: "Port of loading and discharge master." },
+    { title: "Organization", path: "/organization-directory", description: "Manage organization details from Customer KYC." },
   ];
 
   return (

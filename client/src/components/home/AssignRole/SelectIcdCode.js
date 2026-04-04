@@ -217,6 +217,38 @@ function SelectIcdCode({ selectedUser }) {
                     Assign ICD Codes
                   </Button>
 
+                  <Popconfirm
+                    title="Assign selected ICD codes to all users?"
+                    onConfirm={async () => {
+                      if (!selectedIcdCodes || selectedIcdCodes.length === 0) {
+                        message.warning("Please select at least one ICD code");
+                        return;
+                      }
+                      setLoading(true);
+                      try {
+                        const response = await axios.post(
+                          `${process.env.REACT_APP_API_STRING}/admin/assign-icd-code-to-all`,
+                          {
+                            selectedIcdCodes,
+                            adminUsername: user.username
+                          }
+                        );
+                        message.success(response.data.message || "ICD codes assigned to all users");
+                      } catch (error) {
+                        console.error("Error assigning ICD codes to all users:", error);
+                        message.error(error.response?.data?.message || "Error assigning ICD codes to all users");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    okText="Yes"
+                    cancelText="No"
+                  >
+                    <Button loading={loading}>
+                      Assign To All Users
+                    </Button>
+                  </Popconfirm>
+
                   {userData?.selected_icd_codes && userData.selected_icd_codes.length > 0 && (
                     <Popconfirm
                       title="Are you sure remove all ICD codes?"

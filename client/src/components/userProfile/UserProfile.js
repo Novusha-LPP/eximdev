@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { fetchUserOpenPoints } from "../../services/openPointsService";
+import attendanceAPI from "../../api/attendance/attendance.api";
+import leaveAPI from "../../api/attendance/leave.api";
 import "./userProfile.css";
-import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button, Menu, MenuItem, IconButton } from "@mui/material";
+import { Avatar, Tabs, Tab, CircularProgress, Snackbar, Alert, Button, Menu, MenuItem, IconButton, Tooltip, Typography, Chip } from "@mui/material";
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PersonIcon from '@mui/icons-material/Person';
@@ -17,9 +20,11 @@ import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from "@mui/icons-material/Delete";
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import FileUpload from "../gallery/FileUpload";
 import kpiPioneerBadge from "../../assets/images/kpi-pioneer-badge.png";
-
+import { FiLogIn, FiLogOut } from 'react-icons/fi';
+import Attendance from '../attendance/Attendance';
 
 
 
@@ -36,6 +41,13 @@ const UserProfile = ({ username: propUsername }) => {
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
     const [globalAssets, setGlobalAssets] = useState([]);
+
+    // Attendance state
+    const [attendanceData, setAttendanceData] = useState(null);
+    const [leaveApplications, setLeaveApplications] = useState([]);
+    const [leaveBalance, setLeaveBalance] = useState([]);
+    const [punchLoading, setPunchLoading] = useState(false);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
     const openMenu = Boolean(anchorEl);
 
     // Date formatter helper
@@ -154,6 +166,32 @@ const UserProfile = ({ username: propUsername }) => {
         };
         fetchGlobalAssets();
     }, []);
+
+    const fetchAttendanceData = useCallback(async () => {
+        const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department';
+        if (!canViewAttendance || !profileData?._id) return;
+
+        setAttendanceLoading(true);
+        try {
+            const queryParams = !isOwnProfile ? { employee_id: profileData._id } : {};
+            const [dashData, leaveBalData, leaveApps] = await Promise.all([
+                attendanceAPI.getDashboardData(queryParams).catch(() => null),
+                leaveAPI.getBalance(profileData._id).catch(() => ({ balances: [] })),
+                leaveAPI.getApplications({ employee_id: profileData._id, limit: 10 }).catch(() => ({ applications: [] }))
+            ]);
+            setAttendanceData(dashData);
+            setLeaveBalance(leaveBalData?.balances || []);
+            setLeaveApplications(leaveApps?.applications || []);
+        } catch (err) {
+            console.error('Failed to fetch attendance data', err);
+        } finally {
+            setAttendanceLoading(false);
+        }
+    }, [isOwnProfile, loggedInUser?.role, profileData?._id]);
+
+    useEffect(() => {
+        fetchAttendanceData();
+    }, [fetchAttendanceData]);
 
 
     const handlePhotoClick = (event) => {
@@ -308,6 +346,36 @@ const UserProfile = ({ username: propUsername }) => {
         } catch (error) {
             console.error(`Error deleting ${field}:`, error);
             setSnackbar({ open: true, message: 'Failed to delete document.', severity: 'error' });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleProofUpload = async (event, assetType) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('assetType', assetType);
+
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/user/marketing-proof-upload`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            });
+
+            const proofField = `${assetType}_proof`;
+            setProfileData(prev => ({ 
+                ...prev, 
+                [proofField]: res.data.user[proofField]
+            }));
+            
+            setSnackbar({ open: true, message: `${assetType.replace('_', ' ')} proof uploaded successfully!`, severity: 'success' });
+        } catch (error) {
+            console.error("Error uploading proof:", error);
+            setSnackbar({ open: true, message: 'Failed to upload proof.', severity: 'error' });
         } finally {
             setUploading(false);
         }
@@ -726,6 +794,33 @@ const UserProfile = ({ username: propUsername }) => {
         );
     };
 
+
+
+    const handlePunch = async (type) => {
+        setPunchLoading(true);
+        try {
+            const punchParams = { type, method: 'web' };
+            if (!isOwnProfile) punchParams.employee_id = profileData._id;
+            
+            await attendanceAPI.punch(punchParams);
+            setSnackbar({ open: true, message: `Punch ${type} recorded successfully!`, severity: 'success' });
+            // Refresh data
+            setTimeout(() => fetchAttendanceData(), 500);
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.message || `Punch ${type} failed`, severity: 'error' });
+        } finally {
+            setPunchLoading(false);
+        }
+    };
+
+    const AttendanceTab = () => {
+        return (
+            <motion.div className="tab-content fade-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <Attendance employeeId={profileData?._id} />
+            </motion.div>
+        );
+    };
+
     const MarketingAssetsTab = () => (
         <motion.div
             className="tab-content fade-in"
@@ -735,6 +830,17 @@ const UserProfile = ({ username: propUsername }) => {
             <div className="info-section">
                 <div className="section-header">Marketing Assets & Variables</div>
                 <div className="info-table">
+                    <div className="info-row">
+                        <span className="label">Profile Photo</span>
+                        <span className="value">
+                            {profileData.employee_photo ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Avatar src={profileData.employee_photo} sx={{ width: 30, height: 30 }} />
+                                    <Button size="small" component="a" href={profileData.employee_photo} target="_blank" endIcon={<OpenInNewIcon />}>View</Button>
+                                </div>
+                            ) : 'Not uploaded'}
+                        </span>
+                    </div>
                     {profileData.email_signature && (
                         <div className="info-row">
                             <span className="label">Email Signature</span>
@@ -782,6 +888,101 @@ const UserProfile = ({ username: propUsername }) => {
                     )}
                 </div>
             </div>
+
+            {/* Verification Section */}
+            {(isOwnProfile || profileData.profile_photo_proof || profileData.email_signature_proof) && (
+                <div className="info-section" style={{ marginTop: '24px' }}>
+                    <div className="section-header">
+                        Marketing Verification Status
+                    </div>
+                    
+                    <div className="info-table" style={{ padding: '20px' }}>
+                        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+                            To get a blue tick on your profile, please upload screenshots showing your updated profile photo and email signature. Both must be verified.
+                        </Typography>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                            {/* Profile Photo Verification */}
+                            <div style={{ padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Profile Photo Status</Typography>
+                                    {profileData.profile_photo_proof?.status && (
+                                        <Chip 
+                                            label={profileData.profile_photo_proof.status} 
+                                            size="small"
+                                            sx={{ 
+                                                fontSize: '0.65rem',
+                                                height: '20px',
+                                                background: profileData.profile_photo_proof.status === 'Approved' ? '#dcfce7' : profileData.profile_photo_proof.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
+                                                color: profileData.profile_photo_proof.status === 'Approved' ? '#15803d' : profileData.profile_photo_proof.status === 'Rejected' ? '#b91c1c' : '#854d0e',
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {profileData.profile_photo_proof?.url ? (
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <Button size="small" component="a" href={profileData.profile_photo_proof.url} target="_blank" variant="outlined" startIcon={<OpenInNewIcon />}>View Proof</Button>
+                                            {isOwnProfile && profileData.profile_photo_proof.status !== 'Approved' && (
+                                                <Button size="small" component="label" variant="contained" startIcon={<CloudUploadIcon />} sx={{ background: '#1d9bf0' }}>
+                                                    Update
+                                                    <input type="file" hidden accept="image/*" onChange={(e) => handleProofUpload(e, 'profile_photo')} />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        isOwnProfile && (
+                                            <Button size="small" component="label" variant="contained" startIcon={<CloudUploadIcon />} sx={{ background: '#1d9bf0' }}>
+                                                Upload Profile Proof
+                                                <input type="file" hidden accept="image/*" onChange={(e) => handleProofUpload(e, 'profile_photo')} />
+                                            </Button>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Email Signature Verification */}
+                            <div style={{ padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Email Signature Status</Typography>
+                                    {profileData.email_signature_proof?.status && (
+                                        <Chip 
+                                            label={profileData.email_signature_proof.status} 
+                                            size="small"
+                                            sx={{ 
+                                                fontSize: '0.65rem',
+                                                height: '20px',
+                                                background: profileData.email_signature_proof.status === 'Approved' ? '#dcfce7' : profileData.email_signature_proof.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
+                                                color: profileData.email_signature_proof.status === 'Approved' ? '#15803d' : profileData.email_signature_proof.status === 'Rejected' ? '#b91c1c' : '#854d0e',
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {profileData.email_signature_proof?.url ? (
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <Button size="small" component="a" href={profileData.email_signature_proof.url} target="_blank" variant="outlined" startIcon={<OpenInNewIcon />}>View Proof</Button>
+                                            {isOwnProfile && profileData.email_signature_proof.status !== 'Approved' && (
+                                                <Button size="small" component="label" variant="contained" startIcon={<CloudUploadIcon />} sx={{ background: '#1d9bf0' }}>
+                                                    Update
+                                                    <input type="file" hidden accept="image/*" onChange={(e) => handleProofUpload(e, 'email_signature')} />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        isOwnProfile && (
+                                            <Button size="small" component="label" variant="contained" startIcon={<CloudUploadIcon />} sx={{ background: '#1d9bf0' }}>
+                                                Upload Signature Proof
+                                                <input type="file" hidden accept="image/*" onChange={(e) => handleProofUpload(e, 'email_signature')} />
+                                            </Button>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </motion.div>
     );
 
@@ -824,7 +1025,43 @@ const UserProfile = ({ username: propUsername }) => {
                         <MenuItem onClick={handleRemovePhoto}>Remove Photo</MenuItem>
                     </Menu>
                     <div className="header-text">
-                        <h1>{fullName}</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h1 style={{ margin: 0 }}>{fullName}</h1>
+                                {profileData.is_verified && (
+                                    <Tooltip title="Verified Profile">
+                                        <VerifiedIcon sx={{ color: '#1d9bf0 !important', fontSize: '1.25rem' }} style={{ color: '#1d9bf0' }} />
+                                    </Tooltip>
+                                )}
+                            </div>
+                            {(isOwnProfile || loggedInUser?.role === 'Admin') && attendanceData?.punchStatus && (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        className={`profile-punch-btn ${attendanceData.punchStatus.status === 'Checked In' ? 'punch-out' : 'punch-in'}`}
+                                        onClick={() => handlePunch(attendanceData.punchStatus.status === 'Checked In' ? 'OUT' : 'IN')}
+                                        disabled={punchLoading}
+                                        style={{
+                                            padding: '4px 12px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            color: 'white',
+                                            background: attendanceData.punchStatus.status === 'Checked In' ? '#ef4444' : '#22c55e',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {punchLoading ? <CircularProgress size={12} color="inherit" /> : (
+                                            attendanceData.punchStatus.status === 'Checked In' ? <><FiLogOut size={12} /> Punch OUT</> : <><FiLogIn size={12} /> Punch IN</>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <div className="sub-text">
                             <span className="designation">{profileData.designation || 'No Designation'}</span>
                             {profileData.department && (
@@ -859,6 +1096,9 @@ const UserProfile = ({ username: propUsername }) => {
 
             {/* Tabs Navigation */}
             <div className="profile-tabs-wrapper">
+                {(() => {
+                    const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
+                    return (
                 <Tabs
                     value={activeTab}
                     onChange={(e, v) => setActiveTab(v)}
@@ -870,20 +1110,32 @@ const UserProfile = ({ username: propUsername }) => {
                     <Tab label={`Modules (${profileData.modules?.length || 0})`} />
                     <Tab label={`Importers (${profileData.assigned_importer_name?.length || 0})`} />
                     <Tab label={`Open Points (${openPointsCount})`} />
+                    {canViewAttendance && <Tab label="Attendance" />}
                     {(profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) && (
                         <Tab label="Marketing Assets" />
                     )}
                 </Tabs>
+                    );
+                })()}
             </div>
 
             {/* Main Content Area */}
             <div className="profile-body">
                 <AnimatePresence mode="wait">
-                    {activeTab === 0 && <OverviewTab key="overview" />}
-                    {activeTab === 1 && <ModulesTab key="modules" />}
-                    {activeTab === 2 && <ImportersTab key="importers" />}
-                    {activeTab === 3 && <OpenPointsTab key="openpoints" />}
-                    {activeTab === 4 && <MarketingAssetsTab key="marketing" />}
+                    {(() => {
+                        const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
+                        const marketingIndex = canViewAttendance ? 5 : 4;
+                        return (
+                            <>
+                                {activeTab === 0 && <OverviewTab key="overview" />}
+                                {activeTab === 1 && <ModulesTab key="modules" />}
+                                {activeTab === 2 && <ImportersTab key="importers" />}
+                                {activeTab === 3 && <OpenPointsTab key="openpoints" />}
+                                {activeTab === 4 && canViewAttendance && <AttendanceTab key="attendance" />}
+                                {activeTab === marketingIndex && <MarketingAssetsTab key="marketing" />}
+                            </>
+                        );
+                    })()}
                 </AnimatePresence>
             </div>
 

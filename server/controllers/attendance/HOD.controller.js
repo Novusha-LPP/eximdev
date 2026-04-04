@@ -1,0 +1,960 @@
+import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
+import LeaveApplication from '../../model/attendance/LeaveApplication.js';
+import Holiday from '../../model/attendance/Holiday.js';
+import moment from 'moment';
+import fs from 'fs';
+import TeamModel from '../../model/teamModel.mjs';
+import User from '../../model/userModel.mjs';
+import LeaveBalance from '../../model/attendance/LeaveBalance.js';
+import LeavePolicy from '../../model/attendance/LeavePolicy.js';
+import RegularizationRequest from '../../model/attendance/RegularizationRequest.js';
+
+
+// Get HOD Dashboard Data
+export const getDashboard = async (req, res) => {
+    try {
+        const hod = req.user;
+        const { date, teamId } = req.query;
+        // Use UTC for date-only comparison to match AttendanceEngine
+        const targetDate = date ? moment.utc(date).startOf('day') : moment.utc().startOf('day');
+
+        // Extract Company ID
+        // Note: For admins, we should also look at req.query.company_id to allow switching contexts
+        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+
+        if (!companyId) {
+            return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
+        }
+
+        const debugLog = [];
+        debugLog.push(`--- HOD DASHBOARD DEBUG ${new Date().toISOString()} ---`);
+        debugLog.push(`HOD: ${hod.username} ID: ${hod._id} Role: ${hod.role}`);
+        debugLog.push(`Company: ${companyId}`);
+
+        // 1. Get team members for this HOD (TEAM-BASED FILTERING)
+        let employeeIds = [];
+        let employees = [];
+
+        if (hod.role === 'ADMIN') {
+            // Admin sees all employees, optionally filtered by teamId
+            if (teamId) {
+                // Admin filtered by a specific team
+                const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
+                if (team && team.members && team.members.length > 0) {
+                    const memberIds = team.members.map(m => m.userId).filter(Boolean);
+                    employees = await User.find({
+                        _id: { $in: memberIds },
+                        isActive: true
+                    }).select('_id first_name last_name username email role department_id');
+                    debugLog.push(`Admin filtered by teamId ${teamId}: Found ${employees.length} team members`);
+                } else {
+                    employees = [];
+                    debugLog.push(`Admin filtered by teamId ${teamId}: Team not found or empty`);
+                }
+            } else {
+                const userQuery = {
+                    company_id: companyId,
+                    isActive: true
+                };
+                employees = await User.find(userQuery).select('_id first_name last_name username email role department_id');
+                debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
+            }
+        } else {
+            // HOD sees only their team members
+            debugLog.push(`Loading teams for HOD: ${hod.username}`);
+            
+            // Get all teams where this user is the HOD
+            const teams = await TeamModel.find({ 
+                hodId: hod._id,
+                isActive: { $ne: false }
+            });
+            
+            debugLog.push(`Found ${teams.length} teams for HOD`);
+            
+            // Extract all member user IDs from all teams
+            const memberUserIds = new Set();
+            teams.forEach(team => {
+                if (team.members && Array.isArray(team.members)) {
+                    team.members.forEach(member => {
+                        if (member.userId) {
+                            memberUserIds.add(member.userId.toString());
+                        }
+                    });
+                }
+            });
+            
+            debugLog.push(`Total unique team members: ${memberUserIds.size}`);
+            
+            if (memberUserIds.size === 0) {
+                debugLog.push(`No team members found for HOD`);
+                // Return empty dashboard
+                return res.json({
+                    success: true,
+                    data: {
+                        summary: {
+                            totalEmployees: 0,
+                            present: 0,
+                            absent: 0,
+                            onLeave: 0,
+                            late: 0
+                        },
+                        employees: [],
+                        teamCalendar: [],
+                        pendingLeaves: [],
+                        recentProcessedLeaves: [],
+                        pendingRegularizations: [],
+                        lateEmployees: [],
+                        earlyOutEmployees: [],
+                        halfDayEmployees: [],
+                        absentEmployees: [],
+                        date: targetDate.format('YYYY-MM-DD')
+                    }
+                });
+            }
+            
+            // Convert Set to Array of ObjectIds
+            employeeIds = Array.from(memberUserIds).map(id => id);
+            
+            // Fetch full employee details
+            employees = await User.find({
+                _id: { $in: employeeIds },
+                isActive: true
+            }).select('_id first_name last_name username email role department_id');
+            
+            debugLog.push(`Loaded ${employees.length} active team member details`);
+        }
+
+        employeeIds = employees.map(e => e._id);
+        const totalEmployees = employees.length;
+
+        const dateStr = targetDate.format('YYYY-MM-DD');
+        debugLog.push(`Searching for attendance on: ${dateStr} for ${employeeIds.length} employees`);
+
+        // 2. Get attendance records for the date
+        const dayStart = targetDate.clone().startOf('day').toDate();
+        const dayEnd = targetDate.clone().endOf('day').toDate();
+        const attendanceRecords = await AttendanceRecord.find({
+            employee_id: { $in: employeeIds },
+            attendance_date: { $gte: dayStart, $lte: dayEnd }
+        }).populate('employee_id', 'first_name last_name username');
+
+        debugLog.push(`Found attendance records: ${attendanceRecords.length}`);
+        if (attendanceRecords.length > 0) {
+            attendanceRecords.forEach(r => debugLog.push(`Record for: ${r.employee_id?.username} Status: ${r.status}`));
+        }
+
+        // 3. Get approved leaves for the date
+        const approvedLeaves = await LeaveApplication.find({
+            employee_id: { $in: employeeIds },
+            approval_status: 'approved',
+            from_date: { $lte: targetDate.toDate() },
+            to_date: { $gte: targetDate.toDate() }
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name');
+
+        debugLog.push(`Found approved leaves: ${approvedLeaves.length}`);
+
+        // 4. Calculate Summary
+        const presentEmployees = new Set();
+        const lateEmployees = [];
+        const earlyOutEmployees = [];
+        const halfDayEmployees = [];
+        const absentEmployees = [];
+
+        // Process attendance
+        attendanceRecords.forEach(record => {
+            const empName = record.employee_id.first_name ? `${record.employee_id.first_name} ${record.employee_id.last_name || ''}`.trim() : record.employee_id.username;
+
+            if (record.first_in || record.status === 'present' || record.status === 'half_day') {
+                // Employee has punched in — they are present (not absent)
+                presentEmployees.add(record.employee_id._id.toString());
+
+                if (record.is_late) {
+                    lateEmployees.push({
+                        name: empName,
+                        inTime: record.first_in,
+                        reason: record.late_reason || null,
+                        lateBy: record.late_by_minutes || 0
+                    });
+                }
+
+                if (record.is_early_exit) {
+                    earlyOutEmployees.push({
+                        name: empName,
+                        inTime: record.first_in,
+                        outTime: record.last_out,
+                        reason: record.early_exit_reason || null,
+                        earlyBy: record.early_exit_minutes || 0
+                    });
+                }
+
+                if (record.status === 'half_day') {
+                    halfDayEmployees.push({
+                        name: empName,
+                        inTime: record.first_in,
+                        outTime: record.last_out,
+                        workHours: record.total_work_hours || 0
+                    });
+                }
+            } else if (record.status === 'absent') {
+                // Explicitly absent (no punch recorded)
+                absentEmployees.push({
+                    name: empName,
+                    reason: 'No punch recorded',
+                    onLeave: false
+                });
+                // Mark as processed so we don't add again below
+                presentEmployees.add(record.employee_id._id.toString());
+            }
+        });
+
+        // Find absent employees (no attendance record and not on leave)
+        const onLeaveIds = new Set(approvedLeaves.map(l => l.employee_id._id.toString()));
+
+        employees.forEach(emp => {
+            const empId = emp._id.toString();
+            const isPresent = presentEmployees.has(empId);
+            const isOnLeave = onLeaveIds.has(empId);
+
+            if (!isPresent && !isOnLeave) {
+                absentEmployees.push({
+                    name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
+                    reason: 'No punch recorded',
+                    onLeave: false
+                });
+            } else if (isOnLeave) {
+                const leaveRecord = approvedLeaves.find(l => l.employee_id._id.toString() === empId);
+                absentEmployees.push({
+                    name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
+                    reason: `On leave`,
+                    onLeave: true,
+                    leaveType: leaveRecord?.leave_policy_id?.leave_type || 'Leave'
+                });
+            }
+        });
+
+        // 5. Get pending leave requests
+        const pendingLeaves = await LeaveApplication.find({
+            employee_id: { $in: employeeIds },
+            approval_status: 'pending'
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ createdAt: -1 })
+            .limit(100);
+
+        // 5a. Get recently processed leave requests (History)
+        const recentProcessedLeaves = await LeaveApplication.find({
+            employee_id: { $in: employeeIds },
+            approval_status: { $in: ['approved', 'rejected'] }
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ updatedAt: -1 })
+            .limit(50);
+
+        // 6. Get pending regularizations
+        const pendingRegularizations = await RegularizationRequest.find({
+            employee_id: { $in: employeeIds },
+            status: 'pending'
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .sort({ createdAt: -1 })
+            .limit(10);
+
+        // Department data is not used in attendance reporting.
+
+        // 8. Build Team Calendar (7 days view)
+        // Get current week's date range
+        const startOfWeek = moment().startOf('week').add(1, 'day'); // Monday
+        const endOfWeek = moment(startOfWeek).add(6, 'days'); // Sunday
+
+        debugLog.push(`Calendar range: ${startOfWeek.format('YYYY-MM-DD')} to ${endOfWeek.format('YYYY-MM-DD')}`);
+
+        // Fetch holidays for the week
+        const weekHolidays = await Holiday.find({
+            company_id: companyId,
+            holiday_date: {
+                $gte: startOfWeek.toDate(),
+                $lte: endOfWeek.toDate()
+            }
+        });
+
+        const holidayDatesSet = new Set(weekHolidays.map(h => moment(h.holiday_date).format('YYYY-MM-DD')));
+
+        // --- FIX START: Use .toDate() for accurate MongoDB querying ---
+        const weekAttendance = await AttendanceRecord.find({
+            employee_id: { $in: employeeIds },
+            attendance_date: {
+                $gte: startOfWeek.startOf('day').toDate(),
+                $lte: endOfWeek.endOf('day').toDate()
+            }
+        });
+        // --- FIX END ---
+
+        // Fetch approved leaves for the week
+        const weekLeaves = await LeaveApplication.find({
+            employee_id: { $in: employeeIds },
+            approval_status: 'approved',
+            $or: [
+                {
+                    from_date: { $lte: endOfWeek.toDate() },
+                    to_date: { $gte: startOfWeek.toDate() }
+                }
+            ]
+        });
+
+        // Build team calendar
+        const teamCalendar = employees.map(emp => {
+            const empId = emp._id.toString();
+            const attendance = {};
+
+            // Generate 7 days of data
+            for (let i = 0; i < 7; i++) {
+                const currentDate = moment(startOfWeek).add(i, 'days');
+                const dateStr = currentDate.format('YYYY-MM-DD');
+
+                // Check if it's a holiday
+                if (holidayDatesSet.has(dateStr)) {
+                    attendance[dateStr] = 'holiday';
+                    continue;
+                }
+
+                // Check if employee is on leave
+                const leaveRecord = weekLeaves.find(leave =>
+                    leave.employee_id.toString() === empId &&
+                    moment(leave.from_date).isSameOrBefore(currentDate, 'day') &&
+                    moment(leave.to_date).isSameOrAfter(currentDate, 'day')
+                );
+
+                if (leaveRecord) {
+                    attendance[dateStr] = leaveRecord.is_half_day ? 'half_day' : 'leave';
+                    if (leaveRecord.is_half_day) {
+                        attendance[`${dateStr}_session`] = leaveRecord.half_day_session;
+                    }
+                    continue;
+                }
+
+                // Check attendance record
+                // --- FIX START: Compare formatted strings instead of Date Object vs String ---
+                const attRecord = weekAttendance.find(att => {
+                    const attDateStr = moment(att.attendance_date).format('YYYY-MM-DD');
+                    return att.employee_id.toString() === empId && attDateStr === dateStr;
+                });
+                // --- FIX END ---
+
+                if (attRecord) {
+                    // Send status + late/early flags for the frontend to show proper indicator
+                    if (attRecord.status === 'half_day') {
+                        attendance[dateStr] = 'half_day';
+                        attendance[`${dateStr}_session`] = attRecord.half_day_session;
+                    } else if (attRecord.is_late && attRecord.is_early_exit) {
+                        attendance[dateStr] = 'late_early';
+                    } else if (attRecord.is_late) {
+                        attendance[dateStr] = 'present_late';
+                    } else if (attRecord.is_early_exit) {
+                        attendance[dateStr] = 'present_early';
+                    } else {
+                        attendance[dateStr] = attRecord.status;
+                    }
+                    // Add lateness info as a separate key
+                    if (attRecord.is_late) {
+                        attendance[`${dateStr}_late_by`] = attRecord.late_by_minutes;
+                    }
+                } else {
+                    // No record - could be future date or genuinely absent
+                    if (currentDate.isAfter(moment(), 'day')) {
+                        attendance[dateStr] = null; // Future date
+                    } else {
+                        attendance[dateStr] = 'absent';
+                    }
+                }
+            }
+
+            return {
+                name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
+                role: 'Team Member',
+                attendance
+            };
+        });
+
+        // ... existing code ...
+
+        debugLog.push(`Team calendar built with ${teamCalendar.length} members`);
+
+        // Write debug file
+        fs.writeFileSync('hod_dashboard_debug.log', debugLog.join('\n'));
+
+        // Response
+        res.json({
+            data: {
+                summary: {
+                    present: presentEmployees.size,
+                    absent: absentEmployees.filter(a => !a.onLeave).length,
+                    late: lateEmployees.length,
+                    earlyOut: earlyOutEmployees.length,
+                    halfDay: halfDayEmployees.length,
+                    onLeave: approvedLeaves.length
+                },
+                absent: absentEmployees,
+                late: lateEmployees,
+                earlyOut: earlyOutEmployees,
+                halfDay: halfDayEmployees,
+                pendingLeaves: pendingLeaves.map(leave => ({
+                    id: leave._id,
+                    employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                    leaveType: leave.leave_policy_id?.leave_type || 'Unknown',
+                    fromDate: leave.from_date,
+                    toDate: leave.to_date,
+                    totalDays: leave.total_days,
+                    is_half_day: leave.is_half_day,
+                    half_day_session: leave.half_day_session,
+                    attachment_urls: leave.attachment_urls || [],
+                    reason: leave.reason
+                })),
+                recentProcessedLeaves: recentProcessedLeaves.map(leave => ({
+                    id: leave._id,
+                    employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                    leaveType: leave.leave_policy_id?.leave_type || 'Unknown',
+                    fromDate: leave.from_date,
+                    toDate: leave.to_date,
+                    totalDays: leave.total_days,
+                    is_half_day: leave.is_half_day,
+                    half_day_session: leave.half_day_session,
+                    attachment_urls: leave.attachment_urls || [],
+                    status: leave.approval_status,
+                    actionDate: leave.updatedAt
+                })),
+                pendingRegularization: pendingRegularizations.map(reg => ({
+                    id: reg._id,
+                    employeeName: reg.employee_id.first_name ? `${reg.employee_id.first_name} ${reg.employee_id.last_name || ''}`.trim() : reg.employee_id.username,
+                    date: reg.attendance_date,
+                    type: reg.regularization_type,
+                    reason: reg.reason
+                })),
+                // department: {
+                //     name: department?.department_name || 'Department',
+                //     hodName: hod.first_name ? `${hod.first_name} ${hod.last_name || ''}`.trim() : (hod.name || hod.username)
+                // },
+                upcomingHolidays: (await Holiday.find({
+                    company_id: companyId,
+                    holiday_date: { $gte: moment().startOf('day').toDate() }
+                }).sort({ holiday_date: 1 }).limit(5)).map(h => ({
+                    id: h._id,
+                    holiday_name: h.holiday_name,
+                    holiday_date: h.holiday_date,
+                    holiday_type: h.holiday_type
+                })),
+                teamCalendar: teamCalendar,
+                holidays: weekHolidays.reduce((acc, h) => {
+                    acc[moment(h.holiday_date).format('YYYY-MM-DD')] = h.holiday_name;
+                    return acc;
+                }, {}),
+                debug: {
+                    hodId: hod._id,
+                    hodComp: companyId,
+                    employeeCount: totalEmployees,
+                    attendanceCount: attendanceRecords.length,
+                    calendarWeek: `${startOfWeek.format('YYYY-MM-DD')} to ${endOfWeek.format('YYYY-MM-DD')}`
+                },
+                timestamp: new Date()
+            }
+        });
+    } catch (err) {
+        console.error('Error in getDashboard:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Unified Approve/Reject function (HOD & Admin)
+export const approveRequest = async (req, res) => {
+    const debug = [];
+    debug.push(`--- APPROVE REQUEST START ${new Date().toISOString()} ---`);
+    try {
+        const { id, type, status, comments } = req.body;
+        const actor = req.user; // Can be HOD or ADMIN
+
+        debug.push(`Body: ${JSON.stringify(req.body)}`);
+        debug.push(`Actor: ${actor.username} Role: ${actor.role}`);
+
+        if (type === 'leave') {
+            const application = await LeaveApplication.findById(id);
+            if (!application) {
+                debug.push(`Application not found: ${id}`);
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.status(404).json({ message: 'Application not found' });
+            }
+
+            debug.push(`Found Application: ${application._id}`);
+
+            const requesterId = application.employee_id?.toString();
+            const actorId = (actor._id?._id || actor._id).toString();
+
+            // Admin bypasses all team checks — global access
+            if (actor.role !== 'ADMIN') {
+                // 1. HOD cannot approve their own leave
+                if (requesterId === actorId) {
+                    debug.push('SELF APPROVAL DENIED');
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.status(403).json({ message: 'Unauthorized: You cannot approve your own leave application' });
+                }
+
+                // 2. HOD can only approve leaves for members of their team(s)
+                const hodTeams = await TeamModel.find({
+                    hodId: actor._id,
+                    isActive: { $ne: false }
+                });
+
+                const teamMemberIds = new Set();
+                hodTeams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(m => {
+                            if (m.userId) teamMemberIds.add(m.userId.toString());
+                        });
+                    }
+                });
+
+                debug.push(`HOD team member IDs: ${Array.from(teamMemberIds).join(', ')}`);
+
+                if (!teamMemberIds.has(requesterId)) {
+                    debug.push('AUTHORIZATION FAILED (Not in HOD team)');
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                }
+            } else {
+                debug.push('Admin override: skipping team check');
+            }
+
+            if (application.approval_status !== 'pending') {
+                return res.status(400).json({ message: 'Request is no longer pending' });
+            }
+
+            application.approval_status = status;
+            if (comments) application.comments = comments;
+            await application.save();
+
+            // Sync AttendanceRecord for the approved range (important for past dates)
+            if (status === 'approved') {
+                const start = moment(application.from_date).startOf('day');
+                const end = moment(application.to_date).startOf('day');
+                let curr = moment(start);
+
+                while (curr.isSameOrBefore(end)) {
+                    const dateStr = curr.format('YYYY-MM-DD');
+                    const attDate = moment.utc(dateStr).startOf('day').toDate();
+
+                    await AttendanceRecord.findOneAndUpdate(
+                        { employee_id: application.employee_id, attendance_date: attDate },
+                        {
+                            status: application.is_half_day ? 'half_day' : 'leave',
+                            is_half_day: application.is_half_day || false,
+                            half_day_session: application.half_day_session,
+                            year_month: curr.format('YYYY-MM'),
+                            processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
+                        },
+                        { upsert: true }
+                    );
+                    curr.add(1, 'day');
+                }
+            }
+
+            // Update Leave Balance
+            const currentYear = new Date().getFullYear();
+            let balanceRecord = await LeaveBalance.findOne({
+                employee_id: application.employee_id,
+                leave_policy_id: application.leave_policy_id,
+                year: currentYear
+            });
+
+            if (!balanceRecord) {
+                const policy = await LeavePolicy.findById(application.leave_policy_id);
+                const defaultQuota = 24;
+                const quota = policy?.annual_quota || defaultQuota;
+                
+                balanceRecord = new LeaveBalance({
+                    employee_id: application.employee_id,
+                    company_id: application.company_id,
+                    leave_policy_id: application.leave_policy_id,
+                    leave_type: application.leave_type,
+                    year: currentYear,
+                    opening_balance: quota,
+                    closing_balance: quota,
+                    consumed: 0,
+                    pending_approval: 0
+                });
+            }
+
+            debug.push(`Updating LeaveBalance...`);
+            const isUnpaid = ['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase());
+
+            if (status === 'approved') {
+                balanceRecord.consumed += application.total_days;
+                if (balanceRecord.pending_approval >= application.total_days) {
+                    balanceRecord.pending_approval -= application.total_days;
+                } else {
+                    if (!isUnpaid) {
+                        balanceRecord.closing_balance -= application.total_days;
+                    }
+                }
+            } else if (status === 'rejected') {
+                if (balanceRecord.pending_approval >= application.total_days) {
+                    balanceRecord.pending_approval -= application.total_days;
+                    if (!isUnpaid) {
+                        balanceRecord.closing_balance += application.total_days;
+                    }
+                }
+            }
+            await balanceRecord.save();
+
+            fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+            return res.json({ message: `Leave ${status} successfully` });
+
+        } else if (type === 'regularization') {
+            const request = await RegularizationRequest.findById(id);
+            if (!request) return res.status(404).json({ message: 'Request not found' });
+
+            // Admin bypasses team check
+            if (actor.role !== 'ADMIN') {
+                // HOD: verify employee is in their team
+                const hodTeams = await TeamModel.find({
+                    hodId: actor._id,
+                    isActive: { $ne: false }
+                });
+
+                const teamMemberIds = new Set();
+                hodTeams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(m => {
+                            if (m.userId) teamMemberIds.add(m.userId.toString());
+                        });
+                    }
+                });
+
+                const requestEmpId = (request.employee_id?._id || request.employee_id).toString();
+                if (!teamMemberIds.has(requestEmpId)) {
+                    return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                }
+            }
+
+            request.status = status;
+            if (comments) request.remarks = comments;
+            await request.save();
+
+            // If approved, update attendance record
+            if (status === 'approved') {
+                const empId = request.employee_id?._id || request.employee_id;
+
+                await AttendanceRecord.findOneAndUpdate(
+                    { employee_id: empId, attendance_date: moment(request.attendance_date).startOf('day').toDate() },
+                    {
+                        first_in: request.requested_in_time || request.expected_in,
+                        last_out: request.requested_out_time || request.expected_out,
+                        status: 'present',
+                        is_regularized: true,
+                        processed_at: new Date(),
+                        processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
+                    },
+                    { upsert: true }
+                );
+            }
+
+            return res.json({ message: `Regularization ${status} successfully` });
+        }
+
+        res.status(400).json({ message: 'Invalid request type' });
+    } catch (err) {
+        debug.push(`FATAL ERROR: ${err.message}`);
+        debug.push(err.stack);
+        fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+        console.error('Error in approveRequest:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Team Attendance Report (formerly Department)
+export const getDepartmentAttendanceReport = async (req, res) => {
+    try {
+        const hod = req.user;
+        const { month } = req.query; // YYYY-MM
+
+        if (!month) return res.status(400).json({ message: 'Month is required' });
+
+        const startOfMonth = moment(month, 'YYYY-MM').startOf('month');
+        const endOfMonth = moment(month, 'YYYY-MM').endOf('month');
+        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+
+        if (!companyId) {
+            return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
+        }
+
+        // 1. Get team members for this HOD (TEAM-BASED FILTERING)
+        let employeeIds = [];
+        let employees = [];
+
+        if (hod.role === 'ADMIN') {
+            // Admin sees all employees
+            const userQuery = {
+                company_id: companyId,
+                isActive: true
+            };
+            employees = await User.find(userQuery).select('_id first_name last_name username');
+        } else {
+            // HOD sees only their team members
+            const teams = await TeamModel.find({ 
+                hodId: hod._id,
+                isActive: { $ne: false }
+            });
+            
+            // Extract all member user IDs from all teams
+            const memberUserIds = new Set();
+            teams.forEach(team => {
+                if (team.members && Array.isArray(team.members)) {
+                    team.members.forEach(member => {
+                        if (member.userId) {
+                            memberUserIds.add(member.userId.toString());
+                        }
+                    });
+                }
+            });
+            
+            if (memberUserIds.size === 0) {
+                return res.json({ data: [] }); // No team members
+            }
+            
+            // Convert Set to Array of ObjectIds
+            employeeIds = Array.from(memberUserIds).map(id => id);
+            
+            // Fetch full employee details
+            employees = await User.find({
+                _id: { $in: employeeIds },
+                isActive: true
+            }).select('_id first_name last_name username');
+        }
+
+        employeeIds = employees.map(e => e._id);
+
+        // 2. Get Attendance Records
+        const attendanceRecords = await AttendanceRecord.find({
+            employee_id: { $in: employeeIds },
+            attendance_date: {
+                $gte: startOfMonth.toDate(),
+                $lte: endOfMonth.toDate()
+            }
+        });
+
+        // Create Lookup Map for Attendance: "empId_YYYY-MM-DD" -> Record
+        const attendanceLookup = new Map();
+        attendanceRecords.forEach(r => {
+            const key = `${r.employee_id.toString()}_${moment(r.attendance_date).format('YYYY-MM-DD')}`;
+            attendanceLookup.set(key, r);
+        });
+
+        // 3. Get Approved Leaves
+        const approvedLeaves = await LeaveApplication.find({
+            employee_id: { $in: employeeIds },
+            approval_status: 'approved',
+            $or: [
+                { from_date: { $lte: endOfMonth.toDate() }, to_date: { $gte: startOfMonth.toDate() } }
+            ]
+        }).populate('leave_policy_id', 'leave_type');
+
+        // Create Lookup Map for Leaves: "empId_YYYY-MM-DD" -> LeaveRecord
+        const leaveLookup = new Map();
+        approvedLeaves.forEach(l => {
+            let currentDate = moment(l.from_date);
+            const endDate = moment(l.to_date);
+            while (currentDate.isSameOrBefore(endDate, 'day')) {
+                const key = `${l.employee_id.toString()}_${currentDate.format('YYYY-MM-DD')}`;
+                leaveLookup.set(key, l);
+                currentDate.add(1, 'day');
+            }
+        });
+
+        // 3b. Get Holidays
+        const holidays = await Holiday.find({
+            company_id: companyId,
+            holiday_date: {
+                $gte: startOfMonth.toDate(),
+                $lte: endOfMonth.toDate()
+            }
+        });
+        const holidayDates = new Set(holidays.map(h => moment(h.holiday_date).format('YYYY-MM-DD')));
+
+        // 4. Transform Data
+        const reportData = employees.map(emp => {
+            const empId = emp._id.toString();
+            const attendanceMap = {};
+            const daysInMonth = startOfMonth.daysInMonth();
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDay = moment(month, 'YYYY-MM').date(day);
+                const dateStr = currentDay.format('YYYY-MM-DD');
+                const lookupKey = `${empId}_${dateStr}`;
+
+                // Check Holiday
+                if (holidayDates.has(dateStr)) {
+                    attendanceMap[day] = 'H';
+                    continue;
+                }
+
+                // Check Leave via Map Lookup
+                const leave = leaveLookup.get(lookupKey);
+                if (leave) {
+                    attendanceMap[day] = 'L';
+                    continue;
+                }
+
+                // Check Attendance via Map Lookup
+                const record = attendanceLookup.get(lookupKey);
+
+                if (record) {
+                    if (record.status === 'half_day') {
+                        attendanceMap[day] = record.half_day_session === 'first_half' ? 'H1' : 'H2';
+                    }
+                    else if (record.is_late) attendanceMap[day] = 'LT';
+                    else if (record.is_early_exit) attendanceMap[day] = 'E';
+                    else if (record.status === 'present') attendanceMap[day] = 'P';
+                    else if (record.status === 'absent') attendanceMap[day] = 'A';
+                    else attendanceMap[day] = 'P';
+                } else {
+                    // Weekend logic
+                    if (currentDay.day() === 0 || currentDay.day() === 6) attendanceMap[day] = 'WO';
+                    else if (currentDay.isAfter(moment(), 'day')) attendanceMap[day] = '';
+                    else attendanceMap[day] = 'A';
+                }
+            }
+
+            return {
+                id: emp._id,
+                name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}` : emp.username,
+                attendance: attendanceMap
+            };
+        });
+
+        res.json({ data: reportData });
+
+    } catch (error) {
+        console.error('Report Error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+/**
+ * Admin-only: Get all leave requests across the company, with optional teamId filter.
+ * Also returns all teams for the filter dropdown.
+ */
+export const getAdminLeaveRequests = async (req, res) => {
+    try {
+        const admin = req.user;
+        if (admin.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Admin access only' });
+        }
+
+        const { teamId, status } = req.query;
+        const companyId = admin.company_id?._id || admin.company_id;
+
+        // Build query for leave applications
+        let employeeFilter = null;
+
+        if (teamId && teamId !== 'all') {
+            // Filter by specific team members
+            const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
+            if (team && team.members && team.members.length > 0) {
+                const memberIds = team.members.map(m => m.userId).filter(Boolean);
+                employeeFilter = { $in: memberIds };
+            } else {
+                // Team not found or empty — return empty
+                return res.json({ data: { pendingLeaves: [], recentProcessedLeaves: [], teams: [] } });
+            }
+        }
+
+        // Build leave query
+        // Include admin's own leaves as a safety net so self-applied requests are visible
+        // even if company/team mappings are temporarily inconsistent.
+        const leaveQuery = employeeFilter
+            ? { company_id: companyId, employee_id: employeeFilter }
+            : {
+                $or: [
+                    { company_id: companyId },
+                    { employee_id: admin._id }
+                ]
+            };
+
+        // Fetch all teams for dropdown (scoped to company by member user IDs)
+        const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
+        const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
+
+        const allTeams = await TeamModel.find({ isActive: { $ne: false } })
+            .select('_id name hodUsername members')
+            .lean();
+
+        const teams = allTeams.filter(team =>
+            team.members?.some(m => m.userId && companyUserIds.has(m.userId.toString()))
+        );
+
+        // Fetch pending leaves
+        const pendingLeaves = await LeaveApplication.find({
+            ...leaveQuery,
+            approval_status: 'pending'
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ createdAt: -1 })
+            .limit(200);
+
+        // Fetch recent processed leaves
+        const recentProcessedLeaves = await LeaveApplication.find({
+            ...leaveQuery,
+            approval_status: { $in: ['approved', 'rejected'] }
+        })
+            .populate('employee_id', 'first_name last_name username')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ updatedAt: -1 })
+            .limit(100);
+
+        // Helper to resolve team name for an employee
+        const getTeamName = (empId) => {
+            const empIdStr = empId?.toString();
+            const team = teams.find(t =>
+                t.members && t.members.some(m => m.userId?.toString() === empIdStr)
+            );
+            return team ? team.name : null;
+        };
+
+        const mapLeave = (leave) => {
+            const empId = leave.employee_id?._id || leave.employee_id;
+            const empName = leave.employee_id?.first_name
+                ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim()
+                : leave.employee_id?.username || 'Unknown';
+            return {
+                id: leave._id,
+                employeeName: empName,
+                employeeId: empId,
+                teamName: getTeamName(empId),
+                leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                fromDate: leave.from_date,
+                toDate: leave.to_date,
+                totalDays: leave.total_days,
+                is_half_day: leave.is_half_day,
+                half_day_session: leave.half_day_session,
+                attachment_urls: leave.attachment_urls || [],
+                reason: leave.reason,
+                status: leave.approval_status,
+                actionDate: leave.updatedAt
+            };
+        };
+
+        return res.json({
+            data: {
+                pendingLeaves: pendingLeaves.map(mapLeave),
+                recentProcessedLeaves: recentProcessedLeaves.map(mapLeave),
+                teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername }))
+            }
+        });
+
+    } catch (err) {
+        console.error('Error in getAdminLeaveRequests:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};

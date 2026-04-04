@@ -8,27 +8,43 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useSearchParams } from "react-router-dom";
 import { UserContext } from "../../contexts/UserContext";
 import ChargesGrid from "../ChargesGrid";
-import ImportDoChargesTable from "./ImportDoChargesTable";
+import FileUpload from "../gallery/FileUpload";
+import ImagePreview from "../gallery/ImagePreview";
+
 import { TextField } from "@mui/material";
 
 function EditFreeDaysConf() {
     // CSS styles for upload containers
     const uploadContainerStyles = `
     .upload-container {
-      border: 2px solid #e3e8ef;
-      border-radius: 12px;
-      padding: 20px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
       background-color: #ffffff;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
     .section-header {
+      background-color: #f8fafc;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e2e8f0;
       display: flex;
       align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e3e8ef;
+      justify-content: space-between;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+
+    .upload-content {
+      padding: 20px;
     }
     
     .form-field {
@@ -195,6 +211,7 @@ function EditFreeDaysConf() {
                             ],
                     other_do_documents: jobData.other_do_documents || [],
                     security_deposit: jobData.security_deposit || [],
+                    do_copies: jobData.do_copies || [],
                 });
 
                 setLoading(false);
@@ -239,8 +256,8 @@ function EditFreeDaysConf() {
                     cost_rate: "",
                 },
             ],
-            other_do_documents: [],
             security_deposit: [],
+            do_copies: [],
         },
 
         onSubmit: async (values) => {
@@ -291,6 +308,16 @@ function EditFreeDaysConf() {
             }, 500);
         },
     });
+
+    const handleDoCopiesUpload = (urls) => {
+        formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+    };
+
+    const handleRemoveDoCopy = (index) => {
+        const updatedCopies = [...formik.values.do_copies];
+        updatedCopies.splice(index, 1);
+        formik.setFieldValue("do_copies", updatedCopies);
+    };
 
     if (!job_no || !year) {
         return (
@@ -386,15 +413,33 @@ function EditFreeDaysConf() {
                         parentModule="Job" 
                         initialTab="cost" 
                         hideTabs={true} 
+                        shippingLineAirline={data?.shipping_line_airline}
+                        jobNumber={job_no}
+                        jobYear={year}
                     />
                 </Box>
 
                 {/* Charges Table */}
-                <ImportDoChargesTable
-                    formik={formik}
-                    user={user}
-                    setFileSnackbar={setFileSnackbar}
-                />
+                <div className="upload-container">
+                    <div className="section-header">
+                        <h3 className="section-title">DO COPIES</h3>
+                    </div>
+                    <div className="upload-content">
+                        <FileUpload
+                            label="UPLOAD DO COPIES"
+                            onFilesUploaded={(urls) => {
+                                handleDoCopiesUpload(urls);
+                            }}
+                        />
+                        <ImagePreview
+                            images={formik.values.do_copies}
+                            onDeleteImage={(index) => {
+                                handleRemoveDoCopy(index);
+                            }}
+                        />
+                    </div>
+                </div>
+
 
                 {/* Submit Button */}
                 <div className="submit-section">

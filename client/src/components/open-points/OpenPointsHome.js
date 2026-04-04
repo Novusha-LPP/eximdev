@@ -6,7 +6,7 @@ import { UserContext } from '../../contexts/UserContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import '../../styles/openPoints.scss';
 
-const ITEMS_PER_PAGE = 9;
+const ITEMS_PER_PAGE = 12;
 const COLORS = {
     Red: '#ef4444',
     Yellow: '#eab308',
@@ -20,6 +20,7 @@ const OpenPointsHome = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
 
     // Create Modal State
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -121,6 +122,8 @@ const OpenPointsHome = () => {
         setEditingProject({ id: project._id, name: project.name, description: project.description });
         setShowEditModal(true);
     };
+
+    const isAdmin = user?.role === 'Admin';
 
     const getInitials = (name) => {
         return name ? name.charAt(0).toUpperCase() : '?';
@@ -271,25 +274,59 @@ const OpenPointsHome = () => {
                 )}
 
 
-                {/* Search Bar */}
-                <input
-                    type="text"
-                    placeholder="Search your projects..."
-                    value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                    style={{
-                        width: '100%',
-                        maxWidth: '300px',
-                        padding: '12px 20px',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        outline: 'none',
-                        fontSize: '0.9rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        marginBottom: '30px',
-                        background: '#ffffff'
-                    }}
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <input
+                        type="text"
+                        placeholder="Search your projects..."
+                        value={searchTerm}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                        style={{
+                            width: '100%',
+                            maxWidth: '300px',
+                            padding: '12px 20px',
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0',
+                            outline: 'none',
+                            fontSize: '0.9rem',
+                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                            background: '#ffffff'
+                        }}
+                    />
+                    <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', gap: '4px' }}>
+                        <button
+                            onClick={() => setViewMode('card')}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: viewMode === 'card' ? '#ffffff' : 'transparent',
+                                color: viewMode === 'card' ? '#1e40af' : '#64748b',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                boxShadow: viewMode === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            🔲 Card
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: viewMode === 'list' ? '#ffffff' : 'transparent',
+                                color: viewMode === 'list' ? '#1e40af' : '#64748b',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            📜 List
+                        </button>
+                    </div>
+                </div>
 
                 {/* Projects Grid */}
                 {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Loading projects...</p> : (
@@ -306,132 +343,202 @@ const OpenPointsHome = () => {
                             </div>
                         ) : (
                             <>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
-                                    {paginatedProjects.map(project => (
-                                        <div
-                                            key={project._id}
-                                            className="glass-card"
-                                            onClick={() => navigate(`/open-points/project/${project._id}`)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                transition: 'all 0.3s ease',
-                                                background: 'rgba(255, 255, 255, 0.7)',
-                                                backdropFilter: 'blur(10px)',
-                                                borderRadius: '20px',
-                                                padding: '24px',
-                                                border: '1px solid rgba(255, 255, 255, 0.5)',
-                                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.02)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(-8px)';
-                                                e.currentTarget.style.boxShadow = '0 20px 40px rgba(59, 130, 246, 0.15)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.02)';
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                                                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>{project.name}</h3>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ fontSize: '0.75rem', background: project.owner?.username === user?.username ? '#dbeafe' : '#f1f5f9', color: project.owner?.username === user?.username ? '#1e40af' : '#64748b', padding: '6px 10px', borderRadius: '20px', fontWeight: 600 }}>
-                                                        {project.owner?.username === user?.username ? 'Owner' : 'Member'}
-                                                    </span>
-                                                    {project.owner?.username === user?.username && (
-                                                        <button
-                                                            onClick={(e) => openEditModal(e, project)}
-                                                            style={{
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                fontSize: '1.2rem',
-                                                                padding: '0 5px',
-                                                                color: '#64748b',
-                                                                transition: 'color 0.2s'
-                                                            }}
-                                                            title="Edit Project"
-                                                            onMouseEnter={(e) => e.target.style.color = '#3b82f6'}
-                                                            onMouseLeave={(e) => e.target.style.color = '#64748b'}
-                                                        >
-                                                            ✎
-                                                        </button>
+                                {viewMode === 'card' ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                                        {paginatedProjects.map(project => (
+                                            <div
+                                                key={project._id}
+                                                className="glass-card"
+                                                onClick={() => navigate(`/open-points/project/${project._id}`)}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.3s ease',
+                                                    background: 'rgba(255, 255, 255, 0.7)',
+                                                    backdropFilter: 'blur(10px)',
+                                                    borderRadius: '20px',
+                                                    padding: '24px',
+                                                    border: '1px solid rgba(255, 255, 255, 0.5)',
+                                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.02)'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.transform = 'translateY(-8px)';
+                                                    e.currentTarget.style.boxShadow = '0 20px 40px rgba(59, 130, 246, 0.15)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'translateY(0)';
+                                                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.02)';
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>{project.name}</h3>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '0.75rem', background: project.owner?.username === user?.username ? '#dbeafe' : '#f1f5f9', color: project.owner?.username === user?.username ? '#1e40af' : '#64748b', padding: '6px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                                                            {project.owner?.username === user?.username ? 'Owner' : 'Member'}
+                                                        </span>
+                                                        {(project.owner?.username === user?.username || isAdmin) && (
+                                                            <button
+                                                                onClick={(e) => openEditModal(e, project)}
+                                                                style={{
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '1.2rem',
+                                                                    padding: '0 5px',
+                                                                    color: '#64748b',
+                                                                    transition: 'color 0.2s'
+                                                                }}
+                                                                title="Edit Project"
+                                                                onMouseEnter={(e) => e.target.style.color = '#3b82f6'}
+                                                                onMouseLeave={(e) => e.target.style.color = '#64748b'}
+                                                            >
+                                                                ✎
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '24px', flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '40px' }}>
+                                                    {project.description || 'No description provided.'}
+                                                </p>
+
+                                                {/* Progress Bar */}
+                                                <div style={{ marginBottom: '24px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '8px', fontWeight: 600 }}>
+                                                        <span style={{ color: '#64748b' }}>Completion</span>
+                                                        <span style={{ color: '#3b82f6' }}>{Math.round((project.stats?.green / (project.stats?.total || 1)) * 100)}%</span>
+                                                    </div>
+                                                    <div style={{ height: '10px', width: '100%', background: '#f1f5f9', borderRadius: '5px', display: 'flex', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${(project.stats?.green / project.stats?.total) * 100}%`, background: COLORS.Green }} />
+                                                        <div style={{ width: `${(project.stats?.yellow / project.stats?.total) * 100}%`, background: COLORS.Yellow }} />
+                                                        <div style={{ width: `${(project.stats?.orange / project.stats?.total) * 100}%`, background: COLORS.Orange }} />
+                                                        <div style={{ width: `${(project.stats?.red / project.stats?.total) * 100}%`, background: COLORS.Red }} />
+                                                    </div>
+                                                </div>
+
+                                                {/* Footer: Avatars & Badges */}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                                                    <div style={{ display: 'flex', marginLeft: '10px' }}>
+                                                        {project.owner && (
+                                                            <div
+                                                                title={`Owner: ${project.owner.username}`}
+                                                                style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                    background: '#3b82f6', color: 'white',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    fontSize: '12px', fontWeight: 600, border: '2px solid white', marginLeft: '-10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                                                }}>
+                                                                {getInitials(project.owner.username)}
+                                                            </div>
+                                                        )}
+                                                        {project.team_members && project.team_members.slice(0, 3).map((m, i) => (
+                                                            <div
+                                                                key={i}
+                                                                title={`Member: ${m.user?.username}`}
+                                                                style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                    background: '#94a3b8', color: 'white',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    fontSize: '12px', fontWeight: 600, border: '2px solid white', marginLeft: '-10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                                                }}>
+                                                                {getInitials(m.user?.username)}
+                                                            </div>
+                                                        ))}
+                                                        {project.team_members && project.team_members.length > 3 && (
+                                                            <div
+                                                                style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                    background: '#e2e8f0', color: '#64748b',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    fontSize: '10px', fontWeight: 600, border: '2px solid white', marginLeft: '-10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                                                }}>
+                                                                +{project.team_members.length - 3}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* My Pending Badge */}
+                                                    {(project.myStats?.red > 0 || project.myStats?.yellow > 0) && (
+                                                        <span style={{
+                                                            background: '#fee2e2', color: '#ef4444',
+                                                            fontSize: '0.75rem', fontWeight: 700,
+                                                            padding: '4px 12px', borderRadius: '12px'
+                                                        }}>
+                                                            {project.myStats.red + project.myStats.yellow} Pending
+                                                        </span>
                                                     )}
                                                 </div>
                                             </div>
-
-                                            <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '24px', flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '40px' }}>
-                                                {project.description || 'No description provided.'}
-                                            </p>
-
-                                            {/* Progress Bar */}
-                                            <div style={{ marginBottom: '24px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '8px', fontWeight: 600 }}>
-                                                    <span style={{ color: '#64748b' }}>Completion</span>
-                                                    <span style={{ color: '#3b82f6' }}>{Math.round((project.stats?.green / (project.stats?.total || 1)) * 100)}%</span>
-                                                </div>
-                                                <div style={{ height: '10px', width: '100%', background: '#f1f5f9', borderRadius: '5px', display: 'flex', overflow: 'hidden' }}>
-                                                    <div style={{ width: `${(project.stats?.green / project.stats?.total) * 100}%`, background: COLORS.Green }} />
-                                                    <div style={{ width: `${(project.stats?.yellow / project.stats?.total) * 100}%`, background: COLORS.Yellow }} />
-                                                    <div style={{ width: `${(project.stats?.orange / project.stats?.total) * 100}%`, background: COLORS.Orange }} />
-                                                    <div style={{ width: `${(project.stats?.red / project.stats?.total) * 100}%`, background: COLORS.Red }} />
-                                                </div>
-                                            </div>
-
-                                            {/* Footer: Avatars & Badges */}
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-                                                <div style={{ display: 'flex', marginLeft: '10px' }}>
-                                                    {project.owner && (
-                                                        <div
-                                                            title={`Owner: ${project.owner.username}`}
-                                                            style={{
-                                                                width: '32px', height: '32px', borderRadius: '50%',
-                                                                background: '#3b82f6', color: 'white',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                fontSize: '12px', fontWeight: 600, border: '2px solid white', marginLeft: '-10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                                            }}>
-                                                            {getInitials(project.owner.username)}
-                                                        </div>
-                                                    )}
-                                                    {project.team_members && project.team_members.slice(0, 3).map((m, i) => (
-                                                        <div
-                                                            key={i}
-                                                            title={`Member: ${m.user?.username}`}
-                                                            style={{
-                                                                width: '32px', height: '32px', borderRadius: '50%',
-                                                                background: '#94a3b8', color: 'white',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                fontSize: '12px', fontWeight: 600, border: '2px solid white', marginLeft: '-10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                                            }}>
-                                                            {getInitials(m.user?.username)}
-                                                        </div>
-                                                    ))}
-                                                    {project.team_members && project.team_members.length > 3 && (
-                                                        <div
-                                                            style={{
-                                                                width: '32px', height: '32px', borderRadius: '50%',
-                                                                background: '#e2e8f0', color: '#64748b',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                fontSize: '10px', fontWeight: 600, border: '2px solid white', marginLeft: '-10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                                            }}>
-                                                            +{project.team_members.length - 3}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* My Pending Badge */}
-                                                {(project.myStats?.red > 0 || project.myStats?.yellow > 0) && (
-                                                    <span style={{
-                                                        background: '#fee2e2', color: '#ef4444',
-                                                        fontSize: '0.75rem', fontWeight: 700,
-                                                        padding: '4px 12px', borderRadius: '12px'
-                                                    }}>
-                                                        {project.myStats.red + project.myStats.yellow} Pending
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                                <tr>
+                                                    <th style={{ padding: '16px', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Project Name</th>
+                                                    <th style={{ padding: '16px', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Owner</th>
+                                                    <th style={{ padding: '16px', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Progress</th>
+                                                    <th style={{ padding: '16px', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>My Tasks</th>
+                                                    <th style={{ padding: '16px', textAlign: 'right', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {paginatedProjects.map(project => (
+                                                    <tr 
+                                                        key={project._id} 
+                                                        onClick={() => navigate(`/open-points/project/${project._id}`)}
+                                                        style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                    >
+                                                        <td style={{ padding: '16px' }}>
+                                                            <div style={{ fontWeight: 600, color: '#1e293b' }}>{project.name}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.description}</div>
+                                                        </td>
+                                                        <td style={{ padding: '16px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 600 }}>
+                                                                    {getInitials(project.owner?.username)}
+                                                                </div>
+                                                                <span style={{ fontSize: '0.9rem', color: '#475569' }}>{project.owner?.username}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '16px', width: '200px' }}>
+                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>
+                                                                {Math.round((project.stats?.green / (project.stats?.total || 1)) * 100)}%
+                                                            </div>
+                                                            <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                                                                <div style={{ width: `${(project.stats?.green / project.stats?.total) * 100}%`, background: COLORS.Green }} />
+                                                                <div style={{ width: `${(project.stats?.yellow / project.stats?.total) * 100}%`, background: COLORS.Yellow }} />
+                                                                <div style={{ width: `${(project.stats?.orange / project.stats?.total) * 100}%`, background: COLORS.Orange }} />
+                                                                <div style={{ width: `${(project.stats?.red / project.stats?.total) * 100}%`, background: COLORS.Red }} />
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '16px' }}>
+                                                            {project.myStats?.total > 0 ? (
+                                                                <span style={{ fontSize: '0.85rem', padding: '4px 8px', borderRadius: '6px', background: (project.myStats.red + project.myStats.yellow > 0) ? '#fee2e2' : '#dcfce7', color: (project.myStats.red + project.myStats.yellow > 0) ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+                                                                    {project.myStats.red + project.myStats.yellow} / {project.myStats.total} Pending
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>-</span>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '16px', textAlign: 'right' }}>
+                                                            {(project.owner?.username === user?.username || isAdmin) && (
+                                                                <button
+                                                                    onClick={(e) => openEditModal(e, project)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '1.1rem' }}
+                                                                >
+                                                                    ✎
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
 
                                 {/* Pagination Controls */}
                                 {totalPages > 1 && (

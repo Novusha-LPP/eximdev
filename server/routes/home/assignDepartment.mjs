@@ -2,28 +2,24 @@ import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import requireAllowedAdmin from "../../middleware/requireAllowedAdmin.mjs";
 
 const router = express.Router();
 
 // Route to assign Department to a user
-router.post("/admin/assign-department", async (req, res) => {
+router.post("/admin/assign-department", authMiddleware, requireAllowedAdmin, async (req, res) => {
     const { username, selectedDepartment, adminUsername } = req.body;
 
     try {
         // Validation
-        if (!username || !selectedDepartment || !adminUsername) {
+        if (!username || !selectedDepartment) {
             return res.status(400).json({
-                message: "Username, selected department, and admin username are required"
+                message: "Username and selected department are required"
             });
         }
 
-        // Find the admin user
-        const adminUser = await UserModel.findOne({ username: adminUsername });
-        const allowedRoles = ["Admin", "Head_of_Department"];
-        if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-            return res.status(403).json({
-                message: "Unauthorized. Admin or HOD privileges required."
-            });
+        if (adminUsername && String(adminUsername).toLowerCase() !== String(req.user?.username || '').toLowerCase()) {
+            return res.status(403).json({ message: 'Admin identity mismatch' });
         }
 
         // Find the target user
@@ -61,24 +57,19 @@ router.post("/admin/assign-department", async (req, res) => {
 });
 
 // Route to remove department from a user
-router.post("/admin/remove-department", async (req, res) => {
+router.post("/admin/remove-department", authMiddleware, requireAllowedAdmin, async (req, res) => {
     const { username, adminUsername } = req.body;
 
     try {
         // Validation
-        if (!username || !adminUsername) {
+        if (!username) {
             return res.status(400).json({
-                message: "Username and admin username are required"
+                message: "Username is required"
             });
         }
 
-        // Find the admin user
-        const adminUser = await UserModel.findOne({ username: adminUsername });
-        const allowedRoles = ["Admin", "Head_of_Department"];
-        if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-            return res.status(403).json({
-                message: "Unauthorized. Admin or HOD privileges required."
-            });
+        if (adminUsername && String(adminUsername).toLowerCase() !== String(req.user?.username || '').toLowerCase()) {
+            return res.status(403).json({ message: 'Admin identity mismatch' });
         }
 
         // Find the target user

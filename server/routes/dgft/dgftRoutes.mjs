@@ -63,12 +63,41 @@ router.delete("/api/delete-dgft-register/:id", async (req, res) => {
 const DGFT_HEADER_MAP = {
   "Sr No": "sr_no",
   "Job Status": "job_status",
+  "Job Number": "job_no",
   "JOB.No.": "job_no",
   "Date": "date",
+  "Firm Name": "party_name",
   "Party's Name": "party_name",
+  "IEC No": "iec_no",
+  "IEC No.": "iec_no",
+  "Scheme": "scheme",
+  "Authorization No.": "licence_no",
+  "Auth Date": "licence_date",
+  "File Number": "file_no",
   "Category": "category",
+  "Port of Registration": "port_of_registration",
   "Licence Value / CIF Value": "licence_cif_value",
   "Docs. Recvd. Date": "docs_received_date",
+  "Online Submission Date": "online_submission_date",
+  "Documents Send To Accounts Date": "documents_send_to_accounts_date",
+  "Payment Details": "payment_details",
+  "Transaction ID": "transaction_id",
+  "Transaction Amount": "transaction_amount",
+  "Transaction Date": "transaction_date",
+  "Import Validity": "import_validity",
+  "Export Validity": "export_validity",
+  "Qty (Export)": "qty_export",
+  "Units (Export)": "unit_export",
+  "Export Value (FOB USD)": "export_value_fob_usd",
+  "Export Value (Rs)": "export_value_rs",
+  "HS Code (Export)": "hs_code_export",
+  "Item Description (Export)": "item_description_export",
+  "Qty (Import)": "qty_import",
+  "Units (Import)": "unit_import",
+  "Import Value (FOB USD)": "import_value_fob_usd",
+  "Import Value (Rs)": "import_value_rs",
+  "HS Code (Import)": "hs_code_import",
+  "Item Description (Import)": "item_description_import",
   "Application Prepared on": "application_prepared_on",
   "Submited at DGFT on": "submitted_at_dgft_on",
   "EFT Amount": "eft_amount",
@@ -168,6 +197,8 @@ const DATE_FIELD_KEYS = [
   "date", "docs_received_date", "application_prepared_on",
   "submitted_at_dgft_on", "bid_date", "file_date", "licence_date",
   "matter_closed_date", "matter_closed_inv_date", "accounts_inv_date",
+  "online_submission_date", "documents_send_to_accounts_date", "transaction_date",
+  "import_validity", "export_validity",
 ];
 
 // Helper: Detect if a cell value looks like combined/merged or irrelevant data
@@ -513,7 +544,10 @@ router.post(
 router.get("/api/get-dgft-categories", async (req, res) => {
   try {
     const categories = await DgftRegisterModel.distinct("category");
-    const validCategories = categories.filter((c) => c).sort();
+    const schemes = await DgftRegisterModel.distinct("scheme");
+    const validCategories = Array.from(new Set([...(categories || []), ...(schemes || [])]))
+      .filter((c) => c)
+      .sort();
     res.status(200).json(validCategories);
   } catch (error) {
     console.error(error);

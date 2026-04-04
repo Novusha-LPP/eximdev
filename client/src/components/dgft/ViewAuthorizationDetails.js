@@ -199,7 +199,9 @@ function HSCodeAutocomplete({ value, onChange }) {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${q}&addToRecent=false`);
       if (res.data?.results) { setResults(res.data.results.slice(0, 10)); setShowResults(true); }
     } catch (err) {
-      console.error(err);
+      if (err?.response?.status !== 404) console.error(err);
+      setResults([]);
+      setShowResults(false);
     } finally {
       setLoading(false);
     }

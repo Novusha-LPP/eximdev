@@ -259,7 +259,7 @@ export default function Dashboard() {
     : (user?.name || 'there');
   const monthName = month.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  const showMiss = ps?.isAutoPunchOut || (!ps?.lastOut && ps?.firstIn && !isToday(ps?.date));
+  const showMiss = !ps?.lastOut && ps?.firstIn && !isToday(ps?.date);
 
   /* Management data */
   const stats = mgmtData?.stats || mgmtData?.summary || dash?.mgmtSnapshot || {};
@@ -276,7 +276,7 @@ export default function Dashboard() {
   /* -- Role-aware stat tiles -- */
   const personalTiles = [
     { cls: 'green', val: ms?.present ?? 0, lbl: 'Days Present', sub: `of ${ms?.workingDays ?? 0} working days` },
-    { cls: 'blue', val: balances.reduce((s, b) => s + (b.available || b.balance || 0), 0), lbl: 'Leave Balance', sub: `${balances.reduce((s, b) => s + (b.consumed || 0), 0)} used this month` },
+    { cls: 'blue', val: balances.reduce((s, b) => s + (b.available || b.balance || 0), 0), lbl: 'Leave Balance', sub: `${balances.reduce((s, b) => s + (b.used ?? 0), 0)} used this month` },
     { cls: 'amber', val: ms?.late ?? 0, lbl: 'Late Arrivals', sub: ms?.avgLateMinutes ? `avg ${ms.avgLateMinutes} min late` : 'this month' },
     { cls: 'gray', val: ms?.weeklyAvgHours ? `${Math.floor(ms.weeklyAvgHours)}h${Math.floor((ms.weeklyAvgHours % 1) * 60)}m` : '-', lbl: 'Weekly Avg Hours', sub: 'based on days worked' },
   ];
@@ -284,7 +284,7 @@ export default function Dashboard() {
   const managerTiles = [
     { cls: 'green', val: stats.present ?? 0, lbl: 'Present Today', sub: `of ${stats.total ?? '—'} ${isAdmin ? 'employees' : 'team members'}` },
     { cls: 'red', val: stats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences' },
-    { cls: 'amber', val: stats.late ?? 0, lbl: 'Late Arrivals', sub: 'past grace period' },
+    { cls: 'amber', val: stats.late ?? 0, lbl: 'Late Arrivals', sub: 'after shift start' },
     { cls: 'blue', val: stats.onLeave ?? stats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves' },
   ];
 
@@ -299,7 +299,7 @@ export default function Dashboard() {
   const adminActions = [
     { icon: <FiActivity size={14} />, lbl: 'Attendance Report', sub: 'Company-wide records', path: '/attendance/admin/attendance' },
     { icon: <FiCalendar size={14} />, lbl: 'Manage Holidays', sub: 'Add or edit holidays', path: '/attendance/admin/holidays' },
-    { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Timings & grace periods', path: '/attendance/admin/shifts' },
+    { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Reference timings & hour thresholds', path: '/attendance/admin/shifts' },
     { icon: <FiBookOpen size={14} />, lbl: 'Leave Policies', sub: 'Quotas & accrual rules', path: '/attendance/admin/leave-policies' },
     { icon: <FiSettings size={14} />, lbl: 'System Settings', sub: 'Company configuration', path: '/attendance/admin/settings' },
   ];
@@ -656,7 +656,7 @@ export default function Dashboard() {
 
           {/* Pending approvals – HOD & Admin */}
           {isManager && (
-            <div className="card">
+            <div className="card clickable-card" onClick={() => navigate(isHOD ? '/attendance/hod/leave-approval' : '/attendance/admin/attendance')}>
               <div className="card-head">
                 <span className="card-title">Pending Approvals</span>
                 {allPending.length > 0
@@ -719,9 +719,9 @@ export default function Dashboard() {
               ? <div className="empty-msg">No leave data</div>
               : balances.slice(0, 5).map((b, i) => {
                 const available = b.available || b.balance || 0;
-                const consumed = b.consumed || 0;
+                const used = b.used ?? 0;
                 const total = b.total || b.annual_quota || 1;
-                const pct = Math.min(100, (consumed / total) * 100);
+                const pct = Math.min(100, (used / total) * 100);
                 const icon = getLeaveIcon(b.name || b.leave_type || '');
                 const countCls = available === 0 ? 'zero' : available <= 2 ? 'low' : '';
                 return (
@@ -729,7 +729,7 @@ export default function Dashboard() {
                     <span className="leave-emoji">{icon.emoji}</span>
                     <div className="leave-info">
                       <div className="leave-name">{b.name || b.leave_type}</div>
-                      <div className="leave-sub">{consumed} used{b.pending > 0 ? ` • ${b.pending} pending` : ''}</div>
+                      <div className="leave-sub">{used} used{b.pending > 0 ? ` • ${b.pending} pending` : ''}</div>
                       <div className="leave-bar">
                         <div className="leave-fill" style={{ width: `${pct}%`, background: icon.color }} />
                       </div>

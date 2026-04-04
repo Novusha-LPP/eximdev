@@ -7,14 +7,21 @@ const regularizationSchema = new mongoose.Schema({
   
   request_number: { type: String, unique: true },
   attendance_date: { type: String, required: true }, 
-  regularization_type: { type: String, enum: ['missing_punch', 'late_in', 'early_out'], required: true },
+  regularization_type: { type: String, enum: ['missing_punch', 'missing_out', 'manual_override'], required: true },
   
-  existing_attendance_id: { type: mongoose.Schema.Types.ObjectId, ref: 'AttendanceRecord' }, // ADDED THIS
+  existing_attendance_id: { type: mongoose.Schema.Types.ObjectId, ref: 'AttendanceRecord' },
   
+  // Original requested times (legacy support)
   requested_in_time: { type: Date },
   requested_out_time: { type: Date },
+  
+  // Corrected times for submission
+  corrected_punch_in_time: { type: Date },
+  corrected_punch_out_time: { type: Date },
+  corrected_total_hours: { type: Number },
+  
   reason: { type: String, required: true },
-  supporting_documents: [{ type: String }], // ADDED THIS
+  supporting_documents: [{ type: String }],
   
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   

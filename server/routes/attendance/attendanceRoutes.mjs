@@ -18,8 +18,10 @@ router.get('/history', attendanceAuthBridge, attendanceCtrl.getHistory);
 router.get('/regularizations', attendanceAuthBridge, attendanceCtrl.getRegularizations);
 router.post('/regularization', attendanceAuthBridge, attendanceCtrl.requestRegularization);
 router.post('/regularization/cancel/:id', attendanceAuthBridge, attendanceCtrl.cancelRegularization);
+router.post('/regularization/approve/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.approveRegularization);
 
 // HOD / Manager Routes
+router.post('/calculate-daily', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.calculateDailyAttendance);
 router.get('/HODDashboard', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDashboard);
 router.get('/department-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDepartmentAttendanceReport);
 router.get('/adminDashboard', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getAdminDashboardData);
@@ -37,5 +39,9 @@ router.put('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireA
 router.delete('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), requireAllowedAdmin, attendanceCtrl.deleteAttendanceRecord);
 router.get('/employee-full-profile/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeFullProfile);
 router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateEmployeeProfileAdmin);
+
+// ─── Migration & Bulk Operations ───
+router.post('/migrate/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.migrateEmployee);
+router.post('/organizations/:company_id/bulk-assign-policies', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.bulkAssignPolicies);
 
 export default router;

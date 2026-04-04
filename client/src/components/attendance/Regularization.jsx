@@ -3,6 +3,7 @@ import { FiPlus, FiX, FiClock, FiAlertCircle, FiCheckCircle, FiEdit3 } from 'rea
 import attendanceAPI from '../../api/attendance/attendance.api';
 import { formatDate, formatTime12Hr } from './utils/helpers';
 import toast from 'react-hot-toast';
+import { Modal } from 'antd';
 import './Regularization.css';
 
 const TYPE_LABELS = { missing_punch: 'Missing Punch', late_in: 'Late Check-in', early_out: 'Early Check-out' };
@@ -40,15 +41,24 @@ const Regularization = () => {
     finally { setSub(false); }
   };
 
+
   const cancel = async (id) => {
-    if (!window.confirm('Cancel this request?')) return;
-    try {
-      await attendanceAPI.cancelRegularization(id);
-      toast.success('Request cancelled');
-      load();
-    } catch {
-      toast.error('Failed to cancel');
-    }
+    Modal.confirm({
+      title: 'Cancel Request',
+      content: 'Are you sure you want to cancel this regularization request?',
+      okText: 'Yes, Cancel',
+      okType: 'danger',
+      cancelText: 'No, Keep it',
+      onOk: async () => {
+        try {
+          await attendanceAPI.cancelRegularization(id);
+          toast.success('Request cancelled');
+          load();
+        } catch {
+          toast.error('Failed to cancel');
+        }
+      }
+    });
   };
 
   return (

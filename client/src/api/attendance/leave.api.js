@@ -39,13 +39,24 @@ const leaveAPI = {
   },
 
   // Admin function to update leave balance
-  updateBalance: async (employee_id, leave_policy_id, opening_balance, credited, consumed) => {
+  updateBalance: async (employee_id, payload) => {
     try {
-      const response = await apiClient.post(`/leave/admin/update-balance/${employee_id}`, {
+      const {
         leave_policy_id,
         opening_balance,
-        credited: credited || 0,
-        consumed: consumed || 0
+        used,
+        pending,
+      } = payload || {};
+
+      const usedNum = Number(used) || 0;
+      const pendingNum = Number(pending) || 0;
+
+      const response = await apiClient.post(`/leave/admin-update-balance/${employee_id}`, {
+        leave_policy_id,
+        opening_balance,
+        used: usedNum,
+        pending: pendingNum,
+        pending_approval: pendingNum
       });
       return response.data;
     } catch (error) {

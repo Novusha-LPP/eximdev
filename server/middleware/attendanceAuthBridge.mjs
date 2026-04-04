@@ -22,8 +22,13 @@ dotenv.config();
  * Map EXIM roles to attendance module roles
  */
 function mapRole(eximRole) {
-  if (eximRole === "Admin") return "ADMIN";
-  if (eximRole === "Head_of_Department" || eximRole === "HOD") return "HOD";
+  const role = String(eximRole || '').trim();
+  const upper = role.toUpperCase();
+  const normalized = upper.replace(/[^A-Z]/g, '');
+
+  if (upper === "ADMIN") return "ADMIN";
+  // Accept Head_of_Department in any case/separator variant.
+  if (upper === "HOD" || normalized === "HEADOFDEPARTMENT") return "HOD";
   return "EMPLOYEE";
 }
 

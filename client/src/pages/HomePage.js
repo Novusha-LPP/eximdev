@@ -32,7 +32,10 @@ import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
 import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
 import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
 import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
+import EmployeeProfileWorkspace from "../components/attendance/admin/EmployeeProfileWorkspace.jsx";
 import HolidayManagement from "../components/attendance/admin/HolidayManagement.jsx";
+import HolidayPolicyManager from "../components/attendance/admin/HolidayPolicyManager.jsx";
+import WeekOffPolicyManager from "../components/attendance/admin/WeekOffPolicyManager.jsx";
 import ShiftManagement from "../components/attendance/admin/ShiftManagement.jsx";
 import LeavePolicyManagement from "../components/attendance/admin/LeavePolicyManagement.jsx";
 import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
@@ -168,11 +171,13 @@ import HodManagement from "../components/home/HodManagement.js";
 // DGFT Module
 import DgftTabs from "../components/dgft/DgftTabs.js";
 import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
+import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.js";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 
 import { useBranch } from "../contexts/BranchContext.js";
+import TeamDashboard from "../components/teams/TeamDashboard";
 
 const drawerWidth = 60;
 
@@ -902,22 +907,34 @@ function HomePageContent() {
                   path="/dgft/authorization-details/:id"
                   element={<ViewAuthorizationDetails />}
                 />
+                <Route
+                  path="/dgft/register-details/:id"
+                  element={<ViewDgftRegisterDetails />}
+                />
 
                 {/* Attendance Module */}
                 <Route path="/admin/attendance" element={<Navigate to="/attendance/admin/attendance" replace />} />
                 <Route path="/attendance" element={<ProtectedRoute requiredModule="Attendance"><AttendanceLayout /></ProtectedRoute>}>
+                {/* Teams Management */}
+                <Route path="teams" element={<TeamDashboard />} />
+                <Route path="teams/:teamId" element={<TeamDashboard />} />
+                <Route path="teams/:teamId/user/:userId" element={<TeamDashboard />} />
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<DashboardSwitch />} />
                   <Route path="my-attendance" element={<AttendancePage />} />
                   <Route path="leave" element={<LeaveManagement />} />
                   <Route path="regularization" element={<Regularization />} />
-                  <Route path="holiday-calendar" element={<HolidayManagement />} />
+                  {/* holiday-calendar: read-only list for all users */}
+                  <Route path="holiday-calendar" element={<HolidayManagement readOnly />} />
                   <Route path="hod-dashboard" element={<HODDashboard />} />
                   <Route path="hod/leave-approval" element={<LeaveApproval />} />
                   <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
-                  <Route path="admin/holidays" element={<HolidayManagement />} />
+                  {/* admin/employee routes removed to enforce team-hierarchy navigation */}
+                  <Route path="admin/holidays" element={<HolidayPolicyManager />} />
+                  <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
+                  <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />
                   <Route path="admin/shifts" element={<ShiftManagement />} />
                   <Route path="admin/leave-policies" element={<LeavePolicyManagement />} />
                   <Route path="admin/companies" element={<CompanyManagement />} />

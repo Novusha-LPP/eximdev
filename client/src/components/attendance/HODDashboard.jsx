@@ -365,13 +365,18 @@ const HODDashboard = () => {
                       <div className="hod-pending-info">
                         <div className="hod-pending-name">{req.employeeName}</div>
                         <div className="hod-pending-meta">
-                          {req.leaveType} • {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} • {fmt(req.fromDate,'dd MMM')} - {fmt(req.toDate,'dd MMM')}
+                          <span className="hod-meta-main">{req.leaveType} • {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} • {fmt(req.fromDate,'dd MMM')} - {fmt(req.toDate,'dd MMM')}</span>
+                          {req.currentBalance && (
+                            <span className="hod-meta-bal">
+                              (Balance: <strong>{req.currentBalance.available}d</strong>)
+                            </span>
+                          )}
                           {req.attachment_urls?.length > 0 && (
                             <a 
                               href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`} 
                               target="_blank" 
                               rel="noreferrer" 
-                              style={{marginLeft:8, color:'var(--t3)'}} 
+                              className="hod-attachment-link"
                               title="View Document"
                             >
                               <FiFileText size={11} />
@@ -379,7 +384,7 @@ const HODDashboard = () => {
                           )}
                         </div>
                       </div>
-                      <span className="hod-pending-type leave">{req.leaveType}</span>
+                      <span className="hod-pending-leave-type">{req.leaveType}</span>
                     </div>
                     {req.reason&&<div className="hod-pending-reason">"{req.reason}"</div>}
                     <div className="hod-pending-acts">

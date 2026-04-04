@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogTitle,
@@ -11,33 +12,33 @@ import "./dgft.scss";
 
 // ===================== Constants =====================
 
-const CATEGORY_OPTIONS = [
-  "ADVANCE AUTHORIZATION",
-  "Amendment of advance Authorization",
-  "Revalidation of advance Authorization",
-  "EO extension of advance Authorization",
-  "EODC of advance Authorization",
-  "Surrender",
-  "EPCG Authorization",
-  "Amendment of EPCG Authorization",
-  "EPCG block extension",
-  "EPCG overall period extension",
-  "EODC of EPCG Authorization",
-  "Surrender of EPCG Authorization",
-  "RCMC application",
-  "IEC application",
+const SCHEME_OPTIONS = [
+  "AEO",
+  "EMI",
+  "IEC",
+  "IEC MODIFICATION",
+  "EPM",
+  "EMC",
+  "AA",
+  "AA REVALIDATION",
+  "AA EO EXTENSION",
+  "AA EODC",
+  "AA SURRENDER",
+  "EPCG",
+  "EPCG AMENDMENT",
+  "EPCG BLOCK EXTENSION",
+  "EPCG OVERALL EXTENSION",
+  "EPCG EODC",
+  "EPCG SURRENDER",
 ];
 
 const JOB_STATUS_OPTIONS = [
-  "Completed",
-  "Pending",
-  "Processed",
-  "Documents Received",
-  "Send to ICD",
-   "Billing",
-  "Closed",
-  "Open",
-  
+  "OPEN",
+  "IN PROCESS",
+  "DEFICIENT",
+  "APPROVED",
+  "REJECTED",
+  "BILLING CLOSED",
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
@@ -48,9 +49,32 @@ const INITIAL_FORM = {
   job_no: "",
   date: "",
   party_name: "",
-  category: "",
+  iec_no: "",
+  scheme: "",
+  file_no: "",
+  port_of_registration: "",
   licence_cif_value: "",
   docs_received_date: "",
+  online_submission_date: "",
+  documents_send_to_accounts_date: "",
+  payment_details: "",
+  transaction_id: "",
+  transaction_amount: "",
+  transaction_date: "",
+  qty_export: "",
+  unit_export: "",
+  export_value_fob_usd: "",
+  export_value_rs: "",
+  hs_code_export: "",
+  item_description_export: "",
+  qty_import: "",
+  unit_import: "",
+  import_value_fob_usd: "",
+  import_value_rs: "",
+  hs_code_import: "",
+  item_description_import: "",
+  import_validity: "",
+  export_validity: "",
   application_prepared_on: "",
   submitted_at_dgft_on: "",
   eft_amount: "",
@@ -77,6 +101,11 @@ const INITIAL_FORM = {
 const DATE_FIELDS = new Set([
   "date",
   "docs_received_date",
+  "online_submission_date",
+  "documents_send_to_accounts_date",
+  "transaction_date",
+  "import_validity",
+  "export_validity",
   "application_prepared_on",
   "submitted_at_dgft_on",
   "bid_date",
@@ -92,12 +121,19 @@ const FIELDS = [
   { key: "job_no", label: "JOB No.", readOnly: true },
   { key: "job_status", label: "Job Status", select: true, options: JOB_STATUS_OPTIONS },
   { key: "date", label: "Date", type: "date" },
-  { key: "party_name", label: "Party's Name" },
+  { key: "party_name", label: "Firm Name" },
+  { key: "licence_no", label: "Authorization No." },
+  { key: "licence_date", label: "Auth Date", type: "date" },
+  { key: "scheme", label: "Scheme", select: true, options: SCHEME_OPTIONS },
+  { key: "file_no", label: "File Number" },
+  { key: "file_date", label: "File Date", type: "date" },
+  { key: "port_of_registration", label: "Port of Registration" },
+  { key: "iec_no", label: "IEC No." },
   {
     key: "category",
-    label: "Category",
+    label: "Legacy Category",
     select: true,
-    options: CATEGORY_OPTIONS,
+    options: SCHEME_OPTIONS,
     allowCustom: true,
   },
   { key: "licence_cif_value", label: "Licence / CIF Value" },
@@ -127,34 +163,15 @@ const FIELDS = [
 // Flat column definitions for the table (no grouping)
 const COLUMNS = [
   { key: "_actions", label: "Actions", width: 90 },
-  { key: "sr_no", label: "Sr No", width: 40 },
-  { key: "job_status", label: "Job Status", width: 80 },
-  { key: "job_no", label: "Job No.", width: 80 },
+  { key: "job_no", label: "JOB Number", width: 110 },
   { key: "date", label: "Date", width: 85 },
-  { key: "party_name", label: "Party's Name", width: 160 },
-  { key: "category", label: "Category", width: 130 },
-  { key: "licence_cif_value", label: "Licence / CIF Value", width: 100 },
-  { key: "docs_received_date", label: "Docs Recvd Date", width: 90 },
-  { key: "application_prepared_on", label: "App. Prepared On", width: 95 },
-  { key: "submitted_at_dgft_on", label: "Submitted at DGFT", width: 90 },
-  { key: "eft_amount", label: "EFT Amount", width: 80 },
-  { key: "bid_no", label: "BID No", width: 80 },
-  { key: "bid_date", label: "BID Date", width: 85 },
-  { key: "file_no_key_no", label: "File / Key No", width: 80 },
-  { key: "file_date", label: "File Date", width: 85 },
-  { key: "dh", label: "D/H", width: 50 },
-  { key: "ft_do", label: "F/T Do", width: 50 },
-  { key: "adg", label: "ADG", width: 50 },
-  { key: "d_dg", label: "D.DG", width: 50 },
-  { key: "licence_no", label: "Licence No", width: 110 },
-  { key: "licence_date", label: "Licence Date", width: 90 },
-  { key: "matter_closed_date", label: "Closed Date", width: 85 },
-  { key: "matter_closed_inv_no", label: "INV No.", width: 85 },
-  { key: "matter_closed_inv_date", label: "INV Date", width: 85 },
-  { key: "docs_handed_over_to_ac", label: "Docs to A/c Dept.", width: 80 },
-  { key: "remarks", label: "Remarks", width: 130 },
-  { key: "accounts_inv_no", label: "Acc INV No.", width: 85 },
-  { key: "accounts_inv_date", label: "Acc INV Date", width: 85 },
+  { key: "party_name", label: "Firm Name", width: 170 },
+  { key: "licence_no", label: "Authorization No.", width: 140 },
+  { key: "licence_date", label: "Auth Date", width: 100 },
+  { key: "scheme", label: "Scheme", width: 170 },
+  { key: "file_no", label: "File Number", width: 120 },
+  { key: "file_date", label: "File Date", width: 100 },
+  { key: "job_status", label: "Job Status", width: 130 },
 ];
 
 // Inline styles matching the enterprise design
@@ -284,6 +301,7 @@ function Toast({ toast, onClose }) {
 // ===================== Main Component =====================
 
 function DgftRegisterList({ onCountChange }) {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -299,7 +317,7 @@ function DgftRegisterList({ onCountChange }) {
   });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
-  const [availableCategories, setAvailableCategories] = useState(CATEGORY_OPTIONS);
+  const [availableCategories, setAvailableCategories] = useState(SCHEME_OPTIONS);
   const [categoryInput, setCategoryInput] = useState("");
   const fileInput = useRef(null);
 
@@ -328,7 +346,7 @@ function DgftRegisterList({ onCountChange }) {
         `${process.env.REACT_APP_API_STRING}/get-dgft-categories`
       );
       // Merge unique categories from DB with standard options
-      const unique = Array.from(new Set([...CATEGORY_OPTIONS, ...res.data]));
+      const unique = Array.from(new Set([...SCHEME_OPTIONS, ...res.data]));
       setAvailableCategories(unique);
     } catch (err) {
       console.error(err);
@@ -477,7 +495,8 @@ function DgftRegisterList({ onCountChange }) {
   const { filtered, grouped } = useMemo(() => {
     let result = rows.filter((row) => {
       // Category filter
-      if (categoryFilter && !(row.category || "").toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      const rowScheme = row.scheme || row.category || "";
+      if (categoryFilter && !rowScheme.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
       // Status filter
       if (statusFilter && !(row.job_status || "").toLowerCase().includes(statusFilter.toLowerCase())) return false;
       // Search
@@ -487,26 +506,14 @@ function DgftRegisterList({ onCountChange }) {
           !(row.job_no || "").toLowerCase().includes(q) &&
           !(row.party_name || "").toLowerCase().includes(q) &&
           !(row.category || "").toLowerCase().includes(q) &&
-          !(row.sr_no || "").toLowerCase().includes(q)
+          !(row.scheme || "").toLowerCase().includes(q) &&
+          !(row.licence_no || "").toLowerCase().includes(q)
         )
           return false;
       }
       return true;
     });
-
-    // If category filter is applied, group by category
-    let grouped_result = null;
-    if (categoryFilter) {
-      const groups = {};
-      result.forEach((row) => {
-        const cat = row.category || "Uncategorized";
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(row);
-      });
-      grouped_result = groups;
-    }
-
-    return { filtered: result, grouped: grouped_result };
+    return { filtered: result, grouped: null };
   }, [rows, search, categoryFilter, statusFilter]);
 
   // For pagination with grouping
@@ -556,7 +563,7 @@ function DgftRegisterList({ onCountChange }) {
             onChange={(e) => setCategoryFilter(e.target.value)}
             style={s.filterSelect}
           >
-            <option value="">All Categories</option>
+            <option value="">All Schemes</option>
             {availableCategories.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -650,12 +657,20 @@ function DgftRegisterList({ onCountChange }) {
                               </td>
                             );
                           }
-                          if (col.key === "sr_no") {
+                          if (col.key === "job_no") {
+                            const raw = row.job_no || "";
+                            const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
                             return (
-                              <td key={col.key}>
-                                {page * rowsPerPage + idx + 1}
+                              <td key={col.key} onClick={() => navigate(`/dgft/register-details/${row._id}`)}>
+                                <span className="ar-job-link">{displayJobNo}</span>
                               </td>
                             );
+                          }
+                          if (col.key === "scheme") {
+                            return <td key={col.key}>{row.scheme || row.category || ""}</td>;
+                          }
+                          if (col.key === "file_no") {
+                            return <td key={col.key}>{row.file_no || row.file_no_key_no || ""}</td>;
                           }
                           return <td key={col.key}>{row[col.key] || ""}</td>;
                         })}
@@ -687,12 +702,20 @@ function DgftRegisterList({ onCountChange }) {
                           </td>
                         );
                       }
-                      if (col.key === "sr_no") {
+                      if (col.key === "job_no") {
+                        const raw = row.job_no || "";
+                        const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
                         return (
-                          <td key={col.key}>
-                            {page * rowsPerPage + idx + 1}
+                          <td key={col.key} onClick={() => navigate(`/dgft/register-details/${row._id}`)}>
+                            <span className="ar-job-link">{displayJobNo}</span>
                           </td>
                         );
+                      }
+                      if (col.key === "scheme") {
+                        return <td key={col.key}>{row.scheme || row.category || ""}</td>;
+                      }
+                      if (col.key === "file_no") {
+                        return <td key={col.key}>{row.file_no || row.file_no_key_no || ""}</td>;
                       }
                       return <td key={col.key}>{row[col.key] || ""}</td>;
                     })}

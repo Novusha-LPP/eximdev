@@ -8,6 +8,8 @@ import User from '../../model/userModel.mjs';
 import LeaveBalance from '../../model/attendance/LeaveBalance.js';
 import LeavePolicy from '../../model/attendance/LeavePolicy.js';
 import RegularizationRequest from '../../model/attendance/RegularizationRequest.js';
+import mongoose from 'mongoose';
+import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 
 
 // Get HOD Dashboard Data
@@ -235,9 +237,13 @@ export const getDashboard = async (req, res) => {
         });
 
         // 5. Get pending leave requests
+        const pendingStatuses = hod.role === 'ADMIN'
+            ? ['hod_approved_pending_admin', 'pending']
+            : ['pending_hod', 'pending'];
+
         const pendingLeaves = await LeaveApplication.find({
             employee_id: { $in: employeeIds },
-            approval_status: 'pending'
+            approval_status: { $in: pendingStatuses }
         })
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
@@ -401,17 +407,32 @@ export const getDashboard = async (req, res) => {
                 late: lateEmployees,
                 earlyOut: earlyOutEmployees,
                 halfDay: halfDayEmployees,
-                pendingLeaves: pendingLeaves.map(leave => ({
-                    id: leave._id,
-                    employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
-                    leaveType: leave.leave_policy_id?.leave_type || 'Unknown',
-                    fromDate: leave.from_date,
-                    toDate: leave.to_date,
-                    totalDays: leave.total_days,
-                    is_half_day: leave.is_half_day,
-                    half_day_session: leave.half_day_session,
-                    attachment_urls: leave.attachment_urls || [],
-                    reason: leave.reason
+                pendingLeaves: await Promise.all(pendingLeaves.map(async leave => {
+                    // Fetch current balance for this specific leave type
+                    const balance = await LeaveBalance.findOne({
+                        employee_id: leave.employee_id._id,
+                        leave_policy_id: leave.leave_policy_id._id,
+                        year: new Date().getFullYear()
+                    });
+
+                    return {
+                        id: leave._id,
+                        employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                        leaveType: leave.leave_policy_id?.leave_type || 'Unknown',
+                        policyName: leave.leave_policy_id?.policy_name || 'Standard Policy',
+                        fromDate: leave.from_date,
+                        toDate: leave.to_date,
+                        totalDays: leave.total_days,
+                        is_half_day: leave.is_half_day,
+                        half_day_session: leave.half_day_session,
+                        attachment_urls: leave.attachment_urls || [],
+                        reason: leave.reason,
+                        currentBalance: {
+                            available: balance?.closing_balance || 0,
+                            used: balance?.used || 0,
+                            pending: balance?.pending_approval || 0
+                        }
+                    };
                 })),
                 recentProcessedLeaves: recentProcessedLeaves.map(leave => ({
                     id: leave._id,
@@ -479,6 +500,10 @@ export const approveRequest = async (req, res) => {
         debug.push(`Actor: ${actor.username} Role: ${actor.role}`);
 
         if (type === 'leave') {
+            if (!['approved', 'rejected'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status transition' });
+            }
+
             const application = await LeaveApplication.findById(id);
             if (!application) {
                 debug.push(`Application not found: ${id}`);
@@ -490,125 +515,169 @@ export const approveRequest = async (req, res) => {
 
             const requesterId = application.employee_id?.toString();
             const actorId = (actor._id?._id || actor._id).toString();
+            const actorRole = String(actor.role || '').toUpperCase();
 
-            // Admin bypasses all team checks — global access
-            if (actor.role !== 'ADMIN') {
-                // 1. HOD cannot approve their own leave
-                if (requesterId === actorId) {
-                    debug.push('SELF APPROVAL DENIED');
-                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                    return res.status(403).json({ message: 'Unauthorized: You cannot approve your own leave application' });
-                }
-
-                // 2. HOD can only approve leaves for members of their team(s)
-                const hodTeams = await TeamModel.find({
-                    hodId: actor._id,
-                    isActive: { $ne: false }
-                });
-
-                const teamMemberIds = new Set();
-                hodTeams.forEach(team => {
-                    if (team.members && Array.isArray(team.members)) {
-                        team.members.forEach(m => {
-                            if (m.userId) teamMemberIds.add(m.userId.toString());
-                        });
-                    }
-                });
-
-                debug.push(`HOD team member IDs: ${Array.from(teamMemberIds).join(', ')}`);
-
-                if (!teamMemberIds.has(requesterId)) {
-                    debug.push('AUTHORIZATION FAILED (Not in HOD team)');
-                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                    return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
-                }
-            } else {
-                debug.push('Admin override: skipping team check');
+            if (requesterId === actorId) {
+                debug.push('SELF APPROVAL DENIED');
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.status(403).json({ message: 'Unauthorized: You cannot process your own leave application' });
             }
 
-            if (application.approval_status !== 'pending') {
-                return res.status(400).json({ message: 'Request is no longer pending' });
-            }
+            const session = await mongoose.startSession();
+            session.startTransaction();
 
-            application.approval_status = status;
-            if (comments) application.comments = comments;
-            await application.save();
-
-            // Sync AttendanceRecord for the approved range (important for past dates)
-            if (status === 'approved') {
-                const start = moment(application.from_date).startOf('day');
-                const end = moment(application.to_date).startOf('day');
-                let curr = moment(start);
-
-                while (curr.isSameOrBefore(end)) {
-                    const dateStr = curr.format('YYYY-MM-DD');
-                    const attDate = moment.utc(dateStr).startOf('day').toDate();
-
-                    await AttendanceRecord.findOneAndUpdate(
-                        { employee_id: application.employee_id, attendance_date: attDate },
-                        {
-                            status: application.is_half_day ? 'half_day' : 'leave',
-                            is_half_day: application.is_half_day || false,
-                            half_day_session: application.half_day_session,
-                            year_month: curr.format('YYYY-MM'),
-                            processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
-                        },
-                        { upsert: true }
-                    );
-                    curr.add(1, 'day');
-                }
-            }
-
-            // Update Leave Balance
-            const currentYear = new Date().getFullYear();
-            let balanceRecord = await LeaveBalance.findOne({
-                employee_id: application.employee_id,
-                leave_policy_id: application.leave_policy_id,
-                year: currentYear
-            });
-
-            if (!balanceRecord) {
-                const policy = await LeavePolicy.findById(application.leave_policy_id);
-                const defaultQuota = 24;
-                const quota = policy?.annual_quota || defaultQuota;
-                
-                balanceRecord = new LeaveBalance({
+            try {
+                const currentYear = new Date().getFullYear();
+                let balanceRecord = await LeaveBalance.findOne({
                     employee_id: application.employee_id,
-                    company_id: application.company_id,
                     leave_policy_id: application.leave_policy_id,
-                    leave_type: application.leave_type,
-                    year: currentYear,
-                    opening_balance: quota,
-                    closing_balance: quota,
-                    consumed: 0,
-                    pending_approval: 0
-                });
-            }
+                    year: currentYear
+                }).session(session);
 
-            debug.push(`Updating LeaveBalance...`);
-            const isUnpaid = ['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase());
+                if (!balanceRecord) {
+                    const policy = await LeavePolicy.findById(application.leave_policy_id).session(session);
+                    const defaultQuota = 24;
+                    const quota = policy?.annual_quota || defaultQuota;
 
-            if (status === 'approved') {
-                balanceRecord.consumed += application.total_days;
-                if (balanceRecord.pending_approval >= application.total_days) {
-                    balanceRecord.pending_approval -= application.total_days;
-                } else {
-                    if (!isUnpaid) {
-                        balanceRecord.closing_balance -= application.total_days;
-                    }
+                    balanceRecord = new LeaveBalance({
+                        employee_id: application.employee_id,
+                        company_id: application.company_id,
+                        leave_policy_id: application.leave_policy_id,
+                        leave_type: application.leave_type,
+                        year: currentYear,
+                        opening_balance: quota,
+                        used: 0,
+                        closing_balance: quota,
+                        pending_approval: 0
+                    });
                 }
-            } else if (status === 'rejected') {
-                if (balanceRecord.pending_approval >= application.total_days) {
-                    balanceRecord.pending_approval -= application.total_days;
+
+                const isUnpaid = ['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase());
+
+                if (actorRole === 'HOD') {
+                    const hodTeams = await TeamModel.find({
+                        hodId: actor._id,
+                        isActive: { $ne: false }
+                    });
+
+                    const teamMemberIds = new Set();
+                    hodTeams.forEach(team => {
+                        if (team.members && Array.isArray(team.members)) {
+                            team.members.forEach(m => {
+                                if (m.userId) teamMemberIds.add(m.userId.toString());
+                            });
+                        }
+                    });
+
+                    if (!teamMemberIds.has(requesterId)) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                    }
+
+                    if (!['pending_hod', 'pending'].includes(application.approval_status)) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        return res.status(400).json({ message: 'Request is no longer pending HOD review' });
+                    }
+
+                    if (status === 'approved') {
+                        application.approval_status = 'hod_approved_pending_admin';
+                        application.comments = comments || application.comments;
+                        await application.save({ session });
+
+                        await session.commitTransaction();
+                        session.endSession();
+                        fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                        return res.json({ message: 'Leave forwarded to admin for final approval' });
+                    }
+
+                    application.approval_status = 'rejected';
+                    application.comments = comments || application.comments;
+                    await application.save({ session });
+
+                    if (balanceRecord.pending_approval >= application.total_days) {
+                        balanceRecord.pending_approval -= application.total_days;
+                    }
+                    if (!isUnpaid) {
+                        balanceRecord.closing_balance += application.total_days;
+                    }
+                    await balanceRecord.save({ session });
+
+                    await session.commitTransaction();
+                    session.endSession();
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.json({ message: 'Leave rejected successfully' });
+                }
+
+                const username = String(actor.username || '').toLowerCase();
+                if (!ALLOWED_USERNAMES.has(username)) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(403).json({ message: 'Final leave approval is restricted to designated admins' });
+                }
+
+                if (!['hod_approved_pending_admin', 'pending'].includes(application.approval_status)) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).json({ message: 'Request is not ready for admin finalization' });
+                }
+
+                if (status === 'approved') {
+                    application.approval_status = 'approved';
+                    application.comments = comments || application.comments;
+                    await application.save({ session });
+
+                    const start = moment(application.from_date).startOf('day');
+                    const end = moment(application.to_date).startOf('day');
+                    let curr = moment(start);
+
+                    while (curr.isSameOrBefore(end)) {
+                        const dateStr = curr.format('YYYY-MM-DD');
+                        const attDate = moment.utc(dateStr).startOf('day').toDate();
+
+                        await AttendanceRecord.findOneAndUpdate(
+                            { employee_id: application.employee_id, attendance_date: attDate },
+                            {
+                                status: application.is_half_day ? 'half_day' : 'leave',
+                                is_half_day: application.is_half_day || false,
+                                half_day_session: application.half_day_session,
+                                year_month: curr.format('YYYY-MM'),
+                                processed_by: 'admin'
+                            },
+                            { upsert: true, session }
+                        );
+                        curr.add(1, 'day');
+                    }
+
+                    balanceRecord.pending_approval = Math.max(0, balanceRecord.pending_approval - (application.total_days || 0));
+                    if (!isUnpaid) {
+                        balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
+                    }
+                } else {
+                    application.approval_status = 'rejected';
+                    application.comments = comments || application.comments;
+                    await application.save({ session });
+
+                    if (balanceRecord.pending_approval >= application.total_days) {
+                        balanceRecord.pending_approval -= application.total_days;
+                    }
                     if (!isUnpaid) {
                         balanceRecord.closing_balance += application.total_days;
                     }
                 }
-            }
-            await balanceRecord.save();
 
-            fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-            return res.json({ message: `Leave ${status} successfully` });
+                await balanceRecord.save({ session });
+                await session.commitTransaction();
+                session.endSession();
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.json({ message: `Leave ${status} successfully` });
+
+            } catch (error) {
+                await session.abortTransaction();
+                session.endSession();
+                throw error;
+            }
 
         } else if (type === 'regularization') {
             const request = await RegularizationRequest.findById(id);
@@ -896,7 +965,7 @@ export const getAdminLeaveRequests = async (req, res) => {
         // Fetch pending leaves
         const pendingLeaves = await LeaveApplication.find({
             ...leaveQuery,
-            approval_status: 'pending'
+            approval_status: { $in: ['hod_approved_pending_admin', 'pending'] }
         })
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')

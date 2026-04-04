@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Modal } from 'antd';
 import { FiPlus, FiArrowLeft, FiEdit2, FiTrash2, FiChevronDown, FiChevronUp, FiSave, FiX, FiList, FiSettings, FiCheck, FiMinus, FiFileText, FiShield, FiBriefcase, FiClock, FiUsers, FiAward } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import masterAPI from '../../../api/attendance/master.api';
@@ -369,15 +370,23 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this leave policy?')) return;
-        try {
-            await masterAPI.deleteLeavePolicy(id);
-            toast.success('Leave policy deleted');
-            setRefreshKey(k => k + 1);
-        } catch (err) {
-            toast.error(err.message || 'Failed to delete');
-        }
+    const handleDelete = (id) => {
+        Modal.confirm({
+            title: 'Delete Leave Policy',
+            content: 'Are you sure you want to delete this leave policy? This action cannot be undone.',
+            okText: 'Delete',
+            okType: 'danger',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                try {
+                    await masterAPI.deleteLeavePolicy(id);
+                    toast.success('Leave policy deleted');
+                    setRefreshKey(k => k + 1);
+                } catch (err) {
+                    toast.error(err.message || 'Failed to delete');
+                }
+            }
+        });
     };
 
     const handleSubmit = async () => {

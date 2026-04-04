@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Modal } from 'antd';
 import { FiLock, FiUnlock, FiAlertTriangle, FiCheckCircle, FiArrowLeft, FiRefreshCw } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import attendanceAPI from '../../../api/attendance/attendance.api';
@@ -53,19 +54,26 @@ const LockAttendance = () => {
     return await attendanceAPI.getPayrollLocks(params);
   };
 
-  const handleToggleLock = async (month, isLocked) => {
-    if (window.confirm(`Are you sure you want to ${isLocked ? 'LOCK' : 'UNLOCK'} attendance for ${month}?`)) {
-      try {
-        setLoading(true);
-        await attendanceAPI.togglePayrollLock(month, isLocked);
-        toast.success(`${isLocked ? 'Locked' : 'Unlocked'} successfully`);
-        window.location.reload();
-      } catch (err) {
-        toast.error(err.message || 'Operation failed');
-      } finally {
-        setLoading(false);
+  const handleToggleLock = (month, isLocked) => {
+    Modal.confirm({
+      title: `${isLocked ? 'Lock' : 'Unlock'} Attendance`,
+      content: `Are you sure you want to ${isLocked ? 'LOCK' : 'UNLOCK'} attendance for ${month}?`,
+      okText: 'Confirm',
+      okType: isLocked ? 'danger' : 'primary',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          await attendanceAPI.togglePayrollLock(month, isLocked);
+          toast.success(`${isLocked ? 'Locked' : 'Unlocked'} successfully`);
+          window.location.reload();
+        } catch (err) {
+          toast.error(err.message || 'Operation failed');
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
   const handleNewLock = () => {

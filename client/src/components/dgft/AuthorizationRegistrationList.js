@@ -106,23 +106,7 @@ const JOB_STATUS_OPTIONS = [
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
 
-const SUBROW_FIELDS = [
-  { key: "import_validity",        label: "Import Validity" },
-  { key: "export_validity",        label: "Export Validity" },
-  { key: "hs_code",                label: "HS Code" },
-  { key: "item_description",       label: "Import Item Description" },
-  { key: "export_item_description", label: "Export Item Description" },
-  { key: "value_usd",              label: "Value USD" },
-  { key: "value_rs",               label: "Value Rs" },
-  { key: "qty",                    label: "Qty" },
-  { key: "utilized_qty",           label: "Utilized Qty" },
-  { key: "balance_qty",            label: "Balance Qty" },
-  { key: "boe_details",            label: "BOE Details" },
-  { key: "sb_details",             label: "SB Details" },
-  { key: "documents_received_date",label: "Documents Received Date" },
-  { key: "documents_send_to_icd",  label: "Documents Send to ICD" },
-  { key: "documents_send_to_account", label: "Documents Send to Account" },
-];
+
 
 // Form fields for dialog
 const FIELDS = [
@@ -174,21 +158,7 @@ const TABLE_COLUMNS = [
 
 
 
-// Status badge — mono font, colour-coded with border
-function StatusBadge({ value }) {
-  if (!value) return <span style={{ color: "#a0aab8" }}>—</span>;
-  const cls = {
-    completed:           "s-completed",
-    pending:             "s-pending",
-    processed:           "s-processed",
-    billing:             "s-billing",
-    closed:              "s-closed",
-    open:                "s-open",
-    "documents received": "s-docs",
-    "send to icd":       "s-icd",
-  }[value.toLowerCase()] || "s-default";
-  return <span className={`ar-status ${cls}`}>{value}</span>;
-}
+
 
 // Sort icon
 function SortIcon({ dir }) {

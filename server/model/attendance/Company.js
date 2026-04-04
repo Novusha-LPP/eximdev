@@ -73,17 +73,13 @@ const companySchema = new mongoose.Schema({
   attendance_config: {
     lock_day: { type: Number, default: 26, min: 1, max: 28 },
     auto_lock_enabled: { type: Boolean, default: false },
-    auto_checkout_enabled: { type: Boolean, default: false },
-    auto_checkout_after_hours: { type: Number, default: 12 },
     late_mark_policy: { type: String, enum: ['strict', 'grace', 'flexible'], default: 'grace' },
     consecutive_late_threshold: { type: Number, default: 3 },
     late_deduction_enabled: { type: Boolean, default: false },
     lates_per_deduction: { type: Number, default: 3 },
     half_day_threshold_hours: { type: Number, default: 4 },
     full_day_threshold_hours: { type: Number, default: 8 },
-    min_hours_for_presence: { type: Number, default: 1 },
-    grace_in_minutes: { type: Number, default: 15 },
-    grace_out_minutes: { type: Number, default: 15 }
+    min_hours_for_presence: { type: Number, default: 1 }
   },
 
   // === LEAVE CONFIGURATION ===

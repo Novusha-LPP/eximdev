@@ -32,7 +32,7 @@ const HOD_MENU = [
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
     { section: 'Team' },
     { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
-    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals', requiresAllowedAdmin: true },
+    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
     { section: 'Calendar' },
     { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
 ];
@@ -44,12 +44,14 @@ const ADMIN_MENU = [
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
     { section: 'Company' },
     { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
+    { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
     { section: 'Leave' },
     { path: '/attendance/hod/leave-approval', icon: FiFileText, label: 'Leave Approvals', requiresAllowedAdmin: true },
     { section: 'Configuration' },
-    { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holidays' },
-    { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts' },
-    { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies' },
+    { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holiday Policies', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/weekoff-policies', icon: FiClock, label: 'Week-Off Policies', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies', requiresAllowedAdmin: true },
 ];
 
 const ALLOWED_USERNAMES = new Set([
@@ -60,6 +62,13 @@ const ALLOWED_USERNAMES = new Set([
     'uday_zope'
 ]);
 
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
+const isHodRole = (role) => {
+    const n = normalizeRole(role);
+    return n === 'HOD' || n === 'HEADOFDEPARTMENT';
+};
+
 const AttendanceLayout = () => {
     const { user } = useContext(UserContext);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -69,19 +78,21 @@ const AttendanceLayout = () => {
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
     const username = (user?.username || '').toLowerCase();
+    const isAdmin = isAdminRole(role);
+    const isHOD = isHodRole(role);
 
     // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
-    let menu = role === 'Admin' || role === 'ADMIN' ? [...ADMIN_MENU] :
-        role === 'Head_of_Department' || role === 'HOD' ? HOD_MENU :
+    let menu = isAdmin ? [...ADMIN_MENU] :
+        isHOD ? HOD_MENU :
             EMPLOYEE_MENU;
 
     // Filter menu items based on requiresAllowedAdmin
-    if (role === 'Admin' || role === 'ADMIN' || role === 'Head_of_Department' || role === 'HOD') {
+    if (isAdmin || isHOD) {
         menu = menu.filter(item => !item.requiresAllowedAdmin || ALLOWED_USERNAMES.has(username));
     }
 
     // Add Company Management for allowed users
-    if ((role === 'Admin' || role === 'ADMIN') && ALLOWED_USERNAMES.has(username)) {
+    if (isAdmin && ALLOWED_USERNAMES.has(username)) {
         menu.push(
             { section: 'Administration' },
             { path: '/attendance/admin/companies', icon: FiUsers, label: 'Manage Companies' }

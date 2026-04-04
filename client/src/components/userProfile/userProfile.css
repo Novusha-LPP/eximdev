@@ -476,3 +476,126 @@
         transform: translateY(0);
     }
 }
+
+.profile-leave-wrap {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.profile-leave-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.profile-leave-title {
+    padding: 11px 14px;
+    border-bottom: 1px solid #eef2f7;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #f8fafc;
+}
+
+.profile-leave-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    padding: 12px;
+}
+
+.profile-leave-tile {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+    background: #fff;
+}
+
+.profile-leave-type {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.profile-leave-nums {
+    margin-top: 4px;
+    color: #0f172a;
+}
+
+.profile-leave-nums strong {
+    font-size: 1.1rem;
+}
+
+.profile-leave-nums span {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.profile-leave-meta {
+    margin-top: 4px;
+    font-size: 0.74rem;
+    color: #64748b;
+}
+
+.profile-leave-list {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+}
+
+.profile-leave-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid #e5e7eb;
+    border-radius: 9px;
+    padding: 9px 10px;
+    gap: 8px;
+}
+
+.profile-leave-row-type {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.profile-leave-row-date {
+    font-size: 0.73rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.profile-leave-status {
+    font-size: 0.69rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 3px 9px;
+    text-transform: capitalize;
+}
+
+.profile-leave-status.status-approved {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.profile-leave-status.status-rejected,
+.profile-leave-status.status-cancelled {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.profile-leave-status.status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.profile-leave-empty {
+    padding: 12px;
+    color: #64748b;
+    font-size: 0.82rem;
+}

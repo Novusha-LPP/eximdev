@@ -130,6 +130,99 @@ const masterAPI = {
   getUsers: async (params) => {
       const response = await apiClient.get('/master/users', { params });
       return response.data;
+  },
+
+  /**
+   * Organizations with HOD info
+   */
+  getOrganizations: async () => {
+      const response = await apiClient.get('/master/organizations');
+      return response.data;
+  },
+
+  getBranches: async (params) => {
+      const response = await apiClient.get('/master/branches', { params });
+      return response.data;
+  },
+
+  getTeams: async () => {
+      // Use relative path without leading slash to ensure axios appends it to baseURL correctly
+      const response = await apiClient.get('teams/all');
+      return response.data;
+  },
+
+  getDepartments: async (params) => {
+      const response = await apiClient.get('/master/departments', { params });
+      return response.data;
+  },
+
+  // ── Week-Off Policies ────────────────────────────────────────────────────
+  getWeekOffPolicies: async () => {
+      const response = await apiClient.get('/master/weekoff-policies');
+      return response.data;
+  },
+
+  createWeekOffPolicy: async (data) => {
+      const response = await apiClient.post('/master/weekoff-policies', data);
+      return response.data;
+  },
+
+  updateWeekOffPolicy: async (id, data) => {
+      const response = await apiClient.put(`/master/weekoff-policies/${id}`, data);
+      return response.data;
+  },
+
+  deleteWeekOffPolicy: async (id) => {
+      const response = await apiClient.delete(`/master/weekoff-policies/${id}`);
+      return response.data;
+  },
+
+  // ── Holiday Policies ─────────────────────────────────────────────────────
+  getHolidayPolicies: async (params) => {
+      const response = await apiClient.get('/master/holiday-policies', { params });
+      return response.data;
+  },
+
+  getHolidayPolicyById: async (id) => {
+      const response = await apiClient.get(`/master/holiday-policies/${id}`);
+      return response.data;
+  },
+
+  createHolidayPolicy: async (data) => {
+      const response = await apiClient.post('/master/holiday-policies', data);
+      return response.data;
+  },
+
+  updateHolidayPolicy: async (id, data) => {
+      const response = await apiClient.put(`/master/holiday-policies/${id}`, data);
+      return response.data;
+  },
+
+  deleteHolidayPolicy: async (id) => {
+      const response = await apiClient.delete(`/master/holiday-policies/${id}`);
+      return response.data;
+  },
+
+  addHolidayToPolicy: async (policyId, holidayData) => {
+      const response = await apiClient.post(`/master/holiday-policies/${policyId}/holidays`, holidayData);
+      return response.data;
+  },
+
+  removeHolidayFromPolicy: async (policyId, holidayDate) => {
+      const response = await apiClient.delete(`/master/holiday-policies/${policyId}/holidays/${holidayDate}`);
+      return response.data;
+  },
+
+  // My resolved holiday list (all roles, read-only)
+  getMyHolidays: async (year) => {
+      const response = await apiClient.get('/master/my-holidays', { params: { year } });
+      return response.data;
+  },
+
+  // Assign policy overrides to a specific user
+  assignPolicyToUser: async (userId, data) => {
+      const response = await apiClient.put(`/master/users/${userId}/policies`, data);
+      return response.data;
   }
 };
 

@@ -23,7 +23,7 @@ const recordSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['present', 'absent', 'half_day', 'late', 'leave', 'holiday', 'weekly_off', 'on_duty'],
+    enum: ['present', 'absent', 'half_day', 'incomplete', 'leave', 'holiday', 'weekly_off', 'on_duty'],
     default: 'absent'
   },
 
@@ -35,9 +35,16 @@ const recordSchema = new mongoose.Schema({
   early_exit_minutes: { type: Number, default: 0 },
   early_exit_reason: String,
 
-  is_early_in: { type: Boolean, default: false },
-  early_in_minutes: { type: Number, default: 0 },
-  early_in_reason: String,
+  // Work sessions tracking
+  work_sessions: [{
+    session_number: Number,
+    punch_in_time: Date,
+    punch_out_time: Date,
+    duration_hours: Number,
+    is_incomplete: Boolean  // true if OUT is missing
+  }],
+  total_work_sessions: { type: Number, default: 0 },
+  has_incomplete_session: { type: Boolean, default: false },
 
   is_holiday: { type: Boolean, default: false },
   holiday_type: { type: String }, // 'national', 'company', 'optional'
@@ -61,7 +68,6 @@ const recordSchema = new mongoose.Schema({
   processed_at: { type: Date },
   processed_by: { type: String, enum: ['system', 'admin', 'cron'], default: 'system' },
 
-  is_auto_punch_out: { type: Boolean, default: false },
   is_half_day: { type: Boolean, default: false },
   half_day_session: { type: String, enum: ['first_half', 'second_half'] }
 

@@ -6,7 +6,38 @@ import ActivityLog from '../../model/attendance/ActivityLog.js';
 import QueryBuilder from '../../services/attendance/QueryBuilder.js';
 import User from '../../model/userModel.mjs';
 import Department from '../../model/attendance/Department.js';
+import Branch from '../../model/branchModel.mjs';
 import UserBranchModel from '../../model/userBranchModel.mjs';
+
+const LEGACY_ATTENDANCE_CONFIG_KEYS = [
+  'grace_in_minutes',
+  'grace_out_minutes',
+  'auto_checkout_enabled',
+  'auto_checkout_after_hours'
+];
+
+const sanitizeCompanySettingsPayload = (payload = {}) => {
+  const sanitized = { ...payload };
+  if (sanitized.attendance_config && typeof sanitized.attendance_config === 'object') {
+    const nextConfig = { ...sanitized.attendance_config };
+    LEGACY_ATTENDANCE_CONFIG_KEYS.forEach((key) => {
+      delete nextConfig[key];
+    });
+    sanitized.attendance_config = nextConfig;
+  }
+  return sanitized;
+};
+
+const sanitizeCompanyForResponse = (companyDoc) => {
+  if (!companyDoc) return companyDoc;
+  const plain = typeof companyDoc.toObject === 'function' ? companyDoc.toObject() : companyDoc;
+  if (plain.attendance_config && typeof plain.attendance_config === 'object') {
+    LEGACY_ATTENDANCE_CONFIG_KEYS.forEach((key) => {
+      delete plain.attendance_config[key];
+    });
+  }
+  return plain;
+};
 
 
 
@@ -44,7 +75,8 @@ export const createShift = async (req, res) => {
 
     const shift = new Shift({
       ...req.body,
-      company_id: companyId
+      company_id: companyId,
+      created_by: req.user._id
     });
 
     await shift.save();
@@ -55,6 +87,40 @@ export const createShift = async (req, res) => {
   }
 };
 
+export const updateShift = async (req, res) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    const { id } = req.params;
+
+    const shift = await Shift.findOneAndUpdate(
+      { _id: id, company_id: companyId },
+      { ...req.body, updated_by: req.user._id },
+      { new: true, runValidators: true }
+    );
+
+    if (!shift) return res.status(404).json({ message: 'Shift not found' });
+
+    await logActivity(req, 'SHIFT', 'UPDATE_SHIFT', `Updated shift: ${shift.shift_name}`, { shift_id: shift._id });
+    res.json(shift);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getShiftById = async (req, res) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    const shift = await Shift.findOne({ _id: req.params.id, company_id: companyId })
+      .populate('applicability.teams.list', 'name');
+
+    if (!shift) return res.status(404).json({ message: 'Shift not found' });
+    res.json(shift);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 export const getShifts = async (req, res) => {
   try {
     const companyId = resolveCompanyId(req);
@@ -62,7 +128,8 @@ export const getShifts = async (req, res) => {
       Shift,
       req.query,
       { company_id: companyId },
-      ['shift_name', 'shift_code']
+      ['shift_name', 'shift_code'],
+      ['applicability.teams.list']
     );
     res.json(result);
   } catch (err) {
@@ -175,7 +242,7 @@ export const bulkDeleteHolidays = async (req, res) => {
 export const getCompanySettings = async (req, res) => {
   try {
     const company = await Company.findById(resolveCompanyId(req));
-    res.json(company);
+    res.json(sanitizeCompanyForResponse(company));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -183,13 +250,14 @@ export const getCompanySettings = async (req, res) => {
 
 export const updateCompanySettings = async (req, res) => {
   try {
+    const payload = sanitizeCompanySettingsPayload(req.body);
     const company = await Company.findByIdAndUpdate(
       resolveCompanyId(req),
-      req.body,
+      payload,
       { returnDocument: 'after' }
     );
     await logActivity(req, 'SETTING', 'UPDATE_POLICY', 'Updated company settings and policies');
-    res.json(company);
+    res.json(sanitizeCompanyForResponse(company));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -539,6 +607,10 @@ export const getUsers = async (req, res) => {
       query.department_id = department_id;
     }
 
+    if (req.query.isActive !== undefined) {
+      query.isActive = req.query.isActive === 'true' || req.query.isActive === true;
+    }
+
     const users = await User.find(query)
       .select('-password')
       .populate('department_id', 'department_name')
@@ -546,6 +618,63 @@ export const getUsers = async (req, res) => {
 
     res.json({ success: true, data: users });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getDepartments = async (req, res) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    const departments = await Department.find({ company_id: companyId }).sort({ department_name: 1 });
+    res.json({ success: true, data: departments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getBranches = async (req, res) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    const company = await Company.findById(companyId).populate('branch_ids');
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+    res.json({ success: true, data: company.branch_ids || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── Get Organizations (same as listCompanies, for frontend consistency) ───
+export const getOrganizations = async (req, res) => {
+  try {
+    const companies = await Company.find({})
+      .select('_id company_name company_code shift_policy branch_ids status createdAt')
+      .populate('branch_ids', 'branch_name branch_code');
+
+    const organizations = await Promise.all(
+      companies.map(async (company) => {
+        const hod = await User.findOne({
+          company_id: company._id,
+          role: 'HOD',
+          isActive: { $ne: false }
+        })
+          .select('first_name last_name username employee_code employee_photo')
+          .lean();
+
+        return {
+          _id: company._id,
+          name: company.company_name,
+          code: company.company_code,
+          hod: hod || null,
+          hodName: hod ? `${hod.first_name || ''} ${hod.last_name || ''}`.trim() : null,
+          status: company.status,
+          branches: company.branch_ids || []
+        };
+      })
+    );
+
+    res.json({ success: true, data: organizations });
+  } catch (err) {
+    console.error('Get Organizations Error:', err);
     res.status(500).json({ error: err.message });
   }
 };

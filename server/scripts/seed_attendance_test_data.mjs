@@ -370,7 +370,7 @@ async function seedTestData() {
 
       // Calculate work hours
       const workHours = punchOut.diff(punchIn, 'minutes') / 60;
-      const isLate = punchIn.isAfter(moment.tz(`${dateStr} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata').add(shift.grace_in_minutes || 15, 'minutes'));
+      const isLate = punchIn.isAfter(moment.tz(`${dateStr} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata'));
       const lateByMinutes = isLate ? punchIn.diff(moment.tz(`${dateStr} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata'), 'minutes') : 0;
       
       let status = 'present';

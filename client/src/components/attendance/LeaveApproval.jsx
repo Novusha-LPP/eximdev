@@ -9,18 +9,27 @@ import toast from 'react-hot-toast';
 import './ApprovalPages.css';
 import LeavePolicyManagement from './admin/LeavePolicyManagement';
 import HolidayManagement from './admin/HolidayManagement';
+import LeaveBalanceManagement from './admin/LeaveBalanceManagement';
 
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 const fmt = (d, f) => { try { return formatDate(d, f); } catch { return d || '-'; } };
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
+const isHodRole = (role) => {
+  const n = normalizeRole(role);
+  return n === 'HOD' || n === 'HEADOFDEPARTMENT';
+};
 
 const LeaveApproval = () => {
   const location = useLocation();
   const { user } = useContext(UserContext);
 
   // Role detection — use EXIM roles from UserContext
-  const isAdmin = user?.role === 'Admin' || user?.role === 'ADMIN';
-  const isHOD = user?.role === 'Head_of_Department' || user?.role === 'HOD';
+  const isAdmin = isAdminRole(user?.role);
+  const isHOD = isHodRole(user?.role);
+  const isAllowedAdmin = isAdmin && ALLOWED_USERNAMES.has(String(user?.username || '').toLowerCase());
 
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'approvals');
   const [requests, setRequests] = useState([]);
@@ -125,8 +134,9 @@ const LeaveApproval = () => {
 
   const TABS = [
     { key: 'approvals', label: 'Leave Approvals', count: requests.length },
-    { key: 'policy', label: 'Leave Policy', count: 0 },
-    { key: 'holiday', label: 'Holidays', count: 0 },
+    ...(isAllowedAdmin ? [{ key: 'balances', label: 'Leave Balances', count: 0 }] : []),
+    ...(isAllowedAdmin ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
+    ...(isAllowedAdmin ? [{ key: 'holiday', label: 'Holidays', count: 0 }] : []),
   ];
 
   return (
@@ -185,8 +195,9 @@ const LeaveApproval = () => {
         ))}
       </div>
 
-      {activeTab === 'policy' && <div className="animation-fade-in"><LeavePolicyManagement embedded readOnly /></div>}
-      {activeTab === 'holiday' && <div className="animation-fade-in"><HolidayManagement embedded readOnly /></div>}
+      {activeTab === 'balances' && isAllowedAdmin && <div className="animation-fade-in"><LeaveBalanceManagement /></div>}
+      {activeTab === 'policy' && isAllowedAdmin && <div className="animation-fade-in"><LeavePolicyManagement embedded readOnly /></div>}
+      {activeTab === 'holiday' && isAllowedAdmin && <div className="animation-fade-in"><HolidayManagement embedded readOnly /></div>}
 
       {activeTab === 'approvals' && (
         <div className="animation-fade-in">

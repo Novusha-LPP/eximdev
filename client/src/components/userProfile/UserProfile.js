@@ -166,7 +166,7 @@ const UserProfile = ({ username: propUsername }) => {
     }, []);
 
     const fetchAttendanceData = useCallback(async () => {
-        const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department';
+        const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
         if (!canViewAttendance || !profileData?._id) return;
 
         setAttendanceLoading(true);
@@ -174,12 +174,12 @@ const UserProfile = ({ username: propUsername }) => {
             const queryParams = !isOwnProfile ? { employee_id: profileData._id } : {};
             const [dashData, leaveBalData, leaveApps] = await Promise.all([
                 attendanceAPI.getDashboardData(queryParams).catch(() => null),
-                leaveAPI.getBalance(profileData._id).catch(() => ({ balances: [] })),
-                leaveAPI.getApplications({ employee_id: profileData._id, limit: 10 }).catch(() => ({ applications: [] }))
+                leaveAPI.getBalance(profileData._id).catch(() => ({ data: [] })),
+                leaveAPI.getApplications({ employee_id: profileData._id, limit: 10 }).catch(() => ({ data: [] }))
             ]);
             setAttendanceData(dashData);
-            setLeaveBalance(leaveBalData?.balances || []);
-            setLeaveApplications(leaveApps?.applications || []);
+            setLeaveBalance(leaveBalData?.data || []);
+            setLeaveApplications(leaveApps?.data || []);
         } catch (err) {
             console.error('Failed to fetch attendance data', err);
         } finally {
@@ -782,8 +782,61 @@ const UserProfile = ({ username: propUsername }) => {
     };
 
     const AttendanceTab = () => {
+        const recentLeaveApps = leaveApplications.slice(0, 5);
         return (
             <motion.div className="tab-content fade-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="profile-leave-wrap">
+                    <div className="profile-leave-card">
+                        <div className="profile-leave-title">Leave Balances</div>
+                        {attendanceLoading ? (
+                            <div className="profile-leave-empty">Loading leave balances...</div>
+                        ) : leaveBalance.length === 0 ? (
+                            <div className="profile-leave-empty">No leave balances available</div>
+                        ) : (
+                            <div className="profile-leave-grid">
+                                {leaveBalance.map((bal) => {
+                                    const available = bal.available || bal.balance || 0;
+                                    const total = bal.total || 0;
+                                    const used = bal.used ?? 0;
+                                    return (
+                                        <div className="profile-leave-tile" key={bal._id || bal.leave_type}>
+                                            <div className="profile-leave-type">{bal.name || bal.leave_type}</div>
+                                            <div className="profile-leave-nums">
+                                                <strong>{available}</strong>
+                                                <span> / {total}</span>
+                                            </div>
+                                            <div className="profile-leave-meta">
+                                                Used {used}
+                                                {(bal.pending || 0) > 0 ? ` | Pending ${bal.pending}` : ''}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="profile-leave-card">
+                        <div className="profile-leave-title">Recent Leave Applications</div>
+                        {attendanceLoading ? (
+                            <div className="profile-leave-empty">Loading applications...</div>
+                        ) : recentLeaveApps.length === 0 ? (
+                            <div className="profile-leave-empty">No leave applications found</div>
+                        ) : (
+                            <div className="profile-leave-list">
+                                {recentLeaveApps.map((app) => (
+                                    <div className="profile-leave-row" key={app._id}>
+                                        <div>
+                                            <div className="profile-leave-row-type">{app.leave_type || 'Leave'}</div>
+                                            <div className="profile-leave-row-date">{formatDate(app.from_date)} to {formatDate(app.to_date)}</div>
+                                        </div>
+                                        <span className={`profile-leave-status status-${app.status || 'pending'}`}>{app.status || 'pending'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
                 <Attendance employeeId={profileData?._id} />
             </motion.div>
         );

@@ -64,9 +64,14 @@ const userSchema = new Schema({
   // ─── Attendance-specific fields ───────────────────────────────────────────
   company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
   department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', index: true },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', index: true },
   shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', index: true },
   hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   employee_code: { type: String, unique: true, sparse: true },
+
+  // ─── Policy Overrides (explicit assignment) ─────────────────────────────
+  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
+  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
 
   // Employment timeline
   date_of_joining: { type: Date },

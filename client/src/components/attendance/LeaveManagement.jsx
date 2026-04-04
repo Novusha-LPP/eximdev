@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   FiPlus, FiX, FiAlertCircle, FiFileText, FiInfo, FiSend,
   FiCalendar, FiBookOpen, FiClock, FiShield, FiCheckCircle,
@@ -9,6 +10,7 @@ import masterAPI from '../../api/attendance/master.api';
 import { API_BASE_URL } from './utils/constants';
 import { formatDate } from './utils/helpers';
 import toast from 'react-hot-toast';
+import { Modal } from 'antd';
 import './LeaveManagement.css';
 
 /* -- helpers -- */
@@ -32,6 +34,8 @@ const LeaveManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   /* filters */
   const [search, setSearch] = useState('');
@@ -63,6 +67,46 @@ const LeaveManagement = () => {
     finally { setLoading(false); }
   };
 
+  // Real-time Preview Effect
+  useEffect(() => {
+    const getPreview = async () => {
+      // Validate form readiness
+      if (form.leave_policy_id && form.from_date && (form.to_date || form.is_half_day)) {
+        if (form.is_half_day && !form.from_date) return;
+        if (!form.is_half_day && (!form.from_date || !form.to_date)) return;
+
+        setLoadingPreview(true);
+        try {
+          const params = new URLSearchParams({
+            leave_policy_id: form.leave_policy_id,
+            from_date: form.from_date,
+            to_date: form.is_half_day ? form.from_date : form.to_date,
+            is_half_day: form.is_half_day.toString()
+          });
+
+          // Using axios directly for the custom preview endpoint
+          const res = await axios.get(`${API_BASE_URL}/attendance/leave/preview-application?${params}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          
+          if (res.data.success) {
+            setPreview(res.data.data);
+          }
+        } catch (err) {
+          console.error('[Preview Error]', err);
+          setPreview(null);
+        } finally {
+          setLoadingPreview(false);
+        }
+      } else {
+        setPreview(null);
+      }
+    };
+
+    const timer = setTimeout(getPreview, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [form.leave_policy_id, form.from_date, form.to_date, form.is_half_day]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -85,10 +129,24 @@ const LeaveManagement = () => {
     finally { setSubmitting(false); }
   };
 
+
   const cancel = async (id) => {
-    if (!window.confirm('Cancel this application?')) return;
-    try { await leaveAPI.cancelLeave(id); toast.success('Cancelled'); fetchData(); }
-    catch (err) { toast.error(err?.response?.data?.message || 'Failed to cancel'); }
+    Modal.confirm({
+      title: 'Cancel Application',
+      content: 'Are you sure you want to cancel this leave application? This action cannot be undone.',
+      okText: 'Yes, Cancel',
+      okType: 'danger',
+      cancelText: 'No, Keep it',
+      onOk: async () => {
+        try {
+          await leaveAPI.cancelLeave(id);
+          toast.success('Leave application cancelled');
+          fetchData();
+        } catch (err) {
+          toast.error(err?.response?.data?.message || 'Failed to cancel');
+        }
+      }
+    });
   };
 
   /* -- filtered + paginated table data -- */
@@ -185,11 +243,11 @@ const LeaveManagement = () => {
       ) : (
         <div className="bal-grid">
           {balances.map(b => {
-            const consumed = b.consumed || 0;
+            const used = b.used ?? 0;
             const total = b.total || b.annual_quota || 0;
             const available = b.available || b.balance || 0;
             const pend = b.pending || 0;
-            const usedPct = total > 0 ? (consumed / total) * 100 : 0;
+            const usedPct = total > 0 ? (used / total) * 100 : 0;
             const exhausted = available <= 0 && b.leave_type !== 'unpaid';
             return (
               <div key={b._id} className={`bal-tile${exhausted ? ' exhausted' : ''}`}>
@@ -209,13 +267,13 @@ const LeaveManagement = () => {
                       </>
                     )}
                   </div>
-                  <span className="bal-lbl">days available</span>
+                  <span className="bal-lbl">Available Days</span>
                   <div className="bal-bar">
                     <div className="bal-fill" style={{ width: b.leave_type === 'unpaid' ? '0%' : `${usedPct}%` }} />
                   </div>
                   <div className="bal-meta">
-                    <span>Used: {consumed}</span>
-                    {pend > 0 && <span className="bal-pend">{pend} pending</span>}
+                    <span className="meta-used">Used: {used}</span>
+                    {pend > 0 && <span className="bal-pend">Pending: {pend}</span>}
                   </div>
                 </div>
               </div>
@@ -539,6 +597,38 @@ const LeaveManagement = () => {
                 <label>Supporting Document <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
                 <input type="file" onChange={e => setForm({ ...form, attachment: e.target.files[0] })} />
               </div>
+
+              {/* Projected Balance Preview */}
+              {form.leave_policy_id && form.from_date && (form.to_date || form.is_half_day) && (
+                <div className={`projection-card ani-in${loadingPreview ? ' loading' : ''}`}>
+                  {loadingPreview ? (
+                    <div className="proj-loader">Calculating impact...</div>
+                  ) : preview ? (
+                    <>
+                      <div className="proj-row">
+                        <span>Currently Available:</span>
+                        <strong>{preview.available} days</strong>
+                      </div>
+                      <div className="proj-row">
+                        <span>Impact (Counted Days):</span>
+                        <span className="requested-minus">
+                          -{preview.totalDays} days
+                          {preview.sandwichDays > 0 && <small title="Sandwich rule applied">(inc. {preview.sandwichDays}d sandwich)</small>}
+                        </span>
+                      </div>
+                      <div className="proj-divider" />
+                      <div className="proj-row final">
+                        <span>After Approval:</span>
+                        <span className="final-val">
+                          {preview.projected_balance} days
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="proj-error">Select a valid date range</div>
+                  )}
+                </div>
+              )}
 
               <div className="lm-mfooter">
                 <button type="submit" className="lm-submit" disabled={submitting}>

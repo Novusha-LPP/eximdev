@@ -15,7 +15,7 @@ const Settings = () => {
     timezone: 'Asia/Kolkata', financial_year_start: 'April',
     settings: { geo_fencing_enabled: false, ip_restriction_enabled: false, standard_work_hours: 8 },
     payroll_config: { overtime_threshold_hours: 9 },
-    attendance_config: { grace_in_minutes: 15, half_day_threshold_hours: 4 },
+    attendance_config: { full_day_threshold_hours: 8, half_day_threshold_hours: 4 },
   });
 
   useEffect(() => { fetchSettings(); }, [activeTab]);
@@ -30,7 +30,7 @@ const Settings = () => {
           address: data.address || { line1: '', city: '' },
           settings: data.settings || { standard_work_hours: 8 },
           payroll_config: data.payroll_config || { overtime_threshold_hours: 9 },
-          attendance_config: data.attendance_config || { grace_in_minutes: 15, half_day_threshold_hours: 4 },
+          attendance_config: data.attendance_config || { full_day_threshold_hours: 8, half_day_threshold_hours: 4 },
           timezone: data.timezone || 'Asia/Kolkata',
           financial_year_start: 'April',
         });
@@ -116,8 +116,8 @@ const Settings = () => {
               <input type="number" className="form-input" value={settings.settings?.standard_work_hours || ''} onChange={e => setNested('settings', 'standard_work_hours', Number(e.target.value))} />
             </div>
             <div className="form-group">
-              <label>Grace Period (min)</label>
-              <input type="number" className="form-input" value={settings.attendance_config?.grace_in_minutes || ''} onChange={e => setNested('attendance_config', 'grace_in_minutes', Number(e.target.value))} />
+              <label>Full-Day Threshold (hrs)</label>
+              <input type="number" className="form-input" value={settings.attendance_config?.full_day_threshold_hours || ''} onChange={e => setNested('attendance_config', 'full_day_threshold_hours', Number(e.target.value))} />
             </div>
             <div className="form-group">
               <label>OT Threshold (hrs)</label>

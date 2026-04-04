@@ -15,8 +15,12 @@ const shiftSchema = new mongoose.Schema({
   half_day_hours: { type: Number, default: 4 },
   minimum_hours: { type: Number, default: 3 },
 
-  grace_in_minutes: { type: Number, default: 15 },
-  grace_out_minutes: { type: Number, default: 15 },
+  late_allowed_minutes: { type: Number, default: 0 },
+  early_leave_allowed_minutes: { type: Number, default: 0 },
+
+  // Flexible window for reporting/insights (no enforcement)
+  flexible_window_start: { type: String }, // e.g., "08:00"
+  flexible_window_end: { type: String },   // e.g., "10:00"
 
   overtime_threshold_minutes: { type: Number, default: 30 },
   overtime_calculation_type: { type: String, enum: ['daily', 'weekly', 'monthly'], default: 'daily' },
@@ -24,14 +28,20 @@ const shiftSchema = new mongoose.Schema({
   break_time_minutes: { type: Number, default: 60 },
   break_included_in_work_hours: { type: Boolean, default: false },
 
-  weekly_off_days: [{ type: Number }], // 0=Sunday, 6=Saturday
-  alternate_saturday_pattern: { type: String }, // e.g., "1,3" for 1st and 3rd Sat off, or "2,4"
+  max_session_hours: { type: Number, default: 18 }, // Sanity check for single session
 
-  auto_checkout_enabled: { type: Boolean, default: false },
-  auto_checkout_time: { type: String },
+  // Weekly offs are now managed by WeekOffPolicy – removed from Shift.
 
   night_shift: { type: Boolean, default: false },
   night_shift_allowance: { type: Number, default: 0 },
+
+  // --- Applicability Scope ---
+  applicability: {
+    teams: {
+      all:  { type: Boolean, default: true },
+      list: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Team' }]
+    }
+  },
 
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   is_active: { type: Boolean, default: true } // Keeping for backward compatibility if needed, else can rely on status

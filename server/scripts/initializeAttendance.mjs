@@ -33,7 +33,6 @@ async function run() {
             company_name: String,
             timezone: { type: String, default: 'Asia/Kolkata' },
             attendance_config: {
-                grace_in_minutes: { type: Number, default: 15 },
                 full_day_threshold_hours: { type: Number, default: 8 },
                 half_day_threshold_hours: { type: Number, default: 4 }
             },
@@ -68,7 +67,6 @@ async function run() {
                 company_name: 'EXIM Global',
                 timezone: 'Asia/Kolkata',
                 attendance_config: {
-                    grace_in_minutes: 15,
                     full_day_threshold_hours: 8,
                     half_day_threshold_hours: 4
                 }

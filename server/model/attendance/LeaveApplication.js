@@ -24,7 +24,11 @@ const leaveApplicationSchema = new mongoose.Schema({
 
   applied_on: { type: Date, default: Date.now },
 
-  approval_status: { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled', 'withdrawn'], default: 'pending' },
+  approval_status: {
+    type: String,
+    enum: ['pending_hod', 'hod_approved_pending_admin', 'approved', 'rejected', 'cancelled', 'withdrawn', 'pending'],
+    default: 'pending_hod'
+  },
 
   approval_chain: [{
     level: Number,
@@ -43,7 +47,15 @@ const leaveApplicationSchema = new mongoose.Schema({
 
   cancellation_reason: { type: String },
   cancelled_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  cancelled_at: { type: Date }
+  cancelled_at: { type: Date },
+
+  // Payroll & Audit
+  payroll_status: { type: String, enum: ['pending', 'processed', 'skipped'], default: 'pending' },
+  balance_snapshot: {
+    available: Number,
+    used: Number,
+    pending: Number
+  }
 
 }, { timestamps: true });
 

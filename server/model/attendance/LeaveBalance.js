@@ -9,8 +9,7 @@ const leaveBalanceSchema = new mongoose.Schema({
   year: { type: Number, required: true },
 
   opening_balance: { type: Number, default: 0 },
-  credited: { type: Number, default: 0 },
-  consumed: { type: Number, default: 0 },
+  used: { type: Number, default: 0 },
   pending_approval: { type: Number, default: 0 }, // locked during approval
   carried_forward: { type: Number, default: 0 },
   encashed: { type: Number, default: 0 },
@@ -19,8 +18,7 @@ const leaveBalanceSchema = new mongoose.Schema({
 
   monthly_breakup: [{
     month: { type: Number },
-    credited: { type: Number },
-    consumed: { type: Number },
+    used: { type: Number },
     balance: { type: Number }
   }],
 

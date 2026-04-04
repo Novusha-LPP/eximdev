@@ -29,8 +29,6 @@ const PROVIDED_COMPANIES = [
 const defaults = {
   timezone: 'Asia/Kolkata',
   attendance_config: {
-    grace_in_minutes: 15,
-    grace_out_minutes: 15,
     full_day_threshold_hours: 8.5,
     half_day_threshold_hours: 4.5
   },
@@ -112,8 +110,6 @@ async function seed() {
           end_time: '19:00',
           full_day_hours: defaults.attendance_config.full_day_threshold_hours,
           half_day_hours: defaults.attendance_config.half_day_threshold_hours,
-          grace_in_minutes: defaults.attendance_config.grace_in_minutes,
-          grace_out_minutes: defaults.attendance_config.grace_out_minutes,
           weekly_off_days: [0],
           status: 'active'
         }

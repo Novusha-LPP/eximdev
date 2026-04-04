@@ -283,6 +283,14 @@ const AttendanceManagement = () => {
                                                         </td>
                                                         <td className="am-td-mono">{row.total_work_hours?.toFixed(1)}h</td>
                                                         <td style={{ textAlign: 'right' }}>
+                                                            <button
+                                                                className="am-act-btn"
+                                                                onClick={() => row.employee_id?._id && navigate(`/attendance/admin/employee/${row.employee_id._id}`)}
+                                                                title="View Profile"
+                                                                style={{ marginRight: '6px' }}
+                                                            >
+                                                                <FiUsers size={13} />
+                                                            </button>
                                                             <button className="am-act-btn" onClick={() => openEdit(row)} title="Edit">
                                                                 <FiEdit size={13} />
                                                             </button>

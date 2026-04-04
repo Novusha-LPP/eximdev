@@ -140,7 +140,7 @@ const AttendanceReport = ({ isAdmin }) => {
     const [companiesLoaded, setCompaniesLoaded] = useState(false); // guard: wait until company is resolved
     const [selectedEmp, setSelectedEmp] = useState(null);
     const { user } = React.useContext(UserContext);
-    const ALLOWED_USERNAMES = React.useMemo(() => new Set(['uday_zope', 'h.chavan']), []);
+    const ALLOWED_USERNAMES = React.useMemo(() => new Set([]), []);
     const isAllowedUser = ALLOWED_USERNAMES.has(user?.username);
     const [showDailySummary, setShowDailySummary] = useState(false);
     const [empHistory, setEmpHistory] = useState([]);
@@ -854,7 +854,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                                         .filter(lv => lv.approval_status === 'approved' && (lv.leave_policy_id?._id === bal.leave_policy_id?._id || lv.leave_policy_id === bal.leave_policy_id?._id))
                                                         .reduce((s, lv) => s + (lv.total_days || 0), 0);
 
-                                                    const totalQuota = (bal.opening_balance || 0) + (bal.credited || 0);
+                                                    const totalQuota = bal.total ?? bal.annual_quota ?? bal.opening_balance ?? 0;
 
                                                     return (
                                                         <div key={bal._id} className="ar-bal-card">
@@ -887,7 +887,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                                         <thead>
                                                             <tr>
                                                                 <th>Leave Type</th>
-                                                                <th style={{ textAlign: 'right' }}>Dates Consumed</th>
+                                                                <th style={{ textAlign: 'right' }}>Dates Used</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>

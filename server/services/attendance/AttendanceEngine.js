@@ -2,8 +2,8 @@ import moment from 'moment-timezone';
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import AttendancePunch from '../../model/attendance/AttendancePunch.js';
 import WorkingDayEngine from './WorkingDayEngine.js';
+import PolicyResolver from './PolicyResolver.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
-import User from '../../model/userModel.mjs';
 
 
 /**
@@ -28,48 +28,24 @@ class AttendanceEngine {
             punch_date: date
         }).sort({ punch_time: 1 });
 
-        // --- AUTO PUNCH MISSING OUT logic ---
-        const lastPunchObj = punches.length > 0 ? punches[punches.length - 1] : null;
-        if (lastPunchObj && lastPunchObj.punch_type === 'IN') {
-
-            if (shift && shift.end_time) {
-                const shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
-                const autoPunchThreshold = shiftEnd.clone().add(2, 'hours'); // Auto punch 2 hours after shift end
-
-                if (!isToday || (isToday && now.isAfter(autoPunchThreshold))) {
-                   // console.log(`[ENGINE] Auto-punching OUT for user ${user._id} on ${date}`);
-                    const autoPunch = new AttendancePunch({
-                        employee_id: user._id,
-                        company_id: user.company_id,
-                        punch_type: 'OUT',
-                        punch_time: shiftEnd.toDate(),
-                        punch_date: date,
-                        punch_method: 'auto'
-                    });
-                    await autoPunch.save();
-
-                    // Update user's current status if they are being auto-punched OUT
-                    await User.findByIdAndUpdate(user._id, { current_status: 'out_office' });
-
-                    // Refresh punches list
-                    punches = await AttendancePunch.find({
-                        employee_id: user._id,
-                        punch_date: date
-                    }).sort({ punch_time: 1 });
-                }
-            }
-        }
-
-        const inPunch = punches.find(p => p.punch_type === 'IN');
+        const inPunch  = punches.find(p => p.punch_type === 'IN');
         const outPunch = punches.find(p => p.punch_type === 'OUT');
 
-        const isWeeklyOff = WorkingDayEngine.isWeeklyOff(date, company, shift, user.department_id);
-        const holiday = await WorkingDayEngine.getHoliday(date, company._id);
+        // --- Resolve Policies ---
+        const year = moment(date).year();
+        const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(user, year);
 
+        const { isOff: isWeeklyOff, isHalfDay: isWeeklyOffHalfDay } = PolicyResolver.resolveWeeklyOffStatus(date, weekOffPolicy);
+        const { isHoliday, name: holidayName } = holidayPolicy
+            ? PolicyResolver.resolveHolidayStatus(date, holidayPolicy)
+            : await WorkingDayEngine.getHolidayInfo(date, user.company_id);
+
+        // Priority: leave > holiday > weekly_off > attendance
         let status = 'absent';
         let recordIsHalfDay = false;
-        if (isWeeklyOff) status = 'weekly_off';
-        if (holiday) status = 'holiday';
+
+        if (isWeeklyOff && !isWeeklyOffHalfDay) status = 'weekly_off';
+        if (isHoliday) status = 'holiday';
 
         // Check for full-day approved leave first
         const startOfDay = moment.utc(date).startOf('day').toDate();
@@ -127,29 +103,30 @@ class AttendanceEngine {
                 const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
                 const shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
 
-                // Late Mark Logic
-                const graceIn = shift.grace_in_minutes ?? company.attendance_config?.grace_in_minutes ?? 15;
-                const graceThreshold = shiftStart.clone().add(graceIn, 'minutes');
                 const punchInTime = moment(firstIn.punch_time).tz(tz);
+                const lateAllowed = shift.late_allowed_minutes || 0;
+                const earlyLeaveAllowed = shift.early_leave_allowed_minutes || 0;
 
-                if (punchInTime.isAfter(graceThreshold)) {
+                // Detect if buffer is exceeded
+                if (punchInTime.isAfter(shiftStart.clone().add(lateAllowed, 'minutes'))) {
                     isLate = true;
-                    lateMinutes = punchInTime.diff(graceThreshold, 'minutes');
+                    // If exceeded, calculate from actual shift start
+                    lateMinutes = punchInTime.diff(shiftStart, 'minutes');
                 }
 
-                // Early In Logic
+                // Early In Logic (No changes needed, but keeping for context)
                 if (punchInTime.isBefore(shiftStart)) {
                     isEarlyIn = true;
                     earlyInMinutes = shiftStart.diff(punchInTime, 'minutes');
                 }
 
-                // Early Exit Logic
+                // Early Exit Logic with Buffer
                 if (lastOut) {
-                    const graceOut = shift.grace_out_minutes ?? company.attendance_config?.grace_out_minutes ?? 15;
                     const punchOutTime = moment(lastOut.punch_time).tz(tz);
 
-                    if (punchOutTime.isBefore(shiftEnd.clone().subtract(graceOut, 'minutes'))) {
+                    if (punchOutTime.isBefore(shiftEnd.clone().subtract(earlyLeaveAllowed, 'minutes'))) {
                         isEarlyExit = true;
+                        // If exceeded, calculate from actual shift end
                         earlyExitMinutes = shiftEnd.diff(punchOutTime, 'minutes');
                     }
                 }
@@ -173,6 +150,14 @@ class AttendanceEngine {
                     effectiveHours += Math.max(0, now.diff(inTime, 'hours', true));
                 }
 
+                // Half-Day weekly off: only 50% of normal hours required
+                let adjustedFullDay = fullDayThreshold;
+                let adjustedHalfDay = halfDayThreshold;
+                if (isWeeklyOffHalfDay) {
+                    adjustedFullDay = fullDayThreshold / 2;
+                    adjustedHalfDay = halfDayThreshold / 2;
+                }
+
                 // --- ADVANCED HALF-DAY INTEGRATION ---
                 // Query for approved half-day leaves on this date
                 const startOfDay = moment.utc(date).startOf('day').toDate();
@@ -193,25 +178,22 @@ class AttendanceEngine {
                 if (isHalfDayByLeave) {
                     isHalfDayFlag = true;
                     leaveId = leave._id;
-                    // If they have half day leave AND worked half day, they are PRESENT (Total 1.0)
-                    if (effectiveHours > halfDayThreshold) {
+                    if (effectiveHours > adjustedHalfDay) {
                          status = 'present';
                     } else {
                          status = 'half_day';
                     }
-                } else if (effectiveHours >= fullDayThreshold) {
+                } else if (effectiveHours >= adjustedFullDay) {
                     status = 'present';
-                } else if (effectiveHours <= halfDayThreshold) {
-                    // Automatically mark as half-day if day is over/shift over/punched out
+                } else if (effectiveHours <= adjustedHalfDay) {
                     if (!isToday || isShiftOver || isCurrentlyPunchedOut) {
-                        status = 'half_day';
+                        status = isWeeklyOffHalfDay ? 'half_day' : 'half_day';
                         isHalfDayFlag = true;
-                        isLate = false; 
+                        isLate = false;
                     } else {
-                        status = 'present'; 
+                        status = 'present';
                     }
                 } else {
-                    // Between half and full threshold (e.g. 5 hours if thresholds are 4 and 8)
                     if (!isToday || isShiftOver || isGapTooLarge || isCurrentlyPunchedOut) {
                          status = 'half_day';
                          isHalfDayFlag = true;
@@ -221,7 +203,13 @@ class AttendanceEngine {
                     }
                 }
 
+                if (!isToday && lastInPunch && status === 'present') {
+                    status = 'incomplete';
+                    isHalfDayFlag = false;
+                }
+
                 recordIsHalfDay = isHalfDayFlag;
+
             }
 
             // Overtime Calculation
@@ -260,7 +248,6 @@ class AttendanceEngine {
                     shift_id: shift ? (shift._id?._id || shift._id) : null,
                     first_in: firstIn.punch_time,
                     last_out: lastOut ? lastOut.punch_time : null,
-                    is_auto_punch_out: lastOut?.punch_method === 'auto',
                     total_punches: punches.length,
                     total_work_hours: totalWorkHours,
                     status: status,
@@ -268,8 +255,6 @@ class AttendanceEngine {
                     late_by_minutes: lateMinutes,
                     is_early_exit: isEarlyExit,
                     early_exit_minutes: earlyExitMinutes,
-                    is_early_in: isEarlyIn,
-                    early_in_minutes: earlyInMinutes,
                     overtime_hours: overtimeHours,
                     year_month: moment.utc(date).format('YYYY-MM'),
                     processed_at: new Date(),
@@ -317,7 +302,6 @@ class AttendanceEngine {
                     leave_application_id: leaveId,
                     year_month: moment.utc(date).format('YYYY-MM'),
                     total_work_hours: 0,
-                    is_auto_punch_out: false,
                     processed_at: new Date(),
                     processed_by: 'system'
                 },

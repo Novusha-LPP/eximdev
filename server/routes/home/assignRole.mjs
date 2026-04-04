@@ -2,10 +2,11 @@ import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import requireAllowedAdmin from "../../middleware/requireAllowedAdmin.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
 const router = express.Router();
 
-router.post("/api/assign-role", authMiddleware, async (req, res) => {
+router.post("/api/assign-role", authMiddleware, requireAllowedAdmin, async (req, res) => {
   const { username, role } = req.body;
 
   try {

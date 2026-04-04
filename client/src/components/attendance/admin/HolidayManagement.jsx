@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiPlus, FiTrash2, FiCalendar, FiArrowLeft, FiChevronLeft, FiChevronRight, FiList } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { Modal } from 'antd';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
 import EnterpriseTable from '../common/EnterpriseTable';
@@ -271,8 +272,13 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
   const loadHolidays = async () => {
     try {
       setLoadingHolidays(true);
-      const res = await masterAPI.getHolidays({ limit: 1000 });
-      setHolidays(res.data || []);
+      // readOnly = employee/HOD view: use team-resolved holiday list
+      // admin view: use full getHolidays
+      const year = currentDate.getFullYear();
+      const res = readOnly
+        ? await masterAPI.getMyHolidays(year)
+        : await masterAPI.getHolidays({ limit: 1000 });
+      setHolidays((readOnly ? res.data : res.data) || []);
       setLoadingHolidays(false);
     } catch (err) {
       console.error('Holiday load error:', err);
@@ -361,14 +367,23 @@ const HolidayManagement = ({ embedded = false, readOnly = false }) => {
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await masterAPI.deleteHoliday(id);
-      toast.success('Holiday deleted successfully');
-      loadHolidays();
-    } catch (err) {
-      toast.error(err.message || 'Failed to delete holiday');
-    }
+  const handleDelete = (id) => {
+    Modal.confirm({
+      title: 'Delete Holiday',
+      content: 'Are you sure you want to delete this holiday? This action cannot be undone.',
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'No',
+      onOk: async () => {
+        try {
+          await masterAPI.deleteHoliday(id);
+          toast.success('Holiday deleted successfully');
+          loadHolidays();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete holiday');
+        }
+      }
+    });
   };
 
 

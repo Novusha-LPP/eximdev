@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch } from 'react-icons/fi';
+import { Modal } from 'antd';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
 import UserMigrationModal from './UserMigrationModal';
@@ -152,15 +153,23 @@ const CompanyManagement = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this company? This cannot be undone.")) return;
-        try {
-            await masterAPI.deleteCompany(id);
-            toast.success("Company deleted");
-            fetchData();
-        } catch (err) {
-            toast.error(err.response?.data?.message || err.message);
-        }
+    const handleDelete = (id) => {
+        Modal.confirm({
+            title: 'Delete Organization',
+            content: 'Are you sure you want to delete this company? This action cannot be undone and may affect associated users and records.',
+            okText: 'Delete',
+            okType: 'danger',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                try {
+                    await masterAPI.deleteCompany(id);
+                    toast.success("Company deleted");
+                    fetchData();
+                } catch (err) {
+                    toast.error(err.response?.data?.message || err.message);
+                }
+            }
+        });
     };
 
     const handleMigrate = async (migrationData) => {

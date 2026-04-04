@@ -95,6 +95,29 @@ const attendanceAPI = {
     }
   },
 
+  approveRegularizationById: async (id, approval_remarks = '') => {
+    try {
+      const response = await apiClient.post(`/attendance/regularization/approve/${id}`, {
+        approval_remarks
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to approve regularization request' };
+    }
+  },
+
+  calculateDailyAttendance: async (employee_id, attendance_date) => {
+    try {
+      const response = await apiClient.post('/attendance/calculate-daily', {
+        employee_id,
+        attendance_date
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to recalculate attendance' };
+    }
+  },
+
   /**
    * Get HOD Dashboard Data (also used for HOD leave approvals)
    * Admins can pass ?teamId to filter
@@ -299,6 +322,30 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch leave requests' };
+    }
+  },
+
+  /**
+   * Migrate employee to a different organization
+   */
+  migrateEmployee: async (employeeId, destinationOrgId) => {
+    try {
+      const response = await apiClient.post(`/attendance/migrate/${employeeId}`, { destinationOrgId });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to migrate employee' };
+    }
+  },
+
+  /**
+   * Bulk assign policies to all employees in an organization
+   */
+  bulkAssignPolicies: async (companyId, policyIds) => {
+    try {
+      const response = await apiClient.post(`/attendance/organizations/${companyId}/bulk-assign-policies`, { policyIds });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to assign policies' };
     }
   }
 };

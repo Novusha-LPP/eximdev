@@ -3,31 +3,27 @@ import UserModel from "../../model/userModel.mjs";
 import BranchModel from "../../model/branchModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import requireAllowedAdmin from "../../middleware/requireAllowedAdmin.mjs";
 
 const router = express.Router();
 
 // Route to assign ICD Code to a user
-router.post("/api/admin/assign-icd-code", authMiddleware, auditMiddleware("User"), async (req, res) => {
+router.post("/api/admin/assign-icd-code", authMiddleware, requireAllowedAdmin, auditMiddleware("User"), async (req, res) => {
   const { username, selectedIcdCodes, adminUsername } = req.body;
 
   try {
     // Validation
-    if (!username || !selectedIcdCodes || !adminUsername) {
+    if (!username || !selectedIcdCodes) {
       return res.status(400).json({
-        message: "Username, selected ICD codes, and admin username are required"
+        message: "Username and selected ICD codes are required"
       });
     }
 
     // Ensure selectedIcdCodes is an array
     const icdCodesArray = Array.isArray(selectedIcdCodes) ? selectedIcdCodes : [selectedIcdCodes];
 
-    // Find the admin user
-    const adminUser = await UserModel.findOne({ username: adminUsername });
-    const allowedRoles = ["Admin", "Head_of_Department"];
-    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-      return res.status(403).json({
-        message: "Unauthorized. Admin or HOD privileges required."
-      });
+    if (adminUsername && String(adminUsername).toLowerCase() !== String(req.user?.username || '').toLowerCase()) {
+      return res.status(403).json({ message: 'Admin identity mismatch' });
     }
 
     // Find the target user
@@ -64,24 +60,20 @@ router.post("/api/admin/assign-icd-code", authMiddleware, auditMiddleware("User"
 });
 
 // Route to assign ICD Codes to all users
-router.post("/api/admin/assign-icd-code-to-all", authMiddleware, auditMiddleware("User"), async (req, res) => {
+router.post("/api/admin/assign-icd-code-to-all", authMiddleware, requireAllowedAdmin, auditMiddleware("User"), async (req, res) => {
   const { selectedIcdCodes, adminUsername } = req.body;
 
   try {
-    if (!selectedIcdCodes || !adminUsername) {
+    if (!selectedIcdCodes) {
       return res.status(400).json({
-        message: "Selected ICD codes and admin username are required"
+        message: "Selected ICD codes are required"
       });
     }
 
     const icdCodesArray = Array.isArray(selectedIcdCodes) ? selectedIcdCodes : [selectedIcdCodes];
 
-    const adminUser = await UserModel.findOne({ username: adminUsername });
-    const allowedRoles = ["Admin", "Head_of_Department"];
-    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-      return res.status(403).json({
-        message: "Unauthorized. Admin or HOD privileges required."
-      });
+    if (adminUsername && String(adminUsername).toLowerCase() !== String(req.user?.username || '').toLowerCase()) {
+      return res.status(403).json({ message: 'Admin identity mismatch' });
     }
 
     const branches = await BranchModel.find({ is_active: true });
@@ -110,24 +102,20 @@ router.post("/api/admin/assign-icd-code-to-all", authMiddleware, auditMiddleware
 });
 
 // Route to assign ICD Codes to selected users
-router.post("/api/admin/assign-icd-code-to-users", authMiddleware, auditMiddleware("User"), async (req, res) => {
+router.post("/api/admin/assign-icd-code-to-users", authMiddleware, requireAllowedAdmin, auditMiddleware("User"), async (req, res) => {
   const { userIds, selectedIcdCodes, adminUsername } = req.body;
 
   try {
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0 || !selectedIcdCodes || !adminUsername) {
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0 || !selectedIcdCodes) {
       return res.status(400).json({
-        message: "User IDs, selected ICD codes, and admin username are required"
+        message: "User IDs and selected ICD codes are required"
       });
     }
 
     const icdCodesArray = Array.isArray(selectedIcdCodes) ? selectedIcdCodes : [selectedIcdCodes];
 
-    const adminUser = await UserModel.findOne({ username: adminUsername });
-    const allowedRoles = ["Admin", "Head_of_Department"];
-    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-      return res.status(403).json({
-        message: "Unauthorized. Admin or HOD privileges required."
-      });
+    if (adminUsername && String(adminUsername).toLowerCase() !== String(req.user?.username || '').toLowerCase()) {
+      return res.status(403).json({ message: 'Admin identity mismatch' });
     }
 
     const branches = await BranchModel.find({ is_active: true });
@@ -156,24 +144,19 @@ router.post("/api/admin/assign-icd-code-to-users", authMiddleware, auditMiddlewa
 });
 
 // Route to remove ICD Code from a user
-router.post("/api/admin/remove-icd-code", authMiddleware, auditMiddleware("User"), async (req, res) => {
+router.post("/api/admin/remove-icd-code", authMiddleware, requireAllowedAdmin, auditMiddleware("User"), async (req, res) => {
   const { username, adminUsername, icdCodesToRemove } = req.body;
 
   try {
     // Validation
-    if (!username || !adminUsername) {
+    if (!username) {
       return res.status(400).json({
-        message: "Username and admin username are required"
+        message: "Username is required"
       });
     }
 
-    // Find the admin user
-    const adminUser = await UserModel.findOne({ username: adminUsername });
-    const allowedRoles = ["Admin", "Head_of_Department"];
-    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
-      return res.status(403).json({
-        message: "Unauthorized. Admin or HOD privileges required."
-      });
+    if (adminUsername && String(adminUsername).toLowerCase() !== String(req.user?.username || '').toLowerCase()) {
+      return res.status(403).json({ message: 'Admin identity mismatch' });
     }
 
     // Find the target user

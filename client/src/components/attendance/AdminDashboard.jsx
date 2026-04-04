@@ -229,7 +229,7 @@ const AdminDashboard = () => {
           </div>
           <div className="stat-tile-value">{stats.late ?? 0}</div>
           <div className="stat-tile-label">Late In</div>
-          <div className="stat-tile-sub">past grace period</div>
+          <div className="stat-tile-sub">after shift start</div>
         </div>
 
         <div className="stat-tile st-leave">
@@ -329,7 +329,7 @@ const AdminDashboard = () => {
         <div className="db-right">
 
           {/* Pending Approvals */}
-          <div className="db-card">
+          <div className="db-card clickable-card" onClick={() => navigate('/attendance/hod/leave-approval')}>
             <div className="db-card-header">
               <span className="db-card-title">
                 <FiAlertCircle size={13} className="db-card-title-icon" style={{ color: '#c87f0a' }} />
@@ -361,6 +361,7 @@ const AdminDashboard = () => {
                           rel="noreferrer"
                           style={{ marginLeft: 6, color: '#64748b' }}
                           title="View Document"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <FiFileText size={10} />
                         </a>
@@ -368,11 +369,11 @@ const AdminDashboard = () => {
                     </div>
                     <div className="approval-btns">
                       <button className="ab-approve" disabled={approving[req.id]}
-                        onClick={() => handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'approved')}>
+                        onClick={(e) => { e.stopPropagation(); handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'approved'); }}>
                         <FiCheck size={10} /> Approve
                       </button>
                       <button className="ab-reject" disabled={approving[req.id]}
-                        onClick={() => handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'rejected')}>
+                        onClick={(e) => { e.stopPropagation(); handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'rejected'); }}>
                         <FiX size={10} /> Reject
                       </button>
                     </div>

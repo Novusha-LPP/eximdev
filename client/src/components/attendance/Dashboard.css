@@ -430,6 +430,17 @@
   border-radius: var(--r);
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.clickable-card {
+  cursor: pointer;
+}
+
+.clickable-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+  border-color: var(--blue);
 }
 
 .card-head {

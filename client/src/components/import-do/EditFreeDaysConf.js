@@ -405,6 +405,41 @@ function EditFreeDaysConf() {
 
             {/* Form */}
             <form onSubmit={formik.handleSubmit}>
+                {/* Free Days Section */}
+                <div className="upload-container" style={{ marginTop: "20px" }}>
+                    <div className="section-header">
+                        <h3 className="section-title">Free Days Configuration</h3>
+                    </div>
+                    <div className="upload-content">
+                        <div className="row">
+                            <div className="col-md-6 form-field">
+                                <label className="field-label">Shipping Line / Airline</label>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    variant="outlined"
+                                    name="shipping_line_airline"
+                                    value={formik.values.shipping_line_airline || ""}
+                                    onChange={formik.handleChange}
+                                    placeholder="Enter Shipping Line / Airline"
+                                />
+                            </div>
+                            <div className="col-md-6 form-field">
+                                <label className="field-label">Free Time (Days)</label>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    variant="outlined"
+                                    type="number"
+                                    name="free_time"
+                                    value={formik.values.free_time || ""}
+                                    onChange={formik.handleChange}
+                                    placeholder="Enter Free Days"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Additional Charges Grid (Cost Tab only) */}
                 <Box sx={{ mb: 4, mt: 2 }}>

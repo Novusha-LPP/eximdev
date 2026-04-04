@@ -24,7 +24,7 @@ const s3Client = new S3Client({
 });
 
 // Middleware to check if user has access to HR/Marketing data
-const marketingOnly = async (req, res, next) => {
+const hrOrMarketingOnly = async (req, res, next) => {
     try {
         // Since JWT might not have latest modules/department, fetch from DB
         const user = await UserModel.findById(req.user._id).select('role department modules first_name last_name');
@@ -32,11 +32,12 @@ const marketingOnly = async (req, res, next) => {
         if (!user) return res.status(404).json({ message: "User not found" });
 
         const isMarketing = user.department === 'Marketing';
+        const isHR = user.department === 'HR';
         const isAdmin = user.role === 'Admin';
-        const hasMarketingModule = user.modules?.some(m => m.name === 'Update Employee Data');
+        const hasMarketingModule = user.modules?.includes('Update Employee Data');
 
-        if (!isAdmin && !isMarketing && !hasMarketingModule) {
-            return res.status(403).json({ message: "Access Denied: Marketing/Admin Only" });
+        if (!isAdmin && !isMarketing && !isHR && !hasMarketingModule) {
+            return res.status(403).json({ message: "Access Denied: HR/Marketing/Admin Only" });
         }
 
         req.full_name = `${user.first_name} ${user.last_name}`.trim();
@@ -48,9 +49,9 @@ const marketingOnly = async (req, res, next) => {
 };
 
 // Get active employees grouped by company
-router.get("/api/hr/active-by-company", authMiddleware, marketingOnly, async (req, res) => {
+router.get("/api/hr/active-by-company", authMiddleware, hrOrMarketingOnly, async (req, res) => {
     try {
-        const users = await UserModel.find({ isActive: true }, 'first_name last_name username company employee_photo employee_photo_updatedBy employee_photo_updatedAt email_signature email_signature_updatedBy email_signature_updatedAt marketing_assets department designation profile_photo_proof email_signature_proof is_verified');
+        const users = await UserModel.find({ isActive: { $ne: false } }, 'first_name last_name username company employee_photo employee_photo_updatedBy employee_photo_updatedAt email_signature email_signature_updatedBy email_signature_updatedAt marketing_assets department designation profile_photo_proof email_signature_proof is_verified');
         
         const grouped = users.reduce((acc, user) => {
             const company = user.company || "Other";
@@ -67,7 +68,7 @@ router.get("/api/hr/active-by-company", authMiddleware, marketingOnly, async (re
 });
 
 // Upload Asset (Profile Photo, Email Signature, or Variable)
-router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single('file'), auditMiddleware("UserAsset"), async (req, res) => {
+router.post("/api/hr/asset/upload", authMiddleware, hrOrMarketingOnly, upload.single('file'), auditMiddleware("UserAsset"), async (req, res) => {
     try {
         const { userId, assetType, assetName } = req.body; // assetType: 'photo', 'signature', 'variable'
         const file = req.file;
@@ -104,6 +105,7 @@ router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single
             user.employee_photo = fileUrl;
             user.employee_photo_updatedBy = req.full_name;
             user.employee_photo_updatedAt = new Date();
+            user.profile_photo_proof = null; // Clear proof on update
         } else if (assetType === 'signature') {
             // Delete old signature from S3 if exists
             if (user.email_signature && user.email_signature.includes(process.env.REACT_APP_S3_BUCKET)) {
@@ -112,6 +114,7 @@ router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single
             user.email_signature = fileUrl;
             user.email_signature_updatedBy = req.full_name;
             user.email_signature_updatedAt = new Date();
+            user.email_signature_proof = null; // Clear proof on update
         } else if (assetType === 'variable') {
             const existingAssetIndex = user.marketing_assets.findIndex(a => a.name === assetName);
             if (existingAssetIndex > -1) {
@@ -135,7 +138,7 @@ router.post("/api/hr/asset/upload", authMiddleware, marketingOnly, upload.single
 });
 
 // Delete Asset
-router.delete("/api/hr/asset/:userId/:assetId?", authMiddleware, marketingOnly, auditMiddleware("UserAsset"), async (req, res) => {
+router.delete("/api/hr/asset/:userId/:assetId?", authMiddleware, hrOrMarketingOnly, auditMiddleware("UserAsset"), async (req, res) => {
     try {
         const { userId, assetId = "" } = req.params;
         const { assetType } = req.query; // 'photo', 'signature', 'variable'
@@ -148,11 +151,13 @@ router.delete("/api/hr/asset/:userId/:assetId?", authMiddleware, marketingOnly, 
                 await deleteFromS3(user.employee_photo);
             }
             user.employee_photo = "";
+            user.profile_photo_proof = null; // Clear proof when photo is deleted
         } else if (assetType === 'signature') {
             if (user.email_signature && user.email_signature.includes(process.env.REACT_APP_S3_BUCKET)) {
                 await deleteFromS3(user.email_signature);
             }
             user.email_signature = "";
+            user.email_signature_proof = null; // Clear proof when signature is deleted
         } else if (assetType === 'variable') {
             const assetIndex = user.marketing_assets.findIndex(a => a._id.toString() === assetId);
             if (assetIndex > -1) {
@@ -162,6 +167,13 @@ router.delete("/api/hr/asset/:userId/:assetId?", authMiddleware, marketingOnly, 
                 }
                 user.marketing_assets.splice(assetIndex, 1);
             }
+        }
+
+        // Update is_verified status
+        if (user.profile_photo_proof?.status === 'Approved' && user.email_signature_proof?.status === 'Approved') {
+            user.is_verified = true;
+        } else {
+            user.is_verified = false;
         }
 
         await user.save();
@@ -186,7 +198,7 @@ router.get("/api/hr/global-assets", authMiddleware, async (req, res) => {
 });
 
 // Upload Global Asset
-router.post("/api/hr/global-asset/upload", authMiddleware, marketingOnly, upload.single('file'), auditMiddleware("GlobalAsset"), async (req, res) => {
+router.post("/api/hr/global-asset/upload", authMiddleware, hrOrMarketingOnly, upload.single('file'), auditMiddleware("GlobalAsset"), async (req, res) => {
     try {
         const { assetName, value, type } = req.body; // type: 'file' or 'text'
         const file = req.file;
@@ -226,7 +238,7 @@ router.post("/api/hr/global-asset/upload", authMiddleware, marketingOnly, upload
 });
 
 // Delete Global Asset
-router.delete("/api/hr/global-asset/:id", authMiddleware, marketingOnly, auditMiddleware("GlobalAsset"), async (req, res) => {
+router.delete("/api/hr/global-asset/:id", authMiddleware, hrOrMarketingOnly, auditMiddleware("GlobalAsset"), async (req, res) => {
     try {
         const { id } = req.params;
         const asset = await GlobalMarketingAsset.findById(id);
@@ -301,7 +313,7 @@ router.post("/api/user/marketing-proof-upload", authMiddleware, upload.single('f
 });
 
 // Marketing/Admin action on proof (Approve/Reject)
-router.post("/api/hr/marketing-proof-action", authMiddleware, marketingOnly, auditMiddleware("UserMarketingProofAction"), async (req, res) => {
+router.post("/api/hr/marketing-proof-action", authMiddleware, hrOrMarketingOnly, auditMiddleware("UserMarketingProofAction"), async (req, res) => {
     try {
         const { userId, assetType, action } = req.body; // action: 'Approved' or 'Rejected'
 

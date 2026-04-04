@@ -7,7 +7,7 @@ const router = express.Router();
 router.get("/api/me", verifyToken, async (req, res) => {
     try {
         const user = await UserModel.findById(req.user._id).select(
-            "username role can_access_exim_bot modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer assigned_importer_name selected_icd_codes is_verified"
+            "username role can_access_exim_bot modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer assigned_importer_name selected_icd_codes tenantId is_verified"
         );
 
         if (!user) {

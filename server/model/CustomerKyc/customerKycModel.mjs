@@ -433,6 +433,45 @@ const customerKycSchema = new Schema({
     type: String,
     required: false,
     trim: true
+  },
+  // CRM Sales Pipeline fields
+  crm_stage: {
+    type: String,
+    enum: ['suspect', 'prospect', 'qualified_lead', 'opportunity', 'customer'],
+    default: 'suspect'
+  },
+  estimated_revenue: {
+    type: Number,
+    required: false
+  },
+  service_interest: [{
+    type: String
+  }],
+  expected_closure_date: {
+    type: Date,
+    required: false
+  },
+  deal_probability: {
+    type: Number,
+    min: 0,
+    max: 100,
+    required: false
+  },
+  assigned_sales_rep: {
+    type: String,
+    required: false
+  },
+  lead_source: {
+    type: String,
+    required: false
+  },
+  last_activity_date: {
+    type: Date,
+    required: false
+  },
+  next_followup_date: {
+    type: Date,
+    required: false
   }
 }, {
   timestamps: true,
@@ -444,6 +483,7 @@ const customerKycSchema = new Schema({
 customerKycSchema.index({ iec_no: 1 });
 customerKycSchema.index({ approval: 1 });
 customerKycSchema.index({ draft: 1 });
+customerKycSchema.index({ crm_stage: 1 });
 customerKycSchema.index({ approved_by: 1 });
 customerKycSchema.index({ category: 1 });
 customerKycSchema.index({ createdAt: -1 });

@@ -188,12 +188,11 @@ router.patch("/api/update-free-days-config", async (req, res) => {
     }
 
     // Build update object with only provided fields
-    const updateFields = {
-      is_free_time_updated: true,
-    };
+    const updateFields = {};
 
-    if (free_time !== undefined) {
+    if (free_time !== undefined && free_time !== "") {
       updateFields.free_time = free_time;
+      updateFields.is_free_time_updated = true;
     }
 
     if (do_shipping_line_invoice !== undefined) {

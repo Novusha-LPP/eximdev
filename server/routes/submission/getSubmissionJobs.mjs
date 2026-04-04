@@ -81,7 +81,8 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
         ...baseConditions,
         {
           $or: [
-            // LCL conditions
+            { is_sent_to_submission: true },
+            // FCL conditions
             {
               $and: [
                 { consignment_type: "FCL" },
@@ -95,7 +96,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
                 { is_checklist_aprroved: { $exists: true, $ne: false } },
               ],
             },
-            // FCL conditions
+            // LCL conditions
             {
               $and: [
                 { consignment_type: "LCL" },

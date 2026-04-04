@@ -13,6 +13,17 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization'
+  },
+  crmRole: {
+    type: String,
+    enum: ['Admin', 'Manager', 'Sales Rep', 'Viewer'],
+    default: 'Sales Rep'
+  },
+  quota: { type: Number, default: 0 },
+  teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
   gender: {
     type: String,
     enum: ['male', 'female', 'other'],

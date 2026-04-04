@@ -44,6 +44,7 @@ const SeaCargoStatus = ({
   masterBlNo,
   jobId,
   isExtended,
+  branchCode,
   onUpdateSuccess,
 }) => {
   const theme = useTheme();
@@ -290,15 +291,24 @@ const SeaCargoStatus = ({
         updateData.no_of_pkgs = summary.totalPackage;
       }
 
-      // Only add gateway_igm if valid
+      // IGM Fields mapping based on branch
+      const isAmdBranch = branchCode?.toUpperCase()?.startsWith("AMD");
+
       if (isValidValue(summary.igmNo)) {
-        updateData.gateway_igm = summary.igmNo;
+        if (isAmdBranch) {
+          updateData.gateway_igm = summary.igmNo;
+        } else {
+          updateData.igm_no = summary.igmNo;
+        }
       }
 
-      // Only add gateway_igm_date if the formatted date is valid
       const formattedIgmDate = formatDateForDatabase(summary.igmDate);
       if (isValidValue(formattedIgmDate)) {
-        updateData.gateway_igm_date = formattedIgmDate;
+        if (isAmdBranch) {
+          updateData.gateway_igm_date = formattedIgmDate;
+        } else {
+          updateData.igm_date = formattedIgmDate;
+        }
       }
 
       // Check if we have any valid data to update

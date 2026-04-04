@@ -7,9 +7,9 @@
   "scripts": {
     "build": "npm i",
     "start": "nodemon",
-    "start:dev": "NODE_ENV=development nodemon",
-    "start:server": "NODE_ENV=server nodemon",
-    "start:prod": "NODE_ENV=production nodemon",
+    "start:dev": "npx cross-env NODE_ENV=development nodemon",
+    "start:server": "npx cross-env NODE_ENV=server nodemon",
+    "start:prod": "npx cross-env NODE_ENV=production nodemon",
     "lint": "eslint ."
   },
   "dependencies": {

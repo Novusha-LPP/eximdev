@@ -246,6 +246,8 @@ import teamRoutes from "./routes/team/teamRoutes.mjs";
 // DGFT Module
 import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
+// CRM Module
+import crmRoutes from "./routes/crm/crmRoutes.mjs";
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
@@ -332,6 +334,7 @@ app.use(
     origin: [
       "http://eximdev.s3-website.ap-south-1.amazonaws.com",
       "http://localhost:3000",
+      "http://192.168.1.105:3000",
       "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       "https://import.alvision.in",
       "https://test-frontend.alvision.in"
@@ -346,6 +349,8 @@ app.use(
       "username",
       "user-role",
       "x-username",
+      "x-tenant-id",
+      "x-tenant-slug",
       "x-api-key",
     ],
 
@@ -567,6 +572,9 @@ app.use(teamRoutes);
 // DGFT Module
 app.use(dgftRoutes);
 
+// CRM Module (existing)
+app.use("/api/crm", crmRoutes);
+
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
@@ -687,8 +695,8 @@ if (cluster.isPrimary) {
           }
         });
 
-        server.listen(9006, () => {
-          console.log(`🟢 Server listening on http://localhost:${9006}`);
+        server.listen(9006, "0.0.0.0", () => {
+          console.log(`🟢 Server listening on port ${9006}`);
         });
       })
       .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));

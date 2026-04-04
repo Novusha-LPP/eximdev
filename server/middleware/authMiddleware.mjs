@@ -5,7 +5,15 @@ import { context } from "../utils/context.mjs";
 dotenv.config();
 
 const verifyToken = (req, res, next) => {
-    const token = req.cookies.token;
+    // Check for token in cookies or Authorization header
+    let token = req.cookies.token;
+    
+    if (!token && req.headers.authorization) {
+        const parts = req.headers.authorization.split(' ');
+        if (parts.length === 2 && parts[0] === 'Bearer') {
+            token = parts[1];
+        }
+    }
 
     if (!token) {
         return res.status(401).json({ message: "Access Denied: No Token Provided" });

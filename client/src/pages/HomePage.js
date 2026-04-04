@@ -173,6 +173,9 @@ import DgftTabs from "../components/dgft/DgftTabs.js";
 import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.js";
 
+// CRM Module
+import CRMModule from "../components/crm/CRMModule.jsx";
+
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 
@@ -413,6 +416,17 @@ function HomePageContent() {
                   }
                 />
 
+              {/* DGFT Module */}
+              <Route path="/dgft" element={<DgftTabs />} />
+
+              {/* CRM Module */}
+              <Route
+                path="/crm"
+                element={
+                  <CRMModule />
+                }
+              />
+       
                 {/* Exit Feedback */}
                 <Route
                   path="/exit-feedback"

@@ -76,23 +76,41 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
       if (job && job.job_number) canonicalJobNo = job.job_number;
     }
 
-    let count = 0;
+    let maxIndex = 0;
     let prefix = "";
     if (type === "purchase") {
-      count = await PurchaseBookEntryModel.countDocuments({ 
+      const existing = await PurchaseBookEntryModel.find({ 
         $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }] 
+      }, { entryNo: 1 }).lean();
+      
+      existing.forEach(entry => {
+        const parts = (entry.entryNo || "").split('/');
+        const match = (parts[0] || "").match(/\d+/);
+        if (match) {
+          const idx = parseInt(match[0], 10);
+          if (idx > maxIndex) maxIndex = idx;
+        }
       });
       prefix = "PB";
     } else if (type === "payment") {
-      count = await PaymentRequestModel.countDocuments({ 
+      const existing = await PaymentRequestModel.find({ 
         $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }] 
+      }, { requestNo: 1 }).lean();
+      
+      existing.forEach(reqObj => {
+        const parts = (reqObj.requestNo || "").split('/');
+        const match = (parts[0] || "").match(/\d+/);
+        if (match) {
+          const idx = parseInt(match[0], 10);
+          if (idx > maxIndex) maxIndex = idx;
+        }
       });
       prefix = "R";
     } else {
       return res.status(400).json({ error: "Invalid type. Must be 'purchase' or 'payment'" });
     }
 
-    const nextIndex = (count + 1).toString().padStart(2, '0');
+    const nextIndex = (maxIndex + 1).toString().padStart(2, '0');
     const fullNo = `${prefix}${nextIndex}/${canonicalJobNo}`;
 
     res.status(200).json({ 

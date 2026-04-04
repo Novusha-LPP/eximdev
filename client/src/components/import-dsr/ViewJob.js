@@ -134,6 +134,29 @@ function JobDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const [openManualSubmissionDialog, setOpenManualSubmissionDialog] = useState(false);
+
+  const handleManualSubmissionToggle = () => {
+    const isCurrentlySent = formik.values.is_sent_to_submission;
+    if (!isCurrentlySent) {
+      setOpenManualSubmissionDialog(true);
+    } else {
+      formik.setFieldValue("is_sent_to_submission", false);
+      formik.setFieldValue("sent_to_submission_user_name", "");
+      formik.setFieldValue("sent_to_submission_date_time", "");
+    }
+  };
+
+  const confirmManualSubmission = () => {
+    const now = new Date();
+    const formattedDateTime = format(now, "dd/MM/yyyy HH:mm:ss");
+    const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.username || "Unknown User";
+
+    formik.setFieldValue("is_sent_to_submission", true);
+    formik.setFieldValue("sent_to_submission_user_name", fullName);
+    formik.setFieldValue("sent_to_submission_date_time", formattedDateTime);
+    setOpenManualSubmissionDialog(false);
+  };
   const { setTabValue } = React.useContext(TabValueContext);
   const { setSearchQuery, setSelectedImporter } = useSearchQuery();
 
@@ -1646,6 +1669,43 @@ function JobDetails() {
                 </Row>
               </div>
               {/* completion status end  */}
+
+              {/* Sent to Dock Status Block */}
+              <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                  Sent to Submission Status
+                </h6>
+                <Row className="align-items-center">
+                  <Col xs={12} md={6} lg={4}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formik.values.is_sent_to_submission}
+                            onChange={handleManualSubmissionToggle}
+                            color="primary"
+                          />
+                        }
+                        label={<span style={{ fontWeight: '600', fontSize: '0.95rem' }}>Its sent to submission</span>}
+                      />
+                    </div>
+                  </Col>
+                  {formik.values.is_sent_to_submission && (
+                    <>
+                      <Col xs={12} md={6} lg={4}>
+                        <Typography variant="body2" style={{ fontWeight: '600', color: '#6c757d' }}>
+                          Sent By: <span style={{ color: '#212529' }}>{formik.values.sent_to_submission_user_name || "N/A"}</span>
+                        </Typography>
+                      </Col>
+                      <Col xs={12} md={6} lg={4}>
+                        <Typography variant="body2" style={{ fontWeight: '600', color: '#6c757d' }}>
+                          Time: <span style={{ color: '#212529' }}>{formik.values.sent_to_submission_date_time || "N/A"}</span>
+                        </Typography>
+                      </Col>
+                    </>
+                  )}
+                </Row>
+              </div>
             </>
           )}
 
@@ -4215,6 +4275,35 @@ function JobDetails() {
             variant="contained"
           >
             Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manual Submission Warning Dialog */}
+      <Dialog
+        open={openManualSubmissionDialog}
+        onClose={() => setOpenManualSubmissionDialog(false)}
+        aria-labelledby="manual-submission-dialog-title"
+      >
+        <DialogTitle id="manual-submission-dialog-title" style={{ color: '#d32f2f', fontWeight: 'bold' }}>
+          Warning: Manual Submission Override
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to mark this job as **"Sent to Submission"** manually?
+            This will bypass the standard system validations for this job. Your name and the current timestamp will be recorded.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenManualSubmissionDialog(false)} color="primary">
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmManualSubmission}
+            color="error"
+            variant="contained"
+          >
+            Confirm & Send
           </Button>
         </DialogActions>
       </Dialog>

@@ -437,6 +437,9 @@ function useFetchJobDetails(
         landing_charge: { rate: 1 }
       },
       misc_charges: [],
+      is_sent_to_submission: false,
+      sent_to_submission_user_name: "",
+      sent_to_submission_date_time: "",
     },
     onSubmit: async (values) => {
       // Filter documents that are sent to e-Sanchit
@@ -615,6 +618,9 @@ function useFetchJobDetails(
           dsr_queries: values.dsr_queries,
           other_charges_details: values.other_charges_details,
           misc_charges: values.misc_charges,
+          is_sent_to_submission: values.is_sent_to_submission,
+          sent_to_submission_user_name: values.sent_to_submission_user_name,
+          sent_to_submission_date_time: values.sent_to_submission_date_time,
         },
         { headers }
       );
@@ -798,6 +804,9 @@ function useFetchJobDetails(
         no_of_pkgs: safeValue(data.no_of_pkgs),
         unit: safeValue(data.unit),
         hss: safeValue(data.hss),
+        is_sent_to_submission: safeValue(data.is_sent_to_submission, false),
+        sent_to_submission_user_name: safeValue(data.sent_to_submission_user_name, ""),
+        sent_to_submission_date_time: safeValue(data.sent_to_submission_date_time, ""),
         saller_name: safeValue(data.saller_name),
         hss_address: safeValue(data.hss_address),
         hss_address_details: safeValue(data.hss_address_details),

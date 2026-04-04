@@ -683,6 +683,9 @@ const jobSchema = new mongoose.Schema({
   verified_checklist_upload: [{ type: String, trim: true }],
   verified_checklist_upload_date_and_time: { type: String },
   submission_completed_date_time: { type: String },
+  is_sent_to_submission: { type: Boolean, default: false },
+  sent_to_submission_user_name: { type: String },
+  sent_to_submission_date_time: { type: String },
   job_sticker_upload: [{ type: String, trim: true }],
   job_sticker_upload_date_and_time: { type: String },
 

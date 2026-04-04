@@ -541,7 +541,7 @@ router.get(
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { "charges.payment_request_no": { $exists: true, $ne: "" } }
+          { charges: { $elemMatch: { payment_request_no: { $exists: true, $ne: "" } } } }
         ],
       };
 
@@ -575,13 +575,7 @@ router.get(
       }
 
       if (search && search.trim()) {
-        matchConditions.$and.push({
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { be_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-          ],
-        });
+        matchConditions.$and.push(buildSearchQuery(search.trim()));
       }
 
       const pipeline = [
@@ -799,8 +793,7 @@ router.get(
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { "charges.payment_request_no": { $exists: true, $ne: "" } },
-          { "charges.payment_request_is_approved": true }
+          { charges: { $elemMatch: { payment_request_no: { $exists: true, $ne: "" }, payment_request_is_approved: true } } }
         ],
       };
 
@@ -822,13 +815,7 @@ router.get(
       matchConditions.$and.push(branchMatch);
 
       if (search && search.trim()) {
-        matchConditions.$and.push({
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { be_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-          ],
-        });
+        matchConditions.$and.push(buildSearchQuery(search.trim()));
       }
 
       const pipeline = [
@@ -923,7 +910,7 @@ router.get(
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { "charges.payment_request_no": { $exists: true, $ne: "" } }
+          { charges: { $elemMatch: { payment_request_no: { $exists: true, $ne: "" } } } }
         ],
       };
 
@@ -974,13 +961,7 @@ router.get(
       matchConditions.$and.push(branchMatch);
 
       if (search && search.trim()) {
-        matchConditions.$and.push({
-          $or: [
-            { job_no: { $regex: search, $options: "i" } },
-            { be_no: { $regex: search, $options: "i" } },
-            { importer: { $regex: search, $options: "i" } },
-          ],
-        });
+        matchConditions.$and.push(buildSearchQuery(search.trim()));
       }
 
       const pipeline = [

@@ -246,43 +246,62 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
 
     // Charges Attachments
     if (charges && charges.length > 0) {
-      let chargeItems = [];
+      const urlToDetails = new Map(); // url -> { chargeHeads: Set, types: Set, indices: Set }
+
+      // First pass: collect all occurrences of each URL
       charges.forEach((charge) => {
         const { chargeHead, revenue, cost } = charge;
 
-        // Add revenue URLs
-        if (revenue && Array.isArray(revenue.url)) {
-          revenue.url.forEach((url, i) => {
-            if (url) {
-              chargeItems.push({
-                type: "item",
-                label: `${chargeHead} - ${
-                  revenue.url.length > 1 ? `Rev ${i + 1}` : "Revenue"
-                }`,
-                url: url,
-                key: `charge-rev-${charge._id}-${i}`,
-                icon: <DescriptionIcon fontSize="small" />,
-              });
-            }
-          });
+        const processPart = (part, type) => {
+          if (part && Array.isArray(part.url)) {
+            part.url.forEach((url, i) => {
+              if (!url) return;
+              if (!urlToDetails.has(url)) {
+                urlToDetails.set(url, {
+                  chargeHeads: new Set(),
+                  types: new Set(),
+                  indices: new Set(),
+                  chargeId: charge._id, // Use the first charge ID for the key
+                });
+              }
+              const details = urlToDetails.get(url);
+              details.chargeHeads.add(chargeHead);
+              details.types.add(type);
+              if (part.url.length > 1) {
+                details.indices.add(i + 1);
+              }
+            });
+          }
+        };
+
+        processPart(revenue, "Rev");
+        processPart(cost, "Cost");
+      });
+
+      // Second pass: build the items with combined labels
+      const chargeItems = [];
+      urlToDetails.forEach((details, url) => {
+        const heads = Array.from(details.chargeHeads).join(", ");
+        const types = Array.from(details.types).join(" & ");
+        const indices = Array.from(details.indices).join(", ");
+        
+        // Build a smart label
+        // Example: "M S C (Rev & Cost)" or "M S C - Rev 1, 2"
+        let label = heads;
+        if (details.types.size > 0 || details.indices.size > 0) {
+          const suffixParts = [];
+          if (details.types.size > 0) suffixParts.push(types);
+          if (details.indices.size > 0) suffixParts.push(`Part ${indices}`);
+          label += ` (${suffixParts.join(" - ")})`;
         }
 
-        // Add cost URLs
-        if (cost && Array.isArray(cost.url)) {
-          cost.url.forEach((url, i) => {
-            if (url) {
-              chargeItems.push({
-                type: "item",
-                label: `${chargeHead} - ${
-                  cost.url.length > 1 ? `Cost ${i + 1}` : "Cost"
-                }`,
-                url: url,
-                key: `charge-cost-${charge._id}-${i}`,
-                icon: <DescriptionIcon fontSize="small" />,
-              });
-            }
-          });
-        }
+        chargeItems.push({
+          type: "item",
+          label: label,
+          url: url,
+          key: `charge-doc-${url.split('/').pop()}`, // Use filename for stable key
+          icon: <DescriptionIcon fontSize="small" />,
+        });
       });
 
       if (chargeItems.length > 0) {

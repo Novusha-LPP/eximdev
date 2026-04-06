@@ -11,13 +11,61 @@ import toast from 'react-hot-toast';
 import './Attendance.css';
 
 /* -- helpers -- */
-const fmtH = h => h != null && h > 0
-  ? `${Math.floor(h)}h ${String(Math.round((h % 1) * 60)).padStart(2,'0')}m`
-  : null;
+const fmtH = (hours) => {
+  if (hours == null || Number.isNaN(hours)) return null;
+  const safeHours = Math.max(0, Number(hours));
+  return `${Math.floor(safeHours)}h ${String(Math.round((safeHours % 1) * 60)).padStart(2, '0')}m`;
+};
+
+const toHours = (value) => {
+  if (value == null || value === '') return null;
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const hmMatch = trimmed.match(/^(\d+)\s*h(?:\s*(\d+)\s*m)?$/i);
+    if (hmMatch) {
+      const h = Number(hmMatch[1] || 0);
+      const m = Number(hmMatch[2] || 0);
+      return h + (m / 60);
+    }
+
+    const parsed = Number(trimmed);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return null;
+};
+
+const getWorkHours = (row) => {
+  const directHours = toHours(row.total_work_hours ?? row.work_hours ?? row.hours);
+  if (directHours != null) return Math.max(0, directHours);
+
+  const totalMinutes = toHours(row.total_work_minutes ?? row.work_minutes ?? row.duration_minutes);
+  if (totalMinutes != null) return Math.max(0, totalMinutes / 60);
+
+  if (row.first_in && row.last_out) {
+    const inTs = new Date(row.first_in).getTime();
+    const outTs = new Date(row.last_out).getTime();
+    if (Number.isFinite(inTs) && Number.isFinite(outTs) && outTs >= inTs) {
+      return (outTs - inTs) / (1000 * 60 * 60);
+    }
+  }
+
+  return null;
+};
 
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
-const pct = (h, t = 9) => Math.min(100, Math.round(((h || 0) / t) * 100));
+const pct = (hours, targetHours = 9) => {
+  const safeHours = Number.isFinite(Number(hours)) ? Number(hours) : 0;
+  return Math.min(100, Math.round((safeHours / targetHours) * 100));
+};
 
 const rowClass = (r) => {
   if (!r.status || r.status === 'weekly_off' || r.status === 'holiday') return 'row-off';
@@ -54,7 +102,7 @@ const Attendance = ({ employeeId }) => {
   const [filter,   setFilter]   = useState('all');
   const [page,     setPage]     = useState({ cur: 1, per: 25, total: 0 });
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [employeeId, user?.id, user?._id]);
   useEffect(() => { process(); }, [selMonth, filter, page.cur, all]);
 
   const load = async () => {
@@ -84,21 +132,24 @@ const Attendance = ({ employeeId }) => {
       f = filter === 'late' ? f.filter(r => r.is_late) : f.filter(r => r.status === filter);
     }
 
-    const worked = mo.filter(r => r.total_work_hours > 0);
+    const moWithHours = mo.map((r) => ({ ...r, _workHours: getWorkHours(r) }));
+    const worked = moWithHours.filter(r => (r._workHours || 0) > 0);
     setStats({
-      present:  mo.filter(r => ['present', 'half_day'].includes(r.status)).length,
-      absent:   mo.filter(r => r.status === 'absent').length,
-      late:     mo.filter(r => r.is_late).length,
-      earlyIn:  mo.filter(r => r.is_early_in).length,
-      earlyOut: mo.filter(r => r.is_early_exit).length,
-      leave:    mo.filter(r => r.status === 'leave').length,
-      half:     mo.filter(r => r.status === 'half_day').length,
-      avg:      worked.length ? mo.reduce((s, r) => s + (r.total_work_hours || 0), 0) / worked.length : 0,
+      present:  moWithHours.filter(r => ['present', 'half_day'].includes(r.status)).length,
+      absent:   moWithHours.filter(r => r.status === 'absent').length,
+      late:     moWithHours.filter(r => r.is_late).length,
+      earlyIn:  moWithHours.filter(r => r.is_early_in).length,
+      earlyOut: moWithHours.filter(r => r.is_early_exit).length,
+      leave:    moWithHours.filter(r => r.status === 'leave').length,
+      half:     moWithHours.filter(r => r.status === 'half_day').length,
+      avg:      worked.length
+        ? worked.reduce((sum, r) => sum + (r._workHours || 0), 0) / worked.length
+        : 0,
     });
 
     setPage(p => ({ ...p, total: f.length }));
     const s = (page.cur - 1) * page.per;
-    setRows(f.slice(s, s + page.per));
+    setRows(f.slice(s, s + page.per).map((r) => ({ ...r, _workHours: getWorkHours(r) })));
   };
 
   const goMonth  = v => { setSelMonth(v); setPage(p => ({ ...p, cur: 1 })); };
@@ -122,7 +173,7 @@ const Attendance = ({ employeeId }) => {
         r.is_late      ? minutesToHours(r.late_by_minutes)    : '--',
         r.is_early_in  ? minutesToHours(r.early_in_minutes)   : '--',
         r.is_early_exit? minutesToHours(r.early_exit_minutes) : '--',
-        fmtH(r.total_work_hours) || '--',
+        fmtH(getWorkHours(r)) || '--',
         badgeLabel(r),
       ]),
     ].map(r => r.join(',')).join('\n');
@@ -221,7 +272,8 @@ const Attendance = ({ employeeId }) => {
                 </thead>
                 <tbody>
                   {rows.length > 0 ? rows.map((r, i) => {
-                    const p  = pct(r.total_work_hours);
+                    const workHours = r._workHours ?? getWorkHours(r);
+                    const p  = pct(workHours);
                     const fc = p >= 90 ? '' : p >= 50 ? 'mid' : 'low';
                     const isMiss = r.is_auto_punch_out || (!r.last_out && r.first_in &&
                       new Date(r.attendance_date) < new Date().setHours(0, 0, 0, 0));
@@ -286,9 +338,9 @@ const Attendance = ({ employeeId }) => {
 
                         {/* Hours */}
                         <td>
-                          {r.total_work_hours ? (
+                          {workHours != null ? (
                             <div className="cell-hours">
-                              <span className="cell-hours-val">{fmtH(r.total_work_hours)}</span>
+                              <span className="cell-hours-val">{fmtH(workHours)}</span>
                               <div className="hbar">
                                 <div className={`hbar-fill ${fc}`} style={{ width: `${p}%` }} />
                               </div>

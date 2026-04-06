@@ -641,7 +641,8 @@ export const approveRequest = async (req, res) => {
                     || requesterRoleNorm === 'HEADOFDEPARTMENT'
                     || requesterRoleNorm === 'ADMIN';
 
-                const canFinalize = ['hod_approved_pending_admin', 'pending'].includes(application.approval_status)
+                const canFinalize = (isAllowedAdmin && ['pending_hod', 'hod_approved_pending_admin', 'pending'].includes(application.approval_status))
+                    || ['hod_approved_pending_admin', 'pending'].includes(application.approval_status)
                     || (application.approval_status === 'pending_hod' && requesterIsHodOrAdmin);
 
                 if (!canFinalize) {

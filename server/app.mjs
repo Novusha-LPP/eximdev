@@ -280,6 +280,7 @@ import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
 import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
 // scmCube API
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
+import uploadToImexcube from "./routes/scmCube/uploadToImexcube.mjs";
 
 
 
@@ -611,6 +612,7 @@ app.use('/uploads/leaves', express.static(
 // ─────────────────────────────────────────────────────────────────────────────
 // scmCube API
 app.use(scmCubeRoutes);
+app.use(uploadToImexcube);
 
 
 

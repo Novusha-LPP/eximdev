@@ -6,6 +6,10 @@ import { Chip } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import axios from 'axios';
 import './charges.css';
+import { generatePurchaseBookPDF } from '../../utils/purchaseBookPrint';
+import logo from '../../assets/images/logo.webp';
+import PrintIcon from '@mui/icons-material/Print';
+import { IconButton } from '@mui/material';
 
 const EditChargeModal = ({ 
   isOpen, 
@@ -22,7 +26,8 @@ const EditChargeModal = ({
   jobInvoiceNumber = '',
   jobInvoiceDate = '',
   jobInvoiceValue = '',
-  jobCthNo = ''
+  jobCthNo = '',
+  workMode = 'Payment'
 }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
@@ -81,13 +86,15 @@ const EditChargeModal = ({
   useEffect(() => {
     const fetchAudits = async () => {
       const prNos = [...new Set(formData.map(r => r.payment_request_no).filter(Boolean))];
+      const pbNos = [...new Set(formData.map(r => r.purchase_book_no).filter(Boolean))];
+      const allNos = [...new Set([...prNos, ...pbNos])];
       const newAudits = { ...paymentDetailsAudit };
       let changed = false;
 
-      for (const pr of prNos) {
+      for (const pr of allNos) {
         if (!newAudits[pr]) {
           try {
-            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/api/get-payment-request-details/${encodeURIComponent(pr)}`);
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(pr)}`);
             if (res.data) {
               newAudits[pr] = res.data;
               changed = true;
@@ -306,6 +313,27 @@ const EditChargeModal = ({
                     <span className="form-label" style={{ color: '#1565c0', fontWeight: 'bold' }}>PB No</span>
                     <div className="ep-inline">
                         <input type="text" readOnly className="form-input" style={{ background: '#e3f2fd', color: '#1565c0', width: '60%' }} value={row.purchase_book_no || ''} />
+                        {row.purchase_book_no && (
+                            <IconButton 
+                                size="small" 
+                                color="primary" 
+                                onClick={async () => {
+                                    let data = paymentDetailsAudit[row.purchase_book_no];
+                                    if (!data) {
+                                        try {
+                                            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(row.purchase_book_no)}`);
+                                            data = res.data;
+                                            setPaymentDetailsAudit(prev => ({ ...prev, [row.purchase_book_no]: data }));
+                                        } catch (err) { console.error(err); alert('Could not fetch details'); return; }
+                                    }
+                                    generatePurchaseBookPDF(data, logo);
+                                }}
+                                style={{ marginLeft: '4px' }}
+                                title="Print Payment Advice"
+                            >
+                                <PrintIcon style={{ fontSize: '18px' }} />
+                            </IconButton>
+                        )}
                         <span className="ep-status-pill" style={{ marginLeft: '10px', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: row.purchase_book_status ? '#e8f5e9' : '#f5f5f5', color: row.purchase_book_status === 'Active' ? '#2e7d32' : '#757575', border: '1px solid #ddd' }}>
                             {row.purchase_book_status || 'Pending'}
                         </span>
@@ -316,6 +344,27 @@ const EditChargeModal = ({
                     <div className="ep-inline" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                         <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
                             <input type="text" readOnly className="form-input" style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
+                            {row.payment_request_no && (
+                                <IconButton 
+                                    size="small" 
+                                    color="error" 
+                                    onClick={async () => {
+                                        let data = paymentDetailsAudit[row.payment_request_no];
+                                        if (!data) {
+                                            try {
+                                                const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(row.payment_request_no)}`);
+                                                data = res.data;
+                                                setPaymentDetailsAudit(prev => ({ ...prev, [row.payment_request_no]: data }));
+                                            } catch (err) { console.error(err); alert('Could not fetch details'); return; }
+                                        }
+                                        generatePurchaseBookPDF(data, logo);
+                                    }}
+                                    style={{ marginLeft: '4px' }}
+                                    title="Print Payment Advice"
+                                >
+                                    <PrintIcon style={{ fontSize: '18px' }} />
+                                </IconButton>
+                            )}
                             <span className="ep-status-pill" style={{ 
                                 marginLeft: '10px', 
                                 fontSize: '11px', 
@@ -746,7 +795,8 @@ const EditChargeModal = ({
                                 <span className="ep-label" style={{ fontWeight: 'bold', color: '#d32f2f' }}>Net Payable</span>
                                 <div className="ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#fff9f9', fontWeight: 'bold', color: '#d32f2f', border: '1px solid #ffcdd2' }} value={formatNumber(row.cost?.netPayable)} />
-                                  {!row.purchase_book_no && (
+                                  {/* Conditionally show based on workMode or if already exists */}
+                                  {(!row.purchase_book_no && (workMode === 'Purchase Book' || !row.payment_request_no)) && (
                                     <button 
                                       type="button" 
                                       className="upload-btn" 
@@ -754,7 +804,9 @@ const EditChargeModal = ({
                                         marginRight: '10px', 
                                         backgroundColor: '#1976d2', 
                                         color: '#fff', 
-                                        borderColor: '#1565c0' 
+                                        borderColor: '#1565c0',
+                                        fontSize: workMode === 'Purchase Book' ? '12px' : '11px',
+                                        padding: workMode === 'Purchase Book' ? '6px 12px' : '4px 8px'
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
@@ -806,11 +858,17 @@ const EditChargeModal = ({
                                       Purchase book
                                     </button>
                                   )}
-                                  {!row.payment_request_no && (
+                                  {(!row.payment_request_no && (workMode === 'Payment' || !row.purchase_book_no)) && (
                                     <button 
                                       type="button" 
                                       className="upload-btn" 
-                                      style={{ backgroundColor: '#d32f2f', color: '#fff', borderColor: '#b71c1c' }}
+                                      style={{ 
+                                        backgroundColor: '#d32f2f', 
+                                        color: '#fff', 
+                                        borderColor: '#b71c1c',
+                                        fontSize: workMode === 'Payment' ? '12px' : '11px',
+                                        padding: workMode === 'Payment' ? '6px 12px' : '4px 8px'
+                                      }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
                                         const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());

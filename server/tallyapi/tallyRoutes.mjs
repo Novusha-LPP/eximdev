@@ -111,7 +111,17 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
     }
 
     const nextIndex = (maxIndex + 1).toString().padStart(2, '0');
-    const fullNo = `${prefix}${nextIndex}/${canonicalJobNo}`;
+    let fullNo = `${prefix}${nextIndex}/${canonicalJobNo}`;
+
+    // If purchase entry, try to reformat to PB01/BRANCH/MODE/YEAR/SERIAL if canonicalJobNo matches standard format
+    if (type === "purchase" && canonicalJobNo.includes('/')) {
+      const parts = canonicalJobNo.split('/');
+      if (parts.length === 5) {
+        // Format: BRANCH_CODE (0) / TRADE_TYPE (1) / MODE (2) / SEQUENCE (3) / FINANCIAL_YEAR (4)
+        // Requested: PB01 / BRANCH (0) / TRADE (1) / MODE (2) / SEQUENCE (3) / YEAR (4)
+        fullNo = `${prefix}${nextIndex}/${parts[0]}/${parts[1]}/${parts[2]}/${parts[3]}/${parts[4]}`;
+      }
+    }
 
     res.status(200).json({ 
       success: true, 

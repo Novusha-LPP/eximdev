@@ -38,6 +38,7 @@ import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import AddIcon from "@mui/icons-material/Add";
 import {
@@ -106,6 +107,20 @@ function JobDetails() {
       }
     };
     fetchCurrencies();
+  }, []);
+
+  // Fetch units from master directory
+  const [unitOptions, setUnitOptions] = useState([]);
+  useEffect(() => {
+    const fetchUnits = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-units`);
+        setUnitOptions(res.data || []);
+      } catch (error) {
+        console.error("Error fetching units:", error);
+      }
+    };
+    fetchUnits();
   }, []);
 
   const toggleSealExpansion = (index) => {
@@ -303,8 +318,96 @@ function JobDetails() {
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [selectedContainerIndex, setSelectedContainerIndex] = useState(0);
 
+  // IMEXCUBE upload state
+  const [imexcubeUploading, setImexcubeUploading] = useState(false);
+  const [imexcubeSnackbar, setImexcubeSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [imexcubeDialogOpen, setImexcubeDialogOpen] = useState(false);
+  const [imexcubePreviewData, setImexcubePreviewData] = useState(null);
+  const [imexcubePreviewLoading, setImexcubePreviewLoading] = useState(false);
+  
+  // JSON Editor state
+  const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
+  const [imexcubeRawPayloadString, setImexcubeRawPayloadString] = useState("");
+
   // Import Terms state
   const [importTerms, setImportTerms] = useState("CIF");
+
+  // Step 1: Fetch job data preview and show in dialog
+  const handleUploadToImexcube = async () => {
+    const jobNumber = data?.job_number;
+    if (!jobNumber) {
+      setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      return;
+    }
+    setImexcubePreviewLoading(true);
+    setImexcubeDialogOpen(true);
+    setImexcubeShowEditor(false);
+    setImexcubePreviewData(null);
+    setImexcubeRawPayloadString("");
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/scmCube/job-data-preview`,
+        { params: { job_number: jobNumber } }
+      );
+      setImexcubePreviewData(res.data.annotated || res.data);
+      setImexcubeRawPayloadString(JSON.stringify(res.data.rawPayload || res.data, null, 2));
+    } catch (err) {
+      const errMsg = err?.response?.data?.error || err.message || "Failed to fetch job data";
+      setImexcubePreviewData({ error: errMsg });
+    } finally {
+      setImexcubePreviewLoading(false);
+    }
+  };
+
+  // Step 2: Confirm and push to IMEXCUBE
+  const handleConfirmImexcubeUpload = async () => {
+    const jobNumber = data?.job_number;
+    setImexcubeDialogOpen(false);
+    setImexcubeUploading(true);
+    
+    // Check if JSON is valid before sending
+    let parsedPayload = null;
+    if (imexcubeShowEditor) {
+      try {
+        parsedPayload = JSON.parse(imexcubeRawPayloadString);
+      } catch (err) {
+        setImexcubeSnackbar({ open: true, message: "Invalid JSON format in editor", severity: "error" });
+        setImexcubeUploading(false);
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 5000);
+        return;
+      }
+    }
+
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/scmCube/upload-to-imexcube`,
+        { 
+          job_number: jobNumber,
+          ...(parsedPayload && { customPayload: parsedPayload })
+        }
+      );
+      setImexcubeSnackbar({ open: true, message: res.data?.message || "Uploaded successfully!", severity: "success" });
+    } catch (err) {
+      let errMsg = "Upload failed";
+      const resData = err?.response?.data;
+      if (resData) {
+        if (resData.details?.errors && Array.isArray(resData.details.errors)) {
+          errMsg = "Validation Failed: " + resData.details.errors.join(" | ");
+        } else if (resData.details?.message) {
+          errMsg = resData.details.message;
+        } else if (resData.error) {
+          errMsg = resData.error;
+        }
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+      setImexcubeSnackbar({ open: true, message: errMsg, severity: "error" });
+    } finally {
+      setImexcubeUploading(false);
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 5000);
+    }
+  };
 
   const {
     data,
@@ -1067,6 +1170,29 @@ function JobDetails() {
               Back to Job List
             </Button>
           </Box>
+          {user?.role === "Admin" && (
+            <Box sx={{ position: "fixed", top: 80, right: 30, zIndex: 999 }}>
+              <Button
+                variant="contained"
+                startIcon={imexcubeUploading ? null : <CloudUploadIcon />}
+                onClick={handleUploadToImexcube}
+                disabled={imexcubeUploading}
+                sx={{
+                  backgroundColor: "#1565c0",
+                  color: "white",
+                  "&:hover": {
+                    backgroundColor: "#0d47a1",
+                  },
+                  "&.Mui-disabled": {
+                    backgroundColor: "#90caf9",
+                    color: "white",
+                  },
+                }}
+              >
+                {imexcubeUploading ? "Uploading..." : "Upload to IMEXCUBE (TEST)"}
+              </Button>
+            </Box>
+          )}
 
           {/* Importer info start*/}
           <div style={{ marginTop: "70px" }}>
@@ -2946,12 +3072,18 @@ function JobDetails() {
                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
+                                <Autocomplete
                                   size="small"
                                   fullWidth
+                                  freeSolo
+                                  options={unitOptions.map(u => u.code)}
                                   value={row.unit || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
+                                  onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
+                                  onInputChange={(e, newInputValue, reason) => {
+                                    if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
+                                  }}
                                   disabled={isDescriptionTableReadOnly}
+                                  renderInput={(params) => <TextField {...params} size="small" />}
                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
@@ -4136,6 +4268,17 @@ function JobDetails() {
         }
         sx={{ left: "auto !important", right: "24px !important" }}
       />
+      <Snackbar
+        open={imexcubeSnackbar.open}
+        message={imexcubeSnackbar.message}
+        sx={{
+          left: "auto !important",
+          right: "24px !important",
+          "& .MuiSnackbarContent-root": {
+            backgroundColor: imexcubeSnackbar.severity === "error" ? "#d32f2f" : "#2e7d32",
+          },
+        }}
+      />
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>
@@ -4304,6 +4447,218 @@ function JobDetails() {
             variant="contained"
           >
             Confirm & Send
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IMEXCUBE Preview & Upload Dialog */}
+      <Dialog
+        open={imexcubeDialogOpen}
+        onClose={() => setImexcubeDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby="imexcube-dialog-title"
+      >
+        <DialogTitle id="imexcube-dialog-title" sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+          <CloudUploadIcon color="primary" />
+          Upload Job to IMEXCUBE (TEST)
+        </DialogTitle>
+        <DialogContent dividers>
+          {imexcubePreviewLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 200 }}>
+              <Typography variant="body1" color="text.secondary">Loading job data...</Typography>
+            </Box>
+          ) : imexcubePreviewData?.error ? (
+            <Box sx={{ p: 2, bgcolor: "#fff3f3", borderRadius: 1, border: "1px solid #ffcdd2" }}>
+              <Typography variant="body1" color="error" fontWeight={600}>
+                Error: {imexcubePreviewData.error}
+              </Typography>
+            </Box>
+          ) : imexcubePreviewData ? (
+            <Box>
+              <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: "#666", mb: 1 }}>
+                    Review the job data before uploading:
+                  </Typography>
+                  {!imexcubeShowEditor && (
+                    <Box sx={{ display: "flex", gap: 1.5, fontSize: "0.75rem" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: 2, background: "#e8f5e9", border: "1px solid #a5d6a7" }}></span> Valid
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: 2, background: "#ffebee", border: "1px solid #ef9a9a" }}></span> Missing (Mandatory)
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ color: "#d32f2f", fontWeight: 700 }}>*</span> Mandatory
+                      </span>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button
+                    size="small"
+                    startIcon={<Edit fontSize="small" />}
+                    variant={imexcubeShowEditor ? "contained" : "outlined"}
+                    color={imexcubeShowEditor ? "primary" : "inherit"}
+                    onClick={() => setImexcubeShowEditor(!imexcubeShowEditor)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Edit Raw JSON
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon fontSize="small" />}
+                    variant="outlined"
+                    onClick={() => {
+                      navigator.clipboard.writeText(imexcubeShowEditor ? imexcubeRawPayloadString : JSON.stringify(imexcubePreviewData, null, 2));
+                      setImexcubeSnackbar({ open: true, message: "JSON copied to clipboard", severity: "success" });
+                      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 3000);
+                    }}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Copy JSON Upload
+                  </Button>
+                </Box>
+              </Box>
+              <Box sx={{ maxHeight: "60vh", overflow: "auto" }}>
+                {imexcubeShowEditor ? (
+                  <TextField
+                    multiline
+                    fullWidth
+                    minRows={15}
+                    maxRows={30}
+                    value={imexcubeRawPayloadString}
+                    onChange={(e) => setImexcubeRawPayloadString(e.target.value)}
+                    variant="outlined"
+                    inputProps={{
+                      style: {
+                        fontFamily: "monospace",
+                        fontSize: "0.85rem",
+                        lineHeight: 1.4,
+                      }
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        backgroundColor: "#fafafa",
+                      }
+                    }}
+                  />
+                ) : (
+                  Object.entries(imexcubePreviewData).map(([sectionName, sectionData]) => (
+                  <Box key={sectionName} sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" sx={{
+                      fontWeight: 700, bgcolor: "#1565c0", color: "#fff",
+                      px: 1.5, py: 0.5, borderRadius: "4px 4px 0 0", fontSize: "0.85rem"
+                    }}>
+                      {sectionName}
+                    </Typography>
+                    {Array.isArray(sectionData) ? (
+                      sectionData.map((item, idx) => (
+                        <Box key={idx} sx={{ border: "1px solid #e0e0e0", borderTop: idx > 0 ? "2px solid #1565c0" : "none", mb: idx < sectionData.length - 1 ? 0 : 0 }}>
+                          {idx > 0 && (
+                            <Typography sx={{ bgcolor: "#e3f2fd", px: 1.5, py: 0.3, fontSize: "0.75rem", fontWeight: 600, color: "#1565c0" }}>
+                              #{idx + 1}
+                            </Typography>
+                          )}
+                          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <tbody>
+                              {Object.entries(item).map(([fieldName, fieldData]) => {
+                                const isMandatory = fieldData?.mandatory;
+                                const isValid = fieldData?.valid;
+                                const value = fieldData?.value;
+                                const displayVal = value === null || value === undefined || value === "" ? "—" : String(value);
+                                const bgColor = isMandatory
+                                  ? (isValid ? "#e8f5e9" : "#ffebee")
+                                  : (displayVal !== "—" ? "#f1f8e9" : "#fafafa");
+                                return (
+                                  <tr key={fieldName}>
+                                    <td style={{
+                                      padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                      width: "45%", fontSize: "0.8rem", fontWeight: 600, color: "#333",
+                                      whiteSpace: "nowrap"
+                                    }}>
+                                      {fieldName}
+                                      {isMandatory && <span style={{ color: "#d32f2f", marginLeft: 2, fontWeight: 800 }}>*</span>}
+                                    </td>
+                                    <td style={{
+                                      padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                      fontSize: "0.8rem", fontFamily: "monospace",
+                                      backgroundColor: bgColor,
+                                      color: displayVal === "—" ? "#bbb" : "#222",
+                                      fontWeight: displayVal === "—" ? 400 : 500,
+                                      wordBreak: "break-word",
+                                    }}>
+                                      {displayVal}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </Box>
+                      ))
+                    ) : (
+                      <Box sx={{ border: "1px solid #e0e0e0", borderTop: "none" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <tbody>
+                            {Object.entries(sectionData).map(([fieldName, fieldData]) => {
+                              const isMandatory = fieldData?.mandatory;
+                              const isValid = fieldData?.valid;
+                              const value = fieldData?.value;
+                              const displayVal = value === null || value === undefined || value === "" ? "—" : String(value);
+                              const bgColor = isMandatory
+                                ? (isValid ? "#e8f5e9" : "#ffebee")
+                                : (displayVal !== "—" ? "#f1f8e9" : "#fafafa");
+                              return (
+                                <tr key={fieldName}>
+                                  <td style={{
+                                    padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                    width: "45%", fontSize: "0.8rem", fontWeight: 600, color: "#333",
+                                    whiteSpace: "nowrap"
+                                  }}>
+                                    {fieldName}
+                                    {isMandatory && <span style={{ color: "#d32f2f", marginLeft: 2, fontWeight: 800 }}>*</span>}
+                                  </td>
+                                  <td style={{
+                                    padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                    fontSize: "0.8rem", fontFamily: "monospace",
+                                    backgroundColor: bgColor,
+                                    color: displayVal === "—" ? "#bbb" : "#222",
+                                    fontWeight: displayVal === "—" ? 400 : 500,
+                                    wordBreak: "break-word",
+                                  }}>
+                                    {displayVal}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </Box>
+                    )}
+                  </Box>
+                ))
+                )}
+              </Box>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setImexcubeDialogOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmImexcubeUpload}
+            variant="contained"
+            disabled={imexcubePreviewLoading || imexcubePreviewData?.error}
+            startIcon={<CloudUploadIcon />}
+            sx={{
+              backgroundColor: "#1565c0",
+              "&:hover": { backgroundColor: "#0d47a1" },
+            }}
+          >
+            Confirm & Upload
           </Button>
         </DialogActions>
       </Dialog>

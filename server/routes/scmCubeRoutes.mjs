@@ -127,14 +127,21 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
         // Fallback to the code extracted from the parentheses if no DB match
         resolvedPortOfOriginCode = match[1].trim();
       }
-    }
+    } 
 
     // Map fields according to user request
     const responseData = {
       CHADetails: [
         {
-          "CHA Code": validateChar("", 5, true, "CHA Code"),
-          "CHA Branch Code": validateChar("", 6, true, "CHA Branch Code"),
+          "CHA Code": validateChar("NOVU", 5, true, "CHA Code"),
+          
+          "CHA Branch Code": (() => {
+            let brCode = "";
+            if (job.branch_code === "AMD") brCode = "NOVUAMD";
+            else if (job.branch_code === "GIM") brCode = "NOVUGDM";
+            else if (job.branch_code === "COK") brCode = "NOVUCOK";
+            return validateChar(brCode, 10, true, "CHA Branch Code");
+          })(),
           "Financial Year": (() => {
             const fy = job.financial_year || job.year;
             if (typeof fy === 'string' && /^\d{2}-\d{2}$/.test(fy)) {
@@ -191,7 +198,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
             return validateChar(hssVal === "YES" ? "Y" : "N", 1, true, "High sea sale flag");
           })(),
           "Port of Origin": validateChar(resolvedPortOfOriginCode, 6, true, "Port of Origin"),
-          "CHA Code": validateChar("", 15, true, "CHA Code"),
+          "CHA Code": validateChar("NOVU", 15, true, "CHA Code"),
           "Country of Origin": validateChar(countryCode, 2, true, "Country of Origin"),
           "Country of Consignment": validateChar(countryCode, 2, true, "Country of Consignment"),
           "Port Of Shipment": validateChar(resolvedPortOfOriginCode, 6, true, "Port Of Shipment"),
@@ -248,7 +255,12 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           return validateChar(code, 1, true, "LCL.FCL");
         })(),
         "Container Number": validateChar(container.container_number, 11, true, "Container Number"),
-        "Seal Number": validateChar(container.seal_no, 10, true, "Seal Number"),
+        "Seal Number": validateChar(
+          (Array.isArray(container.seal_number) && container.seal_number.length > 0)
+            ? container.seal_number.filter(Boolean).join(", ")
+            : (container.seal_no || ""),
+          10, true, "Seal Number"
+        ),
         "Truck Number": validateChar(container.vehicle_no, 15, false, "Truck Number")
       })),
       SupportingDocumentList: [

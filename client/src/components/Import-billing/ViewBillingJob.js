@@ -642,6 +642,7 @@ const ViewBillingJob = () => {
                 invoiceDate={data?.invoice_date}
                 invoiceValue={data?.total_inv_value}
                 cthNo={data?.cth_no}
+                workMode={routeLocation.state?.workMode || 'Payment'}
               />
             </div>
 

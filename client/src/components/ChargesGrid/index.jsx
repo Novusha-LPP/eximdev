@@ -23,7 +23,8 @@ const ChargesGrid = ({
   invoiceNumber = '',
   invoiceDate = '',
   invoiceValue = '',
-  cthNo = ''
+  cthNo = '',
+  workMode = 'Payment'
 }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
@@ -178,6 +179,7 @@ const ChargesGrid = ({
         jobInvoiceDate={invoiceDate}
         jobInvoiceValue={invoiceValue}
         jobCthNo={cthNo}
+        workMode={workMode}
       />
 
       {fileModalCharge && (

@@ -25,7 +25,7 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
-function ImportCompletedBilling() {
+function ImportCompletedBilling({ workMode = 'Payment' }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
@@ -347,8 +347,9 @@ function ImportCompletedBilling() {
           }).toString();
 
           return currentTab === 0 ? (
-            <a
-              href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+            <Link
+              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+              state={{ workMode }}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -364,7 +365,7 @@ function ImportCompletedBilling() {
             >
               {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
-            </a>
+            </Link>
           ) : (
             <div
               style={{

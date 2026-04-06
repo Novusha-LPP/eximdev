@@ -41,8 +41,9 @@ import { Popover } from "@mui/material";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 import logo from "../../assets/images/logo.webp";
+import { generatePurchaseBookPDF } from "../../utils/purchaseBookPrint.js";
 
-function PaymentCompleted() {
+function PaymentCompleted({ workMode = "Payment" }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();
@@ -222,7 +223,8 @@ function PaymentCompleted() {
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
               startDate,
-              endDate
+              endDate,
+              workMode
             },
           }
         );
@@ -246,7 +248,7 @@ function PaymentCompleted() {
         setLoading(false);
       }
     },
-    [limit]
+    [limit, workMode]
   );
 
   // Fetch jobs when dependencies change
@@ -262,7 +264,8 @@ function PaymentCompleted() {
         selectedBranch,
         selectedCategory,
         start,
-        end
+        end,
+        workMode
       );
     }
   }, [
@@ -274,7 +277,8 @@ function PaymentCompleted() {
     fetchJobs,
     selectedBranch,
     selectedCategory,
-    calculateDates
+    calculateDates,
+    workMode
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -432,6 +436,7 @@ function PaymentCompleted() {
           return (
             <Link
               to={`/view-payment-request-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?selectedJobId=${_id}`}
+              state={{ workMode }}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -524,39 +529,42 @@ function PaymentCompleted() {
         },
       },
       {
-        accessorKey: "payment_request_no",
-        header: "Payment Request No",
+        accessorKey: workMode === "Payment" ? "payment_request_no" : "purchase_book_no",
+        header: workMode === "Payment" ? "Payment Request No" : "Purchase Book No",
         size: 450,
         Cell: ({ cell }) => {
           const charges = cell.row.original.charges || [];
-          // Group charge heads by payment request number
+          const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
+          const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
+          const receiptField = workMode === "Payment" ? "payment_request_receipt_url" : "purchase_book_receipt_url";
+
+          // Group charge heads by request number
           const reqGroups = charges.reduce((acc, c) => {
-            if (c.payment_request_no) {
-              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
-              acc[c.payment_request_no].push(c.chargeHead);
+            if (c[filterField]) {
+              if (!acc[c[filterField]]) acc[c[filterField]] = [];
+              acc[c[filterField]].push(c.chargeHead);
             }
             return acc;
           }, {});
 
-          const prs = Object.keys(reqGroups);
+          const entries = Object.keys(reqGroups);
 
           return (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {prs.length > 0 ? (
-                prs.map((pr, idx) => {
-                  const uniqueHeads = [...new Set(reqGroups[pr])].join(", ");
-                  const chargesForThisPR = charges.filter(c => c.payment_request_no === pr);
-                  const isApproved = chargesForThisPR.some(c => c.payment_request_is_approved);
-                  const receiptUrl = chargesForThisPR.find(c => c.payment_request_receipt_url)?.payment_request_receipt_url;
+              {entries.length > 0 ? (
+                entries.map((no, idx) => {
+                  const uniqueHeads = [...new Set(reqGroups[no])].join(", ");
+                  const chargesForThisEntry = charges.filter(c => c[filterField] === no);
+                  const isApproved = chargesForThisEntry.some(c => c[isApprovedField]);
+                  const receiptUrl = chargesForThisEntry.find(c => c[receiptField])?.[receiptField];
 
                   return (
-                    <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: idx < prs.length - 1 ? '1px dashed #eee' : 'none', pb: 0.5 }}>
+                    <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: idx < entries.length - 1 ? '1px dashed #eee' : 'none', pb: 0.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Chip
-                          key={pr}
-                          label={pr}
+                          label={no}
                           size="small"
-                          onClick={() => handleViewPaymentRequest(pr)}
+                          onClick={() => handleViewPaymentRequest(no)}
                           color="success"
                           variant="outlined"
                           sx={{ 
@@ -588,7 +596,7 @@ function PaymentCompleted() {
                             href={receiptUrl} 
                             target="_blank" 
                             sx={{ p: 0, color: '#2e7d32', ml: 0.5 }}
-                            title="View Payment Receipt"
+                            title={workMode === "Payment" ? "View Payment Receipt" : "View Purchase Receipt"}
                           >
                             <OpenInNewIcon sx={{ fontSize: '14px' }} />
                           </IconButton>
@@ -608,14 +616,17 @@ function PaymentCompleted() {
         }
       },
       {
-        accessorKey: "transaction_type",
-        header: "Transaction Mode",
+        accessorKey: workMode === "Payment" ? "transaction_type" : "supplier_name",
+        header: workMode === "Payment" ? "Transaction Mode" : "Supplier",
         Cell: ({ cell }) => {
           const charges = cell.row.original.charges || [];
+          const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
+          const dataField = workMode === "Payment" ? "payment_request_transaction_type" : "supplier_name";
+          
           const reqGroups = charges.reduce((acc, c) => {
-            if (c.payment_request_no) {
-              if (!acc[c.payment_request_no]) acc[c.payment_request_no] = [];
-              acc[c.payment_request_no].push(c.payment_request_transaction_type || "-");
+            if (c[filterField]) {
+              if (!acc[c[filterField]]) acc[c[filterField]] = [];
+              acc[c[filterField]].push(c[dataField] || "-");
             }
             return acc;
           }, {});
@@ -633,14 +644,16 @@ function PaymentCompleted() {
         }
       },
       {
-        accessorKey: "requested_by",
-        header: "Requested By",
+        accessorKey: workMode === "Payment" ? "requested_by" : "supplier_inv_no",
+        header: workMode === "Payment" ? "Requested By" : "Supp Inv No",
         Cell: ({ cell }) => {
           const charges = cell.row.original.charges || [];
-          const requesters = [...new Set(charges.map(c => c.payment_request_requested_by).filter(Boolean))];
-          return requesters.length > 0 ? (
+          const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
+          const reqByField = workMode === "Payment" ? "payment_request_requested_by" : "purchase_book_requested_by";
+          const entries = [...new Set(charges.filter(c => c[filterField]).map(c => c[reqByField]).filter(Boolean))];
+          return entries.length > 0 ? (
             <div style={{ fontSize: '0.75rem', fontWeight: '500' }}>
-              {requesters.map((r, i) => <div key={i}>{r}</div>)}
+              {entries.map((r, i) => <div key={i}>{r}</div>)}
             </div>
           ) : "-";
         }
@@ -651,16 +664,17 @@ function PaymentCompleted() {
         size: 250,
         Cell: ({ cell }) => {
           const charges = cell.row.original.charges || [];
-          const prs = [...new Set(charges.map(c => c.payment_request_no).filter(Boolean))];
+          const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
+          const entries = [...new Set(charges.map(c => c[filterField]).filter(Boolean))];
           
-          if (prs.length === 0) return "-";
+          if (entries.length === 0) return "-";
 
           return (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {prs.map((pr, idx) => {
-                // Find all charges for this PR and take the latest date
-                const chargesForPr = charges.filter(c => c.payment_request_no === pr);
-                const dates = chargesForPr
+              {entries.map((no, idx) => {
+                // Find all charges for this entry and take the latest date
+                const chargesForEntry = charges.filter(c => c[filterField] === no);
+                const dates = chargesForEntry
                   .map(c => c.utrAddedAt || c.updatedAt)
                   .filter(Boolean)
                   .sort((a, b) => new Date(b) - new Date(a));
@@ -737,7 +751,7 @@ function PaymentCompleted() {
           variant="body1"
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
         >
-          Payment Completed: {totalJobs}
+          {workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"}: {totalJobs}
         </Typography>
 
         <Autocomplete
@@ -938,8 +952,8 @@ function PaymentCompleted() {
 
       <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: '2px solid #2e7d32' } }}>
         <DialogTitle sx={{ backgroundColor: '#2e7d32', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
-          <span>PAYMENT COMPLETED DETAILS</span>
-          <Chip label="COMPLETED" size="small" sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} />
+          <span>{selectedPaymentRequest?.isPurchaseBook ? "PURCHASE BOOK DETAILS" : "PAYMENT COMPLETED DETAILS"}</span>
+          <Chip label={selectedPaymentRequest?.isPurchaseBook ? "PURCHASE ENTRY" : "COMPLETED"} size="small" sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} />
         </DialogTitle>
         <DialogContent sx={{ p: 0, backgroundColor: '#fff' }}>
           {isModalLoading ? <Box display="flex" justifyContent="center" p={4}><CircularProgress size={40} /></Box> : selectedPaymentRequest && (
@@ -947,14 +961,20 @@ function PaymentCompleted() {
               <Box sx={{ border: '1px solid #ccc', mb: 2 }}>
                 <Grid container>
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Request Date</Typography>
+                    <Typography variant="caption" fontWeight="bold">
+                      {selectedPaymentRequest.isPurchaseBook ? "Entry Date" : "Request Date"}
+                    </Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.requestDate || new Date(selectedPaymentRequest.createdAt).toLocaleDateString('en-GB')}</Typography>
+                    <Typography variant="body2">
+                      {selectedPaymentRequest.requestDate || (selectedPaymentRequest.date || selectedPaymentRequest.createdAt ? new Date(selectedPaymentRequest.date || selectedPaymentRequest.createdAt).toLocaleDateString('en-GB') : "N/A")}
+                    </Typography>
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Request No</Typography>
+                    <Typography variant="caption" fontWeight="bold">
+                      {selectedPaymentRequest.isPurchaseBook ? "Entry No" : "Request No"}
+                    </Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
                     <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
@@ -968,46 +988,116 @@ function PaymentCompleted() {
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Beneficiary</Typography>
+                    <Typography variant="caption" fontWeight="bold">
+                      {selectedPaymentRequest.isPurchaseBook ? "Supplier Name" : "Beneficiary"}
+                    </Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
                     <Typography variant="body2" color="primary" fontWeight="bold">{selectedPaymentRequest.paymentTo || "N/A"}</Typography>
                   </Grid>
 
-                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Bank Name</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.bankName || "N/A"}</Typography>
-                  </Grid>
+                  {selectedPaymentRequest.isPurchaseBook ? (
+                    <>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Supplier Address</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="caption" sx={{ display: 'block', lineHeight: 1.2 }}>
+                          {selectedPaymentRequest.supplierAddr1} {selectedPaymentRequest.supplierAddr2} {selectedPaymentRequest.supplierAddr3}
+                          <br />
+                          {selectedPaymentRequest.supplierState}, {selectedPaymentRequest.supplierCountry} - {selectedPaymentRequest.supplierPin}
+                        </Typography>
+                      </Grid>
 
-                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Account No</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{selectedPaymentRequest.accountNo || "N/A"}</Typography>
-                  </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">GSTIN & PAN</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          GSTIN: {selectedPaymentRequest.gstinNo || "-"} | PAN: {selectedPaymentRequest.panNo || "-"}
+                        </Typography>
+                      </Grid>
 
-                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">IFSC Code</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.ifscCode || "N/A"}</Typography>
-                  </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Supplier Inv No & Date</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.supplierInvNo || "-"} / {selectedPaymentRequest.supplierInvDate || "-"}</Typography>
+                      </Grid>
 
-                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Transaction Type</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.transactionType || "N/A"}</Typography>
-                  </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Description of Services</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{selectedPaymentRequest.descriptionOfServices || "N/A"}</Typography>
+                      </Grid>
 
-                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Transfer Mode</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.transferMode || "N/A"}</Typography>
-                  </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">SAC / HSN</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.sac || "N/A"}</Typography>
+                      </Grid>
+
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Taxable Value</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" fontWeight="bold">₹ {selectedPaymentRequest.taxableValue?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || "0.00"}</Typography>
+                      </Grid>
+
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">GST Details ({selectedPaymentRequest.gstPercent}%)</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          CGST: {selectedPaymentRequest.cgstAmt?.toLocaleString('en-IN') || 0} | 
+                          SGST: {selectedPaymentRequest.sgstAmt?.toLocaleString('en-IN') || 0} | 
+                          IGST: {selectedPaymentRequest.igstAmt?.toLocaleString('en-IN') || 0}
+                        </Typography>
+                      </Grid>
+
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">TDS Deduction</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" color="error">₹ -{selectedPaymentRequest.tdsAmt?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || "0.00"}</Typography>
+                      </Grid>
+                    </>
+                  ) : (
+                    <>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Bank Name</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.bankName || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Account No</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{selectedPaymentRequest.accountNo || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">IFSC Code</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.ifscCode || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Transaction Type</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.transactionType || "N/A"}</Typography>
+                      </Grid>
+                      <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                        <Typography variant="caption" fontWeight="bold">Transfer Mode</Typography>
+                      </Grid>
+                      <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                        <Typography variant="body2">{selectedPaymentRequest.transferMode || "N/A"}</Typography>
+                      </Grid>
+                    </>
+                  )}
 
                   {selectedPaymentRequest.transactionType === 'CHEQUE' && (
                     <>
@@ -1027,14 +1117,14 @@ function PaymentCompleted() {
                   )}
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Amount</Typography>
+                    <Typography variant="caption" fontWeight="bold">{selectedPaymentRequest.isPurchaseBook ? "Total Payable" : "Amount"}</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
                     <Typography variant="h6" color="error" fontWeight="bold">₹ {selectedPaymentRequest.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Typography>
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Requested By</Typography>
+                    <Typography variant="caption" fontWeight="bold">{selectedPaymentRequest.isPurchaseBook ? "Entry By" : "Requested By"}</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
                     <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestedBy || "N/A"}</Typography>
@@ -1051,7 +1141,14 @@ function PaymentCompleted() {
                     <Typography variant="caption" fontWeight="bold">Approved By</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.approvedByFirst} {selectedPaymentRequest.approvedByLast} ({new Date(selectedPaymentRequest.approvedAt).toLocaleDateString('en-GB')})</Typography>
+                    <Typography variant="body2">{selectedPaymentRequest.approvedByFirst} {selectedPaymentRequest.approvedByLast} ({new Date(selectedPaymentRequest.approvedAt).toLocaleDateString('en-GB') || "N/A"})</Typography>
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Bank From</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.bankFrom || "N/A"}</Typography>
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
@@ -1102,7 +1199,15 @@ function PaymentCompleted() {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc' }}>
-          <Button onClick={() => window.print()} size="small" variant="outlined">Print</Button>
+          <Button 
+            onClick={() => {
+              generatePurchaseBookPDF(selectedPaymentRequest, logo);
+            }} 
+            size="small" 
+            variant="outlined"
+          >
+            Print
+          </Button>
           <Button onClick={() => setOpenDetailModal(false)} size="small" variant="contained">Close</Button>
         </DialogActions>
       </Dialog>

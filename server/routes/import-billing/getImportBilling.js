@@ -5,6 +5,7 @@ import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import PaymentRequestModel from "../../model/paymentRequestModel.mjs";
+import PurchaseBookEntryModel from "../../model/purchaseBookEntryModel.mjs";
 
 const router = express.Router();
 
@@ -19,6 +20,8 @@ const buildSearchQuery = (search) => ({
     { type_of_b_e: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
     { be_no: { $regex: search, $options: "i" } },
+    { "charges.purchase_book_no": { $regex: search, $options: "i" } },
+    { "charges.payment_request_no": { $regex: search, $options: "i" } },
     { detailed_status: { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
     { "container_nos.size": { $regex: search, $options: "i" } },
@@ -521,6 +524,7 @@ router.get(
       branchId,
       category,
       transactionType,
+      workMode = 'Payment'
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -538,10 +542,14 @@ router.get(
     try {
       const skip = (pageNumber - 1) * limitNumber;
 
+      const filterField = workMode === 'Purchase Book' ? 'purchase_book_no' : 'payment_request_no';
+      const statusField = workMode === 'Purchase Book' ? 'purchase_book_status' : 'payment_request_status';
+      const isApprovedField = workMode === 'Purchase Book' ? 'purchase_book_is_approved' : 'payment_request_is_approved';
+
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { charges: { $elemMatch: { payment_request_no: { $exists: true, $ne: "" } } } }
+          { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
 
@@ -568,9 +576,11 @@ router.get(
       const branchMatch = getBranchMatch(branchId, category);
       matchConditions.$and.push(branchMatch);
 
+      const transTypeField = workMode === 'Purchase Book' ? 'purchase_book_transaction_type' : 'payment_request_transaction_type';
+
       if (transactionType && transactionType !== "All") {
         matchConditions.$and.push({
-          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${transactionType}$`, "i") },
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
         });
       }
 
@@ -591,11 +601,11 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
-                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
-                          { $ne: ["$$charge.payment_request_no", "undefined"] },
-                          { $ne: ["$$charge.payment_request_status", "Paid"] },
-                          { $ne: ["$$charge.payment_request_is_approved", true] },
+                          { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                          { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                          { $ne: [`$$charge.${filterField}`, "undefined"] },
+                          { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          { $ne: [`$$charge.${isApprovedField}`, true] },
                         ],
                       },
                     },
@@ -673,8 +683,7 @@ router.get(
 
       const unresolvedMatchConditions = {
         $and: [
-          { status: { $regex: /^pending$/i } },
-          { "charges.payment_request_no": { $exists: true, $ne: "" } },
+          { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } },
           { dsr_queries: { $elemMatch: { resolved: { $ne: true } } } },
         ],
       };
@@ -707,7 +716,7 @@ router.get(
         { $match: unresolvedMatchConditions },
         {
           $addFields: {
-            has_pending_payments: {
+            has_pending_items: {
               $gt: [
                 {
                   $size: {
@@ -716,10 +725,10 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $ne: ["$$charge.payment_request_no", ""] },
-                          { $ne: ["$$charge.payment_request_no", null] },
-                          { $ne: ["$$charge.payment_request_status", "Paid"] },
-                          { $ne: ["$$charge.payment_request_is_approved", true] },
+                          { $ne: [`$$charge.${filterField}`, ""] },
+                          { $ne: [`$$charge.${filterField}`, null] },
+                          { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          { $ne: [`$$charge.${isApprovedField}`, true] },
                         ],
                       },
                     },
@@ -730,7 +739,7 @@ router.get(
             },
           },
         },
-        { $match: { has_pending_payments: true } },
+        { $match: { has_pending_items: true } },
         { $count: "total" },
       ];
 
@@ -773,6 +782,7 @@ router.get(
       unresolvedOnly,
       branchId,
       category,
+      workMode = 'Payment'
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -790,10 +800,14 @@ router.get(
     try {
       const skip = (pageNumber - 1) * limitNumber;
 
+      const filterField = workMode === 'Purchase Book' ? 'purchase_book_no' : 'payment_request_no';
+      const statusField = workMode === 'Purchase Book' ? 'purchase_book_status' : 'payment_request_status';
+      const isApprovedField = workMode === 'Purchase Book' ? 'purchase_book_is_approved' : 'payment_request_is_approved';
+
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { charges: { $elemMatch: { payment_request_no: { $exists: true, $ne: "" }, payment_request_is_approved: true } } }
+          { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] }, [isApprovedField]: true } } }
         ],
       };
 
@@ -822,7 +836,7 @@ router.get(
         { $match: matchConditions },
         {
           $addFields: {
-            has_approved_payments: {
+            has_approved_items: {
               $gt: [
                 {
                   $size: {
@@ -831,11 +845,11 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
-                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
-                          { $ne: ["$$charge.payment_request_no", "undefined"] },
-                          { $eq: ["$$charge.payment_request_is_approved", true] },
-                          { $ne: ["$$charge.payment_request_status", "Paid"] },
+                          { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                          { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                          { $ne: [`$$charge.${filterField}`, "undefined"] },
+                          { $eq: [`$$charge.${isApprovedField}`, true] },
+                          { $ne: [`$$charge.${statusField}`, "Paid"] },
                         ],
                       },
                     },
@@ -846,7 +860,7 @@ router.get(
             },
           },
         },
-        { $match: { has_approved_payments: true } },
+        { $match: { has_approved_items: true } },
         {
           $project: {
             priorityJob: 1,
@@ -890,7 +904,7 @@ router.get(
   "/api/get-payment-completed-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate } = req.query;
+    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate, workMode = 'Payment' } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const pageNumber = parseInt(page, 10);
@@ -907,10 +921,14 @@ router.get(
     try {
       const skip = (pageNumber - 1) * limitNumber;
 
+      const filterField = workMode === 'Purchase Book' ? 'purchase_book_no' : 'payment_request_no';
+      const statusField = workMode === 'Purchase Book' ? 'purchase_book_status' : 'payment_request_status';
+      const isApprovedField = workMode === 'Purchase Book' ? 'purchase_book_is_approved' : 'payment_request_is_approved';
+
       const matchConditions = {
         $and: [
           { status: { $regex: /^pending$/i } },
-          { charges: { $elemMatch: { payment_request_no: { $exists: true, $ne: "" } } } }
+          { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
 
@@ -968,7 +986,7 @@ router.get(
         { $match: matchConditions },
         {
           $addFields: {
-            has_pending_payments: {
+            has_pending_items: {
               $gt: [
                 {
                   $size: {
@@ -977,10 +995,10 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
-                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
-                          { $ne: ["$$charge.payment_request_no", "undefined"] },
-                          { $ne: ["$$charge.payment_request_status", "Paid"] },
+                          { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                          { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                          { $ne: [`$$charge.${filterField}`, "undefined"] },
+                          { $ne: [`$$charge.${statusField}`, "Paid"] },
                         ],
                       },
                     },
@@ -989,7 +1007,7 @@ router.get(
                 0,
               ],
             },
-            has_paid_payments: {
+            has_paid_items: {
               $gt: [
                 {
                   $size: {
@@ -998,10 +1016,10 @@ router.get(
                       as: "charge",
                       cond: {
                         $and: [
-                          { $eq: [{ $type: "$$charge.payment_request_no" }, "string"] },
-                          { $gt: [{ $strLenCP: "$$charge.payment_request_no" }, 1] },
-                          { $ne: ["$$charge.payment_request_no", "undefined"] },
-                          { $eq: ["$$charge.payment_request_status", "Paid"] },
+                          { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                          { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                          { $ne: [`$$charge.${filterField}`, "undefined"] },
+                          { $eq: [`$$charge.${statusField}`, "Paid"] },
                         ],
                       },
                     },
@@ -1032,7 +1050,13 @@ router.get(
           },
         },
         // Show in Completed tab if all requested payments are PAID and there are no unresolved Accounts queries
-        { $match: { has_pending_payments: false, has_paid_payments: true, has_unresolved_accounts_queries: false } },
+        { 
+          $match: { 
+            has_pending_items: false, 
+            has_paid_items: true, 
+            ...(workMode === 'Payment' ? { has_unresolved_accounts_queries: false } : {})
+          } 
+        },
         {
           $project: {
             priorityJob: 1,
@@ -1105,9 +1129,65 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       return res.status(400).json({ message: "Payment Request Number is required" });
     }
 
-    const request = await PaymentRequestModel.findOne({ requestNo }).lean();
+    let request = await PaymentRequestModel.findOne({ requestNo }).lean();
+    let isPurchaseBook = false;
+
     if (!request) {
-      return res.status(404).json({ message: "Payment Request not found" });
+      // If not found in payment, check purchase book entries
+      const purchaseEntry = await PurchaseBookEntryModel.findOne({ entryNo: requestNo }).lean();
+      if (purchaseEntry) {
+        isPurchaseBook = true;
+        // Map purchase book entry to a structure the frontend modal can render
+        request = {
+          requestNo: purchaseEntry.entryNo,
+          entryNo: purchaseEntry.entryNo,
+          requestDate: purchaseEntry.entryDate,
+          entryDate: purchaseEntry.entryDate,
+          paymentTo: purchaseEntry.supplierName,
+          supplierName: purchaseEntry.supplierName,
+          gstinNo: purchaseEntry.gstinNo,
+          panNo: purchaseEntry.pan,
+          supplierAddr1: purchaseEntry.address1,
+          supplierAddr2: purchaseEntry.address2,
+          supplierAddr3: purchaseEntry.address3,
+          supplierState: purchaseEntry.state,
+          supplierCountry: purchaseEntry.country,
+          supplierPin: purchaseEntry.pinCode,
+          amount: purchaseEntry.total,
+          total: purchaseEntry.total,
+          taxableValue: purchaseEntry.taxableValue,
+          gstPercent: purchaseEntry.gstPercent,
+          cgstAmt: purchaseEntry.cgstAmt,
+          sgstAmt: purchaseEntry.sgstAmt,
+          igstAmt: purchaseEntry.igstAmt,
+          tds: purchaseEntry.tds,
+          tdsAmt: purchaseEntry.tds,
+          againstBill: purchaseEntry.descriptionOfServices,
+          descriptionOfServices: purchaseEntry.descriptionOfServices,
+          supplierInvNo: purchaseEntry.supplierInvNo,
+          supplierInvDate: purchaseEntry.supplierInvDate,
+          sac: purchaseEntry.sac,
+          bankFrom: purchaseEntry.bankFrom,
+          requestedBy: "Tally System", 
+          isApproved: purchaseEntry.status === 'Approved' || purchaseEntry.isApproved === true,
+          status: purchaseEntry.status,
+          jobRef: purchaseEntry.jobRef,
+          chargeRef: purchaseEntry.chargeRef,
+          jobNo: purchaseEntry.jobNo,
+          isPurchaseBook: true,
+          utrNumber: purchaseEntry.utrNumber,
+          utrAddedBy: purchaseEntry.utrAddedBy,
+          utrAddedAt: purchaseEntry.utrAddedAt,
+          paymentReceiptUrl: purchaseEntry.paymentReceiptUrl,
+          approvedByFirst: purchaseEntry.approvedByFirst,
+          approvedByLast: purchaseEntry.approvedByLast,
+          approvedAt: purchaseEntry.approvedAt
+        };
+      }
+    }
+
+    if (!request) {
+      return res.status(404).json({ message: "Entry not found" });
     }
 
     // Fetch associated charge attachments from the Job record
@@ -1162,6 +1242,23 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
             }
 
             if (linkedCharge) {
+              // If it's a regular payment request, enrich with supplier details from the charge for the PDF
+                if (!isPurchaseBook) {
+                  request.supplierName = linkedCharge.cost?.partyName || linkedCharge.partyName || request.paymentTo || "";
+                  request.gstinNo = linkedCharge.cost?.gstin || "";
+                  request.panNo = linkedCharge.cost?.pan || "";
+                  request.supplierAddr1 = linkedCharge.cost?.address1 || "";
+                  request.supplierAddr3 = linkedCharge.cost?.address2 || "";
+                  request.supplierPin = linkedCharge.cost?.pinCode || "";
+                  request.supplierState = linkedCharge.cost?.state || "";
+                  request.supplierCountry = linkedCharge.cost?.country || "";
+                  request.tdsSection = linkedCharge.isTds ? (linkedCharge.tdsCategory || "194C") : "N/A";
+                  request.tdsRate = linkedCharge.tdsPercent || 0;
+                  request.taxableValue = linkedCharge.basicAmount || request.amount || 0;
+                  request.supplierInvNo = request.supplierInvNo || linkedCharge.invoice_number || "";
+                  request.supplierInvDate = request.supplierInvDate || linkedCharge.invoice_date || "";
+                }
+
               const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
               const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
               
@@ -1175,7 +1272,7 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       }
     }
 
-    res.status(200).json({ ...request, importer, attachments });
+    res.status(200).json({ ...request, importer, attachments, isPurchaseBook });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -1346,6 +1443,182 @@ router.patch("/api/update-payment-utr", async (req, res) => {
 
   } catch (err) {
     console.error("Error updating UTR:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+// ==================== PURCHASE BOOK APPROVAL, REJECTION & UTR UPDATES ====================
+
+router.post("/api/approve-purchase-entry", async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, firstName, lastName } = req.body;
+    const requestNo = rawRequestNo?.trim();
+
+    if (!requestNo || !firstName || !lastName) {
+      return res.status(400).json({ message: "Request No, First Name, and Last Name are required" });
+    }
+
+    // 1. Update PurchaseBookEntryModel
+    const updatedEntry = await PurchaseBookEntryModel.findOneAndUpdate(
+      { entryNo: requestNo },
+      { 
+        $set: { 
+          isApproved: true,
+          approvedByFirst: firstName,
+          approvedByLast: lastName,
+          approvedAt: new Date(),
+          status: 'Approved'
+        } 
+      },
+      { new: true }
+    );
+
+    if (!updatedEntry) {
+      return res.status(404).json({ message: "Purchase Book entry not found" });
+    }
+
+    // 2. Update JobModel charges for all matching PB numbers
+    await JobModel.updateMany(
+      { "charges.purchase_book_no": requestNo },
+      { 
+        $set: { 
+          "charges.$[elem].purchase_book_is_approved": true,
+          "charges.$[elem].purchase_book_approved_byFirst": firstName,
+          "charges.$[elem].purchase_book_approved_byLast": lastName,
+          "charges.$[elem].purchase_book_approved_at": new Date(),
+          "charges.$[elem].purchase_book_status": 'Approved'
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.purchase_book_no": requestNo }] 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Purchase entry approved and synced successfully",
+      data: updatedEntry 
+    });
+
+  } catch (err) {
+    console.error("Error approving purchase entry:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/api/reject-purchase-entry", async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, firstName, lastName, reason } = req.body;
+    const requestNo = rawRequestNo?.trim();
+
+    if (!requestNo || !firstName || !lastName || !reason) {
+      return res.status(400).json({ message: "Entry No, First Name, Last Name, and Reason are required" });
+    }
+
+    // 1. Update PurchaseBookEntryModel
+    const updatedEntry = await PurchaseBookEntryModel.findOneAndUpdate(
+      { entryNo: requestNo },
+      { 
+        $set: { 
+          isRejected: true,
+          rejectedByFirst: firstName,
+          rejectedByLast: lastName,
+          rejectionReason: reason,
+          rejectedAt: new Date(),
+          status: 'Rejected'
+        } 
+      },
+      { new: true }
+    );
+
+    if (!updatedEntry) {
+      return res.status(404).json({ message: "Purchase Book entry not found" });
+    }
+
+    // 2. Reset JobModel charges (IMPORTANT: removing the link to allow re-submission)
+    await JobModel.updateMany(
+      { "charges.purchase_book_no": requestNo },
+      { 
+        $set: { 
+          "charges.$[elem].purchase_book_no": "",
+          "charges.$[elem].purchase_book_status": "",
+          "charges.$[elem].purchase_book_is_approved": false,
+          "charges.$[elem].purchase_book_requested_by": ""
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.purchase_book_no": requestNo }] 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Purchase entry rejected and linked charges reset",
+      data: updatedEntry 
+    });
+
+  } catch (err) {
+    console.error("Error rejecting purchase entry:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.patch("/api/update-purchase-utr", async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, utrNumber, bankFrom } = req.body;
+    const requestNo = rawRequestNo?.trim();
+    const username = req.headers.username || "System";
+
+    if (!requestNo || !utrNumber || !bankFrom) {
+      return res.status(400).json({ message: "Entry No, UTR Number, and Bank From are required" });
+    }
+
+    // 1. Update PurchaseBookEntryModel
+    const updatedEntry = await PurchaseBookEntryModel.findOneAndUpdate(
+      { entryNo: requestNo },
+      { 
+        $set: { 
+          utrNumber: utrNumber,
+          bankFrom: bankFrom,
+          utrAddedBy: username,
+          utrAddedAt: new Date(),
+          paymentReceiptUrl: req.body.paymentReceiptUrl || "",
+          status: "Paid"
+        } 
+      },
+      { new: true }
+    );
+
+    if (!updatedEntry) {
+      return res.status(404).json({ message: "Purchase Book entry not found" });
+    }
+
+    // 2. Update JobModel charges status for all matching PB numbers
+    await JobModel.updateMany(
+      { "charges.purchase_book_no": requestNo },
+      { 
+        $set: { 
+          "charges.$[elem].purchase_book_status": "Paid",
+          "charges.$[elem].utrNumber": utrNumber,
+          "charges.$[elem].utrAddedBy": username,
+          "charges.$[elem].utrAddedAt": new Date(),
+          "charges.$[elem].purchase_book_receipt_url": req.body.paymentReceiptUrl || ""
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.purchase_book_no": requestNo }] 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "UTR/Payment updated and status synced successfully",
+      data: updatedEntry 
+    });
+
+  } catch (err) {
+    console.error("Error updating PB payment details:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

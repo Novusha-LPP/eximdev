@@ -24,7 +24,7 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
-function ClearanceCompleted() {
+function ClearanceCompleted({ workMode = "Payment" }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
@@ -175,6 +175,7 @@ function ClearanceCompleted() {
     user?.username,
     fetchJobs,
     selectedBranch,
+    workMode,
   ]);
 
   // Debounce search input to avoid excessive API calls

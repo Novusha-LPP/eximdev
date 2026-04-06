@@ -25,7 +25,7 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 
-function ImportBilling() {
+function ImportBilling({ workMode = 'Payment' }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
@@ -140,6 +140,7 @@ function ImportBilling() {
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
+              workMode
             },
           }
         );
@@ -165,7 +166,7 @@ function ImportBilling() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, workMode] // ✅ Add selectedYear as a dependency
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
@@ -191,6 +192,7 @@ function ImportBilling() {
     showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
     selectedBranch,
     selectedCategory,
+    workMode, // ✅ Include workMode in dependencies
   ]);
 
   // Debounce search input to avoid excessive API calls
@@ -348,8 +350,9 @@ function ImportBilling() {
           }).toString();
 
           return currentTab === 0 ? (
-            <a
-              href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+            <Link
+              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+              state={{ workMode }}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -366,7 +369,7 @@ function ImportBilling() {
             >
               {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
-            </a>
+            </Link>
           ) : (
             <div
               style={{

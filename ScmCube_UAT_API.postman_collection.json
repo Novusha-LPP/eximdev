@@ -1,0 +1,138 @@
+{
+	"info": {
+		"_postman_id": "9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+		"name": "ScmCube UAT Integration API",
+		"description": "Collection for ScmCube UAT Integration API endpoints as per V_1.2.0.0.0 documentation.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication (Login)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"if (jsonData.success && jsonData.data && jsonData.data.accessToken) {",
+							"    pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
+							"    console.log(\"Access Token updated in collection variables\");",
+							"} else {",
+							"    console.error(\"Login failed or accessToken not found in response\");",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "*/*",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/Authentication/login?username={{username}}&password={{password}}&CompanyBrCode={{companyBrCode}}&Fyear={{fyear}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"Authentication",
+						"login"
+					],
+					"query": [
+						{
+							"key": "username",
+							"value": "{{username}}"
+						},
+						{
+							"key": "password",
+							"value": "{{password}}"
+						},
+						{
+							"key": "CompanyBrCode",
+							"value": "{{companyBrCode}}"
+						},
+						{
+							"key": "Fyear",
+							"value": "{{fyear}}"
+						}
+					]
+				},
+				"description": "Authenticates user and retrieves a JWT access token for subsequent API calls."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Job Creation (CreateJob)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n \"CHADetails\": {\r\n \"CHA Code\": \"sdfdf\",\r\n \"CHA Branch Code\": \"dsssdfd\",\r\n \"Financial Year\": \"dfdf\",\r\n \"SenderID\": \"PROTRANS\"\r\n },\r\n \"BE_Details\": {\r\n \"Custom House Code\": \"INMAA1\",\r\n \"User Job RNo\": \"1236\",\r\n \"User Job No.\": \"122511236\",\r\n \"User Job Date\": \"20260403\",\r\n \"BE Number\": \"\",\r\n \"BE Date\": \"\",\r\n \"BE Type\": \"H\",\r\n \"IEC Code\": \"0412041936\",\r\n \"Branch Sr. No\": \"0\",\r\n \"Name of the importer\": \"POLYHOSE KOHYEI INDIA PRIVATE LIMITED\",\r\n \"Address 1\": \"NO.46, BASERA GROUND FLOOR, BESANT \",\r\n \"Address 2\": \"AVENUE, ADYAR ,\",\r\n \"City\": \"CHENNAI\",\r\n \"State\": \"TAMILNADU\",\r\n \"Pin\": \"600020\",\r\n \"Class\": \"P\",\r\n \"Mode of Transport\": \"S\",\r\n \"ImporterType\": \"P\",\r\n \"Kachcha BE\": \"N\",\r\n \"High sea sale flag\": \"N\",\r\n \"Port of Origin\": \"KRBUS\",\r\n \"CHA Code\": \"AAECR8936PCH001\",\r\n \"Country of Origin\": \"KR\",\r\n \"Country of Consignment\": \"KR\",\r\n \"Port Of Shipment\": \"KRBUS\",\r\n \"Green Channel Requested\": \"N\",\r\n \"Section 48 Requested\": \"N\",\r\n \"Whether Prior BE\": \"A\",\r\n \"Authorized Dealer Code\": \"6480008\",\r\n \"First Check Requested\": \"N\",\r\n \"Warehouse Code\": \"\",\r\n \"Warehouse Customs Site ID\": \"\",\r\n \"Ware house BE No\": \"\",\r\n \"Ware house BE Date\": \"\",\r\n \"No of packages released\": \"\",\r\n \"Package Code\": \"\",\r\n \"Gross Weight\": \"\",\r\n \"Unit of Measurement\": \"\",\r\n \"Additional Charges\": \"\",\r\n \"Miscellaneous load\": \"\",\r\n \"Unique Consignment\": \"\",\r\n \"UCR Type\": \"\",\r\n \"Payment method code\": \"T\"\r\n },\r\n \"IGMS\": [\r\n {\r\n \"IGM No.\": \"\",\r\n \"IGM Date\": \"\",\r\n \"Inward Date\": \"\",\r\n \"Gateway IGM Number\": \"\",\r\n \"Gateway IGM date\": \"\",\r\n \"Gateway Port Code\": \"\",\r\n \"MAWB.BL No\": \"005GX04819\",\r\n \"MAWB.BL Date\": \"20260318\",\r\n \"HAWB.HBL No\": \"\",\r\n \"HAWB.HBL Date\": \"\",\r\n \"Total No. Of Packages\": \"32\",\r\n \"Gross Weight\": \"37008.000\",\r\n \"Unit Quantity Code\": \"KGS\",\r\n \"Package Code\": \"PLT\",\r\n \"Marks And Numbers 1\": \"AS PER BL\",\r\n \"Marks And Numbers 2\": \"\",\r\n \"Marks And Numbers 3\": \"\"\r\n }\r\n ],\r\n \"CONTAINER\": [\r\n {\r\n \"IGM Number\": \"\",\r\n \"IGM Date\": \"\",\r\n \"LCL.FCL\": \"F\",\r\n \"Container Number\": \"FCIU6234120\",\r\n \"Seal Number\": \"NA\",\r\n \"Truck Number\": \"\"\r\n },\r\n {\r\n \"IGM Number\": \"\",\r\n \"IGM Date\": \"\",\r\n \"LCL.FCL\": \"F\",\r\n \"Container Number\": \"WHSU2746612\",\r\n \"Seal Number\": \"NA\",\r\n \"Truck Number\": \"\"\r\n }\r\n ],\r\n \"SupportingDocumentList\": [\r\n {\r\n \"DocumentCode\": \"\",\r\n \"DocumentName\": \"\",\r\n \"DocumentFilePath\": \"\",\r\n \"DocumentFileFormat\": \"\"\r\n }\r\n ]\r\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/ImpJobCreation/CreateJob",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"ImpJobCreation",
+						"CreateJob"
+					]
+				},
+				"description": "Pushes job creation details to SCM Cube system using the Bearer token."
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://testimpexapi.impexcube.in",
+			"type": "string"
+		},
+		{
+			"key": "username",
+			"value": "test",
+			"type": "string"
+		},
+		{
+			"key": "password",
+			"value": "testabc",
+			"type": "string"
+		},
+		{
+			"key": "companyBrCode",
+			"value": "8A6EE027-A8FF-40E3-9468-00F1BB57F1C",
+			"type": "string"
+		},
+		{
+			"key": "fyear",
+			"value": "2026-2027",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

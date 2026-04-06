@@ -29,47 +29,64 @@ const LeaveApproval = () => {
   // Role detection — use EXIM roles from UserContext
   const isAdmin = isAdminRole(user?.role);
   const isHOD = isHodRole(user?.role);
-  const isAllowedAdmin = isAdmin && ALLOWED_USERNAMES.has(String(user?.username || '').toLowerCase());
+  // Initial local check, but will be synced with backend for consistency
+  const [isAllowedAdmin, setIsAllowedAdmin] = useState(isAdmin && ALLOWED_USERNAMES.has(String(user?.username || '').toLowerCase()));
 
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'approvals');
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [rejectModal, setRejectModal] = useState({ open: false, id: null, remark: '' });
 
   // Admin-only team filter state
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState('all');
 
-  const fetchRequests = useCallback(async (teamId = 'all') => {
+  // History & Pagination state
+  const [totalHistory, setTotalHistory] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historySearch, setHistorySearch] = useState('');
+  const historyLimit = 20;
+
+  const fetchRequests = useCallback(async (teamId = 'all', page = 1) => {
     try {
       setLoading(true);
       setError(null);
 
       let pendingLeaves = [];
       let processedLeaves = [];
+      let total = 0;
 
       if (isAdmin) {
-        // Admin: use the dedicated admin endpoint with optional team filter
-        const res = await attendanceAPI.getAdminLeaveRequests(teamId !== 'all' ? teamId : undefined);
+        // Admin: use the dedicated admin endpoint with optional team filter and pagination
+        const res = await attendanceAPI.getAdminLeaveRequests(teamId !== 'all' ? teamId : undefined, page, historyLimit);
         pendingLeaves = res?.data?.pendingLeaves || [];
         processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => ({
           ...h,
           historyKey: `hist-${h.id}-${new Date(h.actionDate).getTime()}`
         }));
+        total = res?.data?.totalHistory || 0;
 
         // Populate teams for filter dropdown (first load only)
         if (teams.length === 0 && res?.data?.teams?.length > 0) {
           setTeams(res.data.teams);
         }
+
+        // Sync allowed admin status from backend
+        if (res?.data?.isAllowedAdmin !== undefined) {
+          setIsAllowedAdmin(res.data.isAllowedAdmin);
+        }
       } else {
         // HOD: use the HOD dashboard endpoint — backend handles team scoping
+        // Note: For HOD, we might want to implement separate pagination later if needed.
         const res = await attendanceAPI.getHODDashboard();
         pendingLeaves = res?.data?.pendingLeaves || [];
         processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => ({
           ...h,
           historyKey: `hist-${h.id}-${new Date(h.actionDate).getTime()}`
         }));
+        total = processedLeaves.length;
       }
 
       const seen = new Set();
@@ -80,6 +97,8 @@ const LeaveApproval = () => {
         return true;
       }));
       setHistory(processedLeaves);
+      setTotalHistory(total);
+      setHistoryPage(page);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to load');
       toast.error('Failed to load leave requests');
@@ -93,15 +112,30 @@ const LeaveApproval = () => {
   const handleTeamChange = (e) => {
     const val = e.target.value;
     setSelectedTeam(val);
-    fetchRequests(val);
+    fetchRequests(val, 1);
   };
 
-  const handleAction = async (id, status) => {
+  const handlePageChange = (newPage) => {
+    fetchRequests(selectedTeam, newPage);
+  };
+
+  const handleDeleteHistory = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this leave history record? This action cannot be undone.')) return;
+    try {
+      await attendanceAPI.deleteLeaveApplication(id);
+      toast.success('History record deleted');
+      fetchRequests(selectedTeam, historyPage);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete record');
+    }
+  };
+
+  const processAction = async (id, status, remark = '') => {
     const acted = requests.find(r => String(r.id) === String(id));
     if (!acted) return;
     setRequests(prev => prev.filter(r => String(r.id) !== String(id)));
     try {
-      await attendanceAPI.approveRequest('leave', id, status);
+      await attendanceAPI.approveRequest('leave', id, status, remark);
       toast.success(`Leave ${status}`);
       setHistory(h => h.some(r => String(r.id) === String(id)) ? h :
         [{ ...acted, status, actionDate: new Date().toISOString(), historyKey: `${id}-${Date.now()}` }, ...h]);
@@ -109,6 +143,26 @@ const LeaveApproval = () => {
       toast.error('Action failed');
       setRequests(prev => [acted, ...prev]);
     }
+  };
+
+  const handleAction = async (id, status) => {
+    if (status === 'rejected') {
+      setRejectModal({ open: true, id, remark: '' });
+      return;
+    }
+    await processAction(id, status);
+  };
+
+  const submitRejectAction = async () => {
+    const remark = rejectModal.remark.trim();
+    if (!remark) {
+      toast.error('Rejection reason is required.');
+      return;
+    }
+
+    const rejectId = rejectModal.id;
+    setRejectModal({ open: false, id: null, remark: '' });
+    await processAction(rejectId, 'rejected', remark);
   };
 
   if (loading) return (
@@ -134,10 +188,16 @@ const LeaveApproval = () => {
 
   const TABS = [
     { key: 'approvals', label: 'Leave Approvals', count: requests.length },
+    { key: 'history', label: 'Leave History', count: 0 },
     ...(isAllowedAdmin ? [{ key: 'balances', label: 'Leave Balances', count: 0 }] : []),
     ...(isAllowedAdmin ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
     ...(isAllowedAdmin ? [{ key: 'holiday', label: 'Holidays', count: 0 }] : []),
   ];
+
+  const filteredHistory = history.filter(h =>
+    h.employeeName.toLowerCase().includes(historySearch.toLowerCase()) ||
+    h.leaveType.toLowerCase().includes(historySearch.toLowerCase())
+  );
 
   return (
     <div className="ap-page">
@@ -147,10 +207,10 @@ const LeaveApproval = () => {
           <p>Manage leave requests, policies, and upcoming holidays</p>
         </div>
         <div className="ap-header-actions">
-          {activeTab === 'approvals' && (
+          {(activeTab === 'approvals' || activeTab === 'history') && (
             <>
-              {/* Team filter — Admin only */}
-              {isAdmin && teams.length > 0 && (
+              {/* Team filter — Only for Allowed Admins */}
+              {isAllowedAdmin && teams.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <FiFilter size={13} style={{ color: '#6b7280' }} />
                   <select
@@ -174,7 +234,7 @@ const LeaveApproval = () => {
                   </select>
                 </div>
               )}
-              <button className="ap-icon-btn" onClick={() => fetchRequests(selectedTeam)}>
+              <button className="ap-icon-btn" onClick={() => fetchRequests(selectedTeam, historyPage)}>
                 <FiRefreshCw size={13} /> Refresh
               </button>
             </>
@@ -298,79 +358,150 @@ const LeaveApproval = () => {
             )}
           </div>
 
-          {/* ── Action History ── */}
-          {history.length > 0 && (
-            <div className="ap-card">
-              <div className="ap-card-head">
-                <div>
-                  <div className="ap-card-title">Action History</div>
-                  <div className="ap-card-sub">Recently processed requests</div>
+          {/* ── Action History section removed from approvals tab ── */}
+        </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="animation-fade-in">
+          <div className="ap-card">
+            <div className="ap-card-head" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div className="ap-card-title">Leave History</div>
+                <div className="ap-card-sub">
+                  Total {totalHistory} processed records
+                  {selectedTeam !== 'all' && (
+                    <span style={{ marginLeft: 8, color: '#6b7280', fontWeight: 500 }}>
+                      — {teams.find(t => t._id === selectedTeam)?.name || ''}
+                    </span>
+                  )}
+                  {!isAllowedAdmin && teams.length === 1 && (
+                    <span style={{ marginLeft: 8, color: '#10b981', fontWeight: 600 }}>
+                      (Team: {teams[0].name})
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="ap-history-wrap">
-                <table className="ap-table">
-                  <thead>
-                    <tr>
-                      <th>Employee</th>
-                      {/* Team column — Admin only */}
-                      {isAdmin && <th>Team</th>}
-                      <th>Type</th>
-                      <th>Days</th>
-                      <th>Date Range</th>
-                      <th>Reason</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map(req => (
-                      <tr key={req.historyKey}>
-                        <td className="td-name">{req.employeeName}</td>
-                        {isAdmin && (
-                          <td>
-                            {req.teamName
-                              ? <span style={{ fontSize: '.75rem', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 999, padding: '1px 8px' }}>{req.teamName}</span>
-                              : <span style={{ color: '#9ca3af', fontSize: '.75rem' }}>—</span>
-                            }
-                          </td>
-                        )}
-                        <td>
-                          {req.leaveType}
-                          {req.attachment_urls && req.attachment_urls.length > 0 && (
-                            <a
-                              href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="View Document"
-                              style={{ marginLeft: 6, color: '#6b7280' }}
-                            >
-                              <FiFileText size={12} />
-                            </a>
-                          )}
-                        </td>
-                        <td className="td-mono">
-                          {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`}
-                        </td>
-                        <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} &rarr; {fmt(req.toDate, 'dd MMM')}</td>
-                        <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>
-                          {req.reason || '-'}
-                        </td>
-                        <td>
-                          <span className={`ap-status-badge ${req.status}`}>
-                            {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />}{' '}
-                            {req.status?.charAt(0).toUpperCase() + req.status?.slice(1)}
-                          </span>
-                        </td>
-                        <td className="td-dim">
-                          {req.actionDate ? new Date(req.actionDate).toLocaleDateString('en', { day: 'numeric', month: 'short' }) : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="ap-search-wrap">
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="ap-search-input"
+                />
               </div>
             </div>
-          )}
+
+            {filteredHistory.length === 0 ? (
+              <div className="ap-empty">
+                <p>No history records found.</p>
+              </div>
+            ) : (
+              <>
+                <div className="ap-history-wrap">
+                  <table className="ap-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Team</th>
+                        <th>Type</th>
+                        <th>Days</th>
+                        <th>Date Range</th>
+                        <th>Status</th>
+                        <th>Processed On</th>
+                        {isAllowedAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHistory.map(req => (
+                        <tr key={req.historyKey}>
+                          <td className="td-name">{req.employeeName}</td>
+                          <td>
+                            {req.teamName
+                              ? <span className="ap-badge-team">{req.teamName}</span>
+                              : <span className="ap-text-dim">—</span>
+                            }
+                          </td>
+                          <td>{req.leaveType}</td>
+                          <td className="td-mono">
+                            {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`}
+                          </td>
+                          <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} &rarr; {fmt(req.toDate, 'dd MMM')}</td>
+                          <td>
+                            <span className={`ap-status-badge ${req.status}`}>
+                              {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />}{' '}
+                              {req.status?.charAt(0).toUpperCase() + req.status?.slice(1)}
+                            </span>
+                          </td>
+                          <td className="td-dim">
+                            {req.actionDate ? new Date(req.actionDate).toLocaleDateString('en', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
+                          </td>
+                          {isAllowedAdmin && (
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                className="ap-icon-btn delete"
+                                onClick={() => handleDeleteHistory(req.id)}
+                                title="Delete Record"
+                                style={{ color: '#ef4444' }}
+                              >
+                                <FiX size={14} />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="ap-pagination">
+                  <button
+                    disabled={historyPage === 1}
+                    onClick={() => handlePageChange(historyPage - 1)}
+                    className="ap-page-btn"
+                  >
+                    Previous
+                  </button>
+                  <span className="ap-page-info">
+                    Page {historyPage} of {Math.ceil(totalHistory / historyLimit) || 1}
+                  </span>
+                  <button
+                    disabled={historyPage >= Math.ceil(totalHistory / historyLimit)}
+                    onClick={() => handlePageChange(historyPage + 1)}
+                    className="ap-page-btn"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {rejectModal.open && (
+        <div className="ap-modal-overlay" role="dialog" aria-modal="true" aria-label="Provide rejection reason">
+          <div className="ap-modal-card">
+            <div className="ap-modal-title">Provide rejection reason</div>
+            <div className="ap-modal-sub">This reason is required to reject the leave request.</div>
+            <textarea
+              className="ap-modal-input"
+              rows={4}
+              value={rejectModal.remark}
+              onChange={(e) => setRejectModal((prev) => ({ ...prev, remark: e.target.value }))}
+              placeholder="Type reason here..."
+            />
+            <div className="ap-modal-actions">
+              <button className="ap-btn reject" onClick={() => setRejectModal({ open: false, id: null, remark: '' })}>
+                <FiX size={14} /> Cancel
+              </button>
+              <button className="ap-btn approve" onClick={submitRejectAction}>
+                <FiCheck size={14} /> Submit
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -77,20 +77,15 @@ const LeaveManagement = () => {
 
         setLoadingPreview(true);
         try {
-          const params = new URLSearchParams({
+          const res = await leaveAPI.previewLeave({
             leave_policy_id: form.leave_policy_id,
             from_date: form.from_date,
             to_date: form.is_half_day ? form.from_date : form.to_date,
             is_half_day: form.is_half_day.toString()
           });
-
-          // Using axios directly for the custom preview endpoint
-          const res = await axios.get(`${API_BASE_URL}/attendance/leave/preview-application?${params}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
           
-          if (res.data.success) {
-            setPreview(res.data.data);
+          if (res.success) {
+            setPreview(res.data);
           }
         } catch (err) {
           console.error('[Preview Error]', err);
@@ -243,12 +238,13 @@ const LeaveManagement = () => {
       ) : (
         <div className="bal-grid">
           {balances.map(b => {
+            const total = b.opening_balance || b.total || b.annual_quota || 0;
             const used = b.used ?? 0;
-            const total = b.total || b.annual_quota || 0;
-            const available = b.available || b.balance || 0;
+            // The server now returns 'available' as Opening - Used - Pending (Net)
+            const availableDisplay = b.leave_type === 'unpaid' ? 0 : (b.available ?? (total - used - (b.pending || 0)));
             const pend = b.pending || 0;
             const usedPct = total > 0 ? (used / total) * 100 : 0;
-            const exhausted = available <= 0 && b.leave_type !== 'unpaid';
+            const exhausted = (total - used) <= 0 && b.leave_type !== 'unpaid';
             return (
               <div key={b._id} className={`bal-tile${exhausted ? ' exhausted' : ''}`}>
                 <div className="bal-head">
@@ -260,11 +256,7 @@ const LeaveManagement = () => {
                     {b.leave_type === 'unpaid' ? (
                       <span className="bal-big" style={{ fontSize: '1.375rem' }}>0</span>
                     ) : (
-                      <>
-                        <span className="bal-big">{available}</span>
-                        <span className="bal-sep">/</span>
-                        <span className="bal-tot">{total}</span>
-                      </>
+                        <span className="bal-big">{availableDisplay}</span>
                     )}
                   </div>
                   <span className="bal-lbl">Available Days</span>
@@ -477,12 +469,15 @@ const LeaveManagement = () => {
                 >
                   <option value="">Select leave type...</option>
                   {balances
-                    .map(b => (
-                      <option key={b._id} value={b._id}>
-                        {b.name}
-                        {b.leave_type !== 'unpaid' ? ` • ${b.available || b.balance} days left` : ' (Unlimited)'}
-                      </option>
-                    ))
+                    .map(b => {
+                      const netBalance = b.leave_type === 'unpaid' ? 0 : (b.available ?? (b.opening_balance - (b.used || 0) - (b.pending || 0)));
+                      return (
+                        <option key={b._id} value={b._id}>
+                          {b.name}
+                          {b.leave_type !== 'unpaid' ? ` • ${netBalance} days left` : ' (Unlimited)'}
+                        </option>
+                      );
+                    })
                   }
                 </select>
               </div>

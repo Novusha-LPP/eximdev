@@ -11,6 +11,13 @@ import RegularizationRequest from '../../model/attendance/RegularizationRequest.
 import mongoose from 'mongoose';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
+const isHodRole = (role) => {
+    const n = normalizeRole(role);
+    return n === 'HOD' || n === 'HEADOFDEPARTMENT';
+};
+
 
 // Get HOD Dashboard Data
 export const getDashboard = async (req, res) => {
@@ -37,7 +44,7 @@ export const getDashboard = async (req, res) => {
         let employeeIds = [];
         let employees = [];
 
-        if (hod.role === 'ADMIN') {
+        if (isAdminRole(hod.role)) {
             // Admin sees all employees, optionally filtered by teamId
             if (teamId) {
                 // Admin filtered by a specific team
@@ -70,6 +77,7 @@ export const getDashboard = async (req, res) => {
                 hodId: hod._id,
                 isActive: { $ne: false }
             });
+            allTeamsForHOD = teams; // Capture for mapping later
             
             debugLog.push(`Found ${teams.length} teams for HOD`);
             
@@ -125,6 +133,18 @@ export const getDashboard = async (req, res) => {
             
             debugLog.push(`Loaded ${employees.length} active team member details`);
         }
+
+        // Helper to resolve team name for an employee (used in HOD dashboard)
+        const getTeamNameForMember = (empId) => {
+            const sid = empId?.toString();
+            // In HOD mode, we already have employees from specific teams.
+            // But let's check which team they belong to if we have multiple teams.
+            // (Only for HOD role; for Admin it shows all)
+            const matchedTeam = (allTeamsForHOD || []).find(t => 
+                t.members && t.members.some(m => m.userId?.toString() === sid)
+            );
+            return matchedTeam ? matchedTeam.name : null;
+        };
 
         employeeIds = employees.map(e => e._id);
         const totalEmployees = employees.length;
@@ -237,8 +257,8 @@ export const getDashboard = async (req, res) => {
         });
 
         // 5. Get pending leave requests
-        const pendingStatuses = hod.role === 'ADMIN'
-            ? ['hod_approved_pending_admin', 'pending']
+        const pendingStatuses = isAdminRole(hod.role)
+            ? ['pending_hod', 'hod_approved_pending_admin', 'pending']
             : ['pending_hod', 'pending'];
 
         const pendingLeaves = await LeaveApplication.find({
@@ -431,12 +451,15 @@ export const getDashboard = async (req, res) => {
                             available: balance?.closing_balance || 0,
                             used: balance?.used || 0,
                             pending: balance?.pending_approval || 0
-                        }
+                        },
+                        teamName: getTeamNameForMember(leave.employee_id._id)
                     };
                 })),
                 recentProcessedLeaves: recentProcessedLeaves.map(leave => ({
                     id: leave._id,
                     employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                    employeeId: leave.employee_id._id,
+                    teamName: getTeamNameForMember(leave.employee_id._id),
                     leaveType: leave.leave_policy_id?.leave_type || 'Unknown',
                     fromDate: leave.from_date,
                     toDate: leave.to_date,
@@ -515,27 +538,27 @@ export const approveRequest = async (req, res) => {
 
             const requesterId = application.employee_id?.toString();
             const actorId = (actor._id?._id || actor._id).toString();
-            const actorRole = String(actor.role || '').toUpperCase();
+                const actorRole = normalizeRole(actor.role);
 
-            if (requesterId === actorId) {
+            const actorUsername = String(actor.username || '').toLowerCase();
+                const isAllowedAdmin = isAdminRole(actorRole) && ALLOWED_USERNAMES.has(actorUsername);
+            if (requesterId === actorId && !isAllowedAdmin) {
                 debug.push('SELF APPROVAL DENIED');
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                 return res.status(403).json({ message: 'Unauthorized: You cannot process your own leave application' });
             }
 
-            const session = await mongoose.startSession();
-            session.startTransaction();
-
+            // session.startTransaction(); removed to support standalone MongoDB
             try {
                 const currentYear = new Date().getFullYear();
                 let balanceRecord = await LeaveBalance.findOne({
                     employee_id: application.employee_id,
                     leave_policy_id: application.leave_policy_id,
                     year: currentYear
-                }).session(session);
+                });
 
                 if (!balanceRecord) {
-                    const policy = await LeavePolicy.findById(application.leave_policy_id).session(session);
+                    const policy = await LeavePolicy.findById(application.leave_policy_id);
                     const defaultQuota = 24;
                     const quota = policy?.annual_quota || defaultQuota;
 
@@ -553,8 +576,9 @@ export const approveRequest = async (req, res) => {
                 }
 
                 const isUnpaid = ['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase());
+                const canReviewAsTeamHod = isHodRole(actorRole) || (isAdminRole(actorRole) && !isAllowedAdmin);
 
-                if (actorRole === 'HOD') {
+                if (canReviewAsTeamHod) {
                     const hodTeams = await TeamModel.find({
                         hodId: actor._id,
                         isActive: { $ne: false }
@@ -570,63 +594,64 @@ export const approveRequest = async (req, res) => {
                     });
 
                     if (!teamMemberIds.has(requesterId)) {
-                        await session.abortTransaction();
-                        session.endSession();
                         return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
                     }
 
                     if (!['pending_hod', 'pending'].includes(application.approval_status)) {
-                        await session.abortTransaction();
-                        session.endSession();
                         return res.status(400).json({ message: 'Request is no longer pending HOD review' });
                     }
 
                     if (status === 'approved') {
                         application.approval_status = 'hod_approved_pending_admin';
                         application.comments = comments || application.comments;
-                        await application.save({ session });
+                        await application.save();
 
-                        await session.commitTransaction();
-                        session.endSession();
                         fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                         return res.json({ message: 'Leave forwarded to admin for final approval' });
                     }
 
                     application.approval_status = 'rejected';
                     application.comments = comments || application.comments;
-                    await application.save({ session });
+                    await application.save();
 
                     if (balanceRecord.pending_approval >= application.total_days) {
                         balanceRecord.pending_approval -= application.total_days;
                     }
-                    if (!isUnpaid) {
-                        balanceRecord.closing_balance += application.total_days;
-                    }
-                    await balanceRecord.save({ session });
+                    balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    await balanceRecord.save();
 
-                    await session.commitTransaction();
-                    session.endSession();
                     fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                     return res.json({ message: 'Leave rejected successfully' });
                 }
 
-                const username = String(actor.username || '').toLowerCase();
-                if (!ALLOWED_USERNAMES.has(username)) {
-                    await session.abortTransaction();
-                    session.endSession();
+                if (!isAdminRole(actorRole)) {
+                    return res.status(403).json({ message: 'Final leave approval requires admin role' });
+                }
+
+                if (!isAllowedAdmin) {
                     return res.status(403).json({ message: 'Final leave approval is restricted to designated admins' });
                 }
 
-                if (!['hod_approved_pending_admin', 'pending'].includes(application.approval_status)) {
-                    await session.abortTransaction();
-                    session.endSession();
+                const requesterUser = await User.findById(application.employee_id)
+                    .select('role')
+                    .lean();
+                const requesterRoleNorm = String(requesterUser?.role || '').toUpperCase().replace(/[^A-Z]/g, '');
+                const requesterIsHodOrAdmin = requesterRoleNorm === 'HOD'
+                    || requesterRoleNorm === 'HEADOFDEPARTMENT'
+                    || requesterRoleNorm === 'ADMIN';
+
+                const canFinalize = ['hod_approved_pending_admin', 'pending'].includes(application.approval_status)
+                    || (application.approval_status === 'pending_hod' && requesterIsHodOrAdmin);
+
+                if (!canFinalize) {
                     return res.status(400).json({ message: 'Request is not ready for admin finalization' });
                 }
 
                 if (status === 'approved') {
                     application.approval_status = 'approved';
                     application.comments = comments || application.comments;
-                    await application.save({ session });
+                    await application.save();
 
                     const start = moment(application.from_date).startOf('day');
                     const end = moment(application.to_date).startOf('day');
@@ -645,7 +670,7 @@ export const approveRequest = async (req, res) => {
                                 year_month: curr.format('YYYY-MM'),
                                 processed_by: 'admin'
                             },
-                            { upsert: true, session }
+                            { upsert: true }
                         );
                         curr.add(1, 'day');
                     }
@@ -654,28 +679,24 @@ export const approveRequest = async (req, res) => {
                     if (!isUnpaid) {
                         balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
                     }
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
                 } else {
                     application.approval_status = 'rejected';
                     application.comments = comments || application.comments;
-                    await application.save({ session });
+                    await application.save();
 
                     if (balanceRecord.pending_approval >= application.total_days) {
                         balanceRecord.pending_approval -= application.total_days;
                     }
-                    if (!isUnpaid) {
-                        balanceRecord.closing_balance += application.total_days;
-                    }
+                    balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
                 }
 
-                await balanceRecord.save({ session });
-                await session.commitTransaction();
-                session.endSession();
+                await balanceRecord.save();
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                 return res.json({ message: `Leave ${status} successfully` });
 
             } catch (error) {
-                await session.abortTransaction();
-                session.endSession();
                 throw error;
             }
 
@@ -684,7 +705,7 @@ export const approveRequest = async (req, res) => {
             if (!request) return res.status(404).json({ message: 'Request not found' });
 
             // Admin bypasses team check
-            if (actor.role !== 'ADMIN') {
+            if (!isAdminRole(actor.role)) {
                 // HOD: verify employee is in their team
                 const hodTeams = await TeamModel.find({
                     hodId: actor._id,
@@ -761,13 +782,45 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         let employeeIds = [];
         let employees = [];
 
-        if (hod.role === 'ADMIN') {
-            // Admin sees all employees
-            const userQuery = {
-                company_id: companyId,
-                isActive: true
-            };
-            employees = await User.find(userQuery).select('_id first_name last_name username');
+        if (isAdminRole(hod.role)) {
+            const actorUsername = String(hod.username || '').toLowerCase();
+            const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
+
+            if (isAllowedAdmin) {
+                // Allowlisted admins can view all employees in company scope.
+                const userQuery = {
+                    company_id: companyId,
+                    isActive: true
+                };
+                employees = await User.find(userQuery).select('_id first_name last_name username');
+            } else {
+                // Non-allowlisted admins can only view teams where they are the HOD.
+                const teams = await TeamModel.find({
+                    hodId: hod._id,
+                    isActive: { $ne: false }
+                });
+
+                const memberUserIds = new Set();
+                teams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(member => {
+                            if (member.userId) {
+                                memberUserIds.add(member.userId.toString());
+                            }
+                        });
+                    }
+                });
+
+                if (memberUserIds.size === 0) {
+                    return res.json({ data: [] });
+                }
+
+                employeeIds = Array.from(memberUserIds).map(id => id);
+                employees = await User.find({
+                    _id: { $in: employeeIds },
+                    isActive: true
+                }).select('_id first_name last_name username');
+            }
         } else {
             // HOD sees only their team members
             const teams = await TeamModel.find({ 
@@ -916,33 +969,105 @@ export const getDepartmentAttendanceReport = async (req, res) => {
 export const getAdminLeaveRequests = async (req, res) => {
     try {
         const admin = req.user;
-        if (admin.role !== 'ADMIN') {
+        if (!isAdminRole(admin.role)) {
             return res.status(403).json({ message: 'Admin access only' });
         }
 
-        const { teamId, status } = req.query;
+        const { teamId, status, historyPage = 1, historyLimit = 20 } = req.query;
+        const page = Math.max(1, parseInt(historyPage));
+        const limit = Math.max(1, parseInt(historyLimit));
+
         const companyId = admin.company_id?._id || admin.company_id;
+        const adminUsername = String(admin.username || '').toLowerCase();
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
+
+        const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
+        const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
+        const adminIdStr = admin._id?.toString();
+
+        const allTeams = await TeamModel.find({ isActive: { $ne: false } })
+            .select('_id name hodUsername hodId members')
+            .lean();
 
         // Build query for leave applications
         let employeeFilter = null;
 
-        if (teamId && teamId !== 'all') {
-            // Filter by specific team members
-            const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
-            if (team && team.members && team.members.length > 0) {
-                const memberIds = team.members.map(m => m.userId).filter(Boolean);
-                employeeFilter = { $in: memberIds };
-            } else {
-                // Team not found or empty — return empty
-                return res.json({ data: { pendingLeaves: [], recentProcessedLeaves: [], teams: [] } });
+        let teams = [];
+        if (isAllowedAdmin) {
+            // Allowed admins see all company teams
+            teams = allTeams.filter(team =>
+                team.members?.some(m => m.userId && companyUserIds.has(m.userId.toString()))
+            );
+        } else {
+            // Regular HOD/Admins see only their assigned teams
+            teams = allTeams.filter(t => 
+                (t.hodId && t.hodId.toString() === adminIdStr) || 
+                (t.hodUsername && String(t.hodUsername).toLowerCase() === adminUsername)
+            );
+            
+            if (teams.length === 0) {
+                return res.json({ 
+                    data: { 
+                        pendingLeaves: [], 
+                        recentProcessedLeaves: [], 
+                        teams: [], 
+                        isAllowedAdmin: false, 
+                        totalHistory: 0,
+                        historyPage: page,
+                        historyLimit: limit
+                    } 
+                });
             }
         }
 
-        // Build leave query
-        // Include admin's own leaves as a safety net so self-applied requests are visible
-        // even if company/team mappings are temporarily inconsistent.
+        if (teamId && teamId !== 'all') {
+            const team = allTeams.find(t => t._id.toString() === teamId.toString());
+            if (team && team.members && team.members.length > 0) {
+                const memberIds = team.members
+                    .map(m => m.userId)
+                    .filter(Boolean)
+                    .map(id => {
+                        try { return new mongoose.Types.ObjectId(id.toString()); }
+                        catch (e) { return id; }
+                    });
+                employeeFilter = { $in: memberIds };
+            } else {
+                return res.json({ 
+                    data: { 
+                        pendingLeaves: [], 
+                        recentProcessedLeaves: [], 
+                        teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername })),
+                        isAllowedAdmin,
+                        totalHistory: 0,
+                        historyPage: page,
+                        historyLimit: limit
+                    } 
+                });
+            }
+        } else if (!isAllowedAdmin) {
+            const memberIds = new Set();
+            // Always include self in the history view for HODs
+            memberIds.add(adminIdStr);
+
+            teams.forEach((team) => {
+                (team.members || []).forEach((m) => {
+                    if (m.userId) {
+                        memberIds.add(m.userId.toString());
+                    }
+                });
+            });
+
+            // Convert to ObjectIds for reliable querying
+            const objectIds = Array.from(memberIds).map(id => {
+                try { return new mongoose.Types.ObjectId(id); }
+                catch (e) { return id; }
+            });
+
+            employeeFilter = { $in: objectIds };
+        }
+
         const leaveQuery = employeeFilter
-            ? { company_id: companyId, employee_id: employeeFilter }
+            ? { employee_id: employeeFilter } // Trust the explicit employee filter for HODs/Specific teams
             : {
                 $or: [
                     { company_id: companyId },
@@ -950,37 +1075,30 @@ export const getAdminLeaveRequests = async (req, res) => {
                 ]
             };
 
-        // Fetch all teams for dropdown (scoped to company by member user IDs)
-        const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
-        const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
-
-        const allTeams = await TeamModel.find({ isActive: { $ne: false } })
-            .select('_id name hodUsername members')
-            .lean();
-
-        const teams = allTeams.filter(team =>
-            team.members?.some(m => m.userId && companyUserIds.has(m.userId.toString()))
-        );
-
         // Fetch pending leaves
         const pendingLeaves = await LeaveApplication.find({
             ...leaveQuery,
-            approval_status: { $in: ['hod_approved_pending_admin', 'pending'] }
+            approval_status: { $in: ['pending_hod', 'hod_approved_pending_admin', 'pending'] }
         })
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ createdAt: -1 })
             .limit(200);
 
-        // Fetch recent processed leaves
-        const recentProcessedLeaves = await LeaveApplication.find({
+        // Fetch recent processed leaves with pagination
+        const historyQuery = {
             ...leaveQuery,
             approval_status: { $in: ['approved', 'rejected'] }
-        })
+        };
+
+        const totalHistory = await LeaveApplication.countDocuments(historyQuery);
+
+        const recentProcessedLeaves = await LeaveApplication.find(historyQuery)
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ updatedAt: -1 })
-            .limit(100);
+            .skip((page - 1) * limit)
+            .limit(limit);
 
         // Helper to resolve team name for an employee
         const getTeamName = (empId) => {
@@ -1018,12 +1136,42 @@ export const getAdminLeaveRequests = async (req, res) => {
             data: {
                 pendingLeaves: pendingLeaves.map(mapLeave),
                 recentProcessedLeaves: recentProcessedLeaves.map(mapLeave),
-                teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername }))
+                totalHistory,
+                historyPage: page,
+                historyLimit: limit,
+                teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername })),
+                isAllowedAdmin
             }
         });
 
     } catch (err) {
         console.error('Error in getAdminLeaveRequests:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+/**
+ * Delete a leave application (Authorized Admin only)
+ */
+export const deleteLeaveApplication = async (req, res) => {
+    try {
+        const admin = req.user;
+        const adminUsername = String(admin.username || '').toLowerCase();
+        
+        // Only allowlisted admins can delete history
+        if (!isAdminRole(admin.role) || !ALLOWED_USERNAMES.has(adminUsername)) {
+            return res.status(403).json({ message: 'Unauthorized: Only authorized admins can delete leave history' });
+        }
+
+        const { id } = req.params;
+        const deleted = await LeaveApplication.findByIdAndDelete(id);
+
+        if (!deleted) {
+            return res.status(404).json({ message: 'Leave application not found' });
+        }
+
+        res.json({ message: 'Leave history record deleted successfully' });
+    } catch (err) {
+        console.error('Error in deleteLeaveApplication:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

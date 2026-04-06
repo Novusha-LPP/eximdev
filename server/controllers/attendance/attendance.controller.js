@@ -2015,16 +2015,19 @@ export const getEmployeeFullProfile = async (req, res) => {
     try {
         const { id } = req.params;
         const { startDate, endDate } = req.query;
+        const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdmin = roleNorm === 'ADMIN';
+        const isHod = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT';
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: 'Invalid employee ID format' });
         }
 
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+        if (!isAdmin && !isHod) {
             return res.status(403).json({ message: 'Unauthorized profile access' });
         }
 
-        if (req.user.role === 'HOD') {
+        if (isHod) {
             const hodTeams = await TeamModel.find({ hodId: req.user._id, isActive: { $ne: false } });
             const isInTeam = hodTeams.some(team =>
                 team.members?.some(m => m.userId?.toString() === id.toString())
@@ -2058,7 +2061,10 @@ export const getEmployeeFullProfile = async (req, res) => {
             LeaveBalance.find({
                 employee_id: id,
                 company_id: employee.company_id?._id || employee.company_id
-            }).lean(),
+            })
+                .populate('leave_policy_id', 'policy_name leave_type')
+                .sort({ updatedAt: -1 })
+                .lean(),
 
             LeaveApplication.find({
                 employee_id: id,
@@ -2086,12 +2092,29 @@ export const getEmployeeFullProfile = async (req, res) => {
         ]);
 
         const [attendance, balances, leaves, holidays, pendingLeaves, pendingRegularizations] = results;
+        const normalizedBalances = (balances || []).map((b) => {
+            const used = Number(b.used ?? b.consumed ?? 0);
+            const pendingApproval = Number(b.pending_approval ?? b.pending ?? 0);
+            const opening = Number(b.opening_balance ?? 0);
+            const closing = Number(
+                b.closing_balance ?? (opening - used - pendingApproval)
+            );
+
+            return {
+                ...b,
+                used,
+                pending: pendingApproval,
+                pending_approval: pendingApproval,
+                opening_balance: opening,
+                closing_balance: closing
+            };
+        });
 
         return res.json({
             success: true,
             employee,
             attendance,
-            balances,
+            balances: normalizedBalances,
             leaves,
             holidays,
             pendingLeaves: pendingLeaves || [],

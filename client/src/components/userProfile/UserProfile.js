@@ -828,7 +828,7 @@ const UserProfile = ({ username: propUsername }) => {
                             <div className="profile-leave-grid">
                                 {leaveBalance.map((bal) => {
                                     const available = bal.available || bal.balance || 0;
-                                    const total = bal.total || 0;
+                                    const total = bal.total || bal.opening_balance || bal.display?.total || 0;
                                     const used = bal.used ?? 0;
                                     return (
                                         <div className="profile-leave-tile" key={bal._id || bal.leave_type}>

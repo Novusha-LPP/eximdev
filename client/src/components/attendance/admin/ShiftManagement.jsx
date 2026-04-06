@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiPlus, FiClock, FiTrash2, FiUsers, FiCalendar, FiSettings, FiCheckCircle, FiMinus, FiX, FiEdit2 } from 'react-icons/fi';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
-import { Select, Radio, Modal } from 'antd';
+import { Modal } from 'antd';
 import EnterpriseTable from '../common/EnterpriseTable';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
 import './AdminSettings.css';
-
-const { Option } = Select;
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -28,7 +26,6 @@ const ShiftManagement = () => {
   const [editingId, setEditingId] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState('');
-  const [teams, setTeams] = useState([]);
   const [formData, setFormData] = useState(emptyForm());
   const [tableKey, setTableKey] = useState(Date.now());
 
@@ -47,10 +44,7 @@ const ShiftManagement = () => {
     {
       label: 'Applicability', render: (_, row) =>
         <span style={{ fontSize: '.75rem', color: 'var(--as-t3)', maxWidth: 200, display: 'block' }}>
-          {row.applicability?.teams?.all 
-            ? 'All Teams' 
-            : (row.applicability?.teams?.list || []).map(t => t.name || 'Team').join(', ') || 'No teams'
-          }
+          Global policy
         </span>
     },
     {
@@ -61,15 +55,6 @@ const ShiftManagement = () => {
         </div>
     },
   ];
-
-  const loadTeams = useCallback(async () => {
-    try {
-      const res = await masterAPI.getTeams();
-      setTeams(res.teams || []);
-    } catch (e) {
-      toast.error('Failed to load teams');
-    }
-  }, []);
 
   const fetchShifts = async (params) => masterAPI.getShifts({ ...params, company_id: companyId || undefined });
   
@@ -84,7 +69,6 @@ const ShiftManagement = () => {
         }
       }
     });
-    if (!row.applicability?.teams?.all) loadTeams();
     setShowForm(true);
   };
 
@@ -93,6 +77,7 @@ const ShiftManagement = () => {
     try {
       const payload = {
         ...formData,
+        applicability: { teams: { all: true, list: [] } },
         shift_code: formData.shift_code || formData.shift_name.slice(0, 3).toUpperCase(),
         company_id: companyId || undefined
       };
@@ -148,7 +133,7 @@ const ShiftManagement = () => {
       <div className="settings-header">
         <div className="settings-header-content">
           <h2>Shift Management</h2>
-          <p>Define reference timings, work-hour thresholds and team applicability</p>
+          <p>Define reference timings and work-hour thresholds for global shifts</p>
         </div>
         <div className="settings-header-actions">
           <button className="btn btn-outline" onClick={() => { if(showForm){setShowForm(false); setEditingId(null); setFormData(emptyForm());} else {setShowForm(true);} }}>
@@ -195,36 +180,11 @@ const ShiftManagement = () => {
 
             {/* Applicability */}
             <div className="modern-section">
-                <h4 className="modern-section-title"><FiUsers size={11} /> Team Applicability</h4>
+              <h4 className="modern-section-title"><FiUsers size={11} /> Applicability</h4>
                 <div className="form-group">
-                    <Radio.Group 
-                        value={formData.applicability.teams.all} 
-                        onChange={e => {
-                            const isAll = e.target.value;
-                            if (!isAll) loadTeams();
-                            setFormData(f => ({ 
-                                ...f, 
-                                applicability: { 
-                                    ...f.applicability, 
-                                    teams: { ...f.applicability.teams, all: isAll } 
-                                } 
-                            }));
-                        }}
-                    >
-                        <Radio value={true} style={{ color: 'var(--as-t2)' }}>All Teams</Radio>
-                        <Radio value={false} style={{ color: 'var(--as-t2)' }}>Selected Teams</Radio>
-                    </Radio.Group>
-                    {!formData.applicability.teams.all && (
-                        <Select
-                            mode="multiple"
-                            style={{ width: '100%', marginTop: '12px' }}
-                            placeholder="Select Teams"
-                            value={formData.applicability.teams.list}
-                            onChange={v => setFormData(f => ({ ...f, applicability: { ...f.applicability, teams: { ...f.applicability.teams, list: v } } }))}
-                        >
-                            {teams.map(t => <Option key={t._id} value={t._id}>{t.name}</Option>)}
-                        </Select>
-                    )}
+                <div style={{ color: 'var(--as-t2)', fontSize: '13px' }}>
+                  This shift is created globally and can be assigned from the Users tab.
+                </div>
                 </div>
             </div>
 

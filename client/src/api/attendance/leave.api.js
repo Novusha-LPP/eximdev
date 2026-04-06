@@ -37,6 +37,15 @@ const leaveAPI = {
       throw error.response?.data || { message: 'Failed to cancel leave' };
     }
   },
+  
+  previewLeave: async (params) => {
+    try {
+      const response = await apiClient.get('/leave/preview-application', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to preview leave' };
+    }
+  },
 
   // Admin function to update leave balance
   updateBalance: async (employee_id, payload) => {

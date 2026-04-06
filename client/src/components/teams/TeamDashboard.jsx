@@ -49,6 +49,7 @@ function TeamDashboard() {
     const { user } = useContext(UserContext);
     const { teamId, userId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(null);
@@ -67,9 +68,17 @@ function TeamDashboard() {
     const [teamToEdit, setTeamToEdit] = useState(null);
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
+    const [moduleTab, setModuleTab] = useState(teamId || userId ? "teams" : "users");
+    const [teamShortcutUserIds, setTeamShortcutUserIds] = useState([]);
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
+
+    useEffect(() => {
+        if (location.state?.openUsersTab) {
+            setModuleTab("users");
+        }
+    }, [location.state]);
 
     // Fetch teams for HOD
     useEffect(() => {
@@ -418,6 +427,12 @@ function TeamDashboard() {
         },
     ];
 
+    const openMembersInUsersTab = () => {
+        const userIds = teamMembers.map((member) => member.userId || member._id).filter(Boolean);
+        setTeamShortcutUserIds(userIds);
+        setModuleTab("users");
+    };
+
     const tabItems = [
         {
             key: "Members",
@@ -490,7 +505,32 @@ function TeamDashboard() {
     }
 
     return (
-        <Layout style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5" }}>
+        <div style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5", padding: 16 }}>
+            <Card bordered={false} style={{ marginBottom: 16 }}>
+                <Space>
+                    <Button
+                        type={moduleTab === "users" ? "primary" : "default"}
+                        icon={<UserOutlined />}
+                        onClick={() => setModuleTab("users")}
+                    >
+                        Users
+                    </Button>
+                    <Button
+                        type={moduleTab === "teams" ? "primary" : "default"}
+                        icon={<TeamOutlined />}
+                        onClick={() => setModuleTab("teams")}
+                    >
+                        Teams
+                    </Button>
+                </Space>
+            </Card>
+
+            {moduleTab === "users" ? (
+                <Card bordered={false}>
+                    <EmployeeProfileWorkspace preselectedEmployeeIds={teamShortcutUserIds} />
+                </Card>
+            ) : (
+                <Layout style={{ minHeight: "calc(100vh - 160px)", background: "#f0f2f5" }}>
             <Sider width={320} theme="light" style={{ borderRight: "1px solid #e8e8e8", height: "calc(100vh - 64px)" }}>
                 <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                     <div style={{ padding: 16, borderBottom: "1px solid #e8e8e8", flexShrink: 0 }}>
@@ -649,6 +689,9 @@ function TeamDashboard() {
                                         )}
                                     </div>
                                 </Space>
+                                <Button type="default" onClick={openMembersInUsersTab}>
+                                    Manage Members in Users Tab
+                                </Button>
                             </div>
                         </Card>
 
@@ -861,6 +904,8 @@ function TeamDashboard() {
 
             
         </Layout>
+            )}
+        </div>
     );
 }
 

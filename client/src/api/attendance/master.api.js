@@ -223,6 +223,12 @@ const masterAPI = {
   assignPolicyToUser: async (userId, data) => {
       const response = await apiClient.put(`/master/users/${userId}/policies`, data);
       return response.data;
+    },
+
+    // Bulk assign policy overrides to selected users
+    bulkAssignPoliciesToUsers: async (data) => {
+            const response = await apiClient.post('/master/users/policies/bulk-assign', data);
+            return response.data;
   }
 };
 

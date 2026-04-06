@@ -149,12 +149,13 @@ const attendanceAPI = {
   /**
    * Approve/Reject Request (Leave or Regularization)
    */
-  approveRequest: async (type, id, status) => {
+  approveRequest: async (type, id, status, comments = '') => {
     try {
       const response = await apiClient.post('/attendance/approve-request', {
         type, // 'leave' or 'regularization'
         id,
-        status // 'approved' or 'rejected'
+        status, // 'approved' or 'rejected'
+        comments
       });
       return response.data;
     } catch (error) {
@@ -314,14 +315,23 @@ const attendanceAPI = {
    * Get all leave requests for Admin view (with optional teamId filter)
    * Returns: { data: { pendingLeaves, recentProcessedLeaves, teams } }
    */
-  getAdminLeaveRequests: async (teamId) => {
+  getAdminLeaveRequests: async (teamId, historyPage = 1, historyLimit = 20) => {
     try {
-      const params = {};
+      const params = { historyPage, historyLimit };
       if (teamId && teamId !== 'all') params.teamId = teamId;
       const response = await apiClient.get('/attendance/admin-leave-requests', { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch leave requests' };
+    }
+  },
+
+  deleteLeaveApplication: async (id) => {
+    try {
+      const response = await apiClient.delete(`/attendance/leave-application/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to delete leave record' };
     }
   },
 

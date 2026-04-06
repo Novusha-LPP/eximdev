@@ -63,6 +63,7 @@ router.get('/my-holidays', attendanceAuthBridge, policyCtrl.getHolidaysForCurren
 
 // Assign policy overrides to a specific user
 router.put('/users/:userId/policies', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.assignPolicyToUser);
+router.post('/users/policies/bulk-assign', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.bulkAssignPoliciesToUsers);
 
 export default router;
 

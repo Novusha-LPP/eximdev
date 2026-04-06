@@ -2,12 +2,10 @@ import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiCalendar, FiLock } from 'react-icons/fi';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
-import { Select, Radio, Modal } from 'antd';
+import { Radio, Modal } from 'antd';
 import { UserContext } from '../../../contexts/UserContext';
 import './AdminSettings.css';
 import './HolidayCalendar.css';
-
-const { Option } = Select;
 
 // Allowed-admin usernames (must match backend list)
 const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
@@ -39,7 +37,6 @@ const HolidayPolicyManager = ({ user: userProp }) => {
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'Admin';
 
   const [policies, setPolicies]           = useState([]);
-  const [teams, setTeams]                 = useState([]);
   const [loading, setLoading]             = useState(true);
   const [view, setView]                   = useState('list'); // 'list' | 'policy-form'
   const [expandedId, setExpandedId]       = useState(null);
@@ -62,11 +59,6 @@ const HolidayPolicyManager = ({ user: userProp }) => {
     }
   }, [filterYear]);
 
-  // Load branches, departments, designations
-  useEffect(() => {
-    masterAPI.getTeams?.().then(r => setTeams(r?.teams || [])).catch(() => {});
-  }, []);
-
   useEffect(() => { loadPolicies(); }, [loadPolicies]);
 
   // ── Policy CRUD ─────────────────────────────────────────────────────────────
@@ -85,11 +77,16 @@ const HolidayPolicyManager = ({ user: userProp }) => {
         }
       }
 
+      const payload = {
+        ...policyForm,
+        applicability: { teams: { all: true, list: [] } }
+      };
+
       if (editingPolicyId) {
-        await masterAPI.updateHolidayPolicy(editingPolicyId, policyForm);
+        await masterAPI.updateHolidayPolicy(editingPolicyId, payload);
         toast.success('Policy updated');
       } else {
-        await masterAPI.createHolidayPolicy(policyForm);
+        await masterAPI.createHolidayPolicy(payload);
         toast.success('Policy created');
       }
       setView('list');
@@ -185,41 +182,11 @@ const HolidayPolicyManager = ({ user: userProp }) => {
 
             <hr style={{ margin: '30px 0', border: 'none', borderTop: '1px solid #f3f4f6' }} />
 
-            {/* Policy Applicable To */}
-            <div style={{ marginBottom: '30px' }}>
-               <label style={{ display: 'block', fontWeight: 600, fontSize: '14px', marginBottom: '16px', color: '#1e293b' }}>Policy Applicable To *</label>
-               
-                              {/* Teams */}
-               <div style={{ padding: "16px", background: "#f9fafb", borderRadius: "10px", border: "1px solid #eef0f7", marginBottom: "14px" }}>
-                  <label style={{ display: "block", fontWeight: 600, fontSize: "13px", marginBottom: "10px", color: "#334155" }}>Policy Applicable To Team *</label> 
-                  <Radio.Group
-                    value={policyForm.applicability?.teams?.all ?? true}
-                    onChange={e => setPolicyForm(f => ({
-                      ...f,
-                      applicability: { ...f.applicability, teams: { ...f.applicability?.teams, all: e.target.value } }
-                    }))}
-                  >
-                    <Radio value={true}>All Teams</Radio>
-                    <Radio value={false}>Selected Teams</Radio>
-                  </Radio.Group>
-                  {policyForm.applicability?.teams?.all === false && (
-                    <Select
-                      mode="multiple"
-                      style={{ width: "100%", marginTop: "12px" }}
-                      placeholder="Select Teams"
-                      value={(policyForm.applicability?.teams?.list || []).map(t => t._id || t)}
-                      onChange={v => setPolicyForm(f => ({
-                        ...f,
-                        applicability: { ...f.applicability, teams: { ...f.applicability?.teams, list: v } }
-                      }))}
-                    >
-                      {teams.map(t => <Option key={t._id} value={t._id}>{t.name}</Option>)}
-                    </Select>
-                  )}
-               </div>
-              </div>
+            <div style={{ marginBottom: '20px', padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '13px', color: '#475569' }}>
+              This holiday policy is global and will be assigned to users from the Users tab.
+            </div>
 
-              <hr style={{ margin: "30px 0", border: "none", borderTop: "1px solid #f3f4f6" }} />
+            <hr style={{ margin: "20px 0 30px 0", border: "none", borderTop: "1px solid #f3f4f6" }} />
 
 {/* Holiday List */}
             <div>
@@ -341,9 +308,7 @@ const HolidayPolicyManager = ({ user: userProp }) => {
                     <div style={{ fontWeight: 700, fontSize: '16px', color: '#1e293b' }}>{policy.policy_name}</div>
                     <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
                       <span style={{ fontWeight: 600 }}>{policy.year}</span> • {holidays.length} holiday{holidays.length !== 1 ? 's' : ''}
-                      {policy.applicability?.teams?.all === false
-                        ? ` • ${(policy.applicability.teams.list || []).length} team(s)`
-                        : ' • ALL TEAMS'}
+                      {' • GLOBAL POLICY'}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

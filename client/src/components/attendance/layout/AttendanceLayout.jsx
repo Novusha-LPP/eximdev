@@ -37,11 +37,21 @@ const HOD_MENU = [
     { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
 ];
 
-const ADMIN_MENU = [
+const ADMIN_BASE_MENU = [
     { section: 'Overview' },
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
     { section: 'My Attendance' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
+    { section: 'My Leave' },
+    { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
+    { section: 'Team' },
+    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
+    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
+    { section: 'Calendar' },
+    { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
+];
+
+const ADMIN_PRIVILEGED_MENU = [
     { section: 'Company' },
     { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
     { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
@@ -69,6 +79,20 @@ const isHodRole = (role) => {
     return n === 'HOD' || n === 'HEADOFDEPARTMENT';
 };
 
+const removeEmptySections = (items) => {
+    const cleaned = [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.section) {
+            const hasLinkAhead = items.slice(i + 1).some((next) => !next.section);
+            if (hasLinkAhead) cleaned.push(item);
+            continue;
+        }
+        cleaned.push(item);
+    }
+    return cleaned;
+};
+
 const AttendanceLayout = () => {
     const { user } = useContext(UserContext);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -81,23 +105,22 @@ const AttendanceLayout = () => {
     const isAdmin = isAdminRole(role);
     const isHOD = isHodRole(role);
 
-    // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
-    let menu = isAdmin ? [...ADMIN_MENU] :
-        isHOD ? HOD_MENU :
-            EMPLOYEE_MENU;
+    const isAllowedAdmin = ALLOWED_USERNAMES.has(username);
 
-    // Filter menu items based on requiresAllowedAdmin
-    if (isAdmin || isHOD) {
-        menu = menu.filter(item => !item.requiresAllowedAdmin || ALLOWED_USERNAMES.has(username));
-    }
+    // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
+    let menu = isAdmin
+        ? [...ADMIN_BASE_MENU, ...(isAllowedAdmin ? ADMIN_PRIVILEGED_MENU : [])]
+        : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
 
     // Add Company Management for allowed users
-    if (isAdmin && ALLOWED_USERNAMES.has(username)) {
+    if (isAdmin && isAllowedAdmin) {
         menu.push(
             { section: 'Administration' },
             { path: '/attendance/admin/companies', icon: FiUsers, label: 'Manage Companies' }
         );
     }
+
+    menu = removeEmptySections(menu);
 
     const fetchPunchStatus = useCallback(async () => {
         try {

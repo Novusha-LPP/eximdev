@@ -1,72 +1,200 @@
-# Leave Balance Logic in Attendance Module
-
-This document explains the technical implementation and business logic behind leave balance management in the Attendance module.
-
-## 1. Data Model: `LeaveBalance`
-Each employee has a `LeaveBalance` record for each eligible leave type (defined in `LeavePolicy`) for the current calendar year.
-
-### Key Fields:
-- **Opening Balance (`opening_balance`)**: The balance at the start of the year (usually set by admin or policy).
-- **Credited (`credited`)**: Additional leaves granted to the employee during the year.
-- **Consumed (`consumed`)**: Total number of approved leave days already taken.
-- **Pending Approval (`pending_approval`)**: Days locked for applications currently awaiting HOD/Admin approval.
-- **Closing Balance (`closing_balance`)**: The **current available** balance for new applications.
+Here is your **modified markdown in the same format**, with corrected logic for **PL + Unpaid leave** and proper balance handling:
 
 ---
 
-## 2. The "Locking" Lifecycle
+# Leave Balance Logic (Updated Implementation)
 
-The system uses a "Locking" mechanism to prevent over-utilization when multiple applications are pending.
-
-### Phase 1: Leave Application (`applyLeave`)
-When an employee submits a leave request:
-1.  **Validation**: The system checks if `closing_balance >= requested_days`.
-2.  **Deduction (Locking)**:
-    -   `pending_approval` is **increased** by `requested_days`.
-    -   `closing_balance` is **decreased** by `requested_days`.
-    -   *Note: For Unpaid Leave (LWP), the balance is not deducted.*
-
-### Phase 2: HOD/Admin Approval (`approveRequest`)
-If the leave is **Approved**:
-1.  `consumed` is **increased** by `requested_days`.
-2.  `pending_approval` is **decreased** by `requested_days`.
-3.  **Attendance Sync**: The system automatically creates/updates `AttendanceRecord` entries for the leave dates with the status `leave` or `half_day`.
-
-### Phase 3: Rejection or Cancellation (`cancelLeave` / `approveRequest` rejected)
-If the leave is **Rejected** or **Cancelled**:
-1.  `pending_approval` is **decreased** by `requested_days`.
-2.  `closing_balance` is **increased** by `requested_days` (reverting the lock).
+This document explains how leave balances are stored, updated, and displayed in the Attendance module with corrected logic for Paid Leave (PL) and Unpaid Leave (LWP).
 
 ---
 
-## 3. Administrative Controls
+## 1. Core Model
 
-Admins have the capability to manually adjust balances via the `updateBalance` endpoint.
+Each employee has one LeaveBalance record per leave policy per year.
 
--   **Manual Overrides**: Admins can set `opening_balance`, `credited`, or `consumed` values directly.
--   **Recalculation Formula**:
-    Whenever an admin updates the balance, the `closing_balance` is recalculated as:
-    `closing_balance = (opening_balance + credited) - consumed - pending_approval`
+Main fields used by current logic:
 
----
+* opening_balance: initial assigned quota for that year.
+* used: approved paid leave already consumed.
+* pending_approval: paid leave days currently in pending workflow (reserved, not yet consumed).
+* closing_balance: actual remaining paid leave balance (excluding pending).
+* leave_policy_id, leave_type, company_id, employee_id, year: identity keys.
 
-## 4. Special Rules & Eligibility
+Unique key at DB level:
 
--   **Eligibility Filtering**: When fetching balances, the system filters policies based on:
-    -   `employment_types` (e.g., Permanent vs Contractor).
-    -   `gender` (e.g., Maternity leave).
--   **Privilege Leave (PL)**: If a user's PL balance reaches zero, the system prevents further applications and prompts the user to contact the Administrator.
--   **Half-Day Leaves**: Supported by deducting `0.5` days from the balance instead of a full day.
--   **Overlap Prevention**: The system blocks new applications that overlap with existing `pending` or `approved` leaves.
+* employee_id + company_id + leave_policy_id + year
 
 ---
 
-## 5. Technical Flow Summary
+## 2. Balance Formula
 
-| Action | `opening` | `credited` | `pending` | `consumed` | `closing` |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Initial (Admin set)** | 10 | 0 | 0 | 0 | **10** |
-| **User Applies 2 days** | 10 | 0 | **2** | 0 | **8** |
-| **HOD Approves** | 10 | 0 | **0** | **2** | **8** |
-| **User Applies 1 day** | 10 | 0 | **1** | 2 | **7** |
-| **User Cancels** | 10 | 0 | **0** | 2 | **8** |
+### Actual Balance (stored)
+
+```text
+closing_balance = opening_balance - used
+```
+
+### Available Balance (for UI / application logic)
+
+```text
+available_balance = closing_balance - pending_approval
+```
+
+Example:
+
+* opening_balance = 25
+
+* used = 5
+
+* pending_approval = 3
+
+* closing_balance = 25 - 5 = 20
+
+* available_balance = 20 - 3 = 17
+
+Note:
+
+* closing_balance never goes negative.
+* pending_approval only blocks leave, it does not reduce actual balance.
+
+---
+
+## 3. Lifecycle Behavior
+
+### Apply Leave
+
+* For Paid Leave (PL):
+
+  * pending_approval increases by requested PL days.
+  * closing_balance is NOT reduced.
+* If requested leave exceeds available PL:
+
+  * Remaining days are treated as Unpaid Leave (LWP).
+* For Unpaid Leave (LWP):
+
+  * No impact on closing_balance.
+
+---
+
+### Approve Leave
+
+* pending_approval decreases.
+* used increases for approved PL days.
+* closing_balance is recalculated:
+
+```text
+closing_balance = opening_balance - used
+```
+
+* Unpaid leave is recorded separately (no balance impact).
+* attendance records are updated for leave dates.
+
+---
+
+### Reject/Cancel Leave
+
+* pending_approval decreases.
+* No change to used or closing_balance.
+
+---
+
+## 4. Admin Manual Update Rules
+
+Endpoint:
+
+* POST /api/leave/admin-update-balance/:employee_id
+
+Payload supports:
+
+* leave_policy_id
+* opening_balance
+* used
+* pending or pending_approval
+
+### Validation Rules:
+
+* For Paid Leave (PL):
+
+```text
+pending_approval <= (opening_balance - used)
+```
+
+* Update is rejected if pending exceeds actual remaining balance.
+
+* For Unpaid Leave (LWP):
+
+  * No balance validation required.
+
+---
+
+## 5. Retrieval and UI Mapping
+
+Different parts of the app may send legacy names (pending, consumed), so the profile response normalizes balances for consistent UI:
+
+* used = used or consumed
+* pending = pending_approval (also returned as pending_approval)
+
+User profile leave tile values:
+
+* total shown from opening_balance
+* used shown from used
+* pending shown from pending_approval
+* available shown as:
+
+```text
+closing_balance - pending_approval
+```
+
+---
+
+## 6. Leave Type Handling (PL + LWP)
+
+When applying leave:
+
+* PL is always consumed first.
+* If PL is insufficient:
+
+  * Remaining days are automatically marked as Unpaid Leave (LWP).
+
+Example:
+
+* available PL = 2
+* requested leave = 5
+
+Result:
+
+* PL = 2
+* LWP = 3
+
+---
+
+## 7. Why Negative Balance Issue is Resolved
+
+Previously:
+
+```text
+closing_balance = opening_balance - used - pending_approval
+```
+
+This caused negative values because pending leave was treated as already consumed.
+
+Now:
+
+* closing_balance only reflects actual used leave.
+* pending_approval is treated separately as reserved leave.
+* Validation ensures pending never exceeds available balance.
+
+Result:
+
+* No negative closing_balance.
+* Clear separation of used vs pending vs available.
+
+---
+
+## 8. Key Principle
+
+> Used = confirmed consumption
+> Pending = reserved (not yet consumed)
+> Closing balance = actual remaining leave
+
+---

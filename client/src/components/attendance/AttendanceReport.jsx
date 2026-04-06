@@ -140,8 +140,9 @@ const AttendanceReport = ({ isAdmin }) => {
     const [companiesLoaded, setCompaniesLoaded] = useState(false); // guard: wait until company is resolved
     const [selectedEmp, setSelectedEmp] = useState(null);
     const { user } = React.useContext(UserContext);
-    const ALLOWED_USERNAMES = React.useMemo(() => new Set([]), []);
-    const isAllowedUser = ALLOWED_USERNAMES.has(user?.username);
+    const ALLOWED_USERNAMES = React.useMemo(() => new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']), []);
+    const isHOD = user?.role === 'HOD' || user?.role === 'HEADOFDEPARTMENT' || user?.role === 'hod';
+    const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
     const [showDailySummary, setShowDailySummary] = useState(false);
     const [empHistory, setEmpHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -807,7 +808,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                             <h4 className="ar-pane-title">Activity Highlights</h4>
                                             <div className="ar-timeline-body">
                                                 {empHistory.slice(0, 10).map((rec, i) => (
-                                                    <div key={i} className="ar-tl-mini-row" onClick={() => isAdmin && startEdit(rec)}>
+                                                    <div key={i} className="ar-tl-mini-row" onClick={() => (isAdmin || isHOD) && startEdit(rec)}>
                                                         <span className="ar-tl-mini-date">{moment(rec.attendance_date).format('DD MMM')}</span>
                                                         <StatusPill status={rec.status} session={rec.half_day_session} />
                                                         <span className="ar-tl-mini-time">{rec.first_in ? formatTime12Hr(rec.first_in) : '--:--'}</span>

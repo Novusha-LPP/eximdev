@@ -28,7 +28,7 @@ const fmtLate = mins => { if (!mins) return ''; const m=parseInt(mins); if(m<60)
 const initials = (n='') => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
-const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:' ½', leave:'LV', holiday:'H', weekly_off:' ', empty:'' };
+const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:' ½', leave:'LV', holiday:'HD', weekly_off:' ', empty:'' };
 
 const HODDashboard = () => {
   const navigate = useNavigate();
@@ -37,6 +37,7 @@ const HODDashboard = () => {
   const [personal, setPersonal] = useState(null);
   const [punching, setPunching] = useState(false);
   const [weekOff, setWeekOff] = useState(0);
+  const [rejectModal, setRejectModal] = useState({ open: false, id: null, remark: '' });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -81,8 +82,33 @@ const HODDashboard = () => {
   const todayKey  = dayKey(new Date());
 
   const handleLeaveAction = async (id, status) => {
-    try { await attendanceAPI.approveRequest('leave', id, status); toast.success(`Leave ${status}`); fetchData(); }
+    if (status === 'rejected') {
+      setRejectModal({ open: true, id, remark: '' });
+      return;
+    }
+    try { 
+      await attendanceAPI.approveRequest('leave', id, status, ''); 
+      toast.success(`Leave ${status}`); 
+      fetchData(); 
+    }
     catch { toast.error('Action failed'); }
+  };
+
+  const submitRejectAction = async () => {
+    const remark = rejectModal.remark.trim();
+    if (!remark) {
+      toast.error('Rejection reason is required.');
+      return;
+    }
+
+    try {
+      await attendanceAPI.approveRequest('leave', rejectModal.id, 'rejected', remark);
+      toast.success('Leave rejected');
+      setRejectModal({ open: false, id: null, remark: '' });
+      fetchData();
+    } catch {
+      toast.error('Action failed');
+    }
   };
 
   if (loading) return (
@@ -428,6 +454,30 @@ const HODDashboard = () => {
 
         </div>
       </div>
+
+      {rejectModal.open && (
+        <div className="hod-modal-overlay" role="dialog" aria-modal="true" aria-label="Provide rejection reason">
+          <div className="hod-modal-card">
+            <div className="hod-modal-title">Provide rejection reason</div>
+            <div className="hod-modal-sub">A reason is required before rejecting this leave request.</div>
+            <textarea
+              className="hod-modal-input"
+              rows={4}
+              value={rejectModal.remark}
+              onChange={(e) => setRejectModal((prev) => ({ ...prev, remark: e.target.value }))}
+              placeholder="Type reason here..."
+            />
+            <div className="hod-modal-actions">
+              <button className="hod-act reject" onClick={() => setRejectModal({ open: false, id: null, remark: '' })}>
+                <FiX size={12} /> Cancel
+              </button>
+              <button className="hod-act approve" onClick={submitRejectAction}>
+                <FiCheck size={12} /> Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

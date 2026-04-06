@@ -28,6 +28,9 @@
 .ap-card-head { display:flex;align-items:center;justify-content:space-between;padding:.875rem 1.25rem;border-bottom:1px solid #f0f2f8;gap:10px;flex-wrap:wrap; }
 .ap-card-title { font-size:.9375rem;font-weight:700;color:#1e2540;display:flex;align-items:center;gap:7px; }
 .ap-card-sub   { font-size:.75rem;color:#7d8bac;margin-top:2px; }
+.ap-search-wrap { margin-left: auto; }
+.ap-search-input { height: 32px; padding: 0 12px; border: 1px solid #e4e7f0; border-radius: 8px; font-size: .8125rem; color: #1e2540; width: 180px; transition: border-color .15s; }
+.ap-search-input:focus { border-color: #1e2540; outline: none; }
 
 /* Request items */
 .ap-request-list { display:flex;flex-direction:column; }
@@ -84,6 +87,14 @@
 .ap-status-badge.approved { background:#e8f5f0;color:#1a7c5c; }
 .ap-status-badge.rejected { background:#fdeaea;color:#b53535; }
 .ap-status-badge.pending  { background:#fef4e0;color:#92610a; }
+.ap-badge-team { font-size: .6875rem; color: #1e2540; background: #f0f2f8; border: 1px solid #e4e7f0; border-radius: 999px; padding: 1px 8px; font-weight: 600; }
+.ap-text-dim { color: #aab3cc; font-size: .75rem; }
+
+.ap-pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; border-top: 1px solid #f0f2f8; }
+.ap-page-btn { height: 32px; border-radius: 8px; background: #fff; border: 1px solid #e4e7f0; color: #4a5a7c; font-size: .8125rem; font-weight: 600; cursor: pointer; padding: 0 12px; transition: all .15s; }
+.ap-page-btn:hover:not(:disabled) { background: #1e2540; color: #fff; border-color: #1e2540; }
+.ap-page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ap-page-info { font-size: .8125rem; color: #7d8bac; font-weight: 500; }
 
 /* empty */
 .ap-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 1.5rem;gap:10px;text-align:center;color:#aab3cc; }
@@ -91,11 +102,68 @@
 .ap-empty p    { font-size:.875rem; }
 
 /* icon btn */
-.ap-icon-btn { display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 13px;border-radius:8px;background:#fff;border:1px solid #e4e7f0;color:#4a5a7c;font-size:.8125rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s; }
 .ap-icon-btn:hover { background:#1e2540;color:#fff;border-color:#1e2540; }
+.ap-icon-btn.delete:hover { background: #fdeaea; color: #b53535; border-color: #fdeaea; }
 
 .animation-fade-in { animation:ap-fade .2s ease-out; }
 @keyframes ap-fade { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;} }
+
+/* Rejection reason modal */
+.ap-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 1rem;
+}
+
+.ap-modal-card {
+  width: min(100%, 460px);
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+  padding: 1rem;
+}
+
+.ap-modal-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e2540;
+}
+
+.ap-modal-sub {
+  font-size: 0.78rem;
+  color: #6b7a99;
+  margin-top: 4px;
+}
+
+.ap-modal-input {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #d0d8e7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #1e2540;
+  resize: vertical;
+  outline: none;
+}
+
+.ap-modal-input:focus {
+  border-color: #1e2540;
+  box-shadow: 0 0 0 2px rgba(30, 37, 64, 0.12);
+}
+
+.ap-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
 
 @media(max-width:1024px) {
   .ap-page { padding: 1.25rem 1.5rem; }

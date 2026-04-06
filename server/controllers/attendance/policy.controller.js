@@ -6,6 +6,8 @@
 
 import WeekOffPolicy from '../../model/attendance/WeekOffPolicy.js';
 import HolidayPolicy from '../../model/attendance/HolidayPolicy.js';
+import LeavePolicy from '../../model/attendance/LeavePolicy.js';
+import LeaveBalance from '../../model/attendance/LeaveBalance.js';
 import User from '../../model/userModel.mjs';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
@@ -267,17 +269,117 @@ export const getHolidaysForCurrentUser = async (req, res) => {
 export const assignPolicyToUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { weekoff_policy_id, holiday_policy_id } = req.body;
+    const { weekoff_policy_id, holiday_policy_id, shift_id, leave_policy_ids } = req.body;
 
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
+    if (shift_id !== undefined) update.shift_id = shift_id || null;
+    if (leave_policy_ids !== undefined) {
+      update['leave_settings.special_leave_policies'] = Array.isArray(leave_policy_ids) ? leave_policy_ids : [];
+    }
 
     const user = await User.findByIdAndUpdate(userId, update, { new: true });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     await log(req, 'POLICY', 'ASSIGN_POLICY_TO_USER', `Assigned policies to user ${user.username}`);
-    res.json({ success: true, data: { weekoff_policy_id: user.weekoff_policy_id, holiday_policy_id: user.holiday_policy_id } });
+    res.json({
+      success: true,
+      data: {
+        weekoff_policy_id: user.weekoff_policy_id,
+        holiday_policy_id: user.holiday_policy_id,
+        shift_id: user.shift_id,
+        leave_policy_ids: user.leave_settings?.special_leave_policies || []
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Bulk assign policy overrides to selected users.
+ * Supports partial updates: only provided keys are updated.
+ */
+export const bulkAssignPoliciesToUsers = async (req, res) => {
+  try {
+    const {
+      user_ids,
+      weekoff_policy_id,
+      holiday_policy_id,
+      shift_id,
+      leave_policy_ids
+    } = req.body || {};
+
+    if (!Array.isArray(user_ids) || user_ids.length === 0) {
+      return res.status(400).json({ message: 'user_ids is required' });
+    }
+
+    const hasAnyAssignment =
+      weekoff_policy_id !== undefined ||
+      holiday_policy_id !== undefined ||
+      shift_id !== undefined ||
+      leave_policy_ids !== undefined;
+
+    if (!hasAnyAssignment) {
+      return res.status(400).json({ message: 'Provide at least one policy field to assign' });
+    }
+
+    const users = await User.find({ _id: { $in: user_ids } }).select('_id username company_id leave_settings');
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'No users found for assignment' });
+    }
+
+    const update = {};
+    if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
+    if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
+    if (shift_id !== undefined) update.shift_id = shift_id || null;
+    if (leave_policy_ids !== undefined) {
+      update['leave_settings.special_leave_policies'] = Array.isArray(leave_policy_ids) ? leave_policy_ids : [];
+    }
+
+    await User.updateMany({ _id: { $in: users.map(u => u._id) } }, { $set: update });
+
+    // If leave policies were assigned, ensure leave balances exist for current year.
+    if (Array.isArray(leave_policy_ids) && leave_policy_ids.length > 0) {
+      const currentYear = new Date().getFullYear();
+      const policies = await LeavePolicy.find({ _id: { $in: leave_policy_ids }, status: 'active' })
+        .select('_id leave_type annual_quota');
+
+      for (const user of users) {
+        const companyId = user.company_id?._id || user.company_id;
+        for (const policy of policies) {
+          const existing = await LeaveBalance.findOne({
+            employee_id: user._id,
+            leave_policy_id: policy._id,
+            year: currentYear
+          });
+
+          if (!existing) {
+            const isLwp = ['lwp', 'unpaid'].includes(String(policy.leave_type || '').toLowerCase());
+            const opening = isLwp ? 2000 : Number(policy.annual_quota || 0);
+            await LeaveBalance.create({
+              company_id: companyId,
+              employee_id: user._id,
+              leave_policy_id: policy._id,
+              leave_type: policy.leave_type,
+              year: currentYear,
+              opening_balance: opening,
+              used: 0,
+              pending_approval: 0,
+              closing_balance: opening
+            });
+          }
+        }
+      }
+    }
+
+    await log(req, 'POLICY', 'BULK_ASSIGN_POLICIES_TO_USERS', `Bulk assigned policies to ${users.length} users`, {
+      user_count: users.length,
+      fields: Object.keys(update)
+    });
+
+    res.json({ success: true, assignedCount: users.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

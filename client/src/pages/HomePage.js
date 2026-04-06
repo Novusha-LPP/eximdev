@@ -945,7 +945,7 @@ function HomePageContent() {
                   <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
-                  {/* admin/employee routes removed to enforce team-hierarchy navigation */}
+                  <Route path="admin/employee/:id" element={<EmployeeProfileWorkspace />} />
                   <Route path="admin/holidays" element={<HolidayPolicyManager />} />
                   <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
                   <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />

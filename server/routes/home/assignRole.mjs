@@ -2,12 +2,17 @@ import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
-import requireAllowedAdmin from "../../middleware/requireAllowedAdmin.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
 const router = express.Router();
 
-router.post("/api/assign-role", authMiddleware, requireAllowedAdmin, async (req, res) => {
+const isAdminRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '') === 'ADMIN';
+
+router.post("/api/assign-role", authMiddleware, async (req, res) => {
   const { username, role } = req.body;
+
+  if (!isAdminRole(req.user?.role)) {
+    return res.status(403).send({ message: "Admin access required" });
+  }
 
   try {
     // Find the user by username

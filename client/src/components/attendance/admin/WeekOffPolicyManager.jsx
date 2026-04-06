@@ -1,11 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
-import { Select, Radio, Checkbox, Spin, Empty, Modal } from 'antd';
+import { Radio, Checkbox, Spin, Empty, Modal } from 'antd';
 import { FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiSave } from 'react-icons/fi';
 import './AdminSettings.css';
-
-const { Option } = Select;
 
 const DAYS = [
   { label: 'Monday', value: 1 },
@@ -47,13 +45,11 @@ const emptyForm = () => ({
 const WeekOffPolicyManager = () => {
   const [view, setView] = useState('list'); // 'list' | 'form'
   const [policies, setPolicies] = useState([]);
-  const [teams, setTeams] = useState([]);
-  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm]         = useState(emptyForm());
-console.log(teams)
+
   const fetchLists = useCallback(async () => {
     try {
       setLoading(true);
@@ -61,7 +57,6 @@ console.log(teams)
         masterAPI.getWeekOffPolicies()
       ]);
       setPolicies(plist.data || []);
-      // Teams are fetched dynamically when "Selected Teams" is chosen
     } catch (e) {
       toast.error('Failed to load data');
     } finally {
@@ -71,23 +66,8 @@ console.log(teams)
 
   useEffect(() => { fetchLists(); }, [fetchLists]);
 
-  const loadTeamsIfEmpty = useCallback(async () => {
-    if (teams.length === 0) {
-      try {
-        const tlist = await masterAPI.getTeams();
-        setTeams(tlist.teams || []);
-      } catch (e) {
-        toast.error('Failed to load teams');
-      }
-    }
-  }, [teams.length]);
-
   const handleEdit = (p) => {
     setEditingId(p._id);
-    const isAllTeams = p.applicability?.teams?.all ?? true;
-    if (!isAllTeams) {
-      loadTeamsIfEmpty();
-    }
     setForm({
       policy_name: p.policy_name,
       description: p.description || '',
@@ -127,11 +107,15 @@ console.log(teams)
     }
     setSaving(true);
     try {
-      if (editingId) {
-        await masterAPI.updateWeekOffPolicy(editingId, form);
+        const payload = {
+          ...form,
+          applicability: { teams: { all: true, list: [] } }
+        };
+        if (editingId) {
+          await masterAPI.updateWeekOffPolicy(editingId, payload);
         toast.success('Updated');
       } else {
-        await masterAPI.createWeekOffPolicy(form);
+          await masterAPI.createWeekOffPolicy(payload);
         toast.success('Created');
       }
       setView('list');
@@ -230,40 +214,13 @@ console.log(teams)
 
           <hr className="divider" />
 
-          {/* Section: Applicability */}
-          <div className="section-title">Policy Applicability Status</div>
+          <div className="section-title">Policy Scope</div>
           <div className="applicability-grid">
-            {/* Teams */}
             <div className="app-item">
-              <label>Policy Applicable To Team *</label>
-              <Radio.Group 
-                value={form.applicability.teams.all} 
-                onChange={e => {
-                  const isAll = e.target.value;
-                  if (!isAll) loadTeamsIfEmpty();
-                  setForm(f => ({ 
-                    ...f, 
-                    applicability: { 
-                      ...f.applicability, 
-                      teams: { ...f.applicability.teams, all: isAll } 
-                    } 
-                  }));
-                }}
-              >
-                <Radio value={true}>All Teams</Radio>
-                <Radio value={false}>Selected Teams</Radio>
-              </Radio.Group>
-              {!form.applicability.teams.all && (
-                <Select
-                  mode="multiple"
-                  style={{ width: '100%', marginTop: '8px' }}
-                  placeholder="Select Teams"
-                  value={form.applicability.teams.list}
-                  onChange={v => setForm(f => ({ ...f, applicability: { ...f.applicability, teams: { ...f.applicability.teams, list: v } } }))}
-                >
-                  {teams.map(t => <Option key={t._id} value={t._id}>{t.name}</Option>)}
-                </Select>
-              )}
+              <label>Applicability</label>
+              <div style={{ fontSize: '13px', color: '#64748b' }}>
+                This week-off policy is global and can be assigned from the Users tab.
+              </div>
             </div>
           </div>
 
@@ -373,9 +330,7 @@ console.log(teams)
               <div className="item-main">
                 <h3>{p.policy_name}</h3>
                 <p className="company-tag">
-                  {p.applicability?.teams?.all === false
-                    ? `Selected: ${(p.applicability.teams.list || []).map(t => t.name || t).join(', ') || 'None'}`
-                    : 'All Teams'}
+                  Global policy
                 </p>
                 {p.description && <p className="desc">{p.description}</p>}
                 

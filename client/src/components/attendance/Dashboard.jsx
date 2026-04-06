@@ -80,7 +80,7 @@ const calClass = (rec, isCurrentDay, punchStatus) => {
   return { absent: 'absent', holiday: 'holiday', weekly_off: 'off', leave: 'leave' }[rec.status] || '';
 };
 
-const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'H', weekly_off: 'O', empty: '' };
+const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'HD', weekly_off: 'O', empty: '' };
 
 /* ------------------------------------------
    UNIFIED DASHBOARD – All Roles
@@ -630,6 +630,7 @@ export default function Dashboard() {
                   >
                     {day}
                     {rec?.status === 'half_day' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>½</span>}
+                    {rec?.status === 'holiday' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>HD</span>}
                   </div>
                 );
               })}

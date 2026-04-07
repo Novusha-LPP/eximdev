@@ -44,5 +44,7 @@ router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), 
 // ─── Migration & Bulk Operations ───
 router.post('/migrate/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.migrateEmployee);
 router.post('/organizations/:company_id/bulk-assign-policies', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.bulkAssignPolicies);
+router.post('/bulk-update', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.bulkUpdateAttendance);
+router.post('/full-month-presence', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.applyFullMonthPresence);
 
 export default router;

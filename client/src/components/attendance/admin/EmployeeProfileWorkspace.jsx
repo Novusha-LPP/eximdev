@@ -160,6 +160,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
     shift_id: ''
   });
 
+  const [bulkManualForm, setBulkManualForm] = useState({
+    startDate: now.toISOString().split('T')[0],
+    endDate: now.toISOString().split('T')[0],
+    status: 'present',
+    remarks: '',
+    excludeSundays: true,
+    excludeSaturdays: true
+  });
+
   // ─── Search & Filtering & Grouping Logic ───
   const filteredEmployees = useMemo(() => {
     let result = gridEmployees;
@@ -358,6 +367,29 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   }, [id, profile, migratingEmployeeId, gridEmployees]);
 
 
+
+  const handleBulkManualAdjustment = async (e) => {
+    e.preventDefault();
+    if (!id) return toast.error('No employee selected');
+    
+    try {
+      const response = await attendanceAPI.bulkUpdateAttendance({ 
+        employee_id: id, 
+        ...bulkManualForm 
+      });
+      if (response.success) {
+        toast.success(response.message || 'Bulk adjustment successful');
+        // Force a slightly delayed refresh to ensure DB consistency
+        setTimeout(() => {
+          fetchData();
+        }, 500);
+      } else {
+        toast.error(response.message || 'Bulk adjustment failed');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error processing bulk adjustment');
+    }
+  };
 
   const handleManualAdjustment = async (e) => {
     e.preventDefault();
@@ -1606,6 +1638,64 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               </div>
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
                 <button type="submit" style={{ ...buttonStyle, background: THEME.primary, color: '#fff', flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}>Save Update</button>
+              </div>
+            </form>
+          </div>
+
+          {/* Attendance Continuity (Bulk Update) */}
+          <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.indigo}`, padding: '12px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.indigo }}>📅 Attendance Continuity (Bulk Update)</h3>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
+              Update attendance records for a date range in bulk. 
+              <br/><strong>Note:</strong> Marking as 'present' will assign default time <strong>10:00 AM to 07:00 PM</strong>.
+            </p>
+            <form onSubmit={handleBulkManualAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '70px' }}>Start Date:</label>
+                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={bulkManualForm.startDate} onChange={(e) => setBulkManualForm({ ...bulkManualForm, startDate: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '70px' }}>End Date:</label>
+                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={bulkManualForm.endDate} onChange={(e) => setBulkManualForm({ ...bulkManualForm, endDate: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Status:</label>
+                <select 
+                  style={{ 
+                    ...inputStyle, 
+                    padding: '8px 10px', 
+                    fontSize: '12px', 
+                    flex: '1 1 180px',
+                    backgroundColor: '#fff',
+                    fontWeight: '600'
+                  }} 
+                  value={bulkManualForm.status} 
+                  onChange={(e) => setBulkManualForm({ ...bulkManualForm, status: e.target.value })}
+                >
+                  <option value="present">Present (10 AM - 7 PM)</option>
+                  <option value="absent">Absent</option>
+                  <option value="half_day">Half Day</option>
+                  <option value="leave">Leave</option>
+                  <option value="weekoff">Week Off</option>
+                  <option value="holiday">Holiday</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '15px', alignItems: 'center', gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={bulkManualForm.excludeSundays} onChange={e => setBulkManualForm({ ...bulkManualForm, excludeSundays: e.target.checked })} />
+                  Skip Sundays
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={bulkManualForm.excludeSaturdays} onChange={e => setBulkManualForm({ ...bulkManualForm, excludeSaturdays: e.target.checked })} />
+                  Skip Saturdays
+                </label>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', fontSize: '12px', color: '#000' }}>Remarks:</label>
+                <textarea rows={2} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={bulkManualForm.remarks} onChange={(e) => setBulkManualForm({ ...bulkManualForm, remarks: e.target.value })} placeholder="Reason for bulk update..." />
+              </div>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
+                <button type="submit" style={{ ...buttonStyle, background: THEME.indigo, color: '#fff', flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}>Apply Continuity Update</button>
               </div>
             </form>
           </div>

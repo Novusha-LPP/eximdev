@@ -58,7 +58,7 @@ const LEAVE_ICONS = [
   { keys: ['earned', 'el', 'annual'], emoji: '⭐', color: '#8b5cf6' },
   { keys: ['comp', 'co'], emoji: '🎁', color: '#f59e0b' },
   { keys: ['wfh', 'work from'], emoji: '🏠', color: '#06b6d4' },
-  { keys: ['unpaid', 'lwp'], emoji: '⏳', color: '#9ca3af' },
+  { keys: ['lwp'], emoji: '⏳', color: '#9ca3af' },
 ];
 const getLeaveIcon = (name = '') => {
   const n = name.toLowerCase();

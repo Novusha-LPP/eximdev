@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiUsers, FiClock, FiCalendar, FiCheckCircle, FiXCircle, FiFileText,
-  FiChevronLeft, FiChevronRight, FiCheck, FiX, FiAlertCircle, FiTrendingUp, FiLogOut, FiLogIn,
-  FiAlertTriangle, FiCheckSquare, FiArrowRight, FiRefreshCw, FiActivity, FiSunset, FiCoffee
+  FiUsers, FiClock, FiCalendar, FiCheckCircle, FiFileText,
+  FiChevronLeft, FiChevronRight, FiCheck, FiX, FiAlertCircle,
+  FiLogOut, FiLogIn, FiActivity, FiArrowRight, FiRefreshCw,
+  FiAlertTriangle
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import { API_BASE_URL } from './utils/constants';
@@ -23,23 +24,38 @@ const fmt = (date, f) => {
     .replace('MMM',  d.toLocaleDateString('en', { month: 'short' }))
     .replace('yyyy', d.getFullYear());
 };
-const fmtTime = s => { if (!s) return ' '; const d = new Date(s); if (isNaN(d)) return s; let h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0'), ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; };
+const fmtTime = s => { if (!s) return '—'; const d = new Date(s); if (isNaN(d)) return s; let h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0'), ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; };
 const fmtLate = mins => { if (!mins) return ''; const m=parseInt(mins); if(m<60) return `${m}m late`; return `${Math.floor(m/60)}h ${m%60}m late`; };
 const initials = (n='') => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
-const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:' ½', leave:'LV', holiday:'HD', weekly_off:' ', empty:'' };
+const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:'½', leave:'LV', holiday:'HD', weekly_off:' ', empty:'' };
 
 const HODDashboard = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [data,    setData]    = useState(null);
-  const [personal, setPersonal] = useState(null);
-  const [punching, setPunching] = useState(false);
-  const [weekOff, setWeekOff] = useState(0);
-  const [rejectModal, setRejectModal] = useState({ open: false, id: null, remark: '' });
+  const [loading, setLoading]       = useState(true);
+  const [data, setData]             = useState(null);
+  const [personal, setPersonal]     = useState(null);
+  const [punching, setPunching]     = useState(false);
+  const [weekOff, setWeekOff]       = useState(0);
+  const [rejectModal, setRejectModal] = useState({ open: false, id: null, remark: '', type: 'leave' });
+  const [pendingTab, setPendingTab] = useState('leaves');
+  const [todayTab, setTodayTab]     = useState('absent');
+  const [exceptionsOpen, setExceptionsOpen] = useState(false);
+  const exceptionsRef = useRef(null);
 
   useEffect(() => { fetchData(); }, []);
+
+  // Close exceptions popover on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (exceptionsRef.current && !exceptionsRef.current.contains(e.target)) {
+        setExceptionsOpen(false);
+      }
+    };
+    if (exceptionsOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [exceptionsOpen]);
 
   const fetchData = async () => {
     try {
@@ -65,9 +81,7 @@ const HODDashboard = () => {
       fetchData();
     } catch (e) {
       toast.error(e?.message || 'Punch failed');
-    } finally {
-      setPunching(false);
-    }
+    } finally { setPunching(false); }
   };
 
   const getWeekDays = (off=0) => {
@@ -83,15 +97,27 @@ const HODDashboard = () => {
 
   const handleLeaveAction = async (id, status) => {
     if (status === 'rejected') {
-      setRejectModal({ open: true, id, remark: '' });
+      setRejectModal({ open: true, id, remark: '', type: 'leave' });
       return;
     }
-    try { 
-      await attendanceAPI.approveRequest('leave', id, status, ''); 
-      toast.success(`Leave ${status}`); 
-      fetchData(); 
+    try {
+      await attendanceAPI.approveRequest('leave', id, status, '');
+      toast.success(`Leave ${status}`);
+      fetchData();
     }
     catch { toast.error('Action failed'); }
+  };
+
+  const handleRegAction = async (id, status) => {
+    if (status === 'rejected') {
+      setRejectModal({ open: true, id, remark: '', type: 'regularization' });
+      return;
+    }
+    try {
+      await attendanceAPI.approveRequest('regularization', id, status, '');
+      toast.success(`Regularization ${status}`);
+      fetchData();
+    } catch { toast.error('Action failed'); }
   };
 
   const submitRejectAction = async () => {
@@ -100,11 +126,10 @@ const HODDashboard = () => {
       toast.error('Rejection reason is required.');
       return;
     }
-
     try {
-      await attendanceAPI.approveRequest('leave', rejectModal.id, 'rejected', remark);
-      toast.success('Leave rejected');
-      setRejectModal({ open: false, id: null, remark: '' });
+      await attendanceAPI.approveRequest(rejectModal.type, rejectModal.id, 'rejected', remark);
+      toast.success(`${rejectModal.type === 'leave' ? 'Leave' : 'Regularization'} rejected`);
+      setRejectModal({ open: false, id: null, remark: '', type: 'leave' });
       fetchData();
     } catch {
       toast.error('Action failed');
@@ -119,15 +144,18 @@ const HODDashboard = () => {
 
   const { summary={}, pendingLeaves=[], pendingRegularization=[], teamCalendar=[], late=[], absent=[], halfDay=[] } = data||{};
   const leaveCount = pendingLeaves.length, regCount = pendingRegularization.length;
+  const totalPending = leaveCount + regCount;
+  const exceptionsVal = (summary.earlyOut ?? 0) + (summary.halfDay ?? 0);
 
   const STATS = [
-    { icon:'✅', cls:'present', val:summary?.present  ??0, lbl:'Present',   pill:'Today', pillCls:'green' },
-    { icon:'❌', cls:'absent',  val:summary?.absent   ??0, lbl:'Absent',    pill:'Today', pillCls:'red'   },
-    { icon:'🕒', cls:'late',    val:summary?.late     ??0, lbl:'Late In',   pill:'Today', pillCls:'amber' },
-    { icon:'🌅', cls:'early',   val:summary?.earlyOut ??0, lbl:'Early Out', pill:'Today', pillCls:'amber' },
-    { icon:'🌗', cls:'halfday', val:summary?.halfDay  ??0, lbl:'Half Day',  pill:'Today', pillCls:'grey'  },
-    { icon:'🌴', cls:'leave',   val:summary?.onLeave  ??0, lbl:'On Leave',  pill:'Today', pillCls:'grey'  },
+    { icon:'✅', cls:'present', val:summary?.present  ??0, lbl:'Present',    pill:'Today', pillCls:'green' },
+    { icon:'❌', cls:'absent',  val:summary?.absent   ??0, lbl:'Absent',     pill:'Today', pillCls:'red'   },
+    { icon:'🕒', cls:'late',    val:summary?.late     ??0, lbl:'Late In',    pill:'Today', pillCls:'amber' },
+    { icon:'🌴', cls:'leave',   val:summary?.onLeave  ??0, lbl:'On Leave',   pill:'Today', pillCls:'grey'  },
+    { icon:'⚠️', cls:'exceptions', val:exceptionsVal, lbl:'Exceptions', pill:'Click', pillCls:'amber', clickable:true },
   ];
+
+  const isPersonalIn = personal?.first_in && !personal?.last_out;
 
   return (
     <div className="hod-page">
@@ -136,7 +164,7 @@ const HODDashboard = () => {
       <div className="hod-header">
         <div className="hod-header-left">
           <h1>📊 Team Overview</h1>
-          <p>Real-time attendance • Approvals • Analytics</p>
+          <p>Real-time attendance · Approvals · Analytics</p>
         </div>
         <div className="hod-header-right">
           <div className="hod-personal-punch">
@@ -146,13 +174,13 @@ const HODDashboard = () => {
                 {personal?.first_in ? `${fmtTime(personal.first_in)} In` : 'Not In'}
               </span>
             </div>
-            <button 
-              className={`hod-punch-btn ${personal?.first_in && !personal?.last_out ? 'out' : 'in'}`}
+            <button
+              className={`hod-punch-btn ${isPersonalIn ? 'out' : 'in'}`}
               onClick={handlePersonalPunch}
               disabled={punching}
             >
-              {personal?.first_in && !personal?.last_out ? <FiLogOut size={14}/> : <FiLogIn size={14}/>}
-              {punching ? '...' : (personal?.first_in && !personal?.last_out ? 'Out' : 'In')}
+              {isPersonalIn ? <FiLogOut size={14}/> : <FiLogIn size={14}/>}
+              {punching ? '...' : (isPersonalIn ? 'Out' : 'In')}
             </button>
           </div>
           <span className="hod-date-pill">{fmt(new Date(),'EEEE, dd MMM yyyy')}</span>
@@ -160,10 +188,16 @@ const HODDashboard = () => {
         </div>
       </div>
 
-      {/* STAT TILES */}
-      <div className="hod-stats">
+      {/* STAT TILES — 5 tiles, last is clickable Exceptions */}
+      <div className="hod-stats hod-stats-5">
         {STATS.map((s,i) => (
-          <div key={i} className="hod-stat">
+          <div
+            key={i}
+            className={`hod-stat${s.clickable ? ' hod-stat-clickable' : ''}`}
+            onClick={s.clickable ? () => setExceptionsOpen(o => !o) : undefined}
+            ref={s.clickable ? exceptionsRef : undefined}
+            style={{ position: s.clickable ? 'relative' : undefined }}
+          >
             <div className="hod-stat-top">
               <div className={`hod-stat-icon ${s.cls}`} style={{fontSize:'1.125rem'}}>{s.icon}</div>
               <span className={`hod-stat-pill ${s.pillCls}`}>{s.pill}</span>
@@ -172,17 +206,163 @@ const HODDashboard = () => {
               <div className="hod-stat-val">{s.val}</div>
               <div className="hod-stat-lbl">{s.lbl}</div>
             </div>
+
+            {/* Exceptions breakdown popover */}
+            {s.clickable && exceptionsOpen && (
+              <div className="hod-exceptions-popover" onClick={e => e.stopPropagation()}>
+                <div className="hod-exp-title">Exceptions Breakdown</div>
+                <div className="hod-exp-row">
+                  <span>🌅 Early Out</span>
+                  <strong>{summary?.earlyOut ?? 0}</strong>
+                </div>
+                <div className="hod-exp-row">
+                  <span>🌗 Half Day</span>
+                  <strong>{summary?.halfDay ?? 0}</strong>
+                </div>
+                <div className="hod-exp-divider"/>
+                <div className="hod-exp-row hod-exp-total">
+                  <span>Total Exceptions</span>
+                  <strong>{exceptionsVal}</strong>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
+      {/* PENDING ACTIONS — full-width priority card */}
+      {totalPending > 0 ? (
+        <div className="hod-card hod-pending-card">
+          <div className="hod-card-head">
+            <div>
+              <div className="hod-card-title">
+                <FiAlertCircle size={15} style={{ color: '#c87f0a' }} />
+                Pending Actions
+              </div>
+              <div className="hod-card-sub">{totalPending} item{totalPending !== 1 ? 's' : ''} awaiting your review</div>
+            </div>
+            <div className="hod-pending-tabs">
+              <button
+                className={`hod-ptab ${pendingTab === 'leaves' ? 'active' : ''}`}
+                onClick={() => setPendingTab('leaves')}
+              >
+                🌴 Leaves
+                {leaveCount > 0 && <span className="hod-tab-badge">{leaveCount}</span>}
+              </button>
+              <button
+                className={`hod-ptab ${pendingTab === 'regs' ? 'active' : ''}`}
+                onClick={() => setPendingTab('regs')}
+              >
+                📝 Regularizations
+                {regCount > 0 && <span className="hod-tab-badge hod-tab-badge-purple">{regCount}</span>}
+              </button>
+            </div>
+          </div>
+
+          {/* Leaves tab */}
+          {pendingTab === 'leaves' && (
+            leaveCount === 0 ? (
+              <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>No pending leaves</span></div>
+            ) : (
+              <div className="hod-pending-list">
+                {pendingLeaves.map((req, i) => (
+                  <div key={i} className="hod-pending-row">
+                    <div className="hod-pending-top">
+                      <div className="hod-pending-av">{initials(req.employeeName)}</div>
+                      <div className="hod-pending-info">
+                        <div className="hod-pending-name">{req.employeeName}</div>
+                        <div className="hod-pending-meta">
+                          <span className="hod-meta-main">
+                            {req.leaveType} · {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} · {fmt(req.fromDate,'dd MMM')} – {fmt(req.toDate,'dd MMM')}
+                          </span>
+                          {req.currentBalance && (
+                            <span className="hod-meta-bal">
+                              (Balance: <strong>{req.currentBalance.available}d</strong>)
+                            </span>
+                          )}
+                          {req.attachment_urls?.length > 0 && (
+                            <a
+                              href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="hod-attachment-link"
+                              title="View Document"
+                            >
+                              <FiFileText size={11} />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <span className="hod-pending-leave-type">{req.leaveType}</span>
+                    </div>
+                    {req.reason && <div className="hod-pending-reason">"{req.reason}"</div>}
+                    <div className="hod-pending-acts">
+                      <button className="hod-act approve" onClick={() => handleLeaveAction(req.id,'approved')}><FiCheck size={12}/> Approve</button>
+                      <button className="hod-act reject"  onClick={() => handleLeaveAction(req.id,'rejected')}><FiX size={12}/> Reject</button>
+                    </div>
+                  </div>
+                ))}
+                {leaveCount > 5 && (
+                  <div style={{padding:'.75rem 1.125rem',textAlign:'center'}}>
+                    <button className="hod-btn" onClick={() => navigate('/attendance/hod/leave-approval')}>
+                      View all {leaveCount} requests <FiArrowRight size={12}/>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          )}
+
+          {/* Regularizations tab */}
+          {pendingTab === 'regs' && (
+            regCount === 0 ? (
+              <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>No pending regularizations</span></div>
+            ) : (
+              <div className="hod-pending-list">
+                {pendingRegularization.map((req, i) => (
+                  <div key={i} className="hod-pending-row">
+                    <div className="hod-pending-top">
+                      <div className="hod-pending-av">{initials(req.employeeName)}</div>
+                      <div className="hod-pending-info">
+                        <div className="hod-pending-name">{req.employeeName}</div>
+                        <div className="hod-pending-meta">
+                          <span className="hod-meta-main">
+                            {req.type?.replace(/_/g,' ')} · {fmt(req.date,'dd MMM yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="hod-pending-type reg">Reg</span>
+                    </div>
+                    {req.reason && <div className="hod-pending-reason">"{req.reason}"</div>}
+                    <div className="hod-pending-acts">
+                      <button className="hod-act approve" onClick={() => handleRegAction(req.id || req._id, 'approved')}><FiCheck size={12}/> Approve</button>
+                      <button className="hod-act reject"  onClick={() => handleRegAction(req.id || req._id, 'rejected')}><FiX size={12}/> Reject</button>
+                    </div>
+                  </div>
+                ))}
+                {regCount > 5 && (
+                  <div style={{padding:'.75rem 1.125rem',textAlign:'center'}}>
+                    <button className="hod-btn" onClick={() => navigate('/attendance/hod/regularization-approval')}>
+                      View all {regCount} requests <FiArrowRight size={12}/>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          )}
+        </div>
+      ) : (
+        <div className="hod-all-clear">
+          <FiCheckCircle size={15} />
+          All caught up — no pending approvals today!
+        </div>
+      )}
+
       {/* MAIN 2-COL GRID */}
-      <div className="hod-grid">
+      <div className="hod-main-grid">
 
-        {/* LEFT */}
-        <div className="hod-col-left">
-
-          {/* Team Calendar */}
+        {/* LEFT — Team Calendar */}
+        <div className="hod-main-left">
           <div className="hod-card">
             <div className="hod-card-head">
               <div>
@@ -242,7 +422,7 @@ const HODDashboard = () => {
                           const sess = emp.attendance?.[`${ds}_session`];
                           tip = `Half Day (${formatSession(sess)})`;
                         } else if (lateBy) {
-                          tip = `${status.replace(/_/g,' ')} • ${fmtLate(lateBy)}`;
+                          tip = `${status.replace(/_/g,' ')} · ${fmtLate(lateBy)}`;
                         }
                         return (
                           <td key={di} className={`hod-dot-cell${isToday?' td-today':''}`}>
@@ -264,215 +444,140 @@ const HODDashboard = () => {
               ))}
             </div>
           </div>
-
-          {/* Late Today */}
-          {late.length>0&&(
-            <div className="hod-card">
-              <div className="hod-card-head">
-                <div className="hod-card-title">
-                  🕒 Late Today
-                  <span style={{fontSize:'.6875rem',fontWeight:600,padding:'2px 8px',borderRadius:'999px',background:'#fef4e0',color:'#92610a'}}>{late.length}</span>
-                </div>
-                <button className="hod-btn" onClick={()=>navigate('/attendance/hod/report')}>Report <FiArrowRight size={12}/></button>
-              </div>
-              <div className="hod-person-list">
-                {late.map((emp,i)=>(
-                  <div key={i} className="hod-person-row">
-                    <div className="hod-person-av late">{initials(emp.name)}</div>
-                    <div className="hod-person-info">
-                      <div className="hod-person-name">{emp.name}</div>
-                      <div className="hod-person-sub">Arrived {fmtTime(emp.inTime)}</div>
-                    </div>
-                    <span className="hod-late-badge">⚠️ {fmtLate(emp.lateBy)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Half Day Today */}
-          {halfDay.length>0&&(
-            <div className="hod-card">
-              <div className="hod-card-head">
-                <div className="hod-card-title">
-                  🌗 Half Day Today
-                  <span style={{fontSize:'.6875rem',fontWeight:600,padding:'2px 8px',borderRadius:'999px',background:'#e0f2fe',color:'#0369a1'}}>{halfDay.length}</span>
-                </div>
-              </div>
-              <div className="hod-person-list">
-                {halfDay.map((emp,i)=>(
-                  <div key={i} className="hod-person-row">
-                    <div className="hod-person-av halfday">{initials(emp.name)}</div>
-                    <div className="hod-person-info">
-                      <div className="hod-person-name">{emp.name}</div>
-                      <div className="hod-person-sub">{emp.inTime ? `Punched ${fmtTime(emp.inTime)}` : 'Half Day Leave'}</div>
-                    </div>
-                    <span className="hod-half-chip">{emp.workHours ? `${emp.workHours.toFixed(1)}h logged` : 'Leave'}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Absent Today */}
-          {absent.length>0&&(
-            <div className="hod-card">
-              <div className="hod-card-head">
-                <div className="hod-card-title">
-                  ❌ Absent Today
-                  <span style={{fontSize:'.6875rem',fontWeight:600,padding:'2px 8px',borderRadius:'999px',background:'#fdeaea',color:'#b53535'}}>{absent.length}</span>
-                </div>
-              </div>
-              <div className="hod-person-list">
-                {absent.map((emp,i)=>(
-                  <div key={i} className="hod-person-row">
-                    <div className="hod-person-av absent">{initials(emp.name)}</div>
-                    <div className="hod-person-info">
-                      <div className="hod-person-name">{emp.name}</div>
-                      <div className="hod-person-sub">{emp.onLeave ? (emp.leaveType || 'On Leave') : (emp.role || 'Team Member')}</div>
-                    </div>
-                    <span className={`hod-absent-chip ${emp.onLeave?'leave':''}`}>{emp.onLeave ? 'On Leave' : 'Absent'}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* RIGHT */}
-        <div className="hod-col-right">
-
-          {/* Quick Actions */}
+        {/* RIGHT — Today Alerts (tabbed) */}
+        <div className="hod-main-right">
           <div className="hod-card">
             <div className="hod-card-head">
-              <div className="hod-card-title">⚡ Quick Actions</div>
-            </div>
-            <div className="hod-shortcuts">
-              {[
-                { icon:<FiCheckSquare size={15}/>, title:'Leave Approvals', sub:`${leaveCount} pending request${leaveCount!==1?'s':''}`, path:'/attendance/hod/leave-approval', count:leaveCount },
-                { icon:<FiFileText size={15}/>,    title:'Regularization',  sub:`${regCount} pending request${regCount!==1?'s':''}`,   path:'/attendance/hod/regularization-approval', count:regCount },
-                { icon:<FiActivity size={15}/>,    title:'Team Attendance Report',sub:'Team attendance & analytics', path:'/attendance/hod/report', count:0 },
-                { icon:<FiArrowRight size={15}/>,  title:'My Attendance Report',sub:'View my own punch history', path:'/attendance/my-attendance', count:0 },
-                { icon:<FiCalendar size={15}/>,    title:'Apply My Leave', sub:'Submit your leave request',       path:'/attendance/leave', count:0 },
-                { icon:<FiSunset size={15}/>,    title:'Holiday Calendar', sub:'View upcoming holidays',       path:'/attendance/holiday-calendar', count:0 },
-              ].map((sc,i)=>(
-                <div key={i} className="hod-shortcut" onClick={()=>navigate(sc.path,sc.state?{state:sc.state}:undefined)}>
-                  <div className="hod-sc-icon">{sc.icon}</div>
-                  <div className="hod-sc-body">
-                    <div className="hod-sc-title">{sc.title}</div>
-                    <div className="hod-sc-sub">{sc.sub}</div>
-                  </div>
-                  <div className="hod-sc-right">
-                    {sc.count>0&&<span className="hod-sc-count">{sc.count}</span>}
-                    <FiArrowRight size={13} className="hod-sc-arrow"/>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Pending Leaves */}
-          <div className="hod-card">
-            <div className="hod-card-head">
-              <div>
-                <div className="hod-card-title">🌴 Pending Leaves</div>
-                <div className="hod-card-sub">{leaveCount} awaiting approval</div>
+              <div className="hod-card-title">👥 Today's Alerts</div>
+              <div className="hod-today-tabs">
+                <button
+                  className={`hod-ttab ${todayTab === 'absent' ? 'active' : ''}`}
+                  onClick={() => setTodayTab('absent')}
+                >
+                  Absent
+                  {absent.length > 0 && <span className="hod-ttab-badge hod-ttab-red">{absent.length}</span>}
+                </button>
+                <button
+                  className={`hod-ttab ${todayTab === 'late' ? 'active' : ''}`}
+                  onClick={() => setTodayTab('late')}
+                >
+                  Late
+                  {late.length > 0 && <span className="hod-ttab-badge hod-ttab-amber">{late.length}</span>}
+                </button>
+                <button
+                  className={`hod-ttab ${todayTab === 'halfday' ? 'active' : ''}`}
+                  onClick={() => setTodayTab('halfday')}
+                >
+                  Half Day
+                  {halfDay.length > 0 && <span className="hod-ttab-badge hod-ttab-blue">{halfDay.length}</span>}
+                </button>
               </div>
-              {leaveCount>0&&<button className="hod-btn" onClick={()=>navigate('/attendance/hod/leave-approval')}>All <FiArrowRight size={12}/></button>}
             </div>
-            {leaveCount===0 ? (
-              <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>All caught up!</span></div>
-            ) : (
-              <div className="hod-pending-list">
-                {pendingLeaves.slice(0,4).map((req,i)=>(
-                  <div key={i} className="hod-pending-row">
-                    <div className="hod-pending-top">
-                      <div className="hod-pending-av">{initials(req.employeeName)}</div>
-                      <div className="hod-pending-info">
-                        <div className="hod-pending-name">{req.employeeName}</div>
-                        <div className="hod-pending-meta">
-                          <span className="hod-meta-main">{req.leaveType} • {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} • {fmt(req.fromDate,'dd MMM')} - {fmt(req.toDate,'dd MMM')}</span>
-                          {req.currentBalance && (
-                            <span className="hod-meta-bal">
-                              (Balance: <strong>{req.currentBalance.available}d</strong>)
-                            </span>
-                          )}
-                          {req.attachment_urls?.length > 0 && (
-                            <a 
-                              href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="hod-attachment-link"
-                              title="View Document"
-                            >
-                              <FiFileText size={11} />
-                            </a>
-                          )}
-                        </div>
+
+            {/* Absent Tab */}
+            {todayTab === 'absent' && (
+              absent.length === 0 ? (
+                <div className="hod-empty"><div className="hod-empty-icon">🎉</div><span>Everyone's in today!</span></div>
+              ) : (
+                <div className="hod-person-list">
+                  {absent.map((emp,i) => (
+                    <div key={i} className="hod-person-row">
+                      <div className="hod-person-av absent">{initials(emp.name)}</div>
+                      <div className="hod-person-info">
+                        <div className="hod-person-name">{emp.name}</div>
+                        <div className="hod-person-sub">{emp.onLeave ? (emp.leaveType || 'On Leave') : (emp.role || 'Team Member')}</div>
                       </div>
-                      <span className="hod-pending-leave-type">{req.leaveType}</span>
+                      <span className={`hod-absent-chip ${emp.onLeave?'leave':''}`}>{emp.onLeave ? 'On Leave' : 'Absent'}</span>
                     </div>
-                    {req.reason&&<div className="hod-pending-reason">"{req.reason}"</div>}
-                    <div className="hod-pending-acts">
-                      <button className="hod-act approve" onClick={()=>handleLeaveAction(req.id,'approved')}><FiCheck size={12}/> Approve</button>
-                      <button className="hod-act reject"  onClick={()=>handleLeaveAction(req.id,'rejected')}><FiX size={12}/> Reject</button>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Late Tab */}
+            {todayTab === 'late' && (
+              late.length === 0 ? (
+                <div className="hod-empty"><div className="hod-empty-icon">✅</div><span>No late arrivals today</span></div>
+              ) : (
+                <div className="hod-person-list">
+                  {late.map((emp,i) => (
+                    <div key={i} className="hod-person-row">
+                      <div className="hod-person-av late">{initials(emp.name)}</div>
+                      <div className="hod-person-info">
+                        <div className="hod-person-name">{emp.name}</div>
+                        <div className="hod-person-sub">Arrived {fmtTime(emp.inTime)}</div>
+                      </div>
+                      <span className="hod-late-badge">⚠️ {fmtLate(emp.lateBy)}</span>
                     </div>
-                  </div>
-                ))}
-                {leaveCount>4&&<div style={{padding:'.75rem 1.125rem',textAlign:'center'}}><button className="hod-btn" onClick={()=>navigate('/attendance/hod/leave-approval')}>+{leaveCount-4} more • View All</button></div>}
-              </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Half Day Tab */}
+            {todayTab === 'halfday' && (
+              halfDay.length === 0 ? (
+                <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>No half days today</span></div>
+              ) : (
+                <div className="hod-person-list">
+                  {halfDay.map((emp,i) => (
+                    <div key={i} className="hod-person-row">
+                      <div className="hod-person-av halfday">{initials(emp.name)}</div>
+                      <div className="hod-person-info">
+                        <div className="hod-person-name">{emp.name}</div>
+                        <div className="hod-person-sub">{emp.inTime ? `Punched ${fmtTime(emp.inTime)}` : 'Half Day Leave'}</div>
+                      </div>
+                      <span className="hod-half-chip">{emp.workHours ? `${emp.workHours.toFixed(1)}h` : 'Leave'}</span>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
 
-          {/* Pending Regularizations */}
-          {regCount>0&&(
-            <div className="hod-card">
-              <div className="hod-card-head">
-                <div>
-                  <div className="hod-card-title">📝 Regularizations</div>
-                  <div className="hod-card-sub">{regCount} pending</div>
-                </div>
-                <button className="hod-btn" onClick={()=>navigate('/attendance/hod/regularization-approval')}>All <FiArrowRight size={12}/></button>
-              </div>
-              <div className="hod-pending-list">
-                {pendingRegularization.slice(0,3).map((req,i)=>(
-                  <div key={i} className="hod-pending-row">
-                    <div className="hod-pending-top">
-                      <div className="hod-pending-av">{initials(req.employeeName)}</div>
-                      <div className="hod-pending-info">
-                        <div className="hod-pending-name">{req.employeeName}</div>
-                        <div className="hod-pending-meta">{req.type?.replace(/_/g,' ')} • {fmt(req.date,'dd MMM yyyy')}</div>
-                      </div>
-                      <span className="hod-pending-type reg">Reg</span>
-                    </div>
-                    {req.reason&&<div className="hod-pending-reason">"{req.reason}"</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* Quick navigation links (minimal, not a block) */}
+          <div className="hod-quick-nav">
+            <button className="hod-qnav-item" onClick={() => navigate('/attendance/hod/report')}>
+              <FiActivity size={13} /> Team Report <FiChevronRight size={12} className="hod-qnav-arrow" />
+            </button>
+            <button className="hod-qnav-item" onClick={() => navigate('/attendance/my-attendance')}>
+              <FiClock size={13} /> My Attendance <FiChevronRight size={12} className="hod-qnav-arrow" />
+            </button>
+            <button className="hod-qnav-item" onClick={() => navigate('/attendance/leave')}>
+              <FiCalendar size={13} /> Apply My Leave <FiChevronRight size={12} className="hod-qnav-arrow" />
+            </button>
+          </div>
         </div>
+
       </div>
 
+      {/* REJECT MODAL */}
       {rejectModal.open && (
         <div className="hod-modal-overlay" role="dialog" aria-modal="true" aria-label="Provide rejection reason">
           <div className="hod-modal-card">
-            <div className="hod-modal-title">Provide rejection reason</div>
-            <div className="hod-modal-sub">A reason is required before rejecting this leave request.</div>
+            <div className="hod-modal-title">
+              Rejection Reason Required
+            </div>
+            <div className="hod-modal-sub">
+              Please provide a clear reason before rejecting this {rejectModal.type === 'leave' ? 'leave request' : 'regularization request'}.
+            </div>
             <textarea
               className="hod-modal-input"
               rows={4}
               value={rejectModal.remark}
               onChange={(e) => setRejectModal((prev) => ({ ...prev, remark: e.target.value }))}
-              placeholder="Type reason here..."
+              placeholder="Type rejection reason here..."
+              maxLength={500}
             />
+            <div className="hod-modal-char-count">{rejectModal.remark.length}/500</div>
             <div className="hod-modal-actions">
-              <button className="hod-act reject" onClick={() => setRejectModal({ open: false, id: null, remark: '' })}>
+              <button className="hod-act reject" onClick={() => setRejectModal({ open: false, id: null, remark: '', type: 'leave' })}>
                 <FiX size={12} /> Cancel
               </button>
               <button className="hod-act approve" onClick={submitRejectAction}>
-                <FiCheck size={12} /> Submit
+                <FiCheck size={12} /> Submit Rejection
               </button>
             </div>
           </div>

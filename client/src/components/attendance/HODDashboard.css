@@ -307,3 +307,280 @@
   gap: 8px;
   margin-top: 10px;
 }
+
+.hod-modal-char-count {
+  font-size: .6875rem;
+  color: #aab3cc;
+  text-align: right;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   5-TILE STAT ROW
+═══════════════════════════════════════════════════════ */
+.hod-stats-5 {
+  grid-template-columns: repeat(5, 1fr) !important;
+}
+
+@media(max-width:1200px) { .hod-stats-5 { grid-template-columns: repeat(3,1fr) !important; } }
+@media(max-width:640px)  { .hod-stats-5 { grid-template-columns: repeat(2,1fr) !important; } }
+
+/* Exceptions stat (clickable) */
+.hod-stat-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.hod-stat-clickable:hover {
+  box-shadow: 0 6px 20px rgba(30,37,64,.13);
+  transform: translateY(-1px);
+  border-color: #f59e3a;
+}
+
+.hod-stat-icon.exceptions { background: #fef4e0; color: #92610a; }
+
+/* Exceptions breakdown popover */
+.hod-exceptions-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15,23,42,.15);
+  padding: .875rem 1rem;
+  min-width: 200px;
+  z-index: 200;
+  animation: hod-pop-in .18s ease both;
+}
+
+@keyframes hod-pop-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(.97); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.hod-exp-title {
+  font-size: .6875rem;
+  font-weight: 700;
+  color: #aab3cc;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-bottom: 8px;
+}
+
+.hod-exp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: .8125rem;
+  color: #4a5a7c;
+}
+
+.hod-exp-row span { color: #4a5a7c; }
+.hod-exp-row strong { color: #1e2540; font-weight: 700; }
+
+.hod-exp-divider {
+  height: 1px;
+  background: #f0f2f8;
+  margin: 6px 0;
+}
+
+.hod-exp-total {
+  font-weight: 600;
+}
+
+.hod-exp-total span { color: #1e2540; font-weight: 700; }
+.hod-exp-total strong { font-size: 1rem; font-weight: 800; color: #92610a; }
+
+/* ═══════════════════════════════════════════════════════
+   PENDING ACTIONS CARD
+═══════════════════════════════════════════════════════ */
+.hod-pending-card {
+  margin-bottom: 1.125rem;
+  border-left: 3px solid #f59e3a;
+}
+
+.hod-pending-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.hod-ptab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 8px;
+  border: 1px solid #e4e7f0;
+  background: #f8f9fc;
+  color: #4a5a7c;
+  font-size: .8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .12s;
+}
+
+.hod-ptab:hover { background: #eaecf2; color: #1e2540; }
+.hod-ptab.active { background: #1e2540; color: #fff; border-color: #1e2540; }
+
+.hod-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #e84040;
+  color: #fff;
+  font-size: .5625rem;
+  font-weight: 800;
+}
+
+.hod-tab-badge-purple {
+  background: #6c3fc8;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ALL-CLEAR BANNER
+═══════════════════════════════════════════════════════ */
+.hod-all-clear {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: .625rem 1.125rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 1.125rem;
+}
+
+/* ═══════════════════════════════════════════════════════
+   MAIN 2-COL GRID
+═══════════════════════════════════════════════════════ */
+.hod-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1.125rem;
+  align-items: start;
+}
+
+.hod-main-left  { display: flex; flex-direction: column; gap: 1.125rem; }
+.hod-main-right { display: flex; flex-direction: column; gap: .75rem; }
+
+@media(max-width:1100px) { .hod-main-grid { grid-template-columns: 1fr; } }
+
+/* ═══════════════════════════════════════════════════════
+   TODAY'S ALERTS — TABBED
+═══════════════════════════════════════════════════════ */
+.hod-today-tabs {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.hod-ttab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid #e4e7f0;
+  background: #f8f9fc;
+  color: #7d8bac;
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .12s;
+}
+
+.hod-ttab:hover { background: #eaecf2; color: #1e2540; }
+.hod-ttab.active { background: #1e2540; color: #fff; border-color: #1e2540; }
+
+.hod-ttab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  font-size: .5rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.hod-ttab-red    { background: #e84040; }
+.hod-ttab-amber  { background: #f59e3a; }
+.hod-ttab-blue   { background: #4a90e8; }
+
+/* ═══════════════════════════════════════════════════════
+   QUICK NAV LINKS (minimal)
+═══════════════════════════════════════════════════════ */
+.hod-quick-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hod-qnav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: .5rem .875rem;
+  background: #fff;
+  border: 1px solid #e4e7f0;
+  border-radius: 8px;
+  color: #4a5a7c;
+  font-size: .8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all .12s;
+}
+
+.hod-qnav-item:hover {
+  background: #1e2540;
+  color: #fff;
+  border-color: #1e2540;
+}
+
+.hod-qnav-arrow {
+  margin-left: auto;
+  color: #aab3cc;
+  transition: color .12s;
+}
+
+.hod-qnav-item:hover .hod-qnav-arrow {
+  color: rgba(255,255,255,.6);
+}
+
+/* ═══════════════════════════════════════════════════════
+   PENDING TYPE CHIP
+═══════════════════════════════════════════════════════ */
+.hod-pending-type {
+  display: inline-flex;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: .5625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  flex-shrink: 0;
+}
+
+.hod-pending-type.reg {
+  background: #ede9fd;
+  color: #5a3fa8;
+}

@@ -18,7 +18,7 @@ const LEAVE_TYPES = [
     { value: 'maternity', label: 'Maternity Leave', code: 'ML' },
     { value: 'paternity', label: 'Paternity Leave', code: 'PTL' },
     { value: 'compensatory', label: 'Compensatory Off', code: 'CO' },
-    { value: 'unpaid', label: 'Unpaid Leave (LWP)', code: 'LWP' }
+    { value: 'lwp', label: 'Unpaid Leave (LWP)', code: 'LWP' }
 ];
 
 const EMPLOYMENT_TYPES = ['full_time', 'permanent', 'probation', 'contract', 'intern', 'part_time'];
@@ -76,7 +76,7 @@ const PolicyCard = ({ policy }) => {
                         <span className="lpc-code">{policy.leave_code}</span>
                     </div>
                 </div>
-                <span className="lpc-quota">💰 {policy.leave_type === 'unpaid' ? 'Unlimited' : `${policy.annual_quota} days`}</span>
+                <span className="lpc-quota">💰 {policy.leave_type === 'lwp' ? 'Unlimited' : `${policy.annual_quota} days`}</span>
             </div>
             <div className="lpc-body">
                 <div className="lpc-sec-title"><FiClock size={10} /> Application Rules</div>
@@ -284,7 +284,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     </div>
                     <div>
                         <div style={{ fontWeight: 800, color: 'var(--as-t1)', fontSize: '1rem' }}>
-                            {row.leave_type === 'unpaid' ? '0' : val}
+                            {row.leave_type === 'lwp' ? '0' : val}
                         </div>
                         <div style={{ fontSize: '.625rem', color: 'var(--as-t4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.4px' }}>
                             Days / Year
@@ -504,9 +504,9 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                                         value={formData.annual_quota}
                                         onChange={e => setFormData({ ...formData, annual_quota: parseInt(e.target.value) || 0 })}
                                         min={0}
-                                        disabled={formData.leave_type === 'unpaid'}
+                                        disabled={formData.leave_type === 'lwp'}
                                     />
-                                    {formData.leave_type === 'unpaid' && <div style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--color-primary)' }}>Unpaid leave is always unlimited</div>}
+                                    {formData.leave_type === 'lwp' && <div style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--color-primary)' }}>LWP is always unlimited</div>}
                                 </div>
                             </div>
                         </div>

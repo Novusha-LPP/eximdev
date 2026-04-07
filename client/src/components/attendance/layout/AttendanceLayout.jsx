@@ -15,9 +15,8 @@ import './AttendanceLayout.css';
 const EMPLOYEE_MENU = [
     { section: 'Overview' },
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-    { section: 'My Attendance' },
+    { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
-    { section: 'Leave' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
     { section: 'Calendar' },
     { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
@@ -26,13 +25,12 @@ const EMPLOYEE_MENU = [
 const HOD_MENU = [
     { section: 'Overview' },
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-    { section: 'My Attendance' },
-    { path: '/attendance/my-attendance', icon: FiClock, label: 'My Report' },
-    { section: 'My Leave' },
+    { section: 'My Attendance & Leave' },
+    { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
     { section: 'Team' },
-    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
-    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
+    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Attendance' },
+    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals' },
     { section: 'Calendar' },
     { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
 ];
@@ -40,29 +38,26 @@ const HOD_MENU = [
 const ADMIN_BASE_MENU = [
     { section: 'Overview' },
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
-    { section: 'My Attendance' },
+    { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
-    { section: 'My Leave' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-    { section: 'Team' },
-    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report' },
-    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Leave Approvals' },
-    { section: 'Calendar' },
-    { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
+    // { section: 'Calendar' },
+    // { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays', hideForAllowedAdmin: true },
 ];
 
 const ADMIN_PRIVILEGED_MENU = [
     { section: 'Company' },
+    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
     { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
     { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
-    { section: 'Leave' },
-    { path: '/attendance/hod/leave-approval', icon: FiFileText, label: 'Leave Approvals', requiresAllowedAdmin: true },
+    { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals', requiresAllowedAdmin: true },
     { section: 'Configuration' },
     { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holiday Policies', requiresAllowedAdmin: true },
     { path: '/attendance/admin/weekoff-policies', icon: FiClock, label: 'Week-Off Policies', requiresAllowedAdmin: true },
     { path: '/attendance/admin/shifts', icon: FiClock, label: 'Shifts', requiresAllowedAdmin: true },
     { path: '/attendance/admin/leave-policies', icon: FiFileText, label: 'Leave Policies', requiresAllowedAdmin: true },
 ];
+
 
 const ALLOWED_USERNAMES = new Set([
     'shalini_arun',
@@ -108,8 +103,12 @@ const AttendanceLayout = () => {
     const isAllowedAdmin = ALLOWED_USERNAMES.has(username);
 
     // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
+    // Allowed admins manage holidays via 'Holiday Policies' — hide the user-facing calendar from them
+    let baseMenu = isAllowedAdmin
+        ? ADMIN_BASE_MENU.filter(item => !item.hideForAllowedAdmin)
+        : ADMIN_BASE_MENU;
     let menu = isAdmin
-        ? [...ADMIN_BASE_MENU, ...(isAllowedAdmin ? ADMIN_PRIVILEGED_MENU : [])]
+        ? [...baseMenu, ...(isAllowedAdmin ? ADMIN_PRIVILEGED_MENU : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
 
     // Add Company Management for allowed users

@@ -9,6 +9,38 @@ const router = express.Router();
 router.get("/test", (req, res) => res.json({ status: "Tally API is connected and working!" }));
 
 /**
+ * Internal helper to retrieve and format job data for Tally
+ */
+const getJobDetailsInternal = async (job_number) => {
+  if (!job_number) return null;
+  
+  const job = await JobModel.findOne({ job_number }).lean();
+  if (!job) return null;
+
+  return {
+    "Job Number": job.job_number,
+    "Job Year": job.year,
+    "Job Type": job.type,
+    "Job Date": job.job_date,
+    "Importer/Exporter Name": job.importer || job.exporter,
+    "Consignee": job.consignee,
+    "Shipper": job.shipper,
+    "Origin Port": job.loading_port || job.port_of_loading,
+    "Destination Port": job.port_of_discharge || job.destination_port,
+    "Gross Weight": job.gross_weight,
+    "Net Weight": job.net_weight,
+    "Package Count": job.no_of_pkgs,
+    "Package Unit": job.unit,
+    "Container Count": job.container_nos?.length || 0,
+    "BE No": job.be_no || "",
+    "BE Date": job.be_date || "",
+    "SB No": job.sb_no || "",
+    "SB Date": job.sb_date || "",
+    "Status": "" 
+  };
+};
+
+/**
  * @api {get} /api/tally/job-data Retrieve job data for Tally integration
  * @apiHeader {String} x-api-key API Key for external authentication
  * @apiParam {String} job_number Job Number (unique/structured)
@@ -21,34 +53,11 @@ router.get("/job-data", authApiKey, async (req, res) => {
       return res.status(400).send({ error: "job_number is a required query parameter" });
     }
 
-    // Find the job by job_number
-    const job = await JobModel.findOne({ job_number }).lean();
+    const responseData = await getJobDetailsInternal(job_number);
 
-    if (!job) {
+    if (!responseData) {
       return res.status(404).send({ error: "Job not found for the provided job_number" });
     }
-
-    const responseData = {
-      "Job Number": job.job_number,
-      "Job Year": job.year,
-      "Job Type": job.type,
-      "Job Date": job.job_date,
-      "Importer/Exporter Name": job.importer || job.exporter,
-      "Consignee": job.consignee,
-      "Shipper": job.shipper,
-      "Origin Port": job.loading_port || job.port_of_loading,
-      "Destination Port": job.port_of_discharge || job.destination_port,
-      "Gross Weight": job.gross_weight,
-      "Net Weight": job.net_weight,
-      "Package Count": job.no_of_pkgs,
-      "Package Unit": job.unit,
-      "Container Count": job.container_nos?.length || 0,
-      "BE No": job.be_no || "",
-      "BE Date": job.be_date || "",
-      "SB No": job.sb_no || "",
-      "SB Date": job.sb_date || "",
-      "Status": "" 
-    };
 
     res.status(200).json(responseData);
   } catch (error) {
@@ -270,6 +279,13 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "Status": entry.status
     };
 
+    // Include Job Details
+    const job_number = entry.jobNo || (entry.entryNo && entry.entryNo.includes('/') ? entry.entryNo.split('/').slice(1).join('/') : entry.entryNo);
+    const jobDetails = await getJobDetailsInternal(job_number);
+    if (jobDetails) {
+      formattedData["Job Details"] = jobDetails;
+    }
+
     res.status(200).json(formattedData);
 
 
@@ -408,6 +424,13 @@ router.get("/payment-request", authApiKey, async (req, res) => {
       "Beneficiary Code": request.beneficiaryCode,
       "Status": request.status
     };
+
+    // Include Job Details
+    const job_number = request.jobNo || (request.requestNo && request.requestNo.includes('/') ? request.requestNo.split('/').slice(1).join('/') : request.requestNo);
+    const jobDetails = await getJobDetailsInternal(job_number);
+    if (jobDetails) {
+      formattedData["Job Details"] = jobDetails;
+    }
 
     res.status(200).json(formattedData);
 

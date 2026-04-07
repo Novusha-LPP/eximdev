@@ -614,7 +614,9 @@ export const getUsers = async (req, res) => {
     const users = await User.find(query)
       .select('-password')
       .populate('department_id', 'department_name')
-      .populate('shift_id', 'shift_name');
+      .populate('shift_id', 'shift_name')
+      .populate('company_id', 'company_name')
+      .populate('teamId', 'name');
 
     res.json({ success: true, data: users });
   } catch (err) {

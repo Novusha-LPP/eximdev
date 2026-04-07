@@ -2333,6 +2333,7 @@ export const migrateEmployee = async (req, res) => {
         if (!destOrg) {
             return res.status(404).json({ message: 'Destination organization not found' });
         }
+        const destinationCompanyName = destOrg.company_name || destOrg.name || 'Unknown';
 
         const sourceOrgId = employee.company_id._id;
 
@@ -2341,6 +2342,7 @@ export const migrateEmployee = async (req, res) => {
 
         // Update employee's company
         employee.company_id = destinationOrgId;
+        employee.company = destinationCompanyName;
 
         // Assign to HOD if destination org has one
         if (destOrg.hod) {
@@ -2348,39 +2350,55 @@ export const migrateEmployee = async (req, res) => {
         }
 
         await employee.save();
+        
+        // --- 2. Preserve & Map Attendance Data (Dependencies) ---
+        
+        // Update AttendanceRecords & Regularizations to new company context
+        await AttendanceRecord.updateMany({ employee_id: employeeId }, { company_id: destinationOrgId });
+        await RegularizationRequest.updateMany({ employee_id: employeeId }, { company_id: destinationOrgId });
+        await ActiveSession.updateMany({ employee_id: employeeId }, { company_id: destinationOrgId });
 
-        // Remove old leave balances
-        await LeaveBalance.deleteMany({ employee_id: employeeId, company_id: sourceOrgId });
+        // Map LeaveBalances and Applications to Destination Org's Policies
+        const sourceBalances = await LeaveBalance.find({ employee_id: employeeId }).populate('leave_policy_id');
+       // const destOrgPolicies = await LeavePolicy.find({ company_id: destinationOrgId, status: 'active' });
+        
+        // Create an equivalent policy lookup map by leave_code
+        const policyMap = new Map();
+        destOrgPolicies.forEach(p => {
+           if (p.leave_code) policyMap.set(p.leave_code.trim().toUpperCase(), p._id);
+        });
 
-        // Create new leave balances for destination org policies
-        for (const policy of destOrgPolicies) {
-            const balance = new LeaveBalance({
-                employee_id: employeeId,
-                company_id: destinationOrgId,
-                leave_policy_id: policy._id,
-                opening_balance: policy.annual_allocation || 0,
-                used: 0,
-                pending: 0
-            });
+        // Update LeaveBalances with new company and mapped policy
+        for (const balance of sourceBalances) {
+            const oldPolicy = balance.leave_policy_id;
+            const leaveCode = oldPolicy?.leave_code?.trim().toUpperCase();
+            const destPolicyId = leaveCode ? policyMap.get(leaveCode) : null;
+            
+            balance.company_id = destinationOrgId;
+            if (destPolicyId) {
+                balance.leave_policy_id = destPolicyId;
+            }
+            // If no exact match (leave_code), record stays pointing to old policy or we can handle it
             await balance.save();
         }
 
-        // Copy leave history (maintain records)
+        // Update LeaveApplications to new company & mapped policy
         const leaveApps = await LeaveApplication.find({ employee_id: employeeId });
         for (const app of leaveApps) {
             app.company_id = destinationOrgId;
+            
+            // Try to map policy if not already updated via balances above (application usually stores policy id directly)
+            // If there's an existing mapped balance, its policy should take precedence
+            const balanceForApp = sourceBalances.find(sb => sb.leave_policy_id?._id?.toString() === app.leave_policy_id?.toString() || sb.leave_type === app.leave_type);
+            if (balanceForApp && balanceForApp.company_id.toString() === destinationOrgId.toString()) {
+                app.leave_policy_id = balanceForApp.leave_policy_id;
+            }
+            
             await app.save();
         }
-
-        // Update attendance records company (maintain history)
-        await AttendanceRecord.updateMany(
-            { employee_id: employeeId },
-            { company_id: destinationOrgId }
-        );
-
         // Log activity
         await logActivity(req, 'EMPLOYEE_MIGRATION', 'MIGRATE_EMPLOYEE',
-            `Migrated ${employee.first_name} to ${destOrg.name}`,
+            `Migrated ${employee.first_name} to ${destinationCompanyName}`,
             {
                 sourceOrgId,
                 destinationOrgId,
@@ -2391,12 +2409,12 @@ export const migrateEmployee = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Employee migrated to ${destOrg.name}`,
+            message: `Employee migrated to ${destinationCompanyName}`,
             migratedEmployee: {
                 _id: employee._id,
                 name: `${employee.first_name} ${employee.last_name}`,
                 company_id: destinationOrgId,
-                company_name: destOrg.name,
+                company_name: destinationCompanyName,
                 reporting_manager: destOrg.hod || null
             },
             newPolicies: destOrgPolicies.map(p => p.policy_name || p.leave_type),
@@ -2448,13 +2466,17 @@ export const bulkAssignPolicies = async (req, res) => {
                 });
 
                 if (!existingBalance) {
+                    const currentYear = new Date().getFullYear();
                     const balance = new LeaveBalance({
                         employee_id: employee._id,
                         company_id: companyId,
                         leave_policy_id: policy._id,
-                        opening_balance: policy.annual_allocation || 0,
+                        leave_type: policy.leave_type,
+                        year: currentYear,
+                        opening_balance: policy.annual_quota || 0,
                         used: 0,
-                        pending: 0
+                        pending_approval: 0,
+                        closing_balance: policy.annual_quota || 0
                     });
                     await balance.save();
                 }

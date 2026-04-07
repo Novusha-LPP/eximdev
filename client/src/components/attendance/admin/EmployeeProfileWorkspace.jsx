@@ -73,6 +73,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
   const [tab, setTab] = useState('attendance');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [groupBy, setGroupBy] = useState('none'); // 'none', 'organization', 'team'
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [leavePolicies, setLeavePolicies] = useState([]);
@@ -158,13 +160,46 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
     shift_id: ''
   });
 
-  // ─── Pagination & Derived Grid ───
-  const paginatedEmployees = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return gridEmployees.slice(start, start + pageSize);
-  }, [gridEmployees, currentPage]);
+  // ─── Search & Filtering & Grouping Logic ───
+  const filteredEmployees = useMemo(() => {
+    let result = gridEmployees;
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      result = result.filter(emp => 
+        (emp.first_name || '').toLowerCase().includes(lowerSearch) ||
+        (emp.last_name || '').toLowerCase().includes(lowerSearch) ||
+        (emp.username || '').toLowerCase().includes(lowerSearch) ||
+        (emp.employee_code || '').toLowerCase().includes(lowerSearch)
+      );
+    }
+    return result;
+  }, [gridEmployees, searchTerm]);
 
-  const totalPages = Math.ceil(gridEmployees.length / pageSize);
+  const groupedEmployeesData = useMemo(() => {
+    if (groupBy === 'none') return null;
+    const groups = {};
+    filteredEmployees.forEach(emp => {
+      let groupName = 'Unassigned';
+      if (groupBy === 'organization') {
+        groupName = emp.company_id?.company_name || 'No Organization';
+      } else if (groupBy === 'team') {
+        groupName = emp.teamId?.name || 'No Team';
+      }
+      if (!groups[groupName]) groups[groupName] = [];
+      groups[groupName].push(emp);
+    });
+    return groups;
+  }, [filteredEmployees, groupBy]);
+
+  const paginatedEmployees = useMemo(() => {
+    // If grouped, we show all filtered employees in their groups (bypass pagination to keep groups together)
+    if (groupBy !== 'none') return filteredEmployees;
+    
+    const start = (currentPage - 1) * pageSize;
+    return filteredEmployees.slice(start, start + pageSize);
+  }, [filteredEmployees, currentPage, pageSize, groupBy]);
+
+  const totalPages = Math.ceil(filteredEmployees.length / pageSize);
 
   // Sync individual policy form with profile data
   useEffect(() => {
@@ -310,6 +345,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
     const e = profile.employee;
     return `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username || 'Employee';
   }, [profile]);
+
+  const currentOrgName = useMemo(() => {
+    if (id && profile?.employee?.company_id) {
+      return profile.employee.company_id.company_name || profile.employee.company_id.name || 'N/A';
+    }
+    if (migratingEmployeeId) {
+      const emp = gridEmployees?.find(e => e._id === migratingEmployeeId);
+      return emp?.company_id?.company_name || (typeof emp?.company_id === 'object' ? (emp.company_id.company_name || emp.company_id.name || 'N/A') : 'N/A');
+    }
+    return 'N/A';
+  }, [id, profile, migratingEmployeeId, gridEmployees]);
 
 
 
@@ -464,10 +510,40 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
                 <h1 style={{ margin: 0, color: THEME.navy, fontSize: '28px', fontWeight: '800', letterSpacing: '-0.025em' }}>Employee Directory</h1>
                 <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600' }}>
-                  Showing {Math.min(gridEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(gridEmployees.length, currentPage*pageSize)} of {gridEmployees.length} Employees
+                  Showing {Math.min(filteredEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(filteredEmployees.length, currentPage*pageSize)} of {filteredEmployees.length} Employees
                 </span>
               </div>
               <p style={{ margin: '4px 0 0 0', color: THEME.muted, fontSize: '14px', fontWeight: '500' }}>Manage workforce policies and profiles</p>
+              
+              {/* Search Bar */}
+              <div style={{ marginTop: '16px', position: 'relative', maxWidth: '400px' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: THEME.muted, fontSize: '16px' }}>🔍</span>
+                <input 
+                  type="text" 
+                  placeholder="Search by name, ID or username..." 
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    ...inputStyle,
+                    paddingLeft: '38px',
+                    height: '44px',
+                    borderColor: searchTerm ? THEME.primary : THEME.border,
+                    background: '#fff',
+                    boxShadow: THEME.shadow
+                  }}
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: THEME.muted }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               {selectedUserIds.length > 0 && (
                 <div style={{ margin: '8px 0 0 0', display: 'inline-block', background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' }}>
                   ✨ {selectedUserIds.length} users selected
@@ -520,6 +596,23 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 </button>
               </div>
 
+              {/* Group By Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: `1px solid ${THEME.border}`, padding: '4px 12px', borderRadius: '10px', fontSize: '12px', color: THEME.muted }}>
+                <span>Group by</span>
+                <select 
+                  value={groupBy} 
+                  onChange={(e) => {
+                    setGroupBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{ border: 'none', background: 'transparent', fontWeight: '700', color: THEME.text, cursor: 'pointer', outline: 'none', minWidth: '100px' }}
+                >
+                  <option value="none">None</option>
+                  <option value="organization">Organization</option>
+                  <option value="team">Team</option>
+                </select>
+              </div>
+
               <button 
                 onClick={() => setShowBulkPolicyModal(true)}
                 style={{
@@ -545,150 +638,197 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
             <div style={{ textAlign: 'center', color: THEME.muted, padding: '40px' }}>No employees found</div>
           ) : viewMode === 'grid' ? (
             /* Grid View */
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '20px'
-            }}>
-              {paginatedEmployees.map((emp) => {
-                const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase();
-                const goToProfile = (e) => {
-                  e.stopPropagation();
-                  setLocalEmployeeId(emp._id);
-                };
-                return (
-                  <div 
-                    key={emp._id}
-                    style={{
-                      ...cardStyle,
-                      padding: '20px',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : Object.keys(groupedEmployeesData).sort().map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
+                <div key={group.name || gIdx}>
+                  {group.name && (
+                    <h3 style={{ 
+                      margin: '0 0 20px 0', 
+                      padding: '0 0 12px 0', 
+                      fontSize: '18px', 
+                      fontWeight: '800', 
+                      color: THEME.navy, 
+                      borderBottom: `2px solid ${THEME.primary}`,
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      cursor: 'pointer',
-                      border: `1px solid ${THEME.border}`,
-                    }}
-                    onClick={goToProfile}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)';
-                      e.currentTarget.style.borderColor = THEME.primary;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = THEME.shadow;
-                      e.currentTarget.style.borderColor = THEME.border;
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: THEME.muted, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
-                            if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
-                            else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
-                          }} />
-                        Select
-                      </label>
-                      <span style={{ color: '#10b981', background: '#f0fdf4', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
-                    </div>
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <span>{group.name}</span>
+                      <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600', background: '#f1f5f9', padding: '2px 10px', borderRadius: '12px' }}>{group.items.length}</span>
+                    </h3>
+                  )}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {group.items.map((emp) => {
+                      const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase();
+                      const goToProfile = (e) => {
+                        e.stopPropagation();
+                        setLocalEmployeeId(emp._id);
+                      };
+                      return (
+                        <div 
+                          key={emp._id}
+                          style={{
+                            ...cardStyle,
+                            padding: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            cursor: 'pointer',
+                            border: `1px solid ${THEME.border}`,
+                          }}
+                          onClick={goToProfile}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)';
+                            e.currentTarget.style.borderColor = THEME.primary;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = THEME.shadow;
+                            e.currentTarget.style.borderColor = THEME.border;
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: THEME.muted, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
+                                  if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
+                                  else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
+                                }} />
+                              Select
+                            </label>
+                            <span style={{ color: '#10b981', background: '#f0fdf4', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
+                          </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                      <div style={{
-                        width: '48px', height: '48px', borderRadius: '12px', background: '#f1f5f9',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, fontSize: '18px', fontWeight: '700'
-                      }}>
-                        {initials}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: '700', color: THEME.text, fontSize: '14px' }}>{emp.first_name} {emp.last_name}</div>
-                        <div style={{ color: THEME.muted, fontSize: '11px' }}>ID: {emp.employee_code || '-'}</div>
-                      </div>
-                    </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                            <div style={{
+                              width: '48px', height: '48px', borderRadius: '12px', background: '#f1f5f9',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, fontSize: '18px', fontWeight: '700'
+                            }}>
+                              {initials}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: '700', color: THEME.text, fontSize: '14px' }}>{emp.first_name} {emp.last_name}</div>
+                              <div style={{ color: THEME.muted, fontSize: '11px' }}>ID: {emp.employee_code || '-'}</div>
+                            </div>
+                          </div>
 
-                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || 'Specialist'}</div>
-                      <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha Consulting'}</div>
-                    </div>
+                          <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || 'Specialist'}</div>
+                            <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha Consulting'}</div>
+                          </div>
 
-                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: `1px dotted ${THEME.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '10px', color: THEME.muted }}>No contact</span>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, border: `1px solid ${THEME.border}`, fontSize: '12px' }}>
-                        👤
-                      </div>
-                    </div>
+                          <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: `1px dotted ${THEME.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '10px', color: THEME.muted }}>No contact</span>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, border: `1px solid ${THEME.border}`, fontSize: '12px' }}>
+                              👤
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           ) : (
-            <div style={{ ...cardStyle, padding: '0', overflowX: 'auto', border: `1px solid ${THEME.border}`, background: '#fff' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: `1px solid ${THEME.border}` }}>
-                    <th style={{ padding: '20px 16px', width: '40px' }}>
-                       <input type="checkbox" onChange={(e) => {
-                          if (e.target.checked) setSelectedUserIds(gridEmployees.map(u => u._id));
-                          else setSelectedUserIds([]);
-                       }} />
-                    </th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>EMPLOYEE</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ID</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>DESIGNATION</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>COMPANY</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>STATUS</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedEmployees.map((emp) => (
-                    <tr 
-                      key={emp._id} 
-                      onClick={() => setLocalEmployeeId(emp._id)}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      style={{ borderBottom: `1px solid ${THEME.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
-                    >
-                      <td style={{ padding: '14px 16px' }} onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
-                            if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
-                            else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
-                          }} />
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: THEME.muted }}>
-                            {(emp.first_name?.[0] || '') + (emp.last_name?.[0] || '')}
-                          </div>
-                          <div style={{ fontWeight: '600', color: THEME.text }}>{emp.first_name} {emp.last_name}</div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', color: THEME.text }}>{emp.employee_code || '-'}</td>
-                      <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || '-'}</td>
-                      <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha'}</td>
-                      <td style={{ padding: '14px 16px' }}>
-                         <span style={{ color: '#10b981', background: '#f0fdf4', padding: '4px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <button 
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             setMigratingEmployeeId(emp._id);
-                             setShowMigrationModal(true);
-                           }}
-                           style={{ padding: '6px', borderRadius: '8px', background: '#f3f4f6', border: 'none', cursor: 'pointer', fontSize: '14px' }}
-                        >
-                          🔄
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : Object.keys(groupedEmployeesData).sort().map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
+                <div key={group.name || gIdx}>
+                  {group.name && (
+                    <h3 style={{ 
+                      margin: '0 0 15px 0', 
+                      fontSize: '16px', 
+                      fontWeight: '700', 
+                      color: THEME.navy,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span>{group.name}</span>
+                      <span style={{ fontSize: '12px', color: THEME.muted, background: '#f1f5f9', padding: '1px 8px', borderRadius: '10px' }}>{group.items.length}</span>
+                    </h3>
+                  )}
+                  <div style={{ ...cardStyle, padding: '0', overflowX: 'auto', border: `1px solid ${THEME.border}`, background: '#fff' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: `1px solid ${THEME.border}` }}>
+                          <th style={{ padding: '20px 16px', width: '40px' }}>
+                            <input type="checkbox" onChange={(e) => {
+                                if (e.target.checked) {
+                                  const ids = group.items.map(u => u._id);
+                                  setSelectedUserIds(p => [...new Set([...p, ...ids])]);
+                                } else {
+                                  const ids = new Set(group.items.map(u => u._id));
+                                  setSelectedUserIds(p => p.filter(id => !ids.has(id)));
+                                }
+                            }} />
+                          </th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>EMPLOYEE</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ID</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>DESIGNATION</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>COMPANY</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>STATUS</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.items.map((emp) => (
+                          <tr 
+                            key={emp._id} 
+                            onClick={() => setLocalEmployeeId(emp._id)}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{ borderBottom: `1px solid ${THEME.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
+                          >
+                            <td style={{ padding: '14px 16px' }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
+                                  if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
+                                  else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
+                                }} />
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: THEME.muted }}>
+                                  {(emp.first_name?.[0] || '') + (emp.last_name?.[0] || '')}
+                                </div>
+                                <div style={{ fontWeight: '600', color: THEME.text }}>{emp.first_name} {emp.last_name}</div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px', color: THEME.text }}>{emp.employee_code || '-'}</td>
+                            <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || '-'}</td>
+                            <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha'}</td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{ color: '#10b981', background: '#f0fdf4', padding: '4px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMigratingEmployeeId(emp._id);
+                                  setShowMigrationModal(true);
+                                }}
+                                style={{ padding: '6px', borderRadius: '8px', background: '#f3f4f6', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+                              >
+                                🔄
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* Pagination Controls */}
-          {totalPages > 1 && !id && (
+          {totalPages > 1 && !id && groupBy === 'none' && (
             <div style={{ 
               marginTop: '30px', 
               display: 'flex', 
@@ -809,6 +949,24 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 padding: '20px'
               }}>
                 <h2 style={{ margin: '0 0 16px 0', color: THEME.navy }}>🔄 Migrate Employee</h2>
+                
+                {/* Current Org Indicator */}
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '12px',
+                  background: '#f8fafc',
+                  borderRadius: '10px',
+                  border: `1px solid ${THEME.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{ width: '36px', height: '36px', background: '#ecf2ff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🏢</div>
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: THEME.muted, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MIGRATING FROM</span>
+                    <span style={{ fontSize: '14px', fontWeight: '800', color: THEME.navy }}>{currentOrgName}</span>
+                  </div>
+                </div>
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '12px', color: THEME.muted }}>Destination Organization</label>
                   <select 
@@ -1453,6 +1611,24 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
           {/* Migration Card */}
           <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.amber}`, padding: '12px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.amber }}>🔄 Migrate Employee</h3>
+            
+            {/* Current Org Indicator */}
+            <div style={{
+              marginBottom: '12px',
+              padding: '10px',
+              background: '#fff9db',
+              borderRadius: '8px',
+              border: '1px solid #ffe066',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <div style={{ width: '32px', height: '32px', background: '#ffe066', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🏢</div>
+              <div>
+                <span style={{ fontSize: '10px', fontWeight: '700', color: '#868e96', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Migrating From</span>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: THEME.navy }}>{currentOrgName}</span>
+              </div>
+            </div>
             <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: THEME.muted }}>
               Move this employee to a different organization. Policies and leave balances will be updated automatically.
             </p>

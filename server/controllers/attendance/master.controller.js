@@ -556,7 +556,8 @@ export const migrateUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const sourceCompanyId = user.company_id;
-    const sourceCompanyName = user.company;
+    const sourceCompanyDoc = sourceCompanyId ? await Company.findById(sourceCompanyId).select('company_name').lean() : null;
+    const sourceCompanyName = sourceCompanyDoc?.company_name || user.company || 'Unknown';
 
     // Update user record
     user.company_id = targetCompanyId;
@@ -572,9 +573,14 @@ export const migrateUser = async (req, res) => {
     await user.save();
 
     await logActivity(req, 'USER', 'MIGRATE_USER', `Migrated user ${user.username} from ${sourceCompanyName} to ${targetCompany.company_name}`, {
+      employeeId: user._id,
       userId: user._id,
       sourceCompanyId,
+      sourceCompanyName,
       targetCompanyId,
+      destinationCompanyId: targetCompanyId,
+      destinationCompanyName: targetCompany.company_name,
+      targetCompanyName: targetCompany.company_name,
       targetShiftId,
       targetDepartmentId
     });

@@ -2060,7 +2060,7 @@ export const getEmployeeFullProfile = async (req, res) => {
         }
 
         const employee = await User.findById(id)
-            .populate('department_id shift_id hod_id company_id')
+            .populate('department_id shift_id hod_id company_id weekoff_policy_id holiday_policy_id')
             .lean();
 
         if (!employee) return res.status(404).json({ message: 'Employee not found in records' });
@@ -2369,6 +2369,7 @@ export const migrateEmployee = async (req, res) => {
             return res.status(404).json({ message: 'Destination organization not found' });
         }
         const destinationCompanyName = destOrg.company_name || destOrg.name || 'Unknown';
+        const sourceCompanyName = employee.company_id?.company_name || employee.company || 'Unknown';
 
         const sourceOrgId = employee.company_id._id;
 
@@ -2435,8 +2436,13 @@ export const migrateEmployee = async (req, res) => {
         await logActivity(req, 'EMPLOYEE_MIGRATION', 'MIGRATE_EMPLOYEE',
             `Migrated ${employee.first_name} to ${destinationCompanyName}`,
             {
+                employeeId: employee._id,
                 sourceOrgId,
                 destinationOrgId,
+                sourceCompanyId: sourceOrgId,
+                sourceCompanyName,
+                destinationCompanyId: destinationOrgId,
+                destinationCompanyName,
                 assignedHOD: destOrg.hod || null,
                 policiesCount: destOrgPolicies.length
             }
@@ -2459,6 +2465,111 @@ export const migrateEmployee = async (req, res) => {
     } catch (err) {
         console.error('Migration Error:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+export const getEmployeeMigrationHistory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdmin = roleNorm === 'ADMIN';
+        const isHod = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT';
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid employee ID format' });
+        }
+
+        if (!isAdmin && !isHod) {
+            return res.status(403).json({ message: 'Unauthorized migration history access' });
+        }
+
+        if (isHod) {
+            const isInTeam = await isHODauthorized(req.user._id, id);
+            if (!isInTeam) {
+                return res.status(403).json({ message: 'Employee not in your team' });
+            }
+        }
+
+        const employee = await User.findById(id).select('first_name last_name username date_of_joining createdAt').lean();
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        const migrationLogs = await ActivityLog.find({
+            action: { $in: ['MIGRATE_EMPLOYEE', 'MIGRATE_USER'] },
+            $or: [
+                { 'metadata.employeeId': new mongoose.Types.ObjectId(id) },
+                { 'metadata.userId': new mongoose.Types.ObjectId(id) }
+            ]
+        })
+            .populate('user_id', 'first_name last_name username')
+            .sort({ createdAt: 1 })
+            .lean();
+
+        const companyIds = new Set();
+        migrationLogs.forEach((log) => {
+            const metadata = log.metadata || {};
+            const sourceId = metadata.sourceCompanyId || metadata.sourceOrgId;
+            const destId = metadata.destinationCompanyId || metadata.destinationOrgId || metadata.targetCompanyId;
+            if (sourceId) companyIds.add(String(sourceId));
+            if (destId) companyIds.add(String(destId));
+        });
+
+        const companies = await Company.find({ _id: { $in: Array.from(companyIds) } })
+            .select('company_name')
+            .lean();
+        const companyMap = new Map(companies.map((c) => [String(c._id), c.company_name]));
+
+        let previousMoveInAt = employee.date_of_joining || employee.createdAt || null;
+
+        const history = migrationLogs.map((log) => {
+            const metadata = log.metadata || {};
+            const sourceId = metadata.sourceCompanyId || metadata.sourceOrgId;
+            const destinationId = metadata.destinationCompanyId || metadata.destinationOrgId || metadata.targetCompanyId;
+            const migratedAt = new Date(log.createdAt);
+            const periodStart = previousMoveInAt ? new Date(previousMoveInAt) : null;
+            const periodDays = periodStart && !Number.isNaN(periodStart.getTime())
+                ? Math.max(0, moment(migratedAt).diff(moment(periodStart), 'days'))
+                : null;
+
+            const record = {
+                _id: log._id,
+                action: log.action,
+                migratedAt,
+                migratedBy: {
+                    _id: log.user_id?._id || null,
+                    name: [log.user_id?.first_name, log.user_id?.last_name].filter(Boolean).join(' ').trim() || log.user_id?.username || 'Unknown'
+                },
+                sourceCompany: {
+                    _id: sourceId || null,
+                    name: metadata.sourceCompanyName || (sourceId ? companyMap.get(String(sourceId)) : null) || 'Unknown'
+                },
+                destinationCompany: {
+                    _id: destinationId || null,
+                    name: metadata.destinationCompanyName || metadata.targetCompanyName || (destinationId ? companyMap.get(String(destinationId)) : null) || 'Unknown'
+                },
+                previousCompanyPeriod: {
+                    from: periodStart,
+                    to: migratedAt,
+                    days: periodDays
+                }
+            };
+
+            previousMoveInAt = migratedAt;
+            return record;
+        }).reverse();
+
+        return res.json({
+            success: true,
+            employee: {
+                _id: employee._id,
+                name: [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim() || employee.username || 'Employee'
+            },
+            data: history
+        });
+    } catch (err) {
+        console.error('Get Migration History Error:', err);
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 

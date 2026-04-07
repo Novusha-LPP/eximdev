@@ -81,6 +81,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   const [users, setUsers] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [showLeaveBalanceForm, setShowLeaveBalanceForm] = useState(false);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [migrationHistory, setMigrationHistory] = useState([]);
+  const [migrationHistoryLoading, setMigrationHistoryLoading] = useState(false);
 
   const [balanceForm, setBalanceForm] = useState({
     leave_policy_id: '',
@@ -212,14 +215,31 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
 
   // Sync individual policy form with profile data
   useEffect(() => {
-    if (profile?.employee?.policy_overrides) {
-      const po = profile.employee.policy_overrides;
-      setPolicyForm({
-        weekoff_policy_id: po.weekoff_policy_id?._id || po.weekoff_policy_id || '',
-        holiday_policy_id: po.holiday_policy_id?._id || po.holiday_policy_id || '',
-        shift_id: po.shift_id?._id || po.shift_id || ''
-      });
-    }
+    if (!profile?.employee) return;
+
+    const employee = profile.employee;
+    const overrides = employee.policy_overrides || {};
+    const resolvePolicyId = (directValue, overrideValue) =>
+      directValue?._id || directValue || overrideValue?._id || overrideValue || '';
+
+    setPolicyForm({
+      weekoff_policy_id: resolvePolicyId(employee.weekoff_policy_id, overrides.weekoff_policy_id),
+      holiday_policy_id: resolvePolicyId(employee.holiday_policy_id, overrides.holiday_policy_id),
+      shift_id: resolvePolicyId(employee.shift_id, overrides.shift_id)
+    });
+  }, [profile]);
+
+  const hasSavedIndividualPolicy = useMemo(() => {
+    const e = profile?.employee;
+    if (!e) return false;
+    return Boolean(
+      e.weekoff_policy_id ||
+      e.holiday_policy_id ||
+      e.shift_id ||
+      e.policy_overrides?.weekoff_policy_id ||
+      e.policy_overrides?.holiday_policy_id ||
+      e.policy_overrides?.shift_id
+    );
   }, [profile]);
 
   const fetchData = async () => {
@@ -228,12 +248,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
       return;
     }
     setLoading(true);
+    setMigrationHistoryLoading(true);
     try {
-      const [profileRes, policiesRes] = await Promise.all([
+      const [profileRes, policiesRes, migrationRes] = await Promise.all([
         attendanceAPI.getEmployeeFullProfile(id, startDate, endDate),
-        masterAPI.getLeavePolicies({ limit: 200 }).catch(() => ({ data: [] }))
+        masterAPI.getLeavePolicies({ limit: 200 }).catch(() => ({ data: [] })),
+        attendanceAPI.getEmployeeMigrationHistory(id).catch(() => ({ data: [] }))
       ]);
       setProfile(profileRes || null);
+      setMigrationHistory(Array.isArray(migrationRes?.data) ? migrationRes.data : []);
 
       const policyRows = Array.isArray(policiesRes?.data)
         ? policiesRes.data
@@ -245,6 +268,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
       toast.error(error?.message || 'Failed to load employee profile workspace');
     } finally {
       setLoading(false);
+      setMigrationHistoryLoading(false);
     }
   };
 
@@ -344,9 +368,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
       }
     };
 
-    if (!id) {
-      fetchPolicyCatalogs();
-    }
+    fetchPolicyCatalogs();
   }, [id]);
 
   const employeeName = useMemo(() => {
@@ -470,6 +492,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   // ─── Individual Policy Update Handler ───
   const handleUpdateIndividualPolicies = async (e) => {
     if (e) e.preventDefault();
+    setPolicySaving(true);
     try {
       const result = await masterAPI.assignPolicyToUser(id, policyForm);
       if (result) {
@@ -478,7 +501,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
       }
     } catch (error) {
       toast.error(error?.message || 'Failed to update individual policies');
+    } finally {
+      setPolicySaving(false);
     }
+  };
+
+  const formatMigrationPeriod = (period) => {
+    if (!period?.from || !period?.to) return 'Unavailable';
+    const days = Number(period?.days);
+    const fromText = new Date(period.from).toLocaleDateString();
+    const toText = new Date(period.to).toLocaleDateString();
+    if (Number.isFinite(days)) {
+      return `${days} day${days === 1 ? '' : 's'} (${fromText} to ${toText})`;
+    }
+    return `${fromText} to ${toText}`;
   };
 
   // ─── Bulk Policy Handler ───
@@ -1586,6 +1622,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
                   <button
                     type="submit"
+                    disabled={policySaving}
                     style={{
                       ...buttonStyle,
                       background: THEME.primary,
@@ -1594,13 +1631,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                       fontSize: '14px',
                       fontWeight: '700',
                       borderRadius: '10px',
-                      boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
+                      boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
+                      opacity: policySaving ? 0.7 : 1
                     }}
                   >
-                    💾 Save Policy Changes
+                    {policySaving ? 'Saving...' : hasSavedIndividualPolicy ? '💾 Update Policy Changes' : '💾 Save Policy Changes'}
                   </button>
                 </div>
             </form>
+            <p style={{ marginTop: '14px', fontSize: '12px', color: THEME.muted }}>
+              Saved selections remain editable. You can update these policies anytime.
+            </p>
           </div>
         </div>
       )}
@@ -1642,63 +1683,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
             </form>
           </div>
 
-          {/* Attendance Continuity (Bulk Update) */}
-          <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.indigo}`, padding: '12px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.indigo }}>📅 Attendance Continuity (Bulk Update)</h3>
-            <p style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
-              Update attendance records for a date range in bulk. 
-              <br/><strong>Note:</strong> Marking as 'present' will assign default time <strong>10:00 AM to 07:00 PM</strong>.
-            </p>
-            <form onSubmit={handleBulkManualAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '70px' }}>Start Date:</label>
-                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={bulkManualForm.startDate} onChange={(e) => setBulkManualForm({ ...bulkManualForm, startDate: e.target.value })} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '70px' }}>End Date:</label>
-                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={bulkManualForm.endDate} onChange={(e) => setBulkManualForm({ ...bulkManualForm, endDate: e.target.value })} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Status:</label>
-                <select 
-                  style={{ 
-                    ...inputStyle, 
-                    padding: '8px 10px', 
-                    fontSize: '12px', 
-                    flex: '1 1 180px',
-                    backgroundColor: '#fff',
-                    fontWeight: '600'
-                  }} 
-                  value={bulkManualForm.status} 
-                  onChange={(e) => setBulkManualForm({ ...bulkManualForm, status: e.target.value })}
-                >
-                  <option value="present">Present (10 AM - 7 PM)</option>
-                  <option value="absent">Absent</option>
-                  <option value="half_day">Half Day</option>
-                  <option value="leave">Leave</option>
-                  <option value="weekoff">Week Off</option>
-                  <option value="holiday">Holiday</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '15px', alignItems: 'center', gridColumn: '1 / -1' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={bulkManualForm.excludeSundays} onChange={e => setBulkManualForm({ ...bulkManualForm, excludeSundays: e.target.checked })} />
-                  Skip Sundays
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={bulkManualForm.excludeSaturdays} onChange={e => setBulkManualForm({ ...bulkManualForm, excludeSaturdays: e.target.checked })} />
-                  Skip Saturdays
-                </label>
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', fontSize: '12px', color: '#000' }}>Remarks:</label>
-                <textarea rows={2} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={bulkManualForm.remarks} onChange={(e) => setBulkManualForm({ ...bulkManualForm, remarks: e.target.value })} placeholder="Reason for bulk update..." />
-              </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
-                <button type="submit" style={{ ...buttonStyle, background: THEME.indigo, color: '#fff', flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}>Apply Continuity Update</button>
-              </div>
-            </form>
-          </div>
+         
 
           {/* Migration Card */}
           <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.amber}`, padding: '12px' }}>
@@ -1759,6 +1744,48 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 🔄 Migrate Employee
               </button>
             </div>
+          </div>
+
+          <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.indigo}`, padding: '12px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.indigo }}>🔁 Migration History</h3>
+            <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: THEME.muted }}>
+              Track who migrated this employee and how long they stayed in the previous organization before each move.
+            </p>
+
+            {migrationHistoryLoading ? (
+              <div style={{ color: THEME.muted, fontSize: '12px' }}>Loading migration history...</div>
+            ) : migrationHistory.length === 0 ? (
+              <div style={{ color: THEME.muted, fontSize: '12px' }}>No migration history found for this employee.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {migrationHistory.map((event) => (
+                  <div
+                    key={event._id}
+                    style={{
+                      border: `1px solid ${THEME.border}`,
+                      borderRadius: '10px',
+                      padding: '10px',
+                      background: '#fff'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                      <strong style={{ color: THEME.text, fontSize: '12px' }}>
+                        {event.sourceCompany?.name || 'Unknown'} to {event.destinationCompany?.name || 'Unknown'}
+                      </strong>
+                      <span style={{ color: THEME.muted, fontSize: '11px' }}>
+                        {event.migratedAt ? new Date(event.migratedAt).toLocaleString() : 'Unknown date'}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '6px', fontSize: '12px', color: THEME.text }}>
+                      Migrated by: <strong>{event.migratedBy?.name || 'Unknown'}</strong>
+                    </div>
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: THEME.muted }}>
+                      Previous company period: {formatMigrationPeriod(event.previousCompanyPeriod)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}      </div>

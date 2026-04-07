@@ -118,7 +118,7 @@ const CompanyManagement = () => {
         try {
             const [cRes, uRes, branchRes, shiftRes] = await Promise.all([
                 masterAPI.getCompanies(),
-                masterAPI.getUsers({ limit: 2000, all_companies: true }),
+                masterAPI.getUsers({ limit: 2000, all_companies: true, isActive: true }),
                 axios.get(`${process.env.REACT_APP_API_STRING}/admin/get-branches`, { withCredentials: true }),
                 masterAPI.getShifts({ all_companies: true })
             ]);

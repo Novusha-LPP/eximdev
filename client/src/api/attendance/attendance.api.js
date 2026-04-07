@@ -287,6 +287,15 @@ const attendanceAPI = {
     }
   },
 
+  getEmployeeMigrationHistory: async (id) => {
+    try {
+      const response = await apiClient.get(`/attendance/employee-migration-history/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch migration history' };
+    }
+  },
+
   /**
    * Update employee profile (HOD version - shift only)
    */

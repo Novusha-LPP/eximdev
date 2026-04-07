@@ -241,10 +241,10 @@ const LeaveManagement = () => {
             const total = b.opening_balance || b.total || b.annual_quota || 0;
             const used = b.used ?? 0;
             // The server now returns 'available' as Opening - Used - Pending (Net)
-            const availableDisplay = b.leave_type === 'unpaid' ? 0 : (b.available ?? (total - used - (b.pending || 0)));
+            const availableDisplay = b.leave_type === 'lwp' ? 0 : (b.available ?? (total - used - (b.pending || 0)));
             const pend = b.pending || 0;
             const usedPct = total > 0 ? (used / total) * 100 : 0;
-            const exhausted = (total - used) <= 0 && b.leave_type !== 'unpaid';
+            const exhausted = (total - used) <= 0 && b.leave_type !== 'lwp';
             return (
               <div key={b._id} className={`bal-tile${exhausted ? ' exhausted' : ''}`}>
                 <div className="bal-head">
@@ -253,7 +253,7 @@ const LeaveManagement = () => {
                 </div>
                 <div className="bal-body">
                   <div className="bal-nums">
-                    {b.leave_type === 'unpaid' ? (
+                    {b.leave_type === 'lwp' ? (
                       <span className="bal-big" style={{ fontSize: '1.375rem' }}>0</span>
                     ) : (
                         <span className="bal-big">{availableDisplay}</span>
@@ -261,7 +261,7 @@ const LeaveManagement = () => {
                   </div>
                   <span className="bal-lbl">Available Days</span>
                   <div className="bal-bar">
-                    <div className="bal-fill" style={{ width: b.leave_type === 'unpaid' ? '0%' : `${usedPct}%` }} />
+                    <div className="bal-fill" style={{ width: b.leave_type === 'lwp' ? '0%' : `${usedPct}%` }} />
                   </div>
                   <div className="bal-meta">
                     <span className="meta-used">Used: {used}</span>
@@ -470,11 +470,11 @@ const LeaveManagement = () => {
                   <option value="">Select leave type...</option>
                   {balances
                     .map(b => {
-                      const netBalance = b.leave_type === 'unpaid' ? 0 : (b.available ?? (b.opening_balance - (b.used || 0) - (b.pending || 0)));
+                      const netBalance = b.leave_type === 'lwp' ? 0 : (b.available ?? (b.opening_balance - (b.used || 0) - (b.pending || 0)));
                       return (
                         <option key={b._id} value={b._id}>
                           {b.name}
-                          {b.leave_type !== 'unpaid' ? ` • ${netBalance} days left` : ' (Unlimited)'}
+                          {b.leave_type !== 'lwp' ? ` • ${netBalance} days left` : ' (Unlimited)'}
                         </option>
                       );
                     })

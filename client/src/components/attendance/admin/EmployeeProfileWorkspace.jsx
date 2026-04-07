@@ -73,6 +73,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
   const [tab, setTab] = useState('attendance');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [groupBy, setGroupBy] = useState('none'); // 'none', 'organization', 'team'
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [leavePolicies, setLeavePolicies] = useState([]);
@@ -158,13 +160,55 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
     shift_id: ''
   });
 
-  // ─── Pagination & Derived Grid ───
-  const paginatedEmployees = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return gridEmployees.slice(start, start + pageSize);
-  }, [gridEmployees, currentPage]);
+  const [bulkManualForm, setBulkManualForm] = useState({
+    startDate: now.toISOString().split('T')[0],
+    endDate: now.toISOString().split('T')[0],
+    status: 'present',
+    remarks: '',
+    excludeSundays: true,
+    excludeSaturdays: true
+  });
 
-  const totalPages = Math.ceil(gridEmployees.length / pageSize);
+  // ─── Search & Filtering & Grouping Logic ───
+  const filteredEmployees = useMemo(() => {
+    let result = gridEmployees;
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      result = result.filter(emp => 
+        (emp.first_name || '').toLowerCase().includes(lowerSearch) ||
+        (emp.last_name || '').toLowerCase().includes(lowerSearch) ||
+        (emp.username || '').toLowerCase().includes(lowerSearch) ||
+        (emp.employee_code || '').toLowerCase().includes(lowerSearch)
+      );
+    }
+    return result;
+  }, [gridEmployees, searchTerm]);
+
+  const groupedEmployeesData = useMemo(() => {
+    if (groupBy === 'none') return null;
+    const groups = {};
+    filteredEmployees.forEach(emp => {
+      let groupName = 'Unassigned';
+      if (groupBy === 'organization') {
+        groupName = emp.company_id?.company_name || 'No Organization';
+      } else if (groupBy === 'team') {
+        groupName = emp.teamId?.name || 'No Team';
+      }
+      if (!groups[groupName]) groups[groupName] = [];
+      groups[groupName].push(emp);
+    });
+    return groups;
+  }, [filteredEmployees, groupBy]);
+
+  const paginatedEmployees = useMemo(() => {
+    // If grouped, we show all filtered employees in their groups (bypass pagination to keep groups together)
+    if (groupBy !== 'none') return filteredEmployees;
+    
+    const start = (currentPage - 1) * pageSize;
+    return filteredEmployees.slice(start, start + pageSize);
+  }, [filteredEmployees, currentPage, pageSize, groupBy]);
+
+  const totalPages = Math.ceil(filteredEmployees.length / pageSize);
 
   // Sync individual policy form with profile data
   useEffect(() => {
@@ -311,7 +355,41 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
     return `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username || 'Employee';
   }, [profile]);
 
+  const currentOrgName = useMemo(() => {
+    if (id && profile?.employee?.company_id) {
+      return profile.employee.company_id.company_name || profile.employee.company_id.name || 'N/A';
+    }
+    if (migratingEmployeeId) {
+      const emp = gridEmployees?.find(e => e._id === migratingEmployeeId);
+      return emp?.company_id?.company_name || (typeof emp?.company_id === 'object' ? (emp.company_id.company_name || emp.company_id.name || 'N/A') : 'N/A');
+    }
+    return 'N/A';
+  }, [id, profile, migratingEmployeeId, gridEmployees]);
 
+
+
+  const handleBulkManualAdjustment = async (e) => {
+    e.preventDefault();
+    if (!id) return toast.error('No employee selected');
+    
+    try {
+      const response = await attendanceAPI.bulkUpdateAttendance({ 
+        employee_id: id, 
+        ...bulkManualForm 
+      });
+      if (response.success) {
+        toast.success(response.message || 'Bulk adjustment successful');
+        // Force a slightly delayed refresh to ensure DB consistency
+        setTimeout(() => {
+          fetchData();
+        }, 500);
+      } else {
+        toast.error(response.message || 'Bulk adjustment failed');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error processing bulk adjustment');
+    }
+  };
 
   const handleManualAdjustment = async (e) => {
     e.preventDefault();
@@ -464,10 +542,40 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
                 <h1 style={{ margin: 0, color: THEME.navy, fontSize: '28px', fontWeight: '800', letterSpacing: '-0.025em' }}>Employee Directory</h1>
                 <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600' }}>
-                  Showing {Math.min(gridEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(gridEmployees.length, currentPage*pageSize)} of {gridEmployees.length} Employees
+                  Showing {Math.min(filteredEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(filteredEmployees.length, currentPage*pageSize)} of {filteredEmployees.length} Employees
                 </span>
               </div>
               <p style={{ margin: '4px 0 0 0', color: THEME.muted, fontSize: '14px', fontWeight: '500' }}>Manage workforce policies and profiles</p>
+              
+              {/* Search Bar */}
+              <div style={{ marginTop: '16px', position: 'relative', maxWidth: '400px' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: THEME.muted, fontSize: '16px' }}>🔍</span>
+                <input 
+                  type="text" 
+                  placeholder="Search by name, ID or username..." 
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    ...inputStyle,
+                    paddingLeft: '38px',
+                    height: '44px',
+                    borderColor: searchTerm ? THEME.primary : THEME.border,
+                    background: '#fff',
+                    boxShadow: THEME.shadow
+                  }}
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: THEME.muted }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               {selectedUserIds.length > 0 && (
                 <div style={{ margin: '8px 0 0 0', display: 'inline-block', background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' }}>
                   ✨ {selectedUserIds.length} users selected
@@ -520,6 +628,23 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 </button>
               </div>
 
+              {/* Group By Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: `1px solid ${THEME.border}`, padding: '4px 12px', borderRadius: '10px', fontSize: '12px', color: THEME.muted }}>
+                <span>Group by</span>
+                <select 
+                  value={groupBy} 
+                  onChange={(e) => {
+                    setGroupBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{ border: 'none', background: 'transparent', fontWeight: '700', color: THEME.text, cursor: 'pointer', outline: 'none', minWidth: '100px' }}
+                >
+                  <option value="none">None</option>
+                  <option value="organization">Organization</option>
+                  <option value="team">Team</option>
+                </select>
+              </div>
+
               <button 
                 onClick={() => setShowBulkPolicyModal(true)}
                 style={{
@@ -545,150 +670,197 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
             <div style={{ textAlign: 'center', color: THEME.muted, padding: '40px' }}>No employees found</div>
           ) : viewMode === 'grid' ? (
             /* Grid View */
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '20px'
-            }}>
-              {paginatedEmployees.map((emp) => {
-                const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase();
-                const goToProfile = (e) => {
-                  e.stopPropagation();
-                  setLocalEmployeeId(emp._id);
-                };
-                return (
-                  <div 
-                    key={emp._id}
-                    style={{
-                      ...cardStyle,
-                      padding: '20px',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : Object.keys(groupedEmployeesData).sort().map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
+                <div key={group.name || gIdx}>
+                  {group.name && (
+                    <h3 style={{ 
+                      margin: '0 0 20px 0', 
+                      padding: '0 0 12px 0', 
+                      fontSize: '18px', 
+                      fontWeight: '800', 
+                      color: THEME.navy, 
+                      borderBottom: `2px solid ${THEME.primary}`,
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      cursor: 'pointer',
-                      border: `1px solid ${THEME.border}`,
-                    }}
-                    onClick={goToProfile}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)';
-                      e.currentTarget.style.borderColor = THEME.primary;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = THEME.shadow;
-                      e.currentTarget.style.borderColor = THEME.border;
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: THEME.muted, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
-                            if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
-                            else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
-                          }} />
-                        Select
-                      </label>
-                      <span style={{ color: '#10b981', background: '#f0fdf4', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
-                    </div>
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <span>{group.name}</span>
+                      <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600', background: '#f1f5f9', padding: '2px 10px', borderRadius: '12px' }}>{group.items.length}</span>
+                    </h3>
+                  )}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {group.items.map((emp) => {
+                      const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase();
+                      const goToProfile = (e) => {
+                        e.stopPropagation();
+                        setLocalEmployeeId(emp._id);
+                      };
+                      return (
+                        <div 
+                          key={emp._id}
+                          style={{
+                            ...cardStyle,
+                            padding: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            cursor: 'pointer',
+                            border: `1px solid ${THEME.border}`,
+                          }}
+                          onClick={goToProfile}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)';
+                            e.currentTarget.style.borderColor = THEME.primary;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = THEME.shadow;
+                            e.currentTarget.style.borderColor = THEME.border;
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: THEME.muted, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
+                                  if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
+                                  else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
+                                }} />
+                              Select
+                            </label>
+                            <span style={{ color: '#10b981', background: '#f0fdf4', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
+                          </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                      <div style={{
-                        width: '48px', height: '48px', borderRadius: '12px', background: '#f1f5f9',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, fontSize: '18px', fontWeight: '700'
-                      }}>
-                        {initials}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: '700', color: THEME.text, fontSize: '14px' }}>{emp.first_name} {emp.last_name}</div>
-                        <div style={{ color: THEME.muted, fontSize: '11px' }}>ID: {emp.employee_code || '-'}</div>
-                      </div>
-                    </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                            <div style={{
+                              width: '48px', height: '48px', borderRadius: '12px', background: '#f1f5f9',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, fontSize: '18px', fontWeight: '700'
+                            }}>
+                              {initials}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: '700', color: THEME.text, fontSize: '14px' }}>{emp.first_name} {emp.last_name}</div>
+                              <div style={{ color: THEME.muted, fontSize: '11px' }}>ID: {emp.employee_code || '-'}</div>
+                            </div>
+                          </div>
 
-                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || 'Specialist'}</div>
-                      <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha Consulting'}</div>
-                    </div>
+                          <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || 'Specialist'}</div>
+                            <div style={{ fontSize: '11px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha Consulting'}</div>
+                          </div>
 
-                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: `1px dotted ${THEME.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '10px', color: THEME.muted }}>No contact</span>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, border: `1px solid ${THEME.border}`, fontSize: '12px' }}>
-                        👤
-                      </div>
-                    </div>
+                          <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: `1px dotted ${THEME.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '10px', color: THEME.muted }}>No contact</span>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.muted, border: `1px solid ${THEME.border}`, fontSize: '12px' }}>
+                              👤
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           ) : (
-            <div style={{ ...cardStyle, padding: '0', overflowX: 'auto', border: `1px solid ${THEME.border}`, background: '#fff' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: `1px solid ${THEME.border}` }}>
-                    <th style={{ padding: '20px 16px', width: '40px' }}>
-                       <input type="checkbox" onChange={(e) => {
-                          if (e.target.checked) setSelectedUserIds(gridEmployees.map(u => u._id));
-                          else setSelectedUserIds([]);
-                       }} />
-                    </th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>EMPLOYEE</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ID</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>DESIGNATION</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>COMPANY</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>STATUS</th>
-                    <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedEmployees.map((emp) => (
-                    <tr 
-                      key={emp._id} 
-                      onClick={() => setLocalEmployeeId(emp._id)}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      style={{ borderBottom: `1px solid ${THEME.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
-                    >
-                      <td style={{ padding: '14px 16px' }} onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
-                            if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
-                            else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
-                          }} />
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: THEME.muted }}>
-                            {(emp.first_name?.[0] || '') + (emp.last_name?.[0] || '')}
-                          </div>
-                          <div style={{ fontWeight: '600', color: THEME.text }}>{emp.first_name} {emp.last_name}</div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', color: THEME.text }}>{emp.employee_code || '-'}</td>
-                      <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || '-'}</td>
-                      <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha'}</td>
-                      <td style={{ padding: '14px 16px' }}>
-                         <span style={{ color: '#10b981', background: '#f0fdf4', padding: '4px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <button 
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             setMigratingEmployeeId(emp._id);
-                             setShowMigrationModal(true);
-                           }}
-                           style={{ padding: '6px', borderRadius: '8px', background: '#f3f4f6', border: 'none', cursor: 'pointer', fontSize: '14px' }}
-                        >
-                          🔄
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : Object.keys(groupedEmployeesData).sort().map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
+                <div key={group.name || gIdx}>
+                  {group.name && (
+                    <h3 style={{ 
+                      margin: '0 0 15px 0', 
+                      fontSize: '16px', 
+                      fontWeight: '700', 
+                      color: THEME.navy,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span>{group.name}</span>
+                      <span style={{ fontSize: '12px', color: THEME.muted, background: '#f1f5f9', padding: '1px 8px', borderRadius: '10px' }}>{group.items.length}</span>
+                    </h3>
+                  )}
+                  <div style={{ ...cardStyle, padding: '0', overflowX: 'auto', border: `1px solid ${THEME.border}`, background: '#fff' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: `1px solid ${THEME.border}` }}>
+                          <th style={{ padding: '20px 16px', width: '40px' }}>
+                            <input type="checkbox" onChange={(e) => {
+                                if (e.target.checked) {
+                                  const ids = group.items.map(u => u._id);
+                                  setSelectedUserIds(p => [...new Set([...p, ...ids])]);
+                                } else {
+                                  const ids = new Set(group.items.map(u => u._id));
+                                  setSelectedUserIds(p => p.filter(id => !ids.has(id)));
+                                }
+                            }} />
+                          </th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>EMPLOYEE</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ID</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>DESIGNATION</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>COMPANY</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>STATUS</th>
+                          <th style={{ padding: '16px', color: THEME.muted, fontWeight: '700', fontSize: '11px' }}>ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.items.map((emp) => (
+                          <tr 
+                            key={emp._id} 
+                            onClick={() => setLocalEmployeeId(emp._id)}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{ borderBottom: `1px solid ${THEME.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
+                          >
+                            <td style={{ padding: '14px 16px' }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={(e) => {
+                                  if (e.target.checked) setSelectedUserIds(p => [...p, emp._id]);
+                                  else setSelectedUserIds(p => p.filter(idV => idV !== emp._id));
+                                }} />
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: THEME.muted }}>
+                                  {(emp.first_name?.[0] || '') + (emp.last_name?.[0] || '')}
+                                </div>
+                                <div style={{ fontWeight: '600', color: THEME.text }}>{emp.first_name} {emp.last_name}</div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px', color: THEME.text }}>{emp.employee_code || '-'}</td>
+                            <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.designation?.designation_name || emp.designation || '-'}</td>
+                            <td style={{ padding: '14px 16px', color: THEME.muted }}>{emp.company_id?.company_name || 'Novusha'}</td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{ color: '#10b981', background: '#f0fdf4', padding: '4px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '700' }}>Active</span>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMigratingEmployeeId(emp._id);
+                                  setShowMigrationModal(true);
+                                }}
+                                style={{ padding: '6px', borderRadius: '8px', background: '#f3f4f6', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+                              >
+                                🔄
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* Pagination Controls */}
-          {totalPages > 1 && !id && (
+          {totalPages > 1 && !id && groupBy === 'none' && (
             <div style={{ 
               marginTop: '30px', 
               display: 'flex', 
@@ -809,20 +981,40 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 padding: '20px'
               }}>
                 <h2 style={{ margin: '0 0 16px 0', color: THEME.navy }}>🔄 Migrate Employee</h2>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '12px', color: THEME.muted }}>Destination Organization</label>
-                  <select 
-                    value={destOrgId}
-                    onChange={(e) => setDestOrgId(e.target.value)}
-                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px' }}
-                  >
-                    <option value="">Select organization</option>
-                    {organizations.map((org) => (
-                      <option key={org._id} value={org._id}>
-                        {org.name} {org.hodName ? `(HOD: ${org.hodName})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                
+                {/* Current Org Indicator */}
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '12px',
+                  background: '#f8fafc',
+                  borderRadius: '10px',
+                  border: `1px solid ${THEME.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{ width: '36px', height: '36px', background: '#ecf2ff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🏢</div>
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: THEME.muted, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MIGRATING FROM</span>
+                    <span style={{ fontSize: '14px', fontWeight: '800', color: THEME.navy }}>{currentOrgName}</span>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '160px' }}>Destination Organization:</label>
+                    <select 
+                      value={destOrgId}
+                      onChange={(e) => setDestOrgId(e.target.value)}
+                      style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px', flex: 1 }}
+                    >
+                      <option value="">Select organization</option>
+                      {organizations.map((org) => (
+                        <option key={org._id} value={org._id}>
+                          {org.name} {org.hodName ? `(HOD: ${org.hodName})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <button
@@ -880,12 +1072,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               }}>
                 <h2 style={{ margin: '0 0 16px 0', color: THEME.navy }}>📋 Bulk Assign Policies</h2>
 
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '12px', color: THEME.muted }}>Week-Off Policy (optional)</label>
+                <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', whiteSpace: 'nowrap', minWidth: '160px' }}>Week-Off Policy (optional):</label>
                   <select
                     value={bulkPolicyForm.weekoff_policy_id}
                     onChange={(e) => setBulkPolicyForm((prev) => ({ ...prev, weekoff_policy_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px' }}
+                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px', flex: 1 }}
                   >
                     <option value="">Do not change</option>
                     {weekOffPolicies.map((p) => (
@@ -894,12 +1086,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                   </select>
                 </div>
 
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '12px', color: THEME.muted }}>Shift Policy (optional)</label>
+                <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', whiteSpace: 'nowrap', minWidth: '160px' }}>Shift Policy (optional):</label>
                   <select
                     value={bulkPolicyForm.shift_id}
                     onChange={(e) => setBulkPolicyForm((prev) => ({ ...prev, shift_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px' }}
+                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px', flex: 1 }}
                   >
                     <option value="">Do not change</option>
                     {shiftPolicies.map((p) => (
@@ -908,12 +1100,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                   </select>
                 </div>
 
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '12px', color: THEME.muted }}>Holiday Policy (optional)</label>
+                <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', whiteSpace: 'nowrap', minWidth: '160px' }}>Holiday Policy (optional):</label>
                   <select
                     value={bulkPolicyForm.holiday_policy_id}
                     onChange={(e) => setBulkPolicyForm((prev) => ({ ...prev, holiday_policy_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px' }}
+                    style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px', flex: 1 }}
                   >
                     <option value="">Do not change</option>
                     {holidayPolicies.map((p) => (
@@ -923,7 +1115,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '12px', color: THEME.muted }}>Leave Policy (optional, multi-select)</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', fontSize: '12px', color: '#000' }}>Leave Policy (optional, multi-select):</label>
                   <div style={{ border: `1px solid ${THEME.border}`, borderRadius: '8px', padding: '10px', maxHeight: '180px', overflowY: 'auto' }}>
                     {leavePolicies.length === 0 ? (
                       <div style={{ color: THEME.muted, fontSize: '12px' }}>No leave policies found</div>
@@ -1114,27 +1306,27 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
         </div>
 
         {/* Attendance Filter */}
-        <div style={{ ...cardStyle, marginBottom: '12px', borderLeft: `4px solid ${THEME.green}`, padding: '12px' }}>
-          <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: THEME.navy, fontWeight: '600' }}>📅 Filter by Date Range</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Month</label>
+        <div style={{ ...cardStyle, marginBottom: '12px', borderLeft: `4px solid ${THEME.green}`, padding: '16px' }}>
+          <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', color: THEME.navy, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📅 Filter by Date Range</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Month:</label>
               <select 
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }}
+                style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }}
               >
                 {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
                   <option key={i} value={i}>{m}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Year</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '50px' }}>Year:</label>
               <select 
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }}
+                style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }}
               >
                 {[selectedYear - 1, selectedYear, selectedYear + 1].map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -1142,14 +1334,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               </select>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', paddingTop: '12px', borderTop: `1px solid ${THEME.border}` }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>From Date</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', paddingTop: '16px', borderTop: `1px solid ${THEME.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '80px' }}>From Date:</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} />
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>To Date</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>To Date:</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} />
             </div>
           </div>
         </div>
@@ -1196,27 +1388,27 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: isEditingBalance ? THEME.amber : THEME.green }}>
                 {isEditingBalance ? '✏️ Edit Leave Balance' : '➕ Add Leave Balance'}
               </h3>
-              <form onSubmit={handleUpdateBalance} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Policy</label>
-                  <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={balanceForm.leave_policy_id} onChange={(e) => setBalanceForm({ ...balanceForm, leave_policy_id: e.target.value })}>
+              <form onSubmit={handleUpdateBalance} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Policy:</label>
+                  <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={balanceForm.leave_policy_id} onChange={(e) => setBalanceForm({ ...balanceForm, leave_policy_id: e.target.value })}>
                     <option value="">Select policy</option>
                     {leavePolicies.map((p) => (
                       <option key={p._id} value={p._id}>{p.policy_name || p.leave_type}</option>
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Opening</label>
-                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={balanceForm.opening_balance} onChange={(e) => setBalanceForm({ ...balanceForm, opening_balance: e.target.value })} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Opening:</label>
+                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 100px' }} value={balanceForm.opening_balance} onChange={(e) => setBalanceForm({ ...balanceForm, opening_balance: e.target.value })} />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Used</label>
-                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={balanceForm.used} onChange={(e) => setBalanceForm({ ...balanceForm, used: e.target.value })} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '50px' }}>Used:</label>
+                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 100px' }} value={balanceForm.used} onChange={(e) => setBalanceForm({ ...balanceForm, used: e.target.value })} />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Pending</label>
-                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={balanceForm.pending} onChange={(e) => setBalanceForm({ ...balanceForm, pending: e.target.value })} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                  <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Pending:</label>
+                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 100px' }} value={balanceForm.pending} onChange={(e) => setBalanceForm({ ...balanceForm, pending: e.target.value })} />
                 </div>
                 <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
                   <button type="submit" style={{ ...buttonStyle, background: isEditingBalance ? THEME.amber : THEME.green, color: '#fff', flex: 1, padding: '8px 10px', fontSize: '12px' }}>
@@ -1348,13 +1540,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               Override organization-level defaults for this employee. Select the policies that should apply specifically to this individual.
             </p>
 
-            <form onSubmit={handleUpdateIndividualPolicies} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
-               <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '13px', color: THEME.text }}>Week-Off Policy</label>
+            <form onSubmit={handleUpdateIndividualPolicies} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '120px' }}>Week-Off Policy:</label>
                   <select
                     value={policyForm.weekoff_policy_id}
                     onChange={(e) => setPolicyForm((prev) => ({ ...prev, weekoff_policy_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '12px', background: THEME.bg }}
+                    style={{ ...inputStyle, padding: '12px', background: THEME.bg, flex: 1 }}
                   >
                     <option value="">Use Organization default</option>
                     {weekOffPolicies.map((p) => (
@@ -1363,12 +1555,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '13px', color: THEME.text }}>Shift Policy</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '100px' }}>Shift Policy:</label>
                   <select
                     value={policyForm.shift_id}
                     onChange={(e) => setPolicyForm((prev) => ({ ...prev, shift_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '12px', background: THEME.bg }}
+                    style={{ ...inputStyle, padding: '12px', background: THEME.bg, flex: 1 }}
                   >
                     <option value="">Use Organization default</option>
                     {shiftPolicies.map((p) => (
@@ -1377,12 +1569,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '13px', color: THEME.text }}>Holiday Policy</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '110px' }}>Holiday Policy:</label>
                   <select
                     value={policyForm.holiday_policy_id}
                     onChange={(e) => setPolicyForm((prev) => ({ ...prev, holiday_policy_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '12px', background: THEME.bg }}
+                    style={{ ...inputStyle, padding: '12px', background: THEME.bg, flex: 1 }}
                   >
                     <option value="">Use Organization default</option>
                     {holidayPolicies.map((p) => (
@@ -1417,14 +1609,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
           <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.navy}`, padding: '12px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.navy }}>✏️ Manual Attendance Update</h3>
-            <form onSubmit={handleManualAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Date</label>
-                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={manualForm.attendance_date} onChange={(e) => setManualForm({ ...manualForm, attendance_date: e.target.value })} />
+            <form onSubmit={handleManualAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '50px' }}>Date:</label>
+                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={manualForm.attendance_date} onChange={(e) => setManualForm({ ...manualForm, attendance_date: e.target.value })} />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Status</label>
-                <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={manualForm.status} onChange={(e) => setManualForm({ ...manualForm, status: e.target.value })}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Status:</label>
+                <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={manualForm.status} onChange={(e) => setManualForm({ ...manualForm, status: e.target.value })}>
                   <option value="present">present</option>
                   <option value="absent">absent</option>
                   <option value="half_day">half_day</option>
@@ -1432,16 +1624,16 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                   <option value="leave">leave</option>
                 </select>
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>First In</label>
-                <input type="datetime-local" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={manualForm.first_in} onChange={(e) => setManualForm({ ...manualForm, first_in: e.target.value })} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>First In:</label>
+                <input type="datetime-local" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 200px' }} value={manualForm.first_in} onChange={(e) => setManualForm({ ...manualForm, first_in: e.target.value })} />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Last Out</label>
-                <input type="datetime-local" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={manualForm.last_out} onChange={(e) => setManualForm({ ...manualForm, last_out: e.target.value })} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Last Out:</label>
+                <input type="datetime-local" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 200px' }} value={manualForm.last_out} onChange={(e) => setManualForm({ ...manualForm, last_out: e.target.value })} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Remarks</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', fontSize: '12px', color: '#000' }}>Remarks:</label>
                 <textarea rows={2} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={manualForm.remarks} onChange={(e) => setManualForm({ ...manualForm, remarks: e.target.value })} />
               </div>
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
@@ -1450,19 +1642,95 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
             </form>
           </div>
 
+          {/* Attendance Continuity (Bulk Update) */}
+          <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.indigo}`, padding: '12px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.indigo }}>📅 Attendance Continuity (Bulk Update)</h3>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
+              Update attendance records for a date range in bulk. 
+              <br/><strong>Note:</strong> Marking as 'present' will assign default time <strong>10:00 AM to 07:00 PM</strong>.
+            </p>
+            <form onSubmit={handleBulkManualAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '70px' }}>Start Date:</label>
+                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={bulkManualForm.startDate} onChange={(e) => setBulkManualForm({ ...bulkManualForm, startDate: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '70px' }}>End Date:</label>
+                <input type="date" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={bulkManualForm.endDate} onChange={(e) => setBulkManualForm({ ...bulkManualForm, endDate: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Status:</label>
+                <select 
+                  style={{ 
+                    ...inputStyle, 
+                    padding: '8px 10px', 
+                    fontSize: '12px', 
+                    flex: '1 1 180px',
+                    backgroundColor: '#fff',
+                    fontWeight: '600'
+                  }} 
+                  value={bulkManualForm.status} 
+                  onChange={(e) => setBulkManualForm({ ...bulkManualForm, status: e.target.value })}
+                >
+                  <option value="present">Present (10 AM - 7 PM)</option>
+                  <option value="absent">Absent</option>
+                  <option value="half_day">Half Day</option>
+                  <option value="leave">Leave</option>
+                  <option value="weekoff">Week Off</option>
+                  <option value="holiday">Holiday</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '15px', alignItems: 'center', gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={bulkManualForm.excludeSundays} onChange={e => setBulkManualForm({ ...bulkManualForm, excludeSundays: e.target.checked })} />
+                  Skip Sundays
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={bulkManualForm.excludeSaturdays} onChange={e => setBulkManualForm({ ...bulkManualForm, excludeSaturdays: e.target.checked })} />
+                  Skip Saturdays
+                </label>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', fontSize: '12px', color: '#000' }}>Remarks:</label>
+                <textarea rows={2} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }} value={bulkManualForm.remarks} onChange={(e) => setBulkManualForm({ ...bulkManualForm, remarks: e.target.value })} placeholder="Reason for bulk update..." />
+              </div>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
+                <button type="submit" style={{ ...buttonStyle, background: THEME.indigo, color: '#fff', flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}>Apply Continuity Update</button>
+              </div>
+            </form>
+          </div>
+
           {/* Migration Card */}
           <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.amber}`, padding: '12px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.amber }}>🔄 Migrate Employee</h3>
+            
+            {/* Current Org Indicator */}
+            <div style={{
+              marginBottom: '12px',
+              padding: '10px',
+              background: '#fff9db',
+              borderRadius: '8px',
+              border: '1px solid #ffe066',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <div style={{ width: '32px', height: '32px', background: '#ffe066', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🏢</div>
+              <div>
+                <span style={{ fontSize: '10px', fontWeight: '700', color: '#868e96', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Migrating From</span>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: THEME.navy }}>{currentOrgName}</span>
+              </div>
+            </div>
             <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: THEME.muted }}>
               Move this employee to a different organization. Policies and leave balances will be updated automatically.
             </p>
-            <div style={{ display: 'grid', gap: '8px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500', fontSize: '12px', color: THEME.muted }}>Destination Organization</label>
+            <div style={{ display: 'grid', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', whiteSpace: 'nowrap', minWidth: '160px' }}>Destination Organization:</label>
                 <select 
                   value={destOrgId}
                   onChange={(e) => setDestOrgId(e.target.value)}
-                  style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }}
+                  style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: 1 }}
                 >
                   <option value="">Select organization</option>
                   {organizations.map((org) => (

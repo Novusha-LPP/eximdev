@@ -9,7 +9,7 @@ import mongoose from 'mongoose';
 
 const getDefaultOpeningBalance = (policy) => {
     const leaveType = String(policy?.leave_type || '').toLowerCase();
-    if (['lwp', 'unpaid'].includes(leaveType)) {
+    if (leaveType === 'lwp') {
         return 2000;
     }
     return Number(policy?.annual_quota || 0);
@@ -143,6 +143,14 @@ export const getBalance = async (req, res) => {
             const userBalance = balances.find(b =>
                 b.leave_policy_id.toString() === policy._id.toString()
             );
+
+            // Determine if this is an unpaid policy (LWP)
+            const isUnpaidPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
+
+            // Extract balance values
+            const openingBalance = userBalance?.opening_balance || getDefaultOpeningBalance(policy);
+            const used = userBalance?.used ?? userBalance?.consumed ?? usedByPolicy.get(String(policy._id)) ?? 0;
+            const pending = userBalance?.pending ?? userBalance?.pending_approval ?? 0;
 
             // User wants "Ending Balance" (Opening - Used - Pending) as the primary Available figure
             const available = isUnpaidPolicy ? 0 : Math.max(0, openingBalance - used - pending);
@@ -331,7 +339,7 @@ export const applyLeave = async (req, res) => {
             await balanceRecord.save();
         }
 
-        let isUnpaidLeave = ['unpaid', 'lwp'].includes(String(policy.leave_type || '').toLowerCase());
+        let isUnpaidLeave = String(policy.leave_type || '').toLowerCase() === 'lwp';
         let wasAutoConvertedToLwp = false;
 
         const openingBalance = Number(balanceRecord.opening_balance || 0);
@@ -345,7 +353,7 @@ export const applyLeave = async (req, res) => {
             const lwpPolicy = await LeavePolicy.findOne({
                 company_id: companyId,
                 status: 'active',
-                leave_type: { $in: ['lwp', 'unpaid'] }
+                leave_type: 'lwp'
             });
 
             if (!lwpPolicy) {
@@ -608,7 +616,7 @@ export const updateBalance = async (req, res) => {
             // Create new balance record
             const nextUsed = usedNum !== undefined ? usedNum : 0;
             const nextPending = pendingNum !== undefined ? pendingNum : 0;
-            const isUnpaidPolicy = ['unpaid', 'lwp'].includes(String(policy.leave_type || '').toLowerCase());
+            const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
             const actualRemaining = Math.max(0, openingNum - nextUsed);
 
             if (!isUnpaidPolicy && nextPending > actualRemaining) {
@@ -632,7 +640,7 @@ export const updateBalance = async (req, res) => {
             // Update existing balance record
             const nextUsed = usedNum !== undefined ? usedNum : (balanceRecord.used || 0);
             const nextPending = pendingNum !== undefined ? pendingNum : (balanceRecord.pending_approval || 0);
-            const isUnpaidPolicy = ['unpaid', 'lwp'].includes(String(policy.leave_type || '').toLowerCase());
+            const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
             const actualRemaining = Math.max(0, openingNum - nextUsed);
 
             if (!isUnpaidPolicy && nextPending > actualRemaining) {

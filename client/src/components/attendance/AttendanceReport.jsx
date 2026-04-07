@@ -88,7 +88,7 @@ const DailySummaryView = ({ groups, startDate, endDate }) => {
                                 marginBottom: isCollapsed ? '0' : '12px',
                                 cursor: 'pointer',
                                 userSelect: 'none',
-                                transition: 'margin 0.2s ease'
+                                transition: 'all 0.2s ease'
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -149,6 +149,10 @@ const AttendanceReport = ({ isAdmin }) => {
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [saving, setSaving] = useState(false);
+    const [applyingFullMonth, setApplyingFullMonth] = useState(false);
+    const [groupBy, setGroupBy] = useState('status'); // 'status' or 'organization'
+    const [fullMonthPresenceEnabled, setFullMonthPresenceEnabled] = useState(false);
+    const [fullMonthRemarks, setFullMonthRemarks] = useState('');
 
     // Profile Hub States
     const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'leaves', 'details'
@@ -229,6 +233,8 @@ const AttendanceReport = ({ isAdmin }) => {
         setEditingId(null);
         setActiveTab(tab);
         setProfileData(null);
+        setFullMonthPresenceEnabled(false);
+        setFullMonthRemarks('');
 
         // Reset browser to current month (or the filtered range month)
         const rangeStart = new Date(startDate);
@@ -291,20 +297,67 @@ const AttendanceReport = ({ isAdmin }) => {
         }
     };
 
-    const fetchBrowseHistory = async () => {
+    const fetchBrowseHistory = async (paramMonth, paramYear) => {
         if (!selectedEmp) return;
+        
+        // Robust parameter handling: default to state, but ignore if an Event object is passed
+        const targetMonth = (typeof paramMonth === 'number') ? paramMonth : browseMonth;
+        const targetYear = (typeof paramYear === 'number') ? paramYear : browseYear;
+
         setLoadingHistory(true);
         setEditingId(null);
         try {
-            const start = moment([browseYear, browseMonth - 1]).startOf('month').format('YYYY-MM-DD');
-            const end = moment([browseYear, browseMonth - 1]).endOf('month').format('YYYY-MM-DD');
+            const start = moment([targetYear, targetMonth - 1]).startOf('month').format('YYYY-MM-DD');
+            const end = moment([targetYear, targetMonth - 1]).endOf('month').format('YYYY-MM-DD');
             const r = await attendanceAPI.getEmployeeFullProfile(selectedEmp.id, start, end, companyId);
             setProfileData(r);
             setEmpHistory(r?.attendance || []);
-        } catch {
+        } catch (error) {
+            console.error('Fetch history failed:', error);
             toast.error('Failed to load history for selected period');
         } finally {
             setLoadingHistory(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!selectedEmp) return;
+        fetchBrowseHistory(browseMonth, browseYear);
+    }, [browseMonth, browseYear, selectedEmp?.id]);
+
+    const handleApplyFullMonthPresence = async (e) => {
+        e.preventDefault();
+        if (!selectedEmp) return;
+
+        if (!fullMonthPresenceEnabled) {
+            toast.error('Enable Full Month Presence to continue');
+            return;
+        }
+
+        setApplyingFullMonth(true);
+        try {
+            const res = await attendanceAPI.applyFullMonthPresence({
+                employee_id: selectedEmp.id,
+                year: browseYear,
+                month: browseMonth,
+                remarks: fullMonthRemarks
+            });
+
+            if (res.success) {
+                toast.success(res.message || 'Full month presence applied');
+                fetchBrowseHistory(browseMonth, browseYear);
+
+                // Force a slightly longer delay to ensure DB aggregation consistency for main report
+                setTimeout(() => {
+                    fetchReport();
+                }, 1000);
+            } else {
+                toast.error(res.message || 'Failed to apply full month presence');
+            }
+        } catch (error) {
+            toast.error(error?.response?.data?.message || 'Error applying full month presence');
+        } finally {
+            setApplyingFullMonth(false);
         }
     };
 
@@ -445,6 +498,21 @@ const AttendanceReport = ({ isAdmin }) => {
     const totalEmp = filtered.length;
 
     const groups = React.useMemo(() => {
+        if (groupBy === 'organization') {
+            const g = {};
+            filtered.forEach(e => {
+                const orgName = e.company_name || 'Unassigned Organization';
+                if (!g[orgName]) g[orgName] = [];
+                g[orgName].push(e);
+            });
+            // Sort organizations alphabetically
+            return Object.keys(g).sort().reduce((acc, key) => {
+                acc[key] = g[key];
+                return acc;
+            }, {});
+        }
+
+        // Default: Group by Status
         const g = {
             'Present': [],
             'Late': [],
@@ -465,7 +533,7 @@ const AttendanceReport = ({ isAdmin }) => {
             else g['Other'].push(e);
         });
         return g;
-    }, [filtered, endDate]);
+    }, [filtered, endDate, groupBy]);
 
     return (
         <div className="ar-console">
@@ -481,6 +549,32 @@ const AttendanceReport = ({ isAdmin }) => {
                     </div>
                     <div className="ar-hero-controls">
                         <button className="ar-hero-btn" onClick={fetchReport}><FiRefreshCw size={13} /> Refresh</button>
+                        
+                        {showDailySummary && (
+                            <div className="ar-group-toggle" style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px', border: '1px solid #e2e8f0' }}>
+                                <button 
+                                    onClick={() => setGroupBy('status')}
+                                    style={{ 
+                                        padding: '4px 10px', fontSize: '11px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                        background: groupBy === 'status' ? '#fff' : 'transparent',
+                                        boxShadow: groupBy === 'status' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                        color: groupBy === 'status' ? '#0f172a' : '#64748b',
+                                        fontWeight: groupBy === 'status' ? '700' : '500'
+                                    }}
+                                >Status</button>
+                                <button 
+                                    onClick={() => setGroupBy('organization')}
+                                    style={{ 
+                                        padding: '4px 10px', fontSize: '11px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                        background: groupBy === 'organization' ? '#fff' : 'transparent',
+                                        boxShadow: groupBy === 'organization' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                        color: groupBy === 'organization' ? '#0f172a' : '#64748b',
+                                        fontWeight: groupBy === 'organization' ? '700' : '500'
+                                    }}
+                                >Organization</button>
+                            </div>
+                        )}
+
                         {isAllowedUser && (
                             <button className={`ar-hero-btn ${showDailySummary ? 'ar-btn-active' : ''}`} onClick={() => setShowDailySummary(!showDailySummary)}>
                                 {showDailySummary ? <FiList size={13} style={{ marginRight: '6px' }} /> : <FiGrid size={13} style={{ marginRight: '6px' }} />}
@@ -748,23 +842,106 @@ const AttendanceReport = ({ isAdmin }) => {
                                     <>
                                         {/* Performance Scorecard */}
                                         <div className="ar-hub-scorecard">
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-green">{selectedEmp?.present}</span><span className="ar-score-lbl">Present</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-red">{selectedEmp?.absent}</span><span className="ar-score-lbl">Absent</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-amber">{selectedEmp?.late}</span><span className="ar-score-lbl">Late</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-blue">{selectedEmp?.leaves}</span><span className="ar-score-lbl">Leaves</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-green">{profileData?.summary?.present ?? selectedEmp?.present}</span><span className="ar-score-lbl">Present</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-red">{profileData?.summary?.absent ?? selectedEmp?.absent}</span><span className="ar-score-lbl">Absent</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-amber">{profileData?.summary?.late ?? selectedEmp?.late}</span><span className="ar-score-lbl">Late</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-blue">{profileData?.summary?.leaves ?? selectedEmp?.leaves}</span><span className="ar-score-lbl">Leaves</span></div>
                                         </div>
 
                                         {/* Professional Calendar Insight */}
                                         <div className="ar-cal-preview">
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                                                 <h4 className="ar-pane-title" style={{ margin: 0 }}>Attendance Continuity</h4>
-                                                <div style={{ display: 'flex', gap: 8 }}>
-                                                    <select className="ar-history-select" style={{ padding: '4px 8px' }} value={browseMonth} onChange={e => setBrowseMonth(parseInt(e.target.value))}>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <select className="ar-history-select" style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }} value={browseMonth} onChange={e => setBrowseMonth(parseInt(e.target.value))}>
                                                         {moment.months().map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                                                     </select>
-                                                    <button className="ar-browse-btn" style={{ padding: '4px 12px', fontSize: '0.75rem' }} onClick={fetchBrowseHistory}>Sync</button>
                                                 </div>
                                             </div>
+
+                                            {isAdmin && (
+                                                <div style={{ 
+                                                    marginBottom: '20px', 
+                                                    background: '#f8fafc', 
+                                                    padding: '16px', 
+                                                    borderRadius: '12px', 
+                                                    border: '1px solid #e2e8f0',
+                                                    boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.05)'
+                                                }}>
+                                                    <form onSubmit={handleApplyFullMonthPresence} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#000' }}>Selected Month</label>
+                                                            <div style={{ padding: '8px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }}>
+                                                                {moment([browseYear, browseMonth - 1]).format('MMMM YYYY')}
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', gridColumn: '1 / -1' }}>
+                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#000' }}>Enable Full Month Presence:</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setFullMonthPresenceEnabled(true)}
+                                                                style={{
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #cbd5e1',
+                                                                    background: fullMonthPresenceEnabled ? '#0f172a' : '#fff',
+                                                                    color: fullMonthPresenceEnabled ? '#fff' : '#0f172a',
+                                                                    fontWeight: '700',
+                                                                    fontSize: '12px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                Yes
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setFullMonthPresenceEnabled(false)}
+                                                                style={{
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #cbd5e1',
+                                                                    background: !fullMonthPresenceEnabled ? '#0f172a' : '#fff',
+                                                                    color: !fullMonthPresenceEnabled ? '#fff' : '#0f172a',
+                                                                    fontWeight: '700',
+                                                                    fontSize: '12px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                No
+                                                            </button>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', gridColumn: '1 / -1' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#000' }}>Remarks</label>
+                                                            <textarea rows={2} style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1' }} value={fullMonthRemarks} onChange={e => setFullMonthRemarks(e.target.value)} placeholder="Optional remarks..." />
+                                                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                                                Applies present status to the selected month, skips all configured week-offs, and preserves leave/holiday/weekly-off records.
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ gridColumn: '1 / -1' }}>
+                                                            <button 
+                                                                type="submit" 
+                                                                disabled={applyingFullMonth || !fullMonthPresenceEnabled}
+                                                                style={{ 
+                                                                    width: '100%', 
+                                                                    padding: '10px', 
+                                                                    background: '#0f172a', 
+                                                                    color: '#fff', 
+                                                                    border: 'none', 
+                                                                    borderRadius: '8px', 
+                                                                    fontWeight: '700', 
+                                                                    fontSize: '13px',
+                                                                    cursor: 'pointer',
+                                                                    opacity: applyingFullMonth || !fullMonthPresenceEnabled ? 0.7 : 1
+                                                                }}
+                                                            >
+                                                                {applyingFullMonth ? 'Applying...' : 'Apply Full Month Presence'}
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            )}
 
                                             <div className="ar-cal-grid">
                                                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="ar-cal-day-lbl">{d}</div>)}
@@ -779,7 +956,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                                     // Days of month
                                                     for (let day = 1; day <= endOfMonth.date(); day++) {
                                                         const dateStr = moment([browseYear, browseMonth - 1, day]).format('YYYY-MM-DD');
-                                                        const rec = empHistory.find(r => moment(r.attendance_date).format('YYYY-MM-DD') === dateStr);
+                                                        const rec = empHistory.find(r => r.attendance_date && moment(r.attendance_date).format('YYYY-MM-DD') === dateStr);
                                                         const isToday = dateStr === moment().format('YYYY-MM-DD');
 
                                                         days.push(

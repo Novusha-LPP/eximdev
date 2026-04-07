@@ -356,7 +356,7 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
           });
 
           if (!existing) {
-            const isLwp = ['lwp', 'unpaid'].includes(String(policy.leave_type || '').toLowerCase());
+            const isLwp = String(policy.leave_type || '').toLowerCase() === 'lwp';
             const opening = isLwp ? 2000 : Number(policy.annual_quota || 0);
             await LeaveBalance.create({
               company_id: companyId,

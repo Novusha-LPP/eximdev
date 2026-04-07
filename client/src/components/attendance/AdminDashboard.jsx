@@ -4,7 +4,7 @@ import {
   FiUsers, FiCheckCircle, FiXCircle, FiCalendar, FiClock,
   FiSettings, FiChevronRight, FiBookOpen, FiFileText, FiGrid,
   FiRefreshCw, FiLogIn, FiLogOut, FiCheck, FiX,
-  FiAlertCircle, FiSun, FiActivity
+  FiAlertCircle, FiSun, FiActivity, FiLayers
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import masterAPI from '../../api/attendance/master.api';
@@ -13,8 +13,8 @@ import toast from 'react-hot-toast';
 import './AdminDashboard.css';
 
 /* -- utils -- */
-const fmtTime = iso => iso
-  ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+const fmtTime = iso =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 const fmtLate = mins => {
   const m = parseInt(mins || 0);
   return m < 60 ? `+${m}m` : `+${Math.floor(m / 60)}h ${m % 60}m`;
@@ -46,6 +46,7 @@ const AdminDashboard = () => {
   const [holidays, setHolidays] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState('');
+  const [activeSection, setActiveSection] = useState('overview');
   const [data, setData] = useState({
     stats: { total: 0, present: 0, absent: 0, onLeave: 0, late: 0, trends: {} },
     absentToday: [], lateToday: [],
@@ -135,7 +136,7 @@ const AdminDashboard = () => {
   const allPending = [
     ...pendingLeaves.map(r => ({ ...r, _kind: 'leave' })),
     ...pendingRegularization.map(r => ({ ...r, _kind: 'reg' })),
-  ].slice(0, 7);
+  ];
 
   return (
     <div className="dashboard-container">
@@ -143,24 +144,23 @@ const AdminDashboard = () => {
       {/* --- HERO BANNER --- */}
       <div className="db-hero">
         <div className="db-hero-top">
-              <div>
-                <h1 className="db-hero-title">Executive Dashboard</h1>
-                <p className="db-hero-sub">
-                  {new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              </div>
-              {companies.length > 0 && (
-                <select
-                  className="ar-input-ctrl ar-select"
-                  value={companyId}
-                  onChange={e => { setCompanyId(e.target.value); load(e.target.value); }}
-                  style={{ minWidth: 220 }}
-                >
-                  {companies.map(c => <option key={c._id} value={c._id}>{c.company_name}</option>)}
-                </select>
-              )}
-
+          <div>
+            <h1 className="db-hero-title">Executive Dashboard</h1>
+            <p className="db-hero-sub">
+              {new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
           <div className="db-hero-right">
+            {companies.length > 0 && (
+              <select
+                className="db-company-select"
+                value={companyId}
+                onChange={e => { setCompanyId(e.target.value); load(e.target.value); }}
+              >
+                {companies.map(c => <option key={c._id} value={c._id}>{c.company_name}</option>)}
+              </select>
+            )}
+
             <div className="db-punch-widget">
               <div className="db-punch-times">
                 <span className="db-punch-times-label">My Attendance</span>
@@ -256,196 +256,312 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* --- MAIN CONTENT --- */}
-      <div className="db-content">
+      {/* --- SECTION NAVIGATION TABS --- */}
+      <div className="db-section-nav">
+        <div className="db-section-nav-inner">
+          <button
+            className={`db-snav-tab ${activeSection === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveSection('overview')}
+          >
+            <FiGrid size={13} />
+            Overview
+          </button>
+          <button
+            className={`db-snav-tab ${activeSection === 'approvals' ? 'active' : ''}`}
+            onClick={() => setActiveSection('approvals')}
+          >
+            <FiAlertCircle size={13} />
+            Approvals
+            {pendingCount > 0 && <span className="db-snav-badge">{pendingCount}</span>}
+          </button>
+          <button
+            className={`db-snav-tab ${activeSection === 'tools' ? 'active' : ''}`}
+            onClick={() => setActiveSection('tools')}
+          >
+            <FiLayers size={13} />
+            Quick Tools
+          </button>
+        </div>
+      </div>
 
-        {/* -- LEFT -- */}
-        <div className="db-left">
+      {/* ====== OVERVIEW SECTION ====== */}
+      {activeSection === 'overview' && (
+        <div className="db-content">
 
-          {/* Absent Today */}
-          <div className="db-card">
-            <div className="db-card-header">
-              <span className="db-card-title">
-                <FiXCircle size={13} className="db-card-title-icon" style={{ color: '#d63031' }} />
-                Absent Today
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {absentToday.length > 0 && <span className="db-card-badge dbb-red">{absentToday.length} absent</span>}
-                <button className="db-view-all" onClick={() => navigate('/attendance/admin/attendance', { state: { companyId } })}>
-                  View all <FiChevronRight size={12} />
-                </button>
-              </div>
-            </div>
-            <div className="absent-list">
-              {absentToday.length > 0 ? absentToday.slice(0, 7).map((emp, i) => (
-                <div key={i} className="absent-row">
-                  <div className="absent-avatar">{(emp.name || '?')[0].toUpperCase()}</div>
-                  <div className="absent-info">
-                    <div className="absent-name">{emp.name}</div>
-                    <div className="absent-dept">Team Member</div>
-                  </div>
-                  <span className={`absent-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
-                    {emp.status === 'leave' ? 'On Leave' : 'Absent'}
-                  </span>
-                </div>
-              )) : (
-                <div className="db-empty">
-                  <FiCheckCircle size={32} style={{ color: '#b6e8d6' }} />
-                  <p>Full house today! 🎉</p>
-                  <span>No unexplained absences – great attendance.</span>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* -- LEFT -- */}
+          <div className="db-left">
 
-          {/* Late Arrivals */}
-          {lateToday.length > 0 && (
+            {/* Absent Today */}
             <div className="db-card">
               <div className="db-card-header">
                 <span className="db-card-title">
-                  <FiClock size={13} className="db-card-title-icon" style={{ color: '#c87f0a' }} />
-                  Late Arrivals Today
+                  <FiXCircle size={13} className="db-card-title-icon" style={{ color: '#d63031' }} />
+                  Absent Today
                 </span>
-                <span className="db-card-badge dbb-amber">{lateToday.length}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {absentToday.length > 0 && <span className="db-card-badge dbb-red">{absentToday.length} absent</span>}
+                  <button className="db-view-all" onClick={() => navigate('/attendance/admin/attendance', { state: { companyId } })}>
+                    View all <FiChevronRight size={12} />
+                  </button>
+                </div>
               </div>
-              <div className="late-grid-list">
-                {lateToday.slice(0, 6).map((emp, i) => (
-                  <div key={i} className="late-row">
-                    <div className="late-avatar">{(emp.name || '?')[0].toUpperCase()}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="late-name">{emp.name}</div>
-                      <div className="late-meta">In: {fmtTime(emp.inTime || emp.first_in)}</div>
+              <div className="absent-list">
+                {absentToday.length > 0 ? absentToday.slice(0, 7).map((emp, i) => (
+                  <div key={i} className="absent-row">
+                    <div className="absent-avatar">{(emp.name || '?')[0].toUpperCase()}</div>
+                    <div className="absent-info">
+                      <div className="absent-name">{emp.name}</div>
+                      <div className="absent-dept">Team Member</div>
                     </div>
-                    <span className="late-badge">{fmtLate(emp.lateBy || emp.late_by)}</span>
+                    <span className={`absent-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
+                      {emp.status === 'leave' ? 'On Leave' : 'Absent'}
+                    </span>
                   </div>
-                ))}
+                )) : (
+                  <div className="db-empty">
+                    <FiCheckCircle size={32} style={{ color: '#b6e8d6' }} />
+                    <p>Full house today! 🎉</p>
+                    <span>No unexplained absences – great attendance.</span>
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
+            {/* Late Arrivals */}
+            {lateToday.length > 0 && (
+              <div className="db-card">
+                <div className="db-card-header">
+                  <span className="db-card-title">
+                    <FiClock size={13} className="db-card-title-icon" style={{ color: '#c87f0a' }} />
+                    Late Arrivals Today
+                  </span>
+                  <span className="db-card-badge dbb-amber">{lateToday.length}</span>
+                </div>
+                <div className="late-grid-list">
+                  {lateToday.slice(0, 6).map((emp, i) => (
+                    <div key={i} className="late-row">
+                      <div className="late-avatar">{(emp.name || '?')[0].toUpperCase()}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="late-name">{emp.name}</div>
+                        <div className="late-meta">In: {fmtTime(emp.inTime || emp.first_in)}</div>
+                      </div>
+                      <span className="late-badge">{fmtLate(emp.lateBy || emp.late_by)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pending Approvals — compact inline preview */}
+            {pendingCount > 0 && (
+              <div className="db-card db-approvals-hint" onClick={() => setActiveSection('approvals')} style={{ cursor: 'pointer' }}>
+                <div className="db-card-header">
+                  <span className="db-card-title">
+                    <FiAlertCircle size={13} className="db-card-title-icon" style={{ color: '#c87f0a' }} />
+                    Pending Approvals
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="db-card-badge dbb-amber">{pendingCount} awaiting</span>
+                    <button className="db-view-all" onClick={e => { e.stopPropagation(); setActiveSection('approvals'); }}>
+                      Review <FiChevronRight size={12} />
+                    </button>
+                  </div>
+                </div>
+                <div className="db-approvals-preview">
+                  {allPending.slice(0, 4).map((req, i) => (
+                    <div key={i} className="db-appr-preview-row">
+                      <div className="db-appr-avatar">{(req.employeeName || '?')[0].toUpperCase()}</div>
+                      <div className="db-appr-preview-info">
+                        <span className="db-appr-name">{req.employeeName}</span>
+                        <span className={`db-appr-kind-pill ${req._kind}`}>
+                          {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
+                        </span>
+                      </div>
+                      <div className="db-appr-preview-actions" onClick={e => e.stopPropagation()}>
+                        <button className="ab-approve" disabled={approving[req.id]}
+                          onClick={() => handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'approved')}>
+                          <FiCheck size={10} />
+                        </button>
+                        <button className="ab-reject" disabled={approving[req.id]}
+                          onClick={() => handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'rejected')}>
+                          <FiX size={10} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {allPending.length > 4 && (
+                    <div className="db-appr-preview-more">
+                      +{allPending.length - 4} more — click to review all
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* -- RIGHT SIDEBAR -- */}
+          <div className="db-right">
+
+            {/* Upcoming Holidays */}
+            <div className="db-card">
+              <div className="db-card-header">
+                <span className="db-card-title">
+                  <FiCalendar size={13} className="db-card-title-icon" />
+                  Upcoming Holidays
+                </span>
+                <button className="db-view-all" onClick={() => navigate('/attendance/admin/holidays')}>
+                  Manage <FiChevronRight size={12} />
+                </button>
+              </div>
+              <div className="holiday-list">
+                {holidays.length > 0 ? holidays.map((h, i) => {
+                  const d = new Date(h.holiday_date);
+                  const type = h.holiday_type || 'national';
+                  return (
+                    <div key={i} className="holiday-row">
+                      <div className={`holiday-cal ht-${type}`}>
+                        <span className="hc-mon">{d.toLocaleString('default', { month: 'short' })}</span>
+                        <span className="hc-day">{d.getDate()}</span>
+                      </div>
+                      <div className="holiday-info">
+                        <div className="holiday-name">{getHolidayEmoji(h.holiday_name, type)} {h.holiday_name}</div>
+                        <div className="holiday-sub">{d.toLocaleString('default', { weekday: 'long' })}</div>
+                      </div>
+                      <span className={`holiday-pill hp-${type}`}>{type}</span>
+                    </div>
+                  );
+                }) : (
+                  <div className="db-empty-sm">
+                    <FiCalendar size={20} style={{ color: '#e4eaf2' }} />
+                    <p>No upcoming holidays</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
         </div>
+      )}
 
-        {/* -- RIGHT SIDEBAR -- */}
-        <div className="db-right">
-
-          {/* Pending Approvals */}
-          <div className="db-card clickable-card" onClick={() => navigate('/attendance/hod/leave-approval')}>
+      {/* ====== APPROVALS SECTION ====== */}
+      {activeSection === 'approvals' && (
+        <div className="db-content-approvals">
+          <div className="db-card db-approvals-card">
             <div className="db-card-header">
               <span className="db-card-title">
                 <FiAlertCircle size={13} className="db-card-title-icon" style={{ color: '#c87f0a' }} />
                 Pending Approvals
+                {pendingCount > 0 && (
+                  <span className="db-card-badge dbb-amber" style={{ marginLeft: 8 }}>
+                    {pendingCount} awaiting
+                  </span>
+                )}
               </span>
-              {pendingCount > 0
-                ? <span className="db-card-badge dbb-amber">{pendingCount}</span>
-                : <span className="db-card-badge dbb-green">All clear</span>
-              }
+              <button className="db-view-all" onClick={() => navigate('/attendance/hod/leave-approval')}>
+                Full Approvals Page <FiChevronRight size={12} />
+              </button>
             </div>
-            <div className="approval-list">
-              {allPending.length > 0 ? allPending.map((req, i) => (
-                <div key={i} className={`approval-row ${req._kind === 'leave' ? 'ar-leave' : 'ar-reg'}`}>
-                  <div className="approval-avatar">{(req.employeeName || '?')[0].toUpperCase()}</div>
-                  <div className="approval-body">
-                    <div className="approval-name">{req.employeeName}</div>
-                    <div className="approval-meta">
-                      <span className={`approval-kind ${req._kind === 'leave' ? 'ak-leave' : 'ak-reg'}`}>
-                        {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
-                      </span>
-                      {req._kind === 'leave' && req.totalDays && (
-                        req.is_half_day ? ` • Half Day (${formatSession(req.half_day_session)})` : ` • ${req.totalDays}d`
-                      )}
-                      {req._kind === 'reg' && req.date && ` • ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}`}
+
+            {allPending.length === 0 ? (
+              <div className="db-empty">
+                <FiCheckCircle size={40} style={{ color: '#b6e8d6' }} />
+                <p>All caught up! ✨</p>
+                <span>No pending leave or regularization requests.</span>
+              </div>
+            ) : (
+              <div className="db-approvals-grid">
+                {allPending.map((req, i) => (
+                  <div key={i} className={`db-approval-item ${req._kind}`}>
+                    <div className="db-appr-header">
+                      <div className="db-appr-avatar">{(req.employeeName || '?')[0].toUpperCase()}</div>
+                      <div className="db-appr-info">
+                        <div className="db-appr-name">{req.employeeName}</div>
+                        <div className="db-appr-meta">
+                          <span className={`db-appr-kind-pill ${req._kind}`}>
+                            {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
+                          </span>
+                          <span className="db-appr-detail">
+                            {req._kind === 'leave' && req.totalDays && (
+                              req.is_half_day
+                                ? `Half Day (${formatSession(req.half_day_session)})`
+                                : `${req.totalDays} day${req.totalDays > 1 ? 's' : ''}`
+                            )}
+                            {req._kind === 'reg' && req.date && (
+                              new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })
+                            )}
+                          </span>
+                        </div>
+                      </div>
                       {req.attachment_urls?.length > 0 && (
                         <a
                           href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`}
                           target="_blank"
                           rel="noreferrer"
-                          style={{ marginLeft: 6, color: '#64748b' }}
                           title="View Document"
-                          onClick={(e) => e.stopPropagation()}
+                          className="db-appr-doc-link"
+                          onClick={e => e.stopPropagation()}
                         >
-                          <FiFileText size={10} />
+                          <FiFileText size={13} />
                         </a>
                       )}
                     </div>
-                    <div className="approval-btns">
-                      <button className="ab-approve" disabled={approving[req.id]}
-                        onClick={(e) => { e.stopPropagation(); handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'approved'); }}>
-                        <FiCheck size={10} /> Approve
+                    {req.reason && (
+                      <div className="db-appr-reason">"{req.reason}"</div>
+                    )}
+                    <div className="db-appr-actions">
+                      <button
+                        className="ab-approve"
+                        disabled={approving[req.id]}
+                        onClick={() => handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'approved')}
+                      >
+                        <FiCheck size={11} /> Approve
                       </button>
-                      <button className="ab-reject" disabled={approving[req.id]}
-                        onClick={(e) => { e.stopPropagation(); handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'rejected'); }}>
-                        <FiX size={10} /> Reject
+                      <button
+                        className="ab-reject"
+                        disabled={approving[req.id]}
+                        onClick={() => handleApprove(req.id, req._kind === 'leave' ? 'leave' : 'regularization', 'rejected')}
+                      >
+                        <FiX size={11} /> Reject
                       </button>
                     </div>
                   </div>
-                </div>
-              )) : (
-                <div className="db-empty-sm">
-                  <FiCheckCircle size={22} style={{ color: '#b6e8d6' }} />
-                  <p>No pending approvals ✨</p>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Upcoming Holidays */}
-          <div className="db-card">
-            <div className="db-card-header">
-              <span className="db-card-title">
-                <FiCalendar size={13} className="db-card-title-icon" />
-                Upcoming Holidays
-              </span>
-              <button className="db-view-all" onClick={() => navigate('/attendance/admin/holidays')}>
-                Manage <FiChevronRight size={12} />
-              </button>
-            </div>
-            <div className="holiday-list">
-              {holidays.length > 0 ? holidays.map((h, i) => {
-                const d = new Date(h.holiday_date);
-                const type = h.holiday_type || 'national';
-                return (
-                  <div key={i} className="holiday-row">
-                    <div className={`holiday-cal ht-${type}`}>
-                      <span className="hc-mon">{d.toLocaleString('default', { month: 'short' })}</span>
-                      <span className="hc-day">{d.getDate()}</span>
-                    </div>
-                    <div className="holiday-info">
-                      <div className="holiday-name">{getHolidayEmoji(h.holiday_name, type)} {h.holiday_name}</div>
-                      <div className="holiday-sub">{d.toLocaleString('default', { weekday: 'long' })}</div>
-                    </div>
-                    <span className={`holiday-pill hp-${type}`}>{type}</span>
-                  </div>
-                );
-              }) : (
-                <div className="db-empty-sm">
-                  <FiCalendar size={20} style={{ color: '#e4eaf2' }} />
-                  <p>No upcoming holidays</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="db-card">
-            <div className="db-card-header">
-              <span className="db-card-title">Quick Actions</span>
-            </div>
-            <div className="action-grid">
-              {quickActions.map((item, i) => (
-                <button key={i} className="action-item" onClick={() => navigate(item.path)}>
-                  <div className="action-icon">{item.icon}</div>
-                  <div className="action-text">
-                    <div className="action-label">{item.label}</div>
-                    <div className="action-desc">{item.desc}</div>
-                  </div>
-                  <FiChevronRight className="action-arrow" size={13} />
-                </button>
-              ))}
-            </div>
-          </div>
-
         </div>
-      </div>
+      )}
+
+      {/* ====== QUICK TOOLS SECTION ====== */}
+      {activeSection === 'tools' && (
+        <div className="db-content-tools">
+          <div className="db-tools-header">
+            <h2 className="db-tools-title">Administration Tools</h2>
+            <p className="db-tools-sub">Configure company settings, policies, and manage employee data.</p>
+          </div>
+          <div className="db-tools-grid">
+            {[
+              { icon: <FiActivity size={20} />, label: 'Attendance Report', desc: 'View and export company-wide daily & monthly attendance records. Identify anomalies and adjust records.', path: '/attendance/admin/attendance', color: 'blue' },
+              { icon: <FiCalendar size={20} />, label: 'Manage Holidays', desc: 'Configure national and optional public holidays for the company calendar.', path: '/attendance/admin/holidays', color: 'teal' },
+              { icon: <FiClock size={20} />, label: 'Shift Management', desc: 'Define shift timings, grace periods, and auto-punch-out rules.', path: '/attendance/admin/shifts', color: 'purple' },
+              { icon: <FiBookOpen size={20} />, label: 'Week-Off Policies', desc: 'Configure weekly day-off rules for teams and designations.', path: '/attendance/admin/weekoff-policies', color: 'amber' },
+              { icon: <FiFileText size={20} />, label: 'Leave Policies', desc: 'Set up leave types, annual quotas, accrual rules, and carry-forward limits.', path: '/attendance/admin/leave-policies', color: 'green' },
+              { icon: <FiUsers size={20} />, label: 'Teams', desc: 'Manage team structures and assign HODs for leave approval workflows.', path: '/attendance/teams', color: 'navy' },
+              { icon: <FiSettings size={20} />, label: 'System Settings', desc: 'Company profile, attendance configuration, and security rules.', path: '/attendance/admin/settings', color: 'slate' },
+            ].map((tool, i) => (
+              <button key={i} className={`db-tool-card db-tool-${tool.color}`} onClick={() => navigate(tool.path)}>
+                <div className="db-tool-icon">{tool.icon}</div>
+                <div className="db-tool-body">
+                  <div className="db-tool-label">{tool.label}</div>
+                  <div className="db-tool-desc">{tool.desc}</div>
+                </div>
+                <FiChevronRight className="db-tool-arrow" size={16} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -575,7 +575,7 @@ export const approveRequest = async (req, res) => {
                     });
                 }
 
-                const isUnpaid = ['unpaid', 'lwp'].includes(String(application.leave_type || '').toLowerCase());
+                const isUnpaid = String(application.leave_type || '').toLowerCase() === 'lwp';
                 const canReviewAsTeamHod = isHodRole(actorRole) || (isAdminRole(actorRole) && !isAllowedAdmin);
 
                 if (canReviewAsTeamHod) {

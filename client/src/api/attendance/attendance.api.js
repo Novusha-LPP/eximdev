@@ -357,6 +357,30 @@ const attendanceAPI = {
     } catch (error) {
       throw error.response?.data || { message: 'Failed to assign policies' };
     }
+  },
+
+  /**
+   * Bulk update attendance for an employee (Attendance Continuity)
+   */
+  bulkUpdateAttendance: async (data) => {
+    try {
+      const response = await apiClient.post('/attendance/bulk-update', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to bulk update attendance' };
+    }
+  },
+
+  /**
+   * Apply full month presence for an employee while respecting week-off policy
+   */
+  applyFullMonthPresence: async (data) => {
+    try {
+      const response = await apiClient.post('/attendance/full-month-presence', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to apply full month presence' };
+    }
   }
 };
 

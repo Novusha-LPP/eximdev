@@ -138,7 +138,15 @@ const LeaveApproval = () => {
       await attendanceAPI.approveRequest('leave', id, status, remark);
       toast.success(`Leave ${status}`);
       setHistory(h => h.some(r => String(r.id) === String(id)) ? h :
-        [{ ...acted, status, actionDate: new Date().toISOString(), historyKey: `${id}-${Date.now()}` }, ...h]);
+        [{
+          ...acted,
+          status,
+          actionDate: new Date().toISOString(),
+          historyKey: `${id}-${Date.now()}`,
+          approvedBy: status === 'approved' ? (user?.name || user?.username || 'You') : null,
+          rejectedBy: status === 'rejected' ? (user?.name || user?.username || 'You') : null,
+          decisionRemark: remark || ''
+        }, ...h]);
     } catch {
       toast.error('Action failed');
       setRequests(prev => [acted, ...prev]);
@@ -409,6 +417,8 @@ const LeaveApproval = () => {
                         <th>Days</th>
                         <th>Date Range</th>
                         <th>Status</th>
+                        <th>Approved/Rejected By</th>
+                        <th>Remark</th>
                         <th>Processed On</th>
                         {isAllowedAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
                       </tr>
@@ -433,6 +443,16 @@ const LeaveApproval = () => {
                               {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />}{' '}
                               {req.status?.charAt(0).toUpperCase() + req.status?.slice(1)}
                             </span>
+                          </td>
+                          <td className="td-dim">
+                            {req.status === 'approved'
+                              ? (req.approvedBy || '—')
+                              : req.status === 'rejected'
+                                ? (req.rejectedBy || '—')
+                                : '—'}
+                          </td>
+                          <td className="td-dim" title={req.decisionRemark || req.rejectionReason || ''}>
+                            {(req.decisionRemark || req.rejectionReason || '—')}
                           </td>
                           <td className="td-dim">
                             {req.actionDate ? new Date(req.actionDate).toLocaleDateString('en', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}

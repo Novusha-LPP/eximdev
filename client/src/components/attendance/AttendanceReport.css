@@ -1993,7 +1993,7 @@
 /* ══ PERFORMANCE SCORECARD ══ */
 .ar-hub-scorecard {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: 12px;
     margin: 1.5rem 0;
 }
@@ -2093,9 +2093,25 @@
     border-bottom: 2px solid #fdba74;
 }
 
+.ar-cal-cell.weekly_off,
 .ar-cal-cell.off {
     background: #f1f5f9;
     color: #94a3b8;
+    border-bottom: 2px solid #cbd5e1;
+}
+
+.ar-cal-cell.holiday {
+    background: #fff7ed;
+    color: #c2410c;
+    border-bottom: 2px solid #fdba74;
+}
+
+.ar-cal-status-tag {
+    margin-top: 2px;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1;
 }
 
 /* ══ REFINED JOB DETAILS ══ */

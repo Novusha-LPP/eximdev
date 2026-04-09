@@ -341,7 +341,9 @@ const LeaveManagement = () => {
                 <th>Days</th>
                 <th>Status</th>
                 <th>Applied On</th>
+                <th>Reviewed By</th>
                 <th>Reason</th>
+                <th>Decision Remark</th>
               </tr>
             </thead>
             <tbody>
@@ -388,6 +390,14 @@ const LeaveManagement = () => {
                     <span className="dt-applied">{formatDate(app.createdAt, 'dd MMM yyyy')}</span>
                   </td>
 
+                  {/* Reviewed by */}
+                  <td>
+                    <span className="dt-applied">
+                      {app.reviewed_by || '-'}
+                      {app.reviewed_by_role ? ` (${app.reviewed_by_role})` : ''}
+                    </span>
+                  </td>
+
                   {/* Reason */}
                   <td title={app.reason} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {app.attachment_urls && app.attachment_urls.length > 0 && (
@@ -404,10 +414,18 @@ const LeaveManagement = () => {
                     {app.reason || '-'}
                   </td>
 
+                  {/* Decision Remark */}
+                  <td
+                    title={app.reviewer_remark || app.rejection_reason || ''}
+                    style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {app.reviewer_remark || app.rejection_reason || '-'}
+                  </td>
+
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={6} className="dt-empty">No applications found.</td>
+                  <td colSpan={8} className="dt-empty">No applications found.</td>
                 </tr>
               )}
             </tbody>

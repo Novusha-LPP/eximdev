@@ -265,6 +265,13 @@ const AttendanceManagement = () => {
                                                                 {mode === 'daily'
                                                                     ? `${row.employee_id?.employee_code || '---'}   ${row.employee_id?.designation || 'Staff'}`
                                                                     : `${row.designation || 'Staff'}`}
+                                                                {mode === 'monthly' && (row.weekoff_policy_name || row.holiday_policy_name) && (
+                                                                    <span style={{ display: 'block', marginTop: '2px', color: '#64748b', fontSize: '11px' }}>
+                                                                        {row.weekoff_policy_name ? `WO: ${row.weekoff_policy_name}` : 'WO: -'}
+                                                                        {' | '}
+                                                                        {row.holiday_policy_name ? `HD: ${row.holiday_policy_name}` : 'HD: -'}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>

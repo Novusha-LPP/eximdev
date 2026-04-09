@@ -24,6 +24,16 @@ class PolicyResolver {
    * @returns {Promise<Object|null>}
    */
   static async resolveShift(user) {
+    const assignedShiftIds = Array.isArray(user.shift_ids)
+      ? user.shift_ids.map((id) => id?._id || id).filter(Boolean)
+      : [];
+
+    if (assignedShiftIds.length > 0) {
+      const preferred = assignedShiftIds[0];
+      const shift = await Shift.findById(preferred);
+      if (shift && shift.status === 'active') return shift;
+    }
+
     if (user.shift_id) {
       const shift = await Shift.findById(user.shift_id);
       if (shift && shift.status === 'active') return shift;

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef, useCallback } from 'react';
 import { fetchMyProjects, createProject, updateProject } from '../../services/openPointsService';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import '../../styles/openPoints.scss';
 
 const ITEMS_PER_PAGE = 12;
+const LOAD_MORE_COUNT = 12;
 const COLORS = {
     Red: '#ef4444',
     Yellow: '#eab308',
@@ -19,8 +20,9 @@ const OpenPointsHome = () => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
+    const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
     const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
+    const sentinelRef = useRef(null);
 
     // Create Modal State
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -99,23 +101,34 @@ const OpenPointsHome = () => {
         }
     };
 
-    // Filter & Pagination Logic
+    // Filter & Infinite Scroll Logic
     const filteredProjects = projects.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
-    const paginatedProjects = filteredProjects.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    );
+    const visibleProjects = filteredProjects.slice(0, visibleCount);
+    const hasMore = visibleCount < filteredProjects.length;
 
-    const handlePageChange = (newPage) => {
-        if (newPage >= 1 && newPage <= totalPages) {
-            setCurrentPage(newPage);
+    // Reset visible count when search changes
+    useEffect(() => {
+        setVisibleCount(ITEMS_PER_PAGE);
+    }, [searchTerm]);
+
+    // IntersectionObserver sentinel callback
+    const handleSentinel = useCallback((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+            setVisibleCount(prev => prev + LOAD_MORE_COUNT);
         }
-    };
+    }, [hasMore]);
+
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(handleSentinel, { threshold: 0.1 });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [handleSentinel]);
 
     const openEditModal = (e, project) => {
         e.stopPropagation();
@@ -279,7 +292,7 @@ const OpenPointsHome = () => {
                         type="text"
                         placeholder="Search your projects..."
                         value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                        onChange={(e) => { setSearchTerm(e.target.value); }}
                         style={{
                             width: '100%',
                             maxWidth: '300px',
@@ -345,7 +358,7 @@ const OpenPointsHome = () => {
                             <>
                                 {viewMode === 'card' ? (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
-                                        {paginatedProjects.map(project => (
+                                        {visibleProjects.map(project => (
                                             <div
                                                 key={project._id}
                                                 className="glass-card"
@@ -483,7 +496,7 @@ const OpenPointsHome = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {paginatedProjects.map(project => (
+                                                {visibleProjects.map(project => (
                                                     <tr 
                                                         key={project._id} 
                                                         onClick={() => navigate(`/open-points/project/${project._id}`)}
@@ -540,30 +553,15 @@ const OpenPointsHome = () => {
                                     </div>
                                 )}
 
-                                {/* Pagination Controls */}
-                                {totalPages > 1 && (
-                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '50px', marginBottom: '20px' }}>
-                                        <button
-                                            className="btn"
-                                            disabled={currentPage === 1}
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            style={{ background: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}
-                                        >
-                                            Previous
-                                        </button>
-                                        <span style={{ display: 'flex', alignItems: 'center', fontWeight: 600, color: '#475569', background: 'white', padding: '0 16px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-                                            {currentPage} / {totalPages}
-                                        </span>
-                                        <button
-                                            className="btn"
-                                            disabled={currentPage === totalPages}
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            style={{ background: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.5 : 1 }}
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                )}
+                                {/* Infinite Scroll Sentinel */}
+                                <div ref={sentinelRef} style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '20px' }}>
+                                    {hasMore && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #3b82f6', borderTopColor: 'transparent', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                                            Loading more...
+                                        </div>
+                                    )}
+                                </div>
                             </>
                         )}
                     </>

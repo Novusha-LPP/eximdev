@@ -16,6 +16,30 @@ import './AttendanceReport.css';
 const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
+const getCalendarStatusClass = (status = '') => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
+    if (normalized === 'present_late') return 'late';
+    return normalized || 'none';
+};
+
+const getCalendarStatusBadge = (status = '') => {
+    const normalized = String(status || '').toLowerCase();
+    const map = {
+        weekly_off: 'WO',
+        weekoff: 'WO',
+        off: 'WO',
+        holiday: 'HD',
+        leave: 'LV',
+        half_day: 'HDY',
+        late: 'L',
+        present_late: 'L',
+        absent: 'A',
+        present: 'P'
+    };
+    return map[normalized] || '';
+};
+
 const StatusPill = ({ status, session }) => {
     const map = { present: ['Present', 'present'], absent: ['Absent', 'absent'], leave: ['Leave', 'leave'], half_day: ['Half Day', 'half-day'], weekly_off: ['Off', 'off'], holiday: ['Holiday', 'holiday'] };
     const [label, cls] = map[status] || [status, 'default'];
@@ -128,7 +152,9 @@ const DailySummaryView = ({ groups, startDate, endDate }) => {
     );
 };
 
-const AttendanceReport = ({ isAdmin }) => {
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+
+const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [loading, setLoading] = useState(true);
@@ -141,7 +167,9 @@ const AttendanceReport = ({ isAdmin }) => {
     const [selectedEmp, setSelectedEmp] = useState(null);
     const { user } = React.useContext(UserContext);
     const ALLOWED_USERNAMES = React.useMemo(() => new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']), []);
-    const isHOD = user?.role === 'HOD' || user?.role === 'HEADOFDEPARTMENT' || user?.role === 'hod';
+    const normalizedRole = normalizeRole(user?.role);
+    const isHOD = normalizedRole === 'HOD' || normalizedRole === 'HEADOFDEPARTMENT';
+    const isAdmin = Boolean(isAdminProp) && normalizedRole === 'ADMIN';
     const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
     const [showDailySummary, setShowDailySummary] = useState(false);
     const [empHistory, setEmpHistory] = useState([]);
@@ -152,7 +180,6 @@ const AttendanceReport = ({ isAdmin }) => {
     const [applyingFullMonth, setApplyingFullMonth] = useState(false);
     const [groupBy, setGroupBy] = useState('status'); // 'status' or 'organization'
     const [fullMonthPresenceEnabled, setFullMonthPresenceEnabled] = useState(false);
-    const [fullMonthRemarks, setFullMonthRemarks] = useState('');
 
     // Profile Hub States
     const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'leaves', 'details'
@@ -234,7 +261,6 @@ const AttendanceReport = ({ isAdmin }) => {
         setActiveTab(tab);
         setProfileData(null);
         setFullMonthPresenceEnabled(false);
-        setFullMonthRemarks('');
 
         // Reset browser to current month (or the filtered range month)
         const rangeStart = new Date(startDate);
@@ -325,6 +351,106 @@ const AttendanceReport = ({ isAdmin }) => {
         fetchBrowseHistory(browseMonth, browseYear);
     }, [browseMonth, browseYear, selectedEmp?.id]);
 
+    const continuityStats = React.useMemo(() => {
+        const stats = {
+            present: 0,
+            absent: 0,
+            late: 0,
+            leaves: 0,
+            weeklyOff: 0,
+            holidays: 0
+        };
+
+        (empHistory || []).forEach((rec) => {
+            const status = getCalendarStatusClass(rec?.status);
+            if (status === 'present') stats.present += 1;
+            if (status === 'late') {
+                stats.late += 1;
+                stats.present += 1;
+            }
+            if (status === 'absent') stats.absent += 1;
+            if (status === 'leave') stats.leaves += 1;
+            if (status === 'weekly_off') stats.weeklyOff += 1;
+            if (status === 'holiday') stats.holidays += 1;
+        });
+
+        if ((empHistory || []).length === 0) {
+            return {
+                present: profileData?.summary?.present ?? selectedEmp?.present ?? 0,
+                absent: profileData?.summary?.absent ?? selectedEmp?.absent ?? 0,
+                late: profileData?.summary?.late ?? selectedEmp?.late ?? 0,
+                leaves: profileData?.summary?.leaves ?? selectedEmp?.leaves ?? 0,
+                weeklyOff: 0,
+                holidays: (profileData?.holidays || []).length
+            };
+        }
+
+        return stats;
+    }, [empHistory, profileData?.summary, profileData?.holidays, selectedEmp]);
+
+    const assignedShiftOptions = React.useMemo(() => {
+        const employee = profileData?.employee || {};
+        const raw = Array.isArray(employee.shift_ids) ? employee.shift_ids : [];
+        const fallback = employee.shift_id ? [employee.shift_id] : [];
+        const combined = [...raw, ...fallback];
+
+        const seen = new Set();
+        return combined
+            .map((s) => {
+                if (!s) return null;
+                if (typeof s === 'string') {
+                    return { _id: s, shift_name: 'Assigned Shift', start_time: '09:00', end_time: '18:00', half_day_hours: 4 };
+                }
+                return s;
+            })
+            .filter((s) => s && s._id && !seen.has(String(s._id)) && seen.add(String(s._id)));
+    }, [profileData?.employee]);
+
+    const toEditDateTime = (attendanceDate, hhmm = '09:00') => {
+        const [hh, mm] = String(hhmm || '09:00').split(':').map((v) => Number(v));
+        return moment(attendanceDate)
+            .set({
+                hour: Number.isFinite(hh) ? hh : 9,
+                minute: Number.isFinite(mm) ? mm : 0,
+                second: 0,
+                millisecond: 0
+            })
+            .format('YYYY-MM-DDTHH:mm');
+    };
+
+    const applyStatusModeTimes = (form, statusValue, shiftIdValue) => {
+        const statusNormalized = String(statusValue || '').toLowerCase();
+        const selectedShift = assignedShiftOptions.find((s) => String(s._id) === String(shiftIdValue)) || assignedShiftOptions[0] || null;
+
+        if (statusNormalized === 'absent' || statusNormalized === 'leave' || statusNormalized === 'weekly_off' || statusNormalized === 'holiday') {
+            return { ...form, status: statusNormalized, first_in: '', last_out: '' };
+        }
+
+        const startTime = selectedShift?.start_time || '09:00';
+        const endTime = selectedShift?.end_time || '18:00';
+        const firstInValue = toEditDateTime(form.attendance_date, startTime);
+
+        if (statusNormalized === 'half_day') {
+            const halfHours = Number(selectedShift?.half_day_hours || 4);
+            const outValue = moment(firstInValue).add(halfHours, 'hours').format('YYYY-MM-DDTHH:mm');
+            return {
+                ...form,
+                status: 'half_day',
+                half_day_session: form.half_day_session || 'first_half',
+                first_in: firstInValue,
+                last_out: outValue
+            };
+        }
+
+        return {
+            ...form,
+            status: statusNormalized || 'present',
+            half_day_session: null,
+            first_in: firstInValue,
+            last_out: toEditDateTime(form.attendance_date, endTime)
+        };
+    };
+
     const handleApplyFullMonthPresence = async (e) => {
         e.preventDefault();
         if (!selectedEmp) return;
@@ -334,13 +460,15 @@ const AttendanceReport = ({ isAdmin }) => {
             return;
         }
 
+        const ok = window.confirm('Are you sure you want to mark the entire month as present?');
+        if (!ok) return;
+
         setApplyingFullMonth(true);
         try {
             const res = await attendanceAPI.applyFullMonthPresence({
                 employee_id: selectedEmp.id,
                 year: browseYear,
-                month: browseMonth,
-                remarks: fullMonthRemarks
+                month: browseMonth
             });
 
             if (res.success) {
@@ -399,17 +527,28 @@ const AttendanceReport = ({ isAdmin }) => {
     };
 
     const startEdit = rec => {
-        setEditingId(rec._id || 'new');
-        setEditForm({
+        const employee = profileData?.employee || {};
+        const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
+        const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
+
+        const baseForm = {
             attendance_date: rec.attendance_date,
             employee_id: selectedEmp.id,
+            correction_mode: 'time_correction',
+            apply_status_correction: false,
+            apply_time_correction: true,
+            shift_id: defaultShiftId,
             status: rec.status || 'present',
-            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : 
-                     (rec._id ? '' : moment(rec.attendance_date).set({ hour: 9, minute: 0 }).format('YYYY-MM-DDTHH:mm')),
-            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : 
-                     (rec._id ? '' : moment(rec.attendance_date).set({ hour: 18, minute: 0 }).format('YYYY-MM-DDTHH:mm')),
+            half_day_session: rec.half_day_session || 'first_half',
+            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') :
+                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '09:00')),
+            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') :
+                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '18:00')),
             remarks: rec.remarks || ''
-        });
+        };
+
+        setEditingId(rec._id || 'new');
+        setEditForm(baseForm);
     };
 
     const exportExcel = async () => {
@@ -753,6 +892,13 @@ const AttendanceReport = ({ isAdmin }) => {
                                                             </button>
                                                         )}
                                                     </div>
+                                                    {(emp.weekoff_policy_name || emp.holiday_policy_name) && (
+                                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                                            {emp.weekoff_policy_name ? `WO: ${emp.weekoff_policy_name}` : 'WO: -'}
+                                                            {' | '}
+                                                            {emp.holiday_policy_name ? `HD: ${emp.holiday_policy_name}` : 'HD: -'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -842,10 +988,12 @@ const AttendanceReport = ({ isAdmin }) => {
                                     <>
                                         {/* Performance Scorecard */}
                                         <div className="ar-hub-scorecard">
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-green">{profileData?.summary?.present ?? selectedEmp?.present}</span><span className="ar-score-lbl">Present</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-red">{profileData?.summary?.absent ?? selectedEmp?.absent}</span><span className="ar-score-lbl">Absent</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-amber">{profileData?.summary?.late ?? selectedEmp?.late}</span><span className="ar-score-lbl">Late</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-blue">{profileData?.summary?.leaves ?? selectedEmp?.leaves}</span><span className="ar-score-lbl">Leaves</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-green">{continuityStats.present}</span><span className="ar-score-lbl">Present</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-red">{continuityStats.absent}</span><span className="ar-score-lbl">Absent</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-amber">{continuityStats.late}</span><span className="ar-score-lbl">Late</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-blue">{continuityStats.leaves}</span><span className="ar-score-lbl">Leaves</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val" style={{ color: '#64748b' }}>{continuityStats.weeklyOff}</span><span className="ar-score-lbl">Weekly Off</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-val" style={{ color: '#c2410c' }}>{continuityStats.holidays}</span><span className="ar-score-lbl">Holidays</span></div>
                                         </div>
 
                                         {/* Professional Calendar Insight */}
@@ -912,12 +1060,8 @@ const AttendanceReport = ({ isAdmin }) => {
                                                             </button>
                                                         </div>
 
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', gridColumn: '1 / -1' }}>
-                                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#000' }}>Remarks</label>
-                                                            <textarea rows={2} style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1' }} value={fullMonthRemarks} onChange={e => setFullMonthRemarks(e.target.value)} placeholder="Optional remarks..." />
-                                                            <div style={{ fontSize: '11px', color: '#64748b' }}>
-                                                                Applies present status to the selected month, skips all configured week-offs, and preserves leave/holiday/weekly-off records.
-                                                            </div>
+                                                        <div style={{ fontSize: '11px', color: '#64748b', gridColumn: '1 / -1' }}>
+                                                            Applies present status to the selected month, skips all configured week-offs, and preserves leave/holiday/weekly-off records.
                                                         </div>
                                                         <div style={{ gridColumn: '1 / -1' }}>
                                                             <button 
@@ -958,11 +1102,13 @@ const AttendanceReport = ({ isAdmin }) => {
                                                         const dateStr = moment([browseYear, browseMonth - 1, day]).format('YYYY-MM-DD');
                                                         const rec = empHistory.find(r => r.attendance_date && moment(r.attendance_date).format('YYYY-MM-DD') === dateStr);
                                                         const isToday = dateStr === moment().format('YYYY-MM-DD');
+                                                        const statusClass = getCalendarStatusClass(rec?.status);
+                                                        const statusBadge = getCalendarStatusBadge(rec?.status);
 
                                                         days.push(
                                                             <div
                                                                 key={day}
-                                                                className={`ar-cal-cell ${rec?.status || 'none'} ${isToday ? 'today' : ''}`}
+                                                                className={`ar-cal-cell ${statusClass} ${isToday ? 'today' : ''}`}
                                                                 onClick={() => {
                                                                     // Allowing both ADMIN and HOD to edit/adjust
                                                                     if (rec) startEdit(rec);
@@ -971,7 +1117,7 @@ const AttendanceReport = ({ isAdmin }) => {
                                                                 title={rec ? `${moment(dateStr).format('DD MMM')}: ${rec.status}` : 'No Record'}
                                                             >
                                                                 {day}
-                                                                {rec && <div className="ar-cal-dot" />}
+                                                                {statusBadge ? <div className="ar-cal-status-tag">{statusBadge}</div> : (rec && <div className="ar-cal-dot" />)}
                                                             </div>
                                                         );
                                                     }
@@ -1141,20 +1287,143 @@ const AttendanceReport = ({ isAdmin }) => {
                         <div className="ar-alert-box" style={{ backgroundColor: '#fff4e5', color: '#663c00', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #ffe8cc' }}>
                             💡 <strong>Security Warning:</strong> You cannot modify raw biometric/web punch events. You are adjusting the official summary record.
                         </div>
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
+                                <input
+                                    type="radio"
+                                    name="correction_mode"
+                                    checked={editForm.correction_mode === 'time_correction'}
+                                    onChange={() => setEditForm((prev) => ({ ...prev, correction_mode: 'time_correction', apply_status_correction: false, apply_time_correction: true }))}
+                                />
+                                Time Correction
+                            </label>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
+                                <input
+                                    type="radio"
+                                    name="correction_mode"
+                                    checked={editForm.correction_mode === 'status_correction'}
+                                    onChange={() => {
+                                        setEditForm((prev) => {
+                                            const nextMode = {
+                                                ...prev,
+                                                correction_mode: 'status_correction',
+                                                apply_status_correction: true,
+                                                apply_time_correction: true
+                                            };
+                                            return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
+                                        });
+                                    }}
+                                />
+                                Status Correction
+                            </label>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
+                                <input
+                                    type="radio"
+                                    name="correction_mode"
+                                    checked={editForm.correction_mode === 'status_correction_time_unchanged'}
+                                    onChange={() => setEditForm((prev) => ({
+                                        ...prev,
+                                        correction_mode: 'status_correction_time_unchanged',
+                                        apply_status_correction: true,
+                                        apply_time_correction: false
+                                    }))}
+                                />
+                                Status Correction (Time Unchanged)
+                            </label>
+                        </div>
                         <div className="ar-edit-grid">
-                            <div className="ar-edit-field">
-                                <label>Status</label>
-                                <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                                    <option value="present">Present</option>
-                                    <option value="absent">Absent</option>
-                                    <option value="half_day">Half Day</option>
-                                    <option value="leave">Leave</option>
-                                    <option value="weekly_off">Weekly Off</option>
-                                    <option value="holiday">Holiday</option>
-                                </select>
-                            </div>
-                            <div className="ar-edit-field"><label>Official In-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.first_in} onChange={e => setEditForm({ ...editForm, first_in: e.target.value })} /></div>
-                            <div className="ar-edit-field"><label>Official Out-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.last_out} onChange={e => setEditForm({ ...editForm, last_out: e.target.value })} /></div>
+                            {editForm.correction_mode === 'status_correction' || editForm.correction_mode === 'status_correction_time_unchanged' ? (
+                                <>
+                                    <div className="ar-edit-field">
+                                        <label>Status</label>
+                                        <select
+                                            value={editForm.status}
+                                            onChange={e => {
+                                                const nextStatus = e.target.value;
+                                                setEditForm((prev) => {
+                                                    if (prev.correction_mode === 'status_correction_time_unchanged') {
+                                                        return {
+                                                            ...prev,
+                                                            status: nextStatus,
+                                                            half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
+                                                        };
+                                                    }
+                                                    return applyStatusModeTimes({ ...prev }, nextStatus, prev.shift_id);
+                                                });
+                                            }}
+                                        >
+                                            <option value="present">Present (P)</option>
+                                            <option value="absent">Absent (A)</option>
+                                            <option value="half_day">Half Day</option>
+                                            <option value="leave">Leave</option>
+                                            <option value="weekly_off">Weekly Off</option>
+                                            <option value="holiday">Holiday</option>
+                                        </select>
+                                    </div>
+                                    {editForm.status === 'half_day' && (
+                                        <div className="ar-edit-field">
+                                            <label>Half Day Session</label>
+                                            <select
+                                                value={editForm.half_day_session || 'first_half'}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, half_day_session: e.target.value }))}
+                                            >
+                                                <option value="first_half">First Half</option>
+                                                <option value="second_half">Second Half</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div className="ar-edit-field">
+                                        <label>Assigned Shift</label>
+                                        <select
+                                            value={editForm.shift_id || ''}
+                                            onChange={(e) => {
+                                                const nextShiftId = e.target.value;
+                                                setEditForm((prev) => {
+                                                    const next = { ...prev, shift_id: nextShiftId };
+                                                    if (prev.correction_mode === 'status_correction') {
+                                                        return applyStatusModeTimes(next, next.status, nextShiftId);
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
+                                        >
+                                            {assignedShiftOptions.map((s) => (
+                                                <option key={s._id} value={s._id}>
+                                                    {s.shift_name || 'Shift'} ({s.start_time || '--:--'} to {s.end_time || '--:--'})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="ar-edit-field">
+                                        <label>Status</label>
+                                        <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                                            <option value="present">Present</option>
+                                            <option value="absent">Absent</option>
+                                            <option value="half_day">Half Day</option>
+                                            <option value="leave">Leave</option>
+                                            <option value="weekly_off">Weekly Off</option>
+                                            <option value="holiday">Holiday</option>
+                                        </select>
+                                    </div>
+                                    {editForm.status === 'half_day' && (
+                                        <div className="ar-edit-field">
+                                            <label>Half Day Session</label>
+                                            <select
+                                                value={editForm.half_day_session || 'first_half'}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, half_day_session: e.target.value }))}
+                                            >
+                                                <option value="first_half">First Half</option>
+                                                <option value="second_half">Second Half</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div className="ar-edit-field"><label>Official In-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.first_in || ''} onChange={e => setEditForm({ ...editForm, first_in: e.target.value })} /></div>
+                                    <div className="ar-edit-field"><label>Official Out-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.last_out || ''} onChange={e => setEditForm({ ...editForm, last_out: e.target.value })} /></div>
+                                </>
+                            )}
                         </div>
                         <div className="ar-edit-field" style={{ marginTop: '15px' }}><label>Administrative Remarks</label>
                             <textarea placeholder="Reason for change..." value={editForm.remarks} onChange={e => setEditForm({ ...editForm, remarks: e.target.value })} />

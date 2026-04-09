@@ -40,6 +40,26 @@ const leaveApplicationSchema = new mongoose.Schema({
   }],
   current_approver_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
+  // Review metadata (backward compatible with legacy comments)
+  hod_reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  hod_reviewed_at: { type: Date },
+  hod_review_comment: { type: String },
+  final_reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  final_reviewed_at: { type: Date },
+  final_review_comment: { type: String },
+  rejected_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  rejected_at: { type: Date },
+  rejection_reason: { type: String },
+
+  approval_history: [{
+    actor_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    actor_name: { type: String },
+    actor_role: { type: String },
+    action: { type: String, enum: ['approved', 'rejected', 'forwarded'] },
+    comment: { type: String },
+    timestamp: { type: Date, default: Date.now }
+  }],
+
   sandwich_dates: [{ type: Date }],
   sandwich_days_count: { type: Number },
 

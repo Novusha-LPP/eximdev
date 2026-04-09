@@ -10,6 +10,7 @@ import LeavePolicy from '../../model/attendance/LeavePolicy.js';
 import RegularizationRequest from '../../model/attendance/RegularizationRequest.js';
 import mongoose from 'mongoose';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
@@ -43,6 +44,7 @@ export const getDashboard = async (req, res) => {
         // 1. Get team members for this HOD (TEAM-BASED FILTERING)
         let employeeIds = [];
         let employees = [];
+        let allTeamsForHOD = [];
 
         if (isAdminRole(hod.role)) {
             // Admin sees all employees, optionally filtered by teamId
@@ -298,7 +300,6 @@ export const getDashboard = async (req, res) => {
 
         debugLog.push(`Calendar range: ${startOfWeek.format('YYYY-MM-DD')} to ${endOfWeek.format('YYYY-MM-DD')}`);
 
-        // Fetch holidays for the week
         const weekHolidays = await Holiday.find({
             company_id: companyId,
             holiday_date: {
@@ -306,8 +307,6 @@ export const getDashboard = async (req, res) => {
                 $lte: endOfWeek.toDate()
             }
         });
-
-        const holidayDatesSet = new Set(weekHolidays.map(h => moment(h.holiday_date).format('YYYY-MM-DD')));
 
         // --- FIX START: Use .toDate() for accurate MongoDB querying ---
         const weekAttendance = await AttendanceRecord.find({
@@ -331,6 +330,16 @@ export const getDashboard = async (req, res) => {
             ]
         });
 
+        const calendarPolicies = new Map(
+            await Promise.all(employees.map(async (emp) => {
+                const [weekOffPolicy, holidayPolicy] = await Promise.all([
+                    PolicyResolver.resolveWeekOffPolicy(emp),
+                    PolicyResolver.resolveHolidayPolicy(emp, startOfWeek.year())
+                ]);
+                return [emp._id.toString(), { weekOffPolicy, holidayPolicy }];
+            }))
+        );
+
         // Build team calendar
         const teamCalendar = employees.map(emp => {
             const empId = emp._id.toString();
@@ -340,12 +349,6 @@ export const getDashboard = async (req, res) => {
             for (let i = 0; i < 7; i++) {
                 const currentDate = moment(startOfWeek).add(i, 'days');
                 const dateStr = currentDate.format('YYYY-MM-DD');
-
-                // Check if it's a holiday
-                if (holidayDatesSet.has(dateStr)) {
-                    attendance[dateStr] = 'holiday';
-                    continue;
-                }
 
                 // Check if employee is on leave
                 const leaveRecord = weekLeaves.find(leave =>
@@ -359,6 +362,20 @@ export const getDashboard = async (req, res) => {
                     if (leaveRecord.is_half_day) {
                         attendance[`${dateStr}_session`] = leaveRecord.half_day_session;
                     }
+                    continue;
+                }
+
+                const empPolicy = calendarPolicies.get(empId) || { weekOffPolicy: null, holidayPolicy: null };
+                const holidayStatus = PolicyResolver.resolveHolidayStatus(currentDate.toDate(), empPolicy.holidayPolicy);
+                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(currentDate.toDate(), empPolicy.weekOffPolicy);
+
+                if (holidayStatus?.isHoliday) {
+                    attendance[dateStr] = 'holiday';
+                    continue;
+                }
+
+                if (weekOffStatus?.isOff) {
+                    attendance[dateStr] = 'weekly_off';
                     continue;
                 }
 
@@ -527,6 +544,11 @@ export const approveRequest = async (req, res) => {
                 return res.status(400).json({ message: 'Invalid status transition' });
             }
 
+            const commentText = String(comments || '').trim();
+            if (status === 'rejected' && !commentText) {
+                return res.status(400).json({ message: 'Rejection reason is required' });
+            }
+
             const application = await LeaveApplication.findById(id);
             if (!application) {
                 debug.push(`Application not found: ${id}`);
@@ -538,10 +560,14 @@ export const approveRequest = async (req, res) => {
 
             const requesterId = application.employee_id?.toString();
             const actorId = (actor._id?._id || actor._id).toString();
-                const actorRole = normalizeRole(actor.role);
+            const actorRole = normalizeRole(actor.role);
+            const actorObjectId = actor._id?._id || actor._id;
+            const actorName = actor.first_name
+                ? `${actor.first_name} ${actor.last_name || ''}`.trim()
+                : (actor.name || actor.username || 'Unknown');
 
             const actorUsername = String(actor.username || '').toLowerCase();
-                const isAllowedAdmin = isAdminRole(actorRole) && ALLOWED_USERNAMES.has(actorUsername);
+            const isAllowedAdmin = isAdminRole(actorRole) && ALLOWED_USERNAMES.has(actorUsername);
             if (requesterId === actorId && !isAllowedAdmin) {
                 debug.push('SELF APPROVAL DENIED');
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
@@ -578,6 +604,113 @@ export const approveRequest = async (req, res) => {
                 const isUnpaid = String(application.leave_type || '').toLowerCase() === 'lwp';
                 const canReviewAsTeamHod = isHodRole(actorRole) || (isAdminRole(actorRole) && !isAllowedAdmin);
 
+                const appendApprovalHistory = (action, comment = '') => {
+                    if (!Array.isArray(application.approval_history)) {
+                        application.approval_history = [];
+                    }
+                    application.approval_history.push({
+                        actor_id: actorObjectId,
+                        actor_name: actorName,
+                        actor_role: actorRole,
+                        action,
+                        comment,
+                        timestamp: new Date()
+                    });
+                };
+
+                const applyLeaveAttendance = async (processedBy) => {
+                    const start = moment(application.from_date).startOf('day');
+                    const end = moment(application.to_date).startOf('day');
+                    let curr = moment(start);
+
+                    while (curr.isSameOrBefore(end)) {
+                        const dateStr = curr.format('YYYY-MM-DD');
+                        const attDate = moment.utc(dateStr).startOf('day').toDate();
+
+                        await AttendanceRecord.findOneAndUpdate(
+                            { employee_id: application.employee_id, attendance_date: attDate },
+                            {
+                                status: application.is_half_day ? 'half_day' : 'leave',
+                                is_half_day: application.is_half_day || false,
+                                half_day_session: application.half_day_session,
+                                year_month: curr.format('YYYY-MM'),
+                                processed_by: processedBy
+                            },
+                            { upsert: true }
+                        );
+                        curr.add(1, 'day');
+                    }
+                };
+
+                const releasePendingBalance = () => {
+                    if (balanceRecord.pending_approval >= application.total_days) {
+                        balanceRecord.pending_approval -= application.total_days;
+                    }
+                    balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
+                };
+
+                const finalizeApproval = async (processedBy, sourceRole) => {
+                    application.approval_status = 'approved';
+                    application.final_reviewed_by = actorObjectId;
+                    application.final_reviewed_at = new Date();
+                    application.final_review_comment = commentText || application.final_review_comment;
+                    application.rejected_by = undefined;
+                    application.rejected_at = undefined;
+                    application.rejection_reason = undefined;
+
+                    if (sourceRole === 'HOD') {
+                        application.hod_reviewed_by = actorObjectId;
+                        application.hod_reviewed_at = new Date();
+                        application.hod_review_comment = commentText || application.hod_review_comment;
+                    }
+
+                    if (commentText) {
+                        application.comments = commentText;
+                    }
+
+                    appendApprovalHistory('approved', commentText);
+                    await application.save();
+
+                    await applyLeaveAttendance(processedBy);
+
+                    releasePendingBalance();
+                    if (!isUnpaid) {
+                        balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
+                    }
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    await balanceRecord.save();
+
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.json({ message: 'Leave approved successfully' });
+                };
+
+                const finalizeRejection = async (sourceRole) => {
+                    application.approval_status = 'rejected';
+                    application.rejected_by = actorObjectId;
+                    application.rejected_at = new Date();
+                    application.rejection_reason = commentText;
+                    application.final_reviewed_by = actorObjectId;
+                    application.final_reviewed_at = new Date();
+                    application.final_review_comment = commentText;
+
+                    if (sourceRole === 'HOD') {
+                        application.hod_reviewed_by = actorObjectId;
+                        application.hod_reviewed_at = new Date();
+                        application.hod_review_comment = commentText;
+                    }
+
+                    application.comments = commentText;
+                    appendApprovalHistory('rejected', commentText);
+                    await application.save();
+
+                    releasePendingBalance();
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    await balanceRecord.save();
+
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.json({ message: 'Leave rejected successfully' });
+                };
+
                 if (canReviewAsTeamHod) {
                     const hodTeams = await TeamModel.find({
                         hodId: actor._id,
@@ -597,32 +730,15 @@ export const approveRequest = async (req, res) => {
                         return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
                     }
 
-                    if (!['pending_hod', 'pending'].includes(application.approval_status)) {
+                    if (!['pending_hod', 'pending', 'hod_approved_pending_admin'].includes(application.approval_status)) {
                         return res.status(400).json({ message: 'Request is no longer pending HOD review' });
                     }
 
                     if (status === 'approved') {
-                        application.approval_status = 'hod_approved_pending_admin';
-                        application.comments = comments || application.comments;
-                        await application.save();
-
-                        fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                        return res.json({ message: 'Leave forwarded to admin for final approval' });
+                        return finalizeApproval('hod', 'HOD');
                     }
 
-                    application.approval_status = 'rejected';
-                    application.comments = comments || application.comments;
-                    await application.save();
-
-                    if (balanceRecord.pending_approval >= application.total_days) {
-                        balanceRecord.pending_approval -= application.total_days;
-                    }
-                    balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
-                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
-                    await balanceRecord.save();
-
-                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                    return res.json({ message: 'Leave rejected successfully' });
+                    return finalizeRejection('HOD');
                 }
 
                 if (!isAdminRole(actorRole)) {
@@ -633,69 +749,17 @@ export const approveRequest = async (req, res) => {
                     return res.status(403).json({ message: 'Final leave approval is restricted to designated admins' });
                 }
 
-                const requesterUser = await User.findById(application.employee_id)
-                    .select('role')
-                    .lean();
-                const requesterRoleNorm = String(requesterUser?.role || '').toUpperCase().replace(/[^A-Z]/g, '');
-                const requesterIsHodOrAdmin = requesterRoleNorm === 'HOD'
-                    || requesterRoleNorm === 'HEADOFDEPARTMENT'
-                    || requesterRoleNorm === 'ADMIN';
-
-                const canFinalize = (isAllowedAdmin && ['pending_hod', 'hod_approved_pending_admin', 'pending'].includes(application.approval_status))
-                    || ['hod_approved_pending_admin', 'pending'].includes(application.approval_status)
-                    || (application.approval_status === 'pending_hod' && requesterIsHodOrAdmin);
+                const canFinalize = ['pending_hod', 'hod_approved_pending_admin', 'pending'].includes(application.approval_status);
 
                 if (!canFinalize) {
                     return res.status(400).json({ message: 'Request is not ready for admin finalization' });
                 }
 
                 if (status === 'approved') {
-                    application.approval_status = 'approved';
-                    application.comments = comments || application.comments;
-                    await application.save();
-
-                    const start = moment(application.from_date).startOf('day');
-                    const end = moment(application.to_date).startOf('day');
-                    let curr = moment(start);
-
-                    while (curr.isSameOrBefore(end)) {
-                        const dateStr = curr.format('YYYY-MM-DD');
-                        const attDate = moment.utc(dateStr).startOf('day').toDate();
-
-                        await AttendanceRecord.findOneAndUpdate(
-                            { employee_id: application.employee_id, attendance_date: attDate },
-                            {
-                                status: application.is_half_day ? 'half_day' : 'leave',
-                                is_half_day: application.is_half_day || false,
-                                half_day_session: application.half_day_session,
-                                year_month: curr.format('YYYY-MM'),
-                                processed_by: 'admin'
-                            },
-                            { upsert: true }
-                        );
-                        curr.add(1, 'day');
-                    }
-
-                    balanceRecord.pending_approval = Math.max(0, balanceRecord.pending_approval - (application.total_days || 0));
-                    if (!isUnpaid) {
-                        balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
-                    }
-                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
-                } else {
-                    application.approval_status = 'rejected';
-                    application.comments = comments || application.comments;
-                    await application.save();
-
-                    if (balanceRecord.pending_approval >= application.total_days) {
-                        balanceRecord.pending_approval -= application.total_days;
-                    }
-                    balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
-                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    return finalizeApproval('admin', 'ADMIN');
                 }
 
-                await balanceRecord.save();
-                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                return res.json({ message: `Leave ${status} successfully` });
+                return finalizeRejection('ADMIN');
 
             } catch (error) {
                 throw error;
@@ -1083,6 +1147,9 @@ export const getAdminLeaveRequests = async (req, res) => {
         })
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
+            .populate('final_reviewed_by', 'first_name last_name username role')
+            .populate('hod_reviewed_by', 'first_name last_name username role')
+            .populate('rejected_by', 'first_name last_name username role')
             .sort({ createdAt: -1 })
             .limit(200);
 
@@ -1097,6 +1164,9 @@ export const getAdminLeaveRequests = async (req, res) => {
         const recentProcessedLeaves = await LeaveApplication.find(historyQuery)
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name')
+            .populate('final_reviewed_by', 'first_name last_name username role')
+            .populate('hod_reviewed_by', 'first_name last_name username role')
+            .populate('rejected_by', 'first_name last_name username role')
             .sort({ updatedAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit);
@@ -1115,6 +1185,30 @@ export const getAdminLeaveRequests = async (req, res) => {
             const empName = leave.employee_id?.first_name
                 ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim()
                 : leave.employee_id?.username || 'Unknown';
+
+            const finalReviewer = leave.final_reviewed_by;
+            const rejectedBy = leave.rejected_by;
+            const hodReviewer = leave.hod_reviewed_by;
+            const effectiveReviewer = leave.approval_status === 'rejected'
+                ? (rejectedBy || finalReviewer || hodReviewer)
+                : (finalReviewer || hodReviewer);
+
+            const reviewerName = effectiveReviewer
+                ? (effectiveReviewer.first_name
+                    ? `${effectiveReviewer.first_name} ${effectiveReviewer.last_name || ''}`.trim()
+                    : effectiveReviewer.username)
+                : null;
+
+            const reviewerRole = effectiveReviewer
+                ? normalizeRole(effectiveReviewer.role)
+                : null;
+
+            const decisionRemark = leave.rejection_reason
+                || leave.final_review_comment
+                || leave.hod_review_comment
+                || leave.comments
+                || null;
+
             return {
                 id: leave._id,
                 employeeName: empName,
@@ -1129,7 +1223,12 @@ export const getAdminLeaveRequests = async (req, res) => {
                 attachment_urls: leave.attachment_urls || [],
                 reason: leave.reason,
                 status: leave.approval_status,
-                actionDate: leave.updatedAt
+                actionDate: leave.updatedAt,
+                approvedBy: leave.approval_status === 'approved' ? reviewerName : null,
+                rejectedBy: leave.approval_status === 'rejected' ? reviewerName : null,
+                approverRole: reviewerRole,
+                decisionRemark,
+                rejectionReason: leave.rejection_reason || null
             };
         };
 

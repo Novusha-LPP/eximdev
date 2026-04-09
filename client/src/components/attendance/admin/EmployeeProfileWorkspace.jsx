@@ -49,6 +49,19 @@ const inputStyle = {
 
 const toWhole = (value) => Math.max(0, Math.floor(Number(value) || 0));
 
+const getOrdinalNum = (n) => n + (n > 0 ? ['th', 'st', 'nd', 'rd'][(n > 3 && n < 21) || n % 10 > 3 ? 0 : n % 10] : '');
+const formatDateOrdinal = (dateString) => {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '--';
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${getOrdinalNum(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
+};
+const formatStatus = (s) => {
+    if (!s) return '--';
+    const str = String(s).replace(/_/g, ' ');
+    return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) => {
     const params = useParams();
     const navigate = useNavigate();
@@ -82,6 +95,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [showLeaveBalanceForm, setShowLeaveBalanceForm] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
+  const [isEditingPolicy, setIsEditingPolicy] = useState(false);
   const [migrationHistory, setMigrationHistory] = useState([]);
   const [migrationHistoryLoading, setMigrationHistoryLoading] = useState(false);
 
@@ -212,6 +226,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   }, [filteredEmployees, currentPage, pageSize, groupBy]);
 
   const totalPages = Math.ceil(filteredEmployees.length / pageSize);
+
+  const visibleShiftPolicies = useMemo(() => {
+    const seen = new Set();
+    return (shiftPolicies || []).filter((shift) => {
+      const name = String(shift?.shift_name || '').trim();
+      if (!name) return false;
+      if (name.toLowerCase() === 'standard shift') return false;
+
+      const key = name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [shiftPolicies]);
 
   // Sync individual policy form with profile data
   useEffect(() => {
@@ -353,13 +381,28 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
           masterAPI.getLeavePolicies({ limit: 500 }).catch(() => ({ data: [] })),
           masterAPI.getWeekOffPolicies().catch(() => ({ data: [] })),
           masterAPI.getHolidayPolicies({ year: new Date().getFullYear() }).catch(() => ({ data: [] })),
-          masterAPI.getShifts({ limit: 500 }).catch(() => ({ data: [] }))
+          masterAPI.getShifts({
+            limit: 500,
+            all_companies: true
+          }).catch(() => ({ data: [] }))
         ]);
 
         setLeavePolicies(Array.isArray(leaveRes?.data) ? leaveRes.data : []);
         setWeekOffPolicies(Array.isArray(weekOffRes?.data) ? weekOffRes.data : []);
         setHolidayPolicies(Array.isArray(holidayRes?.data) ? holidayRes.data : []);
-        setShiftPolicies(Array.isArray(shiftRes?.data) ? shiftRes.data : []);
+        const shifts = Array.isArray(shiftRes?.data) ? shiftRes.data : [];
+
+        const assignedShift = profile?.employee?.shift_id;
+        const assignedShiftId = assignedShift?._id || assignedShift;
+        const assignedShiftExists = assignedShiftId
+          ? shifts.some((shift) => String(shift._id) === String(assignedShiftId))
+          : true;
+
+        if (!assignedShiftExists && assignedShift && assignedShift?._id) {
+          setShiftPolicies([assignedShift, ...shifts]);
+        } else {
+          setShiftPolicies(shifts);
+        }
       } catch {
         setLeavePolicies([]);
         setWeekOffPolicies([]);
@@ -369,7 +412,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
     };
 
     fetchPolicyCatalogs();
-  }, [id]);
+  }, [id, profile]);
 
   const employeeName = useMemo(() => {
     if (!profile?.employee) return 'Employee';
@@ -497,6 +540,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
       const result = await masterAPI.assignPolicyToUser(id, policyForm);
       if (result) {
         toast.success('Individual policies updated successfully');
+        setIsEditingPolicy(false);
         fetchData(); // Reload to reflect any derived changes
       }
     } catch (error) {
@@ -1130,7 +1174,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                     style={{ ...inputStyle, padding: '10px 12px', fontSize: '12px', flex: 1 }}
                   >
                     <option value="">Do not change</option>
-                    {shiftPolicies.map((p) => (
+                    {visibleShiftPolicies.map((p) => (
                       <option key={p._id} value={p._id}>{p.shift_name}</option>
                     ))}
                   </select>
@@ -1341,81 +1385,88 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
           })}
         </div>
 
-        {/* Attendance Filter */}
-        <div style={{ ...cardStyle, marginBottom: '12px', borderLeft: `4px solid ${THEME.green}`, padding: '16px' }}>
-          <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', color: THEME.navy, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📅 Filter by Date Range</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Month:</label>
-              <select 
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }}
-              >
-                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
-                  <option key={i} value={i}>{m}</option>
-                ))}
-              </select>
+        {tab === 'attendance' && (
+          <>
+            <div style={{ ...cardStyle, padding: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>📊</span>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: THEME.navy }}>Daily Records</h3>
+                </div>
+                
+                {/* Embedded Date Filters */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', background: '#f8fafc', padding: '8px 12px', borderRadius: '10px', border: `1px solid ${THEME.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontWeight: '500', fontSize: '12px', color: THEME.text }}>Month</label>
+                    <select 
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                      style={{ ...inputStyle, width: '100px', padding: '4px 8px', fontSize: '12px' }}
+                    >
+                      {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                        <option key={i} value={i}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontWeight: '500', fontSize: '12px', color: THEME.text }}>Year</label>
+                    <select 
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      style={{ ...inputStyle, width: '80px', padding: '4px 8px', fontSize: '12px' }}
+                    >
+                      {[selectedYear - 1, selectedYear, selectedYear + 1].map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <span style={{ color: THEME.border }}>|</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontWeight: '500', fontSize: '12px', color: THEME.text }}>From</label>
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, width: '115px', padding: '4px 8px', fontSize: '12px' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontWeight: '500', fontSize: '12px', color: THEME.text }}>To</label>
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ ...inputStyle, width: '115px', padding: '4px 8px', fontSize: '12px' }} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${THEME.border}`, color: THEME.text }}>
+                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>Date</th>
+                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>Status</th>
+                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>In</th>
+                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>Out</th>
+                      <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: '600' }}>Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(profile.attendance || []).map((row) => (
+                      <tr key={row._id} style={{ borderBottom: `1px solid ${THEME.border}`, transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '12px 8px', color: THEME.navy }}>{formatDateOrdinal(row.attendance_date)}</td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span style={{ fontWeight: '500', color: THEME.text }}>
+                            {formatStatus(row.status)}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.first_in ? new Date(row.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
+                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.last_out ? new Date(row.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '500', color: THEME.text }}>{toWhole(row.total_work_hours || 0)}h</td>
+                      </tr>
+                    ))}
+                    {(profile.attendance || []).length === 0 && (
+                      <tr>
+                        <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: THEME.muted }}>No records in selected period</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '50px' }}>Year:</label>
-              <select 
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }}
-              >
-                {[selectedYear - 1, selectedYear, selectedYear + 1].map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', paddingTop: '16px', borderTop: `1px solid ${THEME.border}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '80px' }}>From Date:</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
-              <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>To Date:</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} />
-            </div>
-          </div>
-        </div>
-
-      {tab === 'attendance' && (
-        <div style={{ ...cardStyle, padding: '12px' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px' }}>📊 Daily Records</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', color: THEME.navy }}>
-                  <th style={{ textAlign: 'left', padding: '12px', fontWeight: '700', borderBottom: `2px solid ${THEME.border}` }}>Date</th>
-                  <th style={{ textAlign: 'left', padding: '12px', fontWeight: '700', borderBottom: `2px solid ${THEME.border}` }}>Status</th>
-                  <th style={{ textAlign: 'left', padding: '12px', fontWeight: '700', borderBottom: `2px solid ${THEME.border}` }}>In</th>
-                  <th style={{ textAlign: 'left', padding: '12px', fontWeight: '700', borderBottom: `2px solid ${THEME.border}` }}>Out</th>
-                  <th style={{ textAlign: 'right', padding: '12px', fontWeight: '700', borderBottom: `2px solid ${THEME.border}` }}>Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(profile.attendance || []).map((row) => (
-                  <tr key={row._id} style={{ borderBottom: `1px solid ${THEME.border}` }}>
-                    <td style={{ padding: '6px 8px' }}>{new Date(row.attendance_date).toLocaleDateString()}</td>
-                    <td style={{ padding: '6px 8px' }}><span style={{ background: THEME.bg, padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>{row.status}</span></td>
-                    <td style={{ padding: '6px 8px' }}>{row.first_in ? new Date(row.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
-                    <td style={{ padding: '6px 8px' }}>{row.last_out ? new Date(row.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '500' }}>{toWhole(row.total_work_hours || 0)}h</td>
-                  </tr>
-                ))}
-                {(profile.attendance || []).length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '12px', textAlign: 'center', color: THEME.muted }}>No records in selected period</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          </>
+        )}
 
       {tab === 'leave' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
@@ -1568,10 +1619,21 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
 
       {tab === 'policies' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '20px' }}>
-          <div style={{ ...cardStyle, borderLeft: `5px solid ${THEME.primary}`, padding: '24px' }}>
-            <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: THEME.navy, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              🛡️ Individual Policy Management
-            </h2>
+          <div style={{ ...cardStyle, borderLeft: `5px solid ${THEME.primary}`, padding: '24px', opacity: isEditingPolicy ? 1 : 0.95 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', color: THEME.navy, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                🛡️ Individual Policy Management
+              </h2>
+              {!isEditingPolicy && (
+                <button 
+                  onClick={() => setIsEditingPolicy(true)}
+                  style={{ ...buttonStyle, background: THEME.bg, border: `1px solid ${THEME.border}`, color: THEME.navy, padding: '6px 16px' }}
+                >
+                  Edit Configuration
+                </button>
+              )}
+            </div>
+            
             <p style={{ color: THEME.muted, fontSize: '13px', marginBottom: '24px' }}>
               Override organization-level defaults for this employee. Select the policies that should apply specifically to this individual.
             </p>
@@ -1580,11 +1642,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '120px' }}>Week-Off Policy:</label>
                   <select
+                    disabled={!isEditingPolicy}
                     value={policyForm.weekoff_policy_id}
                     onChange={(e) => setPolicyForm((prev) => ({ ...prev, weekoff_policy_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '12px', background: THEME.bg, flex: 1 }}
+                    style={{ ...inputStyle, padding: '12px', background: isEditingPolicy ? '#fff' : '#f8fafc', flex: 1, cursor: isEditingPolicy ? 'default' : 'not-allowed' }}
                   >
-                    <option value="">Use Organization default</option>
+                    {!policyForm.weekoff_policy_id && <option value="">Select Week-Off Policy...</option>}
                     {weekOffPolicies.map((p) => (
                       <option key={p._id} value={p._id}>{p.policy_name}</option>
                     ))}
@@ -1594,12 +1657,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '100px' }}>Shift Policy:</label>
                   <select
+                    disabled={!isEditingPolicy}
                     value={policyForm.shift_id}
                     onChange={(e) => setPolicyForm((prev) => ({ ...prev, shift_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '12px', background: THEME.bg, flex: 1 }}
+                    style={{ ...inputStyle, padding: '12px', background: isEditingPolicy ? '#fff' : '#f8fafc', flex: 1, cursor: isEditingPolicy ? 'default' : 'not-allowed' }}
                   >
-                    <option value="">Use Organization default</option>
-                    {shiftPolicies.map((p) => (
+                    {!policyForm.shift_id && <option value="">Select Shift Policy...</option>}
+                    {visibleShiftPolicies.map((p) => (
                       <option key={p._id} value={p._id}>{p.shift_name}</option>
                     ))}
                   </select>
@@ -1608,39 +1672,71 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <label style={{ fontWeight: '700', fontSize: '13px', color: '#000', whiteSpace: 'nowrap', minWidth: '110px' }}>Holiday Policy:</label>
                   <select
+                    disabled={!isEditingPolicy}
                     value={policyForm.holiday_policy_id}
                     onChange={(e) => setPolicyForm((prev) => ({ ...prev, holiday_policy_id: e.target.value }))}
-                    style={{ ...inputStyle, padding: '12px', background: THEME.bg, flex: 1 }}
+                    style={{ ...inputStyle, padding: '12px', background: isEditingPolicy ? '#fff' : '#f8fafc', flex: 1, cursor: isEditingPolicy ? 'default' : 'not-allowed' }}
                   >
-                    <option value="">Use Organization default</option>
+                    {!policyForm.holiday_policy_id && <option value="">Select Holiday Policy...</option>}
                     {holidayPolicies.map((p) => (
                       <option key={p._id} value={p._id}>{p.policy_name}</option>
                     ))}
                   </select>
                 </div>
 
-                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                  <button
-                    type="submit"
-                    disabled={policySaving}
-                    style={{
-                      ...buttonStyle,
-                      background: THEME.primary,
-                      color: '#fff',
-                      padding: '14px 28px',
-                      fontSize: '14px',
-                      fontWeight: '700',
-                      borderRadius: '10px',
-                      boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
-                      opacity: policySaving ? 0.7 : 1
-                    }}
-                  >
-                    {policySaving ? 'Saving...' : hasSavedIndividualPolicy ? '💾 Update Policy Changes' : '💾 Save Policy Changes'}
-                  </button>
-                </div>
+                {isEditingPolicy && (
+                  <div style={{ gridColumn: '1 / -1', marginTop: '10px', display: 'flex', gap: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingPolicy(false);
+                        // Reset form to profile data
+                        const employee = profile.employee;
+                        const overrides = employee.policy_overrides || {};
+                        const resolvePolicyId = (directValue, overrideValue) =>
+                          directValue?._id || directValue || overrideValue?._id || overrideValue || '';
+                        setPolicyForm({
+                          weekoff_policy_id: resolvePolicyId(employee.weekoff_policy_id, overrides.weekoff_policy_id),
+                          holiday_policy_id: resolvePolicyId(employee.holiday_policy_id, overrides.holiday_policy_id),
+                          shift_id: resolvePolicyId(employee.shift_id, overrides.shift_id)
+                        });
+                      }}
+                      style={{
+                        ...buttonStyle,
+                        background: '#fff',
+                        border: `1px solid ${THEME.border}`,
+                        color: THEME.navy,
+                        padding: '12px 24px',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={policySaving}
+                      style={{
+                        ...buttonStyle,
+                        background: THEME.primary,
+                        color: '#fff',
+                        padding: '12px 32px',
+                        fontSize: '14px',
+                        fontWeight: '700',
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 6px -1px rgba(15, 23, 42, 0.2)',
+                        opacity: policySaving ? 0.7 : 1
+                      }}
+                    >
+                      {policySaving ? 'Saving...' : '💾 Save Policy Overrides'}
+                    </button>
+                  </div>
+                )}
             </form>
             <p style={{ marginTop: '14px', fontSize: '12px', color: THEME.muted }}>
-              Saved selections remain editable. You can update these policies anytime.
+              {isEditingPolicy 
+                ? 'You are currently in edit mode. Changes will be applied to the individual employee pattern.' 
+                : 'Click "Edit Configuration" to modify individual policy overrides.'}
             </p>
           </div>
         </div>

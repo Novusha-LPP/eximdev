@@ -1,3 +1,7 @@
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 // Premium Design Variables
 $primary: #0f172a;
 $secondary: #64748b;

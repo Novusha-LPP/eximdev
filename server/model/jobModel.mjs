@@ -82,6 +82,8 @@ const invoiceDetailsSchema = new mongoose.Schema(
     invoice_date: { type: String, trim: true },
     po_no: { type: String, trim: true },
     po_date: { type: String, trim: true },
+    product_value: { type: String, trim: true },
+    other_charges: { type: String, trim: true },
     total_inv_value: { type: String, trim: true },
     inv_currency: { type: String, trim: true },
     toi: { type: String, trim: true },
@@ -100,6 +102,8 @@ const descriptionDetailsSchema = new mongoose.Schema(
     sr_no_lic: { type: String, trim: true },
     quantity: { type: String, trim: true },
     unit: { type: String, trim: true },
+    unit_price: { type: String, trim: true },
+    amount: { type: String, trim: true },
   },
   { _id: false }
 );

@@ -124,10 +124,19 @@ export const getShiftById = async (req, res) => {
 export const getShifts = async (req, res) => {
   try {
     const companyId = resolveCompanyId(req);
+    const allCompanies = String(req.query?.all_companies || '').toLowerCase() === 'true';
+
+    const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+    const isAdmin = roleNorm === 'ADMIN';
+
+    const baseFilters = allCompanies && isAdmin
+      ? {}
+      : { company_id: companyId };
+
     const result = await QueryBuilder.build(
       Shift,
       req.query,
-      { company_id: companyId },
+      baseFilters,
       ['shift_name', 'shift_code'],
       ['applicability.teams.list']
     );
@@ -164,7 +173,7 @@ export const bulkAssignShifts = async (req, res) => {
 
     const result = await User.updateMany(
       { _id: { $in: employeeIds }, company_id: companyId },
-      { $set: { shift_id: shiftId } }
+      { $set: { shift_id: shiftId, shift_ids: [shiftId] } }
     );
 
     await logActivity(req, 'SHIFT', 'BULK_ASSIGN', `Assigned shift ${shiftId} to ${result.modifiedCount} employees`);
@@ -428,6 +437,7 @@ const assignUsersToCompany = async ({ selectedUserIds = [], company, defaultShif
 
   if (defaultShiftId) {
     userUpdate.shift_id = defaultShiftId;
+    userUpdate.shift_ids = [defaultShiftId];
   }
 
   await User.updateMany(
@@ -563,6 +573,7 @@ export const migrateUser = async (req, res) => {
     user.company_id = targetCompanyId;
     user.company = targetCompany.company_name;
     user.shift_id = targetShiftId || null;
+    user.shift_ids = targetShiftId ? [targetShiftId] : [];
     user.department_id = targetDepartmentId || null;
     
     // Reset company-specific policies

@@ -10,9 +10,90 @@ import mongoose from 'mongoose';
 const getDefaultOpeningBalance = (policy) => {
     const leaveType = String(policy?.leave_type || '').toLowerCase();
     if (leaveType === 'lwp') {
-        return 2000;
+        return Number.MAX_SAFE_INTEGER;
     }
     return Number(policy?.annual_quota || 0);
+};
+
+const normalizeId = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value._id) return String(value._id);
+    return String(value);
+};
+
+const getAssignedPolicyIds = (user) => {
+    return (user?.leave_settings?.special_leave_policies || []).map((id) => String(id));
+};
+
+const getAnyActiveLwpPolicy = async () => {
+    return LeavePolicy.findOne({
+        leave_type: 'lwp',
+        status: 'active'
+    }).sort({ updatedAt: -1, createdAt: -1 });
+};
+
+const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assignedPolicyIds }) => {
+    const balances = await LeaveBalance.find({
+        employee_id: targetId,
+        year: currentYear
+    }).select('leave_policy_id leave_type');
+
+    if (!balances.length) {
+        return [];
+    }
+
+    const directBalancePolicyIds = balances
+        .map((b) => normalizeId(b.leave_policy_id))
+        .filter(Boolean);
+
+    let recoveredPolicies = await LeavePolicy.find({
+        _id: { $in: [...new Set([...assignedPolicyIds, ...directBalancePolicyIds])] },
+        status: 'active'
+    });
+
+    if (recoveredPolicies.length > 0) {
+        return recoveredPolicies;
+    }
+
+    const balanceLeaveTypes = balances
+        .map((b) => String(b.leave_type || '').toLowerCase().trim())
+        .filter(Boolean);
+
+    if (!balanceLeaveTypes.length) {
+        return [];
+    }
+
+    recoveredPolicies = await LeavePolicy.find({
+        status: 'active',
+        leave_type: { $in: [...new Set(balanceLeaveTypes)] }
+    });
+
+    return recoveredPolicies;
+};
+
+const filterEligiblePolicies = (policies, employee) => {
+    return policies.filter((policy) => {
+        let eligible = true;
+
+        if (policy.eligibility?.employment_types?.length > 0) {
+            const userType = (employee?.employment_type || '').toLowerCase().trim();
+            const allowedTypes = policy.eligibility.employment_types.map((t) => t.toLowerCase().trim());
+            if (userType && !allowedTypes.includes(userType)) {
+                eligible = false;
+            }
+        }
+
+        if (policy.eligibility?.gender) {
+            const userGender = (employee?.gender || '').toLowerCase().trim();
+            const policyGender = (policy.eligibility.gender || '').toLowerCase().trim();
+            if (userGender && policyGender && userGender !== policyGender) {
+                eligible = false;
+            }
+        }
+
+        return eligible;
+    });
 };
 
 
@@ -58,51 +139,82 @@ export const getBalance = async (req, res) => {
             targetEmployee = employeeFound;
         }
 
-        const companyId = targetEmployee.company_id?._id || targetEmployee.company_id;
-        console.log('[Leave Balance] Requester:', actor.username, 'Target:', targetEmployee.username, 'Company:', companyId);
+        const assignedPolicyIds = getAssignedPolicyIds(targetEmployee);
 
-        // 2. Fetch ALL Active Policies for the Company
-        const allPolicies = await LeavePolicy.find({
-            company_id: companyId,
-            status: 'active'
-        });
+        // 2. Fetch assigned active policies (global policy catalog)
+        let allPolicies = assignedPolicyIds.length > 0
+            ? await LeavePolicy.find({
+                _id: { $in: assignedPolicyIds },
+                status: 'active'
+            })
+            : [];
+
+        // Recover from stale/deleted policy IDs by mapping existing balances to active policies.
+        if (!allPolicies.length) {
+            allPolicies = await recoverActivePoliciesFromBalances({
+                targetId,
+                currentYear,
+                assignedPolicyIds
+            });
+
+            if (allPolicies.length > 0) {
+                await UserModel.updateOne(
+                    { _id: targetId },
+                    {
+                        $addToSet: {
+                            'leave_settings.special_leave_policies': {
+                                $each: allPolicies.map((p) => p._id)
+                            }
+                        }
+                    }
+                );
+            }
+        }
+
+        // Keep LWP available for everyone, even if no leave policy is assigned.
+        const lwpPolicy = await getAnyActiveLwpPolicy();
+        if (lwpPolicy && !allPolicies.some((p) => String(p._id) === String(lwpPolicy._id))) {
+            allPolicies.push(lwpPolicy);
+        }
 
         console.log('[Leave Balance] Found', allPolicies.length, 'active policies');
 
         if (!allPolicies || allPolicies.length === 0) {
-            console.log('[Leave Balance] No active policies found for company');
+            console.log('[Leave Balance] No active policies found');
             return res.json({ data: [] });
         }
 
         // --- FILTER BY ELIGIBILITY (CASE-INSENSITIVE) ---
-        let policies = allPolicies.filter(policy => {
-            let eligible = true;
+        let policies = filterEligiblePolicies(allPolicies, targetEmployee);
 
-            // Check Employment Type
-            if (policy.eligibility?.employment_types?.length > 0) {
-                const userType = (targetEmployee.employment_type || '').toLowerCase().trim();
-                const allowedTypes = policy.eligibility.employment_types.map(t => t.toLowerCase().trim());
-                if (userType && !allowedTypes.includes(userType)) {
-                    eligible = false;
+        policies = policies.filter((policy) => assignedPolicyIds.includes(String(policy._id)));
+
+        if (policies.length === 0) {
+            const recoveredPolicies = await recoverActivePoliciesFromBalances({
+                targetId,
+                currentYear,
+                assignedPolicyIds
+            });
+
+            if (recoveredPolicies.length > 0) {
+                policies = filterEligiblePolicies(recoveredPolicies, targetEmployee);
+                if (policies.length > 0) {
+                    await UserModel.updateOne(
+                        { _id: targetId },
+                        {
+                            $addToSet: {
+                                'leave_settings.special_leave_policies': {
+                                    $each: policies.map((p) => p._id)
+                                }
+                            }
+                        }
+                    );
                 }
             }
 
-            // Check Gender
-            if (policy.eligibility?.gender) {
-                const userGender = (targetEmployee.gender || '').toLowerCase().trim();
-                const policyGender = (policy.eligibility.gender || '').toLowerCase().trim();
-                if (userGender && policyGender && userGender !== policyGender) {
-                    eligible = false;
-                }
+            if (policies.length === 0 && lwpPolicy) {
+                policies = [lwpPolicy];
             }
-
-            return eligible;
-        });
-
-        const assignedPolicyIds = (targetEmployee.leave_settings?.special_leave_policies || [])
-            .map((id) => String(id));
-        if (assignedPolicyIds.length > 0) {
-            policies = policies.filter((policy) => assignedPolicyIds.includes(String(policy._id)));
         }
 
         console.log('[Leave Balance] After eligibility filter:', policies.length, 'eligible policies');
@@ -205,8 +317,29 @@ export const getApplications = async (req, res) => {
             employee_id: user._id
         })
             .populate('leave_policy_id', 'leave_type policy_name')
+            .populate('final_reviewed_by', 'first_name last_name username role')
+            .populate('hod_reviewed_by', 'first_name last_name username role')
+            .populate('rejected_by', 'first_name last_name username role')
             .sort({ createdAt: -1 });
-        const formattedApps = applications.map(app => ({
+        const formattedApps = applications.map(app => {
+            const finalReviewer = app.final_reviewed_by;
+            const rejectedBy = app.rejected_by;
+            const hodReviewer = app.hod_reviewed_by;
+            const effectiveReviewer = app.approval_status === 'rejected'
+                ? (rejectedBy || finalReviewer || hodReviewer)
+                : (finalReviewer || hodReviewer);
+
+            const reviewerName = effectiveReviewer
+                ? (effectiveReviewer.first_name
+                    ? `${effectiveReviewer.first_name} ${effectiveReviewer.last_name || ''}`.trim()
+                    : effectiveReviewer.username)
+                : null;
+
+            const reviewerRole = effectiveReviewer
+                ? String(effectiveReviewer.role || '').toUpperCase().replace(/[^A-Z]/g, '')
+                : null;
+
+            return {
             _id: app._id,
             leave_type: app.leave_policy_id ? app.leave_policy_id.leave_type : app.leave_type || 'Unknown',
             from_date: app.from_date,
@@ -217,8 +350,14 @@ export const getApplications = async (req, res) => {
             attachment_urls: app.attachment_urls || [],
             reason: app.reason || '',
             status: app.approval_status === 'hod_approved_pending_admin' ? 'pending' : app.approval_status,
-            createdAt: app.createdAt
-        }));
+            createdAt: app.createdAt,
+            rejection_reason: app.rejection_reason || null,
+            reviewer_remark: app.rejection_reason || app.final_review_comment || app.hod_review_comment || app.comments || '',
+            reviewed_by: reviewerName,
+            reviewed_by_role: reviewerRole,
+            reviewed_at: app.final_reviewed_at || app.rejected_at || app.hod_reviewed_at || app.updatedAt
+            };
+        });
         res.json({ data: formattedApps });
     } catch (err) {
         console.error('Error in getApplications:', err);
@@ -277,6 +416,7 @@ export const applyLeave = async (req, res) => {
     try {
         const user = req.user;
         const { leave_policy_id, from_date, to_date, reason } = req.body;
+        const currentYear = new Date().getFullYear();
 
         // Robust ID extraction
         const companyId = user.company_id?._id || user.company_id;
@@ -287,13 +427,45 @@ export const applyLeave = async (req, res) => {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
+        const assignedPolicyIds = getAssignedPolicyIds(user);
+
         let policy = await LeavePolicy.findOne({
             _id: leave_policy_id,
-            company_id: companyId,
             status: 'active'
         });
         if (!policy) {
             return res.status(404).json({ message: 'Leave policy not found or inactive' });
+        }
+
+        if (!assignedPolicyIds.includes(String(policy._id))) {
+            const isLwpPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
+
+            if (isLwpPolicy) {
+                await UserModel.updateOne(
+                    { _id: user._id },
+                    { $addToSet: { 'leave_settings.special_leave_policies': policy._id } }
+                );
+            }
+
+            const hasMatchingBalance = await LeaveBalance.exists({
+                employee_id: user._id,
+                year: currentYear,
+                $or: [
+                    { leave_policy_id: policy._id },
+                    { leave_type: policy.leave_type }
+                ]
+            });
+
+            if (!hasMatchingBalance && !isLwpPolicy) {
+                return res.status(403).json({ message: 'Selected leave policy is not assigned to this user' });
+            }
+
+            if (hasMatchingBalance && !isLwpPolicy) {
+                await UserModel.updateOne(
+                    { _id: user._id },
+                    { $addToSet: { 'leave_settings.special_leave_policies': policy._id } }
+                );
+            }
         }
 
         // 2. Smart Day Calculation (including Sandwich Rule)
@@ -315,7 +487,6 @@ export const applyLeave = async (req, res) => {
         const end = moment(isHalfDay ? from_date : to_date).endOf('day');
 
         // 4. Check Balance (or Create it if missing)
-        const currentYear = new Date().getFullYear();
         let balanceRecord = await LeaveBalance.findOne({
             employee_id: user._id,
             leave_policy_id: policy._id,
@@ -350,17 +521,26 @@ export const applyLeave = async (req, res) => {
 
         // Auto-convert insufficient paid leave requests to LWP.
         if (!isUnpaidLeave && availableBalance < total_days) {
-            const lwpPolicy = await LeavePolicy.findOne({
-                company_id: companyId,
+            let lwpPolicy = await LeavePolicy.findOne({
+                _id: { $in: assignedPolicyIds },
                 status: 'active',
                 leave_type: 'lwp'
             });
+
+            if (!lwpPolicy) {
+                lwpPolicy = await getAnyActiveLwpPolicy();
+            }
 
             if (!lwpPolicy) {
                 return res.status(400).json({
                     message: `Insufficient leave balance. Available: ${availableBalance}, Required: ${total_days}`
                 });
             }
+
+            await UserModel.updateOne(
+                { _id: user._id },
+                { $addToSet: { 'leave_settings.special_leave_policies': lwpPolicy._id } }
+            );
 
             policy = lwpPolicy;
             isUnpaidLeave = true;
@@ -574,6 +754,14 @@ export const updateBalance = async (req, res) => {
             return res.status(400).json({ message: 'employee_id and leave_policy_id are required' });
         }
 
+        if (!mongoose.Types.ObjectId.isValid(employee_id)) {
+            return res.status(400).json({ message: 'Invalid employee_id format' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(leave_policy_id)) {
+            return res.status(400).json({ message: 'Invalid leave_policy_id format' });
+        }
+
         if (opening_balance === undefined || opening_balance === null) {
             return res.status(400).json({ message: 'opening_balance is required' });
         }
@@ -606,10 +794,18 @@ export const updateBalance = async (req, res) => {
         }
 
         const companyId = employee.company_id?._id || employee.company_id;
-        const policy = await LeavePolicy.findOne({ _id: leave_policy_id, company_id: companyId });
+        const policy = await LeavePolicy.findOne({ _id: leave_policy_id, status: 'active' });
         if (!policy) {
-            console.error('[Leave Update] Policy not found or mismatch:', { leave_policy_id, companyId, employee: employee.username });
-            return res.status(404).json({ message: `Leave policy (ID: ${leave_policy_id}) not found or does not belong to organization (ID: ${companyId})` });
+            console.error('[Leave Update] Policy not found/inactive:', { leave_policy_id, employee: employee.username });
+            return res.status(404).json({ message: `Leave policy (ID: ${leave_policy_id}) not found or inactive` });
+        }
+
+        const assignedPolicyIds = getAssignedPolicyIds(employee);
+        if (!assignedPolicyIds.includes(String(policy._id))) {
+            await UserModel.updateOne(
+                { _id: employee._id },
+                { $addToSet: { 'leave_settings.special_leave_policies': policy._id } }
+            );
         }
 
         if (!balanceRecord) {

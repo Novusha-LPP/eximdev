@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext, useEffect } from "react";
+import React, { useState, useRef, useContext, useEffect, useMemo } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
@@ -960,8 +960,8 @@ function JobDetails() {
   const InBondflag = formik.values.type_of_b_e === "In-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
   const isDescriptionTableReadOnly = user?.role !== "Admin" && isSubmissionDate;
-  const descriptionRows =
-    Array.isArray(formik.values.description_details) &&
+  const descriptionRows = useMemo(() => {
+    return Array.isArray(formik.values.description_details) &&
       formik.values.description_details.length > 0
       ? formik.values.description_details
       : [
@@ -978,6 +978,7 @@ function JobDetails() {
           foc_item: "No",
         },
       ];
+  }, [formik.values.description_details, formik.values.clearanceValue]);
 
   const updateDescriptionRow = (rowIndex, field, value) => {
     const updatedRows = [...descriptionRows];
@@ -988,23 +989,14 @@ function JobDetails() {
 
     // Auto-calculate amount if quantity or unit_price changes
     if (field === "quantity" || field === "unit_price") {
-      const qty = parseFloat(field === "quantity" ? value : (updatedRows[rowIndex].quantity || 0)) || 0;
-      const price = parseFloat(field === "unit_price" ? value : (updatedRows[rowIndex].unit_price || 0)) || 0;
+      const qValue = field === "quantity" ? value : (updatedRows[rowIndex].quantity || 0);
+      const pValue = field === "unit_price" ? value : (updatedRows[rowIndex].unit_price || 0);
+      const qty = parseFloat(qValue) || 0;
+      const price = parseFloat(pValue) || 0;
       updatedRows[rowIndex].amount = (qty * price).toFixed(2);
     }
 
     formik.setFieldValue("description_details", updatedRows);
-
-    if (rowIndex === 0) {
-      if (field === "description") formik.setFieldValue("description", value);
-      if (field === "cth_no") formik.setFieldValue("cth_no", value);
-      if (field === "clearance_under")
-        formik.setFieldValue("clearanceValue", value);
-      if (field === "sr_no_invoice")
-        formik.setFieldValue("invoice_number", value);
-      if (field === "quantity") formik.setFieldValue("no_of_pkgs", value);
-      if (field === "unit") formik.setFieldValue("unit", value);
-    }
   };
 
   const addDescriptionRow = () => {
@@ -1032,24 +1024,25 @@ function JobDetails() {
   };
 
   // ---- Invoice Details helpers ----
-  const invoiceRows =
-    Array.isArray(formik.values.invoice_details) &&
-    formik.values.invoice_details.length > 0
+  const invoiceRows = useMemo(() => {
+    return Array.isArray(formik.values.invoice_details) &&
+      formik.values.invoice_details.length > 0
       ? formik.values.invoice_details
       : [
-          {
-            invoice_number: "",
-            invoice_date: "",
-            po_no: "",
-            product_value: "",
-            other_charges: "",
-            total_inv_value: "",
-            inv_currency: "",
-            toi: "CIF",
-            freight: "",
-            insurance: "",
-          },
-        ];
+        {
+          invoice_number: "",
+          invoice_date: "",
+          po_no: "",
+          product_value: "",
+          other_charges: "",
+          total_inv_value: "",
+          inv_currency: "",
+          toi: "CIF",
+          freight: "",
+          insurance: "",
+        },
+      ];
+  }, [formik.values.invoice_details]);
 
   const updateInvoiceRow = (rowIndex, field, value) => {
     const updatedRows = [...invoiceRows];
@@ -1065,21 +1058,17 @@ function JobDetails() {
       const frt = parseFloat(field === "freight" ? value : (updatedRows[rowIndex].freight || 0)) || 0;
       const ins = parseFloat(field === "insurance" ? value : (updatedRows[rowIndex].insurance || 0)) || 0;
       const other = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
-      updatedRows[rowIndex].total_inv_value = (prod + frt + ins + other).toFixed(2);
+      const total = (prod + frt + ins + other).toFixed(2);
+      
+      updatedRows[rowIndex].total_inv_value = total;
+      // Requirement: product value column should display the same as invoice value
+      // But avoid overwriting while typing to preserve UX (cursor position, dots, etc)
+      if (field !== "product_value") {
+        updatedRows[rowIndex].product_value = total;
+      }
     }
 
     formik.setFieldValue("invoice_details", updatedRows);
-
-    // Sync top-level fields from the first row for backward compatibility
-    if (rowIndex === 0) {
-      if (field === "invoice_number") formik.setFieldValue("invoice_number", value);
-      if (field === "invoice_date") formik.setFieldValue("invoice_date", value);
-      if (field === "po_no") formik.setFieldValue("po_no", value);
-      if (field === "total_inv_value") formik.setFieldValue("total_inv_value", value);
-      if (field === "toi") formik.setFieldValue("import_terms", value);
-      if (field === "freight") formik.setFieldValue("freight", value);
-      if (field === "insurance") formik.setFieldValue("insurance", value);
-    }
   };
 
   const addInvoiceRow = () => {

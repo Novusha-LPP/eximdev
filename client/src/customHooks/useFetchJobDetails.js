@@ -676,6 +676,16 @@ function useFetchJobDetails(
       ),
     [formik.values.container_nos]
   );
+
+  const serializedDescriptionDetails = useMemo(
+    () => JSON.stringify(formik.values.description_details || []),
+    [formik.values.description_details]
+  );
+
+  const serializedInvoiceDetails = useMemo(
+    () => JSON.stringify(formik.values.invoice_details || []),
+    [formik.values.invoice_details]
+  );
   // Update formik intial values when data is fetched from db
   useEffect(() => {
     if (data) {
@@ -1037,6 +1047,35 @@ function useFetchJobDetails(
     }
     // eslint-disable-next-line
   }, [formik.values.do_validity_upto_job_level]);
+
+  // Handle automatic syncing of top-level fields from Description Details
+  useEffect(() => {
+    if (formik.values.description_details?.length > 0) {
+      const firstRow = formik.values.description_details[0];
+      if (firstRow.description !== formik.values.description) formik.setFieldValue("description", firstRow.description || "");
+      if (firstRow.cth_no !== formik.values.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
+      if (firstRow.clearance_under !== formik.values.clearanceValue) formik.setFieldValue("clearanceValue", firstRow.clearance_under || "");
+      if (firstRow.sr_no_invoice !== formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.sr_no_invoice || "");
+      if (firstRow.quantity !== formik.values.no_of_pkgs) formik.setFieldValue("no_of_pkgs", firstRow.quantity || "");
+      if (firstRow.unit !== formik.values.unit) formik.setFieldValue("unit", firstRow.unit || "");
+      if (firstRow.unit_price !== formik.values.unit_price) formik.setFieldValue("unit_price", firstRow.unit_price || "");
+      if (firstRow.amount !== formik.values.cif_amount) formik.setFieldValue("cif_amount", firstRow.amount || "");
+    }
+  }, [serializedDescriptionDetails]);
+
+  // Handle automatic syncing of top-level fields from Invoice Details
+  useEffect(() => {
+    if (formik.values.invoice_details?.length > 0) {
+      const firstRow = formik.values.invoice_details[0];
+      if (firstRow.invoice_number !== formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
+      if (firstRow.invoice_date !== formik.values.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
+      if (firstRow.po_no !== formik.values.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
+      if (firstRow.total_inv_value !== formik.values.total_inv_value) formik.setFieldValue("total_inv_value", firstRow.total_inv_value || "");
+      if (firstRow.toi !== formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
+      if (firstRow.freight !== formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
+      if (firstRow.insurance !== formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
+    }
+  }, [serializedInvoiceDetails]);
 
   const handleFileChange = async (event, documentName, index, isCth) => {
     const file = event.target.files[0];

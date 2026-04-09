@@ -269,12 +269,19 @@ export const getHolidaysForCurrentUser = async (req, res) => {
 export const assignPolicyToUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { weekoff_policy_id, holiday_policy_id, shift_id, leave_policy_ids } = req.body;
+    const { weekoff_policy_id, holiday_policy_id, shift_id, shift_ids, leave_policy_ids } = req.body;
 
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
-    if (shift_id !== undefined) update.shift_id = shift_id || null;
+    if (shift_ids !== undefined) {
+      const normalizedShiftIds = Array.isArray(shift_ids) ? shift_ids.filter(Boolean) : [];
+      update.shift_ids = normalizedShiftIds;
+      update.shift_id = normalizedShiftIds[0] || null;
+    } else if (shift_id !== undefined) {
+      update.shift_id = shift_id || null;
+      update.shift_ids = shift_id ? [shift_id] : [];
+    }
     if (leave_policy_ids !== undefined) {
       update['leave_settings.special_leave_policies'] = Array.isArray(leave_policy_ids) ? leave_policy_ids : [];
     }
@@ -289,6 +296,7 @@ export const assignPolicyToUser = async (req, res) => {
         weekoff_policy_id: user.weekoff_policy_id,
         holiday_policy_id: user.holiday_policy_id,
         shift_id: user.shift_id,
+        shift_ids: user.shift_ids || [],
         leave_policy_ids: user.leave_settings?.special_leave_policies || []
       }
     });
@@ -308,6 +316,7 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
       weekoff_policy_id,
       holiday_policy_id,
       shift_id,
+      shift_ids,
       leave_policy_ids
     } = req.body || {};
 
@@ -319,6 +328,7 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
       weekoff_policy_id !== undefined ||
       holiday_policy_id !== undefined ||
       shift_id !== undefined ||
+      shift_ids !== undefined ||
       leave_policy_ids !== undefined;
 
     if (!hasAnyAssignment) {
@@ -333,7 +343,14 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
-    if (shift_id !== undefined) update.shift_id = shift_id || null;
+    if (shift_ids !== undefined) {
+      const normalizedShiftIds = Array.isArray(shift_ids) ? shift_ids.filter(Boolean) : [];
+      update.shift_ids = normalizedShiftIds;
+      update.shift_id = normalizedShiftIds[0] || null;
+    } else if (shift_id !== undefined) {
+      update.shift_id = shift_id || null;
+      update.shift_ids = shift_id ? [shift_id] : [];
+    }
     if (leave_policy_ids !== undefined) {
       update['leave_settings.special_leave_policies'] = Array.isArray(leave_policy_ids) ? leave_policy_ids : [];
     }

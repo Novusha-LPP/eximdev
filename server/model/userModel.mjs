@@ -77,6 +77,7 @@ const userSchema = new Schema({
   department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', index: true },
   branch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', index: true },
   shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', index: true },
+  shift_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Shift' }],
   hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   employee_code: { type: String, unique: true, sparse: true },
 

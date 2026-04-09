@@ -71,14 +71,17 @@ router.get("/job-data", authApiKey, async (req, res) => {
  */
 router.get("/next-sequence", authApiKey, async (req, res) => {
   try {
-    const { type, jobNo, year } = req.query;
+    const { type, jobNo, year, jobId } = req.query;
     if (!type || !jobNo) {
       return res.status(400).json({ error: "type (purchase/payment) and jobNo are required query parameters" });
     }
 
     // Standardize jobNo: Use structured job_number (canonical reference) if possible
     let canonicalJobNo = jobNo;
-    if (!jobNo.includes('/')) {
+    if (jobId) {
+      const job = await JobModel.findById(jobId).select('job_number').lean();
+      if (job && job.job_number) canonicalJobNo = job.job_number;
+    } else if (!jobNo.includes('/')) {
       const query = { job_no: jobNo };
       if (year) query.year = year;
       const job = await JobModel.findOne(query).select('job_number').lean();

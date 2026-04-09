@@ -118,6 +118,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     assessable_ammount,
     igst_ammount,
     mode,
+    igm_date,
   } = rowData;
 
   const initialDates = useMemo(
@@ -129,6 +130,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       pcv_date,
       out_of_charge,
       duty_paid_date,
+      igm_date,
     }),
     [
       assessment_date,
@@ -138,6 +140,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       pcv_date,
       out_of_charge,
       duty_paid_date,
+      igm_date,
     ]
   );
 
@@ -558,6 +561,16 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                   "GIGM",
                   dates.gateway_igm_date,
                   "gateway_igm_date"
+                )}
+                <br />
+              </>
+            )}
+            {!activeBranchConfig.gateway_igm_date_enabled && (
+              <>
+                {renderRowDateEditor(
+                  "IGM Date",
+                  dates.igm_date,
+                  "igm_date"
                 )}
                 <br />
               </>

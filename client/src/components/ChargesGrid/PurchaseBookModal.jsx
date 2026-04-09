@@ -51,8 +51,9 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                 try {
                     const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
                     const yearParam = jobYear ? `&year=${jobYear}` : '';
+                    const jobIdParam = initialData.jobId ? `&jobId=${initialData.jobId}` : '';
                     const response = await axios.get(
-                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=purchase&jobNo=${jobNum}${yearParam}`,
+                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=purchase&jobNo=${jobNum}${yearParam}${jobIdParam}`,
                         {
                             headers: { 'x-api-key': API_KEY },
                             withCredentials: true

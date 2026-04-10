@@ -241,14 +241,16 @@ const ShiftManagement = () => {
         </div>
       )}
 
-      <EnterpriseTable
-        title="Available Shifts"
-        columns={columns}
-        fetchData={fetchShifts}
-        searchPlaceholder="Search shifts "
-        selectable={false}
-        key={`${tableKey}`}
-      />
+      {!showForm && (
+        <EnterpriseTable
+          title="Available Shifts"
+          columns={columns}
+          fetchData={fetchShifts}
+          searchPlaceholder="Search shifts "
+          selectable={false}
+          key={`${tableKey}`}
+        />
+      )}
     </div>
   );
 };

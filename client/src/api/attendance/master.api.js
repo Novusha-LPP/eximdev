@@ -14,6 +14,11 @@ const masterAPI = {
         return response.data;
     },
 
+    updateShift: async (id, shiftData) => {
+        const response = await apiClient.put(`/master/shifts/${id}`, shiftData);
+        return response.data;
+    },
+
     deleteShift: async (id) => {
         const response = await apiClient.delete(`/master/shifts/${id}`);
         return response.data;

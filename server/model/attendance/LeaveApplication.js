@@ -26,13 +26,21 @@ const leaveApplicationSchema = new mongoose.Schema({
 
   approval_status: {
     type: String,
-    enum: ['pending_hod', 'hod_approved_pending_admin', 'approved', 'rejected', 'cancelled', 'withdrawn', 'pending'],
-    default: 'pending_hod'
+    enum: ['approved', 'rejected', 'cancelled', 'withdrawn', 'pending'],
+    default: 'pending'
+  },
+
+  approval_stage: {
+    type: String,
+    enum: ['stage_1_hod', 'stage_2_shalini', 'stage_3_final', null],
+    default: 'stage_1_hod'
   },
 
   approval_chain: [{
     level: Number,
+    stage: String,
     approver_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approver_username: String,
     approver_role: String,
     action: { type: String, enum: ['pending', 'approved', 'rejected'] },
     action_date: Date,

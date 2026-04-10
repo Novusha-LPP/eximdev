@@ -58,6 +58,9 @@ const leavePolicySchema = new mongoose.Schema({
     counted_as_absence: { type: Boolean, default: false }
   },
 
+  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
   status: { type: String, enum: ['active', 'inactive'], default: 'active' }
 }, { timestamps: true });
 

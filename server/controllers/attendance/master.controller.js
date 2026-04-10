@@ -80,7 +80,12 @@ export const createShift = async (req, res) => {
     });
 
     await shift.save();
-    await logActivity(req, 'SHIFT', 'CREATE_SHIFT', `Created new shift: ${shift.shift_name}`, { shift_id: shift._id });
+    await logActivity(req, 'SHIFT', 'CREATE_SHIFT', `Created new shift: ${shift.shift_name}`, {
+      shift_id: shift._id,
+      policy_id: shift._id,
+      policy_type: 'shift',
+      policy_name: shift.shift_name
+    });
     res.status(201).json(shift);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -100,7 +105,12 @@ export const updateShift = async (req, res) => {
 
     if (!shift) return res.status(404).json({ message: 'Shift not found' });
 
-    await logActivity(req, 'SHIFT', 'UPDATE_SHIFT', `Updated shift: ${shift.shift_name}`, { shift_id: shift._id });
+    await logActivity(req, 'SHIFT', 'UPDATE_SHIFT', `Updated shift: ${shift.shift_name}`, {
+      shift_id: shift._id,
+      policy_id: shift._id,
+      policy_type: 'shift',
+      policy_name: shift.shift_name
+    });
     res.json(shift);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -138,7 +148,7 @@ export const getShifts = async (req, res) => {
       req.query,
       baseFilters,
       ['shift_name', 'shift_code'],
-      ['applicability.teams.list']
+      ['applicability.teams.list', 'created_by', 'updated_by']
     );
     res.json(result);
   } catch (err) {
@@ -151,7 +161,12 @@ export const deleteShift = async (req, res) => {
     const companyId = resolveCompanyId(req);
     const shift = await Shift.findOneAndDelete({ _id: req.params.id, company_id: companyId });
     if (shift) {
-      await logActivity(req, 'SHIFT', 'DELETE_SHIFT', `Deleted shift: ${shift.shift_name}`);
+      await logActivity(req, 'SHIFT', 'DELETE_SHIFT', `Deleted shift: ${shift.shift_name}`, {
+        shift_id: shift._id,
+        policy_id: shift._id,
+        policy_type: 'shift',
+        policy_name: shift.shift_name
+      });
     }
     res.json({ message: 'Shift deleted successfully' });
   } catch (err) {
@@ -280,11 +295,17 @@ export const createLeavePolicy = async (req, res) => {
     const companyId = resolveCompanyId(req);
     const policy = new LeavePolicy({
       ...req.body,
-      company_id: companyId
+      company_id: companyId,
+      created_by: req.user._id,
+      updated_by: req.user._id
     });
 
     await policy.save();
-    await logActivity(req, 'LEAVE', 'CREATE_POLICY', `Created leave policy: ${policy.policy_name}`);
+    await logActivity(req, 'LEAVE', 'CREATE_POLICY', `Created leave policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'leave',
+      policy_name: policy.policy_name
+    });
     res.status(201).json(policy);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -326,7 +347,8 @@ export const getLeavePolicies = async (req, res) => {
       LeavePolicy,
       req.query,
       filter,
-      ['policy_name', 'leave_code']
+      ['policy_name', 'leave_code'],
+      ['created_by', 'updated_by']
     );
     res.json(result);
   } catch (err) {
@@ -339,17 +361,25 @@ export const updateLeavePolicy = async (req, res) => {
     const { id } = req.params;
     const companyId = resolveCompanyId(req);
 
-    const policy = await LeavePolicy.findOneAndUpdate(
-      { _id: id, company_id: companyId },
-      { ...req.body, updated_at: new Date() },
-      { returnDocument: 'after' }
-    );
+    const policy = await LeavePolicy.findOne({ _id: id, company_id: companyId });
 
     if (!policy) {
       return res.status(404).json({ message: 'Leave policy not found' });
     }
 
-    await logActivity(req, 'LEAVE', 'UPDATE_POLICY', `Updated leave policy: ${policy.policy_name}`);
+    if (policy.created_by && String(policy.created_by) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
+    }
+
+    if (!policy.created_by) policy.created_by = req.user._id;
+    Object.assign(policy, req.body, { updated_at: new Date(), updated_by: req.user._id });
+    await policy.save();
+
+    await logActivity(req, 'LEAVE', 'UPDATE_POLICY', `Updated leave policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'leave',
+      policy_name: policy.policy_name
+    });
     res.json(policy);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -361,18 +391,27 @@ export const deleteLeavePolicy = async (req, res) => {
     const { id } = req.params;
     const companyId = resolveCompanyId(req);
 
-    // Soft delete - just mark as inactive
-    const policy = await LeavePolicy.findOneAndUpdate(
-      { _id: id, company_id: companyId },
-      { status: 'inactive', updated_at: new Date() },
-      { returnDocument: 'after' }
-    );
+    const policy = await LeavePolicy.findOne({ _id: id, company_id: companyId });
 
     if (!policy) {
       return res.status(404).json({ message: 'Leave policy not found' });
     }
 
-    await logActivity(req, 'LEAVE', 'DELETE_POLICY', `Deleted leave policy: ${policy.policy_name}`);
+    if (policy.created_by && String(policy.created_by) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can delete it' });
+    }
+
+    if (!policy.created_by) policy.created_by = req.user._id;
+    policy.status = 'inactive';
+    policy.updated_at = new Date();
+    policy.updated_by = req.user._id;
+    await policy.save();
+
+    await logActivity(req, 'LEAVE', 'DELETE_POLICY', `Deleted leave policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'leave',
+      policy_name: policy.policy_name
+    });
     res.json({ message: 'Leave policy deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

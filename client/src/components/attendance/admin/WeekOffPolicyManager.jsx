@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useContext } from 'react';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
 import { Radio, Checkbox, Spin, Empty, Modal } from 'antd';
-import { FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiSave } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiSave, FiList } from 'react-icons/fi';
+import { UserContext } from '../../../contexts/UserContext';
 import './AdminSettings.css';
+
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
 
 const DAYS = [
   { label: 'Monday', value: 1 },
@@ -42,13 +45,26 @@ const emptyForm = () => ({
   day_rules: [], // [{ day_index: 6, rules: [{week_number: 0, off_type: 'full_day'}] }]
 });
 
+const formatActor = (actor) => {
+  if (!actor) return 'Unknown';
+  if (typeof actor === 'string') return actor;
+  const fullName = `${actor.first_name || ''} ${actor.last_name || ''}`.trim();
+  return fullName || actor.username || 'Unknown';
+};
+
 const WeekOffPolicyManager = () => {
+  const { user } = useContext(UserContext);
+  const username = (user?.username || '').toLowerCase();
+  const isAllowedAdmin = (user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username);
   const [view, setView] = useState('list'); // 'list' | 'form'
   const [policies, setPolicies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm]         = useState(emptyForm());
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsRows, setLogsRows] = useState([]);
 
   const fetchLists = useCallback(async () => {
     try {
@@ -65,6 +81,24 @@ const WeekOffPolicyManager = () => {
   }, []);
 
   useEffect(() => { fetchLists(); }, [fetchLists]);
+
+  const fetchLogs = useCallback(async (policyId = '') => {
+    if (!isAllowedAdmin) return;
+    try {
+      setLogsLoading(true);
+      const res = await masterAPI.getPolicyHistory({
+        limit: 100,
+        policy_type: 'weekoff',
+        policy_id: policyId || undefined,
+        include_approvals: false
+      });
+      setLogsRows(res?.data || []);
+    } catch (e) {
+      toast.error('Failed to load logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [isAllowedAdmin]);
 
   const handleEdit = (p) => {
     setEditingId(p._id);
@@ -177,6 +211,12 @@ const WeekOffPolicyManager = () => {
           return { ...f, day_rules: dayRules };
       });
   }
+
+  const isOwnerOrUnowned = (policy) => {
+    const creatorId = policy?.created_by?._id || policy?.created_by;
+    const userId = user?._id?._id || user?._id;
+    return !creatorId || String(creatorId) === String(userId);
+  };
 
   if (view === 'form') {
     return (
@@ -311,11 +351,57 @@ const WeekOffPolicyManager = () => {
           <p>Define dynamic weekly rest-day rules for the organization.</p>
         </div>
         <div className="settings-header-actions">
+          {isAllowedAdmin && (
+            <button className="btn btn-outline" onClick={() => { setLogsOpen(true); fetchLogs(); }}>
+              <FiList /> Logs
+            </button>
+          )}
           <button className="btn btn-primary" onClick={() => { setEditingId(null); setForm(emptyForm()); setView('form'); }}>
             <FiPlus /> New Policy
           </button>
         </div>
       </div>
+
+      <Modal
+        title="Week-Off Policy Logs"
+        open={logsOpen}
+        onCancel={() => setLogsOpen(false)}
+        footer={null}
+        width={820}
+      >
+        {logsLoading ? (
+          <div style={{ padding: '16px', color: '#64748b' }}>Loading logs...</div>
+        ) : logsRows.length === 0 ? (
+          <div style={{ padding: '16px', color: '#94a3b8' }}>No logs found.</div>
+        ) : (
+          <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'grid', gap: '10px' }}>
+            {logsRows.map((row) => {
+              const actionLabel = (row.action || '').replaceAll('_', ' ');
+              const isDelete = actionLabel.includes('DELETE');
+              const isCreate = actionLabel.includes('CREATE');
+              const badgeStyle = isDelete
+                ? { color: '#b91c1c', background: '#fee2e2' }
+                : isCreate
+                  ? { color: '#166534', background: '#dcfce7' }
+                  : { color: '#1e3a8a', background: '#dbeafe' };
+              return (
+                <div key={row.id} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px', background: '#f8fafc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '.3px', padding: '3px 8px', borderRadius: '999px', ...badgeStyle }}>
+                      {actionLabel}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>{new Date(row.timestamp).toLocaleString()}</span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{row.details || '-'}</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#475569' }}>
+                    By {row.actor_name || 'Unknown'} ({row.actor_role || 'N/A'})
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
 
       {loading ? (
         <div className="loading-state"><Spin size="large" tip="Loading Policies..." /></div>
@@ -324,32 +410,37 @@ const WeekOffPolicyManager = () => {
            <Empty description={<span>No week-off policies found.</span>} />
         </div>
       ) : (
-        <div className="policies-list">
-          {policies.map(p => (
-            <div key={p._id} className="policy-list-item">
-              <div className="item-main">
-                <h3>{p.policy_name}</h3>
-                <p className="company-tag">
-                  Global policy
-                </p>
-                {p.description && <p className="desc">{p.description}</p>}
-                
-                <div className="tags-container">
-                  {p.day_rules.map(dr => (
-                    <span key={dr.day_index} className="rule-tag">
-                      {DAYS.find(d => d.value === dr.day_index)?.label}: {dr.rules.length > 1 ? 'Mix' : dr.rules[0]?.week_number === 0 ? 'All' : 'Selected'}
-                    </span>
-                  ))}
-                  {p.policy_type !== 'fixed' && <span className="type-tag">{p.policy_type}</span>}
+        <>
+          <div className="policies-list">
+            {policies.map(p => (
+              <div key={p._id} className="policy-list-item">
+                <div className="item-main">
+                  <h3>{p.policy_name}</h3>
+                  <p className="company-tag">
+                    Global policy
+                  </p>
+                  <p className="company-tag">
+                    Created by: {formatActor(p.created_by)}
+                  </p>
+                  {p.description && <p className="desc">{p.description}</p>}
+                  
+                  <div className="tags-container">
+                    {p.day_rules.map(dr => (
+                      <span key={dr.day_index} className="rule-tag">
+                        {DAYS.find(d => d.value === dr.day_index)?.label}: {dr.rules.length > 1 ? 'Mix' : dr.rules[0]?.week_number === 0 ? 'All' : 'Selected'}
+                      </span>
+                    ))}
+                    {p.policy_type !== 'fixed' && <span className="type-tag">{p.policy_type}</span>}
+                  </div>
+                </div>
+                <div className="item-actions">
+                  <button title={isOwnerOrUnowned(p) ? 'Edit Policy' : 'Only creator can edit'} disabled={!isOwnerOrUnowned(p)} onClick={() => handleEdit(p)}><FiEdit2 /></button>
+                  <button title={isOwnerOrUnowned(p) ? 'Delete Policy' : 'Only creator can delete'} disabled={!isOwnerOrUnowned(p)} className="del-btn" onClick={() => handleDelete(p._id)}><FiTrash2 /></button>
                 </div>
               </div>
-              <div className="item-actions">
-                <button title="Edit Policy" onClick={() => handleEdit(p)}><FiEdit2 /></button>
-                <button title="Delete Policy" className="del-btn" onClick={() => handleDelete(p._id)}><FiTrash2 /></button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

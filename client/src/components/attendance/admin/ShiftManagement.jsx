@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiPlus, FiClock, FiTrash2, FiUsers, FiCalendar, FiSettings, FiCheckCircle, FiMinus, FiX, FiEdit2 } from 'react-icons/fi';
+import { FiPlus, FiClock, FiTrash2, FiUsers, FiCalendar, FiSettings, FiCheckCircle, FiMinus, FiX, FiEdit2, FiList } from 'react-icons/fi';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
 import { Modal } from 'antd';
@@ -21,6 +21,13 @@ const emptyForm = () => ({
   }
 });
 
+const formatActor = (actor) => {
+  if (!actor) return 'Unknown';
+  if (typeof actor === 'string') return actor;
+  const fullName = `${actor.first_name || ''} ${actor.last_name || ''}`.trim();
+  return fullName || actor.username || 'Unknown';
+};
+
 const ShiftManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -28,11 +35,22 @@ const ShiftManagement = () => {
   const [companyId, setCompanyId] = useState('');
   const [formData, setFormData] = useState(emptyForm());
   const [tableKey, setTableKey] = useState(Date.now());
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsRows, setLogsRows] = useState([]);
+  const [logsShiftId, setLogsShiftId] = useState('');
+  const [logsShifts, setLogsShifts] = useState([]);
 
   const columns = [
     {
       label: 'Shift', key: 'shift_name', sortable: true, render: (val, row) =>
-        <div><div style={{ fontWeight: 700, color: 'var(--as-t1)' }}>{val}</div><div style={{ fontSize: '.6875rem', fontFamily: 'monospace', color: 'var(--as-t4)' }}>{row.shift_code}</div></div>
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--as-t1)' }}>{val}</div>
+          <div style={{ fontSize: '.6875rem', fontFamily: 'monospace', color: 'var(--as-t4)' }}>{row.shift_code}</div>
+          <div style={{ fontSize: '.6875rem', color: 'var(--as-t3)', marginTop: '2px' }}>
+            Created by: {formatActor(row.created_by)}
+          </div>
+        </div>
     },
     {
       label: 'Timings', render: (_, row) =>
@@ -57,6 +75,32 @@ const ShiftManagement = () => {
   ];
 
   const fetchShifts = async (params) => masterAPI.getShifts({ ...params, company_id: companyId || undefined });
+
+  const fetchShiftLogs = useCallback(async (shiftId = '') => {
+    try {
+      setLogsLoading(true);
+      const [historyRes, shiftsRes] = await Promise.all([
+        masterAPI.getPolicyHistory({
+          limit: 100,
+          policy_type: 'shift',
+          policy_id: shiftId || undefined,
+          include_approvals: false,
+          company_id: companyId || undefined
+        }),
+        masterAPI.getShifts({
+          limit: 200,
+          page: 1,
+          company_id: companyId || undefined
+        })
+      ]);
+      setLogsRows(historyRes?.data || []);
+      setLogsShifts(shiftsRes?.data || []);
+    } catch (err) {
+      toast.error(err.message || 'Failed to load logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [companyId]);
   
   const handleEdit = (row) => {
     setEditingId(row._id);
@@ -136,11 +180,74 @@ const ShiftManagement = () => {
           <p>Define reference timings and work-hour thresholds for global shifts</p>
         </div>
         <div className="settings-header-actions">
+          <button className="btn btn-outline" onClick={() => { setLogsOpen(true); fetchShiftLogs(logsShiftId); }}>
+            <FiList size={13} /> Logs
+          </button>
           <button className="btn btn-outline" onClick={() => { if(showForm){setShowForm(false); setEditingId(null); setFormData(emptyForm());} else {setShowForm(true);} }}>
             {showForm ? <><FiMinus size={13} /> Cancel</> : <><FiPlus size={13} /> New Shift</>}
           </button>
         </div>
       </div>
+
+      <Modal
+        title="Shift Policy Logs"
+        open={logsOpen}
+        onCancel={() => setLogsOpen(false)}
+        footer={null}
+        width={900}
+      >
+        <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <label style={{ fontSize: '12px', color: '#334155', fontWeight: 700 }}>Shift</label>
+          <select
+            className="form-select"
+            style={{ maxWidth: '340px' }}
+            value={logsShiftId}
+            onChange={(e) => {
+              const nextId = e.target.value;
+              setLogsShiftId(nextId);
+              fetchShiftLogs(nextId);
+            }}
+          >
+            <option value="">All Shifts</option>
+            {logsShifts.map((s) => (
+              <option key={s._id} value={s._id}>{s.shift_name}</option>
+            ))}
+          </select>
+        </div>
+        {logsLoading ? (
+          <div style={{ padding: '16px', color: '#64748b' }}>Loading logs...</div>
+        ) : logsRows.length === 0 ? (
+          <div style={{ padding: '16px', color: '#94a3b8' }}>No logs found.</div>
+        ) : (
+          <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'grid', gap: '10px' }}>
+            {logsRows.map((row) => {
+              const actionLabel = (row.action || '').replaceAll('_', ' ');
+              const isDelete = actionLabel.includes('DELETE');
+              const isCreate = actionLabel.includes('CREATE');
+              const badgeStyle = isDelete
+                ? { color: '#b91c1c', background: '#fee2e2' }
+                : isCreate
+                  ? { color: '#166534', background: '#dcfce7' }
+                  : { color: '#1e3a8a', background: '#dbeafe' };
+
+              return (
+                <div key={row.id} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px', background: '#f8fafc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '.3px', padding: '3px 8px', borderRadius: '999px', ...badgeStyle }}>
+                      {actionLabel}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>{new Date(row.timestamp).toLocaleString()}</span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{row.details || '-'}</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#475569' }}>
+                    By {row.actor_name || 'Unknown'} ({row.actor_role || 'N/A'})
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
 
       {showForm && (
         <div className="modern-setting-form animation-slide-down">

@@ -53,6 +53,7 @@ router.get('/holiday-policies/:id', attendanceAuthBridge, policyCtrl.getHolidayP
 router.post('/holiday-policies', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.createHolidayPolicy);
 router.put('/holiday-policies/:id', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.updateHolidayPolicy);
 router.delete('/holiday-policies/:id', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.deleteHolidayPolicy);
+router.get('/policy-history', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.getPolicyHistory);
 
 // Add / remove individual holiday from a policy
 router.post('/holiday-policies/:id/holidays', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.addHolidayToPolicy);

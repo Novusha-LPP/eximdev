@@ -180,6 +180,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
+    const [hasInitialPunchIn, setHasInitialPunchIn] = useState(true);
     const [saving, setSaving] = useState(false);
     const [applyingFullMonth, setApplyingFullMonth] = useState(false);
     const [groupBy, setGroupBy] = useState('status'); // 'status' or 'organization'
@@ -510,7 +511,27 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             fetchBrowseHistory();
             // Refresh main report if relevant
             fetchReport();
-        } catch (err) { toast.error(err.response?.data?.message || 'Update failed'); }
+        } catch (err) {
+            const apiErrorCode = err?.response?.data?.error;
+            const apiMessage = String(err?.response?.data?.message || '').toLowerCase();
+            const shouldAutoSwitchToTimeUnchanged =
+                apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
+                (apiMessage.includes('time correction is not applicable') && apiMessage.includes('status'));
+
+            if (shouldAutoSwitchToTimeUnchanged) {
+                setAutoSwitchHintShown(true);
+                setEditForm((prev) => ({
+                    ...prev,
+                    correction_mode: 'status_correction_time_unchanged',
+                    apply_status_correction: true,
+                    apply_time_correction: false
+                }));
+                toast.info('Switched to Status Correction (Time Unchanged). Please verify and save again.');
+                return;
+            }
+
+            toast.error(err?.response?.data?.message || 'Update failed');
+        }
         finally { setSaving(false); }
     };
 
@@ -538,11 +559,14 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
         const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
 
+        const hasPunchIn = Boolean(rec.first_in);
+        const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';
+
         const baseForm = {
             attendance_date: rec.attendance_date,
             employee_id: selectedEmp.id,
-            correction_mode: 'time_correction',
-            apply_status_correction: false,
+            correction_mode: defaultCorrectionMode,
+            apply_status_correction: defaultCorrectionMode !== 'time_correction',
             apply_time_correction: true,
             shift_id: defaultShiftId,
             status: rec.status || 'present',
@@ -555,6 +579,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         };
 
         setEditingId(rec._id || 'new');
+        setHasInitialPunchIn(hasPunchIn);
         setEditForm(baseForm);
     };
 
@@ -1294,12 +1319,17 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                         <div className="ar-alert-box" style={{ backgroundColor: '#fff4e5', color: '#663c00', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #ffe8cc' }}>
                             💡 <strong>Security Warning:</strong> You cannot modify raw biometric/web punch events. You are adjusting the official summary record.
                         </div>
+                        {editingId && !hasInitialPunchIn && (
+                            <div className="ar-alert-box" style={{ backgroundColor: '#edf7ff', color: '#0f4c81', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '12px', border: '1px solid #cfe8ff' }}>
+                                ℹ️ <strong>No punch-in found:</strong> Time Correction and Status Correction (Time Unchanged) are disabled. Use Status Correction.
+                            </div>
+                        )}
                         <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? '#ccc' : '#334155', opacity: isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? 0.5 : 1, cursor: isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? 'not-allowed' : 'pointer' }} title={editForm.correction_mode === 'status_correction' ? 'Not available in Status Correction mode' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: !hasInitialPunchIn || isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? '#ccc' : '#334155', opacity: !hasInitialPunchIn || isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? 0.5 : 1, cursor: !hasInitialPunchIn || isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : editForm.correction_mode === 'status_correction' ? 'Not available in Status Correction mode' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
                                 <input
                                     type="radio"
                                     name="correction_mode"
-                                    disabled={isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction'}
+                                    disabled={!hasInitialPunchIn || isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction'}
                                     checked={editForm.correction_mode === 'time_correction'}
                                     onChange={() => setEditForm((prev) => ({ ...prev, correction_mode: 'time_correction', apply_status_correction: false, apply_time_correction: true }))}
                                 />
@@ -1324,10 +1354,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                 />
                                 Status Correction
                             </label>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: !hasInitialPunchIn ? '#ccc' : '#334155', opacity: !hasInitialPunchIn ? 0.5 : 1, cursor: !hasInitialPunchIn ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : ''}>
                                 <input
                                     type="radio"
                                     name="correction_mode"
+                                    disabled={!hasInitialPunchIn}
                                     checked={editForm.correction_mode === 'status_correction_time_unchanged'}
                                     onChange={() => setEditForm((prev) => ({
                                         ...prev,

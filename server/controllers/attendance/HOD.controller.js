@@ -11,12 +11,321 @@ import RegularizationRequest from '../../model/attendance/RegularizationRequest.
 import mongoose from 'mongoose';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
+import ActivityLog from '../../model/attendance/ActivityLog.js';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
 const isHodRole = (role) => {
     const n = normalizeRole(role);
     return n === 'HOD' || n === 'HEADOFDEPARTMENT';
+};
+
+const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
+const REQUIRED_ADMIN_SELF_APPROVAL_USERNAMES = new Set([
+    STAGE_2_APPROVER_USERNAME,
+    ...FINAL_APPROVER_USERNAMES
+]);
+
+const LEAVE_STAGE = {
+    HOD: 'stage_1_hod',
+    SHALINI: 'stage_2_shalini',
+    FINAL: 'stage_3_final'
+};
+
+const LEAVE_STAGE_LABELS = {
+    [LEAVE_STAGE.HOD]: 'Team HOD',
+    [LEAVE_STAGE.SHALINI]: 'shalini_arun',
+    [LEAVE_STAGE.FINAL]: 'Final approver'
+};
+
+const STAGE_READABLE_LABELS = {
+    [LEAVE_STAGE.HOD]: 'HOD',
+    [LEAVE_STAGE.SHALINI]: 'Shalini Arun',
+    [LEAVE_STAGE.FINAL]: 'Final approver'
+};
+
+const formatPersonName = (person) => {
+    if (!person) return null;
+    if (typeof person === 'string') return person;
+    return person.first_name
+        ? `${person.first_name} ${person.last_name || ''}`.trim()
+        : person.username || null;
+};
+
+const toIdString = (value) => {
+    if (!value) return null;
+    const candidate = value?._id || value;
+    try {
+        return candidate.toString();
+    } catch {
+        return String(candidate);
+    }
+};
+
+const isAssignedToActor = (leave, actor) => {
+    const actorId = toIdString(actor?._id);
+    const actorUsername = String(actor?.username || '').toLowerCase();
+
+    const currentApprover = leave?.current_approver_id;
+    const currentApproverId = toIdString(currentApprover);
+    const currentApproverUsername = String(currentApprover?.username || '').toLowerCase();
+
+    if (actorId && currentApproverId && actorId === currentApproverId) {
+        return true;
+    }
+
+    if (actorUsername && currentApproverUsername && actorUsername === currentApproverUsername) {
+        return true;
+    }
+
+    return false;
+};
+
+const buildApprovalTrail = (leave) => {
+    const chainByStage = new Map((leave.approval_chain || []).map((entry) => [entry?.stage, entry]));
+    const trail = [];
+
+    const hodStage = chainByStage.get(LEAVE_STAGE.HOD);
+    if (hodStage?.action === 'approved') {
+        trail.push('Approved by HOD');
+    }
+
+    const shaliniStage = chainByStage.get(LEAVE_STAGE.SHALINI);
+    if (shaliniStage?.action === 'approved') {
+        trail.push('Approved by Shalini Arun');
+    }
+
+    if (leave.approval_status === 'rejected') {
+        trail.push('Rejected');
+        return trail;
+    }
+
+    if (leave.approval_status === 'approved') {
+        trail.push('Approved');
+        return trail;
+    }
+
+    if (leave.approval_status === 'pending') {
+        const pendingStage = leave.approval_stage || LEAVE_STAGE.HOD;
+        trail.push(`Pending approval (${STAGE_READABLE_LABELS[pendingStage] || 'Pending'})`);
+    }
+
+    return trail;
+};
+
+const canActorActOnLeave = (leave, actor) => {
+    if (String(leave.approval_status || '') !== 'pending') return false;
+
+    const stage = leave.approval_stage || LEAVE_STAGE.HOD;
+    const actorId = toIdString(actor._id);
+    const actorUsername = String(actor.username || '').toLowerCase();
+    const currentApproverId = toIdString(leave.current_approver_id);
+
+    if (stage === LEAVE_STAGE.HOD) {
+        return isAssignedToActor(leave, actor);
+    }
+
+    if (stage === LEAVE_STAGE.SHALINI) {
+        if (actorUsername !== STAGE_2_APPROVER_USERNAME) return false;
+        return !currentApproverId || actorId === currentApproverId;
+    }
+
+    if (stage === LEAVE_STAGE.FINAL) {
+        if (!FINAL_APPROVER_USERNAMES.has(actorUsername)) return false;
+        return !currentApproverId || actorId === currentApproverId;
+    }
+
+    return false;
+};
+
+const getPendingRemarkForActor = (leave, actor) => {
+    const actorUsername = String(actor.username || '').toLowerCase();
+    const stage = leave.approval_stage || LEAVE_STAGE.HOD;
+    const currentApproverName = formatPersonName(leave.current_approver_id);
+
+    if (canActorActOnLeave(leave, actor)) return null;
+
+    if (actorUsername === STAGE_2_APPROVER_USERNAME && stage === LEAVE_STAGE.HOD) {
+        return 'Pending - needs HOD approval first';
+    }
+
+    if (FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+        if (stage === LEAVE_STAGE.HOD) return 'Pending - needs HOD approval first';
+        if (stage === LEAVE_STAGE.SHALINI) return 'Pending - needs Shalini Arun approval';
+    }
+
+    if (currentApproverName) {
+        return `Pending - assigned to ${currentApproverName}`;
+    }
+
+    return `Pending - awaiting ${STAGE_READABLE_LABELS[stage] || 'approval'}`;
+};
+
+const isTerminalLeaveStatus = (status) => ['approved', 'rejected', 'cancelled', 'withdrawn'].includes(String(status || ''));
+
+const appendApprovalHistoryEntry = (application, actorObjectId, actorName, actorRole, action, comment = '') => {
+    if (!Array.isArray(application.approval_history)) {
+        application.approval_history = [];
+    }
+    application.approval_history.push({
+        actor_id: actorObjectId,
+        actor_name: actorName,
+        actor_role: actorRole,
+        action,
+        comment,
+        timestamp: new Date()
+    });
+};
+
+const markApprovalChainStage = (application, stage, status, comments) => {
+    if (!Array.isArray(application.approval_chain)) {
+        application.approval_chain = [];
+    }
+    const chainItem = application.approval_chain.find((entry) => entry?.stage === stage);
+    if (chainItem) {
+        chainItem.action = status;
+        chainItem.action_date = new Date();
+        if (comments) {
+            chainItem.comments = comments;
+        }
+    }
+};
+
+const setPendingStage = (application, stage, approverId, approverRole = 'ADMIN', approverUsername = '') => {
+    application.approval_status = 'pending';
+    application.approval_stage = stage;
+    application.current_approver_id = approverId || undefined;
+
+    if (!Array.isArray(application.approval_chain)) {
+        application.approval_chain = [];
+    }
+
+    const existing = application.approval_chain.find((entry) => entry?.stage === stage);
+    if (existing) {
+        existing.action = 'pending';
+        existing.action_date = undefined;
+        existing.comments = undefined;
+        existing.approver_id = approverId || undefined;
+        if (approverRole) existing.approver_role = approverRole;
+        if (approverUsername) existing.approver_username = approverUsername;
+        return;
+    }
+
+    application.approval_chain.push({
+        level: stage === LEAVE_STAGE.HOD ? 1 : (stage === LEAVE_STAGE.SHALINI ? 2 : 3),
+        stage,
+        approver_id: approverId || undefined,
+        approver_role: approverRole,
+        approver_username: approverUsername || undefined,
+        action: 'pending'
+    });
+};
+
+const getActorPendingLeaveQuery = (actor) => {
+    const actorId = actor._id?._id || actor._id;
+    const actorUsername = String(actor.username || '').toLowerCase();
+
+    if (actorUsername === STAGE_2_APPROVER_USERNAME) {
+        return {
+            approval_status: 'pending',
+            approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI] }
+        };
+    }
+
+    if (FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+        return {
+            approval_status: 'pending'
+        };
+    }
+
+    return {
+        approval_status: 'pending',
+        current_approver_id: actorId
+    };
+};
+
+const getShaliniApprover = async (companyId) => {
+    const companyScoped = await User.findOne({
+        username: STAGE_2_APPROVER_USERNAME,
+        company_id: companyId,
+        isActive: true
+    }).select('_id username role');
+
+    if (companyScoped) {
+        return companyScoped;
+    }
+
+    return User.findOne({
+        username: STAGE_2_APPROVER_USERNAME,
+        isActive: true
+    }).select('_id username role');
+};
+
+const migrateLegacyPendingHodForCompany = async (companyId) => {
+    if (!companyId) return;
+
+    const legacy = await LeaveApplication.find({
+        company_id: companyId,
+        approval_status: 'pending_hod'
+    }).select('_id team_id employee_id');
+
+    if (!legacy.length) return;
+
+    const teamIds = [...new Set(legacy.map((l) => l.team_id?.toString()).filter(Boolean))].map((id) => new mongoose.Types.ObjectId(id));
+    const teamDocs = await TeamModel.find({ _id: { $in: teamIds } }).select('_id hodId members').lean();
+    const teamMap = new Map(teamDocs.map((t) => [t._id.toString(), t]));
+
+    const updates = [];
+    for (const leave of legacy) {
+        let hodId = null;
+        const team = leave.team_id ? teamMap.get(leave.team_id.toString()) : null;
+        if (team?.hodId) {
+            hodId = team.hodId;
+        } else if (leave.employee_id) {
+            const fallbackTeam = teamDocs.find((t) => (t.members || []).some((m) => m.userId?.toString() === leave.employee_id.toString()));
+            if (fallbackTeam?.hodId) {
+                hodId = fallbackTeam.hodId;
+            }
+        }
+
+        if (!hodId) continue;
+
+        updates.push({
+            updateOne: {
+                filter: { _id: leave._id },
+                update: {
+                    $set: {
+                        approval_status: 'pending',
+                        approval_stage: LEAVE_STAGE.HOD,
+                        current_approver_id: hodId
+                    }
+                }
+            }
+        });
+    }
+
+    if (updates.length) {
+        await LeaveApplication.bulkWrite(updates);
+    }
+};
+
+const logApprovalActivity = async (req, module, action, details, metadata = {}) => {
+    try {
+        const companyId = req.query?.company_id || req.body?.company_id || req.user?.company_id?._id || req.user?.company_id;
+        await new ActivityLog({
+            company_id: companyId,
+            user_id: req.user?._id,
+            module,
+            action,
+            details,
+            metadata,
+            ip_address: req.ip,
+            user_agent: req.headers['user-agent']
+        }).save();
+    } catch (err) {
+        console.error('Approval activity log error:', err.message);
+    }
 };
 
 
@@ -35,6 +344,8 @@ export const getDashboard = async (req, res) => {
         if (!companyId) {
             return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
         }
+
+        await migrateLegacyPendingHodForCompany(companyId);
 
         const debugLog = [];
         debugLog.push(`--- HOD DASHBOARD DEBUG ${new Date().toISOString()} ---`);
@@ -259,15 +570,14 @@ export const getDashboard = async (req, res) => {
         });
 
         // 5. Get pending leave requests
-        const pendingStatuses = isAdminRole(hod.role)
-            ? ['pending_hod', 'hod_approved_pending_admin', 'pending']
-            : ['pending_hod', 'pending'];
+        const actorPendingQuery = getActorPendingLeaveQuery(hod);
 
         const pendingLeaves = await LeaveApplication.find({
             employee_id: { $in: employeeIds },
-            approval_status: { $in: pendingStatuses }
+            ...actorPendingQuery
         })
             .populate('employee_id', 'first_name last_name username')
+            .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ createdAt: -1 })
             .limit(100);
@@ -278,9 +588,46 @@ export const getDashboard = async (req, res) => {
             approval_status: { $in: ['approved', 'rejected'] }
         })
             .populate('employee_id', 'first_name last_name username')
+            .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ updatedAt: -1 })
             .limit(50);
+
+        const mapLeave = (leave) => {
+            const currentApprover = leave.current_approver_id;
+            const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
+            const approvalStageLabel = LEAVE_STAGE_LABELS[approvalStage] || approvalStage;
+            return {
+                id: leave._id,
+                employeeName: leave.employee_id?.first_name
+                    ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim()
+                    : leave.employee_id?.username || 'Unknown',
+                employeeId: leave.employee_id?._id || leave.employee_id,
+                leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                fromDate: leave.from_date,
+                toDate: leave.to_date,
+                totalDays: leave.total_days,
+                is_half_day: leave.is_half_day,
+                half_day_session: leave.half_day_session,
+                attachment_urls: leave.attachment_urls || [],
+                reason: leave.reason,
+                status: leave.approval_status,
+                approvalStage,
+                approvalStageLabel,
+                approvalTrail: buildApprovalTrail(leave),
+                canAct: canActorActOnLeave(leave, hod),
+                pendingRemark: getPendingRemarkForActor(leave, hod),
+                currentApproverName: formatPersonName(currentApprover),
+                currentApproverRole: currentApprover?.role ? normalizeRole(currentApprover.role) : null,
+                currentApproverUsername: currentApprover?.username || null,
+                approvedBy: leave.approval_status === 'approved' ? formatPersonName(leave.final_reviewed_by || leave.hod_reviewed_by) : null,
+                rejectedBy: leave.approval_status === 'rejected' ? formatPersonName(leave.rejected_by || leave.final_reviewed_by || leave.hod_reviewed_by) : null,
+                approverRole: leave.approval_status === 'approved' ? normalizeRole((leave.final_reviewed_by || leave.hod_reviewed_by)?.role) : null,
+                decisionRemark: leave.rejection_reason || leave.final_review_comment || leave.hod_review_comment || leave.comments || null,
+                rejectionReason: leave.rejection_reason || null,
+                actionDate: leave.updatedAt
+            };
+        };
 
         // 6. Get pending regularizations
         const pendingRegularizations = await RegularizationRequest.find({
@@ -452,6 +799,12 @@ export const getDashboard = async (req, res) => {
                         year: new Date().getFullYear()
                     });
 
+                    const currentApprover = leave.current_approver_id;
+                    const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
+                    const currentApproverName = formatPersonName(currentApprover);
+                    const approvalTrail = buildApprovalTrail(leave);
+                    const canAct = canActorActOnLeave(leave, hod);
+
                     return {
                         id: leave._id,
                         employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
@@ -464,6 +817,13 @@ export const getDashboard = async (req, res) => {
                         half_day_session: leave.half_day_session,
                         attachment_urls: leave.attachment_urls || [],
                         reason: leave.reason,
+                        approvalStage,
+                        approvalStageLabel: LEAVE_STAGE_LABELS[approvalStage] || approvalStage,
+                        approvalTrail,
+                        canAct,
+                        pendingRemark: getPendingRemarkForActor(leave, hod),
+                        currentApproverName,
+                        currentApproverRole: currentApprover?.role ? normalizeRole(currentApprover.role) : null,
                         currentBalance: {
                             available: balance?.closing_balance || 0,
                             used: balance?.used || 0,
@@ -485,6 +845,10 @@ export const getDashboard = async (req, res) => {
                     half_day_session: leave.half_day_session,
                     attachment_urls: leave.attachment_urls || [],
                     status: leave.approval_status,
+                    approvalStage: leave.approval_stage || LEAVE_STAGE.HOD,
+                    approvalStageLabel: LEAVE_STAGE_LABELS[leave.approval_stage || LEAVE_STAGE.HOD] || leave.approval_stage,
+                    approvalTrail: buildApprovalTrail(leave),
+                    currentApproverName: formatPersonName(leave.current_approver_id),
                     actionDate: leave.updatedAt
                 })),
                 pendingRegularization: pendingRegularizations.map(reg => ({
@@ -549,7 +913,8 @@ export const approveRequest = async (req, res) => {
                 return res.status(400).json({ message: 'Rejection reason is required' });
             }
 
-            const application = await LeaveApplication.findById(id);
+            const application = await LeaveApplication.findById(id)
+                .populate('current_approver_id', 'first_name last_name username role');
             if (!application) {
                 debug.push(`Application not found: ${id}`);
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
@@ -567,15 +932,25 @@ export const approveRequest = async (req, res) => {
                 : (actor.name || actor.username || 'Unknown');
 
             const actorUsername = String(actor.username || '').toLowerCase();
-            const isAllowedAdmin = isAdminRole(actorRole) && ALLOWED_USERNAMES.has(actorUsername);
-            if (requesterId === actorId && !isAllowedAdmin) {
+            const canSelfApprove = REQUIRED_ADMIN_SELF_APPROVAL_USERNAMES.has(actorUsername);
+            if (requesterId === actorId && !canSelfApprove) {
                 debug.push('SELF APPROVAL DENIED');
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                 return res.status(403).json({ message: 'Unauthorized: You cannot process your own leave application' });
             }
 
-            // session.startTransaction(); removed to support standalone MongoDB
             try {
+                if (application.approval_status === 'pending_hod') {
+                    application.approval_status = 'pending';
+                    if (!application.approval_stage) {
+                        application.approval_stage = LEAVE_STAGE.HOD;
+                    }
+                }
+
+                if (isTerminalLeaveStatus(application.approval_status)) {
+                    return res.status(400).json({ message: 'Request is already finalized' });
+                }
+
                 const currentYear = new Date().getFullYear();
                 let balanceRecord = await LeaveBalance.findOne({
                     employee_id: application.employee_id,
@@ -602,21 +977,8 @@ export const approveRequest = async (req, res) => {
                 }
 
                 const isUnpaid = String(application.leave_type || '').toLowerCase() === 'lwp';
-                const canReviewAsTeamHod = isHodRole(actorRole) || (isAdminRole(actorRole) && !isAllowedAdmin);
-
-                const appendApprovalHistory = (action, comment = '') => {
-                    if (!Array.isArray(application.approval_history)) {
-                        application.approval_history = [];
-                    }
-                    application.approval_history.push({
-                        actor_id: actorObjectId,
-                        actor_name: actorName,
-                        actor_role: actorRole,
-                        action,
-                        comment,
-                        timestamp: new Date()
-                    });
-                };
+                const stage = application.approval_stage || LEAVE_STAGE.HOD;
+                const currentApproverId = toIdString(application.current_approver_id);
 
                 const applyLeaveAttendance = async (processedBy) => {
                     const start = moment(application.from_date).startOf('day');
@@ -649,29 +1011,68 @@ export const approveRequest = async (req, res) => {
                     balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
                 };
 
-                const finalizeApproval = async (processedBy, sourceRole) => {
+                const finalizeRejection = async () => {
+                    application.approval_status = 'rejected';
+                    application.approval_stage = null;
+                    application.current_approver_id = undefined;
+                    application.rejected_by = actorObjectId;
+                    application.rejected_at = new Date();
+                    application.rejection_reason = commentText;
+                    application.final_reviewed_by = actorObjectId;
+                    application.final_reviewed_at = new Date();
+                    application.final_review_comment = commentText;
+                    application.comments = commentText;
+
+                    if (stage === LEAVE_STAGE.HOD) {
+                        application.hod_reviewed_by = actorObjectId;
+                        application.hod_reviewed_at = new Date();
+                        application.hod_review_comment = commentText;
+                    }
+
+                    markApprovalChainStage(application, stage, 'rejected', commentText);
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'rejected', commentText);
+                    await application.save();
+
+                    releasePendingBalance();
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    await balanceRecord.save();
+
+                    await logApprovalActivity(
+                        req,
+                        'APPROVAL',
+                        'LEAVE_REJECTED',
+                        `${actorName} rejected leave request for ${application.employee_id}`,
+                        {
+                            leave_application_id: application._id,
+                            employee_id: application.employee_id,
+                            source_stage: stage,
+                            comments: commentText || ''
+                        }
+                    );
+
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    return res.json({ message: 'Leave rejected successfully' });
+                };
+
+                const finalizeApproval = async () => {
                     application.approval_status = 'approved';
+                    application.approval_stage = null;
+                    application.current_approver_id = undefined;
                     application.final_reviewed_by = actorObjectId;
                     application.final_reviewed_at = new Date();
                     application.final_review_comment = commentText || application.final_review_comment;
                     application.rejected_by = undefined;
                     application.rejected_at = undefined;
                     application.rejection_reason = undefined;
-
-                    if (sourceRole === 'HOD') {
-                        application.hod_reviewed_by = actorObjectId;
-                        application.hod_reviewed_at = new Date();
-                        application.hod_review_comment = commentText || application.hod_review_comment;
-                    }
-
                     if (commentText) {
                         application.comments = commentText;
                     }
 
-                    appendApprovalHistory('approved', commentText);
+                    markApprovalChainStage(application, LEAVE_STAGE.FINAL, 'approved', commentText);
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
                     await application.save();
 
-                    await applyLeaveAttendance(processedBy);
+                    await applyLeaveAttendance('admin');
 
                     releasePendingBalance();
                     if (!isUnpaid) {
@@ -680,86 +1081,80 @@ export const approveRequest = async (req, res) => {
                     balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
                     await balanceRecord.save();
 
+                    await logApprovalActivity(
+                        req,
+                        'APPROVAL',
+                        'LEAVE_APPROVED',
+                        `${actorName} approved leave request for ${application.employee_id}`,
+                        {
+                            leave_application_id: application._id,
+                            employee_id: application.employee_id,
+                            source_stage: LEAVE_STAGE.FINAL,
+                            comments: commentText || ''
+                        }
+                    );
+
                     fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                     return res.json({ message: 'Leave approved successfully' });
                 };
 
-                const finalizeRejection = async (sourceRole) => {
-                    application.approval_status = 'rejected';
-                    application.rejected_by = actorObjectId;
-                    application.rejected_at = new Date();
-                    application.rejection_reason = commentText;
-                    application.final_reviewed_by = actorObjectId;
-                    application.final_reviewed_at = new Date();
-                    application.final_review_comment = commentText;
-
-                    if (sourceRole === 'HOD') {
-                        application.hod_reviewed_by = actorObjectId;
-                        application.hod_reviewed_at = new Date();
-                        application.hod_review_comment = commentText;
+                if (stage === LEAVE_STAGE.HOD) {
+                    if (!isAssignedToActor(application, actor)) {
+                        return res.status(403).json({ message: 'Unauthorized: You are not the assigned HOD approver' });
                     }
 
-                    application.comments = commentText;
-                    appendApprovalHistory('rejected', commentText);
+                    if (status === 'rejected') {
+                        return finalizeRejection();
+                    }
+
+                    markApprovalChainStage(application, LEAVE_STAGE.HOD, 'approved', commentText);
+                    application.hod_reviewed_by = actorObjectId;
+                    application.hod_reviewed_at = new Date();
+                    application.hod_review_comment = commentText || application.hod_review_comment;
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
+
+                    const shaliniApprover = await getShaliniApprover(application.company_id);
+                    if (!shaliniApprover) {
+                        return res.status(400).json({ message: `Unable to route approval: ${STAGE_2_APPROVER_USERNAME} not configured` });
+                    }
+
+                    setPendingStage(application, LEAVE_STAGE.SHALINI, shaliniApprover._id, 'ADMIN', STAGE_2_APPROVER_USERNAME);
                     await application.save();
+                    return res.json({ message: 'Leave approved by HOD and forwarded to shalini_arun' });
+                }
 
-                    releasePendingBalance();
-                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
-                    await balanceRecord.save();
-
-                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
-                    return res.json({ message: 'Leave rejected successfully' });
-                };
-
-                if (canReviewAsTeamHod) {
-                    const hodTeams = await TeamModel.find({
-                        hodId: actor._id,
-                        isActive: { $ne: false }
-                    });
-
-                    const teamMemberIds = new Set();
-                    hodTeams.forEach(team => {
-                        if (team.members && Array.isArray(team.members)) {
-                            team.members.forEach(m => {
-                                if (m.userId) teamMemberIds.add(m.userId.toString());
-                            });
-                        }
-                    });
-
-                    if (!teamMemberIds.has(requesterId)) {
-                        return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                if (stage === LEAVE_STAGE.SHALINI) {
+                    if (actorUsername !== STAGE_2_APPROVER_USERNAME) {
+                        return res.status(403).json({ message: 'Only shalini_arun can process this stage' });
+                    }
+                    if (currentApproverId && currentApproverId !== actorId) {
+                        return res.status(403).json({ message: 'Unauthorized: You are not the assigned stage-2 approver' });
                     }
 
-                    if (!['pending_hod', 'pending', 'hod_approved_pending_admin'].includes(application.approval_status)) {
-                        return res.status(400).json({ message: 'Request is no longer pending HOD review' });
+                    if (status === 'rejected') {
+                        return finalizeRejection();
                     }
 
-                    if (status === 'approved') {
-                        return finalizeApproval('hod', 'HOD');
+                    markApprovalChainStage(application, LEAVE_STAGE.SHALINI, 'approved', commentText);
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
+                    setPendingStage(application, LEAVE_STAGE.FINAL, undefined, 'ADMIN');
+                    await application.save();
+                    return res.json({ message: 'Leave approved by shalini_arun and forwarded for final approval' });
+                }
+
+                if (stage === LEAVE_STAGE.FINAL) {
+                    if (!isAdminRole(actorRole) || !FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+                        return res.status(403).json({ message: 'Final leave approval is restricted to designated final approvers' });
                     }
 
-                    return finalizeRejection('HOD');
+                    if (status === 'rejected') {
+                        return finalizeRejection();
+                    }
+
+                    return finalizeApproval();
                 }
 
-                if (!isAdminRole(actorRole)) {
-                    return res.status(403).json({ message: 'Final leave approval requires admin role' });
-                }
-
-                if (!isAllowedAdmin) {
-                    return res.status(403).json({ message: 'Final leave approval is restricted to designated admins' });
-                }
-
-                const canFinalize = ['pending_hod', 'hod_approved_pending_admin', 'pending'].includes(application.approval_status);
-
-                if (!canFinalize) {
-                    return res.status(400).json({ message: 'Request is not ready for admin finalization' });
-                }
-
-                if (status === 'approved') {
-                    return finalizeApproval('admin', 'ADMIN');
-                }
-
-                return finalizeRejection('ADMIN');
+                return res.status(400).json({ message: 'Invalid leave approval stage' });
 
             } catch (error) {
                 throw error;
@@ -813,6 +1208,18 @@ export const approveRequest = async (req, res) => {
                     { upsert: true }
                 );
             }
+
+            await logApprovalActivity(
+                req,
+                'APPROVAL',
+                status === 'approved' ? 'REGULARIZATION_APPROVED' : 'REGULARIZATION_REJECTED',
+                `${actor.username || actor.role} ${status} regularization request ${request._id}`,
+                {
+                    regularization_id: request._id,
+                    employee_id: request.employee_id,
+                    comments: comments || ''
+                }
+            );
 
             return res.json({ message: `Regularization ${status} successfully` });
         }
@@ -1034,7 +1441,10 @@ export const getDepartmentAttendanceReport = async (req, res) => {
 export const getAdminLeaveRequests = async (req, res) => {
     try {
         const admin = req.user;
-        if (!isAdminRole(admin.role)) {
+        const adminUsername = String(admin.username || '').toLowerCase();
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
+
+        if (!isAdminRole(admin.role) && !isAllowedAdmin) {
             return res.status(403).json({ message: 'Admin access only' });
         }
 
@@ -1043,8 +1453,8 @@ export const getAdminLeaveRequests = async (req, res) => {
         const limit = Math.max(1, parseInt(historyLimit));
 
         const companyId = admin.company_id?._id || admin.company_id;
-        const adminUsername = String(admin.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
+
+        await migrateLegacyPendingHodForCompany(companyId);
 
         const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
         const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
@@ -1059,10 +1469,8 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         let teams = [];
         if (isAllowedAdmin) {
-            // Allowed admins see all company teams
-            teams = allTeams.filter(team =>
-                team.members?.some(m => m.userId && companyUserIds.has(m.userId.toString()))
-            );
+            // Allowed admins see all teams across companies
+            teams = allTeams;
         } else {
             // Regular HOD/Admins see only their assigned teams
             teams = allTeams.filter(t => 
@@ -1131,21 +1539,24 @@ export const getAdminLeaveRequests = async (req, res) => {
             employeeFilter = { $in: objectIds };
         }
 
-        const leaveQuery = employeeFilter
-            ? { employee_id: employeeFilter } // Trust the explicit employee filter for HODs/Specific teams
-            : {
-                $or: [
-                    { company_id: companyId },
-                    { employee_id: admin._id }
-                ]
-            };
+        const leaveQuery = isAllowedAdmin
+            ? {}
+            : (employeeFilter
+                ? { employee_id: employeeFilter } // Trust the explicit employee filter for HODs/Specific teams
+                : {
+                    $or: [
+                        { company_id: companyId },
+                        { employee_id: admin._id }
+                    ]
+                });
 
         // Fetch pending leaves
         const pendingLeaves = await LeaveApplication.find({
             ...leaveQuery,
-            approval_status: { $in: ['pending_hod', 'hod_approved_pending_admin', 'pending'] }
+            ...getActorPendingLeaveQuery(admin)
         })
             .populate('employee_id', 'first_name last_name username')
+            .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .populate('final_reviewed_by', 'first_name last_name username role')
             .populate('hod_reviewed_by', 'first_name last_name username role')
@@ -1163,6 +1574,7 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         const recentProcessedLeaves = await LeaveApplication.find(historyQuery)
             .populate('employee_id', 'first_name last_name username')
+            .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .populate('final_reviewed_by', 'first_name last_name username role')
             .populate('hod_reviewed_by', 'first_name last_name username role')
@@ -1203,6 +1615,19 @@ export const getAdminLeaveRequests = async (req, res) => {
                 ? normalizeRole(effectiveReviewer.role)
                 : null;
 
+            const currentApprover = leave.current_approver_id;
+            const currentApproverName = formatPersonName(currentApprover);
+            const currentApproverRole = currentApprover?.role ? normalizeRole(currentApprover.role) : null;
+            const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
+            const approvalStageLabel = LEAVE_STAGE_LABELS[approvalStage] || approvalStage;
+            const canAct = canActorActOnLeave(leave, admin);
+            const approvalTrail = buildApprovalTrail(leave);
+            const pendingRemark = getPendingRemarkForActor(leave, admin);
+            const actorIdDebug = toIdString(admin._id);
+            const currentApproverIdDebug = toIdString(currentApprover);
+            const actorUsernameDebug = String(admin.username || '').toLowerCase();
+            const currentApproverUsernameDebug = String(currentApprover?.username || '').toLowerCase();
+
             const decisionRemark = leave.rejection_reason
                 || leave.final_review_comment
                 || leave.hod_review_comment
@@ -1223,12 +1648,31 @@ export const getAdminLeaveRequests = async (req, res) => {
                 attachment_urls: leave.attachment_urls || [],
                 reason: leave.reason,
                 status: leave.approval_status,
+                approvalStage,
+                approvalStageLabel,
+                approvalTrail,
+                canAct,
+                pendingRemark,
+                currentApproverName,
+                currentApproverRole,
+                currentApproverUsername: currentApprover?.username || null,
                 actionDate: leave.updatedAt,
                 approvedBy: leave.approval_status === 'approved' ? reviewerName : null,
                 rejectedBy: leave.approval_status === 'rejected' ? reviewerName : null,
                 approverRole: reviewerRole,
                 decisionRemark,
-                rejectionReason: leave.rejection_reason || null
+                rejectionReason: leave.rejection_reason || null,
+                approvalDebug: {
+                    actorId: actorIdDebug,
+                    currentApproverId: currentApproverIdDebug,
+                    actorUsername: actorUsernameDebug,
+                    currentApproverUsername: currentApproverUsernameDebug,
+                    idMatch: !!actorIdDebug && !!currentApproverIdDebug && actorIdDebug === currentApproverIdDebug,
+                    usernameMatch: !!actorUsernameDebug && !!currentApproverUsernameDebug && actorUsernameDebug === currentApproverUsernameDebug,
+                    assignedToActor: isAssignedToActor(leave, admin),
+                    stage: approvalStage,
+                    status: leave.approval_status
+                }
             };
         };
 

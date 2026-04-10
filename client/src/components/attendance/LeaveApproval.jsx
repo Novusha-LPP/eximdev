@@ -17,20 +17,91 @@ const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
+const isAllowedUser = (username) => ALLOWED_USERNAMES.has(String(username || '').toLowerCase());
 const isHodRole = (role) => {
   const n = normalizeRole(role);
   return n === 'HOD' || n === 'HEADOFDEPARTMENT';
 };
 
+const STAGE_LABELS = {
+  stage_1_hod: 'Team HOD',
+  stage_2_shalini: 'shalini_arun',
+  stage_3_final: 'Final approver'
+};
+
+const getStageLabel = (stage) => STAGE_LABELS[stage] || (stage ? stage.replaceAll('_', ' ') : 'Pending');
+
+const getRequestStatusLabel = (req) => {
+  if (req?.status === 'approved') return 'Approved';
+  if (req?.status === 'rejected') return 'Rejected';
+
+  if (req?.approvalStage === 'stage_1_hod') return 'Pending - needs HOD approval first';
+  if (req?.approvalStage === 'stage_2_shalini') return 'Pending - needs Shalini Arun approval first';
+  if (req?.approvalStage === 'stage_3_final') return 'Pending approval from final approver';
+
+  if (req?.pendingRemark) return req.pendingRemark;
+
+  if (Array.isArray(req?.approvalTrail) && req.approvalTrail.length > 0) {
+    return req.approvalTrail.join(' • ');
+  }
+
+  return 'Pending approval';
+};
+
+const normalizeLeaveRecord = (raw = {}) => {
+  const stage = raw.approvalStage || raw.approval_stage || (raw.status === 'pending' ? 'stage_1_hod' : null);
+  const stageLabel = raw.approvalStageLabel || raw.approval_stage_label || (stage ? getStageLabel(stage) : null);
+  const trail = Array.isArray(raw.approvalTrail)
+    ? raw.approvalTrail
+    : (Array.isArray(raw.approval_trail) ? raw.approval_trail : []);
+
+  let canAct = raw.canAct;
+  if (typeof canAct !== 'boolean') {
+    canAct = typeof raw.can_act === 'boolean' ? raw.can_act : (raw.status === 'pending');
+  }
+
+  return {
+    ...raw,
+    id: raw.id || raw._id,
+    employeeName: raw.employeeName || raw.employee_name || 'Unknown',
+    employeeId: raw.employeeId || raw.employee_id,
+    teamName: raw.teamName || raw.team_name || null,
+    leaveType: raw.leaveType || raw.leave_type || 'Unknown',
+    fromDate: raw.fromDate || raw.from_date,
+    toDate: raw.toDate || raw.to_date,
+    totalDays: raw.totalDays ?? raw.total_days ?? 0,
+    is_half_day: raw.is_half_day ?? false,
+    half_day_session: raw.half_day_session || null,
+    attachment_urls: raw.attachment_urls || [],
+    status: raw.status || raw.approval_status || 'pending',
+    approvalStage: stage,
+    approvalStageLabel: stageLabel,
+    approvalTrail: trail,
+    canAct,
+    pendingRemark: raw.pendingRemark || raw.pending_remark || null,
+    currentApproverName: raw.currentApproverName || raw.current_approver_name || null,
+    currentApproverRole: raw.currentApproverRole || raw.current_approver_role || null,
+    currentApproverUsername: raw.currentApproverUsername || raw.current_approver_username || null,
+    approvedBy: raw.approvedBy || raw.approved_by || null,
+    rejectedBy: raw.rejectedBy || raw.rejected_by || null,
+    approverRole: raw.approverRole || raw.approver_role || null,
+    decisionRemark: raw.decisionRemark || raw.decision_remark || null,
+    rejectionReason: raw.rejectionReason || raw.rejection_reason || null,
+    actionDate: raw.actionDate || raw.action_date || raw.updatedAt || raw.updated_at || null
+  };
+};
+
 const LeaveApproval = () => {
   const location = useLocation();
   const { user } = useContext(UserContext);
+  const username = String(user?.username || '').toLowerCase();
 
-  // Role detection — use EXIM roles from UserContext
-  const isAdmin = isAdminRole(user?.role);
+  // Role detection — admin queue can be used by allowlisted approvers too
+  const isAdmin = isAdminRole(user?.role) || isAllowedUser(username);
   const isHOD = isHodRole(user?.role);
+  const canManageAdminTools = isAdminRole(user?.role) && isAllowedUser(username);
   // Initial local check, but will be synced with backend for consistency
-  const [isAllowedAdmin, setIsAllowedAdmin] = useState(isAdmin && ALLOWED_USERNAMES.has(String(user?.username || '').toLowerCase()));
+  const [isAllowedAdmin, setIsAllowedAdmin] = useState(canManageAdminTools);
 
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'approvals');
   const [requests, setRequests] = useState([]);
@@ -61,11 +132,15 @@ const LeaveApproval = () => {
       if (isAdmin) {
         // Admin: use the dedicated admin endpoint with optional team filter and pagination
         const res = await attendanceAPI.getAdminLeaveRequests(teamId !== 'all' ? teamId : undefined, page, historyLimit);
-        pendingLeaves = res?.data?.pendingLeaves || [];
-        processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => ({
-          ...h,
-          historyKey: `hist-${h.id}-${new Date(h.actionDate).getTime()}`
-        }));
+        console.log('[LeaveApproval] Admin queue response:', res?.data);
+        pendingLeaves = (res?.data?.pendingLeaves || []).map(normalizeLeaveRecord);
+        processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => {
+          const normalized = normalizeLeaveRecord(h);
+          return {
+            ...normalized,
+            historyKey: `hist-${normalized.id}-${new Date(normalized.actionDate || Date.now()).getTime()}`
+          };
+        });
         total = res?.data?.totalHistory || 0;
 
         // Populate teams for filter dropdown (first load only)
@@ -81,21 +156,35 @@ const LeaveApproval = () => {
         // HOD: use the HOD dashboard endpoint — backend handles team scoping
         // Note: For HOD, we might want to implement separate pagination later if needed.
         const res = await attendanceAPI.getHODDashboard();
-        pendingLeaves = res?.data?.pendingLeaves || [];
-        processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => ({
-          ...h,
-          historyKey: `hist-${h.id}-${new Date(h.actionDate).getTime()}`
-        }));
+        console.log('[LeaveApproval] HOD dashboard response:', res?.data);
+        pendingLeaves = (res?.data?.pendingLeaves || []).map(normalizeLeaveRecord);
+        processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => {
+          const normalized = normalizeLeaveRecord(h);
+          return {
+            ...normalized,
+            historyKey: `hist-${normalized.id}-${new Date(normalized.actionDate || Date.now()).getTime()}`
+          };
+        });
         total = processedLeaves.length;
       }
 
       const seen = new Set();
-      setRequests(pendingLeaves.filter(r => {
+      const dedupedPending = pendingLeaves.filter(r => {
         const k = String(r.id);
         if (seen.has(k)) return false;
         seen.add(k);
         return true;
-      }));
+      });
+      setRequests(dedupedPending);
+      console.log('[LeaveApproval] Pending requests after dedupe:', dedupedPending.map(r => ({
+        id: r.id,
+        status: r.status,
+        approvalStage: r.approvalStage,
+        pendingRemark: r.pendingRemark,
+        approvalTrail: r.approvalTrail,
+        canAct: r.canAct,
+        approvalDebug: r.approvalDebug
+      })));
       setHistory(processedLeaves);
       setTotalHistory(total);
       setHistoryPage(page);
@@ -135,8 +224,9 @@ const LeaveApproval = () => {
     if (!acted) return;
     setRequests(prev => prev.filter(r => String(r.id) !== String(id)));
     try {
-      await attendanceAPI.approveRequest('leave', id, status, remark);
-      toast.success(`Leave ${status}`);
+      const response = await attendanceAPI.approveRequest('leave', id, status, remark);
+      console.log('[LeaveApproval] approveRequest response:', { id, status, remark, response });
+      toast.success(response?.message || `Leave ${status}`);
       setHistory(h => h.some(r => String(r.id) === String(id)) ? h :
         [{
           ...acted,
@@ -197,9 +287,9 @@ const LeaveApproval = () => {
   const TABS = [
     { key: 'approvals', label: 'Leave Approvals', count: requests.length },
     { key: 'history', label: 'Leave History', count: 0 },
-    ...(isAllowedAdmin ? [{ key: 'balances', label: 'Leave Balances', count: 0 }] : []),
-    ...(isAllowedAdmin ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
-    ...(isAllowedAdmin ? [{ key: 'holiday', label: 'Holidays', count: 0 }] : []),
+    ...(canManageAdminTools ? [{ key: 'balances', label: 'Leave Balances', count: 0 }] : []),
+    ...(canManageAdminTools ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
+    ...(canManageAdminTools ? [{ key: 'holiday', label: 'Holidays', count: 0 }] : []),
   ];
 
   const filteredHistory = history.filter(h =>
@@ -295,6 +385,11 @@ const LeaveApproval = () => {
               <div className="ap-request-list">
                 {requests.map(req => (
                   <div key={String(req.id)} className="ap-request-item">
+                    {req.canAct === false && (
+                      <div className="ap-locked-hint">
+                        {req.pendingRemark || 'You cannot approve this at the current stage.'}
+                      </div>
+                    )}
                     <div className="ap-req-top">
                       <div className="ap-req-av">{initials(req.employeeName)}</div>
                       <div className="ap-req-info">
@@ -322,6 +417,21 @@ const LeaveApproval = () => {
                       </div>
                       <div className="ap-req-tags">
                         <span className="ap-badge leave">{req.leaveType}</span>
+                        {req.approvalStageLabel && (
+                          <span className="ap-badge pending" style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+                            {req.approvalStageLabel}
+                          </span>
+                        )}
+                        {req.currentApproverName && (
+                          <span className="ap-badge pending" style={{ background: '#ecfdf5', color: '#047857' }}>
+                            Next: {req.currentApproverName}
+                          </span>
+                        )}
+                        {!req.currentApproverName && req.approvalStage && (
+                          <span className="ap-badge pending" style={{ background: '#f1f5f9', color: '#475569' }}>
+                            Next: {getStageLabel(req.approvalStage)}
+                          </span>
+                        )}
                         {req.attachment_urls && req.attachment_urls.length > 0 && (
                           <a
                             href={`${API_BASE_URL.replace('/api', '')}/${req.attachment_urls[0]}`}
@@ -352,11 +462,41 @@ const LeaveApproval = () => {
 
                     {req.reason && <div className="ap-req-reason">"{req.reason}"</div>}
 
+                    <div style={{ marginTop: 8, fontSize: '.75rem', color: '#475569', fontWeight: 700 }}>
+                      {getRequestStatusLabel(req)}
+                    </div>
+
+                    {Array.isArray(req.approvalTrail) && req.approvalTrail.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        {req.approvalTrail.map((trailItem, idx) => (
+                          <span
+                            key={`${req.id}-trail-${idx}`}
+                            className="ap-badge pending"
+                            style={{ background: '#f8fafc', color: '#334155', border: '1px solid #e2e8f0' }}
+                          >
+                            {trailItem}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="ap-req-actions">
-                      <button className="ap-btn approve" onClick={() => handleAction(req.id, 'approved')}>
+                      <button
+                        className="ap-btn approve"
+                        onClick={() => handleAction(req.id, 'approved')}
+                        disabled={req.canAct === false}
+                        title={req.canAct === false ? (req.pendingRemark || 'Not actionable at this stage') : 'Approve'}
+                        style={req.canAct === false ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                      >
                         <FiCheck size={14} /> Approve
                       </button>
-                      <button className="ap-btn reject" onClick={() => handleAction(req.id, 'rejected')}>
+                      <button
+                        className="ap-btn reject"
+                        onClick={() => handleAction(req.id, 'rejected')}
+                        disabled={req.canAct === false}
+                        title={req.canAct === false ? (req.pendingRemark || 'Not actionable at this stage') : 'Reject'}
+                        style={req.canAct === false ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                      >
                         <FiX size={14} /> Reject
                       </button>
                     </div>
@@ -418,6 +558,7 @@ const LeaveApproval = () => {
                         <th>Date Range</th>
                         <th>Status</th>
                         <th>Approved/Rejected By</th>
+                        <th>Stage / Next</th>
                         <th>Remark</th>
                         <th>Processed On</th>
                         {isAllowedAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
@@ -450,6 +591,10 @@ const LeaveApproval = () => {
                               : req.status === 'rejected'
                                 ? (req.rejectedBy || '—')
                                 : '—'}
+                          </td>
+                          <td className="td-dim">
+                            {req.approvalStageLabel || getStageLabel(req.approvalStage)}
+                            {req.currentApproverName ? ` • ${req.currentApproverName}` : ''}
                           </td>
                           <td className="td-dim" title={req.decisionRemark || req.rejectionReason || ''}>
                             {(req.decisionRemark || req.rejectionReason || '—')}

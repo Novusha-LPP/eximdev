@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Modal } from 'antd';
 import { FiPlus, FiArrowLeft, FiEdit2, FiTrash2, FiChevronDown, FiChevronUp, FiSave, FiX, FiList, FiSettings, FiCheck, FiMinus, FiFileText, FiShield, FiBriefcase, FiClock, FiUsers, FiAward } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -7,17 +7,14 @@ import toast from 'react-hot-toast';
 import EnterpriseTable from '../common/EnterpriseTable';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import { UserContext } from '../../../contexts/UserContext';
 import './AdminSettings.css';
 import './LeavePolicyCards.css';
 
 const LEAVE_TYPES = [
-    { value: 'casual', label: 'Casual Leave', code: 'CL' },
-    { value: 'sick', label: 'Sick Leave', code: 'SL' },
-    { value: 'earned', label: 'Earned Leave', code: 'EL' },
+
     { value: 'privilege', label: 'Privilege Leave', code: 'PL' },
-    { value: 'maternity', label: 'Maternity Leave', code: 'ML' },
-    { value: 'paternity', label: 'Paternity Leave', code: 'PTL' },
-    { value: 'compensatory', label: 'Compensatory Off', code: 'CO' },
+
     { value: 'lwp', label: 'Unpaid Leave (LWP)', code: 'LWP' }
 ];
 
@@ -37,6 +34,13 @@ const POLICY_CONFIG = {
 const getPolicyCfg = (leaveType = '') => {
     const key = Object.keys(POLICY_CONFIG).find(k => leaveType.toLowerCase().includes(k));
     return POLICY_CONFIG[key] || { emoji: '📝', cls: 'default', label: leaveType };
+};
+
+const formatActor = (actor) => {
+    if (!actor) return 'Unknown';
+    if (typeof actor === 'string') return actor;
+    const fullName = `${actor.first_name || ''} ${actor.last_name || ''}`.trim();
+    return fullName || actor.username || 'Unknown';
 };
 
 /* -- Read-only Policy Card -- */
@@ -193,12 +197,16 @@ const emptyForm = {
 };
 
 const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
+    const { user } = useContext(UserContext);
     const navigate = useNavigate();
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState(emptyForm);
     const [editingId, setEditingId] = useState(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [logsOpen, setLogsOpen] = useState(false);
+    const [logsLoading, setLogsLoading] = useState(false);
+    const [logsRows, setLogsRows] = useState([]);
 
     // For read-only card view (employee/HOD)
     const [policies, setPolicies] = useState([]);
@@ -245,6 +253,12 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
         updateNestedField(section, field, updated);
     };
 
+    const isOwnerOrUnowned = (policy) => {
+        const creatorId = policy?.created_by?._id || policy?.created_by;
+        const userId = user?._id?._id || user?._id;
+        return !creatorId || String(creatorId) === String(userId);
+    };
+
     const columns = [
         {
             label: 'Policy Name',
@@ -265,6 +279,9 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                             border: '1px solid var(--as-border2)'
                         }}>{row.leave_code}</span>
                         <span style={{ fontSize: '.6875rem', color: 'var(--as-t3)' }}>{getPolicyCfg(row.leave_type).label}</span>
+                    </div>
+                    <div style={{ fontSize: '.6875rem', color: 'var(--as-t3)' }}>
+                        Created by: {formatActor(row.created_by)}
                     </div>
                 </div>
             )
@@ -339,10 +356,10 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
             width: '80px',
             render: (_, row) => (
                 <div style={{ display: 'flex', gap: '6px' }}>
-                    <button className="btn-icon" onClick={() => handleEdit(row)} title="Edit">
+                    <button className="btn-icon" onClick={() => handleEdit(row)} title={isOwnerOrUnowned(row) ? 'Edit' : 'Only creator can edit'} disabled={!isOwnerOrUnowned(row)}>
                         <FiEdit2 size={13} />
                     </button>
-                    <button className="btn-icon danger" onClick={() => handleDelete(row._id)} title="Delete">
+                    <button className="btn-icon danger" onClick={() => handleDelete(row._id)} title={isOwnerOrUnowned(row) ? 'Delete' : 'Only creator can delete'} disabled={!isOwnerOrUnowned(row)}>
                         <FiTrash2 size={13} />
                     </button>
                 </div>
@@ -352,6 +369,22 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
 
     const fetchPolicies = async (params) => {
         return await masterAPI.getLeavePolicies(params);
+    };
+
+    const fetchLeaveLogs = async () => {
+        try {
+            setLogsLoading(true);
+            const hres = await masterAPI.getPolicyHistory({
+                limit: 100,
+                policy_type: 'leave',
+                include_approvals: false
+            });
+            setLogsRows(hres?.data || []);
+        } catch (err) {
+            toast.error('Failed to load logs');
+        } finally {
+            setLogsLoading(false);
+        }
     };
 
     const handleEdit = async (policy) => {
@@ -426,6 +459,11 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     </div>
                     <div className="settings-header-actions" style={{ display: 'flex', gap: '1rem' }}>
                         {!readOnly && (
+                            <button className="btn btn-outline" onClick={() => { setLogsOpen(true); fetchLeaveLogs(); }}>
+                                <FiList size={18} /> Logs
+                            </button>
+                        )}
+                        {!readOnly && (
                             <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
                                 {showForm ? <><FiMinus size={18} /> Cancel</> : <><FiPlus size={18} /> New Policy</>}
                             </button>
@@ -438,6 +476,47 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                 </div>
             )}
 
+            <Modal
+                title="Leave Policy Logs"
+                open={logsOpen}
+                onCancel={() => setLogsOpen(false)}
+                footer={null}
+                width={860}
+            >
+                {logsLoading ? (
+                    <div style={{ padding: '16px', color: '#64748b' }}>Loading logs...</div>
+                ) : logsRows.length === 0 ? (
+                    <div style={{ padding: '16px', color: '#94a3b8' }}>No logs found.</div>
+                ) : (
+                    <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'grid', gap: '10px' }}>
+                        {logsRows.map((row) => {
+                            const actionLabel = (row.action || '').replaceAll('_', ' ');
+                            const isDelete = actionLabel.includes('DELETE');
+                            const isCreate = actionLabel.includes('CREATE');
+                            const badgeStyle = isDelete
+                                ? { color: '#b91c1c', background: '#fee2e2' }
+                                : isCreate
+                                    ? { color: '#166534', background: '#dcfce7' }
+                                    : { color: '#1e3a8a', background: '#dbeafe' };
+                            return (
+                                <div key={row.id} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px', background: '#f8fafc' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '.3px', padding: '3px 8px', borderRadius: '999px', ...badgeStyle }}>
+                                            {actionLabel}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: '#64748b' }}>{new Date(row.timestamp).toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{row.details || '-'}</div>
+                                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#475569' }}>
+                                        By {row.actor_name || 'Unknown'} ({row.actor_role || 'N/A'})
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </Modal>
+
             {/* Embedded mode add button */}
             {embedded && !readOnly && !showForm && (
                 <div style={{ marginBottom: '1rem' }}>
@@ -447,7 +526,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                 </div>
             )}
 
-            {(showForm || editingId) && (
+            {(showForm || editingId) ? (
                 <div className="modern-setting-form animation-slide-down">
                     <div className="modern-form-header">
                         <FiFileText size={20} color="var(--color-primary)" />
@@ -681,15 +760,13 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                             <button className="btn btn-outline" onClick={handleCancel}>Cancel</button>
                             <button className="btn btn-primary" onClick={handleSubmit}>
                                 <FiSave style={{ marginRight: 8 }} />
-                                {editingId ? 'Update Policy' : 'Save Leaf Type'}
+                                {editingId ? 'Update Policy' : 'Save Leave Type'}
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
-
-            {/* -- READ-ONLY: Employee / HOD card view -- */}
-            {readOnly ? (
+            ) : (
+                readOnly ? (
                 <div className="lpc-page">
                     {/* Summary strip */}
                     <div className="lpc-summary">
@@ -762,6 +839,7 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     searchPlaceholder="Search policies..."
                     selectable={false}
                 />
+                )
             )}
 
         </div>

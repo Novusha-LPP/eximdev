@@ -44,7 +44,11 @@ const shiftSchema = new mongoose.Schema({
   },
 
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  is_active: { type: Boolean, default: true } // Keeping for backward compatibility if needed, else can rely on status
+  is_active: { type: Boolean, default: true }, // Keeping for backward compatibility if needed, else can rely on status
+
+  // Audit
+  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
 export default mongoose.model('Shift', shiftSchema);

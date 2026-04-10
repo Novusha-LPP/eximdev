@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiCalendar, FiLock } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiCalendar, FiLock, FiList } from 'react-icons/fi';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
 import { Radio, Modal } from 'antd';
@@ -29,6 +29,13 @@ const emptyPolicyForm = (user) => ({
 
 const emptyHolidayRow = () => ({ holiday_name: '', holiday_date: '', is_optional: false });
 
+const formatActor = (actor) => {
+  if (!actor) return 'Unknown';
+  if (typeof actor === 'string') return actor;
+  const fullName = `${actor.first_name || ''} ${actor.last_name || ''}`.trim();
+  return fullName || actor.username || 'Unknown';
+};
+
 const HolidayPolicyManager = ({ user: userProp }) => {
   const { user: ctxUser } = useContext(UserContext);
   const user = userProp || ctxUser;  // prefer prop, fall back to context
@@ -46,11 +53,16 @@ const HolidayPolicyManager = ({ user: userProp }) => {
   const [policyForm, setPolicyForm]       = useState(() => emptyPolicyForm(user));
   const [editingPolicyId, setEditingPolicyId] = useState(null);
   const [savingPolicy, setSavingPolicy]   = useState(false);
+  const [logsOpen, setLogsOpen]           = useState(false);
+  const [logsLoading, setLogsLoading]     = useState(false);
+  const [logsRows, setLogsRows]           = useState([]);
 
   const loadPolicies = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await masterAPI.getHolidayPolicies({ year: filterYear });
+      const [res] = await Promise.all([
+        masterAPI.getHolidayPolicies({ year: filterYear })
+      ]);
       setPolicies(res.data || []);
     } catch {
       toast.error('Failed to load holiday policies');
@@ -59,7 +71,31 @@ const HolidayPolicyManager = ({ user: userProp }) => {
     }
   }, [filterYear]);
 
+  const isOwnerOrUnowned = (policy) => {
+    const creatorId = policy?.created_by?._id || policy?.created_by;
+    const userId = user?._id?._id || user?._id;
+    return !creatorId || String(creatorId) === String(userId);
+  };
+
   useEffect(() => { loadPolicies(); }, [loadPolicies]);
+
+  const fetchLogs = useCallback(async (policyId = '') => {
+    if (!isAllowedAdmin) return;
+    try {
+      setLogsLoading(true);
+      const res = await masterAPI.getPolicyHistory({
+        limit: 100,
+        policy_type: 'holiday',
+        policy_id: policyId || undefined,
+        include_approvals: false
+      });
+      setLogsRows(res?.data || []);
+    } catch {
+      toast.error('Failed to load logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [isAllowedAdmin]);
 
   // ── Policy CRUD ─────────────────────────────────────────────────────────────
   const handleSavePolicy = async () => {
@@ -271,6 +307,11 @@ const HolidayPolicyManager = ({ user: userProp }) => {
             {[filterYear - 1, filterYear, filterYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           {isAllowedAdmin && (
+            <button className="btn btn-outline" onClick={() => { setLogsOpen(true); fetchLogs(); }}>
+              <FiList /> Logs
+            </button>
+          )}
+          {isAllowedAdmin && (
             <button className="btn btn-primary"
               onClick={() => { setEditingPolicyId(null); setPolicyForm(emptyPolicyForm(user)); setView('policy-form'); }}>
               + New Policy
@@ -278,6 +319,47 @@ const HolidayPolicyManager = ({ user: userProp }) => {
           )}
         </div>
       </div>
+
+      <Modal
+        title="Holiday Policy Logs"
+        open={logsOpen}
+        onCancel={() => setLogsOpen(false)}
+        footer={null}
+        width={860}
+      >
+        {logsLoading ? (
+          <div style={{ padding: '16px', color: '#64748b' }}>Loading logs...</div>
+        ) : logsRows.length === 0 ? (
+          <div style={{ padding: '16px', color: '#94a3b8' }}>No logs found.</div>
+        ) : (
+          <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'grid', gap: '10px' }}>
+            {logsRows.map((row) => {
+              const actionLabel = (row.action || '').replaceAll('_', ' ');
+              const isDelete = actionLabel.includes('DELETE');
+              const isCreate = actionLabel.includes('CREATE');
+              const badgeStyle = isDelete
+                ? { color: '#b91c1c', background: '#fee2e2' }
+                : isCreate
+                  ? { color: '#166534', background: '#dcfce7' }
+                  : { color: '#1e3a8a', background: '#dbeafe' };
+              return (
+                <div key={row.id} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px', background: '#f8fafc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '.3px', padding: '3px 8px', borderRadius: '999px', ...badgeStyle }}>
+                      {actionLabel}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>{new Date(row.timestamp).toLocaleString()}</span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{row.details || '-'}</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#475569' }}>
+                    By {row.actor_name || 'Unknown'} ({row.actor_role || 'N/A'})
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
 
       {/* Policy list */}
       {loading ? (
@@ -310,11 +392,16 @@ const HolidayPolicyManager = ({ user: userProp }) => {
                       <span style={{ fontWeight: 600 }}>{policy.year}</span> • {holidays.length} holiday{holidays.length !== 1 ? 's' : ''}
                       {' • GLOBAL POLICY'}
                     </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                      Created by: {formatActor(policy.created_by)}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     {isAllowedAdmin && (
                       <>
                         <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}
+                          disabled={!isOwnerOrUnowned(policy)}
+                          title={isOwnerOrUnowned(policy) ? 'Edit policy' : 'Only creator can edit'}
                           onClick={e => { 
                             e.stopPropagation(); 
                             setEditingPolicyId(policy._id); 
@@ -330,6 +417,8 @@ const HolidayPolicyManager = ({ user: userProp }) => {
                           <FiEdit2 size={13} /> Edit
                         </button>
                         <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }}
+                          disabled={!isOwnerOrUnowned(policy)}
+                          title={isOwnerOrUnowned(policy) ? 'Delete policy' : 'Only creator can delete'}
                           onClick={e => { e.stopPropagation(); handleDeletePolicy(policy._id, policy.policy_name); }}>
                           <FiTrash2 size={13} />
                         </button>
@@ -388,6 +477,7 @@ const HolidayPolicyManager = ({ user: userProp }) => {
               </div>
             );
           })}
+
         </div>
       )}
     </div>

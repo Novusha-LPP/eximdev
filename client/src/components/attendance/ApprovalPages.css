@@ -38,6 +38,20 @@
 .ap-request-item:last-child { border-bottom:none; }
 .ap-request-item:hover { background:#fafbfd; }
 
+.ap-locked-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .75rem;
+  font-weight: 700;
+  color: #8a5a02;
+  background: #fff7e6;
+  border: 1px solid #fde7b2;
+  border-radius: 999px;
+  padding: 5px 10px;
+  width: fit-content;
+}
+
 .ap-req-top  { display:flex;align-items:flex-start;gap:12px; }
 .ap-req-av   { width:36px;height:36px;border-radius:50%;background:#1e2540;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;text-transform:uppercase; }
 .ap-req-info { flex:1;min-width:0; }
@@ -71,6 +85,7 @@
 .ap-btn.approve:hover { background:#22c47a;color:#fff; }
 .ap-btn.reject  { background:#fdeaea;color:#b53535; }
 .ap-btn.reject:hover  { background:#e84040;color:#fff; }
+.ap-btn:disabled { pointer-events: none; }
 
 /* History table */
 .ap-history-wrap { overflow-x:auto;-webkit-overflow-scrolling:touch; }

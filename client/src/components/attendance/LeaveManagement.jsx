@@ -49,6 +49,7 @@ const LeaveManagement = () => {
 
   const pending = applications.filter(a => a.status === 'pending');
   const selectedPolicy = balances.find(b => b._id === form.leave_policy_id);
+  const isLwpPolicy = (policy) => String(policy?.leave_type || '').toLowerCase() === 'lwp';
 
   useEffect(() => { fetchData(); }, []);
 
@@ -241,10 +242,10 @@ const LeaveManagement = () => {
             const total = b.opening_balance || b.total || b.annual_quota || 0;
             const used = b.used ?? 0;
             // The server now returns 'available' as Opening - Used - Pending (Net)
-            const availableDisplay = b.leave_type === 'lwp' ? 0 : (b.available ?? (total - used - (b.pending || 0)));
+            const availableDisplay = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (total - used - (b.pending || 0)));
             const pend = b.pending || 0;
             const usedPct = total > 0 ? (used / total) * 100 : 0;
-            const exhausted = (total - used) <= 0 && b.leave_type !== 'lwp';
+            const exhausted = (total - used) <= 0 && !isLwpPolicy(b);
             return (
               <div key={b._id} className={`bal-tile${exhausted ? ' exhausted' : ''}`}>
                 <div className="bal-head">
@@ -253,15 +254,15 @@ const LeaveManagement = () => {
                 </div>
                 <div className="bal-body">
                   <div className="bal-nums">
-                    {b.leave_type === 'lwp' ? (
-                      <span className="bal-big" style={{ fontSize: '1.375rem' }}>0</span>
+                    {isLwpPolicy(b) ? (
+                      <span className="bal-big" style={{ fontSize: '1.375rem' }}>Unlimited</span>
                     ) : (
                         <span className="bal-big">{availableDisplay}</span>
                     )}
                   </div>
                   <span className="bal-lbl">Available Days</span>
                   <div className="bal-bar">
-                    <div className="bal-fill" style={{ width: b.leave_type === 'lwp' ? '0%' : `${usedPct}%` }} />
+                    <div className="bal-fill" style={{ width: isLwpPolicy(b) ? '0%' : `${usedPct}%` }} />
                   </div>
                   <div className="bal-meta">
                     <span className="meta-used">Used: {used}</span>
@@ -488,11 +489,11 @@ const LeaveManagement = () => {
                   <option value="">Select leave type...</option>
                   {balances
                     .map(b => {
-                      const netBalance = b.leave_type === 'lwp' ? 0 : (b.available ?? (b.opening_balance - (b.used || 0) - (b.pending || 0)));
+                      const netBalance = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (b.opening_balance - (b.used || 0) - (b.pending || 0)));
                       return (
                         <option key={b._id} value={b._id}>
                           {b.name}
-                          {b.leave_type !== 'lwp' ? ` • ${netBalance} days left` : ' (Unlimited)'}
+                          {isLwpPolicy(b) ? ' (Unlimited)' : ` • ${netBalance} days left`}
                         </option>
                       );
                     })
@@ -615,28 +616,21 @@ const LeaveManagement = () => {
               {form.leave_policy_id && form.from_date && (form.to_date || form.is_half_day) && (
                 <div className={`projection-card ani-in${loadingPreview ? ' loading' : ''}`}>
                   {loadingPreview ? (
-                    <div className="proj-loader">Calculating impact...</div>
+                    <div className="proj-loader">Calculating remaining balance...</div>
                   ) : preview ? (
-                    <>
-                      <div className="proj-row">
-                        <span>Currently Available:</span>
-                        <strong>{preview.available} days</strong>
-                      </div>
-                      <div className="proj-row">
-                        <span>Impact (Counted Days):</span>
-                        <span className="requested-minus">
-                          -{preview.totalDays} days
-                          {preview.sandwichDays > 0 && <small title="Sandwich rule applied">(inc. {preview.sandwichDays}d sandwich)</small>}
-                        </span>
-                      </div>
-                      <div className="proj-divider" />
+                    isLwpPolicy(selectedPolicy) ? (
                       <div className="proj-row final">
-                        <span>After Approval:</span>
+                        <span>Remaining Balance:</span>
+                        <span className="final-val">Unlimited</span>
+                      </div>
+                    ) : (
+                      <div className="proj-row final">
+                        <span>Remaining Balance:</span>
                         <span className="final-val">
                           {preview.projected_balance} days
                         </span>
                       </div>
-                    </>
+                    )
                   ) : (
                     <div className="proj-error">Select a valid date range</div>
                   )}

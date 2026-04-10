@@ -7,6 +7,36 @@ import TeamModel from '../../model/teamModel.mjs';
 import LeaveCalculationService from '../../services/attendance/LeaveCalculationService.js';
 import mongoose from 'mongoose';
 
+const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
+const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
+
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+const isHodRole = (role) => {
+    const normalized = normalizeRole(role);
+    return normalized === 'HOD' || normalized === 'HEADOFDEPARTMENT';
+};
+
+const getRequesterStatus = (approvalStatus) => {
+    return ['approved', 'rejected', 'cancelled', 'withdrawn'].includes(String(approvalStatus || ''))
+        ? approvalStatus
+        : 'pending';
+};
+
+const getShaliniApprover = async (companyId) => {
+    const companyScoped = await UserModel.findOne({
+        username: STAGE_2_APPROVER_USERNAME,
+        company_id: companyId,
+        isActive: true
+    }).select('_id username role');
+
+    if (companyScoped) return companyScoped;
+
+    return UserModel.findOne({
+        username: STAGE_2_APPROVER_USERNAME,
+        isActive: true
+    }).select('_id username role');
+};
+
 const getDefaultOpeningBalance = (policy) => {
     const leaveType = String(policy?.leave_type || '').toLowerCase();
     if (leaveType === 'lwp') {
@@ -349,7 +379,7 @@ export const getApplications = async (req, res) => {
             half_day_session: app.half_day_session || '',
             attachment_urls: app.attachment_urls || [],
             reason: app.reason || '',
-            status: app.approval_status === 'hod_approved_pending_admin' ? 'pending' : app.approval_status,
+            status: getRequesterStatus(app.approval_status),
             createdAt: app.createdAt,
             rejection_reason: app.rejection_reason || null,
             reviewer_remark: app.rejection_reason || app.final_review_comment || app.hod_review_comment || app.comments || '',
@@ -394,15 +424,18 @@ export const previewLeave = async (req, res) => {
         });
 
         const closing = Number(balance?.closing_balance || (Number(balance?.opening_balance || 0) - Number(balance?.used || 0)));
+        const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
         // Projection now counts against Potential Balance (Opening - Used)
-        const primaryBalance = closing; 
+        const primaryBalance = isLwpPolicy ? 0 : closing;
 
         res.json({
             success: true,
             data: {
                 ...result,
                 available: primaryBalance,
-                projected_balance: Math.max(0, primaryBalance - Number(result.totalDays || 0))
+                projected_balance: isLwpPolicy
+                    ? 0
+                    : Math.max(0, primaryBalance - Number(result.totalDays || 0))
             }
         });
     } catch (err) {
@@ -576,7 +609,7 @@ export const applyLeave = async (req, res) => {
         // 5. Check for Overlapping Applications
         const overlapping = await LeaveApplication.findOne({
             employee_id: user._id,
-            approval_status: { $in: ['pending', 'pending_hod', 'hod_approved_pending_admin', 'approved'] },
+            approval_status: { $in: ['pending', 'approved'] },
             $or: [
                 { from_date: { $lte: end.toDate() }, to_date: { $gte: start.toDate() } }
             ]
@@ -590,6 +623,10 @@ export const applyLeave = async (req, res) => {
 
         // 6. Get user's team_id (if member of any team)
         let teamId = null;
+        let assignedStage = 'stage_1_hod';
+        let currentApproverId = null;
+        let approvalChain = [];
+        const actorUsername = String(user.username || '').toLowerCase();
         try {
             const userTeam = await TeamModel.findOne({
                 'members.userId': user._id,
@@ -597,10 +634,64 @@ export const applyLeave = async (req, res) => {
             });
             if (userTeam) {
                 teamId = userTeam._id;
+                currentApproverId = userTeam.hodId || null;
             }
         } catch (err) {
             console.log('[Leave] Could not fetch team_id:', err.message);
         }
+
+        const shaliniUser = await getShaliniApprover(companyId);
+        if (!shaliniUser) {
+            return res.status(400).json({
+                message: `Unable to route leave approval: ${STAGE_2_APPROVER_USERNAME} is not configured`
+            });
+        }
+
+        const isHodApplicant = isHodRole(user.role);
+        const isStage2OrFinalAdminApplicant = actorUsername === STAGE_2_APPROVER_USERNAME || STAGE_3_FINAL_APPROVER_USERNAMES.has(actorUsername);
+
+        if (isHodApplicant || isStage2OrFinalAdminApplicant) {
+            assignedStage = 'stage_2_shalini';
+            currentApproverId = shaliniUser._id;
+        }
+
+        if (!currentApproverId) {
+            return res.status(400).json({
+                message: 'Unable to route leave approval: no active Team HOD assigned for this employee'
+            });
+        }
+
+        approvalChain = [
+            {
+                level: 1,
+                stage: 'stage_1_hod',
+                approver_id: currentApproverId,
+                approver_role: 'HOD',
+                action: assignedStage === 'stage_1_hod' ? 'pending' : 'approved',
+                action_date: assignedStage === 'stage_1_hod' ? undefined : new Date(),
+                comments: assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for HOD/admin requester'
+            },
+            {
+                level: 2,
+                stage: 'stage_2_shalini',
+                approver_id: shaliniUser._id,
+                approver_username: STAGE_2_APPROVER_USERNAME,
+                approver_role: 'ADMIN',
+                action: assignedStage === 'stage_2_shalini' ? 'pending' : 'pending'
+            },
+            {
+                level: 3,
+                stage: 'stage_3_final',
+                approver_role: 'ADMIN',
+                action: 'pending',
+                comments: 'Final approver group: manu_pillai, suraj_rajan, rajan_aranamkatte'
+            }
+        ]
+            .map((step) => ({
+                ...step,
+                action: ['pending', 'approved', 'rejected'].includes(step.action) ? step.action : 'pending'
+            }))
+            .filter((step) => step.action);
 
         // --- TRANSACTION START ---
         // session.startTransaction(); removed to support standalone MongoDB
@@ -636,7 +727,10 @@ export const applyLeave = async (req, res) => {
                 contact_during_leave: req.body.contact_during_leave,
                 emergency_contact: req.body.emergency_contact,
                 is_lop: policy.deduction_rules?.deduct_from_salary || false,
-                approval_status: 'pending_hod',
+                approval_status: 'pending',
+                approval_stage: assignedStage,
+                current_approver_id: currentApproverId,
+                approval_chain: approvalChain,
                 application_number: `LA-${Date.now()}-${user._id.toString().slice(-4)}`,
                 attachment_urls: req.file ? [`uploads/leaves/${req.file.filename}`] : [],
                 // Snapshot for audit
@@ -698,7 +792,7 @@ export const cancelLeave = async (req, res) => {
         if (!application) {
             return res.status(404).json({ message: 'Application not found' });
         }
-        if (!['pending', 'pending_hod', 'hod_approved_pending_admin'].includes(application.approval_status)) {
+        if (!['pending'].includes(application.approval_status)) {
             return res.status(400).json({
                 message: 'Can only cancel non-finalized applications'
             });

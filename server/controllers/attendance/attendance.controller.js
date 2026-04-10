@@ -91,9 +91,9 @@ const getHodTeamMemberIds = async (hodId) => {
 import QueryBuilder from '../../services/attendance/QueryBuilder.js';
 import PayrollLock from '../../model/attendance/PayrollLock.js';
 
-const HOD_PENDING_LEAVE_STATUSES = ['pending_hod', 'pending'];
-const ADMIN_PENDING_LEAVE_STATUSES = ['hod_approved_pending_admin', 'pending'];
-const NON_FINAL_LEAVE_STATUSES = ['pending_hod', 'hod_approved_pending_admin', 'pending'];
+const HOD_PENDING_LEAVE_STATUSES = ['pending'];
+const ADMIN_PENDING_LEAVE_STATUSES = ['pending'];
+const NON_FINAL_LEAVE_STATUSES = ['pending'];
 
 const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
     if (!weekOffPolicy?.day_rules || !Array.isArray(weekOffPolicy.day_rules)) return [0];

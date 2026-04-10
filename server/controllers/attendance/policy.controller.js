@@ -8,6 +8,7 @@ import WeekOffPolicy from '../../model/attendance/WeekOffPolicy.js';
 import HolidayPolicy from '../../model/attendance/HolidayPolicy.js';
 import LeavePolicy from '../../model/attendance/LeavePolicy.js';
 import LeaveBalance from '../../model/attendance/LeaveBalance.js';
+import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import User from '../../model/userModel.mjs';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
@@ -32,12 +33,120 @@ const log = async (req, module, action, details, metadata = {}) => {
   } catch (e) { console.error('Activity log error', e); }
 };
 
+const canMutatePolicy = (policy, userId) => {
+  if (!policy?.created_by) return true;
+  return String(policy.created_by) === String(userId);
+};
+
+export const getPolicyHistory = async (req, res) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 50, 1), 200);
+    const policyType = String(req.query?.policy_type || '').toLowerCase();
+    const policyId = req.query?.policy_id;
+    const includeApprovals = String(req.query?.include_approvals || 'false').toLowerCase() === 'true';
+
+    const activityQuery = {
+      company_id: companyId,
+      module: { $in: ['POLICY', 'LEAVE', 'POLICY_MANAGEMENT', 'SHIFT'] }
+    };
+
+    if (policyId) {
+      activityQuery.$or = [
+        { 'metadata.policy_id': policyId },
+        { 'metadata.shift_id': policyId }
+      ];
+    }
+
+    if (policyType === 'weekoff') {
+      activityQuery.action = { $regex: 'WEEKOFF', $options: 'i' };
+    } else if (policyType === 'holiday') {
+      activityQuery.action = { $regex: 'HOLIDAY', $options: 'i' };
+    } else if (policyType === 'leave') {
+      activityQuery.module = 'LEAVE';
+    } else if (policyType === 'shift') {
+      activityQuery.module = 'SHIFT';
+    }
+
+    const policyActivityLogs = await ActivityLog.find(activityQuery)
+      .populate('user_id', 'first_name last_name username role')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    const policyEvents = policyActivityLogs.map((logItem) => {
+      const actor = logItem.user_id;
+      const actorName = actor
+        ? (`${actor.first_name || ''} ${actor.last_name || ''}`.trim() || actor.username || 'Unknown')
+        : 'Unknown';
+
+      return {
+        id: String(logItem._id),
+        timestamp: logItem.createdAt,
+        source: 'activity_log',
+        module: logItem.module,
+        action: logItem.action,
+        details: logItem.details || '',
+        actor_name: actorName,
+        actor_role: actor?.role || null,
+        metadata: logItem.metadata || {}
+      };
+    });
+
+    const approvalEvents = [];
+    if (includeApprovals) {
+      const leaveApps = await LeaveApplication.find({
+        company_id: companyId,
+        approval_history: { $exists: true, $ne: [] }
+      })
+        .select('employee_id approval_history')
+        .populate('employee_id', 'first_name last_name username')
+        .sort({ updatedAt: -1 })
+        .limit(limit);
+
+      leaveApps.forEach((app) => {
+        const employeeName = app.employee_id
+          ? (`${app.employee_id.first_name || ''} ${app.employee_id.last_name || ''}`.trim() || app.employee_id.username || 'Employee')
+          : 'Employee';
+
+        (app.approval_history || []).forEach((evt, idx) => {
+          if (!evt?.action) return;
+          approvalEvents.push({
+            id: `${app._id}-approval-${idx}`,
+            timestamp: evt.timestamp || app.updatedAt,
+            source: 'leave_approval_history',
+            module: 'APPROVAL',
+            action: `LEAVE_${String(evt.action || '').toUpperCase()}`,
+            details: `${evt.action} leave request for ${employeeName}`,
+            actor_name: evt.actor_name || 'Unknown',
+            actor_role: evt.actor_role || null,
+            metadata: {
+              leave_application_id: app._id,
+              employee_id: app.employee_id?._id || app.employee_id,
+              comment: evt.comment || ''
+            }
+          });
+        });
+      });
+    }
+
+    const merged = [...policyEvents, ...approvalEvents]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, limit);
+
+    res.json({ success: true, data: merged, count: merged.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to fetch policy history' });
+  }
+};
+
 // ── Week-Off Policy CRUD ──────────────────────────────────────────────────────
 
 export const listWeekOffPolicies = async (req, res) => {
   try {
     const policies = await WeekOffPolicy.find({})
       .populate('applicability.teams.list', 'name')
+      .populate('created_by', 'first_name last_name username role')
+      .populate('updated_by', 'first_name last_name username role')
       .sort({ createdAt: -1 });
     res.json({ success: true, data: policies });
   } catch (err) {
@@ -54,7 +163,11 @@ export const createWeekOffPolicy = async (req, res) => {
     await policy.save();
     // Populate for UI consistency
     await policy.populate('applicability.teams.list', 'name');
-    await log(req, 'POLICY', 'CREATE_WEEKOFF_POLICY', `Created week-off policy: ${policy.policy_name}`);
+    await log(req, 'POLICY', 'CREATE_WEEKOFF_POLICY', `Created week-off policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'weekoff',
+      policy_name: policy.policy_name
+    });
     res.status(201).json({ success: true, data: policy });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -64,15 +177,22 @@ export const createWeekOffPolicy = async (req, res) => {
 export const updateWeekOffPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const policy = await WeekOffPolicy.findOneAndUpdate(
-      { _id: id },
-      { ...req.body, updated_by: req.user._id },
-      { new: true, runValidators: true }
-    );
+    const policy = await WeekOffPolicy.findById(id);
     if (!policy) return res.status(404).json({ message: 'Week-off policy not found' });
+    if (!canMutatePolicy(policy, req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
+    }
+
+    if (!policy.created_by) policy.created_by = req.user._id;
+    Object.assign(policy, req.body, { updated_by: req.user._id });
+    await policy.save();
     // Populate for UI consistency
     await policy.populate('applicability.teams.list', 'name');
-    await log(req, 'POLICY', 'UPDATE_WEEKOFF_POLICY', `Updated week-off policy: ${policy.policy_name}`);
+    await log(req, 'POLICY', 'UPDATE_WEEKOFF_POLICY', `Updated week-off policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'weekoff',
+      policy_name: policy.policy_name
+    });
     res.json({ success: true, data: policy });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -82,9 +202,18 @@ export const updateWeekOffPolicy = async (req, res) => {
 export const deleteWeekOffPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const policy = await WeekOffPolicy.findOneAndDelete({ _id: id });
+    const policy = await WeekOffPolicy.findById(id);
     if (!policy) return res.status(404).json({ message: 'Week-off policy not found' });
-    await log(req, 'POLICY', 'DELETE_WEEKOFF_POLICY', `Deleted week-off policy: ${policy.policy_name}`);
+    if (!canMutatePolicy(policy, req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can delete it' });
+    }
+    if (!policy.created_by) policy.created_by = req.user._id;
+    await policy.deleteOne();
+    await log(req, 'POLICY', 'DELETE_WEEKOFF_POLICY', `Deleted week-off policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'weekoff',
+      policy_name: policy.policy_name
+    });
     res.json({ success: true, message: 'Week-off policy deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -104,6 +233,8 @@ export const listHolidayPolicies = async (req, res) => {
       .populate('applicability.teams.list', 'name')
       .populate('applicability.departments', 'department_name')
       .populate('applicability.branches', 'branch_name')
+      .populate('created_by', 'first_name last_name username role')
+      .populate('updated_by', 'first_name last_name username role')
       .sort({ year: -1, createdAt: -1 });
 
     res.json({ success: true, data: policies });
@@ -139,7 +270,11 @@ export const createHolidayPolicy = async (req, res) => {
       created_by: req.user._id
     });
     await policy.save();
-    await log(req, 'POLICY', 'CREATE_HOLIDAY_POLICY', `Created holiday policy: ${policy.policy_name} (${policy.year})`);
+    await log(req, 'POLICY', 'CREATE_HOLIDAY_POLICY', `Created holiday policy: ${policy.policy_name} (${policy.year})`, {
+      policy_id: policy._id,
+      policy_type: 'holiday',
+      policy_name: policy.policy_name
+    });
     res.status(201).json({ success: true, data: policy });
   } catch (err) {
     if (err.code === 11000) {
@@ -153,13 +288,21 @@ export const updateHolidayPolicy = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = resolveCompanyId(req);
-    const policy = await HolidayPolicy.findOneAndUpdate(
-      { _id: id, company_id: companyId },
-      { ...req.body, updated_by: req.user._id },
-      { new: true, runValidators: true }
-    );
+    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
-    await log(req, 'POLICY', 'UPDATE_HOLIDAY_POLICY', `Updated holiday policy: ${policy.policy_name}`);
+    if (!canMutatePolicy(policy, req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
+    }
+    if (!policy.created_by) policy.created_by = req.user._id;
+
+    if (!policy.created_by) policy.created_by = req.user._id;
+    Object.assign(policy, req.body, { updated_by: req.user._id });
+    await policy.save();
+    await log(req, 'POLICY', 'UPDATE_HOLIDAY_POLICY', `Updated holiday policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'holiday',
+      policy_name: policy.policy_name
+    });
     res.json({ success: true, data: policy });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -170,9 +313,19 @@ export const deleteHolidayPolicy = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = resolveCompanyId(req);
-    const policy = await HolidayPolicy.findOneAndDelete({ _id: id, company_id: companyId });
+    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
-    await log(req, 'POLICY', 'DELETE_HOLIDAY_POLICY', `Deleted holiday policy: ${policy.policy_name}`);
+    if (!canMutatePolicy(policy, req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can delete it' });
+    }
+
+    if (!policy.created_by) policy.created_by = req.user._id;
+    await policy.deleteOne();
+    await log(req, 'POLICY', 'DELETE_HOLIDAY_POLICY', `Deleted holiday policy: ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'holiday',
+      policy_name: policy.policy_name
+    });
     res.json({ success: true, message: 'Holiday policy deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -194,6 +347,10 @@ export const addHolidayToPolicy = async (req, res) => {
 
     const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
+    if (!canMutatePolicy(policy, req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
+    }
+    if (!policy.created_by) policy.created_by = req.user._id;
 
     // Prevent duplicate dates
     const dateStr = new Date(holiday_date).toISOString().split('T')[0];
@@ -208,7 +365,13 @@ export const addHolidayToPolicy = async (req, res) => {
     policy.updated_by = req.user._id;
     await policy.save();
 
-    await log(req, 'POLICY', 'ADD_HOLIDAY_ENTRY', `Added holiday ${holiday_name} to policy ${policy.policy_name}`);
+    await log(req, 'POLICY', 'ADD_HOLIDAY_ENTRY', `Added holiday ${holiday_name} to policy ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'holiday',
+      policy_name: policy.policy_name,
+      holiday_name,
+      holiday_date: dateStr
+    });
     res.json({ success: true, data: policy });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -222,6 +385,9 @@ export const removeHolidayFromPolicy = async (req, res) => {
 
     const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
+    if (!canMutatePolicy(policy, req.user._id)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
+    }
 
     const before = policy.holidays.length;
     policy.holidays = policy.holidays.filter(h =>
@@ -235,7 +401,12 @@ export const removeHolidayFromPolicy = async (req, res) => {
     policy.updated_by = req.user._id;
     await policy.save();
 
-    await log(req, 'POLICY', 'REMOVE_HOLIDAY_ENTRY', `Removed holiday ${holidayDate} from policy ${policy.policy_name}`);
+    await log(req, 'POLICY', 'REMOVE_HOLIDAY_ENTRY', `Removed holiday ${holidayDate} from policy ${policy.policy_name}`, {
+      policy_id: policy._id,
+      policy_type: 'holiday',
+      policy_name: policy.policy_name,
+      holiday_date: holidayDate
+    });
     res.json({ success: true, data: policy });
   } catch (err) {
     res.status(500).json({ error: err.message });

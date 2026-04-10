@@ -697,8 +697,10 @@ if (cluster.isPrimary) {
           }
         });
 
-        server.listen(9006, "0.0.0.0", () => {
-          console.log(`🟢 Server listening on port ${9006}`);
+        const port = Number(process.env.PORT || 9006);
+
+        server.listen(port, "0.0.0.0", () => {
+          console.log(`🟢 Server listening on port ${port}`);
         });
       })
       .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));

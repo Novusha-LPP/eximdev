@@ -218,6 +218,11 @@ const masterAPI = {
       return response.data;
   },
 
+  getPolicyHistory: async (params) => {
+      const response = await apiClient.get('/master/policy-history', { params });
+      return response.data;
+  },
+
   // My resolved holiday list (all roles, read-only)
   getMyHolidays: async (year) => {
       const response = await apiClient.get('/master/my-holidays', { params: { year } });

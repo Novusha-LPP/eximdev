@@ -14,7 +14,7 @@ const leaveApplicationSchema = new mongoose.Schema({
   to_date: { type: Date, required: true, index: true },
   total_days: { type: Number, required: true },
   is_half_day: { type: Boolean, default: false },
-  half_day_session: { type: String, enum: ['first_half', 'second_half'] },
+  half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },
 
   reason: { type: String, required: true },
   contact_during_leave: { type: String },

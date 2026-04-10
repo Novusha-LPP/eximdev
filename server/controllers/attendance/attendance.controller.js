@@ -123,6 +123,14 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     });
 };
 
+const VIRTUAL_RECORD_ID_REGEX = /^virtual-(absent|leave|holiday|weekoff)-(\d{4}-\d{2}-\d{2})$/;
+
+const parseVirtualRecordDate = (recordId) => {
+    const match = String(recordId || '').match(VIRTUAL_RECORD_ID_REGEX);
+    if (!match) return null;
+    return moment.utc(match[2], 'YYYY-MM-DD', true);
+};
+
 const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}) => {
     const recordsByDay = new Map(records.map((record) => [dateKeyUTC(record.attendance_date), record]));
     const policyByYear = new Map();
@@ -1845,7 +1853,36 @@ export const updateAttendanceRecord = async (req, res) => {
 
         // 1. Validate ID Format
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: 'Invalid record ID' });
+            const virtualDate = parseVirtualRecordDate(id);
+            if (!virtualDate) {
+                return res.status(400).json({ message: 'Invalid record ID' });
+            }
+
+            const company = await Company.findById(companyId);
+            const targetDate = req.body?.attendance_date
+                ? moment.utc(req.body.attendance_date).startOf('day')
+                : virtualDate.clone().startOf('day');
+            const yearMonth = targetDate.format('YYYY-MM');
+
+            if (await PayrollEngine.isLocked(company, yearMonth)) {
+                return res.status(403).json({ message: 'Attendance for this month is locked' });
+            }
+
+            req.body.attendance_date = targetDate.toDate();
+            return await createManualAdjustment(req, res);
+        }
+
+        // 1a. Early conflict validation: Non-working statuses should not have time correction
+        if (status) {
+            const normalizedStatus = String(status).toLowerCase();
+            const nonWorkingStatuses = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+            if (nonWorkingStatuses.has(normalizedStatus) && toBoolean(apply_time_correction)) {
+                return res.status(400).json({
+                    error: 'CONFLICT_STATUS_TIME_CORRECTION',
+                    message: `Time correction is not applicable for ${normalizedStatus} status`,
+                    suggested_action: 'Use Status Correction (Time Unchanged) mode instead'
+                });
+            }
         }
 
         // 2. Fetch Existing Record - findById so bulk-upserted records (no company_id) are still found
@@ -1906,7 +1943,7 @@ export const updateAttendanceRecord = async (req, res) => {
 
         if (normalizedStatus === 'half_day') {
             record.half_day_session = half_day_session === 'second_half' ? 'second_half' : 'first_half';
-        } else if (half_day_session !== undefined || normalizedStatus !== 'half_day') {
+        } else {
             record.half_day_session = null;
         }
 
@@ -1968,6 +2005,19 @@ export const createManualAdjustment = async (req, res) => {
 
         if (!attendance_date || !employee_id) {
             return res.status(400).json({ message: 'Missing required employee or date' });
+        }
+
+        // Early conflict validation: Non-working statuses should not have time correction
+        if (status) {
+            const normalizedStatus = String(status).toLowerCase();
+            const nonWorkingStatuses = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+            if (nonWorkingStatuses.has(normalizedStatus) && toBoolean(apply_time_correction)) {
+                return res.status(400).json({
+                    error: 'CONFLICT_STATUS_TIME_CORRECTION',
+                    message: `Time correction is not applicable for ${normalizedStatus} status`,
+                    suggested_action: 'Use Status Correction (Time Unchanged) mode instead'
+                });
+            }
         }
 
         const employee = await User.findById(employee_id);
@@ -2035,7 +2085,7 @@ export const createManualAdjustment = async (req, res) => {
 
         if (normalizedStatus === 'half_day') {
             record.half_day_session = half_day_session === 'second_half' ? 'second_half' : 'first_half';
-        } else if (half_day_session !== undefined || normalizedStatus !== 'half_day') {
+        } else {
             record.half_day_session = null;
         }
 

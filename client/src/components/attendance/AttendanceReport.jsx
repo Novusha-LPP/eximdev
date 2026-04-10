@@ -154,6 +154,10 @@ const DailySummaryView = ({ groups, startDate, endDate }) => {
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 
+// Non-working statuses where time correction should not be allowed
+const NON_WORKING_STATUSES = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+const isNonWorkingStatus = (status) => NON_WORKING_STATUSES.has(String(status || '').toLowerCase());
+
 const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -195,6 +199,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     // History browsing in drawer
     const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);
     const [browseYear, setBrowseYear] = useState(now.getFullYear());
+
+    // Auto-switch hint for non-working statuses
+    const [autoSwitchHintShown, setAutoSwitchHintShown] = useState(false);
 
     useEffect(() => {
         if (isAdmin) fetchCompanies();
@@ -1288,10 +1295,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                             💡 <strong>Security Warning:</strong> You cannot modify raw biometric/web punch events. You are adjusting the official summary record.
                         </div>
                         <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? '#ccc' : '#334155', opacity: isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? 0.5 : 1, cursor: isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction' ? 'not-allowed' : 'pointer' }} title={editForm.correction_mode === 'status_correction' ? 'Not available in Status Correction mode' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
                                 <input
                                     type="radio"
                                     name="correction_mode"
+                                    disabled={isNonWorkingStatus(editForm.status) || editForm.correction_mode === 'status_correction'}
                                     checked={editForm.correction_mode === 'time_correction'}
                                     onChange={() => setEditForm((prev) => ({ ...prev, correction_mode: 'time_correction', apply_status_correction: false, apply_time_correction: true }))}
                                 />
@@ -1331,6 +1339,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                 Status Correction (Time Unchanged)
                             </label>
                         </div>
+                        {autoSwitchHintShown && (
+                            <div className="ar-alert-box" style={{ backgroundColor: '#e0f7f4', color: '#0d5d5a', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #80dedb' }}>
+                                ℹ️ <strong>Auto-switched mode:</strong> Time correction is not applicable for holidays/leaves/week off. Switched to Status Correction (Time Unchanged).
+                            </div>
+                        )}
                         <div className="ar-edit-grid">
                             {editForm.correction_mode === 'status_correction' || editForm.correction_mode === 'status_correction_time_unchanged' ? (
                                 <>
@@ -1340,16 +1353,32 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                             value={editForm.status}
                                             onChange={e => {
                                                 const nextStatus = e.target.value;
-                                                setEditForm((prev) => {
-                                                    if (prev.correction_mode === 'status_correction_time_unchanged') {
-                                                        return {
-                                                            ...prev,
-                                                            status: nextStatus,
-                                                            half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
-                                                        };
-                                                    }
-                                                    return applyStatusModeTimes({ ...prev }, nextStatus, prev.shift_id);
-                                                });
+                                                // Auto-switch to time-unchanged mode if selecting non-working status
+                                                if (isNonWorkingStatus(nextStatus) && editForm.correction_mode !== 'status_correction_time_unchanged') {
+                                                    setAutoSwitchHintShown(true);
+                                                    setEditForm((prev) => ({
+                                                        ...prev,
+                                                        status: nextStatus,
+                                                        correction_mode: 'status_correction_time_unchanged',
+                                                        apply_status_correction: true,
+                                                        apply_time_correction: false,
+                                                        first_in: '',
+                                                        last_out: '',
+                                                        half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
+                                                    }));
+                                                } else {
+                                                    setAutoSwitchHintShown(false);
+                                                    setEditForm((prev) => {
+                                                        if (prev.correction_mode === 'status_correction_time_unchanged') {
+                                                            return {
+                                                                ...prev,
+                                                                status: nextStatus,
+                                                                half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
+                                                            };
+                                                        }
+                                                        return applyStatusModeTimes({ ...prev }, nextStatus, prev.shift_id);
+                                                    });
+                                                }
                                             }}
                                         >
                                             <option value="present">Present (P)</option>
@@ -1420,8 +1449,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                             </select>
                                         </div>
                                     )}
-                                    <div className="ar-edit-field"><label>Official In-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.first_in || ''} onChange={e => setEditForm({ ...editForm, first_in: e.target.value })} /></div>
-                                    <div className="ar-edit-field"><label>Official Out-Time (Overrides raw punch)</label><input type="datetime-local" value={editForm.last_out || ''} onChange={e => setEditForm({ ...editForm, last_out: e.target.value })} /></div>
+                                    <div className="ar-edit-field"><label>Official In-Time (Overrides raw punch)</label><input type="datetime-local" disabled={isNonWorkingStatus(editForm.status)} value={editForm.first_in || ''} onChange={e => setEditForm({ ...editForm, first_in: e.target.value })} title={isNonWorkingStatus(editForm.status) ? 'Time fields disabled for non-working statuses' : ''} /></div>
+                                    <div className="ar-edit-field"><label>Official Out-Time (Overrides raw punch)</label><input type="datetime-local" disabled={isNonWorkingStatus(editForm.status)} value={editForm.last_out || ''} onChange={e => setEditForm({ ...editForm, last_out: e.target.value })} title={isNonWorkingStatus(editForm.status) ? 'Time fields disabled for non-working statuses' : ''} /></div>
+                                    {isNonWorkingStatus(editForm.status) && (
+                                        <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#666', marginTop: '8px' }}>💡 Time fields are disabled for non-working statuses (absent, leave, weekly off, holiday).</div>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -1429,7 +1461,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                             <textarea placeholder="Reason for change..." value={editForm.remarks} onChange={e => setEditForm({ ...editForm, remarks: e.target.value })} />
                         </div>
                         <div className="ar-edit-actions">
-                            <button className="ar-cancel" onClick={() => setEditingId(null)}>Discard</button>
+                            <button className="ar-cancel" onClick={() => { setEditingId(null); setAutoSwitchHintShown(false); }}>Discard</button>
                             <button className="ar-save" onClick={saveEdit} disabled={saving}>{saving ? 'Processing...' : 'Verify & Save'}</button>
                         </div>
                     </div>

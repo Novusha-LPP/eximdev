@@ -1744,7 +1744,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
 
       {tab === 'actions' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-          <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.navy}`, padding: '12px' }}>
+          {/* <div style={{ ...cardStyle, borderLeft: `4px solid ${THEME.navy}`, padding: '12px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: THEME.navy }}>✏️ Manual Attendance Update</h3>
             <form onSubmit={handleManualAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
@@ -1777,7 +1777,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
                 <button type="submit" style={{ ...buttonStyle, background: THEME.primary, color: '#fff', flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}>Save Update</button>
               </div>
             </form>
-          </div>
+          </div> */}
 
          
 

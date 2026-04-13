@@ -2000,18 +2000,16 @@
 
 .ar-score-pill {
     background: #fff;
-    border: 1px solid #000000;
-    padding: 10px 14px;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 16px;
+    text-align: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .ar-score-val {
-    font-size: 1.15rem;
+    display: block;
+    font-size: 1.25rem;
     font-weight: 800;
     color: var(--navy);
 }
@@ -2029,7 +2027,7 @@
     background: #fff;
     padding: 24px;
     border-radius: 20px;
-    border: 1px solid #000000;
+    border: 1px solid var(--border);
     margin: 1.5rem 0;
 }
 
@@ -2058,7 +2056,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     background: #f8fafc;
-    border: 1px solid #000000;
+    border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.2s;
 }

@@ -190,6 +190,10 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
     const [showDailySummary, setShowDailySummary] = useState(false);
 
+    const now = new Date();
+    const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(now.toISOString().split('T')[0]);
+
     useEffect(() => {
         if (!startDate || !endDate) return;
         if (moment(endDate).isBefore(moment(startDate))) {
@@ -214,10 +218,6 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [jobForm, setJobForm] = useState({});
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [shifts, setShifts] = useState([]);
-
-    const now = new Date();
-    const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(now.toISOString().split('T')[0]);
 
     // History browsing in drawer
     const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);

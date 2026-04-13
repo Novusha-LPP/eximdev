@@ -185,6 +185,31 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     });
   }, [balanceForm.leave_policy_id, profile?.balances]);
 
+  const availablePolicies = useMemo(() => {
+    const assignedPolicyIds = new Set((profile?.balances || []).map(b => {
+      const pId = b.leave_policy_id?._id || b.leave_policy_id;
+      return String(pId);
+    }));
+
+    return (leavePolicies || []).filter(p => {
+      const pId = String(p._id);
+      const isPrivilege = (p.policy_name || p.leave_type || '').toLowerCase().includes('privilege');
+      
+      // If a privilege policy is already assigned, exclude it from the dropdown
+      // (Except when we are specifically editing that policy record)
+      if (isPrivilege && assignedPolicyIds.has(pId) && String(balanceForm.leave_policy_id) !== pId) {
+        return false;
+      }
+
+      // Generally de-duplicate already assigned policies from the "Add" view
+      if (!isEditingBalance && assignedPolicyIds.has(pId)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [leavePolicies, profile?.balances, balanceForm.leave_policy_id, isEditingBalance]);
+
   // Sync balanceForm when policy is selected
   useEffect(() => {
     if (!balanceForm.leave_policy_id || !showLeaveBalanceForm) return;
@@ -2003,14 +2028,27 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Policy:</label>
                   <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={balanceForm.leave_policy_id} onChange={(e) => setBalanceForm({ ...balanceForm, leave_policy_id: e.target.value })}>
                     <option value="">Select policy</option>
-                    {leavePolicies.map((p) => (
+                    {availablePolicies.map((p) => (
                       <option key={p._id} value={p._id}>{p.policy_name || p.leave_type}</option>
                     ))}
                   </select>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
                   <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Opening:</label>
-                  <input type="number" step="1" style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 100px' }} value={balanceForm.opening_balance} onChange={(e) => setBalanceForm({ ...balanceForm, opening_balance: e.target.value })} />
+                  <input 
+                    type="number" 
+                    step="1" 
+                    style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 100px' }} 
+                    value={balanceForm.opening_balance} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBalanceForm(prev => ({ 
+                        ...prev, 
+                        opening_balance: val,
+                        pending: val // Mirror opening to pending as default
+                      }));
+                    }} 
+                  />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
                   <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '50px' }}>Used:</label>

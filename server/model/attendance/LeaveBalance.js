@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const leaveBalanceSchema = new mongoose.Schema({
   employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
   leave_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'LeavePolicy', required: true },
   leave_type: { type: String, required: true },
 
@@ -25,7 +25,7 @@ const leaveBalanceSchema = new mongoose.Schema({
   last_updated: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-leaveBalanceSchema.index({ employee_id: 1, company_id: 1, leave_policy_id: 1, year: 1 }, { unique: true });
+leaveBalanceSchema.index({ employee_id: 1, leave_policy_id: 1, year: 1 }, { unique: true });
 leaveBalanceSchema.index({ employee_id: 1, leave_type: 1, year: 1 });
 
 export default mongoose.model('LeaveBalance', leaveBalanceSchema);

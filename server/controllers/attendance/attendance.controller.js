@@ -2590,6 +2590,18 @@ export const getEmployeeFullProfile = async (req, res) => {
                 ? requestedCompanyId
                 : profileCompanyId;
 
+        const balanceCompanyFilter = requestedCompanyId && requestedCompanyId !== 'all'
+            ? { company_id: requestedCompanyId }
+            : (profileCompanyId
+                ? {
+                    $or: [
+                        { company_id: profileCompanyId },
+                        { company_id: null },
+                        { company_id: { $exists: false } }
+                    ]
+                }
+                : {});
+
         const results = await Promise.all([
             AttendanceRecord.find({
                 employee_id: id,
@@ -2599,7 +2611,7 @@ export const getEmployeeFullProfile = async (req, res) => {
 
             LeaveBalance.find({
                 employee_id: id,
-                company_id: employee.company_id?._id || employee.company_id
+                ...balanceCompanyFilter
             })
                 .populate('leave_policy_id', 'policy_name leave_type')
                 .sort({ updatedAt: -1 })

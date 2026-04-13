@@ -887,12 +887,20 @@ export const updateBalance = async (req, res) => {
             return res.status(404).json({ message: `Employee with ID ${employee_id} not found` });
         }
 
-        const companyId = employee.company_id?._id || employee.company_id;
         const policy = await LeavePolicy.findOne({ _id: leave_policy_id, status: 'active' });
         if (!policy) {
             console.error('[Leave Update] Policy not found/inactive:', { leave_policy_id, employee: employee.username });
             return res.status(404).json({ message: `Leave policy (ID: ${leave_policy_id}) not found or inactive` });
         }
+
+        const employeeCompanyId = employee.company_id?._id || employee.company_id;
+        const resolvedCompanyId =
+            employeeCompanyId ||
+            balanceRecord?.company_id ||
+            policy.company_id?._id ||
+            policy.company_id ||
+            admin.company_id?._id ||
+            admin.company_id;
 
         const assignedPolicyIds = getAssignedPolicyIds(employee);
         if (!assignedPolicyIds.includes(String(policy._id))) {
@@ -917,7 +925,7 @@ export const updateBalance = async (req, res) => {
             
             balanceRecord = new LeaveBalance({
                 employee_id: employee_id,
-                company_id: companyId,
+                ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
                 leave_policy_id: leave_policy_id,
                 leave_type: policy.leave_type,
                 year: currentYear,
@@ -942,6 +950,10 @@ export const updateBalance = async (req, res) => {
             balanceRecord.opening_balance = openingNum;
             balanceRecord.used = nextUsed;
             balanceRecord.pending_approval = nextPending;
+            // Backfill required company_id for legacy records created before this field was mandatory.
+            if (resolvedCompanyId && String(balanceRecord.company_id || '') !== String(resolvedCompanyId)) {
+                balanceRecord.company_id = resolvedCompanyId;
+            }
             
             // Recalculate closing balance (actual remaining only)
             balanceRecord.closing_balance = actualRemaining;

@@ -23,7 +23,6 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
     const pipeline = [
       {
         $match: {
-          year,
           out_of_charge: { $type: "string", $ne: "" },
           be_date: { $type: "string", $ne: "" },
           importer: { $ne: null, $ne: "" },
@@ -39,11 +38,35 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
       {
         $addFields: {
           oocMonth: { $month: "$oocDateObj" },
+          oocYear: { $year: "$oocDateObj" },
         },
+      },
+      {
+        $addFields: {
+          startYear: {
+            $cond: [
+              { $gte: ["$oocMonth", 4] },
+              "$oocYear",
+              { $subtract: ["$oocYear", 1] }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          oocFY: {
+            $concat: [
+              { $substr: [{ $toString: "$startYear" }, 2, 2] },
+              "-",
+              { $substr: [{ $toString: { $add: ["$startYear", 1] } }, 2, 2] }
+            ]
+          }
+        }
       },
       {
         $match: {
           oocMonth: monthInt,
+          oocFY: year,
         },
       },
       {

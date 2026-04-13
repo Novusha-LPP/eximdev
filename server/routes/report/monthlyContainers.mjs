@@ -16,7 +16,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
   try {
     // Create base match condition
     const baseMatch = {
-      year,
       out_of_charge: { $ne: null, $ne: "" },
       importer: { $ne: null, $ne: "" },
       ...branchMatch,
@@ -57,8 +56,30 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           },
         },
         { $match: { outOfChargeDate: { $ne: null } } },
-        { $addFields: { outMonth: { $month: "$outOfChargeDate" } } },
-        { $match: { outMonth: monthInt } },
+        { $addFields: { outMonth: { $month: "$outOfChargeDate" }, outYear: { $year: "$outOfChargeDate" } } },
+        {
+          $addFields: {
+            startYear: {
+              $cond: [
+                { $gte: ["$outMonth", 4] },
+                "$outYear",
+                { $subtract: ["$outYear", 1] }
+              ]
+            }
+          }
+        },
+        {
+          $addFields: {
+            fYear: {
+              $concat: [
+                { $substr: [{ $toString: "$startYear" }, 2, 2] },
+                "-",
+                { $substr: [{ $toString: { $add: ["$startYear", 1] } }, 2, 2] }
+              ]
+            }
+          }
+        },
+        { $match: { fYear: year, outMonth: monthInt } },
         {
           $group: {
             _id: groupId,
@@ -121,7 +142,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
       JobModel.aggregate([
         {
           $match: {
-            year,
+            out_of_charge: { $ne: null, $ne: "" },
             be_date: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
             ...branchMatch,
@@ -130,6 +151,14 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         },
         {
           $addFields: {
+            oocDateObj: {
+              $convert: {
+                input: "$out_of_charge",
+                to: "date",
+                onError: null,
+                onNull: null
+              }
+            },
             beDateObj: {
               $convert: {
                 input: "$be_date",
@@ -140,9 +169,37 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
             },
           },
         },
-        { $match: { beDateObj: { $ne: null } } },
-        { $addFields: { beMonth: { $month: "$beDateObj" } } },
-        { $match: { beMonth: monthInt } },
+        { $match: { oocDateObj: { $ne: null }, beDateObj: { $ne: null } } },
+        { 
+          $addFields: { 
+            beMonth: { $month: "$beDateObj" },
+            oocMonth: { $month: "$oocDateObj" },
+            oocYear: { $year: "$oocDateObj" }
+          } 
+        },
+        {
+          $addFields: {
+            startYear: {
+              $cond: [
+                { $gte: ["$oocMonth", 4] },
+                "$oocYear",
+                { $subtract: ["$oocYear", 1] }
+              ]
+            }
+          }
+        },
+        {
+          $addFields: {
+            fYear: {
+              $concat: [
+                { $substr: [{ $toString: "$startYear" }, 2, 2] },
+                "-",
+                { $substr: [{ $toString: { $add: ["$startYear", 1] } }, 2, 2] }
+              ]
+            }
+          }
+        },
+        { $match: { fYear: year, beMonth: monthInt } },
         {
           $group: {
             _id: groupId,
@@ -163,7 +220,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
       JobModel.aggregate([
         {
           $match: {
-            year,
             out_of_charge: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
             ...branchMatch,
@@ -183,8 +239,30 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           },
         },
         { $match: { oocDateObj: { $ne: null } } },
-        { $addFields: { oocMonth: { $month: "$oocDateObj" } } },
-        { $match: { oocMonth: monthInt } },
+        { $addFields: { oocMonth: { $month: "$oocDateObj" }, oocYear: { $year: "$oocDateObj" } } },
+        {
+          $addFields: {
+            startYear: {
+              $cond: [
+                { $gte: ["$oocMonth", 4] },
+                "$oocYear",
+                { $subtract: ["$oocYear", 1] }
+              ]
+            }
+          }
+        },
+        {
+          $addFields: {
+            fYear: {
+              $concat: [
+                { $substr: [{ $toString: "$startYear" }, 2, 2] },
+                "-",
+                { $substr: [{ $toString: { $add: ["$startYear", 1] } }, 2, 2] }
+              ]
+            }
+          }
+        },
+        { $match: { fYear: year, oocMonth: monthInt } },
         {
           $group: {
             _id: groupId,

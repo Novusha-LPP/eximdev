@@ -29,8 +29,18 @@ const Penalty = () => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    { value: 3, label: "April" },
+    { value: 4, label: "May" },
+    { value: 5, label: "June" },
+    { value: 6, label: "July" },
+    { value: 7, label: "August" },
+    { value: 8, label: "September" },
+    { value: 9, label: "October" },
+    { value: 10, label: "November" },
+    { value: 11, label: "December" },
+    { value: 0, label: "January" },
+    { value: 1, label: "February" },
+    { value: 2, label: "March" },
   ];
 
   // Importer filter state
@@ -260,7 +270,7 @@ const Penalty = () => {
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               >
-                {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
               <select
                 className="nucleus-select"

@@ -204,7 +204,7 @@ function useFileUpload(inputRef, alt, setAlt, selectedBranchId, selectedMode, br
             modifiedItem.importerURL = item[key]
               .toLowerCase()
               .replace(/\s+/g, "_")
-              .replace(/[^\w]+/g, "")
+              .replace(/[^\w&.]+/g, "")
               .replace(/_+/g, "_")
               .replace(/^_|_$/g, "");
           } else if (modifiedKey === "container_no") {

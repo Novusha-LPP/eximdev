@@ -91,3 +91,5 @@ pids/
 .codex
 .claude
 server/tally_test_collection_v2.json
+server/nodemon.json
+server/ecosystem.config.json

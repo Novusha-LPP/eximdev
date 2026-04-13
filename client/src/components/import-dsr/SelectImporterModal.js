@@ -133,12 +133,12 @@ export default function SelectImporterModal(props) {
       const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING
-        }/download-report/${yearString}/${selectedImporter
+        }/download-report/${yearString}/${encodeURIComponent(selectedImporter
           .toLowerCase()
           .replace(/\s+/g, "_")
-          .replace(/[^\w]+/g, "")
+          .replace(/[^\w&.]+/g, "")
           .replace(/_+/g, "_")
-          .replace(/^_|_$/g, "")}/${props.status}${branchParam}`
+          .replace(/^_|_$/g, ""))}/${props.status}${branchParam}`
       );
 
       convertToExcel(

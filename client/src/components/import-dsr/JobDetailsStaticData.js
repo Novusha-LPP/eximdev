@@ -272,6 +272,8 @@ function JobDetailsStaticData(props) {
     color: "#495057",
     fontWeight: "600",
     fontSize: "0.85rem",
+    display: "inline-block",
+    minWidth: "135px",
   };
 
   const valueStyle = {
@@ -593,12 +595,13 @@ function JobDetailsStaticData(props) {
             </Col>
           </Row>
 
+          {/* Row 2: Importer Details */}
           <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} lg={6}>
               <span style={labelStyle}>Importer: </span>
               <span style={valueStyle}>{props.data.importer}</span>
             </Col>
-            <Col xs={12} md={6} lg={2}>
+            <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Importer Type: </span>
               <span style={valueStyle}>{importerTypeOptions.find(opt => opt.value === props.data.importer_type)?.label || props.data.importer_type || "N/A"}</span>
             </Col>
@@ -606,36 +609,38 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>Comm. Tax Type: </span>
               <span style={valueStyle}>{commercialTaxTypeOptions.find(opt => opt.value === props.data.commercial_tax_type)?.label || props.data.commercial_tax_type || "N/A"}</span>
             </Col>
-            <Col xs={12} md={6} lg={2}>
+          </Row>
+
+          {/* Row 3: Identifiers */}
+          <Row style={compactRowStyle}>
+            <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>GST No: </span>
               <span style={valueStyle}>{props.data.gst_no || "N/A"}</span>
             </Col>
-            <Col xs={12} md={6} lg={2}>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>IE Code: </span>
+              <span style={valueStyle}>{props.data.ie_code_no}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>Ad Code: </span>
+              <span style={valueStyle}>{props.data.adCode}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>State: </span>
               <span style={valueStyle}>{props.data.importer_address?.state || "N/A"}</span>
             </Col>
           </Row>
+
+          {/* Row 4: Invoice Details */}
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Invoice No.: </span>
+              <span style={labelStyle}>Invoice No: </span>
               <span style={valueStyle}>{props.data.invoice_number}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Invoice Date: </span>
               <span style={valueStyle}>{props.data.invoice_date}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
-               <span style={labelStyle}>Incoterm: </span>
-               <span style={valueStyle}>{props.data.import_terms}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-               <span style={labelStyle}>IE Code: </span>
-               <span style={valueStyle}>{props.data.ie_code_no}</span>
-            </Col>
-          </Row>
-
-          {/* Row 3: Invoice Value, Origin, Supplier, BE Filing Type */}
-          <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Invoice Value: </span>
               <span style={valueStyle}>{invoice_value_and_unit_price}</span>
@@ -644,6 +649,10 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>Origin Country: </span>
               <span style={valueStyle}>{props.data.origin_country}</span>
             </Col>
+          </Row>
+
+          {/* Row 5: Supplier & Filing */}
+          <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Supplier: </span>
               <span style={valueStyle}>{props.data.supplier_exporter}</span>
@@ -652,9 +661,17 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>BE Filing Type: </span>
               <span style={valueStyle}>{props.data.be_filing_type}</span>
             </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>CTH No: </span>
+              <span style={valueStyle}>{props.data.cth_no}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>No of Packages: </span>
+              <span style={valueStyle}>{props.data.no_of_pkgs}</span>
+            </Col>
           </Row>
 
-          {/* Row 4: POL, POD, Shipping Line + Copy, CTH */}
+          {/* Row 6: Ports & Carrier */}
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>POL: </span>
@@ -677,17 +694,13 @@ function JobDetailsStaticData(props) {
               </Tooltip>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>CTH No: </span>
-              <span style={valueStyle}>{props.data.cth_no}</span>
-            </Col>
-          </Row>
-
-          {/* Row 5: Exchange Rate, CIF Amount, Gross Weight, Net Weight */}
-          <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Exchange Rate: </span>
               <span style={valueStyle}>{props.data.exrate}</span>
             </Col>
+          </Row>
+
+          {/* Row 7: Weight & Bank */}
+          <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>CIF Amount: </span>
               <span style={valueStyle}>{props.data.cif_amount}</span>
@@ -700,12 +713,16 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>Net Weight: </span>
               <span style={valueStyle}>{props.data.job_net_weight}</span>
             </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>Bank Name: </span>
+              <span style={valueStyle}>{props.data.bank_name}</span>
+            </Col>
           </Row>
 
-          {/* Row 6: BOE No, BOE Date, No of Packages, Ad Code */}
+          {/* Row 8: BOE Details */}
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>BOE No.: </span>
+              <span style={labelStyle}>BOE No: </span>
               <span style={valueStyle}>
                 {props.data.be_no && (
                   <a
@@ -728,19 +745,7 @@ function JobDetailsStaticData(props) {
               <span style={valueStyle}>{props.data.be_date}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>No of Packages: </span>
-              <span style={valueStyle}>{props.data.no_of_pkgs}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Ad Code: </span>
-              <span style={valueStyle}>{props.data.adCode}</span>
-            </Col>
-          </Row>
-
-          {/* Row 7: BL No with icons, BL Date, HWBL No, HWBL Date */}
-          <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} No.: </span>
+              <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} No: </span>
               <span style={valueStyle}>
                 <a
                   href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
@@ -787,6 +792,10 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} Date: </span>
               <span style={valueStyle}>{props.data.awb_bl_date}</span>
             </Col>
+          </Row>
+
+          {/* Row 9: HBL & IGM Details */}
+          <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} No: </span>
               <span style={valueStyle}>{props.data.hawb_hbl_no}</span>
@@ -795,9 +804,17 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} Date: </span>
               <span style={valueStyle}>{props.data.hawb_hbl_date}</span>
             </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>IGM No: </span>
+              <span style={valueStyle}>{props.data.igm_no}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>IGM Date: </span>
+              <span style={valueStyle}>{props.data.igm_date}</span>
+            </Col>
           </Row>
 
-          {/* Row 8: G-IGM No, G-IGM Date, Line No, Bank Name */}
+          {/* Row 10: G-IGM & HSS Details */}
           <Row style={compactRowStyle}>
             {activeBranchConfig.gateway_igm_enabled && (
               <Col xs={12} md={6} lg={3}>
@@ -816,57 +833,43 @@ function JobDetailsStaticData(props) {
               <span style={valueStyle}>{props.data.line_no}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>Bank Name: </span>
-              <span style={valueStyle}>{props.data.bank_name}</span>
-            </Col>
-          </Row>
-
-          {/* Row 9: IGM No, IGM Date, HSS, Seller Name */}
-          <Row style={compactRowStyle}>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>IGM No: </span>
-              <span style={valueStyle}>{props.data.igm_no}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>IGM Date: </span>
-              <span style={valueStyle}>{props.data.igm_date}</span>
-            </Col>
-            <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>HSS: </span>
               <span style={valueStyle}>{props.data.hss}</span>
             </Col>
-            {props.data.hss === "Yes" && (
-              <>
-                <Col xs={12} md={6} lg={3}>
-                  <span style={labelStyle}>Seller Name: </span>
-                  <span style={valueStyle}>{props.data.saller_name}</span>
-                </Col>
-                <Col xs={12}>
-                  <span style={labelStyle}>HSS Address: </span>
-                  <span style={valueStyle}>
-                     {typeof props.data.hss_address === 'object' 
-                      ? [
-                          props.data.hss_address.details,
-                          props.data.hss_address.city,
-                          props.data.hss_address.state,
-                          props.data.hss_address.postal_code,
-                          props.data.hss_address.country
-                        ].filter(Boolean).join(", ")
-                      : [
-                          props.data.hss_address_details,
-                          props.data.hss_city,
-                          props.data.hss_state,
-                          props.data.hss_postal_code,
-                          props.data.hss_country
-                        ].filter(Boolean).join(", ")
-                     }
-                  </span>
-                </Col>
-              </>
-            )}
           </Row>
 
-          {/* Row 10: Importer Address - Full width */}
+          {/* Row 11: Seller Name (HSS Conditional) */}
+          {props.data.hss === "Yes" && (
+            <Row style={compactRowStyle}>
+              <Col xs={12} lg={6}>
+                <span style={labelStyle}>Seller Name: </span>
+                <span style={valueStyle}>{props.data.saller_name}</span>
+              </Col>
+              <Col xs={12}>
+                <span style={labelStyle}>HSS Address: </span>
+                <span style={valueStyle}>
+                   {typeof props.data.hss_address === 'object' 
+                    ? [
+                        props.data.hss_address.details,
+                        props.data.hss_address.city,
+                        props.data.hss_address.state,
+                        props.data.hss_address.postal_code,
+                        props.data.hss_address.country
+                      ].filter(Boolean).join(", ")
+                    : [
+                        props.data.hss_address_details,
+                        props.data.hss_city,
+                        props.data.hss_state,
+                        props.data.hss_postal_code,
+                        props.data.hss_country
+                      ].filter(Boolean).join(", ")
+                   }
+                </span>
+              </Col>
+            </Row>
+          )}
+
+          {/* Row 12: Importer Address */}
           <Row style={compactRowStyle}>
             <Col xs={12}>
               <span style={labelStyle}>Importer Address: </span>

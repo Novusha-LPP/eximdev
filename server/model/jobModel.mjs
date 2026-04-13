@@ -713,6 +713,10 @@ const jobSchema = new mongoose.Schema({
   advanced_payment_date: { type: Date },
   advanced_payment_by: { type: String },
 
+  imexcube_uploaded: { type: Boolean, default: false },
+  imexcube_uploaded_at: { type: Date },
+  imexcube_response: { type: mongoose.Schema.Types.Mixed },
+
   ////////////////////////////////////////////////// Display
 });
 

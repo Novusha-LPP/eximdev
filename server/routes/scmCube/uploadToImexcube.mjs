@@ -22,7 +22,7 @@ const FYEAR = process.env.FYEAR || "";
  * Helper: Build the scmCube-format job payload (reuses the same mapping logic
  * from scmCubeRoutes.mjs so we can call it internally without an HTTP round-trip).
  */
-async function buildJobPayload(job_number) {
+async function buildJobPayload(job_number, isPreview = false) {
   const job = await JobModel.findOne({ job_number }).lean();
   if (!job) throw new Error("Job not found for the provided job_number");
 
@@ -31,41 +31,46 @@ async function buildJobPayload(job_number) {
   }).lean();
   const countryCode = countryDoc ? countryDoc.code : "";
 
+  const errors = [];
   const getVal = (val) =>
     val === undefined || val === null ? "" : String(val).trim();
 
   const validateChar = (val, length, mandatory = false, fieldName = "") => {
     let s = getVal(val);
-    if (mandatory && !s) throw new Error(`Mandatory field '${fieldName}' is missing`);
+    if (mandatory && !s) errors.push(`'${fieldName}' is missing`);
     return s.substring(0, length);
   };
 
   const validateNum = (val, length, decimals = 0, mandatory = false, fieldName = "") => {
     const s = getVal(val).replace(/[^0-9.]/g, "");
     if (!s) {
-      if (mandatory) throw new Error(`Mandatory field '${fieldName}' is missing`);
-      return null;
+      if (mandatory) errors.push(`'${fieldName}' is missing`);
+      return "";
     }
     let num = parseFloat(s);
     if (isNaN(num)) {
-      if (mandatory) throw new Error(`Mandatory field '${fieldName}' is missing`);
-      return null;
+      if (mandatory) errors.push(`'${fieldName}' is missing`);
+      return "";
     }
-    return decimals > 0 ? Number(num.toFixed(decimals)) : Math.floor(num);
+    
+    if (decimals > 0) {
+      return String(Number(num.toFixed(decimals)));
+    }
+    return String(Math.floor(num));
   };
 
   const validateDate = (val, mandatory = false, fieldName = "") => {
     const s = getVal(val);
     if (!s) {
-      if (mandatory) throw new Error(`Mandatory field '${fieldName}' is missing`);
-      return null;
+      if (mandatory) errors.push(`'${fieldName}' is missing`);
+      return "";
     }
     const date = new Date(s);
     if (isNaN(date.getTime())) {
-      if (mandatory) throw new Error(`Mandatory field '${fieldName}' is missing`);
-      return null;
+      if (mandatory) errors.push(`'${fieldName}' is missing`);
+      return "";
     }
-    return date;
+    return date.toISOString();
   };
 
   const getStateCode = (gstNo) => {
@@ -129,7 +134,8 @@ async function buildJobPayload(job_number) {
       "Running SequenceNo": validateNum(job.sequence_number, 6, 0, true, "Running SequenceNo"),
       "RNoPrifix": validateChar("", 6, false, "RNoPrifix"),
       "RNoSufix": validateChar("", 6, false, "RNoSufix"),
-      "User Job No.": validateChar(job.job_no, 15, false, "User Job No."),
+      "User Job RNo": validateChar(job.job_no, 30, false, "User Job RNo"),
+      "User Job No.": validateChar(job.job_number, 30, false, "User Job No."),
       "User Job Date": validateDate(job.job_date, false, "User Job Date"),
       "BE Type": (() => {
         let beType = "";
@@ -146,8 +152,8 @@ async function buildJobPayload(job_number) {
       City: validateChar("", 35, false, "City"),
       State: validateChar("", 25, false, "State"),
       Pin: validateChar("", 6, false, "Pin"),
-      "State Code": validateChar(getStateCode(job.gst_no), 2, true, "State Code"),
-      "Commercial Tax Type": validateChar(job.gst_no ? "G" : "", 1, true, "Commercial Tax Type"),
+      "State Code": validateChar(job.importer_address?.state || getStateCode(job.gst_no), 2, true, "State Code"),
+      "Commercial Tax Type": validateChar(job.commercial_tax_type || (job.gst_no ? "G" : ""), 1, true, "Commercial Tax Type"),
       "Commercial Tax RegistrationNo": validateChar(job.gst_no, 20, true, "Commercial Tax RegistrationNo"),
       Class: validateChar("N", 1, true, "Class"),
       "Mode of Transport": (() => {
@@ -157,7 +163,7 @@ async function buildJobPayload(job_number) {
         else if (job.mode === "AIR") mode = "A";
         return validateChar(mode, 1, true, "Mode of Transport");
       })(),
-      ImporterType: validateChar("P", 1, true, "ImporterType"),
+      ImporterType: validateChar(job.importer_type || "P", 1, true, "ImporterType"),
       "Kachcha BE": validateChar("N", 1, true, "Kachcha BE"),
       "High sea sale flag": (() => {
         const hssVal = getVal(job.hss).toUpperCase();
@@ -206,7 +212,7 @@ async function buildJobPayload(job_number) {
         "Gross Weight": validateNum(job.gross_weight, 9, 3, true, "Gross Weight"),
         "Unit Quantity Code": validateChar(job.unit, 3, true, "Unit Quantity Code"),
         "Package Code": validateChar(job.unit, 3, true, "Package Code"),
-        "Marks And Numbers 1": validateChar(job.description, 40, true, "Marks And Numbers 1"),
+        "Marks And Numbers 1": validateChar("As Per BE", 40, true, "Marks And Numbers 1"),
         "Marks And Numbers 2": validateChar("", 40, false, "Marks And Numbers 2"),
         "Marks And Numbers 3": validateChar("", 40, false, "Marks And Numbers 3"),
       },
@@ -264,7 +270,13 @@ async function buildJobPayload(job_number) {
     });
   }
 
-  return responseData;
+  if (!isPreview && errors.length > 0) {
+    const err = new Error("Validation Failed");
+    err.details = { errors };
+    throw err;
+  }
+
+  return isPreview ? { payload: responseData, errors } : responseData;
 }
 
 /**
@@ -319,7 +331,7 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
     console.log("[IMEXCUBE] Authentication successful, pushing job...");
 
     // Step 3: Push to IMEXCUBE CreateJob
-    const createJobUrl = `${IMEXCUBE_BASE_URL}/api/ImpJobCreation/CreateJob`;
+    const createJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/ImpJobCreation/CreateJob`;
     const createJobRes = await axios.post(createJobUrl, jobPayload, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -386,7 +398,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       const v = (val === undefined || val === null) ? "" : val;
       const strVal = String(v).trim();
       const valid = mandatory ? strVal.length > 0 : true;
-      return { value: v, mandatory, valid };
+      return { value: strVal, mandatory, valid };
     };
 
     const getStateCode = (gstNo) => {
@@ -486,7 +498,8 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Running SequenceNo": field(job.sequence_number, true),
         "RNoPrifix": field("", false),
         "RNoSufix": field("", false),
-        "User Job No.": field(job.job_no, false),
+        "User Job RNo": field(job.job_no, false),
+        "User Job No.": field(job.job_number, false),
         "User Job Date": field(job.job_date, false),
         "BE Type": field(beType, true),
         "IEC Code": field(job.ie_code_no, true),
@@ -497,12 +510,12 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "City": field("", false),
         "State": field("", false),
         "Pin": field("", false),
-        "State Code": field(getStateCode(job.gst_no), true),
-        "Commercial Tax Type": field(job.gst_no ? "G" : "", true),
+        "State Code": field(job.importer_address?.state || getStateCode(job.gst_no), true),
+        "Commercial Tax Type": field(job.commercial_tax_type || (job.gst_no ? "G" : ""), true),
         "Commercial Tax RegistrationNo": field(job.gst_no, true),
         "Class": field("N", true),
         "Mode of Transport": field(modeOfTransport, true),
-        "ImporterType": field("P", true),
+        "ImporterType": field(job.importer_type || "P", true),
         "Kachcha BE": field("N", true),
         "High sea sale flag": field(hssVal, true),
         "Port of Origin": field(resolvedPortOfOriginCode, true),
@@ -568,7 +581,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       ],
     };
 
-    const cleanJobPayload = await buildJobPayload(job_number);
+    const { payload: cleanJobPayload } = await buildJobPayload(job_number, true);
 
     return res.status(200).json({
       annotated: preview,

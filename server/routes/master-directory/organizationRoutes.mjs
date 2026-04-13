@@ -15,6 +15,7 @@ router.get("/organization", async (req, res) => {
       email: record.permanent_address_email || "",
       category: record.category || "Company",
       iec_no: record.iec_no || "",
+      gst_no: record.gst_no || "",
       pan_no: record.pan_no || "",
       approval: record.approval || "Pending",
       // Mapped address details
@@ -39,7 +40,7 @@ router.get("/organization", async (req, res) => {
 router.post("/organization", auditMiddleware("Organization"), async (req, res) => {
   const { 
     name, contact, email, address, banks, branches, 
-    iec_no, pan_no, category, factory_addresses 
+    iec_no, gst_no, pan_no, category, factory_addresses 
   } = req.body;
 
   if (!name) {
@@ -61,6 +62,7 @@ router.post("/organization", auditMiddleware("Organization"), async (req, res) =
       name_of_individual: name,
       permanent_address_telephone: contact,
       permanent_address_email: email,
+      gst_no: gst_no || "",
       pan_no: pan_no || "",
       category: category || "Company",
       // Address mapping
@@ -90,6 +92,7 @@ router.post("/organization", auditMiddleware("Organization"), async (req, res) =
         email: newKyc.permanent_address_email,
         category: newKyc.category,
         iec_no: newKyc.iec_no,
+        gst_no: newKyc.gst_no,
         pan_no: newKyc.pan_no,
         approval: newKyc.approval,
         addressDetails: {
@@ -114,7 +117,7 @@ router.put("/organization/:id", auditMiddleware("Organization"), async (req, res
   const { id } = req.params;
   const { 
     name, contact, email, address, banks, branches, 
-    iec_no, pan_no, category, factory_addresses 
+    iec_no, gst_no, pan_no, category, factory_addresses 
   } = req.body;
 
   try {
@@ -128,6 +131,7 @@ router.put("/organization/:id", auditMiddleware("Organization"), async (req, res
     if (contact) kyc.permanent_address_telephone = contact;
     if (email) kyc.permanent_address_email = email;
     if (iec_no) kyc.iec_no = iec_no;
+    if (gst_no !== undefined) kyc.gst_no = gst_no;
     if (pan_no !== undefined) kyc.pan_no = pan_no;
     if (category) kyc.category = category;
     
@@ -154,6 +158,7 @@ router.put("/organization/:id", auditMiddleware("Organization"), async (req, res
         email: kyc.permanent_address_email,
         category: kyc.category,
         iec_no: kyc.iec_no,
+        gst_no: kyc.gst_no,
         pan_no: kyc.pan_no,
         approval: kyc.approval,
         addressDetails: {

@@ -263,6 +263,8 @@ const ImportCreateJob = () => {
     bankName,
     ie_code_no,
     setIeCodeNo,
+    gst_no,
+    setGstNo,
     branch_id,
     setBranchId,
     trade_type,
@@ -361,6 +363,15 @@ const ImportCreateJob = () => {
   };
 
   const handleFinalizeClick = async () => {
+    // Validation for Units (Mandatory)
+    if (description_details && description_details.some(row => !row.unit)) {
+      setSnackbar({
+        open: true,
+        message: "Unit is mandatory for all Description Details rows.",
+        severity: "error"
+      });
+      return;
+    }
     await fetchNextJobNumber();
     setReviewDialogOpen(true);
   };
@@ -441,6 +452,7 @@ const ImportCreateJob = () => {
   const [years, setYears] = useState(["24-25", "25-26", "26-27"]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [organizations, setOrganizations] = useState([]);
+  const [units, setUnits] = useState([]);
   const [importerBranches, setImporterBranches] = useState([]);
   const [hssSellerBranches, setHssSellerBranches] = useState([]);
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
@@ -471,15 +483,27 @@ const ImportCreateJob = () => {
         // Ensure every organization has a 'name' field for the UI
         const mappedOrgs = orgData.map(org => ({
           ...org,
-          name: org.name || org.name_of_individual || "Unknown Organization"
+          name: (org.name || org.name_of_individual || "Unknown Organization").trim()
         }));
-        
+        console.log("Organizations Fetched from API:", mappedOrgs);
         setOrganizations(mappedOrgs);
       } catch (error) {
         console.error("Error fetching organizations:", error);
       }
     }
     getOrganizationList();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchUnits = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-units`);
+        setUnits(res.data);
+      } catch (error) {
+        console.error("Error fetching units:", error);
+      }
+    };
+    fetchUnits();
   }, []);
 
   React.useEffect(() => {
@@ -800,17 +824,31 @@ const ImportCreateJob = () => {
                           if (reason === "input") {
                             setImporter(newValue);
                             setIeCodeNo("");
+                            setGstNo("");
                           } else if (reason === "clear") {
                             setImporter("");
                             setIeCodeNo("");
+                            setGstNo("");
                           }
                         }}
                         onChange={(event, newValue) => {
-                          const sel = newValue || "";
+                          const sel = (newValue || "").trim();
                           setImporter(sel);
-                          const org = organizations.find((o) => o.name === sel);
+                          console.log("Selected Importer Name:", sel);
+                          const org = organizations.find((o) => o.name.toLowerCase() === sel.toLowerCase());
+                          console.log("Found Organization Object:", org);
                           if (org) {
                             setIeCodeNo(org.iec_no || "");
+                            
+                            // GST Lookup logic: 1. Root level, 2. First Factory Address
+                            const factoryGst = (org.factory_addresses && org.factory_addresses.length > 0) 
+                              ? org.factory_addresses[0].gst 
+                              : "";
+                            const orgGst = org.gst_no || factoryGst || "";
+                            
+                            setGstNo(orgGst);
+                            console.log("Populated GST No (Org Level):", orgGst, "Factory Fallback:", factoryGst);
+                            
                             const availableBranches = org.branches || [];
                             setImporterBranches(availableBranches);
                             
@@ -837,6 +875,7 @@ const ImportCreateJob = () => {
                               setImporterState(branch.state || "");
                               setImporterPostalCode(branch.postal_code || "");
                               setImporterCountry(branch.country || "India");
+                              setGstNo(branch.gst_no || org.gst_no || "");
                               
                               const addr = [branch.address, branch.city, branch.state, branch.postal_code, branch.country].filter(Boolean).join(", ");
                               setImporterAddress(addr);
@@ -872,6 +911,7 @@ const ImportCreateJob = () => {
                             setImporterCountry("");
                             setAdCode("");
                             setBankName("");
+                            setGstNo("");
                           }
                         }}
                         renderInput={(params) => (
@@ -897,6 +937,18 @@ const ImportCreateJob = () => {
                       />
                     </FormField>
 
+                    <FormField label={<span>GST No <span style={{ color: 'red' }}>*</span></span>}>
+                      <TextField
+                        value={gst_no || ""}
+                        onChange={(e) => setGstNo(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        required
+                        sx={compactInput}
+                      />
+                    </FormField>
+
                     <FormField label="Importer Branch">
                       <Autocomplete
                         options={importerBranches}
@@ -910,6 +962,17 @@ const ImportCreateJob = () => {
                             setImporterState(newValue.state || "");
                             setImporterPostalCode(newValue.postal_code || "");
                             setImporterCountry(newValue.country || "India");
+                            const org = organizations.find((o) => o.name.toLowerCase() === importer.trim().toLowerCase());
+                            
+                            // GST Lookup logic: 1. Branch level, 2. Root level, 3. First Factory Address
+                            const factoryGst = (org && org.factory_addresses && org.factory_addresses.length > 0) 
+                              ? org.factory_addresses[0].gst 
+                              : "";
+                            const orgGst = (org ? org.gst_no : "") || factoryGst || "";
+                            
+                            const finalGst = newValue.gst_no || orgGst || gst_no || "";
+                            setGstNo(finalGst);
+                            console.log("Populated GST No (Branch Selector):", finalGst);
                             
                             const addr = [
                               newValue.address,
@@ -921,7 +984,7 @@ const ImportCreateJob = () => {
                             setImporterAddress(addr);
                           } else {
                             setBranchSrNo("");
-                            const org = organizations.find((o) => o.name === importer);
+                            const org = organizations.find((o) => o.name.toLowerCase() === importer.trim().toLowerCase());
                             if (org && (!org.branches || org.branches.length === 0)) {
                               const addrObj = org.addressDetails || {};
                               setImporterAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
@@ -2349,7 +2412,7 @@ const ImportCreateJob = () => {
                           { h: "Inv SR", w: "100px" },
                           { h: "Description", w: "450px" },
                           { h: "Quantity", w: "100px" },
-                          { h: "Unit", w: "100px" },
+                          { h: <span>Unit <span style={{ color: 'red' }}>*</span></span>, w: "120px" },
                           { h: "Unit Price", w: "120px" },
                           { h: "Amount", w: "120px" },
                           { h: "CTH", w: "150px" },
@@ -2427,14 +2490,40 @@ const ImportCreateJob = () => {
                             />
                           </td>
                           <td style={{ padding: '8px 4px', borderBottom: '1px solid #f1f5f9' }}>
-                            <TextField
-                              size="small"
-                              fullWidth
-                              placeholder="Unit"
-                              value={row.unit || ""}
-                              onChange={(e) => updateDescriptionRow(rowIndex, "unit", e.target.value)}
-                              sx={compactInput}
-                            />
+                             <Autocomplete
+                               size="small"
+                               options={units}
+                               getOptionLabel={(option) => {
+                                 if (typeof option === 'string') return option;
+                                 return option.code ? `${option.code}` : option.name || "";
+                               }}
+                               value={units.find(u => u.code === row.unit) || null}
+                               onChange={(event, newValue) => {
+                                 updateDescriptionRow(rowIndex, "unit", newValue ? newValue.code : "");
+                               }}
+                               renderInput={(params) => (
+                                 <TextField
+                                   {...params}
+                                   placeholder="Unit"
+                                   variant="outlined"
+                                   size="small"
+                                   fullWidth
+                                   sx={{
+                                     ...compactInput,
+                                     '& .MuiInputBase-root': {
+                                       ...compactInput['& .MuiInputBase-root'],
+                                       fontSize: '0.75rem',
+                                       height: '32px'
+                                     }
+                                   }}
+                                   required
+                                 />
+                               )}
+                               sx={{
+                                 width: '100%',
+                                 '& .MuiAutocomplete-input': { fontSize: '0.75rem' }
+                               }}
+                             />
                           </td>
                           <td style={{ padding: '8px 4px', borderBottom: '1px solid #f1f5f9' }}>
                             <TextField

@@ -205,6 +205,7 @@ const useImportJobForm = () => {
   const [hss_city, setHssCity] = useState("");
   const [hss_state, setHssState] = useState("");
   const [hss_ie_code_no, setHssIeCodeNo] = useState("");
+  const [gst_no, setGstNo] = useState("");
   const [hss_postal_code, setHssPostalCode] = useState("");
   const [hss_country, setHssCountry] = useState("");
   const [hss_ad_code, setHssAdCode] = useState("");
@@ -499,6 +500,7 @@ const useImportJobForm = () => {
     setSallerName("")
     setBankName("")
     setIeCodeNo("");
+    setGstNo("");
     setHssAddress("");
     setHssAddressDetails("");
     setHssBranchId("");
@@ -617,6 +619,7 @@ const useImportJobForm = () => {
     }
 
     if (job.ie_code_no) setIeCodeNo(job.ie_code_no);
+    if (job.gst_no) setGstNo(job.gst_no);
 
     if (job.container_nos && job.container_nos.length > 0) {
       setContainerNos(job.container_nos);
@@ -740,6 +743,7 @@ const useImportJobForm = () => {
           },
           importerURL,
           ie_code_no,
+          gst_no,
           shipping_line_airline,
           branchSrNo,
           adCode,
@@ -1103,6 +1107,8 @@ const useImportJobForm = () => {
       setHssState,
       ie_code_no,
      setIeCodeNo,
+    gst_no,
+    setGstNo,
     branch_id,
     setBranchId,
     trade_type,

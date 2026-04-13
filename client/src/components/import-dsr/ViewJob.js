@@ -14,6 +14,8 @@ import {
   Select,
   Typography,
   Autocomplete,
+  Alert,
+  AlertTitle,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import axios from "axios";
@@ -39,6 +41,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import ErrorIcon from "@mui/icons-material/Error";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import AddIcon from "@mui/icons-material/Add";
 import {
@@ -327,6 +330,7 @@ function JobDetails() {
   
   // JSON Editor state
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
+  const [imexcubeErrorDialog, setImexcubeErrorDialog] = useState({ open: false, title: "", message: "", details: null });
   const [imexcubeRawPayloadString, setImexcubeRawPayloadString] = useState("");
 
   // Import Terms state
@@ -350,7 +354,7 @@ function JobDetails() {
         `${process.env.REACT_APP_API_STRING}/scmCube/job-data-preview`,
         { params: { job_number: jobNumber } }
       );
-      setImexcubePreviewData(res.data.annotated || res.data);
+      setImexcubePreviewData(res.data);
       setImexcubeRawPayloadString(JSON.stringify(res.data.rawPayload || res.data, null, 2));
     } catch (err) {
       const errMsg = err?.response?.data?.error || err.message || "Failed to fetch job data";
@@ -388,21 +392,40 @@ function JobDetails() {
         }
       );
       setImexcubeSnackbar({ open: true, message: res.data?.message || "Uploaded successfully!", severity: "success" });
+      
+      // Update local state to reflect success
+      if (setData) {
+        setData(prev => ({
+          ...prev,
+          imexcube_uploaded: true,
+          imexcube_uploaded_at: new Date()
+        }));
+      }
     } catch (err) {
       let errMsg = "Upload failed";
+      let errDetails = null;
       const resData = err?.response?.data;
+      
       if (resData) {
         if (resData.details?.errors && Array.isArray(resData.details.errors)) {
-          errMsg = "Validation Failed: " + resData.details.errors.join(" | ");
-        } else if (resData.details?.message) {
-          errMsg = resData.details.message;
+          errMsg = "Validation Failed. Please correct the following fields:";
+          errDetails = resData.details.errors;
+        } else if (resData.details) {
+          errMsg = resData.error || "IMEXCUBE Error";
+          errDetails = resData.details;
         } else if (resData.error) {
           errMsg = resData.error;
         }
       } else if (err.message) {
         errMsg = err.message;
       }
-      setImexcubeSnackbar({ open: true, message: errMsg, severity: "error" });
+      
+      setImexcubeErrorDialog({
+        open: true,
+        title: "Upload Failed",
+        message: errMsg,
+        details: errDetails
+      });
     } finally {
       setImexcubeUploading(false);
       setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 5000);
@@ -1167,19 +1190,31 @@ function JobDetails() {
                 onClick={handleUploadToImexcube}
                 disabled={imexcubeUploading}
                 sx={{
-                  backgroundColor: "#1565c0",
+                  backgroundColor: data?.imexcube_uploaded ? "#2e7d32" : "#1565c0",
                   color: "white",
                   "&:hover": {
-                    backgroundColor: "#0d47a1",
+                    backgroundColor: data?.imexcube_uploaded ? "#1b5e20" : "#0d47a1",
                   },
                   "&.Mui-disabled": {
-                    backgroundColor: "#90caf9",
+                    backgroundColor: data?.imexcube_uploaded ? "#a5d6a7" : "#90caf9",
                     color: "white",
                   },
                 }}
               >
-                {imexcubeUploading ? "Uploading..." : "Upload to IMEXCUBE (TEST)"}
+                {imexcubeUploading ? "Uploading..." : data?.imexcube_uploaded ? "Job Uploaded to IMEXCUBE" : "Upload to IMEXCUBE (TEST)"}
               </Button>
+              {data?.imexcube_uploaded && data?.imexcube_uploaded_at && (
+                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.5, color: '#2e7d32', fontWeight: 700 }}>
+                  Uploaded on: {new Date(data.imexcube_uploaded_at).toLocaleString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                  })}
+                </Typography>
+              )}
             </Box>
           )}
 
@@ -4471,16 +4506,52 @@ function JobDetails() {
                     Review the job data before uploading:
                   </Typography>
                   {!imexcubeShowEditor && (
-                    <Box sx={{ display: "flex", gap: 1.5, fontSize: "0.75rem" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ width: 12, height: 12, borderRadius: 2, background: "#e8f5e9", border: "1px solid #a5d6a7" }}></span> Valid
-                      </span>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ width: 12, height: 12, borderRadius: 2, background: "#ffebee", border: "1px solid #ef9a9a" }}></span> Missing (Mandatory)
-                      </span>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ color: "#d32f2f", fontWeight: 700 }}>*</span> Mandatory
-                      </span>
+                    <Box sx={{ mb: 2 }}>
+                      <Box sx={{ display: "flex", gap: 1.5, fontSize: "0.75rem", mb: 1.5 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 12, height: 12, borderRadius: 2, background: "#e8f5e9", border: "1px solid #a5d6a7" }}></span> Valid
+                        </span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 12, height: 12, borderRadius: 2, background: "#ffebee", border: "1px solid #ef9a9a" }}></span> Missing (Mandatory)
+                        </span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ color: "#d32f2f", fontWeight: 700 }}>*</span> Mandatory
+                        </span>
+                      </Box>
+
+                      {/* Validation Summary */}
+                      {(() => {
+                        const allErrors = [];
+                        Object.values(imexcubePreviewData.annotated || {}).forEach(section => {
+                          if (Array.isArray(section)) {
+                            section.forEach((item, idx) => {
+                              Object.entries(item).forEach(([field, data]) => {
+                                if (data?.mandatory && !data?.valid) {
+                                  allErrors.push(`${field}${section.length > 1 ? ` (Row ${idx + 1})` : ""}`);
+                                }
+                              });
+                            });
+                          } else {
+                            Object.entries(section).forEach(([field, data]) => {
+                              if (data?.mandatory && !data?.valid) {
+                                allErrors.push(field);
+                              }
+                            });
+                          }
+                        });
+
+                        if (allErrors.length > 0) {
+                          return (
+                            <Alert severity="error" sx={{ mb: 2, py: 0.5 }}>
+                              <AlertTitle sx={{ fontSize: "0.85rem", fontWeight: 700, mb: 0 }}>Missing Mandatory Fields:</AlertTitle>
+                              <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.8rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 10px" }}>
+                                {allErrors.map((err, i) => <li key={i}>{err}</li>)}
+                              </Box>
+                            </Alert>
+                          );
+                        }
+                        return <Alert severity="success" sx={{ mb: 2, py: 0.5 }}>All mandatory fields are present.</Alert>;
+                      })()}
                     </Box>
                   )}
                 </Box>
@@ -4534,7 +4605,7 @@ function JobDetails() {
                     }}
                   />
                 ) : (
-                  Object.entries(imexcubePreviewData).map(([sectionName, sectionData]) => (
+                  Object.entries(imexcubePreviewData.annotated || {}).map(([sectionName, sectionData]) => (
                   <Box key={sectionName} sx={{ mb: 2 }}>
                     <Typography variant="subtitle1" sx={{
                       fontWeight: 700, bgcolor: "#1565c0", color: "#fff",
@@ -4640,7 +4711,28 @@ function JobDetails() {
           <Button
             onClick={handleConfirmImexcubeUpload}
             variant="contained"
-            disabled={imexcubePreviewLoading || imexcubePreviewData?.error}
+            disabled={
+              imexcubePreviewLoading || 
+              imexcubePreviewData?.error || 
+              (() => {
+                if (!imexcubePreviewData?.annotated) return false;
+                let found = false;
+                Object.values(imexcubePreviewData.annotated).forEach(section => {
+                  if (Array.isArray(section)) {
+                    section.forEach(item => {
+                      Object.values(item).forEach(data => {
+                        if (data?.mandatory && !data?.valid) found = true;
+                      });
+                    });
+                  } else {
+                    Object.values(section).forEach(data => {
+                      if (data?.mandatory && !data?.valid) found = true;
+                    });
+                  }
+                });
+                return found;
+              })()
+            }
             startIcon={<CloudUploadIcon />}
             sx={{
               backgroundColor: "#1565c0",
@@ -4648,6 +4740,53 @@ function JobDetails() {
             }}
           >
             Confirm & Upload
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IMEXCUBE Detailed Error Dialog */}
+      <Dialog
+        open={imexcubeErrorDialog.open}
+        onClose={() => setImexcubeErrorDialog({ ...imexcubeErrorDialog, open: false })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "#d32f2f" }}>
+          <ErrorIcon />
+          {imexcubeErrorDialog.title}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body1" sx={{ mb: 2, fontWeight: 600 }}>
+            {imexcubeErrorDialog.message}
+          </Typography>
+          {imexcubeErrorDialog.details && (
+            <Box sx={{ 
+              p: 1.5, 
+              bgcolor: "#f5f5f5", 
+              borderRadius: 1, 
+              border: "1px solid #e0e0e0",
+              fontFamily: "monospace",
+              fontSize: "0.85rem",
+              maxHeight: "300px",
+              overflow: "auto"
+            }}>
+              {Array.isArray(imexcubeErrorDialog.details) ? (
+                <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
+                  {imexcubeErrorDialog.details.map((detail, idx) => (
+                    <li key={idx} style={{ marginBottom: "4px" }}>{detail}</li>
+                  ))}
+                </ul>
+              ) : typeof imexcubeErrorDialog.details === "object" ? (
+                <pre style={{ margin: 0 }}>{JSON.stringify(imexcubeErrorDialog.details, null, 2)}</pre>
+              ) : (
+                <Typography variant="body2">{imexcubeErrorDialog.details}</Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImexcubeErrorDialog({ ...imexcubeErrorDialog, open: false })} variant="contained">
+            Close
           </Button>
         </DialogActions>
       </Dialog>

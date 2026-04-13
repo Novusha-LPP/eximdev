@@ -45,6 +45,7 @@ const OrganizationForm = () => {
     category: "Company",
     iec_no: "",
     pan_no: "",
+    gst_no: "",
     address: { line1: "", line2: "", city: "", state: "", pinCode: "" },
     banks: [],
     branches: [],
@@ -72,6 +73,7 @@ const OrganizationForm = () => {
           category: org.category || "Company",
           iec_no: org.iec_no || "",
           pan_no: org.pan_no || "",
+          gst_no: org.gst_no || "",
           address: org.addressDetails || { line1: "", line2: "", city: "", state: "", pinCode: "" },
           banks: org.banks || [],
           branches: org.branches || [],
@@ -154,6 +156,7 @@ const OrganizationForm = () => {
           <Col md={4}><TextField name="iec_no" label="IE Code" value={formData.iec_no} onChange={handleChange} fullWidth margin="normal" /></Col>
           
           <Col md={4}><TextField name="pan_no" label="PAN No" value={formData.pan_no} onChange={handleChange} fullWidth margin="normal" /></Col>
+          <Col md={4}><TextField name="gst_no" label="GST No" value={formData.gst_no} onChange={handleChange} fullWidth margin="normal" /></Col>
           <Col md={4}><TextField name="contact" label="Contact Number" value={formData.contact} onChange={handleChange} fullWidth margin="normal" /></Col>
           <Col md={4}><TextField name="email" label="Email Address" value={formData.email} onChange={handleChange} fullWidth margin="normal" /></Col>
         </Row>

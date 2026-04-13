@@ -43,46 +43,46 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       return s.substring(0, length);
     };
 
-    // N - Number: Ensures it's a number and fits length/precision
+    // N - Number: Ensures it's a number and fits length/precision, returns string
     const validateNum = (val, length, decimals = 0, mandatory = false, fieldName = "") => {
       const s = getVal(val).replace(/[^0-9.]/g, "");
       if (!s) {
         if (mandatory) {
           throw new Error(`Mandatory field '${fieldName}' is missing`);
         }
-        return null;
+        return "";
       }
       let num = parseFloat(s);
       if (isNaN(num)) {
         if (mandatory) {
           throw new Error(`Mandatory field '${fieldName}' is missing`);
         }
-        return null;
+        return "";
       }
       
       if (decimals > 0) {
-        return Number(num.toFixed(decimals));
+        return String(Number(num.toFixed(decimals)));
       }
-      return Math.floor(num);
+      return String(Math.floor(num));
     };
 
-    // Date: Formats date objects or ensures existence
+    // Date: Formats date objects or ensures existence, returns string
     const validateDate = (val, mandatory = false, fieldName = "") => {
       const s = getVal(val);
       if (!s) {
         if (mandatory) {
           throw new Error(`Mandatory field '${fieldName}' is missing`);
         }
-        return null;
+        return "";
       }
       const date = new Date(s);
       if (isNaN(date.getTime())) {
         if (mandatory) {
           throw new Error(`Mandatory field '${fieldName}' is missing`);
         }
-        return null;
+        return "";
       }
-      return date;
+      return date.toISOString();
     };
 
     // --- State Code Helper ---
@@ -163,7 +163,8 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           "Running SequenceNo": validateNum(job.sequence_number, 6, 0, true, "Running SequenceNo"),
           "RNoPrifix": validateChar("", 6, false, "RNoPrifix"),
           "RNoSufix": validateChar("", 6, false, "RNoSufix"),
-          "User Job No.": validateChar  (job.job_no, 15, 0, false, "User Job No."),
+          "User Job RNo": validateChar(job.job_no, 30, 0, false, "User Job RNo"),
+          "User Job No.": validateChar  (job.job_number, 30, 0, false, "User Job No."),
           "User Job Date": validateDate(job.job_date, false, "User Job Date"),
           "BE Type": (() => {
             let beType = "";
@@ -239,7 +240,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           "Gross Weight": validateNum(job.gross_weight, 9, 3, true, "Gross Weight"),
           "Unit Quantity Code": validateChar(job.unit, 3, true, "Unit Quantity Code"),
           "Package Code": validateChar(job.unit, 3, true, "Package Code"),
-          "Marks And Numbers 1": validateChar(job.description, 40, true, "Marks And Numbers 1"),
+          "Marks And Numbers 1": validateChar("As Per BE", 40, true, "Marks And Numbers 1"),
           "Marks And Numbers 2": validateChar("", 40, false, "Marks And Numbers 2"),
           "Marks And Numbers 3": validateChar("", 40, false, "Marks And Numbers 3")
         }

@@ -213,6 +213,10 @@ const customerKycSchema = new Schema({
     unique: true,
     trim: true
   },
+  gst_no: {
+    type: String,
+    trim: true
+  },
   iec_copy: [{
     type: String
   }],

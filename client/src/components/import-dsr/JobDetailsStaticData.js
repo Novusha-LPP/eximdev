@@ -84,6 +84,7 @@ function JobDetailsStaticData(props) {
       importer_country: (typeof props.data?.importer_address === 'object' ? props.data?.importer_address?.country : props.data?.importer_country) || "",
       importer_type: props.data?.importer_type || "",
       commercial_tax_type: props.data?.commercial_tax_type || "",
+      gst_no: props.data?.gst_no || "",
       // Flatten hss_address
       hss_address_category: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.category : props.data?.hss_address) || "",
       hss_address_details: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.details : props.data?.hss_address_details) || "",
@@ -597,7 +598,7 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>Importer: </span>
               <span style={valueStyle}>{props.data.importer}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} md={6} lg={2}>
               <span style={labelStyle}>Importer Type: </span>
               <span style={valueStyle}>{importerTypeOptions.find(opt => opt.value === props.data.importer_type)?.label || props.data.importer_type || "N/A"}</span>
             </Col>
@@ -605,9 +606,13 @@ function JobDetailsStaticData(props) {
               <span style={labelStyle}>Comm. Tax Type: </span>
               <span style={valueStyle}>{commercialTaxTypeOptions.find(opt => opt.value === props.data.commercial_tax_type)?.label || props.data.commercial_tax_type || "N/A"}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
-              <span style={labelStyle}>IE Code: </span>
-              <span style={valueStyle}>{props.data.ie_code_no}</span>
+            <Col xs={12} md={6} lg={2}>
+              <span style={labelStyle}>GST No: </span>
+              <span style={valueStyle}>{props.data.gst_no || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={2}>
+              <span style={labelStyle}>State: </span>
+              <span style={valueStyle}>{props.data.importer_address?.state || "N/A"}</span>
             </Col>
           </Row>
           <Row style={compactRowStyle}>
@@ -622,6 +627,10 @@ function JobDetailsStaticData(props) {
             <Col xs={12} md={6} lg={3}>
                <span style={labelStyle}>Incoterm: </span>
                <span style={valueStyle}>{props.data.import_terms}</span>
+            </Col>
+            <Col xs={12} md={6} lg={3}>
+               <span style={labelStyle}>IE Code: </span>
+               <span style={valueStyle}>{props.data.ie_code_no}</span>
             </Col>
           </Row>
 
@@ -1002,7 +1011,7 @@ function JobDetailsStaticData(props) {
                     <TextField
                       fullWidth
                       size="small"
-                      label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      label={key === "importer_state" ? "State" : key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       name={key}
                       value={editFormData[key] || ""}
                       onChange={handleEditChange}

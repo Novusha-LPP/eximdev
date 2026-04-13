@@ -177,8 +177,13 @@ const OrganizationDirectory = () => {
                     <Typography variant="caption" color="textSecondary">{org.email}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">IE: {org.iec_no || 'N/A'}</Typography>
-                    <Typography variant="caption" color="textSecondary">PAN: {org.pan_no || 'N/A'}</Typography>
+                    <Typography variant="body2">IE: {org.iec_no || "N/A"}</Typography>
+                    <Typography variant="caption" color="textSecondary">PAN: {org.pan_no || "N/A"}</Typography>
+                    {org.gst_no && (
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        GST: {org.gst_no}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{org.addressDetails?.city}, {org.addressDetails?.state}</Typography>

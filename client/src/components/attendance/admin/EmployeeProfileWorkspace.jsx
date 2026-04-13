@@ -1,9 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react'; // Standardized path
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import moment from 'moment';
+import { 
+  FiActivity, FiArrowRight, FiCheckCircle, FiClock, FiUsers, FiAlertTriangle, 
+  FiUser, FiX, FiCalendar, FiLogIn, FiLogOut, FiEdit, FiFileText, FiRefreshCw, FiDownload, FiSearch, FiGrid, FiList, FiChevronDown, FiChevronRight
+} from 'react-icons/fi';
 import attendanceAPI from '../../../api/attendance/attendance.api';
 import leaveAPI from '../../../api/attendance/leave.api';
 import masterAPI from '../../../api/attendance/master.api';
+import { formatTime12Hr, minutesToHours, formatDate } from '../../attendance/utils/helpers';
+import './EmployeeProfilePerformance.css';
 
 // Theme colors matching AttendanceManagement
 const THEME = {
@@ -42,12 +49,29 @@ const inputStyle = {
   width: '100%',
   border: `1px solid ${THEME.border}`,
   borderRadius: '8px',
-  padding: '8px 10px',
+  padding: '0 12px',
+  height: '42px',
   fontSize: '14px',
-  transition: 'border-color 0.2s'
+  color: THEME.text,
+  background: '#ffffff',
+  transition: 'border-color 0.2s',
+  outline: 'none',
+  boxSizing: 'border-box',
+  lineHeight: '40px'
 };
 
 const toWhole = (value) => Math.max(0, Math.floor(Number(value) || 0));
+const NON_WORKING_STATUSES = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+
+const isNonWorkingStatus = (status) => NON_WORKING_STATUSES.has(String(status || '').toLowerCase());
+
+const calculateWorkHours = (firstIn, lastOut) => {
+  if (!firstIn || !lastOut) return 0;
+  const inTime = moment(firstIn);
+  const outTime = moment(lastOut);
+  if (!inTime.isValid() || !outTime.isValid() || outTime.isBefore(inTime)) return 0;
+  return outTime.diff(inTime, 'hours', true);
+};
 
 const getOrdinalNum = (n) => n + (n > 0 ? ['th', 'st', 'nd', 'rd'][(n > 3 && n < 21) || n % 10 > 3 ? 0 : n % 10] : '');
 const formatDateOrdinal = (dateString) => {
@@ -62,7 +86,41 @@ const formatStatus = (s) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
-const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) => {
+const getCalendarStatusClass = (status = '') => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
+  if (normalized === 'present_late') return 'late';
+  return normalized || 'none';
+};
+
+const getCalendarStatusBadge = (status = '') => {
+  const normalized = String(status || '').toLowerCase();
+  const map = {
+      weekly_off: 'Off',
+      weekoff: 'Off',
+      off: 'Off',
+      holiday: 'Holiday',
+      leave: 'Leave',
+      half_day: 'Half Day',
+      late: 'P',
+      present_late: 'P',
+      absent: 'Absent',
+      present: 'P'
+  };
+  return map[normalized] || '';
+};
+
+const StatusPill = ({ status, session }) => {
+  const map = { present: ['Present', 'present'], absent: ['Absent', 'absent'], leave: ['Leave', 'leave'], half_day: ['Half Day', 'half-day'], weekly_off: ['Off', 'off'], holiday: ['Holiday', 'holiday'] };
+  const [label, cls] = map[status] || [status, 'default'];
+  return (
+      <span className={`ar-status-pill ar-pill-${cls}`}>
+          {status === 'half_day' ? (session ? (session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
+      </span>
+  );
+};
+
+const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], headerActions }) => {
     const params = useParams();
     const navigate = useNavigate();
   const [localEmployeeId, setLocalEmployeeId] = useState(null);
@@ -98,6 +156,19 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   const [isEditingPolicy, setIsEditingPolicy] = useState(false);
   const [migrationHistory, setMigrationHistory] = useState([]);
   const [migrationHistoryLoading, setMigrationHistoryLoading] = useState(false);
+  
+  // Performance Tab States
+  const [fullMonthPresenceEnabled, setFullMonthPresenceEnabled] = useState(false);
+  const [applyingFullMonth, setApplyingFullMonth] = useState(false);
+  const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);
+  const [browseYear, setBrowseYear] = useState(now.getFullYear());
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [hasInitialPunchIn, setHasInitialPunchIn] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [autoSwitchHintShown, setAutoSwitchHintShown] = useState(false);
+  const shouldForceStatusCorrection = !hasInitialPunchIn || isNonWorkingStatus(editForm.status);
+  const isTimeCorrectionDisabled = shouldForceStatusCorrection || editForm.correction_mode === 'status_correction';
 
   const [balanceForm, setBalanceForm] = useState({
     leave_policy_id: '',
@@ -226,20 +297,306 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   }, [filteredEmployees, currentPage, pageSize, groupBy]);
 
   const totalPages = Math.ceil(filteredEmployees.length / pageSize);
+  
+  const empHistory = profile?.attendance || [];
+
+  const continuityStats = useMemo(() => {
+    const stats = {
+      present: 0,
+      absent: 0,
+      late: 0,
+      leaves: 0,
+      weeklyOff: 0,
+      holidays: 0
+    };
+
+    (empHistory || []).forEach((rec) => {
+      const status = getCalendarStatusClass(rec?.status);
+      if (status === 'present') stats.present += 1;
+      if (status === 'late') {
+        stats.late += 1;
+        stats.present += 1;
+      }
+      if (status === 'absent') stats.absent += 1;
+      if (status === 'leave') stats.leaves += 1;
+      if (status === 'weekly_off') stats.weeklyOff += 1;
+      if (status === 'holiday') stats.holidays += 1;
+    });
+
+    if ((empHistory || []).length === 0) {
+      return {
+        present: profile?.summary?.present ?? 0,
+        absent: profile?.summary?.absent ?? 0,
+        late: profile?.summary?.late ?? 0,
+        leaves: profile?.summary?.leaves ?? 0,
+        weeklyOff: 0,
+        holidays: (profile?.holidays || []).length
+      };
+    }
+
+    return stats;
+  }, [empHistory, profile?.summary, profile?.holidays]);
 
   const visibleShiftPolicies = useMemo(() => {
+    const employeeCompanyId = String(profile?.employee?.company_id?._id || profile?.employee?.company_id || '');
     const seen = new Set();
+
     return (shiftPolicies || []).filter((shift) => {
       const name = String(shift?.shift_name || '').trim();
       if (!name) return false;
       if (name.toLowerCase() === 'standard shift') return false;
 
-      const key = name.toLowerCase();
+      // Keep only active shifts where possible
+      const status = String(shift?.status || '').toLowerCase();
+      const isActiveFlag = shift?.isActive;
+      if (status && status !== 'active') return false;
+      if (typeof isActiveFlag === 'boolean' && !isActiveFlag) return false;
+
+      // In individual assignment, show shifts relevant to employee's company
+      const shiftCompanyId = String(shift?.company_id?._id || shift?.company_id || shift?.companyId?._id || shift?.companyId || '');
+      if (employeeCompanyId && shiftCompanyId && shiftCompanyId !== employeeCompanyId) return false;
+
+      // De-duplicate by shift identity and equivalent timing signature
+      const timingSignature = `${String(shift?.start_time || '')}-${String(shift?.end_time || '')}-${String(shift?.full_day_hours || shift?.fullDayHours || '')}`;
+      const normalizedName = name.toLowerCase().replace(/\s+/g, ' ').trim();
+      const key = `${normalizedName}|${timingSignature}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
+      });
+  }, [shiftPolicies, profile?.employee?.company_id]);
+
+  const assignedShiftOptions = useMemo(() => {
+    const employee = profile?.employee || {};
+    const raw = Array.isArray(employee.shift_ids) ? employee.shift_ids : [];
+    const fallback = employee.shift_id ? [employee.shift_id] : [];
+    const combined = [...raw, ...fallback];
+
+    const seen = new Set();
+    return combined
+        .map((s) => {
+            if (!s) return null;
+            if (typeof s === 'string') {
+                return { _id: s, shift_name: 'Assigned Shift', start_time: '09:00', end_time: '18:00', half_day_hours: 4 };
+            }
+            return s;
+        })
+        .filter((s) => s && s._id && !seen.has(String(s._id)) && seen.add(String(s._id)));
+  }, [profile?.employee]);
+
+  // Ported Record Adjustment Helpers
+  const toEditDateTime = (attendanceDate, hhmm = '09:00') => {
+    const [hh, mm] = String(hhmm || '09:00').split(':').map((v) => Number(v));
+    return moment(attendanceDate)
+        .set({
+            hour: Number.isFinite(hh) ? hh : 9,
+            minute: Number.isFinite(mm) ? mm : 0,
+            second: 0,
+            millisecond: 0
+        })
+        .format('YYYY-MM-DDTHH:mm');
+  };
+
+  const applyStatusModeTimes = (form, statusValue, shiftIdValue) => {
+    const statusNormalized = String(statusValue || '').toLowerCase();
+    const selectedShift = assignedShiftOptions.find((s) => String(s._id) === String(shiftIdValue)) || assignedShiftOptions[0] || null;
+
+    if (statusNormalized === 'absent' || statusNormalized === 'leave' || statusNormalized === 'weekly_off' || statusNormalized === 'holiday') {
+        return { ...form, status: statusNormalized, first_in: '', last_out: '' };
+    }
+
+    const startTime = selectedShift?.start_time || '09:00';
+    const endTime = selectedShift?.end_time || '18:00';
+    const firstInValue = toEditDateTime(form.attendance_date, startTime);
+
+    if (statusNormalized === 'half_day') {
+        const halfHours = Number(selectedShift?.half_day_hours || 4);
+        const outValue = moment(firstInValue).add(halfHours, 'hours').format('YYYY-MM-DDTHH:mm');
+        return {
+            ...form,
+            status: 'half_day',
+            half_day_session: form.half_day_session || 'first_half',
+            first_in: firstInValue,
+            last_out: outValue
+        };
+    }
+
+    return {
+        ...form,
+        status: (statusNormalized === 'none' || !statusNormalized) ? 'present' : statusNormalized,
+        half_day_session: null,
+        first_in: firstInValue,
+        last_out: toEditDateTime(form.attendance_date, endTime)
+    };
+  };
+
+  const startEdit = rec => {
+    const employee = profile?.employee || {};
+    const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
+    const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
+
+    const hasPunchIn = Boolean(rec.first_in);
+    const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';
+
+    const baseForm = {
+        attendance_date: rec.attendance_date,
+        employee_id: id,
+        correction_mode: defaultCorrectionMode,
+      apply_status_correction: defaultCorrectionMode === 'status_correction',
+      apply_time_correction: defaultCorrectionMode === 'time_correction',
+        shift_id: defaultShiftId,
+        status: (!rec.status || rec.status === 'none') ? 'present' : rec.status,
+        half_day_session: rec.half_day_session || 'first_half',
+        first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') :
+            (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '09:00')),
+        last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') :
+            (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '18:00')),
+        remarks: rec.remarks || ''
+    };
+
+    setEditingId(rec._id || 'new');
+    setHasInitialPunchIn(hasPunchIn);
+    setEditForm(baseForm);
+  };
+
+  const fetchBrowseHistory = async (paramMonth, paramYear) => {
+    if (!id) return;
+    const targetMonth = (typeof paramMonth === 'number') ? paramMonth : browseMonth;
+    const targetYear = (typeof paramYear === 'number') ? paramYear : browseYear;
+
+    setLoading(true);
+    setEditingId(null);
+    try {
+        const start = moment([targetYear, targetMonth - 1]).startOf('month').format('YYYY-MM-DD');
+        const end = moment([targetYear, targetMonth - 1]).endOf('month').format('YYYY-MM-DD');
+        const r = await attendanceAPI.getEmployeeFullProfile(id, start, end);
+        setProfile(r);
+    } catch (error) {
+        toast.error('Failed to load history for selected period');
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleApplyFullMonthPresence = async (e) => {
+    e.preventDefault();
+    if (!id) return;
+
+    if (!fullMonthPresenceEnabled) {
+        toast.error('Enable Full Month Presence to continue');
+        return;
+    }
+
+    const ok = window.confirm('Are you sure you want to mark the entire month as present?');
+    if (!ok) return;
+
+    setApplyingFullMonth(true);
+    try {
+        const res = await attendanceAPI.applyFullMonthPresence({
+            employee_id: id,
+            year: browseYear,
+            month: browseMonth
+        });
+
+        if (res.success) {
+            toast.success(res.message || 'Full month presence applied');
+            fetchBrowseHistory(browseMonth, browseYear);
+        } else {
+            toast.error(res.message || 'Failed to apply full month presence');
+        }
+    } catch (error) {
+        toast.error(error?.response?.data?.message || 'Error applying full month presence');
+    } finally {
+        setApplyingFullMonth(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    const mode = String(editForm.correction_mode || '').toLowerCase();
+    
+    // Validation for Time Correction
+    if (mode === 'time_correction') {
+      if (!editForm.shift_id) {
+        toast.error('Please assign shift policy to this user');
+        return;
+      }
+      if (!editForm.first_in || !editForm.last_out) {
+        toast.error('Please provide both Punch-In and Punch-Out times');
+        return;
+      }
+      if (moment(editForm.last_out).isBefore(moment(editForm.first_in))) {
+        toast.error('Punch-Out cannot be before Punch-In');
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        ...editForm,
+        apply_status_correction: mode === 'status_correction',
+        apply_time_correction: mode === 'time_correction'
+      };
+
+        if (editingId === 'new') {
+        await attendanceAPI.createManualAdjustment(payload);
+        } else {
+        await attendanceAPI.updateAttendanceRecord(editingId, payload);
+        }
+        toast.success('Record updated');
+        setEditingId(null);
+        // Refresh the correct month context
+        if (tab === 'performance') {
+            fetchBrowseHistory(browseMonth, browseYear);
+        } else {
+            fetchData();
+        }
+    } catch (err) {
+        const apiErrorCode = err?.response?.data?.error;
+        const apiMessage = String(err?.response?.data?.message || '').toLowerCase();
+        const shouldAutoSwitchToTimeUnchanged =
+            apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
+            (apiMessage.includes('time correction is not applicable') && apiMessage.includes('status'));
+
+        if (shouldAutoSwitchToTimeUnchanged) {
+            setAutoSwitchHintShown(true);
+            setEditForm((prev) => ({
+                ...prev,
+                correction_mode: 'status_correction_time_unchanged',
+            apply_status_correction: false,
+                apply_time_correction: false
+            }));
+            toast.info('Switched to Status Correction (Time Unchanged). Please verify and save again.');
+            return;
+        }
+        toast.error(err?.response?.data?.message || 'Update failed');
+    }
+    finally { setSaving(false); }
+  };
+
+  // Sync Browse Month/Year with startDate
+  useEffect(() => {
+    const d = new Date(startDate);
+    setBrowseMonth(d.getMonth() + 1);
+    setBrowseYear(d.getFullYear());
+  }, [startDate]);
+
+  // Auto-switch logic
+  useEffect(() => {
+    const isNonWorking = isNonWorkingStatus(editForm.status);
+    if (!editingId || !(!hasInitialPunchIn || isNonWorking) || editForm.correction_mode !== 'time_correction') return;
+
+    setAutoSwitchHintShown(true);
+    setEditForm((prev) => {
+        const nextMode = {
+            ...prev,
+            correction_mode: 'status_correction',
+            apply_status_correction: true,
+        apply_time_correction: false
+        };
+        return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
     });
-  }, [shiftPolicies]);
+  }, [editingId, hasInitialPunchIn, editForm.status, editForm.correction_mode]);
 
   // Sync individual policy form with profile data
   useEffect(() => {
@@ -301,6 +658,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
   };
 
   useEffect(() => {
+    if (!startDate || !endDate) return;
+    if (moment(endDate).isBefore(moment(startDate))) {
+      toast.error('End date cannot be before start date');
+      // Set end date to start date to prevent invalid state
+      setEndDate(startDate);
+      return;
+    }
     fetchData();
   }, [id, startDate, endDate]);
 
@@ -493,11 +857,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
       return;
     }
     try {
+      const openingBalance = Number(balanceForm.opening_balance) || 0;
+      const used = Number(balanceForm.used) || 0;
+      const pending = Number(balanceForm.pending) || 0;
+
+      if (openingBalance < 0 || used < 0 || pending < 0) {
+        toast.error('Balance values cannot be negative');
+        return;
+      }
+
       await leaveAPI.updateBalance(id, {
         leave_policy_id: balanceForm.leave_policy_id,
-        opening_balance: Number(balanceForm.opening_balance) || 0,
-        used: Number(balanceForm.used) || 0,
-        pending: Number(balanceForm.pending) || 0
+        opening_balance: openingBalance,
+        used: used,
+        pending: pending
       });
       toast.success('Leave balance updated successfully');
       setShowLeaveBalanceForm(false);
@@ -619,11 +992,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
           {/* Header with Organization Filter & Actions */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                <h1 style={{ margin: 0, color: THEME.navy, fontSize: '28px', fontWeight: '800', letterSpacing: '-0.025em' }}>Employee Directory</h1>
-                <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600' }}>
-                  Showing {Math.min(filteredEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(filteredEmployees.length, currentPage*pageSize)} of {filteredEmployees.length} Employees
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                  <h1 style={{ margin: 0, color: THEME.navy, fontSize: '28px', fontWeight: '800', letterSpacing: '-0.025em' }}>Employee Directory</h1>
+                  <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600' }}>
+                    Showing {Math.min(filteredEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(filteredEmployees.length, currentPage*pageSize)} of {filteredEmployees.length} Employees
+                  </span>
+                </div>
               </div>
               <p style={{ margin: '4px 0 0 0', color: THEME.muted, fontSize: '14px', fontWeight: '500' }}>Manage workforce policies and profiles</p>
               
@@ -740,6 +1115,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
               >
                 Bulk assign policies
               </button>
+              {headerActions && <div style={{ marginLeft: '8px', paddingLeft: '16px', borderLeft: `1px solid ${THEME.border}` }}>{headerActions}</div>}
             </div>
           </div>
 
@@ -1344,15 +1720,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
         {/* Action Highlights - Modern Stats Blocks */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
           {[
-            { label: 'ATTENDANCE', value: `${(profile.attendance || []).length} Records`, icon: '📖', color: '#64748b', bg: '#f1f5f9' },
-            { label: 'LEAVE QUOTA', value: `${(profile.balances || []).length} Policies`, icon: '⭐', color: '#94a3b8', bg: '#f8fafc' },
-            { label: 'PENDING', value: `${(profile.pendingLeaves || []).length} Requests`, icon: '🕒', color: '#94a3b8', bg: '#f8fafc' }
+            { label: 'ATTENDANCE', value: `${(profile.attendance || []).length} Records`, icon: <FiFileText />, color: '#64748b', bg: '#f1f5f9' },
+            { label: 'LEAVE QUOTA', value: `${(profile.balances || []).length} Policies`, icon: <FiActivity />, color: '#94a3b8', bg: '#f8fafc' },
+            { label: 'PENDING', value: `${(profile.pendingLeaves || []).length} Requests`, icon: <FiClock />, color: '#94a3b8', bg: '#f8fafc' }
           ].map((stat, idx) => (
             <div key={idx} style={{ ...cardStyle, background: '#fff', border: `1px solid ${THEME.border}`, padding: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-               <div style={{ width: '48px', height: '48px', borderRadius: '12px', border: `1px solid ${THEME.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{stat.icon}</div>
+               <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: stat.bg, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{stat.icon}</div>
                <div>
-                 <div style={{ fontSize: '10px', color: THEME.muted, fontWeight: '700', letterSpacing: '0.05em' }}>{stat.label}</div>
-                 <div style={{ fontSize: '16px', color: THEME.text, fontWeight: '700' }}>{stat.value}</div>
+                  <div style={{ fontSize: '10px', color: THEME.muted, fontWeight: '700', letterSpacing: '0.05em' }}>{stat.label}</div>
+                  <div style={{ fontSize: '16px', color: THEME.text, fontWeight: '600' }}>{stat.value}</div>
                </div>
             </div>
           ))}
@@ -1360,7 +1736,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
 
         {/* Tab Navigation - Premium Indigo */}
         <div style={{ display: 'flex', gap: '30px', borderBottom: `1px solid ${THEME.border}`, marginBottom: '30px', padding: '0 10px' }}>
-          {['Attendance', 'Leave', 'Policies', 'Actions'].map((label) => {
+          {['Performance', 'Attendance', 'Leave', 'Policies', 'Actions'].map((label) => {
             const t = label.toLowerCase();
             const isActive = tab === t;
             return (
@@ -1384,6 +1760,153 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
             );
           })}
         </div>
+
+        {tab === 'performance' && (
+          <div className="ar-perf-container">
+            {/* Scorecard */}
+            <div className="ar-scorecard">
+              {[
+                { label: 'Present', val: continuityStats.present, color: '#10b981' },
+                { label: 'Absent', val: continuityStats.absent, color: '#ef4444' },
+                { label: 'Late', val: continuityStats.late, color: '#f59e0b' },
+                { label: 'Leaves', val: continuityStats.leaves, color: '#4f46e5' },
+                { label: 'Off', val: continuityStats.weeklyOff, color: '#64748b' },
+                { label: 'Holiday', val: continuityStats.holidays, color: '#ec4899' }
+              ].map((s, idx) => (
+                <div key={idx} className="ar-score-tile" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="ar-score-lbl">{s.label}</div>
+                  <div className="ar-score-val" style={{ color: s.color }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '24px' }}>
+               {/* Continuity Calendar Grid */}
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: THEME.navy }}>Attendance Continuity</h3>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => {
+                          const prev = moment([browseYear, browseMonth - 1]).subtract(1, 'month');
+                          setBrowseYear(prev.year());
+                          setBrowseMonth(prev.month() + 1);
+                          fetchBrowseHistory(prev.month() + 1, prev.year());
+                        }}
+                        style={{ ...buttonStyle, background: '#fff', border: `1px solid ${THEME.border}`, padding: '4px 8px' }}
+                      >←</button>
+                      <span style={{ fontSize: '12px', fontWeight: '700', padding: '4px 8px', background: '#f1f5f9', borderRadius: '6px' }}>
+                         {moment([browseYear, browseMonth - 1]).format('MMMM YYYY')}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          const next = moment([browseYear, browseMonth - 1]).add(1, 'month');
+                          setBrowseYear(next.year());
+                          setBrowseMonth(next.month() + 1);
+                          fetchBrowseHistory(next.month() + 1, next.year());
+                        }}
+                        style={{ ...buttonStyle, background: '#fff', border: `1px solid ${THEME.border}`, padding: '4px 8px' }}
+                      >→</button>
+                    </div>
+                  </div>
+
+                  <div className="ar-cal-grid">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                      <div key={d} className="ar-day-header">{d}</div>
+                    ))}
+                    {(() => {
+                      const startOfMonth = moment([browseYear, browseMonth - 1]).startOf('month');
+                      const endOfMonth = moment([browseYear, browseMonth - 1]).endOf('month');
+                      const startDay = startOfMonth.day();
+                      const totalDays = endOfMonth.date();
+                      
+                      const cells = [];
+                      for (let i = 0; i < startDay; i++) cells.push(<div key={`empty-${i}`} className="ar-cal-day empty" />);
+                      
+                      for (let d = 1; d <= totalDays; d++) {
+                        const dateStr = moment([browseYear, browseMonth - 1, d]).format('YYYY-MM-DD');
+                        const record = empHistory.find(r => moment(r.attendance_date).format('YYYY-MM-DD') === dateStr) || { attendance_date: dateStr, status: 'none' };
+                        const statusClass = getCalendarStatusClass(record.status);
+                        const badge = getCalendarStatusBadge(record.status);
+                        
+                        cells.push(
+                          <div 
+                            key={d} 
+                            className={`ar-cal-day ${statusClass}`}
+                            onClick={() => startEdit(record)}
+                          >
+                            <span className="ar-day-num">{d}</span>
+                            {badge && <span className={`ar-day-badge ${statusClass}`}>{badge}</span>}
+                          </div>
+                        );
+                      }
+                      return cells;
+                    })()}
+                  </div>
+               </div>
+
+               {/* Right Side: Quick Actions & Highlights */}
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Full Month Presence */}
+                  <div style={{ ...cardStyle }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                       <FiActivity color={THEME.indigo} />
+                       <span style={{ fontSize: '13px', fontWeight: '700' }}>Admin Controls</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={fullMonthPresenceEnabled} 
+                          onChange={(e) => setFullMonthPresenceEnabled(e.target.checked)} 
+                        />
+                        Enable Full Month Presence
+                      </label>
+                      <button
+                        onClick={handleApplyFullMonthPresence}
+                        disabled={!fullMonthPresenceEnabled || applyingFullMonth}
+                        style={{
+                          ...buttonStyle,
+                          width: '100%',
+                          background: THEME.primary,
+                          color: '#fff',
+                          opacity: fullMonthPresenceEnabled ? 1 : 0.5,
+                          fontSize: '12px'
+                        }}
+                      >
+                        {applyingFullMonth ? 'Processing...' : 'Mark Full Month Present'}
+                      </button>
+                      <p style={{ margin: 0, fontSize: '11px', color: THEME.muted, lineHeight: 1.5 }}>
+                        This will mark all working days in this month as present with standard shift times.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Recent Activity Log */}
+                  <div style={{ ...cardStyle, flex: 1 }}>
+                     <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700' }}>Activity Highlights</h3>
+                     <div className="ar-timeline">
+                        {empHistory.filter(r => r.status && r.status !== 'none').slice(0, 5).map((rec, i) => (
+                          <div key={i} className="ar-time-item">
+                             <div className="ar-time-icon">
+                               <FiClock size={16} />
+                             </div>
+                             <div className="ar-time-info">
+                               <div className="ar-time-title">{moment(rec.attendance_date).format('D MMM, ddd')}</div>
+                               <div className="ar-time-sub">
+                                 <StatusPill status={getCalendarStatusClass(rec.status)} session={rec.half_day_session} />
+                                 {rec.first_in && <span style={{ marginLeft: '8px' }}>{moment(rec.first_in).format('h:mm a')}</span>}
+                               </div>
+                             </div>
+                          </div>
+                        ))}
+                        {empHistory.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: THEME.muted, fontSize: '12px' }}>No recent activity</div>}
+                     </div>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
 
         {tab === 'attendance' && (
           <>
@@ -1884,7 +2407,248 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [] }) =
             )}
           </div>
         </div>
-      )}      </div>
+      )}        {/* Record Adjustment Modal */}
+        {editingId && (
+            <div className="ar-modal-overlay" onClick={() => setEditingId(null)}>
+                <div className="ar-modal-card" onClick={(e) => e.stopPropagation()}>
+                    <div className="ar-modal-head">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FiEdit size={16} color={THEME.primary} />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '15px' }}>Adjust Record: {moment(editForm.attendance_date).format('D MMM YYYY')}</h3>
+                        </div>
+                        <button onClick={() => setEditingId(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: THEME.muted }}><FiX size={20} /></button>
+                    </div>
+                    <div className="ar-modal-body">
+                      <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isTimeCorrectionDisabled ? '#ccc' : '#334155', opacity: isTimeCorrectionDisabled ? 0.5 : 1, cursor: isTimeCorrectionDisabled ? 'not-allowed' : 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="correction_mode"
+                            disabled={isTimeCorrectionDisabled}
+                            checked={editForm.correction_mode === 'time_correction'}
+                            onChange={() => setEditForm((prev) => ({ ...prev, correction_mode: 'time_correction', apply_status_correction: false, apply_time_correction: true }))}
+                          />
+                          Time Correction
+                        </label>
+                        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
+                          <input
+                            type="radio"
+                            name="correction_mode"
+                            checked={editForm.correction_mode === 'status_correction'}
+                            onChange={() => {
+                              setEditForm((prev) => {
+                                const nextMode = {
+                                  ...prev,
+                                  correction_mode: 'status_correction',
+                                  apply_status_correction: true,
+                                  apply_time_correction: false
+                                };
+                                return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
+                              });
+                            }}
+                          />
+                          Status Correction
+                        </label>
+                        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: !hasInitialPunchIn ? '#ccc' : '#334155', opacity: !hasInitialPunchIn ? 0.5 : 1, cursor: !hasInitialPunchIn ? 'not-allowed' : 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="correction_mode"
+                            disabled={!hasInitialPunchIn}
+                            checked={editForm.correction_mode === 'status_correction_time_unchanged'}
+                            onChange={() => setEditForm((prev) => ({
+                              ...prev,
+                              correction_mode: 'status_correction_time_unchanged',
+                              apply_status_correction: false,
+                              apply_time_correction: false
+                            }))}
+                          />
+                          Status Correction (Time Unchanged)
+                        </label>
+                      </div>
+
+                      {editForm.correction_mode === 'status_correction' || editForm.correction_mode === 'status_correction_time_unchanged' ? (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div className="ar-form-group">
+                              <label className="ar-form-label">Status</label>
+                              <select
+                                className="ar-input-ctrl ar-select"
+                                style={{ ...inputStyle }}
+                                value={editForm.status}
+                                onChange={(e) => {
+                                  const nextStatus = e.target.value;
+                                  if (isNonWorkingStatus(nextStatus) && editForm.correction_mode !== 'status_correction_time_unchanged') {
+                                    setAutoSwitchHintShown(true);
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      status: nextStatus,
+                                      correction_mode: 'status_correction_time_unchanged',
+                                      apply_status_correction: false,
+                                      apply_time_correction: false,
+                                      first_in: '',
+                                      last_out: '',
+                                      half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
+                                    }));
+                                  } else {
+                                    setAutoSwitchHintShown(false);
+                                    setEditForm((prev) => {
+                                      if (prev.correction_mode === 'status_correction_time_unchanged') {
+                                        return {
+                                          ...prev,
+                                          status: nextStatus,
+                                          half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
+                                        };
+                                      }
+                                      return applyStatusModeTimes({ ...prev }, nextStatus, prev.shift_id);
+                                    });
+                                  }
+                                }}
+                              >
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                                <option value="half_day">Half Day</option>
+                                <option value="leave">Leave</option>
+                                <option value="weekly_off">Weekly Off</option>
+                                <option value="holiday">Holiday</option>
+                              </select>
+                            </div>
+                            <div className="ar-form-group">
+                              <label className="ar-form-label">Shift</label>
+                              <select
+                                className="ar-input-ctrl ar-select"
+                                style={{ ...inputStyle }}
+                                value={editForm.shift_id}
+                                onChange={(e) => {
+                                  const nextShiftId = e.target.value;
+                                  setEditForm((prev) => {
+                                    const next = { ...prev, shift_id: nextShiftId };
+                                    if (prev.correction_mode === 'status_correction') {
+                                      return applyStatusModeTimes(next, next.status, nextShiftId);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <option value="">Select Shift</option>
+                                {(visibleShiftPolicies.length > 0 ? visibleShiftPolicies : assignedShiftOptions).map((s) => (
+                                  <option key={s._id} value={s._id}>
+                                    {s.shift_name || 'Shift'} ({s.start_time || '--:--'} - {s.end_time || '--:--'})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {editForm.status === 'half_day' && (
+                            <div className="ar-form-group">
+                              <label className="ar-form-label">Session</label>
+                              <div style={{ display: 'flex', gap: '10px' }}>
+                                {['first_half', 'second_half'].map((s) => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => setEditForm({ ...editForm, half_day_session: s })}
+                                    style={{
+                                      ...buttonStyle,
+                                      flex: 1,
+                                      background: editForm.half_day_session === s ? THEME.primary : '#f8fafc',
+                                      color: editForm.half_day_session === s ? '#fff' : THEME.text,
+                                      border: `1px solid ${editForm.half_day_session === s ? THEME.primary : THEME.border}`,
+                                      fontSize: '11px'
+                                    }}
+                                  >
+                                    {s === 'first_half' ? 'First Half' : 'Second Half'}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div className="ar-form-group">
+                              <label className="ar-form-label">Punch In</label>
+                              <input
+                                type="datetime-local"
+                                className="ar-input-ctrl"
+                                style={{ ...inputStyle }}
+                                value={editForm.first_in}
+                                onChange={(e) => {
+                                  const nextFirstIn = e.target.value;
+                                  setEditForm((prev) => {
+                                    const next = { ...prev, first_in: nextFirstIn, correction_mode: 'time_correction' };
+                                    const workHours = calculateWorkHours(next.first_in, next.last_out);
+                                    if (workHours >= 8) next.status = 'present';
+                                    else if (workHours >= 4) next.status = 'half_day';
+                                    else if (workHours > 0) next.status = 'incomplete';
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </div>
+                            <div className="ar-form-group">
+                              <label className="ar-form-label">Punch Out</label>
+                              <input
+                                type="datetime-local"
+                                className="ar-input-ctrl"
+                                style={{ ...inputStyle }}
+                                value={editForm.last_out}
+                                onChange={(e) => {
+                                  const nextLastOut = e.target.value;
+                                  setEditForm((prev) => {
+                                    const next = { ...prev, last_out: nextLastOut, correction_mode: 'time_correction' };
+                                    const workHours = calculateWorkHours(next.first_in, next.last_out);
+                                    if (workHours >= 8) next.status = 'present';
+                                    else if (workHours >= 4) next.status = 'half_day';
+                                    else if (workHours > 0) next.status = 'incomplete';
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: THEME.muted }}>
+                            Time Correction Mode auto-derives status from work hours.
+                          </div>
+                        </>
+                      )}
+
+                        <div className="ar-form-group">
+                            <label className="ar-form-label">Remarks</label>
+                            <textarea 
+                              className="ar-input-ctrl" 
+                              rows={2} 
+                              style={{ ...inputStyle, height: 'auto' }}
+                              value={editForm.remarks} 
+                              onChange={(e) => setEditForm({ ...editForm, remarks: e.target.value })} 
+                              placeholder="Reason for adjustment..."
+                            />
+                        </div>
+
+                        {autoSwitchHintShown && (
+                           <div style={{ padding: '10px', background: '#fff9db', border: '1px solid #ffe066', borderRadius: '8px', fontSize: '11px', color: '#856404', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                              <FiAlertTriangle style={{ flexShrink: 0, marginTop: '2px' }} />
+                              <span>Switching to Status Correction automatically based on availability of initial punch data.</span>
+                           </div>
+                        )}
+                    </div>
+                    <div className="ar-modal-foot">
+                        <button onClick={() => setEditingId(null)} style={{ ...buttonStyle, background: 'transparent', color: THEME.muted, fontSize: '12px' }}>Cancel</button>
+                        <button 
+                          onClick={saveEdit} 
+                          disabled={saving}
+                          style={{ ...buttonStyle, background: THEME.primary, color: '#fff', padding: '10px 24px', fontSize: '12px', fontWeight: '700' }}
+                        >
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+      </div>
     </div>
   );
 };

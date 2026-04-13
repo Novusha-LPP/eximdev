@@ -131,6 +131,29 @@ const parseVirtualRecordDate = (recordId) => {
     return moment.utc(match[2], 'YYYY-MM-DD', true);
 };
 
+const getAttendanceThresholds = (employee) => {
+    const companyConfig = employee?.company_id?.attendance_config || {};
+    return {
+        fullDayThreshold: Number(companyConfig.full_day_threshold_hours || 8),
+        halfDayThreshold: Number(companyConfig.half_day_threshold_hours || 4)
+    };
+};
+
+const normalizeAttendanceStatus = (record, employee) => {
+    const status = String(record?.status || '').toLowerCase();
+    if (status !== 'incomplete') return status;
+    if (!record?.first_in || !record?.last_out) return status;
+
+    const totalWorkHours = Number(
+        record.total_work_hours ?? moment(record.last_out).diff(moment(record.first_in), 'hours', true) ?? 0
+    );
+    const { fullDayThreshold, halfDayThreshold } = getAttendanceThresholds(employee);
+
+    if (totalWorkHours >= fullDayThreshold) return 'present';
+    if (totalWorkHours >= halfDayThreshold) return 'half_day';
+    return 'absent';
+};
+
 const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}) => {
     const recordsByDay = new Map(records.map((record) => [dateKeyUTC(record.attendance_date), record]));
     const policyByYear = new Map();
@@ -167,7 +190,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         let hSession = null;
 
         if (rec) {
-            hStatus = String(rec.status || '').toLowerCase();
+            hStatus = normalizeAttendanceStatus(rec, emp);
             hSession = rec.half_day_session;
 
             if (hStatus === 'present') actualPresent++;
@@ -1731,14 +1754,23 @@ const getCorrectionFlags = (body = {}) => {
 
 const getAssignedShift = async (employee, shiftId, companyId) => {
     if (shiftId !== undefined && shiftId !== null && shiftId !== '') {
-        const assignedShiftIds = getAssignedShiftIds(employee);
-        if (!assignedShiftIds.includes(String(shiftId))) {
-            throw new Error('Selected shift is not assigned to this user');
-        }
-
         const selectedShift = await Shift.findById(shiftId);
         if (!selectedShift || selectedShift.status !== 'active') {
             throw new Error('Selected shift is invalid or inactive');
+        }
+
+        const selectedCompanyId = selectedShift.company_id?._id || selectedShift.company_id;
+        if (companyId && selectedCompanyId && String(selectedCompanyId) !== String(companyId)) {
+            const assignedIds = getAssignedShiftIds(employee);
+            console.log('[DEBUG_SHIFT] Company Mismatch:', { 
+                targetCompanyId: String(companyId), 
+                shiftCompanyId: String(selectedCompanyId), 
+                requestedShiftId: String(shiftId),
+                assignedIds 
+            });
+            if (!assignedIds.includes(String(shiftId))) {
+                throw new Error('Selected shift does not belong to this company');
+            }
         }
 
         return selectedShift;
@@ -1825,7 +1857,7 @@ const applyStatusCorrectionTimes = (record, attendanceDate, status, shift, compa
 export const updateAttendanceRecord = async (req, res) => {
     try {
         const { id } = req.params;
-        const {
+        let {
             status,
             half_day_session,
             first_in,
@@ -1838,6 +1870,16 @@ export const updateAttendanceRecord = async (req, res) => {
             correction_mode
         } = req.body;
         const companyId = resolveCompanyId(req);
+
+        // Parse datetime strings from frontend to proper Date objects
+        if (first_in && typeof first_in === 'string') {
+            const parsed = moment(first_in);
+            first_in = parsed.isValid() ? parsed.toDate() : first_in;
+        }
+        if (last_out && typeof last_out === 'string') {
+            const parsed = moment(last_out);
+            last_out = parsed.isValid() ? parsed.toDate() : last_out;
+        }
 
         if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
             return res.status(403).json({ message: 'Unauthorized: Only admins and HODs can edit records' });
@@ -1858,10 +1900,12 @@ export const updateAttendanceRecord = async (req, res) => {
                 return res.status(400).json({ message: 'Invalid record ID' });
             }
 
-            const company = await Company.findById(companyId);
-            const targetDate = req.body?.attendance_date
-                ? moment.utc(req.body.attendance_date).startOf('day')
-                : virtualDate.clone().startOf('day');
+            const targetEmployee = req.body?.employee_id ? await User.findById(req.body.employee_id).select('company_id') : null;
+            const effectiveCompanyId = targetEmployee?.company_id?._id || targetEmployee?.company_id || companyId;
+            const company = await Company.findById(effectiveCompanyId);
+            // For virtual records, always trust the date encoded in ID to avoid timezone drift
+            // Example: virtual-absent-2026-03-13 must map to 2026-03-13 (not 2026-03-12 via UTC conversion).
+            const targetDate = virtualDate.clone().startOf('day');
             const yearMonth = targetDate.format('YYYY-MM');
 
             if (await PayrollEngine.isLocked(company, yearMonth)) {
@@ -1891,19 +1935,60 @@ export const updateAttendanceRecord = async (req, res) => {
 
         // 3. Fetch Employee & Policy Status
         const employee = await User.findById(record.employee_id);
-        const company = await Company.findById(companyId);
+        const employeeCompanyId = employee?.company_id?._id || employee?.company_id;
+        const effectiveCompanyId = record.company_id || employeeCompanyId || companyId;
+        const company = await Company.findById(effectiveCompanyId);
         const yearMonth = moment(record.attendance_date).format('YYYY-MM');
 
         if (await PayrollEngine.isLocked(company, yearMonth)) {
             return res.status(403).json({ message: 'Attendance for this month is locked' });
         }
 
-        // 4. Update Fields
+        // 4. Update Fields with Mode-Based Flag Validation
         const requestedMode = String(correction_mode || '').toLowerCase();
         const isStatusTimeUnchangedMode = requestedMode === 'status_correction_time_unchanged';
-        const flags = getCorrectionFlags(req.body);
-        const shouldApplyStatusCorrection = toBoolean(apply_status_correction) || flags.statusCorrection;
-        const shouldApplyTimeCorrection = toBoolean(apply_time_correction) || flags.timeCorrection;
+        const isStatusCorrectionMode = requestedMode === 'status_correction';
+        const isTimeCorrectionMode = requestedMode === 'time_correction';
+
+        // Enforce mutual exclusivity: flags must match the selected correction mode
+        const flagApplyStatus = toBoolean(apply_status_correction);
+        const flagApplyTime = toBoolean(apply_time_correction);
+
+        if (isTimeCorrectionMode && !flagApplyTime) {
+            return res.status(400).json({
+                error: 'INVALID_MODE_FLAGS',
+                message: 'Time Correction mode requires apply_time_correction=true and apply_status_correction=false',
+                received: { correction_mode: requestedMode, apply_status_correction: flagApplyStatus, apply_time_correction: flagApplyTime }
+            });
+        }
+        if (isStatusCorrectionMode && !flagApplyStatus) {
+            return res.status(400).json({
+                error: 'INVALID_MODE_FLAGS',
+                message: 'Status Correction mode requires apply_status_correction=true and apply_time_correction=false',
+                received: { correction_mode: requestedMode, apply_status_correction: flagApplyStatus, apply_time_correction: flagApplyTime }
+            });
+        }
+        if (isStatusTimeUnchangedMode && (flagApplyStatus || flagApplyTime)) {
+            return res.status(400).json({
+                error: 'INVALID_MODE_FLAGS',
+                message: 'Status Correction (Time Unchanged) mode should not set either flag to true',
+                received: { correction_mode: requestedMode, apply_status_correction: flagApplyStatus, apply_time_correction: flagApplyTime }
+            });
+        }
+
+        // Validate that Time Correction is not used with non-working statuses
+        if (isTimeCorrectionMode && status) {
+            const normalizedStatus = String(status).toLowerCase();
+            const nonWorkingStatuses = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+            if (nonWorkingStatuses.has(normalizedStatus)) {
+                return res.status(400).json({
+                    error: 'CONFLICT_STATUS_MODE',
+                    message: `Time Correction mode is not applicable for ${normalizedStatus} status`,
+                    suggested_action: 'Use Status Correction (Time Unchanged) mode instead'
+                });
+            }
+        }
+
         if (status !== undefined) record.status = status;
 
         let selectedShift = null;
@@ -1911,14 +1996,16 @@ export const updateAttendanceRecord = async (req, res) => {
             if (!shift_id) {
                 record.shift_id = null;
             } else {
-                selectedShift = await getAssignedShift(employee, shift_id, companyId);
+                selectedShift = await getAssignedShift(employee, shift_id, effectiveCompanyId);
                 record.shift_id = selectedShift._id;
             }
         }
 
         const fallbackShift = selectedShift || (record.shift_id ? await Shift.findById(record.shift_id) : await PolicyResolver.resolveShift(employee));
 
-        if (shouldApplyStatusCorrection && !isStatusTimeUnchangedMode) {
+        // Apply corrections based on mode (mutually exclusive after validation above)
+        if (isStatusCorrectionMode) {
+            // Status Correction: Auto-populate times from shift for working statuses, nullify for non-working
             applyManualCorrectionTimes(
                 record,
                 record.attendance_date,
@@ -1928,14 +2015,16 @@ export const updateAttendanceRecord = async (req, res) => {
                 first_in !== undefined ? (first_in || null) : undefined,
                 last_out !== undefined ? (last_out || null) : undefined
             );
+        } else if (isTimeCorrectionMode) {
+            // Time Correction: Preserve manually-entered times, auto-derive status from work hours later
+            if (first_in !== undefined) {
+                record.first_in = first_in || null;
+            }
+            if (last_out !== undefined) {
+                record.last_out = last_out || null;
+            }
         }
-
-        if (shouldApplyTimeCorrection || first_in !== undefined) {
-            record.first_in = first_in !== undefined ? (first_in || null) : record.first_in;
-        }
-        if (shouldApplyTimeCorrection || last_out !== undefined) {
-            record.last_out = last_out !== undefined ? (last_out || null) : record.last_out;
-        }
+        // For status_correction_time_unchanged mode, don't modify times
 
         const normalizedStatus = String(record.status || '').toLowerCase();
         const workingStatuses = new Set(['present', 'late', 'half_day', 'on_duty']);
@@ -1947,7 +2036,8 @@ export const updateAttendanceRecord = async (req, res) => {
             record.half_day_session = null;
         }
 
-        if (shouldApplyStatusCorrection && !isStatusTimeUnchangedMode && nonWorkingStatuses.has(normalizedStatus)) {
+        // Only nullify times if status is non-working AND we're in status_correction mode (not time_correction)
+        if (isStatusCorrectionMode && nonWorkingStatuses.has(normalizedStatus)) {
             record.first_in = null;
             record.last_out = null;
         }
@@ -1977,7 +2067,7 @@ export const updateAttendanceRecord = async (req, res) => {
 
 export const createManualAdjustment = async (req, res) => {
     try {
-        const {
+        let {
             attendance_date,
             employee_id,
             status,
@@ -1991,6 +2081,16 @@ export const createManualAdjustment = async (req, res) => {
             correction_mode
         } = req.body;
         const companyId = resolveCompanyId(req);
+
+        // Parse datetime strings from frontend to proper Date objects
+        if (first_in && typeof first_in === 'string') {
+            const parsed = moment(first_in);
+            first_in = parsed.isValid() ? parsed.toDate() : first_in;
+        }
+        if (last_out && typeof last_out === 'string') {
+            const parsed = moment(last_out);
+            last_out = parsed.isValid() ? parsed.toDate() : last_out;
+        }
 
         if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
             return res.status(403).json({ message: 'Authorization denied: Only admins and HODs can create adjustments' });
@@ -2020,31 +2120,81 @@ export const createManualAdjustment = async (req, res) => {
             }
         }
 
-        const employee = await User.findById(employee_id);
-        const company = await Company.findById(companyId);
-        const targetDate = moment.utc(attendance_date).startOf('day').toDate();
+        const employee = await User.findById(employee_id).select('_id company_id shift_id shift_ids');
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found in records' });
+        }
+
+        const employeeCompanyId = employee.company_id?._id || employee.company_id;
+        const effectiveCompanyId = employeeCompanyId || companyId;
+        const company = await Company.findById(effectiveCompanyId);
+
+        // Normalize to intended calendar day in a timezone-safe way.
+        // Prefer explicit YYYY-MM-DD substring for string inputs; otherwise use UTC formatting.
+        const normalizedDateKey = typeof attendance_date === 'string'
+            ? String(attendance_date).slice(0, 10)
+            : moment.utc(attendance_date).format('YYYY-MM-DD');
+        const targetDate = moment.utc(normalizedDateKey, 'YYYY-MM-DD', true).startOf('day').toDate();
 
         // Check if record exists
         let record = await AttendanceRecord.findOne({
-            employee_id, company_id: companyId, attendance_date: targetDate
+            employee_id, company_id: effectiveCompanyId, attendance_date: targetDate
         });
 
         if (!record) {
             record = new AttendanceRecord({
                 employee_id,
-                company_id: companyId,
+                company_id: effectiveCompanyId,
                 attendance_date: targetDate,
                 year_month: moment.utc(targetDate).format('YYYY-MM'),
                 status: status || 'present'
             });
         }
 
-        // Update with new data
+        // Update with new data - Mode-Based Flag Validation
         const requestedMode = String(correction_mode || '').toLowerCase();
         const isStatusTimeUnchangedMode = requestedMode === 'status_correction_time_unchanged';
-        const flags = getCorrectionFlags(req.body);
-        const shouldApplyStatusCorrection = toBoolean(apply_status_correction) || flags.statusCorrection;
-        const shouldApplyTimeCorrection = toBoolean(apply_time_correction) || flags.timeCorrection;
+        const isStatusCorrectionMode = requestedMode === 'status_correction';
+        const isTimeCorrectionMode = requestedMode === 'time_correction';
+
+        // Enforce mutual exclusivity: flags must match the selected correction mode
+        const flagApplyStatus = toBoolean(apply_status_correction);
+        const flagApplyTime = toBoolean(apply_time_correction);
+
+        if (isTimeCorrectionMode && !flagApplyTime) {
+            return res.status(400).json({
+                error: 'INVALID_MODE_FLAGS',
+                message: 'Time Correction mode requires apply_time_correction=true and apply_status_correction=false',
+                received: { correction_mode: requestedMode, apply_status_correction: flagApplyStatus, apply_time_correction: flagApplyTime }
+            });
+        }
+        if (isStatusCorrectionMode && !flagApplyStatus) {
+            return res.status(400).json({
+                error: 'INVALID_MODE_FLAGS',
+                message: 'Status Correction mode requires apply_status_correction=true and apply_time_correction=false',
+                received: { correction_mode: requestedMode, apply_status_correction: flagApplyStatus, apply_time_correction: flagApplyTime }
+            });
+        }
+        if (isStatusTimeUnchangedMode && (flagApplyStatus || flagApplyTime)) {
+            return res.status(400).json({
+                error: 'INVALID_MODE_FLAGS',
+                message: 'Status Correction (Time Unchanged) mode should not set either flag to true',
+                received: { correction_mode: requestedMode, apply_status_correction: flagApplyStatus, apply_time_correction: flagApplyTime }
+            });
+        }
+
+        // Validate that Time Correction is not used with non-working statuses
+        if (isTimeCorrectionMode && status) {
+            const normalizedStatus = String(status).toLowerCase();
+            const nonWorkingStatuses = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+            if (nonWorkingStatuses.has(normalizedStatus)) {
+                return res.status(400).json({
+                    error: 'CONFLICT_STATUS_MODE',
+                    message: `Time Correction mode is not applicable for ${normalizedStatus} status`,
+                    suggested_action: 'Use Status Correction (Time Unchanged) mode instead'
+                });
+            }
+        }
 
         if (status !== undefined) record.status = status;
 
@@ -2053,14 +2203,16 @@ export const createManualAdjustment = async (req, res) => {
             if (!shift_id) {
                 record.shift_id = null;
             } else {
-                selectedShift = await getAssignedShift(employee, shift_id, companyId);
+                selectedShift = await getAssignedShift(employee, shift_id, effectiveCompanyId);
                 record.shift_id = selectedShift._id;
             }
         }
 
         const fallbackShift = selectedShift || (record.shift_id ? await Shift.findById(record.shift_id) : await PolicyResolver.resolveShift(employee));
 
-        if (shouldApplyStatusCorrection && !isStatusTimeUnchangedMode) {
+        // Apply corrections based on mode (mutually exclusive after validation above)
+        if (isStatusCorrectionMode) {
+            // Status Correction: Auto-populate times from shift for working statuses, nullify for non-working
             applyManualCorrectionTimes(
                 record,
                 targetDate,
@@ -2070,14 +2222,16 @@ export const createManualAdjustment = async (req, res) => {
                 first_in !== undefined ? (first_in || null) : undefined,
                 last_out !== undefined ? (last_out || null) : undefined
             );
+        } else if (isTimeCorrectionMode) {
+            // Time Correction: Preserve manually-entered times, auto-derive status from work hours later
+            if (first_in !== undefined) {
+                record.first_in = first_in || null;
+            }
+            if (last_out !== undefined) {
+                record.last_out = last_out || null;
+            }
         }
-
-        if (shouldApplyTimeCorrection || first_in !== undefined) {
-            record.first_in = first_in !== undefined ? (first_in || null) : record.first_in;
-        }
-        if (shouldApplyTimeCorrection || last_out !== undefined) {
-            record.last_out = last_out !== undefined ? (last_out || null) : record.last_out;
-        }
+        // For status_correction_time_unchanged mode, don't modify times
 
         const normalizedStatus = String(record.status || '').toLowerCase();
         const workingStatuses = new Set(['present', 'late', 'half_day', 'on_duty']);
@@ -2089,7 +2243,8 @@ export const createManualAdjustment = async (req, res) => {
             record.half_day_session = null;
         }
 
-        if (shouldApplyStatusCorrection && !isStatusTimeUnchangedMode && nonWorkingStatuses.has(normalizedStatus)) {
+        // Only nullify times if status is non-working AND we're in status_correction mode (not time_correction)
+        if (isStatusCorrectionMode && nonWorkingStatuses.has(normalizedStatus)) {
             record.first_in = null;
             record.last_out = null;
         }
@@ -2294,6 +2449,17 @@ async function recalculatePunctuality(record, employee, company) {
         const fullDayThreshold = shift.full_day_hours || deptFullDayThreshold || company.attendance_config?.full_day_threshold_hours || 8;
         const halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
 
+        // Normalize incomplete records once both punch times are present.
+        if (record.status === 'incomplete') {
+            if (record.total_work_hours >= fullDayThreshold) {
+                record.status = 'present';
+                record.is_half_day = false;
+            } else if (record.total_work_hours >= halfDayThreshold) {
+                record.status = 'half_day';
+                record.is_half_day = true;
+            }
+        }
+
         // If the record status is 'present' or 'late' but work hours are below threshold, force update to 'half_day'
         if (['present', 'late'].includes(record.status) && record.total_work_hours < fullDayThreshold) {
             record.status = 'half_day';
@@ -2417,9 +2583,17 @@ export const getEmployeeFullProfile = async (req, res) => {
             end = moment().endOf('month').toDate();
         }
 
+        const profileCompanyId = employee.company_id?._id || employee.company_id;
+        const requestedCompanyId = req.query?.company_id;
+        const effectiveCompanyId =
+            requestedCompanyId && requestedCompanyId !== 'all'
+                ? requestedCompanyId
+                : profileCompanyId;
+
         const results = await Promise.all([
             AttendanceRecord.find({
                 employee_id: id,
+                company_id: effectiveCompanyId,
                 attendance_date: { $gte: start, $lte: end }
             }).sort({ attendance_date: -1 }).lean(),
 
@@ -2549,6 +2723,13 @@ export const getEmployeeFullProfile = async (req, res) => {
             .filter((item) => String(item.status).toLowerCase() === 'holiday')
             .map((item) => ({ holiday_date: item.attendance_date, holiday_name: item.remarks || 'Holiday' }));
 
+        const normalizedAttendance = continuityAttendance.map((record) => {
+            const status = normalizeAttendanceStatus(record, employee);
+            return status && status !== String(record.status || '').toLowerCase()
+                ? { ...record, status }
+                : record;
+        });
+
         const startYear = moment(start).year();
         const resolvedWeekOffPolicy = await PolicyResolver.resolveWeekOffPolicy(employee);
         const resolvedHolidayPolicy = await PolicyResolver.resolveHolidayPolicy(employee, startYear);
@@ -2572,20 +2753,20 @@ export const getEmployeeFullProfile = async (req, res) => {
 
         // Calculate Summary for Scorecard
         const summary = {
-            present: continuityAttendance.filter(a => a.status === 'present').length,
-            absent: continuityAttendance.filter(a => a.status === 'absent').length,
-            late: continuityAttendance.filter(a => a.status === 'late').length,
-            half_day: continuityAttendance.filter(a => a.status === 'half_day').length,
+            present: normalizedAttendance.filter(a => a.status === 'present').length,
+            absent: normalizedAttendance.filter(a => a.status === 'absent').length,
+            late: normalizedAttendance.filter(a => a.status === 'late').length,
+            half_day: normalizedAttendance.filter(a => a.status === 'half_day').length,
             leaves: leaves.length, // Already filtered for approved leaves in range
-            weeklyOff: continuityAttendance.filter(a => a.status === 'weekly_off').length,
-            holidays: continuityAttendance.filter(a => a.status === 'holiday').length,
+            weeklyOff: normalizedAttendance.filter(a => a.status === 'weekly_off').length,
+            holidays: normalizedAttendance.filter(a => a.status === 'holiday').length,
             pendingLeaves: (pendingLeaves || []).length
         };
 
         return res.json({
             success: true,
             employee,
-            attendance: continuityAttendance,
+            attendance: normalizedAttendance,
             balances: normalizedBalances,
             leaves,
             holidays,

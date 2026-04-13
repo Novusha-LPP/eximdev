@@ -63,12 +63,16 @@ function TeamDashboard() {
     const [createTeamModal, setCreateTeamModal] = useState(false);
     const [addMembersModal, setAddMembersModal] = useState(false);
     const [selectedMember, setSelectedMember] = useState(null);
-    const [activeTab, setActiveTab] = useState("Members");
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem("teamDashboard_activeTab") || "Members";
+    });
     const [editTeamModal, setEditTeamModal] = useState(false);
     const [teamToEdit, setTeamToEdit] = useState(null);
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
-    const [moduleTab, setModuleTab] = useState(teamId || userId ? "teams" : "users");
+    const [moduleTab, setModuleTab] = useState(() => {
+        return localStorage.getItem("teamDashboard_moduleTab") || (teamId || userId ? "teams" : "users");
+    });
     const [teamShortcutUserIds, setTeamShortcutUserIds] = useState([]);
 
     const [form] = Form.useForm();
@@ -77,8 +81,17 @@ function TeamDashboard() {
     useEffect(() => {
         if (location.state?.openUsersTab) {
             setModuleTab("users");
+            localStorage.setItem("teamDashboard_moduleTab", "users");
         }
     }, [location.state]);
+
+    useEffect(() => {
+        localStorage.setItem("teamDashboard_moduleTab", moduleTab);
+    }, [moduleTab]);
+
+    useEffect(() => {
+        localStorage.setItem("teamDashboard_activeTab", activeTab);
+    }, [activeTab]);
 
     // Fetch teams for HOD
     useEffect(() => {
@@ -504,36 +517,42 @@ function TeamDashboard() {
         );
     }
 
+    const toggleButtons = (
+        <Space>
+            <Button
+                type={moduleTab === "users" ? "primary" : "default"}
+                icon={<UserOutlined />}
+                onClick={() => setModuleTab("users")}
+            >
+                Users
+            </Button>
+            <Button
+                type={moduleTab === "teams" ? "primary" : "default"}
+                icon={<TeamOutlined />}
+                onClick={() => setModuleTab("teams")}
+            >
+                Teams
+            </Button>
+        </Space>
+    );
+
     return (
         <div style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5", padding: 16 }}>
-            <Card bordered={false} style={{ marginBottom: 16 }}>
-                <Space>
-                    <Button
-                        type={moduleTab === "users" ? "primary" : "default"}
-                        icon={<UserOutlined />}
-                        onClick={() => setModuleTab("users")}
-                    >
-                        Users
-                    </Button>
-                    <Button
-                        type={moduleTab === "teams" ? "primary" : "default"}
-                        icon={<TeamOutlined />}
-                        onClick={() => setModuleTab("teams")}
-                    >
-                        Teams
-                    </Button>
-                </Space>
-            </Card>
-
             {moduleTab === "users" ? (
-                <Card bordered={false}>
-                    <EmployeeProfileWorkspace preselectedEmployeeIds={teamShortcutUserIds} />
-                </Card>
+                <div style={{ background: '#fff', borderRadius: '8px' }}>
+                    <EmployeeProfileWorkspace 
+                        preselectedEmployeeIds={teamShortcutUserIds} 
+                        headerActions={toggleButtons} 
+                    />
+                </div>
             ) : (
                 <Layout style={{ minHeight: "calc(100vh - 160px)", background: "#f0f2f5" }}>
             <Sider width={320} theme="light" style={{ borderRight: "1px solid #e8e8e8", height: "calc(100vh - 64px)" }}>
                 <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                     <div style={{ padding: 16, borderBottom: "1px solid #e8e8e8", flexShrink: 0 }}>
+                        <div style={{ marginBottom: 16 }}>
+                            {toggleButtons}
+                        </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                             <Title level={4} style={{ margin: 0 }}>
                                 <TeamOutlined style={{ marginRight: 8 }} />

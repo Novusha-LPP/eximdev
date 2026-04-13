@@ -243,7 +243,7 @@ const LeaveBalanceManagement = () => {
                 type="number"
                 step="0.5"
                 value={form.opening_balance}
-                onChange={(e) => setForm(prev => ({ ...prev, opening_balance: e.target.value }))}
+                onChange={(e) => setForm(prev => ({ ...prev, opening_balance: e.target.value, pending: Math.max(0, toNum(e.target.value) - toNum(prev.used)) }))}
                 style={{ height: 36, borderRadius: 8, border: '1px solid #e5e7eb', padding: '0 10px' }}
                 title="Base quota at the start of the year"
               />
@@ -254,7 +254,7 @@ const LeaveBalanceManagement = () => {
                 type="number"
                 step="0.5"
                 value={form.used}
-                onChange={(e) => setForm(prev => ({ ...prev, used: e.target.value }))}
+                onChange={(e) => setForm(prev => ({ ...prev, used: e.target.value, pending: Math.max(0, toNum(prev.opening_balance) - toNum(e.target.value)) }))}
                 style={{ height: 36, borderRadius: 8, border: '1px solid #e5e7eb', padding: '0 10px' }}
                 title="Consolidated used days"
               />

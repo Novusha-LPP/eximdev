@@ -125,16 +125,16 @@ const DailySummaryView = ({ groups, startDate, endDate }) => {
                         {!isCollapsed && (
                             <div className="ar-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
                                 {employees.map(e => (
-                                    <div key={e.id} className="ar-summary-item" style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                        <div className="ar-si-name" style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
+                                    <div key={e.id} className="ar-summary-item" style={{ backgroundColor: '#fff', border: '2px solid #000000', padding: '12px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                                        <div className="ar-si-name" style={{ fontWeight: 800, fontSize: '13px', color: '#000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
                                         <div className="ar-si-meta" style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', marginTop: '4px', marginBottom: '8px' }}>
                                             <FiBriefcase size={10} style={{ marginRight: 4 }}/> 
                                             <span className="ar-si-co" title={e.company_name}>{e.company_name?.substring(0, 20) || '-'}</span>
                                         </div>
-                                        <div className="ar-si-stats" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-                                            <span title="Present Count">P: <span style={{ color: '#0f172a', fontWeight: '500' }}>{e.present}</span></span>
-                                            <span title="Absent Count">A: <span style={{ color: '#0f172a', fontWeight: '500' }}>{e.absent}</span></span>
-                                            <span title="Late Count">L: <span style={{ color: '#0f172a', fontWeight: '500' }}>{e.late}</span></span>
+                                        <div className="ar-si-stats" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#000', borderTop: '2px solid #000000', paddingTop: '8px', marginTop: '4px' }}>
+                                            <span title="Present Count">P: <span style={{ color: '#10b981', fontWeight: '800' }}>{e.present}</span></span>
+                                            <span title="Absent Count">A: <span style={{ color: '#ef4444', fontWeight: '800' }}>{e.absent}</span></span>
+                                            <span title="Late Count">L: <span style={{ color: '#f59e0b', fontWeight: '800' }}>{e.late}</span></span>
                                         </div>
                                     </div>
                                 ))}
@@ -158,6 +158,19 @@ const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(
 const NON_WORKING_STATUSES = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
 const isNonWorkingStatus = (status) => NON_WORKING_STATUSES.has(String(status || '').toLowerCase());
 
+// Calculate work hours between two datetime strings (ISO format or datetime-local)
+const calculateWorkHours = (firstIn, lastOut) => {
+    if (!firstIn || !lastOut) return 0;
+    try {
+        const inTime = moment(firstIn);
+        const outTime = moment(lastOut);
+        if (!inTime.isValid() || !outTime.isValid() || outTime.isBefore(inTime)) return 0;
+        return outTime.diff(inTime, 'hours', true);
+    } catch (e) {
+        return 0;
+    }
+};
+
 const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -176,6 +189,15 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const isAdmin = Boolean(isAdminProp) && normalizedRole === 'ADMIN';
     const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
     const [showDailySummary, setShowDailySummary] = useState(false);
+
+    useEffect(() => {
+        if (!startDate || !endDate) return;
+        if (moment(endDate).isBefore(moment(startDate))) {
+            toast.error('End date cannot be before start date');
+            setEndDate(startDate); // Simple correction
+        }
+    }, [startDate, endDate]);
+
     const [empHistory, setEmpHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -515,12 +537,36 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     };
 
     const saveEdit = async () => {
+        const mode = String(editForm.correction_mode || '').toLowerCase();
+
+        // Validation for Time Correction
+        if (mode === 'time_correction') {
+            if (!editForm.shift_id) {
+                toast.error('Please assign shift policy to this user');
+                return;
+            }
+            if (!editForm.first_in || !editForm.last_out) {
+                toast.error('Please provide both Punch-In and Punch-Out times');
+                return;
+            }
+            if (moment(editForm.last_out).isBefore(moment(editForm.first_in))) {
+                toast.error('Punch-Out cannot be before Punch-In');
+                return;
+            }
+        }
+
         setSaving(true);
         try {
+            const payload = {
+                ...editForm,
+                apply_status_correction: mode === 'status_correction',
+                apply_time_correction: mode === 'time_correction'
+            };
+
             if (editingId === 'new') {
-                await attendanceAPI.createManualAdjustment(editForm);
+                await attendanceAPI.createManualAdjustment(payload);
             } else {
-                await attendanceAPI.updateAttendanceRecord(editingId, editForm);
+                await attendanceAPI.updateAttendanceRecord(editingId, payload);
             }
             toast.success('Record updated');
             setEditingId(null);
@@ -583,8 +629,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             attendance_date: rec.attendance_date,
             employee_id: selectedEmp.id,
             correction_mode: defaultCorrectionMode,
-            apply_status_correction: defaultCorrectionMode !== 'time_correction',
-            apply_time_correction: true,
+            apply_status_correction: defaultCorrectionMode === 'status_correction',
+            apply_time_correction: defaultCorrectionMode === 'time_correction',
             shift_id: defaultShiftId,
             status: rec.status || 'present',
             half_day_session: rec.half_day_session || 'first_half',
@@ -1037,12 +1083,12 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                     <>
                                         {/* Performance Scorecard */}
                                         <div className="ar-hub-scorecard">
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-green">{continuityStats.present}</span><span className="ar-score-lbl">Present</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-red">{continuityStats.absent}</span><span className="ar-score-lbl">Absent</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-amber">{continuityStats.late}</span><span className="ar-score-lbl">Late</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val ar-c-blue">{continuityStats.leaves}</span><span className="ar-score-lbl">Leaves</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val" style={{ color: '#64748b' }}>{continuityStats.weeklyOff}</span><span className="ar-score-lbl">Weekly Off</span></div>
-                                            <div className="ar-score-pill"><span className="ar-score-val" style={{ color: '#c2410c' }}>{continuityStats.holidays}</span><span className="ar-score-lbl">Holidays</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-lbl">Present</span><span className="ar-score-val ar-c-green">{continuityStats.present}</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-lbl">Absent</span><span className="ar-score-val ar-c-red">{continuityStats.absent}</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-lbl">Late</span><span className="ar-score-val ar-c-amber">{continuityStats.late}</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-lbl">Leaves</span><span className="ar-score-val ar-c-blue">{continuityStats.leaves}</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-lbl">Weekly Off</span><span className="ar-score-val" style={{ color: '#64748b' }}>{continuityStats.weeklyOff}</span></div>
+                                            <div className="ar-score-pill"><span className="ar-score-lbl">Holidays</span><span className="ar-score-val" style={{ color: '#c2410c' }}>{continuityStats.holidays}</span></div>
                                         </div>
 
                                         {/* Professional Calendar Insight */}
@@ -1333,14 +1379,14 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                             <h3 className="ar-pane-title">Record Adjustment: {moment(editForm.attendance_date).format('DD MMMM YYYY')}</h3>
                             <button className="ar-edit-close" onClick={() => setEditingId(null)}><FiX size={18} /></button>
                         </div>
-                        <div className="ar-alert-box" style={{ backgroundColor: '#fff4e5', color: '#663c00', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #ffe8cc' }}>
+                        {/* <div className="ar-alert-box" style={{ backgroundColor: '#fff4e5', color: '#663c00', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #ffe8cc' }}>
                             💡 <strong>Security Warning:</strong> You cannot modify raw biometric/web punch events. You are adjusting the official summary record.
                         </div>
                         {editingId && !hasInitialPunchIn && (
                             <div className="ar-alert-box" style={{ backgroundColor: '#edf7ff', color: '#0f4c81', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '12px', border: '1px solid #cfe8ff' }}>
                                 ℹ️ <strong>No punch-in found:</strong> Time Correction and Status Correction (Time Unchanged) are disabled. Use Status Correction.
                             </div>
-                        )}
+                        )} */}
                         <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isTimeCorrectionDisabled ? '#ccc' : '#334155', opacity: isTimeCorrectionDisabled ? 0.5 : 1, cursor: isTimeCorrectionDisabled ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : editForm.correction_mode === 'status_correction' ? 'Not available in Status Correction mode' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
                                 <input
@@ -1363,7 +1409,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                                 ...prev,
                                                 correction_mode: 'status_correction',
                                                 apply_status_correction: true,
-                                                apply_time_correction: true
+                                                   apply_time_correction: false
                                             };
                                             return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
                                         });
@@ -1466,7 +1512,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                         >
                                             {assignedShiftOptions.map((s) => (
                                                 <option key={s._id} value={s._id}>
-                                                    {s.shift_name || 'Shift'} ({s.start_time || '--:--'} to {s.end_time || '--:--'})
+                                                    {s.shift_name || 'Shift'} ({s.start_time || '--:--'} - {s.end_time || '--:--'})
                                                 </option>
                                             ))}
                                         </select>
@@ -1475,33 +1521,52 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                             ) : (
                                 <>
                                     <div className="ar-edit-field">
-                                        <label>Status</label>
-                                        <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                                            <option value="present">Present</option>
-                                            <option value="absent">Absent</option>
-                                            <option value="half_day">Half Day</option>
-                                            <option value="leave">Leave</option>
-                                            <option value="weekly_off">Weekly Off</option>
-                                            <option value="holiday">Holiday</option>
-                                        </select>
+                                        <label>Official In-Time</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={editForm.first_in || ''}
+                                            onChange={e => {
+                                                setEditForm((prev) => {
+                                                    const next = { ...prev, first_in: e.target.value };
+                                                    // Auto-derive status based on work hours
+                                                    const workHours = calculateWorkHours(next.first_in, next.last_out);
+                                                    if (workHours >= 8) {
+                                                        next.status = 'present';
+                                                    } else if (workHours >= 4) {
+                                                        next.status = 'half_day';
+                                                    } else if (workHours > 0) {
+                                                        next.status = 'incomplete';
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
+                                        />
                                     </div>
-                                    {editForm.status === 'half_day' && (
-                                        <div className="ar-edit-field">
-                                            <label>Half Day Session</label>
-                                            <select
-                                                value={editForm.half_day_session || 'first_half'}
-                                                onChange={(e) => setEditForm((prev) => ({ ...prev, half_day_session: e.target.value }))}
-                                            >
-                                                <option value="first_half">First Half</option>
-                                                <option value="second_half">Second Half</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                    <div className="ar-edit-field"><label>Official In-Time (Overrides raw punch)</label><input type="datetime-local" disabled={isNonWorkingStatus(editForm.status)} value={editForm.first_in || ''} onChange={e => setEditForm({ ...editForm, first_in: e.target.value })} title={isNonWorkingStatus(editForm.status) ? 'Time fields disabled for non-working statuses' : ''} /></div>
-                                    <div className="ar-edit-field"><label>Official Out-Time (Overrides raw punch)</label><input type="datetime-local" disabled={isNonWorkingStatus(editForm.status)} value={editForm.last_out || ''} onChange={e => setEditForm({ ...editForm, last_out: e.target.value })} title={isNonWorkingStatus(editForm.status) ? 'Time fields disabled for non-working statuses' : ''} /></div>
-                                    {isNonWorkingStatus(editForm.status) && (
-                                        <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#666', marginTop: '8px' }}>💡 Time fields are disabled for non-working statuses (absent, leave, weekly off, holiday).</div>
-                                    )}
+                                    <div className="ar-edit-field">
+                                        <label>Official Out-Time</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={editForm.last_out || ''}
+                                            onChange={e => {
+                                                setEditForm((prev) => {
+                                                    const next = { ...prev, last_out: e.target.value };
+                                                    // Auto-derive status based on work hours
+                                                    const workHours = calculateWorkHours(next.first_in, next.last_out);
+                                                    if (workHours >= 8) {
+                                                        next.status = 'present';
+                                                    } else if (workHours >= 4) {
+                                                        next.status = 'half_day';
+                                                    } else if (workHours > 0) {
+                                                        next.status = 'incomplete';
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#666', marginTop: '8px' }}>
+                                        💡 <strong>Time Correction Mode:</strong> Status is auto-derived from work hours. Provide both in-time and out-time for accurate status calculation.
+                                    </div>
                                 </>
                             )}
                         </div>

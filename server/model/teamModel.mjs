@@ -61,6 +61,9 @@ teamSchema.pre("save", function (next) {
     next();
 });
 
+teamSchema.index({ 'members.userId': 1, isActive: 1 });
+teamSchema.index({ hodId: 1, isActive: 1 });
+
 teamSchema.plugin(auditPlugin, { documentType: "Team" });
 
 const TeamModel = mongoose.model("Team", teamSchema);

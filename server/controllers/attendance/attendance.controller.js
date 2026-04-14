@@ -230,13 +230,13 @@ const normalizeAttendanceStatus = (record, employee) => {
     return 'absent';
 };
 
-const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}) => {
+const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}, policyResolveOptions = {}) => {
     const recordsByDay = new Map(records.map((record) => [dateKeyUTC(record.attendance_date), record]));
     const policyByYear = new Map();
 
     const getPoliciesForYear = async (year) => {
         if (!policyByYear.has(year)) {
-            const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(emp, year);
+            const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(emp, year, policyResolveOptions);
             policyByYear.set(year, { weekOffPolicy, holidayPolicy });
         }
         return policyByYear.get(year);
@@ -266,7 +266,6 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         const isSystemAbsent = rec && String(rec.status).toLowerCase() === 'absent';
 
         if (leave && (!rec || isSystemAbsent)) {
-            const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
             const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
             
             hStatus = isHalf ? 'half_day' : 'leave';
@@ -305,11 +304,10 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
                 actualAbsent++;
             }
         }
-        }
 
         compactHistory.push({ date: dayStr, status: hStatus || 'absent', session: hSession });
         curr.add(1, 'day');
-   
+    }
 
     const avgHoursValue = (actualPresent + actualHalfDay) > 0 ? (actualTotalHours / (actualPresent + actualHalfDay)) : 0;
     const avgHoursH = Math.floor(avgHoursValue);
@@ -1645,6 +1643,23 @@ export const getAdminAttendanceReport = async (req, res) => {
         
         const employeeIds = employees.map(e => e._id);
 
+        // Preload team assignments once to avoid N team queries during per-employee policy resolution.
+        const activeTeams = await TeamModel.find({
+            'members.userId': { $in: employeeIds },
+            isActive: { $ne: false }
+        }).select('_id members.userId').lean();
+
+        const teamIdsByEmployee = new Map();
+        for (const team of activeTeams) {
+            const teamId = String(team._id);
+            for (const member of team.members || []) {
+                const memberId = member?.userId ? String(member.userId) : null;
+                if (!memberId) continue;
+                if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
+                teamIdsByEmployee.get(memberId).push(teamId);
+            }
+        }
+
         // 2. Fetch Bulk Data (Records, Leaves)
         if (normalizedCompanyId !== 'all') {
             const company = await Company.findById(companyId).select('_id');
@@ -1683,6 +1698,7 @@ export const getAdminAttendanceReport = async (req, res) => {
 
         const reportData = await mapWithConcurrency(employees, 20, async (emp) => {
             const empKey = emp._id.toString();
+            const teamIds = teamIdsByEmployee.get(empKey) || [];
             const row = await buildPolicyAwareReportRow(
                 emp,
                 startDate,
@@ -1692,7 +1708,8 @@ export const getAdminAttendanceReport = async (req, res) => {
                 {
                     company_id: emp.company_id?._id || emp.company_id,
                     company_name: emp.company_id?.company_name || '---'
-                }
+                },
+                { teamIds }
             );
 
             return row;
@@ -1752,6 +1769,17 @@ export const getTeamAttendanceReport = async (req, res) => {
 
         const employeeIds = employees.map(e => e._id);
 
+        const teamIdsByEmployee = new Map();
+        for (const team of teams) {
+            const teamIdStr = String(team._id);
+            for (const member of team.members || []) {
+                const memberId = member?.userId ? String(member.userId) : null;
+                if (!memberId) continue;
+                if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
+                teamIdsByEmployee.get(memberId).push(teamIdStr);
+            }
+        }
+
         // 3. Fetch Attendance Data
         const [attendanceRecords, approvedLeaves] = await Promise.all([
             AttendanceRecord.find({
@@ -1784,13 +1812,15 @@ export const getTeamAttendanceReport = async (req, res) => {
         // 4. Generate Report (policy-aware)
         const reportData = await mapWithConcurrency(employees, 15, async (emp) => {
             const empKey = emp._id.toString();
+            const teamIds = teamIdsByEmployee.get(empKey) || [];
             return buildPolicyAwareReportRow(
                 emp,
                 startDate,
                 endDate,
                 attendanceByEmployee.get(empKey) || [],
                 leavesByEmployee.get(empKey) || [],
-                { department: emp.department_id?.department_name || 'General' }
+                { department: emp.department_id?.department_name || 'General' },
+                { teamIds }
             );
         });
 

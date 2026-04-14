@@ -99,6 +99,7 @@ import SupplierDirectory from "../components/master-directory/SupplierDirectory.
 import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.js";
 import PortDirectory from "../components/master-directory/PortDirectory.js";
 import CustomHouseDirectory from "../components/master-directory/CustomHouseDirectory.js";
+import CFSDirectory from "../components/master-directory/CFSDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
@@ -663,6 +664,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <PortDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/cfs-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <CFSDirectory />
                     </ProtectedRoute>
                   }
                 />

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getContext } from "./context.mjs";
 
 /**
  * Generates a MongoDB match object for branch filtering.
@@ -19,8 +20,16 @@ export const getBranchMatch = (branchId, category, authorizedBranchIds = null) =
         } else {
             match.branch_id = branchId;
         }
-    } else if (authorizedBranchIds && Array.isArray(authorizedBranchIds)) {
-        match.branch_id = { $in: authorizedBranchIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+    } else {
+        // Handle 'all' branches with authorization check
+        const ctx = getContext();
+        const user = ctx?.user;
+        const authIds = authorizedBranchIds || user?.authorizedBranchIds;
+
+        if (user && user.role !== 'Admin' && Array.isArray(authIds)) {
+            match.branch_id = { $in: authIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+        }
+        // Admin with 'all' or no authorized IDs results in no branch_id filter (showing all)
     }
 
     if (category && category.toString().toLowerCase() !== "all") {

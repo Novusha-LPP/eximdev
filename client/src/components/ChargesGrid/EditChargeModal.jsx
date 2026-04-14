@@ -38,6 +38,7 @@ const EditChargeModal = ({
   const [shippingLines, setShippingLines] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
+  const [cfsList, setCfsList] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState({ index: null, section: null }); // Track which row/section has open dropdown
   const [paymentDetailsAudit, setPaymentDetailsAudit] = useState({});
   const dropdownRef = useRef(null);
@@ -67,14 +68,16 @@ const EditChargeModal = ({
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const [slRes, supRes, orgRes] = await Promise.all([
+        const [slRes, supRes, orgRes, cfsRes] = await Promise.all([
           axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/organization`)
+          axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`)
         ]);
         setShippingLines(slRes.data);
         setSuppliers(supRes.data);
         setOrganizations(orgRes.data.organizations || []);
+        setCfsList(cfsRes.data);
       } catch (error) {
         console.error("Error fetching master data:", error);
       }
@@ -121,11 +124,16 @@ const EditChargeModal = ({
         ...charge,
         invoice_number: charge.invoice_number || '',
         invoice_date: charge.invoice_date || '',
-        remark: charge.remark || '',
-        purchase_book_no: charge.purchase_book_no || '',
-        purchase_book_status: charge.purchase_book_status || '',
         payment_request_no: charge.payment_request_no || '',
-        payment_request_status: charge.payment_request_status || ''
+        payment_request_status: charge.payment_request_status || '',
+        revenue: {
+          ...(charge.revenue || {}),
+          isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true
+        },
+        cost: {
+          ...(charge.cost || {}),
+          isGst: (charge.cost && charge.cost.isGst !== undefined) ? charge.cost.isGst : true
+        }
       }));
       setFormData(initialData);
       setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
@@ -158,9 +166,10 @@ const EditChargeModal = ({
         updated[index][otherSection][field] = value;
       }
       
-      // Auto-populate TDS if selecting a shipping line
+      // Auto-populate TDS if selecting a shipping line or CFS
       if (section === 'cost' && field === 'partyName') {
-        const matchedSL = shippingLines.find(sl => sl.name?.toUpperCase() === value?.toUpperCase());
+        const allParties = [...shippingLines, ...cfsList];
+        const matchedSL = allParties.find(sl => sl.name?.toUpperCase() === value?.toUpperCase());
         if (matchedSL && matchedSL.tds_percent > 0) {
           updated[index][section].isTds = true;
           updated[index][section].tdsPercent = matchedSL.tds_percent;
@@ -201,7 +210,7 @@ const EditChargeModal = ({
 
         // GST Split Logic based on GSTIN (24 = Gujarat)
         const partyName = sectionRef.partyName;
-        const party = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+        const party = [...shippingLines, ...suppliers, ...cfsList].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
         const branchIndex = sectionRef.branchIndex || 0;
         const gstin = party?.branches?.[branchIndex]?.gst || "";
         
@@ -227,7 +236,7 @@ const EditChargeModal = ({
         // Net Payable Calculation:
         // "Include GST" (Checked): Net = Total Amount - TDS
         // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
-        const includeGst = sectionRef.isGst || false;
+        const includeGst = sectionRef.isGst !== false;
         if (includeGst) {
           sectionRef.netPayable = amount - sectionRef.tdsAmount;
         } else {
@@ -583,6 +592,32 @@ const EditChargeModal = ({
                                 }
                                 return null;
                               })()}
+
+                              {/* GST FIELDS FOR REVENUE */}
+                              <div className="ep-row">
+                                <span className="ep-label">Include GST?</span>
+                                <div className="ep-inline">
+                                  <input type="checkbox" checked={row.revenue?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'revenue')} />
+                                  {row.revenue?.isGst !== false && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <input type="number" style={{ width: '50px' }} value={row.revenue?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'revenue')} />
+                                      <span style={{ fontSize: '11px' }}>%</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label">Basic Amount</span>
+                                <div className="ep-inline">
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.revenue?.basicAmount)} />
+                                </div>
+                              </div>
+                              <div className="ep-row">
+                                <span className="ep-label">GST Amount</span>
+                                <div className="ep-inline">
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.revenue?.gstAmount)} />
+                                </div>
+                              </div>
                             </div>
                             <div className="ep-copy-row">
                               Copy to Cost <input type="checkbox" checked={row.copyToCost || false} onChange={e => handleFieldChange(i, 'copyToCost', e.target.checked)} />
@@ -678,7 +713,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Payable Type</span>
                                 <select className="ep-select" value={row.cost?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
-                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option><option>Agent</option>
+                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option><option>Agent</option><option>CFS</option>
                                 </select>
                               </div>
                               <div className="ep-row">
@@ -706,7 +741,8 @@ const EditChargeModal = ({
                                     <ul className="ep-dropdown-list" ref={dropdownRef}>
                                       {(row.cost?.partyType?.toUpperCase() === 'AGENT' || row.cost?.partyType?.toUpperCase() === 'OTHERS' ? shippingLines : 
                                         row.cost?.partyType?.toUpperCase() === 'VENDOR' || row.cost?.partyType?.toUpperCase() === 'TRANSPORTER' ? [...suppliers, ...shippingLines] :
-                                        row.cost?.partyType?.toUpperCase() === 'IMPORTER' ? organizations : [])
+                                        row.cost?.partyType?.toUpperCase() === 'IMPORTER' ? organizations : 
+                                        row.cost?.partyType?.toUpperCase() === 'CFS' ? cfsList : [])
                                         .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
                                         .slice(0, 20)
                                         .map((item, idx) => (
@@ -717,7 +753,8 @@ const EditChargeModal = ({
                                         ))}
                                       {((row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
                                         row.cost?.partyType === 'Vendor' || row.cost?.partyType === 'Transporter' ? [...suppliers, ...shippingLines] :
-                                        row.cost?.partyType === 'Importer' ? organizations : [])
+                                        row.cost?.partyType === 'Importer' ? organizations : 
+                                        row.cost?.partyType === 'CFS' ? cfsList : [])
                                         .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
                                         .length === 0) && <li className="ep-dropdown-item"><span className="ep-item-sub">No results found</span></li>}
                                     </ul>
@@ -732,7 +769,7 @@ const EditChargeModal = ({
                                 </div>
                               </div>
                               {(() => {
-                                const party = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === row.cost?.partyName?.toUpperCase());
+                                const party = [...shippingLines, ...suppliers, ...cfsList].find(p => p.name?.toUpperCase() === row.cost?.partyName?.toUpperCase());
                                 if (party && party.branches?.length > 1) {
                                   return (
                                     <div className="ep-row">
@@ -752,8 +789,8 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Include GST?</span>
                                 <div className="ep-inline">
-                                  <input type="checkbox" checked={row.cost?.isGst || false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
-                                  {row.cost?.isGst && (
+                                  <input type="checkbox" checked={row.cost?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
+                                  {row.cost?.isGst !== false && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                       <input type="number" style={{ width: '50px' }} value={row.cost?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} />
                                       <span style={{ fontSize: '11px' }}>%</span>
@@ -810,7 +847,7 @@ const EditChargeModal = ({
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
-                                        const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
                                         setPurchaseBookData(() => {
                                           const cost = row.cost || {};
                                           const rate = parseFloat(cost.gstRate) || 18;
@@ -871,7 +908,7 @@ const EditChargeModal = ({
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
-                                        const partyDetails = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
                                         setPaymentRequestData({
                                           partyName,
                                           partyDetails,

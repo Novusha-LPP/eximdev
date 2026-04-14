@@ -78,6 +78,7 @@ function List() {
   } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
+  const [beNoFilter, setBeNoFilter] = useState(""); // Add this state
   const [freeTimeFilter, setFreeTimeFilter] = useState(""); // Add this state
 
   const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
@@ -186,7 +187,8 @@ function List() {
       emergencyOnly = false,
       freeTimeFilter = "",
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      beNoFilter = ""
     ) => {
       setLoading(true);
       try {
@@ -206,6 +208,7 @@ function List() {
               freeTimeFilter, // ✅ Add freeTimeFilter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
+              beNoFilter, // ✅ Add beNoFilter parameter
             },
           }
         );
@@ -233,7 +236,7 @@ function List() {
         setLoading(false);
       }
     },
-    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, showUnresolvedOnly, showEmergencyOnly, freeTimeFilter, selectedBranch, selectedCategory] 
+    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, showUnresolvedOnly, showEmergencyOnly, freeTimeFilter, selectedBranch, selectedCategory, beNoFilter] 
   );
 
   // Fetch jobs with pagination
@@ -250,7 +253,8 @@ function List() {
         showEmergencyOnly,
         freeTimeFilter,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        beNoFilter
       );
     }
   }, [
@@ -265,6 +269,7 @@ function List() {
     freeTimeFilter,
     selectedBranch,
     selectedCategory,
+    beNoFilter,
     fetchJobs,
   ]);
 
@@ -370,7 +375,8 @@ function List() {
         showEmergencyOnly,
         freeTimeFilter,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        beNoFilter
       );
     } catch (error) {
       console.error("Error saving data:", error);
@@ -965,6 +971,22 @@ function List() {
           <MenuItem value="">All</MenuItem>
           <MenuItem value="zero">Free Time = 0</MenuItem>
           <MenuItem value="moreThanZero">Free Time &gt; 0</MenuItem>
+        </TextField>
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="BE No Filter"
+          value={beNoFilter}
+          onChange={(e) => {
+            setBeNoFilter(e.target.value);
+            setCurrentPage(1);
+          }}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="">All</MenuItem>
+          <MenuItem value="withBeNo">With BE No</MenuItem>
+          <MenuItem value="withoutBeNo">Without BE No</MenuItem>
         </TextField>
         {/* ICD Code Filter */}
         <TextField

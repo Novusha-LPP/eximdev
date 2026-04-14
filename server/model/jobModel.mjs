@@ -4,6 +4,7 @@ import { type } from "os";
 import { determineDetailedStatus } from "../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../utils/statusColorMapper.mjs";
 import { getJobStatusRank, getJobSortDate } from "../utils/jobRanking.mjs";
+import BranchModel from "./branchModel.mjs";
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
@@ -721,12 +722,22 @@ const jobSchema = new mongoose.Schema({
 });
 
 // Automatically update `updatedAt` before saving
-jobSchema.pre("save", function (next) {
+jobSchema.pre("save", async function (next) {
   this.updatedAt = Date.now();
 
   try {
     const jobObj = this.toObject();
-    const detStatus = determineDetailedStatus(jobObj);
+
+    // Fetch branch configuration for conditional status logic
+    let branchConfig = null;
+    if (this.branch_id) {
+      const branch = await BranchModel.findById(this.branch_id)
+        .select("configuration")
+        .lean();
+      branchConfig = branch?.configuration;
+    }
+
+    const detStatus = determineDetailedStatus(jobObj, branchConfig);
 
     // Only update if not explicitly set (or always update? usually computed overrides manual)
     // We'll update it to ensure consistency.

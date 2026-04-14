@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -7,6 +7,7 @@ import BLStatus from "./BLStatus";
 import SeaCargoStatus from "./SeaCargoStatus";
 import AirCargoStatus from "./AirCargoStatus";
 import AirConsoleStatus from "./AirConsoleStatus";
+import { BranchContext } from "../contexts/BranchContext";
 
 const BLTrackingCell = ({
   blNumber,
@@ -32,6 +33,9 @@ const BLTrackingCell = ({
   const [selectedBL, setSelectedBL] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [isExtended, setIsExtended] = useState(false);
+
+  const { branches } = useContext(BranchContext);
+  const activeBranchConfig = branches?.find(b => b.branch_code === branch_code)?.configuration || null;
 
   // Extract location code
   const locationCode =
@@ -272,6 +276,8 @@ const BLTrackingCell = ({
         onUpdateSuccess={handleSeaCargoUpdate}
         invalidateCache={invalidateCache}
         selectedYear={selectedYear}
+        containers={containerNos}
+        branchConfig={activeBranchConfig}
       />
     </>
   );

@@ -1,4 +1,4 @@
-export function determineDetailedStatus(job) {
+export function determineDetailedStatus(job, branchConfig = null) {
   const {
     be_no,
     container_nos,
@@ -43,6 +43,11 @@ export function determineDetailedStatus(job) {
   const validIGM = isValidDate(gateway_igm_date);
   const validETA = isValidDate(vessel_berthing);
   const validDoCompleted = isValidDate(do_completed);
+
+  // Check for alternative Gateway IGM trigger (IGM No/Date) if branch config disabling original features
+  const railoutDisabled = branchConfig?.railout_enabled === false;
+  const gatewayIgmDisabled = branchConfig?.gateway_igm_enabled === false;
+  const validAltIGM = railoutDisabled && gatewayIgmDisabled && isValidDate(job?.igm_date) && job?.igm_no;
 
   const norm = (s) => String(s || "").trim().toLowerCase();
   const isExBond = norm(type_of_b_e) === "ex-bond";
@@ -116,7 +121,7 @@ export function determineDetailedStatus(job) {
   if (validDischarge) {
     return "Discharged";
   }
-  if (validIGM) {
+  if (validIGM || validAltIGM) {
     return "Gateway IGM Filed";
   }
   if (validETA) {

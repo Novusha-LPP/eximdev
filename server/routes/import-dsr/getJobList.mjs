@@ -440,6 +440,7 @@ router.get(
       projection.gateway_igm_date = 1;
       projection.vessel_berthing = 1;
       projection.container_nos = 1;
+      projection.branch_info = 1;
 
       const preProjectStage = { $project: projection };
 
@@ -469,6 +470,16 @@ router.get(
                 },
                 "ex-bond",
               ],
+            },
+            railoutDisabled: {
+              $eq: ["$branch_info.configuration.railout_enabled", false],
+            },
+            gatewayIgmDisabled: {
+              $eq: ["$branch_info.configuration.gateway_igm_enabled", false],
+            },
+            validIgmDate: buildValidDateExpression("$igm_date"),
+            igmNoPresent: {
+              $gt: [{ $strLenCP: { $ifNull: ["$igm_no", ""] } }, 0],
             },
             isInBond: {
               $eq: [
@@ -632,10 +643,22 @@ router.get(
                               case: "$$validDischarge",
                               then: "Discharged",
                             },
-                            {
-                              case: "$$validGateway",
-                              then: "Gateway IGM Filed",
-                            },
+                             {
+                               case: {
+                                 $or: [
+                                   "$$validGateway",
+                                   {
+                                     $and: [
+                                       "$$railoutDisabled",
+                                       "$$gatewayIgmDisabled",
+                                       "$$validIgmDate",
+                                       "$$igmNoPresent",
+                                     ],
+                                   },
+                                 ],
+                               },
+                               then: "Gateway IGM Filed",
+                             },
                             {
                               case: "$$validVessel",
                               then: "Estimated Time of Arrival",
@@ -742,9 +765,20 @@ router.get(
 
       const metadataPipeline = [...basePipeline, { $count: "total" }];
 
-      const pipeline = [
-        matchStage,
-        preProjectStage,
+       const pipeline = [
+         matchStage,
+         {
+           $lookup: {
+             from: "branches",
+             localField: "branch_id",
+             foreignField: "_id",
+             as: "branch_info",
+           },
+         },
+         {
+           $unwind: { path: "$branch_info", preserveNullAndEmptyArrays: true },
+         },
+         preProjectStage,
         {
           $facet: {
             metadata: metadataPipeline,

@@ -68,7 +68,6 @@ router.post('/api/be-details', async (req, res) => {
     }
 
     // If form data approach didn't work, try JSON approach
-    console.log('Form data approach failed, trying JSON approach...');
     
     const jsonResponse = await axios.post(
       'https://foservices.icegate.gov.in/enquiry/publicEnquiries/BETrack_Ices_action_Public',
@@ -234,7 +233,6 @@ router.post('/api/bl-tracking', async (req, res) => {
     // Handle container details API errors
     let containerDetails = null;
     if (response2.status === 400) {
-      console.log('Container details not found, but continuing with status data');
       containerDetails = { error: 'Container details not available' };
     } else if (response2.status === 200) {
       containerDetails = response2.data;
@@ -330,8 +328,6 @@ router.post('/api/sea-cargo-tracking', async (req, res) => {
         } else {
           requestData = JSON.stringify({ location, masterBlNo });
         }
-
-        console.log(`Trying with Content-Type: ${contentType}`);
         
         response1 = await axios.post(
           'https://foservices.icegate.gov.in/enquiry/enquiryatices/SeaIgmEnq',
@@ -343,15 +339,12 @@ router.post('/api/sea-cargo-tracking', async (req, res) => {
           }
         );
 
-        console.log(`Response with ${contentType}:`, response1.status);
-
         // If we get a successful response, break the loop
         if (response1.status === 200) {
           break;
         }
       } catch (error) {
         lastError = error;
-        console.log(`Failed with ${contentType}:`, error.message);
         continue;
       }
     }
@@ -419,7 +412,6 @@ router.post('/api/sea-igm-full-details', async (req, res) => {
     };
 
     // Step 1: Get Basic IGM Summary
-    console.log('Step 1: Fetching Sea IGM Summary...');
     const url1 = 'https://foservices.icegate.gov.in/enquiry/enquiryatices/SeaIgmEnq';
     const response1 = await axios.post(url1, { location, masterBlNo }, {
       headers,
@@ -440,7 +432,6 @@ router.post('/api/sea-igm-full-details', async (req, res) => {
     const { igmNo, igmDate, lineNo, subLineNo } = firstRecord;
 
     // Step 2: Get Vessel/More Details
-    console.log('Step 2: Fetching Vessel Details...');
     const url2 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/SeaIgmMorePublicDetails';
     let vesselDetails = null;
     try {
@@ -457,7 +448,6 @@ router.post('/api/sea-igm-full-details', async (req, res) => {
     }
 
     // Step 3: Get Container Details
-    console.log('Step 3: Fetching Container Details...');
     const url3 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/SeaIgmContPublicDetails';
     let containerDetails = null;
     try {
@@ -516,7 +506,6 @@ router.post('/api/air-igm-full-details', async (req, res) => {
     };
 
     // Step 1: Get Air IGM Summary
-    console.log('Step 1: Fetching Air IGM Summary...');
     const url1 = 'https://foservices.icegate.gov.in/enquiry/enquiryatices/AirIgmEnq';
     const response1 = await axios.post(url1, { location, mawbNumber }, {
       headers,
@@ -538,7 +527,6 @@ router.post('/api/air-igm-full-details', async (req, res) => {
     const igmNo = igmRotation; // Mapping igmRotation to igmNo for subsequent calls
 
     // Step 2: Get Flight Details
-    console.log('Step 2: Fetching Flight Details...');
     const url2 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/airIgmFlightDetailsPublic';
     let flightDetails = [];
     try {
@@ -555,7 +543,6 @@ router.post('/api/air-igm-full-details', async (req, res) => {
     }
 
     // Step 3: Get BE Details
-    console.log('Step 3: Fetching BE Details...');
     const url3 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/airIgmBeDetailsPublic';
     let beDetails = [];
     try {
@@ -614,7 +601,6 @@ router.post('/api/air-console-full-details', async (req, res) => {
     };
 
     // Step 1: Get Master Console details
-    console.log('Step 1: Fetching Air Console Master...');
     const masterRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-master', 
       { 
         locationCode, 
@@ -629,7 +615,6 @@ router.post('/api/air-console-full-details', async (req, res) => {
     const fileName = masterData.length > 0 ? masterData[0].fileName : null;
 
     // Step 2: Get House Console details (Pass fileName and internalFlag)
-    console.log('Step 2: Fetching Air Console House...');
     let houseData = [];
     try {
       const houseRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-house', 

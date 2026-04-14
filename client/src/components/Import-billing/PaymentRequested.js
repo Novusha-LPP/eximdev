@@ -388,10 +388,11 @@ function PaymentRequested({ workMode = "Payment" }) {
           const charges = cell.row.original.charges || [];
           const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
           const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
+          const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
           const receiptField = workMode === "Payment" ? "payment_request_receipt_url" : "purchase_book_receipt_url";
 
           const reqGroups = charges.reduce((acc, c) => {
-            if (c[filterField]) {
+            if (c[filterField] && c[statusField] !== "Paid" && !c[isApprovedField]) {
               if (!acc[c[filterField]]) acc[c[filterField]] = [];
               acc[c[filterField]].push(c.chargeHead);
             }
@@ -445,9 +446,11 @@ function PaymentRequested({ workMode = "Payment" }) {
           const charges = cell.row.original.charges || [];
           const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
           const dataField = workMode === "Payment" ? "payment_request_transaction_type" : "supplier_name";
+          const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
+          const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
           
           const reqGroups = charges.reduce((acc, c) => {
-            if (c[filterField]) {
+            if (c[filterField] && c[statusField] !== "Paid" && !c[isApprovedField]) {
               if (!acc[c[filterField]]) acc[c[filterField]] = [];
               acc[c[filterField]].push(c[dataField] || "-");
             }
@@ -473,8 +476,13 @@ function PaymentRequested({ workMode = "Payment" }) {
           const charges = cell.row.original.charges || [];
           const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
           const dataField = workMode === "Payment" ? "payment_request_requested_by" : "supplier_inv_no";
+          const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
+          const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
 
-          const entries = [...new Set(charges.filter(c => c[filterField]).map(c => c[dataField]).filter(Boolean))];
+          const entries = [...new Set(charges
+            .filter(c => c[filterField] && c[statusField] !== "Paid" && !c[isApprovedField])
+            .map(c => c[dataField])
+            .filter(Boolean))];
           return entries.length > 0 ? (
             <div style={{ fontSize: '0.75rem', fontWeight: '500' }}>
               {entries.map((r, i) => <div key={i}>{r}</div>)}

@@ -537,6 +537,8 @@ function JobDetails() {
       consignment_type,
       type_of_Do,
       do_completed,
+      igm_no,
+      igm_date,
     } = formik.values;
 
     const isValidDate = (date) => {
@@ -570,6 +572,10 @@ function JobDetails() {
     const validIGM = isValidDate(gateway_igm_date);
     const validETA = isValidDate(vessel_berthing);
     const validDoCompleted = isValidDate(do_completed);
+
+    const railoutDisabled = activeBranchConfig?.railout_enabled === false;
+    const gatewayIgmDisabled = activeBranchConfig?.gateway_igm_enabled === false;
+    const validAltIGM = railoutDisabled && gatewayIgmDisabled && isValidDate(igm_date) && igm_no;
 
     const norm = (s) =>
       String(s || "")
@@ -645,7 +651,7 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "Rail Out");
     } else if (validDischarge) {
       formik.setFieldValue("detailed_status", "Discharged");
-    } else if (validIGM) {
+    } else if (validIGM || validAltIGM) {
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
     } else if (validETA) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");

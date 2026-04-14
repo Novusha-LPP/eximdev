@@ -234,6 +234,7 @@ function JobDetailsStaticData(props) {
         "(INPAV6) Pipavav (Victor) Port":
           "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
         "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
+        "(INCOK4) Cochin": "COCHIN PORT (INCOK4)",
       };
       return portMap[portOfReporting] || "";
     },

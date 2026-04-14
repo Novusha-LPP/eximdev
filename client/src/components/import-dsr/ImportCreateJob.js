@@ -411,7 +411,8 @@ const ImportCreateJob = () => {
     "(INPAV1) Pipavav",
     "(INPAV6) Pipavav (Victor) Port",
     "(INHZA1) Hazira",
-    "(INAMD4) Ahmedabad"
+    "(INAMD4) Ahmedabad",
+    "(INCOK4) Cochin"
   ];
 
   const importerTypeOptions = [

@@ -228,6 +228,7 @@ function useJobColumns(
           "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
         "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
         "(INAMD4) Ahmedabad": "AHMEDABAD (INAMD4)",
+        "(INCOK4) Cochin": "COCHIN PORT (INCOK4)",
       };
       return portMap[portOfReporting] || "";
     },

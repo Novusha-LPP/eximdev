@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Box,
@@ -12,7 +12,7 @@ import ReceiptIcon from "@mui/icons-material/Receipt";
 import DescriptionIcon from "@mui/icons-material/Description";
 import FileCopyIcon from "@mui/icons-material/FileCopy";
 
-const InvoiceDisplay = ({ row, showOOC = true }) => {
+const InvoiceDisplay = ({ row, showOOC = true, showInvoices = true, showCTH = true }) => {
   const {
     do_shipping_line_invoice = [],
     shipping_line_invoice_imgs = [],
@@ -25,6 +25,12 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
   } = row;
   const [charges, setCharges] = useState([]);
   const [hasFetched, setHasFetched] = useState(false);
+
+  // Reset state whenever row._id changes to prevent stale data (cache glitch)
+  useEffect(() => {
+    setCharges([]);
+    setHasFetched(false);
+  }, [row._id]);
 
   const handleFetchCharges = async () => {
     if (hasFetched || !row._id) return;
@@ -317,34 +323,62 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
     return options;
   };
 
-  const options = getDropdownOptions();
+  const getCTHOptions = () => {
+    const options = [];
+    if (row.cth_documents && Array.isArray(row.cth_documents) && row.cth_documents.length > 0) {
+      row.cth_documents.forEach((doc, idx) => {
+        if (doc.url && Array.isArray(doc.url)) {
+          doc.url.forEach((url, i) => {
+            if (url) {
+              const label = doc.url.length > 1 
+                ? `${doc.document_name} (${i + 1})` 
+                : doc.document_name;
 
-  // If no documents found AND we already tried fetching charges, only then return null
-  // This ensures the component is visible initially so user can trigger the fetch
-  if (options.length === 0 && hasFetched) return null;
+              options.push({
+                type: "item",
+                label: label,
+                url: url,
+                key: `cth-doc-${idx}-${i}`,
+                icon: <DescriptionIcon fontSize="small" />,
+              });
+            }
+          });
+        }
+      });
+    }
+    return options;
+  };
+
+  const options = getDropdownOptions();
+  const cthOptions = getCTHOptions();
 
   // If no ID is present, we can't do anything
   if (!row._id) return null;
 
+  // If no documents found AND we already tried fetching charges, only then return null
+  if (options.length === 0 && cthOptions.length === 0 && hasFetched) return null;
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-      <Typography
-        variant="caption"
-        sx={{
-          fontWeight: "800",
-          mt: 1.5,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          color: "primary.main",
-          fontSize: "0.7rem",
-          display: "flex",
-          alignItems: "center",
-          gap: 0.5,
-        }}
-      >
-        View Invoices
-      </Typography>
-      <TextField
+      {showInvoices && options.length > 0 && (
+        <>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: "800",
+              mt: 1.5,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "primary.main",
+              fontSize: "0.7rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+            }}
+          >
+            View Invoices
+          </Typography>
+          <TextField
         select
         size="small"
         value=""
@@ -434,45 +468,157 @@ const InvoiceDisplay = ({ row, showOOC = true }) => {
             </Typography>
           </MenuItem>
         )}
-        {options.map((opt) => {
-          if (opt.type === "header") {
-            return (
-              <ListSubheader
+            {options.map((opt) => {
+              if (opt.type === "header") {
+                return (
+                  <ListSubheader
+                    key={opt.key}
+                    sx={{
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    {opt.label}
+                  </ListSubheader>
+                );
+              }
+              return (
+                <MenuItem
+                  key={opt.key}
+                  value={opt.url}
+                  sx={{
+                    mx: 1,
+                    my: 0.5,
+                    borderRadius: 1,
+                    "&:hover": {
+                      backgroundColor: "action.selected",
+                      transform: "translateX(4px)",
+                    },
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ color: "action.active", display: "flex" }}>{opt.icon}</Box>
+                    <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                      {opt.label}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              );
+            })}
+          </TextField>
+        </>
+      )}
+
+      {showCTH && cthOptions.length > 0 && (
+        <>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: "800",
+              mt: 1.5,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "primary.main",
+              fontSize: "0.7rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+            }}
+          >
+            CTH Documents
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value=""
+            onChange={(e) => {
+              const url = e.target.value;
+              if (url) window.open(url, "_blank");
+            }}
+            SelectProps={{
+              displayEmpty: true,
+              renderValue: () => (
+                <Typography variant="body2" color="text.secondary">
+                  Select to view...
+                </Typography>
+              ),
+              MenuProps: {
+                PaperProps: {
+                  elevation: 4,
+                  sx: {
+                    borderRadius: 2,
+                    mt: 1,
+                    maxHeight: 300,
+                  },
+                },
+                transformOrigin: { horizontal: "left", vertical: "top" },
+                anchorOrigin: { horizontal: "left", vertical: "bottom" },
+              },
+            }}
+            sx={{
+              minWidth: 150,
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "background.paper",
+                borderRadius: 1.5,
+                transition: "all 0.2s",
+                "& fieldset": {
+                  borderColor: "action.hover",
+                },
+                "&:hover": {
+                  backgroundColor: "action.hover",
+                  "& fieldset": {
+                    borderColor: "primary.light",
+                  },
+                },
+              },
+              "& .MuiSelect-select": {
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                py: 1,
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <DescriptionIcon
+                    fontSize="small"
+                    sx={{ color: "primary.main", opacity: 0.8 }}
+                  />
+                </InputAdornment>
+              ),
+            }}
+          >
+            <MenuItem value="" disabled sx={{ display: "none" }}>
+              Select to view...
+            </MenuItem>
+            {cthOptions.map((opt) => (
+              <MenuItem
                 key={opt.key}
+                value={opt.url}
                 sx={{
-                  borderBottom: "1px solid",
-                  borderColor: "divider",
+                  mx: 1,
+                  my: 0.5,
+                  borderRadius: 1,
+                  "&:hover": {
+                    backgroundColor: "action.selected",
+                    transform: "translateX(4px)",
+                  },
+                  transition: "all 0.2s",
                 }}
               >
-                {opt.label}
-              </ListSubheader>
-            );
-          }
-          return (
-            <MenuItem
-              key={opt.key}
-              value={opt.url}
-              sx={{
-                mx: 1,
-                my: 0.5,
-                borderRadius: 1,
-                "&:hover": {
-                  backgroundColor: "action.selected",
-                  transform: "translateX(4px)",
-                },
-                transition: "all 0.2s",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box sx={{ color: "action.active", display: "flex" }}>{opt.icon}</Box>
-                <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                  {opt.label}
-                </Typography>
-              </Box>
-            </MenuItem>
-          );
-        })}
-      </TextField>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Box sx={{ color: "action.active", display: "flex" }}>{opt.icon}</Box>
+                  <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                    {opt.label}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+        </>
+      )}
     </Box>
   );
 };

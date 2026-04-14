@@ -46,6 +46,8 @@ const SeaCargoStatus = ({
   isExtended,
   branchCode,
   onUpdateSuccess,
+  containers = [],
+  branchConfig = null,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -183,17 +185,21 @@ const SeaCargoStatus = ({
           DEC: "12",
         };
 
-        const parts = dateString.split(" ");
-        if (parts.length === 3) {
+        const parts = dateString.split(/\s+/);
+        if (parts.length >= 3) {
           const day = parts[0].padStart(2, "0");
           const month = months[parts[1].toUpperCase()];
           const year = parts[2];
+          
+          let time = "00:00";
+          if (parts[3] && /^\d{2}:\d{2}/.test(parts[3])) {
+            time = parts[3];
+          }
 
           if (month) {
-            // Add default time 00:00 for date-only formats
-            const formattedDate = `${year}-${month}-${day}T00:00`;
+            const formattedDate = `${year}-${month}-${day}T${time}`;
             console.log(
-              "Formatted DD MMM YYYY date:",
+              "Formatted DD MMM YYYY [HH:mm] date:",
               dateString,
               "->",
               formattedDate
@@ -308,6 +314,32 @@ const SeaCargoStatus = ({
           updateData.gateway_igm_date = formattedIgmDate;
         } else {
           updateData.igm_date = formattedIgmDate;
+        }
+      }
+
+      // --- AUTOMATION LOGIC ---
+      // In branches where railout and gateway igm is disabled:
+      // Read inwardDate from vessel_details and update discharge_date + container arrival_dates
+      const vesselDetails = cargoDetails.vessel_details?.[0] || {};
+      const inwardDate = vesselDetails.inwardDate;
+      const formattedInwardDate = formatDateForDatabase(inwardDate);
+
+      const railoutEnabled = branchConfig?.railout_enabled !== false; // Default to true if not provided
+      const gatewayIgmEnabled = branchConfig?.gateway_igm_enabled !== false;
+
+      // Specifically check when BOTH are disabled (as per user request)
+      const automationTriggered = branchConfig && !railoutEnabled && !gatewayIgmEnabled;
+
+      if (automationTriggered && isValidValue(formattedInwardDate)) {
+        console.log("Automation triggered: Updating discharge_date and container arrival_dates with Inward Date:", formattedInwardDate);
+        
+        updateData.discharge_date = formattedInwardDate;
+
+        if (Array.isArray(containers) && containers.length > 0) {
+          updateData.container_nos = containers.map(cnt => ({
+            ...cnt,
+            arrival_date: formattedInwardDate
+          }));
         }
       }
 

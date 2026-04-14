@@ -39,6 +39,7 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import InvoiceDisplay from "./InvoiceDisplay.js";
 
 function List() {
   const { job_no, year } = useParams();
@@ -774,7 +775,7 @@ function List() {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,
-      size: 250,
+      size: 300,
       Cell: ({ cell }) => {
         const {
           processed_be_attachment,
@@ -842,47 +843,8 @@ function List() {
               </div>
             )}
 
-            {/* Render CTH Documents (showing actual URL) */}
-            {cth_documents &&
-              cth_documents.some(
-                (doc) =>
-                  doc.url &&
-                  doc.url.length > 0 &&
-                  (doc.document_name === "Pre-Shipment Inspection Certificate" ||
-                    doc.document_name === "Bill of Lading")
-              ) ? (
-              cth_documents
-                .filter(
-                  (doc) =>
-                    doc.url &&
-                    doc.url.length > 0 &&
-                    (doc.document_name ===
-                      "Pre-Shipment Inspection Certificate" ||
-                      doc.document_name === "Bill of Lading")
-                )
-                .map((doc) => (
-                  <div key={doc._id} style={{ marginBottom: "5px" }}>
-                    <a
-                      href={doc.url[0]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "blue",
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {doc.document_name}
-                    </a>
-                  </div>
-                ))
-            ) : (
-              <span style={{ color: "gray" }}>
-                {" "}
-                No Pre-Shipment Inspection Certificate <br />
-                No Bill of Lading{" "}
-              </span>
-            )}
+            {/* Standarized CTH and Invoice Display */}
+            <InvoiceDisplay row={cell.row.original} />
           </div>
         );
       },

@@ -65,7 +65,7 @@ router.get(
       const baseQuery = {
         $and: [
           { job_no: { $ne: null } },
-          { be_no: { $exists: true, $ne: "" } },
+
           {
             be_no: {
               $not: {

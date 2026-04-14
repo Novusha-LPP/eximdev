@@ -191,8 +191,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [showDailySummary, setShowDailySummary] = useState(false);
 
     const now = new Date();
-    const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(now.toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
+    const [endDate, setEndDate] = useState(moment().format('YYYY-MM-DD'));
 
     useEffect(() => {
         if (!startDate || !endDate) return;
@@ -220,8 +220,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [shifts, setShifts] = useState([]);
 
     // History browsing in drawer
-    const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);
-    const [browseYear, setBrowseYear] = useState(now.getFullYear());
+    const [browseMonth, setBrowseMonth] = useState(moment().month() + 1);
+    const [browseYear, setBrowseYear] = useState(moment().year());
 
     // Auto-switch hint for non-working statuses
     const [autoSwitchHintShown, setAutoSwitchHintShown] = useState(false);

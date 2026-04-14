@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'; // Standardized path
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import moment from 'moment';
 import { 
@@ -121,12 +121,13 @@ const StatusPill = ({ status, session }) => {
 };
 
 const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], headerActions }) => {
-    const params = useParams();
+    const { id: idFromRoute, teamId, userId, activeTab: urlTab } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
   const [localEmployeeId, setLocalEmployeeId] = useState(null);
   
   // Resolve the employee ID, ensuring we don't pick up route paths like 'teams' or 'users' as IDs
-  const idFromParams = params.userId || params.id;
+  const idFromParams = userId || idFromRoute;
   const isValidParamId = idFromParams && /^[0-9a-fA-F]{24}$/.test(idFromParams);
   
   const id = employeeId || localEmployeeId || (isValidParamId ? idFromParams : null);
@@ -137,13 +138,42 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [pageSize, setPageSize] = useState(24); // Items per page
 
   const now = new Date();
-  const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(now.toISOString().split('T')[0]);
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [startDate, setStartDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
+  const [endDate, setEndDate] = useState(moment().format('YYYY-MM-DD'));
+  const [selectedMonth, setSelectedMonth] = useState(moment().month());
+  const [selectedYear, setSelectedYear] = useState(moment().year());
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
-  const [tab, setTab] = useState('attendance');
+  const [tab, setTab] = useState(urlTab || 'performance');
+
+  useEffect(() => {
+    if (urlTab && urlTab !== tab) {
+      setTab(urlTab);
+    }
+  }, [urlTab]);
+
+  const handleTabChange = (newTab) => {
+    setTab(newTab);
+    // Determine the base path correctly whether in admin view or team view
+    let newPath = '';
+    if (id) {
+      newPath = `/attendance/admin/employee/${id}/${newTab}`;
+    } else if (teamId && userId) {
+      newPath = `/attendance/teams/${teamId}/user/${userId}/${newTab}`;
+    } else {
+      // Fallback: search and replace in current path
+      const pathSegments = location.pathname.split('/');
+      const tabs = ['performance', 'attendance', 'leave', 'policies', 'actions'];
+      const lastSegment = pathSegments[pathSegments.length - 1];
+      if (tabs.includes(lastSegment)) {
+        pathSegments[pathSegments.length - 1] = newTab;
+      } else {
+        pathSegments.push(newTab);
+      }
+      newPath = pathSegments.join('/');
+    }
+    navigate(newPath);
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [groupBy, setGroupBy] = useState('none'); // 'none', 'organization', 'team'
   const [loading, setLoading] = useState(true);
@@ -160,8 +190,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   // Performance Tab States
   const [fullMonthPresenceEnabled, setFullMonthPresenceEnabled] = useState(false);
   const [applyingFullMonth, setApplyingFullMonth] = useState(false);
-  const [browseMonth, setBrowseMonth] = useState(now.getMonth() + 1);
-  const [browseYear, setBrowseYear] = useState(now.getFullYear());
+  const [browseMonth, setBrowseMonth] = useState(moment().month() + 1);
+  const [browseYear, setBrowseYear] = useState(moment().year());
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [hasInitialPunchIn, setHasInitialPunchIn] = useState(true);
@@ -260,10 +290,10 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   });
 
   const [manualForm, setManualForm] = useState({
-    attendance_date: now.toISOString().split('T')[0],
+    attendance_date: moment().format('YYYY-MM-DD'),
     status: 'present',
-    first_in: `${now.toISOString().split('T')[0]}T09:00`,
-    last_out: `${now.toISOString().split('T')[0]}T18:00`,
+    first_in: `${moment().format('YYYY-MM-DD')}T09:00`,
+    last_out: `${moment().format('YYYY-MM-DD')}T18:00`,
     remarks: ''
   });
 
@@ -274,8 +304,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   });
 
   const [bulkManualForm, setBulkManualForm] = useState({
-    startDate: now.toISOString().split('T')[0],
-    endDate: now.toISOString().split('T')[0],
+    startDate: moment().format('YYYY-MM-DD'),
+    endDate: moment().format('YYYY-MM-DD'),
     status: 'present',
     remarks: '',
     excludeSundays: true,
@@ -865,8 +895,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   };
 
   useEffect(() => {
-    const newStart = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
-    const newEnd = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
+    const newStart = moment([selectedYear, selectedMonth]).startOf('month').format('YYYY-MM-DD');
+    const newEnd = moment([selectedYear, selectedMonth]).endOf('month').format('YYYY-MM-DD');
     setStartDate(newStart);
     setEndDate(newEnd);
   }, [selectedMonth, selectedYear]);
@@ -1767,7 +1797,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             return (
               <button 
                 key={t}
-                onClick={() => setTab(t)} 
+                onClick={() => handleTabChange(t)} 
                 style={{
                   ...buttonStyle,
                   background: 'transparent',

@@ -932,7 +932,7 @@ function HomePageContent() {
                 {/* Teams Management */}
                 <Route path="teams" element={<TeamDashboard />} />
                 <Route path="teams/:teamId" element={<TeamDashboard />} />
-                <Route path="teams/:teamId/user/:userId" element={<TeamDashboard />} />
+                <Route path="teams/:teamId/user/:userId/:activeTab?" element={<TeamDashboard />} />
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<DashboardSwitch />} />
                   <Route path="my-attendance" element={<AttendancePage />} />
@@ -945,7 +945,7 @@ function HomePageContent() {
                   <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
-                  <Route path="admin/employee/:id" element={<EmployeeProfileWorkspace />} />
+                  <Route path="admin/employee/:id/:activeTab?" element={<EmployeeProfileWorkspace />} />
                   <Route path="admin/holidays" element={<HolidayPolicyManager />} />
                   <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
                   <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />

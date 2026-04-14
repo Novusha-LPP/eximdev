@@ -7,6 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import attendanceAPI from '../../../api/attendance/attendance.api';
 import masterAPI from '../../../api/attendance/master.api';
+import moment from 'moment';
 import toast from 'react-hot-toast';
 import './AttendanceManagement.css';
 
@@ -45,8 +46,8 @@ const AttendanceManagement = () => {
     const [selectedDesignation, setSelectedDesignation] = useState('all');
     const [search, setSearch] = useState('');
     const now = new Date();
-    const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(now.toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
+    const [endDate, setEndDate] = useState(moment().format('YYYY-MM-DD'));
     const [drawer, setDrawer] = useState({ open: false, type: null, rec: null });
     const [editForm, setEditForm] = useState({});
     const [saving, setSaving] = useState(false);
@@ -206,10 +207,10 @@ const AttendanceManagement = () => {
                     </div>
                     <div className="am-filter-right">
                         <div className="am-quick-pills">
-                            <button onClick={() => { const t = now.toISOString().split('T')[0]; setStartDate(t); setEndDate(t); }}>Today</button>
+                            <button onClick={() => { const t = moment().format('YYYY-MM-DD'); setStartDate(t); setEndDate(t); }}>Today</button>
                             <button onClick={() => {
-                                setStartDate(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-                                setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
+                                setStartDate(moment().startOf('month').format('YYYY-MM-DD'));
+                                setEndDate(moment().endOf('month').format('YYYY-MM-DD'));
                             }}>This Month</button>
                         </div>
                         <div className="am-date-group">

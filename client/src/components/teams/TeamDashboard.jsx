@@ -47,7 +47,7 @@ const { Option } = Select;
 
 function TeamDashboard() {
     const { user } = useContext(UserContext);
-    const { teamId, userId } = useParams();
+    const { teamId, userId, activeTab: urlTab } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -478,7 +478,7 @@ function TeamDashboard() {
                         loading={loadingMembers}
                         pagination={{ pageSize: 10 }}
                         onRow={(record) => ({
-                            onClick: () => navigate('/attendance/teams/' + selectedTeam._id + '/user/' + record.username),
+                            onClick: () => navigate('/attendance/teams/' + selectedTeam._id + '/user/' + record.username + '/performance'),
                             style: {
                                 cursor: "pointer",
                                 background: selectedMember?._id === record._id ? "#e6f7ff" : undefined,

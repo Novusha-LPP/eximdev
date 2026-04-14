@@ -706,6 +706,11 @@
     background: #e2e8f0 !important;
 }
 
+.ar-h-pending_leave {
+    background: #a78bfa !important;
+    opacity: 0.7;
+}
+
 
 
 .ar-legend {
@@ -2798,4 +2803,9 @@
         margin-top: 10px;
         justify-content: flex-end;
     }
+}
+.ar-pill-pending-leave {
+    background: #f5f3ff;
+    color: #8b5cf6;
+    border: 1px dashed #8b5cf6;
 }

@@ -219,11 +219,13 @@ const attendanceAPI = {
       if (designation && designation !== 'all') params.designation = designation;
       if (companyId) params.company_id = companyId;
       const response = await apiClient.get('/attendance/admin-report', {
-        params
+        params,
+        timeout: 90000
       });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { message: 'Failed to fetch admin report' };
+      if (error?.response) throw error;
+      throw { message: error?.message || 'Failed to fetch admin report' };
     }
   },
 

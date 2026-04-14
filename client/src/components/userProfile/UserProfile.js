@@ -827,19 +827,18 @@ const UserProfile = ({ username: propUsername }) => {
                         ) : (
                             <div className="profile-leave-grid">
                                 {leaveBalance.map((bal) => {
-                                    const available = bal.available || bal.balance || 0;
+                                    const isLwp = String(bal.leave_type || bal.name || '').toLowerCase().includes('lwp');
+                                    const available = isLwp ? 'Unlimited' : (bal.available || bal.balance || 0);
                                     const total = bal.total || bal.opening_balance || bal.display?.total || 0;
-                                    const used = bal.used ?? 0;
                                     return (
                                         <div className="profile-leave-tile" key={bal._id || bal.leave_type}>
                                             <div className="profile-leave-type">{bal.name || bal.leave_type}</div>
                                             <div className="profile-leave-nums">
                                                 <strong>{available}</strong>
-                                                <span> / {total}</span>
+                                                {!isLwp && <span> / {total}</span>}
                                             </div>
                                             <div className="profile-leave-meta">
-                                                Used {used}
-                                                {(bal.pending || 0) > 0 ? ` | Pending ${bal.pending}` : ''}
+                                                {isLwp ? 'Leave without pay' : 'Gross available'}
                                             </div>
                                         </div>
                                     );

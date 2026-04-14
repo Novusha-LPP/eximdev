@@ -14,6 +14,10 @@ const leaveApplicationSchema = new mongoose.Schema({
   to_date: { type: Date, required: true, index: true },
   total_days: { type: Number, required: true },
   is_half_day: { type: Boolean, default: false },
+  is_start_half_day: { type: Boolean, default: false },
+  is_end_half_day: { type: Boolean, default: false },
+  start_half_session: { type: String, enum: ['First Half', 'Second Half', null], default: null },
+  end_half_session: { type: String, enum: ['First Half', 'Second Half', null], default: null },
   half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },
 
   reason: { type: String, required: true },
@@ -70,6 +74,13 @@ const leaveApplicationSchema = new mongoose.Schema({
 
   sandwich_dates: [{ type: Date }],
   sandwich_days_count: { type: Number },
+  breakdown: {
+    total_range: { type: Number },     // N+1 days
+    working_days: { type: Number },    // Actual working days absent
+    holiday_days: { type: Number },    // Holidays found in range
+    weekly_off_days: { type: Number }, // Week-offs found in range
+    sandwich_days: { type: Number }    // Days deducted due to sandwich
+  },
 
   is_lop: { type: Boolean, default: false }, // Loss of Pay
 

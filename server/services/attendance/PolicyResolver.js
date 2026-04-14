@@ -13,7 +13,68 @@ import Shift from '../../model/attendance/Shift.js';
 import TeamModel from '../../model/teamModel.mjs';
 import moment from 'moment';
 
+const CACHE_TTL_MS = 60 * 1000;
+const weekOffPolicyCache = { data: null, expiresAt: 0 };
+const holidayPolicyCache = new Map();
+const userTeamCache = new Map();
+
 class PolicyResolver {
+  static async getUserTeamIds(user, providedTeamIds = null) {
+    if (Array.isArray(providedTeamIds)) {
+      return providedTeamIds.map((id) => String(id));
+    }
+
+    if (!user?._id) return [];
+
+    const key = String(user._id);
+    const now = Date.now();
+    const cached = userTeamCache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.teamIds;
+    }
+
+    const userTeams = await TeamModel.find({
+      'members.userId': user._id,
+      isActive: { $ne: false }
+    }).select('_id').lean();
+
+    const teamIds = userTeams.map((t) => String(t._id));
+    userTeamCache.set(key, { teamIds, expiresAt: now + CACHE_TTL_MS });
+    return teamIds;
+  }
+
+  static async getActiveWeekOffPolicies() {
+    const now = Date.now();
+    if (weekOffPolicyCache.data && weekOffPolicyCache.expiresAt > now) {
+      return weekOffPolicyCache.data;
+    }
+
+    const policies = await WeekOffPolicy.find({ status: 'active' }).lean();
+    weekOffPolicyCache.data = policies;
+    weekOffPolicyCache.expiresAt = now + CACHE_TTL_MS;
+    return policies;
+  }
+
+  static async getActiveHolidayPolicies(companyId, year) {
+    if (!companyId) return [];
+
+    const cacheKey = `${companyId}:${year}`;
+    const now = Date.now();
+    const cached = holidayPolicyCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
+    const policies = await HolidayPolicy.find({
+      company_id: companyId,
+      year,
+      status: 'active'
+    }).lean();
+
+    holidayPolicyCache.set(cacheKey, { data: policies, expiresAt: now + CACHE_TTL_MS });
+    return policies;
+  }
+
   // ───────────────────────────────────────────────────────────
   // Shift resolution
   // ───────────────────────────────────────────────────────────
@@ -77,22 +138,16 @@ class PolicyResolver {
    * @param {Object} user  – Mongoose user document
    * @returns {Promise<Object|null>}
    */
-  static async resolveWeekOffPolicy(user) {
+  static async resolveWeekOffPolicy(user, options = {}) {
+    const userTeamIds = await this.getUserTeamIds(user, options.teamIds);
+    const policies = await this.getActiveWeekOffPolicies();
+
     if (user.weekoff_policy_id) {
-      const policy = await WeekOffPolicy.findById(user.weekoff_policy_id);
+      const explicit = policies.find((p) => String(p._id) === String(user.weekoff_policy_id));
+      if (explicit) return explicit;
+
+      const policy = await WeekOffPolicy.findById(user.weekoff_policy_id).lean();
       if (policy && policy.status === 'active') return policy;
-    }
-
-    const policies = await WeekOffPolicy.find({ status: 'active' });
-
-    // Find user teams
-    let userTeamIds = [];
-    if (user._id) {
-        const userTeams = await TeamModel.find({
-            "members.userId": user._id,
-            isActive: { $ne: false }
-        });
-        userTeamIds = userTeams.map(t => t._id.toString());
     }
 
     // 2. Team match
@@ -159,30 +214,22 @@ class PolicyResolver {
    * @param {number} year  – 4-digit year (default: current year)
    * @returns {Promise<Object|null>}
    */
-  static async resolveHolidayPolicy(user, year) {
+  static async resolveHolidayPolicy(user, year, options = {}) {
     const targetYear = year || new Date().getFullYear();
+    const companyId = user.company_id?._id || user.company_id;
+    const deptId = user.department_id?._id || user.department_id;
+    const branchId = user.branch_id?._id || user.branch_id;
+    const desig = user.designation || '';
+    const userTeamIds = await this.getUserTeamIds(user, options.teamIds);
+    const policies = await this.getActiveHolidayPolicies(companyId, targetYear);
 
     // 1. Explicit override
     if (user.holiday_policy_id) {
-      const policy = await HolidayPolicy.findById(user.holiday_policy_id);
+      const explicit = policies.find((p) => String(p._id) === String(user.holiday_policy_id));
+      if (explicit) return explicit;
+
+      const policy = await HolidayPolicy.findById(user.holiday_policy_id).lean();
       if (policy && policy.status === 'active' && policy.year === targetYear) return policy;
-    }
-
-    const companyId = user.company_id?._id || user.company_id;
-    const deptId    = user.department_id?._id || user.department_id;
-    const branchId  = user.branch_id?._id || user.branch_id;
-    const desig     = user.designation || '';
-
-    const policies = await HolidayPolicy.find({ company_id: companyId, year: targetYear, status: 'active' });
-
-    // 2. Team match (same logic as WeekOffPolicy)
-    let userTeamIds = [];
-    if (user._id) {
-      const userTeams = await TeamModel.find({
-        'members.userId': user._id,
-        isActive: { $ne: false }
-      });
-      userTeamIds = userTeams.map(t => t._id.toString());
     }
 
     if (userTeamIds.length > 0) {
@@ -257,10 +304,12 @@ class PolicyResolver {
    * @param {number} year
    * @returns {Promise<{ weekOffPolicy, holidayPolicy }>}
    */
-  static async resolveAll(user, year) {
+  static async resolveAll(user, year, options = {}) {
+    const teamIds = await this.getUserTeamIds(user, options.teamIds);
+
     const [weekOffPolicy, holidayPolicy] = await Promise.all([
-      this.resolveWeekOffPolicy(user),
-      this.resolveHolidayPolicy(user, year)
+      this.resolveWeekOffPolicy(user, { ...options, teamIds }),
+      this.resolveHolidayPolicy(user, year, { ...options, teamIds })
     ]);
     return { weekOffPolicy, holidayPolicy };
   }

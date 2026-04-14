@@ -123,12 +123,88 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     });
 };
 
+const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id';
+const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
+const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session';
+const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session';
+
+const mapWithConcurrency = async (items, concurrency, mapper) => {
+    if (!Array.isArray(items) || items.length === 0) return [];
+
+    const maxWorkers = Math.max(1, Math.min(Number(concurrency) || 1, items.length));
+    const results = new Array(items.length);
+    let cursor = 0;
+
+    const workers = Array.from({ length: maxWorkers }, async () => {
+        while (true) {
+            const idx = cursor;
+            cursor += 1;
+            if (idx >= items.length) break;
+            results[idx] = await mapper(items[idx], idx);
+        }
+    });
+
+    await Promise.all(workers);
+    return results;
+};
+
 const VIRTUAL_RECORD_ID_REGEX = /^virtual-(absent|leave|holiday|weekoff)-(\d{4}-\d{2}-\d{2})$/;
 
 const parseVirtualRecordDate = (recordId) => {
     const match = String(recordId || '').match(VIRTUAL_RECORD_ID_REGEX);
     if (!match) return null;
     return moment.utc(match[2], 'YYYY-MM-DD', true);
+};
+
+const normalizeAttendanceStatusInput = (status) => {
+    const normalized = String(status || '').toLowerCase();
+    if (!normalized) return normalized;
+    if (normalized === 'pending_leave') return 'leave';
+    if (normalized === 'weekoff') return 'weekly_off';
+    return normalized;
+};
+
+const findPendingLeaveForAttendance = async (employeeId, attendanceDate, currentLeaveId = null) => {
+    if (!employeeId || !attendanceDate) return null;
+
+    const dayStart = moment(attendanceDate).startOf('day').toDate();
+    const dayEnd = moment(attendanceDate).endOf('day').toDate();
+    const query = {
+        employee_id: employeeId,
+        approval_status: 'pending',
+        from_date: { $lte: dayEnd },
+        to_date: { $gte: dayStart }
+    };
+
+    if (currentLeaveId) {
+        query._id = { $ne: currentLeaveId };
+    }
+
+    return LeaveApplication.findOne(query)
+        .populate('leave_policy_id', 'leave_type policy_name')
+        .lean();
+};
+
+const buildPendingLeaveConflict = (leave, attendanceDate) => {
+    const fromDate = moment(leave.from_date).format('YYYY-MM-DD');
+    const toDate = moment(leave.to_date).format('YYYY-MM-DD');
+    const targetDate = moment(attendanceDate).format('YYYY-MM-DD');
+
+    return {
+        error: 'PENDING_LEAVE_ACTION_REQUIRED',
+        code: 'PENDING_LEAVE_ACTION_REQUIRED',
+        message: 'Pending leave exists for this date. Approve, reject, or withdraw it before adjusting attendance.',
+        target_date: targetDate,
+        pending_leave: {
+            id: leave._id,
+            leave_type: leave.leave_type || leave.leave_policy_id?.leave_type || 'Leave',
+            policy_name: leave.leave_policy_id?.policy_name || null,
+            from_date: fromDate,
+            to_date: toDate,
+            approval_status: leave.approval_status || 'pending'
+        },
+        suggested_actions: ['approve', 'reject', 'withdraw']
+    };
 };
 
 const getAttendanceThresholds = (employee) => {
@@ -160,10 +236,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
 
     const getPoliciesForYear = async (year) => {
         if (!policyByYear.has(year)) {
-            const [weekOffPolicy, holidayPolicy] = await Promise.all([
-                PolicyResolver.resolveWeekOffPolicy(emp),
-                PolicyResolver.resolveHolidayPolicy(emp, year)
-            ]);
+            const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(emp, year);
             policyByYear.set(year, { weekOffPolicy, holidayPolicy });
         }
         return policyByYear.get(year);
@@ -189,7 +262,19 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         let hStatus = 'absent';
         let hSession = null;
 
-        if (rec) {
+        const leave = findLeaveForDate(empLeaves, curr);
+        const isSystemAbsent = rec && String(rec.status).toLowerCase() === 'absent';
+
+        if (leave && (!rec || isSystemAbsent)) {
+            const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
+            const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
+            
+            hStatus = isHalf ? 'half_day' : 'leave';
+            hSession = leave.half_day_session || leave.start_half_session || leave.end_half_session;
+            
+            if (isHalf) actualHalfDay++;
+            else actualLeaves++;
+        } else if (rec) {
             hStatus = normalizeAttendanceStatus(rec, emp);
             hSession = rec.half_day_session;
 
@@ -207,32 +292,24 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             if (rec.is_early_exit) actualEarlyOut++;
             actualTotalHours += rec.total_work_hours || 0;
         } else {
-            const leave = findLeaveForDate(empLeaves, curr);
+            const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
+            const dayDate = curr.toDate();
+            const holidayStatus = PolicyResolver.resolveHolidayStatus(dayDate, holidayPolicy);
+            const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, weekOffPolicy);
 
-            if (leave) {
-                hStatus = leave.is_half_day ? 'absent' : 'leave';
-                hSession = leave.half_day_session;
-                if (!leave.is_half_day) actualLeaves++;
-                else actualAbsent++;
-            } else {
-                const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
-                const dayDate = curr.toDate();
-                const holidayStatus = PolicyResolver.resolveHolidayStatus(dayDate, holidayPolicy);
-                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, weekOffPolicy);
-
-                if (holidayStatus?.isHoliday) {
-                    hStatus = 'holiday';
-                } else if (weekOffStatus?.isOff) {
-                    hStatus = 'weekly_off';
-                } else if (curr.isBefore(moment(), 'day')) {
-                    actualAbsent++;
-                }
+            if (holidayStatus?.isHoliday) {
+                hStatus = 'holiday';
+            } else if (weekOffStatus?.isOff) {
+                hStatus = 'weekly_off';
+            } else if (curr.isBefore(moment(), 'day')) {
+                actualAbsent++;
             }
+        }
         }
 
         compactHistory.push({ date: dayStr, status: hStatus || 'absent', session: hSession });
         curr.add(1, 'day');
-    }
+   
 
     const avgHoursValue = (actualPresent + actualHalfDay) > 0 ? (actualTotalHours / (actualPresent + actualHalfDay)) : 0;
     const avgHoursH = Math.floor(avgHoursValue);
@@ -278,6 +355,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         } : null,
         ...extraFields
     };
+
 };
 
 // --- HELPER: Process Daily Attendance (Multi-Tenant & Rule-Driven) ---
@@ -689,11 +767,14 @@ export const getDashboardData = async (req, res) => {
             };
         }
 
-        // 6. Calendar & Holidays
+        // 6. Calendar & Holidays (policy-aware, same source of truth as continuity views)
         const calendarRecords = await AttendanceRecord.find({ employee_id: user._id, year_month: currentYearMonth });
         const monthStartUTC = moment.utc(`${currentYearMonth}-01`).startOf('month').toDate();
         const monthEndUTC = moment.utc(`${currentYearMonth}-01`).endOf('month').toDate();
-        const holidays = await Holiday.find({ company_id: companyId, holiday_date: { $gte: monthStartUTC, $lte: monthEndUTC } });
+        const [resolvedWeekOffPolicy, resolvedHolidayPolicy] = await Promise.all([
+            PolicyResolver.resolveWeekOffPolicy(user),
+            PolicyResolver.resolveHolidayPolicy(user, queryYear)
+        ]);
 
         const calendarMap = {};
         calendarRecords.forEach(r => {
@@ -709,15 +790,6 @@ export const getDashboardData = async (req, res) => {
                 half_day_session: r.half_day_session
             };
         });
-        holidays.forEach(h => {
-            const d = moment.utc(h.holiday_date).format('YYYY-MM-DD');
-            if (!calendarMap[d]) calendarMap[d] = { date: d, status: 'holiday', hours: 0 };
-        });
-
-        // Fetch shift and week-off for the month
-        const weekOffPolicy = await PolicyResolver.resolveWeekOffPolicy(user);
-        const weeklyOffDays = getWeeklyOffDaysFromPolicy(weekOffPolicy);
-
         const daysInMonth = moment.utc(`${currentYearMonth}-01`).daysInMonth();
 
         // 7. Fetch Approved Leaves for the month to show on calendar
@@ -751,11 +823,29 @@ export const getDashboardData = async (req, res) => {
             }
         });
 
+        // Fill policy holidays and week-offs for days without an existing attendance/leave marker.
         for (let i = 1; i <= daysInMonth; i++) {
             const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
             if (!calendarMap[dateStr]) {
-                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dateStr, weekOffPolicy);
-                if (weekOffStatus?.isOff || weeklyOffDays.includes(moment.utc(dateStr).day())) {
+                const dayMoment = moment.utc(dateStr, 'YYYY-MM-DD', true);
+                const holidayStatus = await WorkingDayEngine.getHolidayInfo(
+                    dayMoment,
+                    companyId,
+                    resolvedHolidayPolicy
+                );
+                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayMoment.toDate(), resolvedWeekOffPolicy);
+
+                if (holidayStatus?.isHoliday) {
+                    calendarMap[dateStr] = {
+                        date: dateStr,
+                        status: 'holiday',
+                        hours: 0,
+                        isLate: false,
+                        isEarlyExit: false,
+                        lateByMinutes: 0,
+                        holiday_name: holidayStatus?.name || 'Holiday'
+                    };
+                } else if (weekOffStatus?.isOff) {
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'weekly_off',
@@ -1510,9 +1600,6 @@ export const getAdminAttendanceReport = async (req, res) => {
     try {
         const { startDate, endDate, departmentId } = req.query;
         const companyId = resolveCompanyId(req);
-        
-        console.log(`[Admin Report Test] Request by ${req.user?._id} Role: ${req.user?.role} CompanyId: ${companyId}`);
-
 
         if (!startDate || !endDate) {
             return res.status(400).json({ message: 'startDate and endDate are required' });
@@ -1548,15 +1635,13 @@ export const getAdminAttendanceReport = async (req, res) => {
         }
 
         const employees = await User.find(userQuery)
-            .populate('company_id')
-            .populate('shift_id');
-        
-        // Debug: Check how many users exist
-        const totalUsersQuery = normalizedCompanyId === 'all' ? {} : { company_id: companyId };
-        const activeUsersQuery = normalizedCompanyId === 'all' ? { isActive: true } : { company_id: companyId, isActive: true };
-        const totalUsersWithCompany = await User.countDocuments(totalUsersQuery);
-        const totalActiveUsers = await User.countDocuments(activeUsersQuery);
-        console.log(`[Admin Report] Company ${companyId}: Total users=${totalUsersWithCompany}, Active=${totalActiveUsers}, Query result=${employees.length}`);
+            .select(REPORT_USER_SELECT_FIELDS)
+            .populate(REPORT_COMPANY_POPULATE)
+            .lean();
+
+        if (employees.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
         
         const employeeIds = employees.map(e => e._id);
 
@@ -1572,14 +1657,14 @@ export const getAdminAttendanceReport = async (req, res) => {
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
-            }),
+            }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
                 approval_status: 'approved',
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
-            })
+            }).select(REPORT_LEAVE_SELECT_FIELDS).lean()
         ]);
 
         const attendanceByEmployee = new Map();
@@ -1596,7 +1681,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             leavesByEmployee.get(key).push(leave);
         }
 
-        const reportData = await Promise.all(employees.map(async (emp) => {
+        const reportData = await mapWithConcurrency(employees, 20, async (emp) => {
             const empKey = emp._id.toString();
             const row = await buildPolicyAwareReportRow(
                 emp,
@@ -1611,7 +1696,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             );
 
             return row;
-        }));
+        });
 
         res.json({ success: true, data: reportData });
     } catch (error) {
@@ -1656,7 +1741,10 @@ export const getTeamAttendanceReport = async (req, res) => {
         const employees = await User.find({
             _id: { $in: Array.from(memberUserIds) },
             isActive: true
-        }).populate('company_id').populate('shift_id');
+        })
+            .select(REPORT_USER_SELECT_FIELDS)
+            .populate(REPORT_COMPANY_POPULATE)
+            .lean();
 
         if (employees.length === 0) {
             return res.json({ success: true, data: [] });
@@ -1669,14 +1757,14 @@ export const getTeamAttendanceReport = async (req, res) => {
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
-            }),
+            }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
                 approval_status: 'approved',
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
-            })
+            }).select(REPORT_LEAVE_SELECT_FIELDS).lean()
         ]);
 
         const attendanceByEmployee = new Map();
@@ -1694,7 +1782,7 @@ export const getTeamAttendanceReport = async (req, res) => {
         }
 
         // 4. Generate Report (policy-aware)
-        const reportData = await Promise.all(employees.map(async (emp) => {
+        const reportData = await mapWithConcurrency(employees, 15, async (emp) => {
             const empKey = emp._id.toString();
             return buildPolicyAwareReportRow(
                 emp,
@@ -1704,7 +1792,7 @@ export const getTeamAttendanceReport = async (req, res) => {
                 leavesByEmployee.get(empKey) || [],
                 { department: emp.department_id?.department_name || 'General' }
             );
-        }));
+        });
 
         res.json({ success: true, data: reportData });
     } catch (err) {
@@ -1867,7 +1955,8 @@ export const updateAttendanceRecord = async (req, res) => {
             shift_id,
             apply_status_correction,
             apply_time_correction,
-            correction_mode
+            correction_mode,
+            force_override
         } = req.body;
         const companyId = resolveCompanyId(req);
 
@@ -1989,6 +2078,14 @@ export const updateAttendanceRecord = async (req, res) => {
             }
         }
 
+        status = normalizeAttendanceStatusInput(status);
+
+        const pendingLeave = await findPendingLeaveForAttendance(record.employee_id, record.attendance_date, record._id);
+        const allowOverride = toBoolean(force_override);
+        if (pendingLeave && !allowOverride) {
+            return res.status(409).json(buildPendingLeaveConflict(pendingLeave, record.attendance_date));
+        }
+
         if (status !== undefined) record.status = status;
 
         let selectedShift = null;
@@ -2047,6 +2144,11 @@ export const updateAttendanceRecord = async (req, res) => {
         }
 
         if (remarks !== undefined) record.remarks = remarks || '';
+        if (pendingLeave && allowOverride) {
+            record.remarks = record.remarks
+                ? `${record.remarks} | Override: pending leave exists`
+                : 'Override: pending leave exists';
+        }
         record.processed_by = 'admin';
         record.processed_at = new Date();
 
@@ -2056,8 +2158,13 @@ export const updateAttendanceRecord = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
-        await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `Admin updated record ${id}`, { record_id: id });
-        res.json({ success: true, message: 'Record updated', record });
+        await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `Admin updated record ${id}`, { record_id: id, force_override: allowOverride, pending_leave_id: pendingLeave?._id || null });
+        res.json({
+            success: true,
+            message: pendingLeave && allowOverride ? 'Record updated with override' : 'Record updated',
+            warning: pendingLeave && allowOverride ? 'Pending leave existed for this date and was overridden.' : null,
+            record
+        });
 
     } catch (err) {
         console.error('Update Alert:', err);
@@ -2078,7 +2185,8 @@ export const createManualAdjustment = async (req, res) => {
             shift_id,
             apply_status_correction,
             apply_time_correction,
-            correction_mode
+            correction_mode,
+            force_override
         } = req.body;
         const companyId = resolveCompanyId(req);
 
@@ -2106,6 +2214,8 @@ export const createManualAdjustment = async (req, res) => {
         if (!attendance_date || !employee_id) {
             return res.status(400).json({ message: 'Missing required employee or date' });
         }
+
+        status = normalizeAttendanceStatusInput(status);
 
         // Early conflict validation: Non-working statuses should not have time correction
         if (status) {
@@ -2196,6 +2306,14 @@ export const createManualAdjustment = async (req, res) => {
             }
         }
 
+
+        status = normalizeAttendanceStatusInput(status);
+
+        const pendingLeave = await findPendingLeaveForAttendance(employee_id, targetDate);
+        const allowOverride = toBoolean(force_override);
+        if (pendingLeave && !allowOverride) {
+            return res.status(409).json(buildPendingLeaveConflict(pendingLeave, targetDate));
+        }
         if (status !== undefined) record.status = status;
 
         let selectedShift = null;
@@ -2254,6 +2372,11 @@ export const createManualAdjustment = async (req, res) => {
         }
 
         if (remarks !== undefined) record.remarks = remarks || '';
+        if (pendingLeave && allowOverride) {
+            record.remarks = record.remarks
+                ? `${record.remarks} | Override: pending leave exists`
+                : 'Override: pending leave exists';
+        }
         record.processed_by = 'admin';
         record.processed_at = new Date();
 
@@ -2261,8 +2384,13 @@ export const createManualAdjustment = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
-        await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, { record_id: record._id });
-        res.json({ success: true, message: 'Adjustment saved successfully', record });
+        await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, { record_id: record._id, force_override: allowOverride, pending_leave_id: pendingLeave?._id || null });
+        res.json({
+            success: true,
+            message: pendingLeave && allowOverride ? 'Adjustment saved with override' : 'Adjustment saved successfully',
+            warning: pendingLeave && allowOverride ? 'Pending leave existed for this date and was overridden.' : null,
+            record
+        });
 
     } catch (err) {
         console.error('Adjustment error:', err);
@@ -2389,6 +2517,14 @@ async function recalculatePunctuality(record, employee, company) {
     const shiftId = record.shift_id;
     const shift = shiftId ? await Shift.findById(shiftId) : await PolicyResolver.resolveShift(employee);
     const dept = employee.department_id ? await Department.findById(employee.department_id) : null;
+    const deptHalfDayThreshold = dept?.half_day_hours;
+    const deptFullDayThreshold = dept?.full_day_hours;
+    const fullDayThreshold = Number(
+        shift?.full_day_hours || deptFullDayThreshold || company?.attendance_config?.full_day_threshold_hours || 8
+    );
+    const halfDayThreshold = Number(
+        shift?.half_day_hours || deptHalfDayThreshold || company?.attendance_config?.half_day_threshold_hours || 4
+    );
     const normalizedStatus = String(record.status || '').toLowerCase();
 
     if (['absent', 'leave', 'weekly_off', 'holiday'].includes(normalizedStatus)) {
@@ -2442,13 +2578,6 @@ async function recalculatePunctuality(record, employee, company) {
         record.net_work_hours = totalWorkHours;
 
         // --- AUTOMATIC STATUS RE-DETERMINATION ---
-        // Fetch configs again for thresholds
-        const deptHalfDayThreshold = dept?.half_day_hours;
-        const deptFullDayThreshold = dept?.full_day_hours;
-
-        const fullDayThreshold = shift.full_day_hours || deptFullDayThreshold || company.attendance_config?.full_day_threshold_hours || 8;
-        const halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
-
         // Normalize incomplete records once both punch times are present.
         if (record.status === 'incomplete') {
             if (record.total_work_hours >= fullDayThreshold) {
@@ -2469,11 +2598,11 @@ async function recalculatePunctuality(record, employee, company) {
             record.is_half_day = false;
         }
 
-        const overtimeThresholdHours = (shift.overtime_threshold_minutes || 0) / 60;
+        const overtimeThresholdHours = ((shift?.overtime_threshold_minutes || 0) / 60);
         if (shift?.end_time && totalWorkHours > 0) {
             const shiftEnd = moment.tz(`${dateStr} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
             const punchOut = moment(record.last_out).tz(tz);
-            if (punchOut.isAfter(shiftEnd.clone().add(shift.overtime_threshold_minutes || 0, 'minutes'))) {
+            if (punchOut.isAfter(shiftEnd.clone().add(shift?.overtime_threshold_minutes || 0, 'minutes'))) {
                 const overtimeHours = punchOut.diff(shiftEnd, 'hours', true);
                 record.overtime_hours = Math.max(0, overtimeHours);
             }
@@ -2677,21 +2806,34 @@ export const getEmployeeFullProfile = async (req, res) => {
                 if (existingIndex >= 0) continuityAttendance.splice(existingIndex, 1);
             }
 
-            if (attendanceByDay.has(dayStr)) {
+          
+            const leave = findLeaveForDateLocal(leaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
+
+            if (leave && (!existingRecord || String(existingRecord.status).toLowerCase() === 'absent')) {
+                if (existingRecord) {
+                    attendanceByDay.delete(dayStr);
+                    const idx = continuityAttendance.findIndex(item => String(item._id) === String(existingRecord._id));
+                    if (idx >= 0) continuityAttendance.splice(idx, 1);
+                }
+                const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
+                continuityAttendance.push({
+                    _id: `virtual-leave-${dayStr}`,
+                    attendance_date: dayCursor.toDate(),
+                    status: (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day) ? 'half_day' : 'leave',
+                    leave_type: leave.leave_type || null,
+                    approval_status: leave.approval_status || 'pending',
+                    half_day_session: leave.half_day_session || null,
+                    start_half_session: leave.start_half_session || null,
+                    end_half_session: leave.end_half_session || null,
+                    remarks: isPending ? 'Pending Leave Application' : 'Approved Leave',
+                    is_pending: isPending,
+                    is_virtual: true
+                });
                 dayCursor.add(1, 'day');
                 continue;
             }
 
-            const leave = findLeaveForDateLocal(leaves, dayCursor);
-            if (leave) {
-                continuityAttendance.push({
-                    _id: `virtual-leave-${dayStr}`,
-                    attendance_date: dayCursor.toDate(),
-                    status: leave.is_half_day ? 'half_day' : (leave.leave_type || 'leave'),
-                    half_day_session: leave.half_day_session || null,
-                    remarks: 'Policy continuity view',
-                    is_virtual: true
-                });
+            if (attendanceByDay.has(dayStr)) {
                 dayCursor.add(1, 'day');
                 continue;
             }

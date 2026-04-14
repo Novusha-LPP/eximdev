@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     FiX, FiLogIn, FiLogOut, FiEdit, FiFileText, FiUsers, FiAlertTriangle,
     FiUser, FiBriefcase, FiActivity, FiArrowRight, FiRefreshCw, FiDownload, FiCalendar, FiSearch, FiCheckCircle, FiClock, FiList, FiGrid,
@@ -11,6 +11,7 @@ import { formatTime12Hr, minutesToHours, formatDate } from './utils/helpers';
 import moment from 'moment';
 import toast from 'react-hot-toast';
 import { UserContext } from '../../contexts/UserContext';
+import AdminApplyLeaveModal from './admin/AdminApplyLeaveModal';
 import './AttendanceReport.css';
 
 const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
@@ -35,17 +36,26 @@ const getCalendarStatusBadge = (status = '') => {
         late: 'L',
         present_late: 'L',
         absent: 'A',
-        present: 'P'
+        present: 'P',
+        pending_leave: 'PLV'
     };
     return map[normalized] || '';
 };
 
 const StatusPill = ({ status, session }) => {
-    const map = { present: ['Present', 'present'], absent: ['Absent', 'absent'], leave: ['Leave', 'leave'], half_day: ['Half Day', 'half-day'], weekly_off: ['Off', 'off'], holiday: ['Holiday', 'holiday'] };
+    const map = { 
+        present: ['Present', 'present'], 
+        absent: ['Absent', 'absent'], 
+        leave: ['Leave', 'leave'], 
+        pending_leave: ['Pending Leave', 'pending-leave'],
+        half_day: ['Half Day', 'half-day'], 
+        weekly_off: ['Off', 'off'], 
+        holiday: ['Holiday', 'holiday'] 
+    };
     const [label, cls] = map[status] || [status, 'default'];
     return (
         <span className={`ar-status-pill ar-pill-${cls}`}>
-            {status === 'half_day' ? (session ? (session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
+            {status === 'half_day' ? (session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
         </span>
     );
 };
@@ -211,6 +221,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [applyingFullMonth, setApplyingFullMonth] = useState(false);
     const [groupBy, setGroupBy] = useState('status'); // 'status' or 'organization'
     const [fullMonthPresenceEnabled, setFullMonthPresenceEnabled] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
 
     // Profile Hub States
     const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'leaves', 'details'
@@ -280,8 +291,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             }
             setReportData(r?.data || []);
         } catch (err) {
-            console.error('[AttendanceReport] fetchReport error:', err?.response?.status, err?.response?.data || err?.message);
-            toast.error(err?.response?.data?.message || 'Failed to load report');
+            console.error('[AttendanceReport] fetchReport error:', err?.response?.status || err?.status, err?.response?.data || err?.message || err);
+            toast.error(err?.response?.data?.message || err?.message || 'Failed to load report');
         }
         finally { setLoading(false); }
     };
@@ -420,6 +431,18 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         return stats;
     }, [empHistory, profileData?.summary, profileData?.holidays, selectedEmp]);
 
+        const leaveHistory = useMemo(() => {
+            const approved = Array.isArray(profileData?.leaves) ? profileData.leaves : [];
+            const pending = Array.isArray(profileData?.pendingLeaves) ? profileData.pendingLeaves : [];
+
+            return [...approved, ...pending]
+                .filter((leave) => {
+                    const status = String(leave?.approval_status || leave?.status || '').toLowerCase();
+                    return !['rejected', 'cancelled', 'withdrawn'].includes(status);
+                })
+                .sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
+        }, [profileData?.leaves, profileData?.pendingLeaves]);
+
     const assignedShiftOptions = React.useMemo(() => {
         const employee = profileData?.employee || {};
         const raw = Array.isArray(employee.shift_ids) ? employee.shift_ids : [];
@@ -556,13 +579,14 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         }
 
         setSaving(true);
-        try {
-            const payload = {
-                ...editForm,
-                apply_status_correction: mode === 'status_correction',
-                apply_time_correction: mode === 'time_correction'
-            };
+        const payload = {
+            ...editForm,
+                    status: editForm.status === 'pending_leave' ? 'leave' : editForm.status,
+            apply_status_correction: mode === 'status_correction',
+            apply_time_correction: mode === 'time_correction'
+        };
 
+        try {
             if (editingId === 'new') {
                 await attendanceAPI.createManualAdjustment(payload);
             } else {
@@ -575,11 +599,45 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             // Refresh main report if relevant
             fetchReport();
         } catch (err) {
-            const apiErrorCode = err?.response?.data?.error;
+            const apiErrorCode = err?.response?.data?.error || err?.response?.data?.code;
             const apiMessage = String(err?.response?.data?.message || '').toLowerCase();
             const shouldAutoSwitchToTimeUnchanged =
                 apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
                 (apiMessage.includes('time correction is not applicable') && apiMessage.includes('status'));
+
+            if (apiErrorCode === 'PENDING_LEAVE_ACTION_REQUIRED') {
+                const conflict = err?.response?.data?.pending_leave;
+                const fromDate = conflict?.from_date ? moment(conflict.from_date).format('DD MMM YYYY') : 'the selected date';
+                const toDate = conflict?.to_date ? moment(conflict.to_date).format('DD MMM YYYY') : '';
+                const leaveLabel = conflict?.leave_type || conflict?.policy_name || 'leave';
+                const detail = toDate && fromDate !== toDate ? `${fromDate} to ${toDate}` : fromDate;
+                const retryWithOverride = (isAdmin || isHOD) && window.confirm(`Pending ${leaveLabel} exists for ${detail}. Approve/reject/withdraw first, or force override this attendance change?`);
+
+                if (retryWithOverride) {
+                    try {
+                        setSaving(true);
+                        const overridePayload = { ...payload, force_override: true };
+                        if (editingId === 'new') {
+                            await attendanceAPI.createManualAdjustment(overridePayload);
+                        } else {
+                            await attendanceAPI.updateAttendanceRecord(editingId, overridePayload);
+                        }
+                        toast.success('Record updated with override');
+                        setEditingId(null);
+                        fetchBrowseHistory();
+                        fetchReport();
+                        return;
+                    } catch (overrideErr) {
+                        toast.error(overrideErr?.response?.data?.message || 'Override failed');
+                        return;
+                    } finally {
+                        setSaving(false);
+                    }
+                }
+
+                toast.error(err?.response?.data?.message || 'Pending leave must be resolved before editing attendance');
+                return;
+            }
 
             if (shouldAutoSwitchToTimeUnchanged) {
                 setAutoSwitchHintShown(true);
@@ -1053,7 +1111,26 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                             <div className="ar-hub-hero">
                                 <div className="ar-hub-avatar">{selectedEmp?.name?.[0]}</div>
                                 <div className="ar-hub-meta">
-                                    <h2>{selectedEmp?.name}</h2>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <h2>{selectedEmp?.name}</h2>
+                                        {isAdmin && (
+                                            <button 
+                                                onClick={() => setShowLeaveModal(true)}
+                                                style={{
+                                                    background: '#0f172a',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    padding: '2px 8px',
+                                                    fontSize: '10px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Apply Leave
+                                            </button>
+                                        )}
+                                    </div>
                                     <span className="ar-hub-dept">Team Member</span>
                                 </div>
                             </div>
@@ -1297,7 +1374,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                         <div className="ar-job-card" style={{ marginTop: '20px' }}>
                                             <h4 className="ar-job-section-title">Leave Usage Dates</h4>
                                             <div className="ar-leave-history-list">
-                                                {(!profileData?.leaves || profileData.leaves.filter(lv => lv.approval_status === 'approved').length === 0) ? (
+                                                {leaveHistory.length === 0 ? (
                                                     <div className="ar-empty-state">
                                                         <p>No used leave records to display</p>
                                                     </div>
@@ -1310,10 +1387,10 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {profileData.leaves.filter(lv => lv.approval_status === 'approved').map((lv, idx) => (
+                                                            {leaveHistory.map((lv, idx) => (
                                                                 <tr key={idx}>
                                                                     <td>
-                                                                        <strong>{lv.leave_policy_id?.leave_type?.toUpperCase() || 'LEAVE'}</strong>
+                                                                        <strong>{lv.leave_policy_id?.leave_type?.toUpperCase() || lv.leave_type?.toUpperCase() || 'LEAVE'}</strong>
                                                                     </td>
                                                                     <td style={{ textAlign: 'right' }}>
                                                                         <div className="ar-lv-date-cell" style={{ alignItems: 'flex-end' }}>
@@ -1579,6 +1656,19 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {isAdmin && selectedEmp && (
+                <AdminApplyLeaveModal 
+                    isOpen={showLeaveModal}
+                    onClose={() => setShowLeaveModal(false)}
+                    employeeId={selectedEmp.id}
+                    employeeName={selectedEmp.name}
+                    onSuccess={() => {
+                        fetchBrowseHistory();
+                        fetchReport();
+                    }}
+                />
             )}
 
             {isAdmin && selectedEmp && (

@@ -6,6 +6,8 @@ import moment from 'moment';
 import TeamModel from '../../model/teamModel.mjs';
 import LeaveCalculationService from '../../services/attendance/LeaveCalculationService.js';
 import mongoose from 'mongoose';
+import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
+import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
 const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
@@ -63,6 +65,27 @@ const getAnyActiveLwpPolicy = async () => {
     }).sort({ updatedAt: -1, createdAt: -1 });
 };
 
+const checkOverlap = async (userId, fromDate, toDate, currentAppId = null) => {
+    const start = moment(fromDate).startOf('day').toDate();
+    const end = moment(toDate).endOf('day').toDate();
+
+    const query = {
+        employee_id: userId,
+        approval_status: { $nin: ['rejected', 'cancelled', 'withdrawn'] },
+        $or: [
+            { from_date: { $lte: end, $gte: start } },
+            { to_date: { $lte: end, $gte: start } },
+            { $and: [{ from_date: { $lte: start } }, { to_date: { $gte: end } }] }
+        ]
+    };
+
+    if (currentAppId) {
+        query._id = { $ne: currentAppId };
+    }
+
+    return await LeaveApplication.exists(query);
+};
+
 const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assignedPolicyIds }) => {
     const balances = await LeaveBalance.find({
         employee_id: targetId,
@@ -82,6 +105,9 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
         status: 'active'
     });
 
+    // Exclude 'privilege' from auto-recovery so it remains completely hidden until assigned
+    recoveredPolicies = recoveredPolicies.filter(p => p.leave_type !== 'privilege');
+
     if (recoveredPolicies.length > 0) {
         return recoveredPolicies;
     }
@@ -99,7 +125,7 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
         leave_type: { $in: [...new Set(balanceLeaveTypes)] }
     });
 
-    return recoveredPolicies;
+    return recoveredPolicies.filter(p => p.leave_type !== 'privilege');
 };
 
 const filterEligiblePolicies = (policies, employee) => {
@@ -124,6 +150,50 @@ const filterEligiblePolicies = (policies, employee) => {
 
         return eligible;
     });
+};
+
+const ATTENDANCE_PRESENCE_SELECT = 'status net_work_hours total_work_hours first_in last_out attendance_date';
+
+const buildAttendanceContext = async ({ employeeId, fromDate, toDate }) => {
+    const start = moment(fromDate).startOf('day');
+    const end = moment(toDate || fromDate).startOf('day');
+    const dayBefore = start.clone().subtract(1, 'day').toDate();
+    const dayAfter = end.clone().add(1, 'day').toDate();
+
+    const [recBefore, recAfter, rangeAttendance] = await Promise.all([
+        AttendanceRecord.findOne({ employee_id: employeeId, attendance_date: dayBefore }).select(ATTENDANCE_PRESENCE_SELECT),
+        AttendanceRecord.findOne({ employee_id: employeeId, attendance_date: dayAfter }).select(ATTENDANCE_PRESENCE_SELECT),
+        AttendanceRecord.find({
+            employee_id: employeeId,
+            attendance_date: { $gte: start.toDate(), $lte: end.clone().endOf('day').toDate() }
+        }).select(ATTENDANCE_PRESENCE_SELECT)
+    ]);
+
+    return {
+        boundaryContext: {
+            before: recBefore
+                ? {
+                    exists: true,
+                    status: recBefore.status,
+                    net_work_hours: recBefore.net_work_hours,
+                    total_work_hours: recBefore.total_work_hours,
+                    first_in: recBefore.first_in,
+                    last_out: recBefore.last_out
+                }
+                : { exists: false },
+            after: recAfter
+                ? {
+                    exists: true,
+                    status: recAfter.status,
+                    net_work_hours: recAfter.net_work_hours,
+                    total_work_hours: recAfter.total_work_hours,
+                    first_in: recAfter.first_in,
+                    last_out: recAfter.last_out
+                }
+                : { exists: false }
+        },
+        attendanceRecords: rangeAttendance || []
+    };
 };
 
 
@@ -217,9 +287,14 @@ export const getBalance = async (req, res) => {
         // --- FILTER BY ELIGIBILITY (CASE-INSENSITIVE) ---
         let policies = filterEligiblePolicies(allPolicies, targetEmployee);
 
-        policies = policies.filter((policy) => assignedPolicyIds.includes(String(policy._id)));
+        // Keep LWP or policies explicitly assigned
+        policies = policies.filter((policy) => 
+            assignedPolicyIds.includes(String(policy._id)) || 
+            String(policy.leave_type || '').toLowerCase() === 'lwp'
+        );
 
-        if (policies.length === 0) {
+        // If only LWP is there (or nothing), try to recover from previous balances
+        if (policies.length <= 1 && (!policies[0] || String(policies[0].leave_type || '').toLowerCase() === 'lwp')) {
             const recoveredPolicies = await recoverActivePoliciesFromBalances({
                 targetId,
                 currentYear,
@@ -242,8 +317,9 @@ export const getBalance = async (req, res) => {
                 }
             }
 
-            if (policies.length === 0 && lwpPolicy) {
-                policies = [lwpPolicy];
+            // Ensure LWP is there even after recovery
+            if (!policies.some(p => String(p.leave_type || '').toLowerCase() === 'lwp') && lwpPolicy) {
+                policies.push(lwpPolicy);
             }
         }
 
@@ -294,8 +370,8 @@ export const getBalance = async (req, res) => {
             const used = userBalance?.used ?? userBalance?.consumed ?? usedByPolicy.get(String(policy._id)) ?? 0;
             const pending = userBalance?.pending ?? userBalance?.pending_approval ?? 0;
 
-            // User wants "Ending Balance" (Opening - Used - Pending) as the primary Available figure
-            const available = isUnpaidPolicy ? 0 : Math.max(0, openingBalance - used - pending);
+            // Gross available: opening balance minus used only. (Pending is shown separately in UI)
+            const available = isUnpaidPolicy ? 0 : Math.max(0, openingBalance - used);
             const actualClosing = Math.max(0, openingBalance - used);
 
             return {
@@ -342,9 +418,23 @@ export const getBalance = async (req, res) => {
 // Get Leave Applications
 export const getApplications = async (req, res) => {
     try {
-        const user = req.user;
+        const actor = req.user;
+        let targetId = actor._id;
+
+        const { employee_id } = req.query;
+        if (employee_id && String(employee_id) !== String(actor._id)) {
+            const roleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+            const isAdmin = roleNorm === 'ADMIN';
+            const isHOD = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT';
+
+            if (!isAdmin && !isHOD) {
+                return res.status(403).json({ message: 'Unauthorized to view others applications' });
+            }
+            targetId = employee_id;
+        }
+
         const applications = await LeaveApplication.find({
-            employee_id: user._id
+            employee_id: targetId
         })
             .populate('leave_policy_id', 'leave_type policy_name')
             .populate('final_reviewed_by', 'first_name last_name username role')
@@ -398,34 +488,74 @@ export const getApplications = async (req, res) => {
 // Preview for Leave (Smart Calculation)
 export const previewLeave = async (req, res) => {
     try {
-        const user = req.user;
-        const { leave_policy_id, from_date, to_date, is_half_day } = req.query;
+        const actor = req.user;
+        const { leave_policy_id, from_date, to_date, is_half_day, is_start_half_day, is_end_half_day, start_half_session, end_half_session, employee_id } = req.query;
+
+        let targetId = actor._id;
+        if (employee_id && String(employee_id) !== String(actor._id)) {
+            const roleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+            const isAdmin = roleNorm === 'ADMIN';
+            const isHOD = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT';
+
+            if (!isAdmin && !isHOD) {
+                return res.status(403).json({ message: 'Unauthorized to preview for others' });
+            }
+            targetId = employee_id;
+        }
 
         if (!leave_policy_id || !from_date) {
             return res.status(400).json({ message: 'Missing required parameters' });
         }
 
+        const targetUser = await UserModel.findById(targetId);
+        if (!targetUser) return res.status(404).json({ message: 'Target user not found' });
+
         const policy = await LeavePolicy.findById(leave_policy_id);
         if (!policy) return res.status(404).json({ message: 'Policy not found' });
 
+        const actualToDate = to_date || from_date;
+
+        // Resolve Week-Off and Holiday policies for accuracy
+        const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(targetUser, moment(from_date).year());
+
+        // Overlap Check
+        const hasOverlap = await checkOverlap(targetId, from_date, actualToDate);
+        if (hasOverlap) {
+            return res.status(400).json({ success: false, message: 'You already have a leave application for these dates.' });
+        }
+
+        const attendanceContext = await buildAttendanceContext({
+            employeeId: targetId,
+            fromDate: from_date,
+            toDate: actualToDate
+        });
+
         const result = await LeaveCalculationService.calculateLeaveDays({
             fromDate: from_date,
-            toDate: to_date || from_date,
+            toDate: actualToDate,
             isHalfDay: is_half_day === 'true',
+            isStartHalfDay: is_start_half_day === 'true',
+            isEndHalfDay: is_end_half_day === 'true',
+            startHalfSession: start_half_session || null,
+            endHalfSession: end_half_session || null,
             policy,
-            company: user.company_id
+            company: targetUser.company_id,
+            weekOffPolicy,
+            holidayPolicy,
+            boundaryContext: attendanceContext.boundaryContext,
+            attendanceRecords: attendanceContext.attendanceRecords,
+            presenceThresholdHours: 4
         });
 
         const currentYear = new Date().getFullYear();
         const balance = await LeaveBalance.findOne({
-            employee_id: user._id,
+            employee_id: targetId,
             leave_policy_id: policy._id,
             year: currentYear
         });
 
         const closing = Number(balance?.closing_balance || (Number(balance?.opening_balance || 0) - Number(balance?.used || 0)));
         const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
-        // Projection now counts against Potential Balance (Opening - Used)
         const primaryBalance = isLwpPolicy ? 0 : closing;
 
         res.json({
@@ -447,8 +577,28 @@ export const previewLeave = async (req, res) => {
 // Apply for Leave
 export const applyLeave = async (req, res) => {
     try {
-        const user = req.user;
-        const { leave_policy_id, from_date, to_date, reason } = req.body;
+        const actor = req.user;
+        const { leave_policy_id, from_date, to_date, reason, employee_id, is_half_day, is_start_half_day, is_end_half_day, start_half_session, end_half_session } = req.body;
+
+        let targetId = actor._id;
+        let user = actor;
+
+        if (employee_id && String(employee_id) !== String(actor._id)) {
+            const roleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+            const isAdmin = roleNorm === 'ADMIN';
+            const isHOD = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT';
+
+            if (!isAdmin && !isHOD) {
+                return res.status(403).json({ message: 'Unauthorized to apply for others' });
+            }
+
+            const employeeFound = await UserModel.findById(employee_id);
+            if (!employeeFound) return res.status(404).json({ message: 'Employee not found' });
+            
+            targetId = employeeFound._id;
+            user = employeeFound;
+        }
+
         const currentYear = new Date().getFullYear();
 
         // Robust ID extraction
@@ -501,23 +651,54 @@ export const applyLeave = async (req, res) => {
             }
         }
 
-        // 2. Smart Day Calculation (including Sandwich Rule)
-        const isHalfDay = req.body.is_half_day === 'true' || req.body.is_half_day === true;
+        // Overlap Check
+        const hasOverlap = await checkOverlap(targetId, from_date, to_date);
+        if (hasOverlap) {
+            return res.status(400).json({ message: 'You already have a leave application for these dates.' });
+        }
+
+        // Fetch attendance context for sandwich and day-level presence checks
+        const start = moment(from_date).startOf('day');
+        const end = moment(to_date).endOf('day');
+        const attendanceContext = await buildAttendanceContext({
+            employeeId: targetId,
+            fromDate: from_date,
+            toDate: to_date
+        });
+
+        // Resolve Policies
+        const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(user, start.year());
+
+        const isHalfDay = is_half_day === 'true' || is_half_day === true;
+        const isStartHalfDay = is_start_half_day === 'true' || is_start_half_day === true;
+        const isEndHalfDay = is_end_half_day === 'true' || is_end_half_day === true;
+
         const calc = await LeaveCalculationService.calculateLeaveDays({
             fromDate: from_date,
             toDate: to_date,
             isHalfDay,
+            isStartHalfDay,
+            isEndHalfDay,
+            startHalfSession: start_half_session || null,
+            endHalfSession: end_half_session || null,
             policy,
-            company: companyId
+            company: companyId,
+            weekOffPolicy,
+            holidayPolicy,
+            boundaryContext: attendanceContext.boundaryContext,
+            attendanceRecords: attendanceContext.attendanceRecords,
+            presenceThresholdHours: 4
         });
 
         const total_days = calc.totalDays;
+
+       
         if (total_days <= 0) {
             return res.status(400).json({ message: 'Invalid date range or no working days selected' });
         }
 
-        const start = moment(from_date).startOf('day');
-        const end = moment(isHalfDay ? from_date : to_date).endOf('day');
+        // const start = moment(from_date).startOf('day');
+        // const end = moment(isHalfDay ? from_date : to_date).endOf('day');
 
         // 4. Check Balance (or Create it if missing)
         let balanceRecord = await LeaveBalance.findOne({
@@ -548,9 +729,8 @@ export const applyLeave = async (req, res) => {
 
         const openingBalance = Number(balanceRecord.opening_balance || 0);
         const usedBalance = Number(balanceRecord.used || 0);
-        const pendingBalance = Number(balanceRecord.pending_approval || 0);
         const actualClosing = Math.max(0, openingBalance - usedBalance);
-        let availableBalance = isUnpaidLeave ? actualClosing : Math.max(0, actualClosing - pendingBalance);
+        let availableBalance = isUnpaidLeave ? actualClosing : actualClosing;
 
         // Auto-convert insufficient paid leave requests to LWP.
         if (!isUnpaidLeave && availableBalance < total_days) {
@@ -716,7 +896,7 @@ export const applyLeave = async (req, res) => {
                 employee_id: user._id,
                 company_id: companyId,
                 department_id: departmentId,
-                team_id: teamId,
+                // team_id: teamId,
                 leave_policy_id: policy._id,
                 leave_type: policy.leave_type,
                 from_date: start.toDate(),
@@ -724,6 +904,10 @@ export const applyLeave = async (req, res) => {
                 total_days,
                 reason,
                 is_half_day: isHalfDay,
+                is_start_half_day: isStartHalfDay,
+                is_end_half_day: isEndHalfDay,
+                start_half_session: isStartHalfDay ? start_half_session : null,
+                end_half_session: isEndHalfDay ? end_half_session : null,
                 contact_during_leave: req.body.contact_during_leave,
                 emergency_contact: req.body.emergency_contact,
                 is_lop: policy.deduction_rules?.deduct_from_salary || false,
@@ -740,7 +924,8 @@ export const applyLeave = async (req, res) => {
                     pending: currentBalance.pending_approval
                 },
                 sandwich_dates: calc.sandwichDays > 0 ? calc.details.filter(d => d.sandwiched).map(d => new Date(d.date)) : [],
-                sandwich_days_count: calc.sandwichDays
+                sandwich_days_count: calc.sandwichDays,
+                breakdown: calc.breakdown
             });
             
             if (isHalfDay && req.body.half_day_session) {
@@ -753,9 +938,6 @@ export const applyLeave = async (req, res) => {
 
             // 8. Update Balance (Lock Pending)
             console.log('[DEBUG] Updating currentBalance...');
-            // Net available = Opening - Used - Pending (reserved for other applications)
-            const totalUsed = (currentBalance.used || 0) + (currentBalance.pending_approval || 0);
-            const available = Math.max(0, (currentBalance.opening_balance || 0) - totalUsed);
             currentBalance.pending_approval += total_days;
             currentBalance.closing_balance = Math.max(0, Number(currentBalance.opening_balance || 0) - Number(currentBalance.used || 0));
             console.log('[DEBUG] Saving balance...');

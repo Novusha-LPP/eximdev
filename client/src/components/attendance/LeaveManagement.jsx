@@ -44,7 +44,9 @@ const LeaveManagement = () => {
 
   const [form, setForm] = useState({
     leave_policy_id: '', from_date: '', to_date: '',
-    reason: '', is_half_day: false, half_day_session: '', attachment: null,
+    reason: '', is_half_day: false, is_start_half_day: false, is_end_half_day: false,
+    start_half_session: 'First Half', end_half_session: 'First Half',
+    half_day_session: '', attachment: null,
   });
 
   const pending = applications.filter(a => a.status === 'pending');
@@ -82,7 +84,11 @@ const LeaveManagement = () => {
             leave_policy_id: form.leave_policy_id,
             from_date: form.from_date,
             to_date: form.is_half_day ? form.from_date : form.to_date,
-            is_half_day: form.is_half_day.toString()
+            is_half_day: form.is_half_day.toString(),
+            is_start_half_day: form.is_start_half_day.toString(),
+            is_end_half_day: form.is_end_half_day.toString(),
+            start_half_session: form.start_half_session,
+            end_half_session: form.end_half_session
           });
           
           if (res.success) {
@@ -101,7 +107,7 @@ const LeaveManagement = () => {
 
     const timer = setTimeout(getPreview, 500); // 500ms debounce
     return () => clearTimeout(timer);
-  }, [form.leave_policy_id, form.from_date, form.to_date, form.is_half_day]);
+  }, [form.leave_policy_id, form.from_date, form.to_date, form.is_half_day, form.is_start_half_day, form.is_end_half_day]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,6 +119,10 @@ const LeaveManagement = () => {
       fd.append('to_date', form.is_half_day ? form.from_date : form.to_date);
       fd.append('reason', form.reason);
       fd.append('is_half_day', form.is_half_day);
+      fd.append('is_start_half_day', form.is_start_half_day);
+      fd.append('is_end_half_day', form.is_end_half_day);
+      fd.append('start_half_session', form.start_half_session);
+      fd.append('end_half_session', form.end_half_session);
       if (form.is_half_day && form.half_day_session) fd.append('half_day_session', form.half_day_session);
       if (form.attachment) fd.append('attachment', form.attachment);
 
@@ -120,7 +130,7 @@ const LeaveManagement = () => {
       toast.success('Leave application submitted');
       setShowModal(false);
       fetchData();
-      setForm({ leave_policy_id: '', from_date: '', to_date: '', reason: '', is_half_day: false, half_day_session: '', attachment: null });
+      setForm({ leave_policy_id: '', from_date: '', to_date: '', reason: '', is_half_day: false, is_start_half_day: false, is_end_half_day: false, start_half_session: 'First Half', end_half_session: 'First Half', half_day_session: '', attachment: null });
     } catch (err) { toast.error(err?.response?.data?.message || 'Failed to submit'); }
     finally { setSubmitting(false); }
   };
@@ -241,8 +251,8 @@ const LeaveManagement = () => {
           {balances.map(b => {
             const total = b.opening_balance || b.total || b.annual_quota || 0;
             const used = b.used ?? 0;
-            // The server now returns 'available' as Opening - Used - Pending (Net)
-            const availableDisplay = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (total - used - (b.pending || 0)));
+            // The server now returns 'available' as Opening - Used (Gross)
+            const availableDisplay = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (total - used));
             const pend = b.pending || 0;
             const usedPct = total > 0 ? (used / total) * 100 : 0;
             const exhausted = (total - used) <= 0 && !isLwpPolicy(b);
@@ -543,20 +553,67 @@ const LeaveManagement = () => {
               {/* Half day toggle */}
               <div className="toggle-row">
                 <div>
-                  <div className="toggle-txt">Half Day Leave</div>
+                  <div className="toggle-txt">Single Day Half Day</div>
                   <div style={{ fontSize: '.6875rem', color: '#9ca3af', marginTop: 2 }}>
-                    {form.is_half_day ? 'Select one date only' : 'Select a date range'}
+                    {form.is_half_day ? 'Select one date only' : 'Work half on first/last day?'}
                   </div>
                 </div>
                 <label className="sw">
                   <input
                     type="checkbox"
                     checked={form.is_half_day}
-                    onChange={e => setForm({ ...form, is_half_day: e.target.checked, to_date: '', half_day_session: '' })}
+                    onChange={e => setForm({ ...form, is_half_day: e.target.checked, is_start_half_day: false, is_end_half_day: false, to_date: '', half_day_session: '' })}
                   />
                   <span className="sw-slider" />
                 </label>
               </div>
+
+              {!form.is_half_day && form.from_date && form.to_date && form.from_date !== form.to_date && (
+                <div className="ani-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: '#f8fafc', borderRadius: '8px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input 
+                                type="checkbox" 
+                                id="st-half"
+                                checked={form.is_start_half_day}
+                                onChange={e => setForm(v => ({ ...v, is_start_half_day: e.target.checked }))}
+                            />
+                            <label htmlFor="st-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Starts with Half Day</label>
+                        </div>
+                        {form.is_start_half_day && (
+                            <select 
+                                style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                value={form.start_half_session}
+                                onChange={e => setForm(v => ({ ...v, start_half_session: e.target.value }))}
+                            >
+                                <option value="First Half">First Half</option>
+                                <option value="Second Half">Second Half</option>
+                            </select>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input 
+                                type="checkbox" 
+                                id="en-half"
+                                checked={form.is_end_half_day}
+                                onChange={e => setForm(v => ({ ...v, is_end_half_day: e.target.checked }))}
+                            />
+                            <label htmlFor="en-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Ends with Half Day</label>
+                        </div>
+                        {form.is_end_half_day && (
+                            <select 
+                                style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                value={form.end_half_session}
+                                onChange={e => setForm(v => ({ ...v, end_half_session: e.target.value }))}
+                            >
+                                <option value="First Half">First Half</option>
+                                <option value="Second Half">Second Half</option>
+                            </select>
+                        )}
+                    </div>
+                </div>
+              )}
 
               {/* Dates */}
               {form.is_half_day ? (
@@ -614,25 +671,53 @@ const LeaveManagement = () => {
 
               {/* Projected Balance Preview */}
               {form.leave_policy_id && form.from_date && (form.to_date || form.is_half_day) && (
-                <div className={`projection-card ani-in${loadingPreview ? ' loading' : ''}`}>
+                <div className={`projection-card ani-in${loadingPreview ? ' loading' : ''}`} style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '15px' }}>
                   {loadingPreview ? (
-                    <div className="proj-loader">Calculating remaining balance...</div>
+                    <div className="proj-loader" style={{ textAlign: 'center', color: '#64748b', fontSize: '12px' }}>Calculating remaining balance...</div>
                   ) : preview ? (
-                    isLwpPolicy(selectedPolicy) ? (
-                      <div className="proj-row final">
-                        <span>Remaining Balance:</span>
-                        <span className="final-val">Unlimited</span>
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '13px', color: '#64748b' }}>Total Range:</span>
+                        <strong style={{ fontSize: '13px' }}>{preview.breakdown?.total_range} Days</strong>
                       </div>
-                    ) : (
-                      <div className="proj-row final">
-                        <span>Remaining Balance:</span>
-                        <span className="final-val">
-                          {preview.projected_balance} days
+                      
+                      {preview.breakdown?.holiday_days > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', opacity: 0.8 }}>
+                          <span>Holidays Included:</span>
+                          <span>{preview.breakdown?.holiday_days} Days</span>
+                        </div>
+                      )}
+
+                      {preview.breakdown?.weekly_off_days > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', opacity: 0.8 }}>
+                          <span>Week-Offs Included:</span>
+                          <span>{preview.breakdown?.weekly_off_days} Days</span>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '13px', color: '#64748b' }}>Applied Leave (Deducted):</span>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>
+                          -{preview.totalDays} Days
+                          {preview.sandwichDays > 0 ? (
+                            <small style={{ color: '#ef4444', marginLeft: '4px' }}> (Sandwich)</small>
+                          ) : (
+                            <small style={{ color: '#10b981', marginLeft: '4px' }}> (No Sandwich)</small>
+                          )}
                         </span>
                       </div>
-                    )
+
+                      <div style={{ height: '1px', background: '#e2e8f0', margin: '8px 0' }} />
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '600' }}>Projected Balance:</span>
+                        <span style={{ fontSize: '16px', fontWeight: '800', color: '#2563eb' }}>
+                          {isLwpPolicy(selectedPolicy) ? 'Unlimited' : `${preview.projected_balance} Days`}
+                        </span>
+                      </div>
+                    </>
                   ) : (
-                    <div className="proj-error">Select a valid date range</div>
+                    <div className="proj-error" style={{ textAlign: 'center', color: '#ef4444', fontSize: '12px' }}>Select a valid date range</div>
                   )}
                 </div>
               )}

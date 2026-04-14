@@ -10,6 +10,7 @@ import attendanceAPI from '../../../api/attendance/attendance.api';
 import leaveAPI from '../../../api/attendance/leave.api';
 import masterAPI from '../../../api/attendance/master.api';
 import { formatTime12Hr, minutesToHours, formatDate } from '../../attendance/utils/helpers';
+import AdminApplyLeaveModal from './AdminApplyLeaveModal';
 import './EmployeeProfilePerformance.css';
 
 // Theme colors matching AttendanceManagement
@@ -61,7 +62,7 @@ const inputStyle = {
 };
 
 const toWhole = (value) => Math.max(0, Math.floor(Number(value) || 0));
-const NON_WORKING_STATUSES = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
+const NON_WORKING_STATUSES = new Set(['absent', 'leave', 'pending_leave', 'weekly_off', 'holiday']);
 
 const isNonWorkingStatus = (status) => NON_WORKING_STATUSES.has(String(status || '').toLowerCase());
 
@@ -90,6 +91,7 @@ const getCalendarStatusClass = (status = '') => {
   const normalized = String(status || '').toLowerCase();
   if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
   if (normalized === 'present_late') return 'late';
+  if (normalized === 'pending_leave') return 'leave';
   return normalized || 'none';
 };
 
@@ -105,17 +107,26 @@ const getCalendarStatusBadge = (status = '') => {
       late: 'P',
       present_late: 'P',
       absent: 'Absent',
-      present: 'P'
+      present: 'P',
+      pending_leave: 'Pending LV'
   };
   return map[normalized] || '';
 };
 
 const StatusPill = ({ status, session }) => {
-  const map = { present: ['Present', 'present'], absent: ['Absent', 'absent'], leave: ['Leave', 'leave'], half_day: ['Half Day', 'half-day'], weekly_off: ['Off', 'off'], holiday: ['Holiday', 'holiday'] };
+  const map = { 
+    present: ['Present', 'present'], 
+    absent: ['Absent', 'absent'], 
+    leave: ['Leave', 'leave'], 
+    pending_leave: ['Leave', 'leave'],
+    half_day: ['Half Day', 'half-day'], 
+    weekly_off: ['Off', 'off'], 
+    holiday: ['Holiday', 'holiday'] 
+  };
   const [label, cls] = map[status] || [status, 'default'];
   return (
       <span className={`ar-status-pill ar-pill-${cls}`}>
-          {status === 'half_day' ? (session ? (session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
+          {status === 'half_day' ? (session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
       </span>
   );
 };
@@ -178,6 +189,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [groupBy, setGroupBy] = useState('none'); // 'none', 'organization', 'team'
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leavePolicies, setLeavePolicies] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -282,6 +294,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [weekOffPolicies, setWeekOffPolicies] = useState([]);
   const [holidayPolicies, setHolidayPolicies] = useState([]);
   const [shiftPolicies, setShiftPolicies] = useState([]);
+  console.log()
   const [bulkPolicyForm, setBulkPolicyForm] = useState({
     weekoff_policy_id: '',
     holiday_policy_id: '',
@@ -373,7 +386,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         stats.present += 1;
       }
       if (status === 'absent') stats.absent += 1;
-      if (status === 'leave') stats.leaves += 1;
+      if (status === 'leave' || status === 'pending_leave') stats.leaves += 1;
       if (status === 'weekly_off') stats.weeklyOff += 1;
       if (status === 'holiday') stats.holidays += 1;
     });
@@ -392,34 +405,58 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     return stats;
   }, [empHistory, profile?.summary, profile?.holidays]);
 
+  const leaveHistory = useMemo(() => {
+    const approved = Array.isArray(profile?.leaves) ? profile.leaves : [];
+    const pending = Array.isArray(profile?.pendingLeaves) ? profile.pendingLeaves : [];
+
+    return [...approved, ...pending]
+      .filter((leave) => {
+        const status = String(leave?.approval_status || leave?.status || '').toLowerCase();
+        return !['rejected', 'cancelled', 'withdrawn'].includes(status);
+      })
+      .sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
+  }, [profile?.leaves, profile?.pendingLeaves]);
+
   const visibleShiftPolicies = useMemo(() => {
-    const employeeCompanyId = String(profile?.employee?.company_id?._id || profile?.employee?.company_id || '');
     const seen = new Set();
 
-    return (shiftPolicies || []).filter((shift) => {
-      const name = String(shift?.shift_name || '').trim();
+    const normalized = (shiftPolicies || []).filter((shift) => {
+      const name = String(shift?.shift_name || shift?.name || '').trim();
       if (!name) return false;
-      if (name.toLowerCase() === 'standard shift') return false;
+      const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (normalizedName === 'standard shift') return false;
 
       // Keep only active shifts where possible
       const status = String(shift?.status || '').toLowerCase();
-      const isActiveFlag = shift?.isActive;
+      const isActiveFlag = (typeof shift?.isActive === 'boolean') ? shift.isActive : shift?.is_active;
       if (status && status !== 'active') return false;
       if (typeof isActiveFlag === 'boolean' && !isActiveFlag) return false;
 
-      // In individual assignment, show shifts relevant to employee's company
-      const shiftCompanyId = String(shift?.company_id?._id || shift?.company_id || shift?.companyId?._id || shift?.companyId || '');
-      if (employeeCompanyId && shiftCompanyId && shiftCompanyId !== employeeCompanyId) return false;
-
       // De-duplicate by shift identity and equivalent timing signature
       const timingSignature = `${String(shift?.start_time || '')}-${String(shift?.end_time || '')}-${String(shift?.full_day_hours || shift?.fullDayHours || '')}`;
-      const normalizedName = name.toLowerCase().replace(/\s+/g, ' ').trim();
       const key = `${normalizedName}|${timingSignature}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-      });
-  }, [shiftPolicies, profile?.employee?.company_id]);
+    });
+
+    return normalized;
+  }, [shiftPolicies]);
+
+  const resolveShiftPolicyId = (employee, overrideShiftId = '') => {
+    const assignedShiftRef = Array.isArray(employee?.shift_ids) && employee.shift_ids.length > 0
+      ? employee.shift_ids[0]
+      : employee?.shift_id;
+
+    const resolved = assignedShiftRef?._id || assignedShiftRef || overrideShiftId?._id || overrideShiftId || '';
+    return resolved ? String(resolved) : '';
+  };
+
+  const policyShiftOptions = useMemo(() => {
+    return (visibleShiftPolicies || [])
+      .map((shift) => ({ ...shift, _id: String(shift?._id || '') }))
+      .filter((shift) => shift._id);
+  }, [visibleShiftPolicies]);
 
   const assignedShiftOptions = useMemo(() => {
     const employee = profile?.employee || {};
@@ -456,7 +493,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const statusNormalized = String(statusValue || '').toLowerCase();
     const selectedShift = assignedShiftOptions.find((s) => String(s._id) === String(shiftIdValue)) || assignedShiftOptions[0] || null;
 
-    if (statusNormalized === 'absent' || statusNormalized === 'leave' || statusNormalized === 'weekly_off' || statusNormalized === 'holiday') {
+    if (statusNormalized === 'absent' || statusNormalized === 'leave' || statusNormalized === 'pending_leave' || statusNormalized === 'weekly_off' || statusNormalized === 'holiday') {
         return { ...form, status: statusNormalized, first_in: '', last_out: '' };
     }
 
@@ -586,13 +623,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     }
 
     setSaving(true);
-    try {
-      const payload = {
-        ...editForm,
-        apply_status_correction: mode === 'status_correction',
-        apply_time_correction: mode === 'time_correction'
-      };
+    const payload = {
+      ...editForm,
+      status: editForm.status === 'pending_leave' ? 'leave' : editForm.status,
+      apply_status_correction: mode === 'status_correction',
+      apply_time_correction: mode === 'time_correction'
+    };
 
+    try {
         if (editingId === 'new') {
         await attendanceAPI.createManualAdjustment(payload);
         } else {
@@ -607,11 +645,48 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             fetchData();
         }
     } catch (err) {
-        const apiErrorCode = err?.response?.data?.error;
+        const apiErrorCode = err?.response?.data?.error || err?.response?.data?.code;
         const apiMessage = String(err?.response?.data?.message || '').toLowerCase();
         const shouldAutoSwitchToTimeUnchanged =
             apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
             (apiMessage.includes('time correction is not applicable') && apiMessage.includes('status'));
+
+        if (apiErrorCode === 'PENDING_LEAVE_ACTION_REQUIRED') {
+          const conflict = err?.response?.data?.pending_leave;
+          const fromDate = conflict?.from_date ? moment(conflict.from_date).format('DD MMM YYYY') : 'the selected date';
+          const toDate = conflict?.to_date ? moment(conflict.to_date).format('DD MMM YYYY') : '';
+          const leaveLabel = conflict?.leave_type || conflict?.policy_name || 'leave';
+          const detail = toDate && fromDate !== toDate ? `${fromDate} to ${toDate}` : fromDate;
+          const retryWithOverride = window.confirm(`Pending ${leaveLabel} exists for ${detail}. Approve/reject/withdraw first, or force override this attendance change?`);
+
+          if (retryWithOverride) {
+            try {
+              setSaving(true);
+              const overridePayload = { ...payload, force_override: true };
+              if (editingId === 'new') {
+                await attendanceAPI.createManualAdjustment(overridePayload);
+              } else {
+                await attendanceAPI.updateAttendanceRecord(editingId, overridePayload);
+              }
+              toast.success('Record updated with override');
+              setEditingId(null);
+              if (tab === 'performance') {
+                fetchBrowseHistory(browseMonth, browseYear);
+              } else {
+                fetchData();
+              }
+              return;
+            } catch (overrideErr) {
+              toast.error(overrideErr?.response?.data?.message || 'Override failed');
+              return;
+            } finally {
+              setSaving(false);
+            }
+          }
+
+          toast.error(err?.response?.data?.message || 'Pending leave must be resolved before editing attendance');
+          return;
+        }
 
         if (shouldAutoSwitchToTimeUnchanged) {
             setAutoSwitchHintShown(true);
@@ -659,15 +734,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
     const employee = profile.employee;
     const overrides = employee.policy_overrides || {};
-    const resolvePolicyId = (directValue, overrideValue) =>
-      directValue?._id || directValue || overrideValue?._id || overrideValue || '';
+    const resolvedShiftId = resolveShiftPolicyId(employee, overrides.shift_id);
+    const shiftExists = policyShiftOptions.some((shift) => String(shift._id) === String(resolvedShiftId));
 
     setPolicyForm({
-      weekoff_policy_id: resolvePolicyId(employee.weekoff_policy_id, overrides.weekoff_policy_id),
-      holiday_policy_id: resolvePolicyId(employee.holiday_policy_id, overrides.holiday_policy_id),
-      shift_id: resolvePolicyId(employee.shift_id, overrides.shift_id)
+      weekoff_policy_id: employee.weekoff_policy_id?._id || employee.weekoff_policy_id || overrides.weekoff_policy_id?._id || overrides.weekoff_policy_id || '',
+      holiday_policy_id: employee.holiday_policy_id?._id || employee.holiday_policy_id || overrides.holiday_policy_id?._id || overrides.holiday_policy_id || '',
+      shift_id: shiftExists ? resolvedShiftId : ''
     });
-  }, [profile]);
+  }, [profile, policyShiftOptions]);
 
   const hasSavedIndividualPolicy = useMemo(() => {
     const e = profile?.employee;
@@ -755,9 +830,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       }
     };
 
-    if (!id) {
-      fetchOrganizations();
-    }
+    fetchOrganizations();
   }, [id]);
 
   // ─── Fetch Employees ───
@@ -810,18 +883,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         setWeekOffPolicies(Array.isArray(weekOffRes?.data) ? weekOffRes.data : []);
         setHolidayPolicies(Array.isArray(holidayRes?.data) ? holidayRes.data : []);
         const shifts = Array.isArray(shiftRes?.data) ? shiftRes.data : [];
-
-        const assignedShift = profile?.employee?.shift_id;
-        const assignedShiftId = assignedShift?._id || assignedShift;
-        const assignedShiftExists = assignedShiftId
-          ? shifts.some((shift) => String(shift._id) === String(assignedShiftId))
-          : true;
-
-        if (!assignedShiftExists && assignedShift && assignedShift?._id) {
-          setShiftPolicies([assignedShift, ...shifts]);
-        } else {
-          setShiftPolicies(shifts);
-        }
+        setShiftPolicies(shifts);
       } catch {
         setLeavePolicies([]);
         setWeekOffPolicies([]);
@@ -1034,6 +1096,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     } finally {
       setBulkPolicyLoading(false);
     }
+    
   };
 
   if (loading) {
@@ -1931,6 +1994,22 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       >
                         {applyingFullMonth ? 'Processing...' : 'Mark Full Month Present'}
                       </button>
+                      
+                      <button
+                        onClick={() => setShowLeaveModal(true)}
+                        style={{
+                          ...buttonStyle,
+                          width: '100%',
+                          background: '#fff',
+                          color: THEME.navy,
+                          border: `1px solid ${THEME.border}`,
+                          fontSize: '12px',
+                          fontWeight: '700'
+                        }}
+                      >
+                        📬 Apply Leave on Behalf
+                      </button>
+
                       <p style={{ margin: 0, fontSize: '11px', color: THEME.muted, lineHeight: 1.5 }}>
                         This will mark all working days in this month as present with standard shift times.
                       </p>
@@ -2100,17 +2179,25 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           <div style={{ ...cardStyle, padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h3 style={{ margin: 0, fontSize: '14px' }}>💰 Leave Balance</h3>
-              {!showLeaveBalanceForm && (
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
-                  onClick={() => {
-                    setBalanceForm({ leave_policy_id: '', opening_balance: 0, used: 0, pending: 0 });
-                    setShowLeaveBalanceForm(true);
-                  }} 
-                  style={{ ...buttonStyle, background: THEME.green, color: '#fff', padding: '6px 12px', fontSize: '12px' }}
+                  onClick={() => setShowLeaveModal(true)}
+                  style={{ ...buttonStyle, background: THEME.navy, color: '#fff', padding: '6px 12px', fontSize: '12px' }}
                 >
-                  + Add
+                  Apply Leave
                 </button>
-              )}
+                {!showLeaveBalanceForm && (
+                  <button 
+                    onClick={() => {
+                      setBalanceForm({ leave_policy_id: '', opening_balance: 0, used: 0, pending: 0 });
+                      setShowLeaveBalanceForm(true);
+                    }} 
+                    style={{ ...buttonStyle, background: THEME.green, color: '#fff', padding: '6px 12px', fontSize: '12px' }}
+                  >
+                    + Add
+                  </button>
+                )}
+              </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
@@ -2188,7 +2275,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   </tr>
                 </thead>
                 <tbody>
-                  {(profile.leaves || []).map((l) => (
+                  {leaveHistory.map((l) => (
                     <tr key={l._id} style={{ borderBottom: `1px solid ${THEME.border}` }}>
                       <td style={{ padding: '6px 8px' }}>{l.leave_type || l.leave_policy_id?.policy_name || 'Leave'}</td>
                       <td style={{ padding: '6px 8px' }}>{l.from_date ? new Date(l.from_date).toLocaleDateString() : '--'}</td>
@@ -2196,7 +2283,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       <td style={{ padding: '6px 8px' }}><span style={{ background: THEME.bg, padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>{l.approval_status || l.status || '--'}</span></td>
                     </tr>
                   ))}
-                  {(profile.leaves || []).length === 0 && (
+                  {leaveHistory.length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ padding: '12px', textAlign: 'center', color: THEME.muted }}>No leave history</td>
                     </tr>
@@ -2254,7 +2341,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     style={{ ...inputStyle, padding: '12px', background: isEditingPolicy ? '#fff' : '#f8fafc', flex: 1, cursor: isEditingPolicy ? 'default' : 'not-allowed' }}
                   >
                     {!policyForm.shift_id && <option value="">Select Shift Policy...</option>}
-                    {visibleShiftPolicies.map((p) => (
+                    {policyShiftOptions.map((p) => (
                       <option key={p._id} value={p._id}>{p.shift_name}</option>
                     ))}
                   </select>
@@ -2284,12 +2371,10 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         // Reset form to profile data
                         const employee = profile.employee;
                         const overrides = employee.policy_overrides || {};
-                        const resolvePolicyId = (directValue, overrideValue) =>
-                          directValue?._id || directValue || overrideValue?._id || overrideValue || '';
                         setPolicyForm({
-                          weekoff_policy_id: resolvePolicyId(employee.weekoff_policy_id, overrides.weekoff_policy_id),
-                          holiday_policy_id: resolvePolicyId(employee.holiday_policy_id, overrides.holiday_policy_id),
-                          shift_id: resolvePolicyId(employee.shift_id, overrides.shift_id)
+                          weekoff_policy_id: employee.weekoff_policy_id?._id || employee.weekoff_policy_id || overrides.weekoff_policy_id?._id || overrides.weekoff_policy_id || '',
+                          holiday_policy_id: employee.holiday_policy_id?._id || employee.holiday_policy_id || overrides.holiday_policy_id?._id || overrides.holiday_policy_id || '',
+                          shift_id: resolveShiftPolicyId(employee, overrides.shift_id)
                         });
                       }}
                       style={{
@@ -2475,7 +2560,19 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             )}
           </div>
         </div>
-      )}        {/* Record Adjustment Modal */}
+      )}        {/* Leave Modal */}
+        <AdminApplyLeaveModal 
+          isOpen={showLeaveModal}
+          onClose={() => setShowLeaveModal(false)}
+          employeeId={id}
+          employeeName={employeeName}
+          onSuccess={() => {
+            fetchData();
+            fetchBrowseHistory();
+          }}
+        />
+
+        {/* Record Adjustment Modal */}
         {editingId && (
             <div className="ar-modal-overlay" onClick={() => setEditingId(null)}>
                 <div className="ar-modal-card" onClick={(e) => e.stopPropagation()}>

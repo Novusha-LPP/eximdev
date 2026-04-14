@@ -22,11 +22,15 @@ export const BranchProvider = ({ children }) => {
 
                 // If user is not admin and has specific branches, and current selection is 'all'
                 // or current selection is not in the assigned branches, auto-select the first one
+                // ONLY if they have only one branch. If they have multiple, allow 'all'.
                 if (user.role !== 'Admin' && fetchedBranches.length > 0) {
-                    const isAllSelected = selectedBranchGroup === 'all';
-                    const isCurrentSelectionValid = fetchedBranches.some(b => b.branch_code === selectedBranchGroup);
+                    const uniqueBranchCodes = new Set(fetchedBranches.map(b => b.branch_code));
+                    const hasMultipleBranches = uniqueBranchCodes.size > 1;
 
-                    if (isAllSelected || !isCurrentSelectionValid) {
+                    const isAllSelected = selectedBranchGroup === 'all';
+                    const isCurrentSelectionValid = isAllSelected || fetchedBranches.some(b => b.branch_code === selectedBranchGroup);
+
+                    if ((isAllSelected && !hasMultipleBranches) || !isCurrentSelectionValid) {
                         const firstBranch = fetchedBranches[0];
                         setSelectedBranchGroup(firstBranch.branch_code);
                         setSelectedCategory(firstBranch.category);

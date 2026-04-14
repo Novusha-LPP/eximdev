@@ -25,6 +25,7 @@ router.get(
         freeTimeFilter, // ✅ Extract freeTimeFilter param
         branchId, // ✅ Extract branchId param
         category, // ✅ Extract category param
+        beNoFilter, // ✅ Extract beNoFilter param
       } = req.query;
 
       const pageNumber = parseInt(page, 10);
@@ -138,6 +139,13 @@ router.get(
         baseQuery.$and.push({ free_time: 0 });
       } else if (freeTimeFilter === "moreThanZero") {
         baseQuery.$and.push({ free_time: { $gt: 0 } });
+      }
+
+      // ✅ Apply BE No Filter if Provided
+      if (beNoFilter === "withBeNo") {
+        baseQuery.$and.push({ be_no: { $exists: true, $ne: "", $nin: [null, "N/A"] } });
+      } else if (beNoFilter === "withoutBeNo") {
+        baseQuery.$and.push({ $or: [{ be_no: { $exists: false } }, { be_no: "" }, { be_no: null }, { be_no: "N/A" }] });
       }
 
       // 🚨 Emergency Criteria Definition

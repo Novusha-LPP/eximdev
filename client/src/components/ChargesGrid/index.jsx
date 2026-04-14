@@ -71,8 +71,8 @@ const ChargesGrid = ({
         parentModule,
         chargeHead: finalName,
         category: head.category,
-        revenue: {},
-        cost: {},
+        revenue: { isGst: true },
+        cost: { isGst: true },
         copyToCost: true
       };
     });

@@ -1,10 +1,11 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { context } from "../utils/context.mjs";
+import UserBranchModel from "../model/userBranchModel.mjs";
 
 dotenv.config();
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
     // Check for token in cookies or Authorization header
     let token = req.cookies.token;
     
@@ -23,8 +24,20 @@ const verifyToken = (req, res, next) => {
         const verified = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod");
         req.user = verified;
 
+        // Fetch authorized branches for non-admin users
+        if (verified.role !== 'Admin') {
+            try {
+                const userId = verified.username || verified._id;
+                const assignments = await UserBranchModel.find({ user_id: userId });
+                req.user.authorizedBranchIds = assignments.map(a => a.branch_id.toString());
+            } catch (err) {
+                console.error("Error fetching branch assignments in authMiddleware:", err);
+                req.user.authorizedBranchIds = [];
+            }
+        }
+
         // Run subsequent middleware and controller in the user context
-        context.run({ user: verified, req }, next);
+        context.run({ user: req.user, req }, next);
     } catch (err) {
         return res.status(403).json({ message: "Invalid Token" });
     }

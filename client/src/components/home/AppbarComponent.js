@@ -135,7 +135,7 @@ function AppbarComponent(props) {
                 "& .MuiOutlinedInput-notchedOutline": { border: "none" },
               }}
             >
-              {(isAdmin || branches.length === 0) && (
+              {(isAdmin || branches.length === 0 || uniqueBranches.length > 1) && (
                 <MenuItem value="all">
                   <em>All Branches</em>
                 </MenuItem>

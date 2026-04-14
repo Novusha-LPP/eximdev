@@ -436,7 +436,7 @@ function BillingSheet() {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,
-      size: 150,
+      size: 220,
       Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
     },
   ];

@@ -641,6 +641,76 @@ export const migrateUser = async (req, res) => {
   }
 };
 
+/**
+ * Get migration history for a specific organization
+ */
+export const getOrganizationMigrationHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find logs where this company is source or destination
+    const migrationLogs = await ActivityLog.find({
+      action: { $in: ['MIGRATE_EMPLOYEE', 'MIGRATE_USER'] },
+      $or: [
+        { 'metadata.sourceCompanyId': id },
+        { 'metadata.destinationCompanyId': id },
+        { 'metadata.sourceOrgId': id },
+        { 'metadata.destinationOrgId': id },
+        { 'metadata.targetCompanyId': id }
+      ]
+    })
+    .populate('user_id', 'first_name last_name username')
+    .sort({ createdAt: -1 })
+    .lean();
+
+    // Get all unique employee IDs involved
+    const employeeIds = [...new Set(migrationLogs.map(log => log.metadata?.employeeId || log.metadata?.userId).filter(Boolean))];
+    const employees = await User.find({ _id: { $in: employeeIds } }).select('first_name last_name employee_code username').lean();
+    const employeeMap = new Map(employees.map(u => [String(u._id), u]));
+
+    // Get all unique company IDs involved for mapping names
+    const companyIds = new Set();
+    migrationLogs.forEach(log => {
+      const sid = log.metadata?.sourceCompanyId || log.metadata?.sourceOrgId;
+      const did = log.metadata?.destinationCompanyId || log.metadata?.destinationOrgId || log.metadata?.targetCompanyId;
+      if (sid) companyIds.add(String(sid));
+      if (did) companyIds.add(String(did));
+    });
+    
+    const companies = await Company.find({ _id: { $in: Array.from(companyIds) } }).select('company_name').lean();
+    const companyMap = new Map(companies.map(c => [String(c._id), c.company_name]));
+
+    const history = migrationLogs.map(log => {
+      const metadata = log.metadata || {};
+      const eid = metadata.employeeId || metadata.userId;
+      const employee = employeeMap.get(String(eid));
+      const sourceId = metadata.sourceCompanyId || metadata.sourceOrgId;
+      const destId = metadata.destinationCompanyId || metadata.destinationOrgId || metadata.targetCompanyId;
+
+      return {
+        _id: log._id,
+        action: log.action,
+        migratedAt: log.createdAt,
+        migratedBy: {
+          name: [log.user_id?.first_name, log.user_id?.last_name].filter(Boolean).join(' ') || log.user_id?.username || 'System'
+        },
+        employee: {
+          _id: eid,
+          name: employee ? [employee.first_name, employee.last_name].filter(Boolean).join(' ') : (metadata.employeeName || 'Unknown'),
+          code: employee?.employee_code || 'N/A'
+        },
+        source: metadata.sourceCompanyName || companyMap.get(String(sourceId)) || 'Unknown',
+        destination: metadata.destinationCompanyName || metadata.targetCompanyName || companyMap.get(String(destId)) || 'Unknown',
+        details: log.details
+      };
+    });
+
+    res.json({ success: true, data: history });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 
 export const getUsers = async (req, res) => {

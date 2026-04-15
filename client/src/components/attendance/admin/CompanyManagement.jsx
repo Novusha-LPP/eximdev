@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX } from 'react-icons/fi';
 import { Modal } from 'antd';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
@@ -7,7 +7,7 @@ import UserMigrationModal from './UserMigrationModal';
 import axios from 'axios';
 import './CompanyManagement.css';
 
-const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, users = [], expanded, onToggleExpand }) => {
+const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, users = [], expanded, onToggleExpand }) => {
     const branchCount = Array.isArray(company.branch_ids) ? company.branch_ids.length : 0;
 
     return (
@@ -20,6 +20,9 @@ const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, users = [], exp
                 <div className="cm-card-actions">
                     <button className="cm-icon-btn" onClick={() => onEdit(company)} title="Edit Configuration">
                         <FiEdit size={14} />
+                    </button>
+                    <button className="cm-icon-btn" onClick={() => onViewHistory(company)} title="Migration History">
+                        <FiClock size={14} />
                     </button>
                     <button className="cm-icon-btn delete" onClick={() => onDelete(company._id)} title="Delete Company">
                         <FiTrash2 size={14} />
@@ -97,6 +100,7 @@ const CompanyManagement = () => {
     const [expandedCompany, setExpandedCompany] = useState(null);
     const [modal, setModal] = useState({ open: false, type: 'add', record: null });
     const [migrationModal, setMigrationModal] = useState({ open: false, user: null });
+    const [historyModal, setHistoryModal] = useState({ open: false, company: null, logs: [], loading: false });
     const [searchTerm, setSearchTerm] = useState('');
     const [policyFilter, setPolicyFilter] = useState('all');
     const [form, setForm] = useState({
@@ -267,7 +271,7 @@ const CompanyManagement = () => {
                 </div>
             </div>
 
-            <div className="cm-toolbar">
+            <div className="cm-toolbar" style={{ justifyContent: 'center' }}>
                 <div className="cm-search-wrap">
                     <FiSearch size={15} />
                     <input
@@ -296,6 +300,16 @@ const CompanyManagement = () => {
                         onEdit={openModal.bind(null, 'edit')}
                         onDelete={handleDelete}
                         onMigrateUser={(user) => setMigrationModal({ open: true, user })}
+                        onViewHistory={async (comp) => {
+                            setHistoryModal({ open: true, company: comp, logs: [], loading: true });
+                            try {
+                                const res = await masterAPI.getOrganizationMigrationHistory(comp._id);
+                                setHistoryModal(prev => ({ ...prev, logs: res?.data || [], loading: false }));
+                            } catch (err) {
+                                toast.error("Failed to fetch migration history");
+                                setHistoryModal(prev => ({ ...prev, loading: false }));
+                            }
+                        }}
                     />
                 ))}
             </div>
@@ -415,6 +429,75 @@ const CompanyManagement = () => {
                 companies={companies}
                 onMigrate={handleMigrate}
             />
+
+            {/* History Modal */}
+            {historyModal.open && (
+                <div className="cm-modal-overlay" onClick={() => setHistoryModal({ open: false })}>
+                    <div className="cm-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px' }}>
+                        <div className="cm-modal-header">
+                            <div>
+                                <h2 style={{ marginBottom: '4px' }}>Migration History</h2>
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Logs for {historyModal.company?.company_name}</p>
+                            </div>
+                            <button className="cm-modal-close" onClick={() => setHistoryModal({ open: false })}><FiX size={20} /></button>
+                        </div>
+                        <div className="cm-modal-body">
+                            {historyModal.loading ? (
+                                <div style={{ padding: '40px', textAlign: 'center' }}>Loading history...</div>
+                            ) : historyModal.logs.length === 0 ? (
+                                <div className="cm-empty-state">
+                                    <h3>No migration logs found</h3>
+                                    <p>Users haven't been migrated into or out of this organization yet.</p>
+                                </div>
+                            ) : (
+                                <table className="cm-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Employee</th>
+                                            <th>Migration Path</th>
+                                            <th>Date & Executed By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {historyModal.logs.map(log => (
+                                            <tr key={log._id}>
+                                                <td>
+                                                    <div className="cm-history-employee">
+                                                        <strong>{log.employee.name}</strong>
+                                                        <span>{log.employee.code}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className="cm-history-arrow">
+                                                        <span style={{ color: log.source === historyModal.company?.company_name ? '#dc2626' : 'inherit' }}>
+                                                            {log.source}
+                                                        </span>
+                                                        <FiArrowRight className="fi-arrow" />
+                                                        <span style={{ color: log.destination === historyModal.company?.company_name ? '#16a34a' : 'inherit', fontWeight: log.destination === historyModal.company?.company_name ? 600 : 400 }}>
+                                                            {log.destination}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className="cm-history-date">
+                                                        {new Date(log.migratedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </div>
+                                                    <div className="cm-history-actor">
+                                                        By {log.migratedBy.name}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <div className="cm-modal-footer">
+                            <button className="cm-btn cm-btn-secondary" onClick={() => setHistoryModal({ open: false })}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

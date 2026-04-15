@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiCheckSquare, FiCheck, FiX, FiInfo } from 'react-icons/fi';
+import { FiCheckSquare, FiCheck, FiX, FiInfo, FiSearch } from 'react-icons/fi';
 import Button from './common/Button';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import { formatDate } from './utils/helpers';
@@ -9,6 +9,7 @@ import './ApprovalPages.css';
 const RegularizationApproval = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
 
     useEffect(() => {
         fetchRequests();
@@ -37,23 +38,41 @@ const RegularizationApproval = () => {
     };
 
     if (loading) {
-        return <div className="approval-page"><div className="ap-loading">Loading...</div></div>;
+        return <div className="ap-page"><div className="ap-loading">Loading...</div></div>;
     }
+
+    const filteredRequests = requests.filter(req =>
+        (req.employeeName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (req.type || '').toLowerCase().includes(search.toLowerCase()) ||
+        (req.reason || '').toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div className="approval-page">
-            <header className="ap-header">
+            <header className="ap-header" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) auto minmax(200px, 1fr)', alignItems: 'center' }}>
                 <div>
                     <h1>Regularization Approvals</h1>
                     <p>Manage and rectify attendance anomalies.</p>
                 </div>
+                <div className="ap-search-wrap" style={{ position: 'relative', width: '280px' }}>
+                    <FiSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
+                    <input
+                        type="text"
+                        placeholder="Search employee..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="ap-search-input"
+                        style={{ paddingLeft: 30, width: '100%' }}
+                    />
+                </div>
+                <div /> {/* Spacer for symmetry */}
             </header>
 
             <div className="ap-table-container">
-                {requests.length === 0 ? (
+                {filteredRequests.length === 0 ? (
                     <div className="ap-empty">
-                        <FiCheckSquare size={48} strokeWidth={1} />
-                        <p>No regularization requests pending.</p>
+                        <div className="ap-empty-icon">{search ? <FiSearch size={32} /> : <FiCheckSquare size={32} />}</div>
+                        <p>{search ? `No requests matching "${search}"` : 'No regularization requests pending.'}</p>
                     </div>
                 ) : (
                     <table className="ap-table">
@@ -67,7 +86,7 @@ const RegularizationApproval = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {requests.map((req) => (
+                            {filteredRequests.map((req) => (
                                 <tr key={req.id}>
                                     <td className="cell-emp-name">{req.employeeName}</td>
                                     <td className="cell-meta">{req.type?.replace('_', ' ')}</td>

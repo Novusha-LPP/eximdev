@@ -29,6 +29,7 @@ router.delete('/companies/:id', attendanceAuthBridge, requireAllowedAdmin, maste
 
 // User Migration
 router.post('/users/migrate', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.migrateUser);
+router.get('/companies/:id/migration-history', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.getOrganizationMigrationHistory);
 
 router.post('/leave-policies', attendanceAuthBridge, requireAllowedAdmin, masterCtrl.createLeavePolicy);
 router.get('/leave-policies', attendanceAuthBridge, masterCtrl.getLeavePolicies);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter } from 'react-icons/fi';
+import { FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter, FiSearch } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import attendanceAPI from '../../api/attendance/attendance.api';
@@ -113,6 +113,7 @@ const LeaveApproval = () => {
   // Admin-only team filter state
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState('all');
+  const [approvalsSearch, setApprovalsSearch] = useState('');
 
   // History & Pagination state
   const [totalHistory, setTotalHistory] = useState(0);
@@ -293,8 +294,13 @@ const LeaveApproval = () => {
   ];
 
   const filteredHistory = history.filter(h =>
-    h.employeeName.toLowerCase().includes(historySearch.toLowerCase()) ||
-    h.leaveType.toLowerCase().includes(historySearch.toLowerCase())
+    (h.employeeName || '').toLowerCase().includes(historySearch.toLowerCase()) ||
+    (h.leaveType || '').toLowerCase().includes(historySearch.toLowerCase())
+  );
+
+  const filteredRequests = requests.filter(r =>
+    (r.employeeName || '').toLowerCase().includes(approvalsSearch.toLowerCase()) ||
+    (r.leaveType || '').toLowerCase().includes(approvalsSearch.toLowerCase())
   );
 
   return (
@@ -362,7 +368,7 @@ const LeaveApproval = () => {
 
           {/* ── Pending Approvals ── */}
           <div className="ap-card">
-            <div className="ap-card-head">
+            <div className="ap-card-head" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) auto minmax(200px, 1fr)', alignItems: 'center' }}>
               <div>
                 <div className="ap-card-title">Pending Approvals</div>
                 <div className="ap-card-sub">
@@ -374,16 +380,28 @@ const LeaveApproval = () => {
                   )}
                 </div>
               </div>
+              <div className="ap-search-wrap" style={{ position: 'relative', width: '280px' }}>
+                <FiSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
+                <input
+                  type="text"
+                  placeholder="Search request..."
+                  value={approvalsSearch}
+                  onChange={(e) => setApprovalsSearch(e.target.value)}
+                  className="ap-search-input"
+                  style={{ paddingLeft: 30, width: '100%' }}
+                />
+              </div>
+              <div /> {/* Spacer for symmetry */}
             </div>
 
-            {requests.length === 0 ? (
+            {filteredRequests.length === 0 ? (
               <div className="ap-empty">
-                <div className="ap-empty-icon">&#10003;</div>
-                <p>All caught up! No pending requests.</p>
+                <div className="ap-empty-icon text-muted">{approvalsSearch ? <FiSearch size={32} /> : <FiCheck size={32} />}</div>
+                <p>{approvalsSearch ? `No requests matching "${approvalsSearch}"` : 'All caught up! No pending requests.'}</p>
               </div>
             ) : (
               <div className="ap-request-list">
-                {requests.map(req => (
+                {filteredRequests.map(req => (
                   <div key={String(req.id)} className="ap-request-item">
                     {req.canAct === false && (
                       <div className="ap-locked-hint">
@@ -513,7 +531,7 @@ const LeaveApproval = () => {
       {activeTab === 'history' && (
         <div className="animation-fade-in">
           <div className="ap-card">
-            <div className="ap-card-head" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 16 }}>
+            <div className="ap-card-head" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 16, display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) auto minmax(200px, 1fr)', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
                 <div className="ap-card-title">Leave History</div>
                 <div className="ap-card-sub">
@@ -530,15 +548,18 @@ const LeaveApproval = () => {
                   )}
                 </div>
               </div>
-              <div className="ap-search-wrap">
+              <div className="ap-search-wrap" style={{ position: 'relative', width: '280px' }}>
+                <FiSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
                 <input
                   type="text"
                   placeholder="Search employee..."
                   value={historySearch}
                   onChange={(e) => setHistorySearch(e.target.value)}
                   className="ap-search-input"
+                  style={{ paddingLeft: 30, width: '100%' }}
                 />
               </div>
+              <div /> {/* Spacer for symmetry */}
             </div>
 
             {filteredHistory.length === 0 ? (

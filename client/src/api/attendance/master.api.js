@@ -129,6 +129,11 @@ const masterAPI = {
       return response.data;
   },
 
+  getOrganizationMigrationHistory: async (id) => {
+      const response = await apiClient.get(`/master/companies/${id}/migration-history`);
+      return response.data;
+  },
+
   /**
    * Users (Admin only)
    */

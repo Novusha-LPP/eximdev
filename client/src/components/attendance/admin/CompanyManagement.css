@@ -572,3 +572,58 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Migration History Styles */
+.cm-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.cm-history-table th {
+    text-align: left;
+    padding: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.cm-history-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.cm-history-employee {
+    display: flex;
+    flex-direction: column;
+}
+
+.cm-history-employee strong {
+    color: #1e293b;
+}
+
+.cm-history-employee span {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.cm-history-arrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+}
+
+.cm-history-arrow .fi-arrow {
+    color: #3b82f6;
+}
+
+.cm-history-date {
+    white-space: nowrap;
+}
+
+.cm-history-actor {
+    color: #64748b;
+    font-size: 0.8rem;
+}

@@ -222,25 +222,27 @@ const setPendingStage = (application, stage, approverId, approverRole = 'ADMIN',
     });
 };
 
+const PENDING_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
+
 const getActorPendingLeaveQuery = (actor) => {
     const actorId = actor._id?._id || actor._id;
     const actorUsername = String(actor.username || '').toLowerCase();
 
     if (actorUsername === STAGE_2_APPROVER_USERNAME) {
         return {
-            approval_status: 'pending',
+            approval_status: { $in: PENDING_STATUSES },
             approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI] }
         };
     }
 
     if (FINAL_APPROVER_USERNAMES.has(actorUsername)) {
         return {
-            approval_status: 'pending'
+            approval_status: { $in: PENDING_STATUSES }
         };
     }
 
     return {
-        approval_status: 'pending',
+        approval_status: { $in: PENDING_STATUSES },
         current_approver_id: actorId
     };
 };

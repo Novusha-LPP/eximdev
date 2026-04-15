@@ -24,7 +24,7 @@ router.post('/regularization/approve/:id', attendanceAuthBridge, requireRole(['A
 router.post('/calculate-daily', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.calculateDailyAttendance);
 router.get('/HODDashboard', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDashboard);
 router.get('/department-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDepartmentAttendanceReport);
-router.get('/adminDashboard', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getAdminDashboardData);
+router.get('/adminDashboard', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.getAdminDashboardData);
 router.post('/lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.lockMonthAttendance);
 router.get('/payroll', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollData);
 router.get('/payroll-locks', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollLocks);
@@ -32,7 +32,7 @@ router.post('/toggle-lock', attendanceAuthBridge, requireRole('ADMIN'), requireA
 router.get('/admin-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getAdminAttendanceReport);
 router.get('/team-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getTeamAttendanceReport);
 router.get('/admin-leave-requests', attendanceAuthBridge, requireRole('ADMIN'), hodCtrl.getAdminLeaveRequests);
-router.delete('/leave-application/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, hodCtrl.deleteLeaveApplication);
+router.delete('/leave-application/:id', attendanceAuthBridge, requireRole('ADMIN'), hodCtrl.deleteLeaveApplication);
 router.put('/employee-profile-hod/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.updateEmployeeProfileHOD);
 router.post('/approve-request', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.approveRequest);
 router.put('/new', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.createManualAdjustment);

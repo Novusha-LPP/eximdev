@@ -1173,7 +1173,8 @@ export const getRegularizations = async (req, res) => {
 
 export const getAdminDashboardData = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
+        const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        if (roleNorm !== 'ADMIN') {
             return res.status(403).json({ message: 'Only admins can access admin dashboard' });
         }
         const companyId = resolveCompanyId(req);
@@ -1526,21 +1527,39 @@ export const getMyTodayAttendance = async (req, res) => {
         const todayStr = now.format('YYYY-MM-DD');
         const todayDate = moment.utc(todayStr).startOf('day').toDate();
 
-        const record = await AttendanceRecord.findOne({
-            employee_id: user._id,
-            attendance_date: moment.utc(todayStr).toDate()
-        });
+        console.log(`[DEBUG_HOD] User: ${user.username} ID: ${user._id} Role: ${user.role}`);
+        const [record, activeSession, hodTeam] = await Promise.all([
+            AttendanceRecord.findOne({
+                employee_id: user._id,
+                attendance_date: moment.utc(todayStr).toDate()
+            }),
+            ActiveSession.findOne({
+                employee_id: user._id,
+                session_date: todayDate,
+                session_status: 'active'
+            }),
+            TeamModel.findOne({
+                $or: [
+                    { hodId: user._id },
+                    { hodId: new mongoose.Types.ObjectId(user._id) }
+                ],
+                isActive: { $ne: false }
+            }).select('_id')
+        ]);
+        console.log(`[DEBUG_HOD] hodTeam found: ${!!hodTeam}`);
 
-        const activeSession = await ActiveSession.findOne({
-            employee_id: user._id,
-            session_date: todayDate,
-            session_status: 'active'
-        });
         const isInSession = !!activeSession;
+        const isHOD = !!hodTeam;
+
+        // Force log to file for verification
+        try {
+            fs.appendFileSync('hod_debug_my_today.log', `${new Date().toISOString()} - User: ${user.username} - isHOD: ${isHOD}\n`);
+        } catch (e) {}
 
         res.json({
             ...(record?.toJSON() || {}),
             isInSession: !!isInSession,
+            isHOD: isHOD,
             consolidatedStatus: isInSession ? 'IN' : 'OUT'
         });
     } catch (err) {

@@ -111,6 +111,19 @@ const AttendanceLayout = () => {
         ? [...baseMenu, ...(isAllowedAdmin ? ADMIN_PRIVILEGED_MENU : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
 
+    // IF ADMIN and NOT ALLOWED but isHOD (from API), Inject HOD menu items
+    // This allows Admins with their own teams to see approvals and manage their members
+    const shouldShowHODItems = (isAdmin && !isAllowedAdmin && punchStatus?.isHOD);
+    
+    if (shouldShowHODItems) {
+        menu.push(
+            { section: 'Team' },
+            { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Attendance' },
+            { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals' },
+            { path: '/attendance/teams', icon: FiUser, label: 'Teams' }
+        );
+    }
+
     // Add Company Management for allowed users
     if (isAdmin && isAllowedAdmin) {
         menu.push(

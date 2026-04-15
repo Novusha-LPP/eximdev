@@ -193,7 +193,7 @@ class LeaveCalculationService {
                 }
 
                 const isPresent = dayPresence.get(day.dateStr);
-                const deducted = isPresent ? (count === 0.5 ? 0.5 : 0) : count;
+                const deducted = count; // Deduct the requested leave days regardless of presence
                 
                 workingLeaveDays += deducted;
                 details.push({

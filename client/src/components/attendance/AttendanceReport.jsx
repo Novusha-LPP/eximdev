@@ -463,14 +463,14 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
     const toEditDateTime = (attendanceDate, hhmm = '09:00') => {
         const [hh, mm] = String(hhmm || '09:00').split(':').map((v) => Number(v));
-        return moment(attendanceDate)
-            .set({
-                hour: Number.isFinite(hh) ? hh : 9,
-                minute: Number.isFinite(mm) ? mm : 0,
-                second: 0,
-                millisecond: 0
-            })
-            .format('YYYY-MM-DDTHH:mm');
+        // Force local time interpretation by using the browser's local moment
+        const m = moment(attendanceDate).startOf('day').set({
+            hour: Number.isFinite(hh) ? hh : 9,
+            minute: Number.isFinite(mm) ? mm : 0,
+            second: 0,
+            millisecond: 0
+        });
+        return m.format('YYYY-MM-DDTHH:mm');
     };
 
     const applyStatusModeTimes = (form, statusValue, shiftIdValue) => {
@@ -484,17 +484,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         const startTime = selectedShift?.start_time || '09:00';
         const endTime = selectedShift?.end_time || '18:00';
         const firstInValue = toEditDateTime(form.attendance_date, startTime);
+        let lastOutValue = toEditDateTime(form.attendance_date, endTime);
 
-        if (statusNormalized === 'half_day') {
-            const halfHours = Number(selectedShift?.half_day_hours || 4);
-            const outValue = moment(firstInValue).add(halfHours, 'hours').format('YYYY-MM-DDTHH:mm');
-            return {
-                ...form,
-                status: 'half_day',
-                half_day_session: form.half_day_session || 'first_half',
-                first_in: firstInValue,
-                last_out: outValue
-            };
+        // Midnight Shift Handling: If end time is objectively before start time, it belongs to next day
+        if (moment(lastOutValue).isBefore(moment(firstInValue))) {
+            lastOutValue = moment(lastOutValue).add(1, 'day').format('YYYY-MM-DDTHH:mm');
         }
 
         return {
@@ -502,7 +496,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             status: statusNormalized || 'present',
             half_day_session: null,
             first_in: firstInValue,
-            last_out: toEditDateTime(form.attendance_date, endTime)
+            last_out: lastOutValue
         };
     };
 

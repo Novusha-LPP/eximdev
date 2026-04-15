@@ -517,14 +517,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   // Ported Record Adjustment Helpers
   const toEditDateTime = (attendanceDate, hhmm = '09:00') => {
     const [hh, mm] = String(hhmm || '09:00').split(':').map((v) => Number(v));
-    return moment(attendanceDate)
-        .set({
-            hour: Number.isFinite(hh) ? hh : 9,
-            minute: Number.isFinite(mm) ? mm : 0,
-            second: 0,
-            millisecond: 0
-        })
-        .format('YYYY-MM-DDTHH:mm');
+    const m = moment(attendanceDate).startOf('day').set({
+        hour: Number.isFinite(hh) ? hh : 9,
+        minute: Number.isFinite(mm) ? mm : 0,
+        second: 0,
+        millisecond: 0
+    });
+    return m.format('YYYY-MM-DDTHH:mm');
   };
 
   const applyStatusModeTimes = (form, statusValue, shiftIdValue) => {
@@ -538,16 +537,22 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const startTime = selectedShift?.start_time || '09:00';
     const endTime = selectedShift?.end_time || '18:00';
     const firstInValue = toEditDateTime(form.attendance_date, startTime);
+    let lastOutValue = toEditDateTime(form.attendance_date, endTime);
+
+    // Midnight Shift Handling: If end time is before start time, it belongs to the next day
+    if (moment(lastOutValue).isBefore(moment(firstInValue))) {
+        lastOutValue = moment(lastOutValue).add(1, 'day').format('YYYY-MM-DDTHH:mm');
+    }
 
     if (statusNormalized === 'half_day') {
         const halfHours = Number(selectedShift?.half_day_hours || 4);
-        const outValue = moment(firstInValue).add(halfHours, 'hours').format('YYYY-MM-DDTHH:mm');
+        lastOutValue = moment(firstInValue).add(halfHours, 'hours').format('YYYY-MM-DDTHH:mm');
         return {
             ...form,
             status: 'half_day',
             half_day_session: form.half_day_session || 'first_half',
             first_in: firstInValue,
-            last_out: outValue
+            last_out: lastOutValue
         };
     }
 
@@ -556,7 +561,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         status: (statusNormalized === 'none' || !statusNormalized) ? 'present' : statusNormalized,
         half_day_session: null,
         first_in: firstInValue,
-        last_out: toEditDateTime(form.attendance_date, endTime)
+        last_out: lastOutValue
     };
   };
 

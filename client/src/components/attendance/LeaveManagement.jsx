@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   FiPlus, FiX, FiAlertCircle, FiFileText, FiInfo, FiSend,
-  FiCalendar, FiBookOpen, FiClock, FiShield, FiCheckCircle,
+  FiCalendar, FiBookOpen, FiShield, FiCheckCircle,
   FiActivity, FiChevronLeft, FiChevronRight, FiSearch, FiFilter, FiXCircle
 } from 'react-icons/fi';
 import leaveAPI from '../../api/attendance/leave.api';
@@ -197,17 +197,6 @@ const LeaveManagement = () => {
             <h3>Company Leave Guidelines</h3>
           </div>
           <div className="guide-grid">
-            <div className="guide-item">
-              <div className="guide-icon"><FiClock size={15} /></div>
-              <div className="guide-info">
-                <span className="guide-lbl">Advance Notice</span>
-                <span className="guide-val">
-                  {balances.some(b => b.policy?.advance_notice_days > 0)
-                    ? `Min. ${Math.min(...balances.filter(b => b.policy?.advance_notice_days > 0).map(b => b.policy.advance_notice_days))} day(s)`
-                    : 'No requirement'}
-                </span>
-              </div>
-            </div>
             <div className="guide-item">
               <div className="guide-icon"><FiActivity size={15} /></div>
               <div className="guide-info">
@@ -514,14 +503,6 @@ const LeaveManagement = () => {
               {/* Policy preview */}
               {selectedPolicy && (
                 <div className="policy-highlight ani-in">
-                  <div className="ph-item">
-                    <FiClock size={12} className="ph-icon" />
-                    Notice: <span className="ph-val">{selectedPolicy.policy?.advance_notice_days || 0}d</span>
-                  </div>
-                  <div className="ph-item">
-                    <FiInfo size={12} className="ph-icon" />
-                    Max/app: <span className="ph-val">{selectedPolicy.policy?.max_days_per_application || '-'}d</span>
-                  </div>
                   <div className="ph-item">
                     <FiActivity size={12} className="ph-icon" />
                     Half day: <span className="ph-val">{selectedPolicy.policy?.half_day_allowed ? 'Allowed' : 'No'}</span>

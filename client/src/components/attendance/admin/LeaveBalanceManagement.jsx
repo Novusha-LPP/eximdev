@@ -57,8 +57,8 @@ const LeaveBalanceManagement = () => {
   };
 
   const previewClosing = useMemo(() => {
-    return toNum(form.opening_balance) - toNum(form.used) - toNum(form.pending);
-  }, [form]);
+    return toNum(form.pending);
+  }, [form.pending]);
 
   const autoPending = useMemo(() => {
     const computed = toNum(form.opening_balance) - toNum(form.used);

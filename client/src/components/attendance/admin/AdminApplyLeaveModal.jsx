@@ -2,12 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
     X, 
     Calendar, 
-    Info, 
     FileText, 
     ChevronRight, 
     AlertCircle, 
     CheckCircle2,
-    Clock,
     UserCheck,
     Loader2
 } from 'lucide-react';
@@ -199,28 +197,17 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                         >
                             <option value="">-- Choose leave type --</option>
                             {balances.map(b => {
-                                const isLwp = String(b.name || b.leave_type || '').toLowerCase().includes('lwp');
+                                const label = b.name || b.policy_name || b.leave_type || 'Policy';
+                                const isLwp = String(b.leave_type || label || '').toLowerCase().includes('lwp');
+                                const availableDays = b.available ?? b.balance ?? 0;
                                 return (
                                     <option key={b._id} value={b._id}>
-                                        {b.name} {isLwp ? '(Unpaid)' : `(${b.available} days available)`}
+                                        {label} {isLwp ? '(Unpaid)' : `(${availableDays} days available)`}
                                     </option>
                                 );
                             })}
                         </select>
                     </div>
-
-                    {selectedPolicy && (
-                        <div className="policy-highlight ani-in">
-                            <div className="ph-item">
-                                <Info size={14} className="ph-icon" />
-                                <span>Max Days: <span className="ph-val">{selectedPolicy.policy.max_days_per_application}</span></span>
-                            </div>
-                            <div className="ph-item">
-                                <Clock size={14} className="ph-icon" />
-                                <span>Notice: <span className="ph-val">{selectedPolicy.policy.advance_notice_days} days</span></span>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Sessions Toggle */}
                     <div className="toggle-row">

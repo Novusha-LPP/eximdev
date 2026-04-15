@@ -62,6 +62,14 @@ const inputStyle = {
 };
 
 const toWhole = (value) => Math.max(0, Math.floor(Number(value) || 0));
+const formatLeaveDays = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0';
+  if (Math.abs(num % 1) < 1e-9) return String(Math.max(0, Math.trunc(num)));
+  return String(Math.max(0, Number(num.toFixed(2))));
+};
+const IDEMPOTENT_LEAVE_TYPES = new Set(['lwp', 'privilege']);
+const normalizeLeaveType = (value) => String(value || '').toLowerCase().trim();
 const NON_WORKING_STATUSES = new Set(['absent', 'leave', 'pending_leave', 'weekly_off', 'holiday']);
 
 const isNonWorkingStatus = (status) => NON_WORKING_STATUSES.has(String(status || '').toLowerCase());
@@ -221,15 +229,25 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const isEditingBalance = useMemo(() => {
     if (!balanceForm.leave_policy_id) return false;
-    return (profile?.balances || []).some(b => {
-      const bPolicyId = b.leave_policy_id?._id || b.leave_policy_id;
+    const matchesById = (profile?.balances || []).some(b => {
+      const bPolicyId = b.leave_policy_id?._id || b.leave_policy_id || b._id;
       return String(bPolicyId) === String(balanceForm.leave_policy_id);
+    });
+    if (matchesById) return true;
+
+    const selectedPolicy = (leavePolicies || []).find((p) => String(p._id) === String(balanceForm.leave_policy_id));
+    const selectedType = normalizeLeaveType(selectedPolicy?.leave_type || selectedPolicy?.policy_name);
+    if (!IDEMPOTENT_LEAVE_TYPES.has(selectedType)) return false;
+
+    return (profile?.balances || []).some((b) => {
+      const balanceType = normalizeLeaveType(b.leave_type || b.leave_policy_id?.leave_type || b.name);
+      return balanceType === selectedType;
     });
   }, [balanceForm.leave_policy_id, profile?.balances]);
 
   const availablePolicies = useMemo(() => {
     const assignedPolicyIds = new Set((profile?.balances || []).map(b => {
-      const pId = b.leave_policy_id?._id || b.leave_policy_id;
+      const pId = b.leave_policy_id?._id || b.leave_policy_id || b._id;
       return String(pId);
     }));
 
@@ -252,16 +270,36 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     });
   }, [leavePolicies, profile?.balances, balanceForm.leave_policy_id, isEditingBalance]);
 
+  const editingBalancePolicyLabel = useMemo(() => {
+    if (!isEditingBalance || !balanceForm.leave_policy_id) return '';
+    const current = (profile?.balances || []).find((b) => {
+      const bPolicyId = b.leave_policy_id?._id || b.leave_policy_id || b._id;
+      return String(bPolicyId) === String(balanceForm.leave_policy_id);
+    });
+    return current?.leave_policy_id?.policy_name || current?.name || current?.leave_type || 'Selected Policy';
+  }, [isEditingBalance, balanceForm.leave_policy_id, profile?.balances]);
+
   // Sync balanceForm when policy is selected
   useEffect(() => {
     if (!balanceForm.leave_policy_id || !showLeaveBalanceForm) return;
     
     // We only want to auto-fill if we are NOT already in the middle of typing
     // Actually, it's better to auto-fill once when the policy ID changes in the dropdown
-    const existing = (profile?.balances || []).find(b => {
-      const bPolicyId = b.leave_policy_id?._id || b.leave_policy_id;
+    let existing = (profile?.balances || []).find(b => {
+      const bPolicyId = b.leave_policy_id?._id || b.leave_policy_id || b._id;
       return String(bPolicyId) === String(balanceForm.leave_policy_id);
     });
+
+    if (!existing) {
+      const selectedPolicy = (leavePolicies || []).find((p) => String(p._id) === String(balanceForm.leave_policy_id));
+      const selectedType = normalizeLeaveType(selectedPolicy?.leave_type || selectedPolicy?.policy_name);
+      if (IDEMPOTENT_LEAVE_TYPES.has(selectedType)) {
+        existing = (profile?.balances || []).find((b) => {
+          const balanceType = normalizeLeaveType(b.leave_type || b.leave_policy_id?.leave_type || b.name);
+          return balanceType === selectedType;
+        });
+      }
+    }
 
     if (existing) {
       setBalanceForm(prev => {
@@ -279,7 +317,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         };
       });
     }
-  }, [balanceForm.leave_policy_id, profile?.balances, showLeaveBalanceForm]);
+  }, [balanceForm.leave_policy_id, profile?.balances, showLeaveBalanceForm, leavePolicies]);
   
   // ─── Organization & Grid View ───
   const [organizations, setOrganizations] = useState([]);
@@ -561,8 +599,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     try {
         const start = moment([targetYear, targetMonth - 1]).startOf('month').format('YYYY-MM-DD');
         const end = moment([targetYear, targetMonth - 1]).endOf('month').format('YYYY-MM-DD');
-        const r = await attendanceAPI.getEmployeeFullProfile(id, start, end);
-        setProfile(r);
+        const [r, leaveBalanceRes] = await Promise.all([
+          attendanceAPI.getEmployeeFullProfile(id, start, end),
+          leaveAPI.getBalance(id).catch(() => ({ data: [] }))
+        ]);
+        setProfile({
+          ...(r || {}),
+          balances: Array.isArray(leaveBalanceRes?.data) ? leaveBalanceRes.data : (r?.balances || [])
+        });
     } catch (error) {
         toast.error('Failed to load history for selected period');
     } finally {
@@ -765,12 +809,16 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     setLoading(true);
     setMigrationHistoryLoading(true);
     try {
-      const [profileRes, policiesRes, migrationRes] = await Promise.all([
+      const [profileRes, leaveBalanceRes, policiesRes, migrationRes] = await Promise.all([
         attendanceAPI.getEmployeeFullProfile(id, startDate, endDate),
+        leaveAPI.getBalance(id).catch(() => ({ data: [] })),
         masterAPI.getLeavePolicies({ limit: 200 }).catch(() => ({ data: [] })),
         attendanceAPI.getEmployeeMigrationHistory(id).catch(() => ({ data: [] }))
       ]);
-      setProfile(profileRes || null);
+      setProfile({
+        ...(profileRes || {}),
+        balances: Array.isArray(leaveBalanceRes?.data) ? leaveBalanceRes.data : (profileRes?.balances || [])
+      });
       setMigrationHistory(Array.isArray(migrationRes?.data) ? migrationRes.data : []);
 
       const policyRows = Array.isArray(policiesRes?.data)
@@ -991,6 +1039,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       });
       toast.success('Leave balance updated successfully');
       setShowLeaveBalanceForm(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('leave-balance-updated'));
+      }
       fetchData();
     } catch (error) {
       console.error('[Update Balance Error]', error);
@@ -2130,7 +2181,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           {showLeaveBalanceForm && (
             <div style={{ ...cardStyle, borderLeft: `4px solid ${isEditingBalance ? THEME.amber : THEME.green}`, padding: '12px' }}>
               <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px', color: isEditingBalance ? THEME.amber : THEME.green }}>
-                {isEditingBalance ? '✏️ Edit Leave Balance' : '➕ Add Leave Balance'}
+                {isEditingBalance ? 'Edit Leave Balance' : 'Add Leave Balance'}
               </h3>
               <form onSubmit={handleUpdateBalance} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
@@ -2199,6 +2250,22 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                 )}
               </div>
             </div>
+            {showLeaveBalanceForm && isEditingBalance && (
+              <div
+                style={{
+                  marginBottom: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  border: `1px solid ${THEME.amber}`,
+                  background: '#fffbeb',
+                  color: '#92400e',
+                  fontSize: '12px',
+                  fontWeight: '700'
+                }}
+              >
+                Editing leave balance: {editingBalancePolicyLabel}
+              </div>
+            )}
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead>
@@ -2215,46 +2282,57 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   {(profile.balances || []).map((b) => (
                     <tr key={b._id} style={{ borderBottom: `1px solid ${THEME.border}` }}>
                       <td style={{ padding: '6px 8px' }}>{b.leave_policy_id?.policy_name || b.leave_type || 'Policy'}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{toWhole(b.opening_balance || 0)}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{toWhole(b.used ?? b.consumed ?? 0)}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatLeaveDays(b.opening_balance || 0)}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatLeaveDays(b.used ?? b.consumed ?? 0)}</td>
                       <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                         {String((b.leave_type || b.leave_policy_id?.leave_type || '')).toLowerCase().includes('lwp')
                           ? 0
-                          : toWhole(b.pending ?? b.pending_approval ?? 0)}
+                          : formatLeaveDays(b.pending ?? b.pending_approval ?? Math.max(0, (b.opening_balance || 0) - (b.used ?? b.consumed ?? 0)))}
                       </td>
                       <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '700', color: THEME.primary }}>
                         {String((b.leave_type || b.leave_policy_id?.leave_type || '')).toLowerCase().includes('lwp')
                           ? 0
-                          : Math.max(0, (b.opening_balance || 0) - (b.used || 0) - (b.pending_approval || 0))}
+                          : formatLeaveDays(b.pending ?? b.pending_approval ?? Math.max(0, (b.opening_balance || 0) - (b.used ?? b.consumed ?? 0)))}
                       </td>
                       <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => {
-                            setBalanceForm({
-                              leave_policy_id: b.leave_policy_id?._id || b.leave_policy_id,
-                              opening_balance: b.opening_balance || 0,
-                              used: b.used ?? b.consumed ?? 0,
-                              pending: b.pending ?? b.pending_approval ?? 0
-                            });
-                            setShowLeaveBalanceForm(true);
-                          }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: THEME.navy,
-                            cursor: 'pointer',
-                            fontSize: '14px'
-                          }}
-                          title="Edit Balance"
-                        >
-                          ✏️
-                        </button>
+                        {(() => {
+                          const rowPolicyId = b.leave_policy_id?._id || b.leave_policy_id || b._id;
+                          const isRowEditing = showLeaveBalanceForm && isEditingBalance && String(balanceForm.leave_policy_id) === String(rowPolicyId);
+
+                          return (
+                            <button
+                              onClick={() => {
+                                setBalanceForm({
+                                  leave_policy_id: rowPolicyId,
+                                  opening_balance: b.opening_balance || 0,
+                                  used: b.used ?? b.consumed ?? 0,
+                                  pending: b.pending ?? b.pending_approval ?? 0
+                                });
+                                setShowLeaveBalanceForm(true);
+                              }}
+                              disabled={isRowEditing}
+                              style={{
+                               ...buttonStyle,
+                                background: isRowEditing ? '#fff7ed' : '#fff',
+                                color: isRowEditing ? '#9a3412' : THEME.navy,
+                                border: `1px solid ${isRowEditing ? '#fdba74' : THEME.border}`,
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: isRowEditing ? 'default' : 'pointer'
+                              }}
+                              title={isRowEditing ? 'Currently editing this balance' : 'Edit Balance'}
+                            >
+                              {isRowEditing ? 'Editing...' : 'Edit'}
+                            </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
                   {(profile.balances || []).length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: '12px', textAlign: 'center', color: THEME.muted }}>No leave balances</td>
+                      <td colSpan={6} style={{ padding: '12px', textAlign: 'center', color: THEME.muted }}>No leave balances</td>
                     </tr>
                   )}
                 </tbody>

@@ -1,11 +1,15 @@
 import apiClient from '../attendanceApiClient';
+import { normalizeLeaveBalanceRows } from '../../components/attendance/utils/leaveBalance';
 
 const leaveAPI = {
   getBalance: async (employee_id) => {
     try {
       const params = employee_id ? { employee_id } : {};
       const response = await apiClient.get('/leave/balance', { params });
-      return response.data;
+      return {
+        ...response.data,
+        data: normalizeLeaveBalanceRows(response.data?.data || [])
+      };
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch balance' };
     }

@@ -1,4 +1,5 @@
 import apiClient from '../attendanceApiClient';
+import { normalizeLeaveBalanceRows } from '../../components/attendance/utils/leaveBalance';
 
 /**
  * Attendance API functions
@@ -283,7 +284,10 @@ const attendanceAPI = {
       const response = await apiClient.get(`/attendance/employee-full-profile/${id}`, {
         params: { startDate, endDate, company_id: companyId }
       });
-      return response.data;
+      return {
+        ...response.data,
+        balances: normalizeLeaveBalanceRows(response.data?.balances || [])
+      };
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch employee profile' };
     }

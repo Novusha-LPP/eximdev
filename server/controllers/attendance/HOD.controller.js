@@ -1004,9 +1004,9 @@ export const approveRequest = async (req, res) => {
                     }
                 };
 
-                const releasePendingBalance = () => {
-                    if (balanceRecord.pending_approval >= application.total_days) {
-                        balanceRecord.pending_approval -= application.total_days;
+                const addBackPendingBalance = () => {
+                    if (!isUnpaid) {
+                        balanceRecord.pending_approval = Number(balanceRecord.pending_approval || 0) + Number(application.total_days || 0);
                     }
                     balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
                 };
@@ -1033,7 +1033,7 @@ export const approveRequest = async (req, res) => {
                     appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'rejected', commentText);
                     await application.save();
 
-                    releasePendingBalance();
+                    addBackPendingBalance();
                     balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
                     await balanceRecord.save();
 
@@ -1074,7 +1074,7 @@ export const approveRequest = async (req, res) => {
 
                     await applyLeaveAttendance('admin');
 
-                    releasePendingBalance();
+                    // Balance was already deducted from pending_approval at application stage
                     if (!isUnpaid) {
                         balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
                     }

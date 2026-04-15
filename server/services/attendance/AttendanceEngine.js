@@ -215,8 +215,8 @@ class AttendanceEngine {
             // Overtime Calculation
             let overtimeHours = 0;
             if (company.payroll_config?.overtime_enabled && lastOut && shift) {
-                const shiftEnd = moment(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm');
-                const punchOutTime = moment(lastOut.punch_time);
+                const shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+                const punchOutTime = moment(lastOut.punch_time).tz(tz);
                 const threshold = shift.overtime_threshold_minutes || company.payroll_config.overtime_threshold_hours * 60 || 30;
 
                 if (punchOutTime.isAfter(shiftEnd.add(threshold, 'minutes'))) {

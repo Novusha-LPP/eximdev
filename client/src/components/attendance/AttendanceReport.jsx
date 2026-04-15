@@ -454,15 +454,15 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             .map((s) => {
                 if (!s) return null;
                 if (typeof s === 'string') {
-                    return { _id: s, shift_name: 'Assigned Shift', start_time: '09:00', end_time: '18:00', half_day_hours: 4 };
+                    return { _id: s, shift_name: 'Assigned Shift', start_time: '10:00', end_time: '19:00', half_day_hours: 4 };
                 }
                 return s;
             })
             .filter((s) => s && s._id && !seen.has(String(s._id)) && seen.add(String(s._id)));
     }, [profileData?.employee]);
 
-    const toEditDateTime = (attendanceDate, hhmm = '09:00') => {
-        const [hh, mm] = String(hhmm || '09:00').split(':').map((v) => Number(v));
+    const toEditDateTime = (attendanceDate, hhmm = '10:00') => {
+        const [hh, mm] = String(hhmm || '10:00').split(':').map((v) => Number(v));
         // Force local time interpretation by using the browser's local moment
         const m = moment(attendanceDate).startOf('day').set({
             hour: Number.isFinite(hh) ? hh : 9,
@@ -481,8 +481,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             return { ...form, status: statusNormalized, first_in: '', last_out: '' };
         }
 
-        const startTime = selectedShift?.start_time || '09:00';
-        const endTime = selectedShift?.end_time || '18:00';
+        const startTime = selectedShift?.start_time || '10:00';
+        const endTime = selectedShift?.end_time || '19:00';
         const firstInValue = toEditDateTime(form.attendance_date, startTime);
         let lastOutValue = toEditDateTime(form.attendance_date, endTime);
 
@@ -687,9 +687,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             status: rec.status || 'present',
             half_day_session: rec.half_day_session || 'first_half',
             first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') :
-                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '09:00')),
+                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '10:00')),
             last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') :
-                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '18:00')),
+                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '19:00')),
             remarks: rec.remarks || ''
         };
 

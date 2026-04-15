@@ -91,9 +91,9 @@ const getHodTeamMemberIds = async (hodId) => {
 import QueryBuilder from '../../services/attendance/QueryBuilder.js';
 import PayrollLock from '../../model/attendance/PayrollLock.js';
 
-const HOD_PENDING_LEAVE_STATUSES = ['pending'];
-const ADMIN_PENDING_LEAVE_STATUSES = ['pending'];
-const NON_FINAL_LEAVE_STATUSES = ['pending'];
+const HOD_PENDING_LEAVE_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
+const ADMIN_PENDING_LEAVE_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
+const NON_FINAL_LEAVE_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'];
 
 const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
     if (!weekOffPolicy?.day_rules || !Array.isArray(weekOffPolicy.day_rules)) return [0];
@@ -587,8 +587,9 @@ export const requestRegularization = async (req, res) => {
         });
         if (existing) return res.status(400).json({ message: "Pending request already exists" });
 
-        let requestedInTime = in_time ? new Date(`${date}T${in_time}:00`) : null;
-        let requestedOutTime = out_time ? new Date(`${date}T${out_time}:00`) : null;
+        const activeTz = 'Asia/Kolkata';
+        let requestedInTime = in_time ? moment.tz(`${date}T${in_time}:00`, activeTz).toDate() : null;
+        let requestedOutTime = out_time ? moment.tz(`${date}T${out_time}:00`, activeTz).toDate() : null;
 
         const newRequest = new RegularizationRequest({
             employee_id: user._id,
@@ -1936,8 +1937,8 @@ const applyManualCorrectionTimes = (record, attendanceDate, status, shift, compa
         return;
     }
 
-    const inTime = shift?.start_time || '09:00';
-    const outTime = shift?.end_time || '18:00';
+    const inTime = shift?.start_time || '10:00';
+    const outTime = shift?.end_time || '19:00';
     const firstIn = providedFirstIn || buildDateTimeFromShift(attendanceDate, inTime, companyTz);
 
     if (normalized === 'half_day') {
@@ -1976,8 +1977,8 @@ const applyStatusCorrectionTimes = (record, attendanceDate, status, shift, compa
         return;
     }
 
-    const inTime = shift?.start_time || '09:00';
-    const outTime = shift?.end_time || '18:00';
+    const inTime = shift?.start_time || '10:00';
+    const outTime = shift?.end_time || '19:00';
     const firstIn = buildDateTimeFromShift(attendanceDate, inTime, companyTz);
 
     if (normalized === 'half_day') {
@@ -2011,11 +2012,11 @@ export const updateAttendanceRecord = async (req, res) => {
 
         // Parse datetime strings from frontend to proper Date objects
         if (first_in && typeof first_in === 'string') {
-            const parsed = moment(first_in);
+            const parsed = moment.tz(first_in, 'Asia/Kolkata');
             first_in = parsed.isValid() ? parsed.toDate() : first_in;
         }
         if (last_out && typeof last_out === 'string') {
-            const parsed = moment(last_out);
+            const parsed = moment.tz(last_out, 'Asia/Kolkata');
             last_out = parsed.isValid() ? parsed.toDate() : last_out;
         }
 
@@ -2241,11 +2242,11 @@ export const createManualAdjustment = async (req, res) => {
 
         // Parse datetime strings from frontend to proper Date objects
         if (first_in && typeof first_in === 'string') {
-            const parsed = moment(first_in);
+            const parsed = moment.tz(first_in, 'Asia/Kolkata');
             first_in = parsed.isValid() ? parsed.toDate() : first_in;
         }
         if (last_out && typeof last_out === 'string') {
-            const parsed = moment(last_out);
+            const parsed = moment.tz(last_out, 'Asia/Kolkata');
             last_out = parsed.isValid() ? parsed.toDate() : last_out;
         }
 
@@ -3579,9 +3580,10 @@ export const bulkUpdateAttendance = async (req, res) => {
             // Store as local midnight so calendar date-matching is consistent
             const attDate = moment(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
 
+            const activeTz = 'Asia/Kolkata';
             const isPresent = status === 'present';
-            const firstIn = isPresent ? moment(`${dateStr}T${in_time_default}:00`).toDate() : null;
-            const lastOut = isPresent ? moment(`${dateStr}T${out_time_default}:00`).toDate() : null;
+            const firstIn = isPresent ? moment.tz(`${dateStr}T${in_time_default}:00`, activeTz).toDate() : null;
+            const lastOut = isPresent ? moment.tz(`${dateStr}T${out_time_default}:00`, activeTz).toDate() : null;
 
             await AttendanceRecord.findOneAndUpdate(
                 { employee_id: employee._id, attendance_date: attDate },
@@ -3711,8 +3713,8 @@ export const applyFullMonthPresence = async (req, res) => {
                 company_id: employee.company_id,
                 attendance_date: dayStart,
                 status: 'present',
-                first_in: moment(`${dateStr}T${inTime}:00`).toDate(),
-                last_out: moment(`${dateStr}T${outTime}:00`).toDate(),
+                first_in: moment.tz(`${dateStr}T${inTime}:00`, 'Asia/Kolkata').toDate(),
+                last_out: moment.tz(`${dateStr}T${outTime}:00`, 'Asia/Kolkata').toDate(),
                 total_work_hours: workHours,
                 remarks: remarks || 'Full month presence (policy-driven)',
                 year_month: curr.format('YYYY-MM'),

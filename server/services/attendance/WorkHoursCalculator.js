@@ -1,3 +1,5 @@
+import moment from 'moment-timezone';
+
 /**
  * WorkHoursCalculator Service
  * Handles all work hour calculations, session grouping, and duration calculations
@@ -203,8 +205,8 @@ export class WorkHoursCalculator {
    * @returns {Number} Minutes since midnight
    */
   static dateToMinutesOfDay(date) {
-    const d = new Date(date);
-    return d.getHours() * 60 + d.getMinutes();
+    const m = moment.tz(date, 'Asia/Kolkata');
+    return m.hours() * 60 + m.minutes();
   }
 
   /**

@@ -30,7 +30,18 @@ const leaveApplicationSchema = new mongoose.Schema({
 
   approval_status: {
     type: String,
-    enum: ['approved', 'rejected', 'cancelled', 'withdrawn', 'pending'],
+    enum: [
+      'approved', 
+      'rejected', 
+      'cancelled', 
+      'withdrawn', 
+      'pending',
+      'pending_hod',
+      'pending_shalini',
+      'pending_final',
+      'hod_approved_pending_admin',
+      'in_review'
+    ],
     default: 'pending'
   },
 

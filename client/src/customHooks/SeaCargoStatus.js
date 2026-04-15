@@ -297,11 +297,13 @@ const SeaCargoStatus = ({
         updateData.no_of_pkgs = summary.totalPackage;
       }
 
-      // IGM Fields mapping based on branch
+      // IGM Fields mapping based on branch and configuration
       const isAmdBranch = branchCode?.toUpperCase()?.startsWith("AMD");
+      const gatewayIgmEnabled = branchConfig?.gateway_igm_enabled !== false;
+      const gatewayIgmDateEnabled = branchConfig?.gateway_igm_date_enabled !== false;
 
       if (isValidValue(summary.igmNo)) {
-        if (isAmdBranch) {
+        if (isAmdBranch && gatewayIgmEnabled) {
           updateData.gateway_igm = summary.igmNo;
         } else {
           updateData.igm_no = summary.igmNo;
@@ -310,7 +312,7 @@ const SeaCargoStatus = ({
 
       const formattedIgmDate = formatDateForDatabase(summary.igmDate);
       if (isValidValue(formattedIgmDate)) {
-        if (isAmdBranch) {
+        if (isAmdBranch && gatewayIgmDateEnabled) {
           updateData.gateway_igm_date = formattedIgmDate;
         } else {
           updateData.igm_date = formattedIgmDate;
@@ -325,7 +327,6 @@ const SeaCargoStatus = ({
       const formattedInwardDate = formatDateForDatabase(inwardDate);
 
       const railoutEnabled = branchConfig?.railout_enabled !== false; // Default to true if not provided
-      const gatewayIgmEnabled = branchConfig?.gateway_igm_enabled !== false;
 
       // Specifically check when BOTH are disabled (as per user request)
       const automationTriggered = branchConfig && !railoutEnabled && !gatewayIgmEnabled;

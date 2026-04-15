@@ -13,30 +13,53 @@ router.get("/test", (req, res) => res.json({ status: "Tally API is connected and
  */
 const getJobDetailsInternal = async (job_number) => {
   if (!job_number) return null;
-  
+
   const job = await JobModel.findOne({ job_number }).lean();
   if (!job) return null;
 
   return {
     "Job Number": job.job_number,
     "Job Year": job.year,
-    "Job Type": job.type,
+    "Job Type": job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim(),
     "Job Date": job.job_date,
-    "Importer/Exporter Name": job.importer || job.exporter,
+    "ImporterExporter Name": job.importer || job.exporter || job.supplier_exporter,
+    "Shipper Name": job.shipper || job.supplier_exporter,
     "Consignee": job.consignee,
     "Shipper": job.shipper,
     "Origin Port": job.loading_port || job.port_of_loading,
     "Destination Port": job.port_of_discharge || job.destination_port,
+    "Custom House": job.custom_house,
     "Gross Weight": job.gross_weight,
-    "Net Weight": job.net_weight,
-    "Package Count": job.no_of_pkgs,
+    "Net Weight": job.net_weight, // Legacy
+    "Net Wt.": job.job_net_weight || job.net_weight,
+    "Package Count": job.no_of_pkgs, // Legacy
+    "Packages": job.no_of_pkgs,
     "Package Unit": job.unit,
     "Container Count": job.container_nos?.length || 0,
+    "Containers": (job.container_nos || []).map(c => c.container_number).filter(Boolean).join(", "),
     "BE No": job.be_no || "",
     "BE Date": job.be_date || "",
+    "BE Type": job.type_of_b_e,
+    "BE Heading": job.description,
     "SB No": job.sb_no || "",
     "SB Date": job.sb_date || "",
-    "Status": "" 
+    "MBL NO": job.awb_bl_no,
+    "MBL Date": job.awb_bl_date,
+    "HBL No": job.hawb_hbl_no,
+    "HBL Date": job.hawb_hbl_date,
+    "Consignment Type": job.consignment_type,
+    "Vessel": job.vessel_flight,
+    "Voyage": job.voyage_no,
+    "Customer Ref.": job.po_no,
+    "Invoice Number": job.invoice_number,
+    "Inv Date": job.invoice_date,
+    "Terms of Invoice": job.toi,
+    "Invoice Value": job.total_inv_value,
+    "CIF Value": job.cifValue || job.cif_amount,
+    "Assess Value": job.assbl_value,
+    "Total Duty": job.total_duty,
+    "Branch": job.branch_code,
+    "Status": ""
   };
 };
 
@@ -91,10 +114,10 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
     let maxIndex = 0;
     let prefix = "";
     if (type === "purchase") {
-      const existing = await PurchaseBookEntryModel.find({ 
-        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }] 
+      const existing = await PurchaseBookEntryModel.find({
+        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }]
       }, { entryNo: 1 }).lean();
-      
+
       existing.forEach(entry => {
         const parts = (entry.entryNo || "").split('/');
         const match = (parts[0] || "").match(/\d+/);
@@ -105,10 +128,10 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
       });
       prefix = "PB";
     } else if (type === "payment") {
-      const existing = await PaymentRequestModel.find({ 
-        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }] 
+      const existing = await PaymentRequestModel.find({
+        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }]
       }, { requestNo: 1 }).lean();
-      
+
       existing.forEach(reqObj => {
         const parts = (reqObj.requestNo || "").split('/');
         const match = (parts[0] || "").match(/\d+/);
@@ -135,11 +158,11 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
       }
     }
 
-    res.status(200).json({ 
-      success: true, 
-      nextIndex, 
+    res.status(200).json({
+      success: true,
+      nextIndex,
       fullNo,
-      jobNo: canonicalJobNo 
+      jobNo: canonicalJobNo
     });
 
   } catch (error) {
@@ -195,7 +218,7 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
   try {
     const rawData = req.body;
     const data = mapPurchaseEntryData(rawData);
-    
+
     // Standardize jobNo to canonicalJobNo if possible before saving
     if (data.jobRef) {
       const job = await JobModel.findById(data.jobRef).select('job_number').lean();
@@ -206,21 +229,21 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
 
     console.log("Saving Purchase Entry:", data.entryNo);
     const entry = await PurchaseBookEntryModel.create(data);
-    
+
     if (data.jobRef && data.chargeRef) {
       await JobModel.updateOne(
         { _id: data.jobRef, "charges._id": data.chargeRef },
-        { 
-          $set: { 
+        {
+          $set: {
             "charges.$.purchase_book_no": entry.entryNo,
-            "charges.$.purchase_book_status": "Pending" 
+            "charges.$.purchase_book_status": "Pending"
           }
         }
       );
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: "Purchase Book Entry saved and submitted successfully",
       id: entry._id,
       "Entry No": entry.entryNo
@@ -241,7 +264,7 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
 router.get("/purchase-entry", authApiKey, async (req, res) => {
   try {
     const entryNo = req.query.entry_no || req.query.entryNo;
-    
+
     if (!entryNo) {
       return res.status(400).json({ error: "entry_no is a required query parameter" });
     }
@@ -368,8 +391,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
     if (data.jobRef && data.chargeRef) {
       await JobModel.updateOne(
         { _id: data.jobRef, "charges._id": data.chargeRef },
-        { 
-          $set: { 
+        {
+          $set: {
             "charges.$.payment_request_no": request.requestNo,
             "charges.$.payment_request_status": "Pending",
             "charges.$.payment_request_requested_by": request.requestedBy,
@@ -379,8 +402,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
       );
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: "Payment Request saved and submitted successfully",
       id: request._id,
       "Request No": request.requestNo
@@ -409,7 +432,7 @@ router.get("/payment-request", authApiKey, async (req, res) => {
 
     const request = await PaymentRequestModel.findOne({ requestNo }).lean();
     if (!request) return res.status(404).json({ error: "Payment Request not found." });
-    
+
     const formattedData = {
       "Request No": request.requestNo,
       "Request Date": request.requestDate,

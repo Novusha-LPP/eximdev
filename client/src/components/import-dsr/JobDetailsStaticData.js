@@ -234,7 +234,7 @@ function JobDetailsStaticData(props) {
         "(INPAV6) Pipavav (Victor) Port":
           "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
         "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
-        "(INCOK4) Cochin": "COCHIN PORT (INCOK4)",
+        "(INCOK1) Cochin": "COCHIN PORT (INCOK1)",
       };
       return portMap[portOfReporting] || "";
     },
@@ -318,10 +318,10 @@ function JobDetailsStaticData(props) {
 
   const renderOldDocsDialog = () => {
     const { do_shipping_line_invoice, insurance_copy, other_do_documents } = props.data || {};
-    
+
     const renderDocSection = (title, docs) => {
       if (!Array.isArray(docs) || docs.length === 0) return null;
-      
+
       // Filter out docs without URLs
       const validDocs = docs.filter(doc => Array.isArray(doc.url) && doc.url.length > 0);
       if (validDocs.length === 0) return null;
@@ -362,8 +362,8 @@ function JobDetailsStaticData(props) {
     };
 
     return (
-      <Dialog 
-        open={oldDocsModalOpen} 
+      <Dialog
+        open={oldDocsModalOpen}
         onClose={() => setOldDocsModalOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -467,10 +467,10 @@ function JobDetailsStaticData(props) {
                     e.stopPropagation();
                     setOldDocsModalOpen(true);
                   }}
-                  sx={{ 
-                    height: '32px', 
-                    borderRadius: '16px', 
-                    fontSize: '0.75rem', 
+                  sx={{
+                    height: '32px',
+                    borderRadius: '16px',
+                    fontSize: '0.75rem',
                     textTransform: 'none',
                     borderColor: '#1976d2',
                     color: '#1976d2',
@@ -534,11 +534,11 @@ function JobDetailsStaticData(props) {
                     size="small"
                     startIcon={<HistoryIcon />}
                     onClick={() => setOldDocsModalOpen(true)}
-                    sx={{ 
+                    sx={{
                       mr: 2,
-                      height: '32px', 
-                      borderRadius: '16px', 
-                      fontSize: '0.75rem', 
+                      height: '32px',
+                      borderRadius: '16px',
+                      fontSize: '0.75rem',
                       textTransform: 'none',
                       borderColor: '#1976d2',
                       color: '#1976d2'
@@ -849,22 +849,22 @@ function JobDetailsStaticData(props) {
               <Col xs={12}>
                 <span style={labelStyle}>HSS Address: </span>
                 <span style={valueStyle}>
-                   {typeof props.data.hss_address === 'object' 
+                  {typeof props.data.hss_address === 'object'
                     ? [
-                        props.data.hss_address.details,
-                        props.data.hss_address.city,
-                        props.data.hss_address.state,
-                        props.data.hss_address.postal_code,
-                        props.data.hss_address.country
-                      ].filter(Boolean).join(", ")
+                      props.data.hss_address.details,
+                      props.data.hss_address.city,
+                      props.data.hss_address.state,
+                      props.data.hss_address.postal_code,
+                      props.data.hss_address.country
+                    ].filter(Boolean).join(", ")
                     : [
-                        props.data.hss_address_details,
-                        props.data.hss_city,
-                        props.data.hss_state,
-                        props.data.hss_postal_code,
-                        props.data.hss_country
-                      ].filter(Boolean).join(", ")
-                   }
+                      props.data.hss_address_details,
+                      props.data.hss_city,
+                      props.data.hss_state,
+                      props.data.hss_postal_code,
+                      props.data.hss_country
+                    ].filter(Boolean).join(", ")
+                  }
                 </span>
               </Col>
             </Row>
@@ -877,22 +877,22 @@ function JobDetailsStaticData(props) {
               <span style={valueStyle}>
                 {typeof props.data.importer_address === 'object'
                   ? [
-                      props.data.importer_address.details,
-                      props.data.importer_address.city,
-                      props.data.importer_address.state,
-                      props.data.importer_address.postal_code,
-                      props.data.importer_address.country
+                    props.data.importer_address.details,
+                    props.data.importer_address.city,
+                    props.data.importer_address.state,
+                    props.data.importer_address.postal_code,
+                    props.data.importer_address.country
+                  ].filter(Boolean).join(", ")
+                  : (props.data.importer_address_details
+                    ? [
+                      props.data.importer_address_details,
+                      props.data.importer_city,
+                      props.data.importer_state,
+                      props.data.importer_postal_code,
+                      props.data.importer_country
                     ].filter(Boolean).join(", ")
-                  : (props.data.importer_address_details 
-                      ? [
-                          props.data.importer_address_details,
-                          props.data.importer_city,
-                          props.data.importer_state,
-                          props.data.importer_postal_code,
-                          props.data.importer_country
-                        ].filter(Boolean).join(", ")
-                      : props.data.importer_address
-                    )
+                    : props.data.importer_address
+                  )
                 }
               </span>
               <Tooltip title="Copy Importer Address">
@@ -901,21 +901,21 @@ function JobDetailsStaticData(props) {
                   onClick={(event) => {
                     const addr = typeof props.data.importer_address === 'object'
                       ? [
-                          props.data.importer_address.details,
-                          props.data.importer_address.city,
-                          props.data.importer_address.state,
-                          props.data.importer_address.postal_code,
-                          props.data.importer_address.country
+                        props.data.importer_address.details,
+                        props.data.importer_address.city,
+                        props.data.importer_address.state,
+                        props.data.importer_address.postal_code,
+                        props.data.importer_address.country
+                      ].filter(Boolean).join(", ")
+                      : (props.data.importer_address_details
+                        ? [
+                          props.data.importer_address_details,
+                          props.data.importer_city,
+                          props.data.importer_state,
+                          props.data.importer_postal_code,
+                          props.data.importer_country
                         ].filter(Boolean).join(", ")
-                      : (props.data.importer_address_details 
-                          ? [
-                              props.data.importer_address_details,
-                              props.data.importer_city,
-                              props.data.importer_state,
-                              props.data.importer_postal_code,
-                              props.data.importer_country
-                            ].filter(Boolean).join(", ")
-                          : props.data.importer_address);
+                        : props.data.importer_address);
                     handleCopy(event, addr);
                   }}
                 >
@@ -943,7 +943,7 @@ function JobDetailsStaticData(props) {
                     "(INHZA1) Hazira",
                     "(INAMD4) Ahmedabad"
 
-  
+
                   ];
                   return (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={key}>

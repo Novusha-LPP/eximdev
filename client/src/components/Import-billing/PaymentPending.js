@@ -485,13 +485,36 @@ function PaymentPending({ workMode = "Payment" }) {
           const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
           const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
 
-          const requesters = [...new Set(charges
+          const entries = charges
             .filter(c => c[filterField] && c[statusField] !== "Paid" && c[isApprovedField])
-            .map(c => c[dataField])
-            .filter(Boolean))];
-          return requesters.length > 0 ? (
+            .reduce((acc, c) => {
+              const name = c[dataField];
+              if (name && !acc.find(e => e.name === name)) {
+                acc.push({
+                  name,
+                  date: c.createdAt || c.payment_request_created_at || null
+                });
+              }
+              return acc;
+            }, []);
+          return entries.length > 0 ? (
             <div style={{ fontSize: '0.75rem', fontWeight: '500' }}>
-              {requesters.map((r, i) => <div key={i}>{r}</div>)}
+              {entries.map((entry, i) => (
+                <div key={i} style={{ marginBottom: '4px' }}>
+                  <div>{entry.name}</div>
+                  {entry.date && (
+                    <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>
+                      {new Date(entry.date).toLocaleString('en-GB', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ) : "-";
         }

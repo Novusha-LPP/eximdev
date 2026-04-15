@@ -708,7 +708,8 @@ const ProjectWorkspace = () => {
                     <thead>
                         <tr>
                             <th style={{ width: '40px' }}>Sr. No</th>
-                            <th style={{ width: '20%' }}>Discussion Points</th>
+                            <th style={{ width: '18%' }}>Discussion Points</th>
+                            <th style={{ width: '100px' }}>Assigned By</th>
                             <th style={{ width: '120px' }}>Responsibility</th>
                             <th style={{ width: '80px' }}>Approval</th>
                             <th style={{ width: '20%' }}>Gap / Action Point</th>
@@ -752,6 +753,15 @@ const ProjectWorkspace = () => {
                                         onInput={autoResize}
                                         style={{ fieldSizing: 'content' }}
                                     />
+                                </td>
+                                <td style={{ fontSize: '12px', color: '#444' }}>
+                                    {point.created_by ? (
+                                        <div style={{ fontWeight: 600 }}>
+                                            {point.created_by.first_name ? `${point.created_by.first_name} ${point.created_by.last_name || ''}` : point.created_by.username}
+                                        </div>
+                                    ) : (
+                                        <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>
+                                    )}
                                 </td>
                                 <td>
                                     <select
@@ -904,6 +914,7 @@ const ProjectWorkspace = () => {
                                     style={{ fieldSizing: 'content' }}
                                 />
                             </td>
+                            <td></td>
                             <td>
                                 <select
                                     value={newPoint.responsibility}

@@ -866,6 +866,10 @@ function HomePageContent() {
                   element={<MyOpenPoints />}
                 />
                 <Route
+                  path="/open-points/assigned-by-me"
+                  element={<MyOpenPoints viewMode="assigned-by-me" />}
+                />
+                <Route
                   path="/open-points/user/:username"
                   element={<MyOpenPoints />}
                 />

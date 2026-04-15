@@ -296,9 +296,24 @@ router.get("/api/open-points/project/:projectId/points", authMiddleware, verifyP
         const points = await OpenPoint.find({ project_id: req.params.projectId })
             .populate('responsible_person', 'username first_name last_name')
             .populate('reviewer', 'username first_name last_name')
-            .sort({ status: 1, target_date: 1 }); // Sort by status Priority (Red logic needs custom sort but simplified)
+            .populate('created_by', 'username first_name last_name')
+            .populate({
+                path: 'project_id',
+                select: 'owner',
+                populate: { path: 'owner', select: 'username first_name last_name' }
+            })
+            .sort({ status: 1, target_date: 1 });
 
-        res.json(points);
+        // Transform to apply fallback for created_by
+        const transformedPoints = points.map(p => {
+            const pointObj = p.toObject();
+            if (!pointObj.created_by && pointObj.project_id?.owner) {
+                pointObj.created_by = pointObj.project_id.owner;
+            }
+            return pointObj;
+        });
+
+        res.json(transformedPoints);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -324,8 +339,13 @@ router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoin
             }
         }
 
+        pointData.created_by = req.user._id;
+
         const point = new OpenPoint(pointData);
-        const savedPoint = await point.save();
+        let savedPoint = await point.save();
+
+        // Populate created_by to return user details immediately
+        savedPoint = await OpenPoint.findById(savedPoint._id).populate('created_by', 'username first_name last_name');
 
         res.status(201).json(savedPoint);
     } catch (error) {
@@ -554,20 +574,140 @@ router.get("/api/open-points/my-assigned-points", authMiddleware, async (req, re
 
         // Find all open points assigned to this user
         const points = await OpenPoint.find({ responsible_person: user._id })
-            .populate('project_id', 'name')
+            .populate({
+                path: 'project_id',
+                select: 'name owner',
+                populate: { path: 'owner', select: 'username first_name last_name' }
+            })
             .populate('responsible_person', 'username first_name last_name')
             .populate('reviewer', 'username first_name last_name')
+            .populate('created_by', 'username first_name last_name')
             .sort({ status: 1, target_date: 1 });
 
-        // Transform to include project name at root level
-        const transformedPoints = points.map(p => ({
-            ...p.toObject(),
-            project_name: p.project_id?.name || 'Unknown Project'
-        }));
+        // Transform to include project name and fallback for created_by
+        const transformedPoints = points.map(p => {
+            const pointObj = p.toObject();
+            if (!pointObj.created_by && pointObj.project_id?.owner) {
+                pointObj.created_by = pointObj.project_id.owner;
+            }
+            return {
+                ...pointObj,
+                project_name: p.project_id?.name || 'Unknown Project'
+            };
+        });
 
         res.json(transformedPoints);
     } catch (error) {
         console.error("Get My Assigned Points Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get pending points count for current user (Red, Yellow, Orange)
+router.get("/api/open-points/my-pending-count", authMiddleware, async (req, res) => {
+    try {
+        const { userId, username } = req.headers;
+        const authUserId = req.user ? req.user._id : null;
+        
+        // Find user using same logic as my-assigned-points
+        let user = null;
+        if (authUserId) {
+            user = await UserModel.findById(authUserId);
+        } else if (userId) {
+            user = await UserModel.findById(userId);
+        }
+        
+        if (!user && username) {
+            user = await UserModel.findOne({ username });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // Run same auto-update logic to ensure status consistency
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        await OpenPoint.updateMany({
+            responsible_person: user._id,
+            status: { $nin: ['Green', 'Yellow', 'Orange'] },
+            target_date: { $lt: today }
+        }, {
+            $set: { status: 'Red' }
+        });
+
+        // Count pending points assigned to this user (excluding Green and Orange)
+        const count = await OpenPoint.countDocuments({
+            responsible_person: user._id,
+            status: { $nin: ['Green', 'Orange'] }
+        });
+
+        res.json({ count });
+    } catch (error) {
+        console.error("Get Pending Count Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get points I assigned to others
+router.get("/api/open-points/my-assigned-to-others-points", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        if (!userId) {
+            return res.status(401).json({ error: "User identification not provided" });
+        }
+
+        // Find all projects owned by this user to use as fallback for historical tasks
+        const myOwnedProjectIds = await OpenPointProject.find({ owner: userId }).distinct('_id');
+
+        // Find all open points: 
+        // 1. Created by me
+        // 2. OR (Created By is null AND belongs to a project I own - fallback for historical data)
+        // AND always excluding points assigned TO me (responsible_person === userId)
+        const points = await OpenPoint.find({ 
+            $or: [
+                { created_by: userId },
+                { 
+                    $and: [
+                        { created_by: { $exists: false } },
+                        { project_id: { $in: myOwnedProjectIds } }
+                    ]
+                },
+                { 
+                    $and: [
+                        { created_by: null },
+                        { project_id: { $in: myOwnedProjectIds } }
+                    ]
+                }
+            ],
+            responsible_person: { $ne: userId } // Exclude self-assignments
+        })
+            .populate({
+                path: 'project_id',
+                select: 'name owner',
+                populate: { path: 'owner', select: 'username first_name last_name' }
+            })
+            .populate('responsible_person', 'username first_name last_name')
+            .populate('reviewer', 'username first_name last_name')
+            .populate('created_by', 'username first_name last_name')
+            .sort({ status: 1, target_date: 1 });
+
+        // Transform to include project name and fallback for created_by label
+        const transformedPoints = points.map(p => {
+            const pointObj = p.toObject();
+            if (!pointObj.created_by && pointObj.project_id?.owner) {
+                pointObj.created_by = pointObj.project_id.owner;
+            }
+            return {
+                ...pointObj,
+                project_name: p.project_id?.name || 'Unknown Project'
+            };
+        });
+
+        res.json(transformedPoints);
+    } catch (error) {
+        console.error("Get Points I Assigned Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -596,16 +736,27 @@ router.get("/api/open-points/user/:username/points", async (req, res) => {
 
         // Find all open points assigned to this user
         const points = await OpenPoint.find({ responsible_person: targetUser._id })
-            .populate('project_id', 'name')
+            .populate({
+                path: 'project_id',
+                select: 'name owner',
+                populate: { path: 'owner', select: 'username first_name last_name' }
+            })
             .populate('responsible_person', 'username first_name last_name')
             .populate('reviewer', 'username first_name last_name')
+            .populate('created_by', 'username first_name last_name')
             .sort({ status: 1, target_date: 1 });
 
-        // Transform to include project name at root level
-        const transformedPoints = points.map(p => ({
-            ...p.toObject(),
-            project_name: p.project_id?.name || 'Unknown Project'
-        }));
+        // Transform to include project name and fallback for created_by
+        const transformedPoints = points.map(p => {
+            const pointObj = p.toObject();
+            if (!pointObj.created_by && pointObj.project_id?.owner) {
+                pointObj.created_by = pointObj.project_id.owner;
+            }
+            return {
+                ...pointObj,
+                project_name: p.project_id?.name || 'Unknown Project'
+            };
+        });
 
         // Return points along with user info for proper name display
         res.json({

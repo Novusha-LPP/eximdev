@@ -203,6 +203,21 @@ const OpenPointsHome = () => {
                         <button
                             className="btn"
                             style={{
+                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                color: 'white',
+                                padding: '12px 24px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                boxShadow: '0 4px 6px rgba(245, 158, 11, 0.3)',
+                                fontWeight: 600
+                            }}
+                            onClick={() => navigate('/open-points/assigned-by-me')}
+                        >
+                            📤 Tasks I Assigned
+                        </button>
+                        <button
+                            className="btn"
+                            style={{
                                 background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                                 color: 'white',
                                 padding: '12px 24px',

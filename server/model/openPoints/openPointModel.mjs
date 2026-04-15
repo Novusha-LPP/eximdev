@@ -22,6 +22,7 @@ const pointSchema = new mongoose.Schema({
 
     responsible_person: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Opsional link to system user
     reviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // User who created the task
 
     evidence: [{
         file_url: String,

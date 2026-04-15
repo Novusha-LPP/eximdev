@@ -89,9 +89,10 @@ export default function Dashboard() {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
-  const role = user?.role || 'EMPLOYEE';
-  const isAdmin = role === 'ADMIN' || role === 'Admin';
-  const isHOD = role === 'HOD' || role === 'Head_of_Department';
+  const normalizeRole = (r) => String(r || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+  const nRole = normalizeRole(user?.role);
+  const isAdmin = nRole === 'ADMIN';
+  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT';
   const isManager = isAdmin || isHOD;
 
   const [loading, setLoading] = useState(true);
@@ -100,6 +101,7 @@ export default function Dashboard() {
   const [dash, setDash] = useState(null);
   const [balances, setBalances] = useState([]);
   const [mgmtData, setMgmtData] = useState(null);
+  const [todayTab, setTodayTab] = useState('absent');
   const [holidays, setHolidays] = useState([]);
   const [month, setMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
@@ -265,7 +267,11 @@ export default function Dashboard() {
   const stats = mgmtData?.stats || mgmtData?.summary || dash?.mgmtSnapshot || {};
   const pendingLeaves = mgmtData?.pendingLeaves || [];
   const pendingRegs = mgmtData?.pendingRegularization || [];
-  const teamCalendar = mgmtData?.teamCalendar || [];
+  const teamCalendar = mgmtData?.teamCalendar || mgmtData?.teamAvailability || [];
+  const absentList = mgmtData?.absentToday || mgmtData?.absent || [];
+  const lateList = mgmtData?.lateToday || mgmtData?.late || [];
+  const onLeaveList = mgmtData?.onLeaveToday || []; 
+  
   const allPending = [
     ...pendingLeaves.map(r => ({ ...r, _kind: 'leave' })),
     ...pendingRegs.map(r => ({ ...r, _kind: 'reg' })),
@@ -471,34 +477,66 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* -- ADMIN: Absent employees today -- */}
-          {isAdmin && (
+          {/* -- MANAGER: Today's Alerts (Late / Absent) -- */}
+          {isManager && (
             <div className="card">
               <div className="card-head">
-                <span className="card-title">Absent Today</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {(mgmtData?.absentToday || []).length > 0 && (
-                    <span className="card-badge badge-red">{(mgmtData?.absentToday || []).length}</span>
-                  )}
-                  <button className="card-link" onClick={() => navigate('/attendance/admin/attendance')}>
-                    View all <FiArrowRight size={12} />
+                <span className="card-title">Today's Alerts</span>
+                <div className="db-tabs-mini">
+                  <button 
+                    className={`db-tab-mini ${todayTab === 'absent' ? 'active' : ''}`}
+                    onClick={() => setTodayTab('absent')}
+                  >
+                    Absent {absentList.length > 0 && <span className="tab-count-red">{absentList.length}</span>}
+                  </button>
+                  <button 
+                    className={`db-tab-mini ${todayTab === 'late' ? 'active' : ''}`}
+                    onClick={() => setTodayTab('late')}
+                  >
+                    Late {lateList.length > 0 && <span className="tab-count-amber">{lateList.length}</span>}
                   </button>
                 </div>
               </div>
-              {(mgmtData?.absentToday || []).length === 0 ? (
-                <div className="empty-msg">Everyone is present today! 🎉</div>
-              ) : (mgmtData.absentToday).slice(0, 8).map((emp, i) => (
-                <div key={i} className="absent-emp-row">
-                  <div className="absent-emp-av">{(emp.name || '?')[0].toUpperCase()}</div>
-                  <div className="absent-emp-info">
-                    <div className="absent-emp-name">{emp.name}</div>
-                    <div className="absent-emp-dept">Team Member</div>
-                  </div>
-                  <span className={`absent-emp-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
-                    {emp.status === 'leave' ? 'On Leave' : 'Absent'}
-                  </span>
-                </div>
-              ))}
+              
+              <div className="db-alerts-list">
+                {todayTab === 'absent' && (
+                  absentList.length === 0 ? (
+                    <div className="empty-msg">No one is absent today! 🎉</div>
+                  ) : absentList.map((emp, i) => (
+                    <div key={i} className="absent-emp-row">
+                      <div className="absent-emp-av">{(emp.name || '?')[0].toUpperCase()}</div>
+                      <div className="absent-emp-info">
+                        <div className="absent-emp-name">{emp.name}</div>
+                        <div className="absent-emp-dept">{emp.status === 'leave' ? 'On Leave' : 'Absent'}</div>
+                      </div>
+                      <span className={`absent-emp-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
+                        {emp.status === 'leave' ? 'On Leave' : 'Absent'}
+                      </span>
+                    </div>
+                  ))
+                )}
+                
+                {todayTab === 'late' && (
+                  lateList.length === 0 ? (
+                    <div className="empty-msg">No late arrivals reported.</div>
+                  ) : lateList.map((emp, i) => {
+                     const lMins = emp.late_by ?? emp.lateBy ?? 0;
+                     const iTime = emp.first_in ?? emp.inTime;
+                     return (
+                        <div key={i} className="absent-emp-row">
+                          <div className="absent-emp-av late">{(emp.name || '?')[0].toUpperCase()}</div>
+                          <div className="absent-emp-info">
+                            <div className="absent-emp-name">{emp.name}</div>
+                            <div className="absent-emp-dept">{iTime ? `Arrived ${fmtTime(iTime)}` : 'Logged Late'}</div>
+                          </div>
+                          <span className="absent-emp-tag late">
+                            +{lMins}m
+                          </span>
+                        </div>
+                     );
+                  })
+                )}
+              </div>
             </div>
           )}
 

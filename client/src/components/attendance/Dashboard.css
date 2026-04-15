@@ -449,6 +449,52 @@
   justify-content: space-between;
   padding: .875rem 1.25rem;
   border-bottom: 1px solid var(--border);
+  gap: 1rem;
+}
+
+.db-tabs-mini {
+  display: flex;
+  background: var(--surface2);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.db-tab-mini {
+  border: none;
+  background: none;
+  font-family: var(--font);
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--ink3);
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all .15s var(--ease);
+}
+
+.db-tab-mini.active {
+  background: var(--surface);
+  color: var(--ink1);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.tab-count-red, .tab-count-amber {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-weight: 700;
+}
+
+.tab-count-red { background: var(--red-bg); color: var(--red-text); }
+.tab-count-amber { background: var(--amber-bg); color: var(--amber-text); }
+
+.db-alerts-list {
+  max-height: 380px;
+  overflow-y: auto;
 }
 
 .card-title {

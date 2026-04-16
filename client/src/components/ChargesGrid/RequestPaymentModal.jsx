@@ -41,11 +41,15 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                 let updatedJobNo = jobRefStr;
                 try {
                     const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
-                    const yearParam = jobYear ? `&year=${jobYear}` : '';
-                    const jobIdParam = initialData.jobId ? `&jobId=${initialData.jobId}` : '';
                     const response = await axios.get(
-                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence?type=payment&jobNo=${jobRefStr}${yearParam}${jobIdParam}`,
+                        `${process.env.REACT_APP_API_STRING}/tally/next-sequence`,
                         {
+                            params: {
+                                type: 'payment',
+                                jobNo: jobRefStr,
+                                year: jobYear,
+                                jobId: initialData.jobId
+                            },
                             headers: { 'x-api-key': API_KEY },
                             withCredentials: true
                         }

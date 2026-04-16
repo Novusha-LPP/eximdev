@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
     }
 
     const activities = await Activity.find(query)
-      .populate('userId', 'username email')
+      .populate('userId', 'username email first_name last_name')
       .sort({ activityDate: -1 });
     res.json(activities);
   } catch (error) {
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const activity = await Activity.findOne({ _id: req.params.id })
-      .populate('userId', 'username email');
+      .populate('userId', 'username email first_name last_name');
     if (!activity) return res.status(404).json({ message: 'Activity not found' });
     res.json(activity);
   } catch (error) {
@@ -41,7 +41,7 @@ router.post('/', async (req, res) => {
   try {
     const newActivity = new Activity({ 
       ...req.body, 
-      userId: req.user?._id // Use current user ID
+      userId: req.user?._id || req.body.userId // Use current user ID or ID from body
     });
     await newActivity.save();
     res.status(201).json(newActivity);

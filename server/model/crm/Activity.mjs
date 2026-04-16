@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const activitySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   relatedTo: {
-    model: { type: String, enum: ['Lead', 'Contact', 'Opportunity'], required: true },
+    model: { type: String, enum: ['Lead', 'Contact', 'Opportunity', 'Account'], required: true },
     id: { type: mongoose.Schema.Types.ObjectId, required: true }
   },
   type: { 

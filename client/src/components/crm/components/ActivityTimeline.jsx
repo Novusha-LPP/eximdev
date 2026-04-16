@@ -27,10 +27,16 @@ export default function ActivityTimeline({ linkedId, linkedType = 'opportunity' 
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const query = linkedType === 'opportunity' ? `opportunityId=${linkedId}` : 
-                   linkedType === 'account' ? `accountId=${linkedId}` :
-                   `contactId=${linkedId}`;
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/activities?${query}`, { withCredentials: true });
+      // Map linkedType to Model names expected by backend
+      const modelMap = {
+        opportunity: 'Opportunity',
+        account: 'Account',
+        contact: 'Contact',
+        lead: 'Lead'
+      };
+      
+      const relatedModel = modelMap[linkedType];
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/activities?relatedModel=${relatedModel}&relatedId=${linkedId}`, { withCredentials: true });
       setActivities(res.data);
     } catch (err) {
       message.error('Failed to load activities');
@@ -170,8 +176,13 @@ export default function ActivityTimeline({ linkedId, linkedType = 'opportunity' 
                   <p style={{ margin: '8px 0', color: '#475569', fontSize: '0.9rem' }}>{activity.description}</p>
                 )}
 
-                <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: '#64748b', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: '#64748b', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
                   <span>{formatDate(activity.createdAt)}</span>
+                  {activity.userId && (
+                    <span style={{ fontWeight: 600 }}>
+                      Logged by: {activity.userId.first_name || ''} {activity.userId.last_name || activity.userId.username || 'System'}
+                    </span>
+                  )}
                   {activity.duration && <span>Duration: {activity.duration} mins</span>}
                   {activity.outcome && <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>Outcome: {activity.outcome}</span>}
                 </div>

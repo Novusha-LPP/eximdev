@@ -29,8 +29,7 @@ const opportunitySchema = new mongoose.Schema({
     default: 'pipeline'
   },
   services: [{ 
-    type: String, 
-    enum: allowedServices 
+    type: String 
   }],
   expectedCloseDate: { type: Date },
   probability: { type: Number, min: 0, max: 100, default: 0 },
@@ -39,6 +38,12 @@ const opportunitySchema = new mongoose.Schema({
     stage: { type: String },
     enteredAt: { type: Date, default: Date.now },
     exitedAt: { type: Date }
+  }],
+  remarks: [{
+    text: String,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    userName: String,
+    createdAt: { type: Date, default: Date.now }
   }],
   convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' }
 }, { timestamps: true });

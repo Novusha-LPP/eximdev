@@ -35,11 +35,24 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+      const userId = user._id || user.id;
+
+      // Map linkedType to Model names expected by backend
+      const modelMap = {
+        lead: 'Lead',
+        contact: 'Contact',
+        opportunity: 'Opportunity',
+        account: 'Account'
+      };
+
       const dataToSubmit = {
         ...formData,
-        ...(linkedType === 'opportunity' && { opportunityId: linkedId }),
-        ...(linkedType === 'account' && { accountId: linkedId }),
-        ...(linkedType === 'contact' && { contactId: linkedId })
+        userId: userId,
+        relatedTo: {
+          model: modelMap[linkedType],
+          id: linkedId
+        }
       };
 
       if (activity?._id) {
@@ -175,7 +188,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{ padding: '10px 20px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600', opacity: isSubmitting ? 0.6 : 1 }}
+              style={{ padding: '10px 20px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, opacity: isSubmitting ? 0.6 : 1 }}
             >
               {isSubmitting ? 'Saving...' : activity ? 'Update' : 'Log Activity'}
             </button>

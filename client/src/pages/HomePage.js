@@ -100,6 +100,7 @@ import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.
 import PortDirectory from "../components/master-directory/PortDirectory.js";
 import CustomHouseDirectory from "../components/master-directory/CustomHouseDirectory.js";
 import CFSDirectory from "../components/master-directory/CFSDirectory.js";
+import TransporterDirectory from "../components/master-directory/TransporterDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
@@ -672,6 +673,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <CFSDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/transporter-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <TransporterDirectory />
                     </ProtectedRoute>
                   }
                 />

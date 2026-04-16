@@ -269,6 +269,7 @@ import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 import portRoutes from "./routes/master-directory/portRoutes.mjs";
 import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
+import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -597,6 +598,7 @@ app.use("/api", currencyRoutes);
 app.use("/api", portRoutes);
 app.use("/api", customHouseRoutes);
 app.use("/api", cfsRoutes);
+app.use("/api", transporterRoutes);
 
 
 // Tally API

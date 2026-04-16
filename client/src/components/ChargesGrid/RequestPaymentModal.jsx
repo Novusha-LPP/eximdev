@@ -110,9 +110,6 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         }
 
         // Conditional mandatory fields
-        if (formData["Transaction Type"] === 'CHEQUE') {
-            requiredFields.push("Instrument No", "Instrument Date");
-        }
 
         const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
 
@@ -226,6 +223,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                     <option value="RTGS">RTGS</option>
                                     <option value="IMPS">IMPS</option>
                                     <option value="CHEQUE">CHEQUE</option>
+                                    <option value="DEMAND DRAFT">DEMAND DRAFT</option>
                                     <option value="CASH">CASH</option>
                                     <option value="ODEX">ODEX</option>
                                 </select>
@@ -235,14 +233,14 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                 <input type="text" name="Beneficiary Code" className="ep-desc-input" value={formData["Beneficiary Code"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                             {formData["Transaction Type"] === 'CHEQUE' && (
+                             {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (
                                 <>
                                     <div className="ep-row">
-                                        <span className="ep-label">Instrument No <span style={{ color: 'red' }}>*</span></span>
+                                        <span className="ep-label">Instrument No</span>
                                         <input type="text" name="Instrument No" className="ep-desc-input" value={formData["Instrument No"]} onChange={handleInputChange} />
                                     </div>
                                     <div className="ep-row">
-                                        <span className="ep-label">Instrument Date <span style={{ color: 'red' }}>*</span></span>
+                                        <span className="ep-label">Instrument Date</span>
                                         <input type="date" name="Instrument Date" className="ep-desc-input" value={formData["Instrument Date"]} onChange={handleInputChange} />
                                     </div>
                                 </>

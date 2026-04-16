@@ -1125,7 +1125,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
                     </>
                   )}
 
-                  {selectedPaymentRequest.transactionType === 'CHEQUE' && (
+                  {['CHEQUE', 'DEMAND DRAFT'].includes(selectedPaymentRequest.transactionType) && (
                     <>
                       <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
                         <Typography variant="caption" fontWeight="bold">Instrument No</Typography>

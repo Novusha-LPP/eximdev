@@ -11,6 +11,7 @@ const MasterDirectory = () => {
     { title: "Shipping Lines", path: "/shipping-line-directory", description: "Database of shipping line partners." },
     { title: "CFS List", path: "/cfs-directory", description: "Database of CFS partners." },
     { title: "Suppliers", path: "/supplier-directory", description: "Database of international and local suppliers." },
+    { title: "Transporters", path: "/transporter-directory", description: "Database of transport partners and logistics." },
     { title: "Currencies", path: "/currency-directory", description: "Database of global currencies and codes." },
     { title: "Countries", path: "/country-directory", description: "Global country master list with codes." },
     { title: "Airlines", path: "/airlines-directory", description: "Comprehensive airline database and tracking." },

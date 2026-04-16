@@ -104,6 +104,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     assessment_date,
     free_time,
     vessel_berthing,
+    branch_code,
     gateway_igm_date,
     discharge_date,
     pcv_date,
@@ -148,8 +149,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [localStatus, setLocalStatus] = useState(detailed_status);
   const [containers, setContainers] = useState(() => [...container_nos]);
   const [editable, setEditable] = useState(null);
-  const { branches, selectedBranch } = React.useContext(BranchContext);
-  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const { branches } = React.useContext(BranchContext);
+  const activeBranchConfig = useMemo(() => {
+    return branches.find(b => b.branch_code === branch_code)?.configuration || {
+      railout_enabled: true,
+      gateway_igm_enabled: true,
+      gateway_igm_date_enabled: true,
+    };
+  }, [branches, branch_code]);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
   const [dateError, setDateError] = useState("");
@@ -165,7 +172,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           }|${c.by_road_movement_date || ""}`
       )
       .join("||");
-    return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${gateway_igm_date || ""
+    return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${gateway_igm_date || ""}|${igm_date || ""
       }|${discharge_date || ""}|${pcv_date || ""}|${out_of_charge || ""}|${duty_paid_date || ""
       }|${detailed_status || ""}|${free_time || ""}|${cKey}`;
   }, [
@@ -173,6 +180,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     assessment_date,
     vessel_berthing,
     gateway_igm_date,
+    igm_date,
     discharge_date,
     pcv_date,
     out_of_charge,

@@ -650,10 +650,36 @@ function PaymentCompleted({ workMode = "Payment" }) {
           const charges = cell.row.original.charges || [];
           const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
           const reqByField = workMode === "Payment" ? "payment_request_requested_by" : "purchase_book_requested_by";
-          const entries = [...new Set(charges.filter(c => c[filterField]).map(c => c[reqByField]).filter(Boolean))];
+          const entries = charges
+            .filter(c => c[filterField])
+            .reduce((acc, c) => {
+              const name = c[reqByField];
+              if (name && !acc.find(e => e.name === name)) {
+                acc.push({
+                  name,
+                  date: c.createdAt || c.payment_request_created_at || null
+                });
+              }
+              return acc;
+            }, []);
           return entries.length > 0 ? (
             <div style={{ fontSize: '0.75rem', fontWeight: '500' }}>
-              {entries.map((r, i) => <div key={i}>{r}</div>)}
+              {entries.map((entry, i) => (
+                <div key={i} style={{ marginBottom: '4px' }}>
+                  <div>{entry.name}</div>
+                  {entry.date && (
+                    <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>
+                      {new Date(entry.date).toLocaleString('en-GB', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ) : "-";
         }
@@ -1099,7 +1125,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
                     </>
                   )}
 
-                  {selectedPaymentRequest.transactionType === 'CHEQUE' && (
+                  {['CHEQUE', 'DEMAND DRAFT'].includes(selectedPaymentRequest.transactionType) && (
                     <>
                       <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
                         <Typography variant="caption" fontWeight="bold">Instrument No</Typography>

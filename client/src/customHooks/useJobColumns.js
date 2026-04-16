@@ -228,7 +228,7 @@ function useJobColumns(
           "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
         "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
         "(INAMD4) Ahmedabad": "AHMEDABAD (INAMD4)",
-        "(INCOK4) Cochin": "COCHIN PORT (INCOK4)",
+        "(INCOK1) Cochin": "COCHIN PORT (INCOK1)",
       };
       return portMap[portOfReporting] || "";
     },
@@ -642,13 +642,13 @@ function useJobColumns(
                 </div>
               )}
               {!isAirMode(row.original?.mode) && (
-              <div>
-                <strong>EmptyOff LOC:</strong> {do_list}
-              </div>
+                <div>
+                  <strong>EmptyOff LOC:</strong> {do_list}
+                </div>
               )}
 
               <div style={{ marginTop: "8px" }}>
-                <InvoiceDisplay row={row.original} showOOC={false} />
+                <InvoiceDisplay row={row.original} showOOC={false} showCTH={false} />
               </div>
             </div>
           );

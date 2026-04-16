@@ -96,8 +96,18 @@ export const fetchMyAssignedPoints = async () => {
     return response.data;
 };
 
+export const fetchMyAssignedToOthersPoints = async () => {
+    const response = await axios.get(`${API_URL}/open-points/my-assigned-to-others-points`, getHeaders());
+    return response.data;
+};
+
 // Fetch open points for a specific user by username (for profile/admin viewing)
 export const fetchUserOpenPoints = async (username) => {
     const response = await axios.get(`${API_URL}/open-points/user/${username}/points`, getHeaders());
     return response.data;
+};
+
+export const fetchMyPendingCount = async () => {
+    const response = await axios.get(`${API_URL}/open-points/my-pending-count`, getHeaders());
+    return response.data; // { count: X }
 };

@@ -100,6 +100,7 @@ import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.
 import PortDirectory from "../components/master-directory/PortDirectory.js";
 import CustomHouseDirectory from "../components/master-directory/CustomHouseDirectory.js";
 import CFSDirectory from "../components/master-directory/CFSDirectory.js";
+import TransporterDirectory from "../components/master-directory/TransporterDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
@@ -675,6 +676,14 @@ function HomePageContent() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/transporter-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <TransporterDirectory />
+                    </ProtectedRoute>
+                  }
+                />
 
 
                 {/* Document Collection */}
@@ -864,6 +873,10 @@ function HomePageContent() {
                 <Route
                   path="/open-points/my-points"
                   element={<MyOpenPoints />}
+                />
+                <Route
+                  path="/open-points/assigned-by-me"
+                  element={<MyOpenPoints viewMode="assigned-by-me" />}
                 />
                 <Route
                   path="/open-points/user/:username"

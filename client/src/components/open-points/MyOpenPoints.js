@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { fetchMyAssignedPoints, updatePointStatus, fetchUserOpenPoints } from '../../services/openPointsService';
+import { fetchMyAssignedPoints, updatePointStatus, fetchUserOpenPoints, fetchMyAssignedToOthersPoints } from '../../services/openPointsService';
 import { useNavigate, useParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import '../../styles/openPoints.scss';
 
-const MyOpenPoints = ({ username: propUsername }) => {
+const MyOpenPoints = ({ username: propUsername, viewMode }) => {
     const { username: paramUsername } = useParams();
     const { user } = useContext(UserContext);
 
     // Determine target username - from prop, URL param, or current user
     const targetUsername = propUsername || paramUsername || user?.username;
-    const isOwnPoints = targetUsername === user?.username;
+    const isOwnPoints = targetUsername === user?.username && viewMode !== 'assigned-by-me';
+    const isAssignedByMe = viewMode === 'assigned-by-me';
 
     const [points, setPoints] = useState([]);
     const [targetUserInfo, setTargetUserInfo] = useState(null); // Store target user's name info
@@ -18,6 +19,8 @@ const MyOpenPoints = ({ username: propUsername }) => {
     const [projectFilter, setProjectFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('');
+    const [assignerFilter, setAssignerFilter] = useState('');
+    const [responsibleFilter, setResponsibleFilter] = useState(''); // New filter
     const [hideGreen, setHideGreen] = useState(true); // Hide completed points by default
     const [modifiedPoints, setModifiedPoints] = useState(new Set());
 
@@ -33,7 +36,12 @@ const MyOpenPoints = ({ username: propUsername }) => {
     const loadPoints = async () => {
         try {
             let data;
-            if (isOwnPoints) {
+            if (isAssignedByMe) {
+                // Fetch points I assigned to others
+                data = await fetchMyAssignedToOthersPoints();
+                setPoints(data);
+                setTargetUserInfo(null);
+            } else if (isOwnPoints) {
                 // Fetch own points - returns array directly
                 data = await fetchMyAssignedPoints();
                 setPoints(data);
@@ -53,6 +61,7 @@ const MyOpenPoints = ({ username: propUsername }) => {
 
     // Helper to format display name with proper capitalization (FULL UPPERCASE)
     const getDisplayName = () => {
+        if (isAssignedByMe) return 'Points I Have Assigned';
         if (isOwnPoints) return 'My Assigned Points';
 
         if (targetUserInfo && (targetUserInfo.first_name || targetUserInfo.last_name)) {
@@ -125,6 +134,18 @@ const MyOpenPoints = ({ username: propUsername }) => {
     // Get unique project names for filter dropdown
     const uniqueProjects = [...new Set(points.map(p => p.project_name).filter(Boolean))].sort();
 
+    // Get unique assigner names for filter dropdown
+    const uniqueAssigners = [...new Set(points.map(p => {
+        if (!p.created_by) return null;
+        return p.created_by.first_name ? `${p.created_by.first_name} ${p.created_by.last_name || ''}` : p.created_by.username;
+    }).filter(Boolean))].sort();
+
+    // Get unique responsible names for filter dropdown
+    const uniqueResponsible = [...new Set(points.map(p => {
+        if (!p.responsible_person) return null;
+        return p.responsible_person.first_name ? `${p.responsible_person.first_name} ${p.responsible_person.last_name || ''}` : p.responsible_person.username;
+    }).filter(Boolean))].sort();
+
     // Filter points for Table Display
     const filteredPoints = points.filter(p => {
         // Always show points that are currently being edited (modified) so they can be saved
@@ -133,6 +154,19 @@ const MyOpenPoints = ({ username: propUsername }) => {
         if (projectFilter && p.project_name !== projectFilter) return false;
         if (statusFilter && p.status !== statusFilter) return false;
         if (priorityFilter && p.priority !== priorityFilter) return false;
+
+        // Assigner Filter
+        if (assignerFilter) {
+            const assignerName = p.created_by ? (p.created_by.first_name ? `${p.created_by.first_name} ${p.created_by.last_name || ''}` : p.created_by.username) : null;
+            if (assignerName !== assignerFilter) return false;
+        }
+
+        // Responsible Filter
+        if (responsibleFilter) {
+            const respName = p.responsible_person ? (p.responsible_person.first_name ? `${p.responsible_person.first_name} ${p.responsible_person.last_name || ''}` : p.responsible_person.username) : null;
+            if (respName !== responsibleFilter) return false;
+        }
+
         // Hide green points by default unless toggle is off or specific status is selected
         if (hideGreen && !statusFilter && p.status === 'Green') return false;
         return true;
@@ -143,6 +177,14 @@ const MyOpenPoints = ({ username: propUsername }) => {
         if (projectFilter && p.project_name !== projectFilter) return false;
         if (statusFilter && p.status !== statusFilter) return false;
         if (priorityFilter && p.priority !== priorityFilter) return false;
+        if (assignerFilter) {
+            const assignerName = p.created_by ? (p.created_by.first_name ? `${p.created_by.first_name} ${p.created_by.last_name || ''}` : p.created_by.username) : null;
+            if (assignerName !== assignerFilter) return false;
+        }
+        if (responsibleFilter) {
+            const respName = p.responsible_person ? (p.responsible_person.first_name ? `${p.responsible_person.first_name} ${p.responsible_person.last_name || ''}` : p.responsible_person.username) : null;
+            if (respName !== responsibleFilter) return false;
+        }
         return true;
     });
 
@@ -165,14 +207,16 @@ const MyOpenPoints = ({ username: propUsername }) => {
                             {getDisplayName()}
                         </h1>
                         <p style={{ color: '#64748b', fontSize: '1rem', marginTop: '5px' }}>
-                            {isOwnPoints
-                                ? 'All open points assigned to you across all projects'
-                                : `Viewing all open points assigned to ${targetUserInfo?.first_name || targetUsername}`
+                            {isAssignedByMe
+                                ? 'All open points you have assigned to other team members'
+                                : isOwnPoints
+                                    ? 'All open points assigned to you across all projects'
+                                    : `Viewing all open points assigned to ${targetUserInfo?.first_name || targetUsername}`
                             }
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        {!isOwnPoints && (
+                        {!isOwnPoints && !isAssignedByMe && (
                             <button
                                 className="btn"
                                 style={{
@@ -247,6 +291,32 @@ const MyOpenPoints = ({ username: propUsername }) => {
                             <option key={proj} value={proj}>{proj}</option>
                         ))}
                     </select>
+                    {!isAssignedByMe && (
+                        <select
+                            className="form-control"
+                            style={{ width: '180px', height: '36px', fontSize: '13px' }}
+                            value={assignerFilter}
+                            onChange={e => setAssignerFilter(e.target.value)}
+                        >
+                            <option value="">All Assigners</option>
+                            {uniqueAssigners.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                    )}
+                    {isAssignedByMe && (
+                        <select
+                            className="form-control"
+                            style={{ width: '180px', height: '36px', fontSize: '13px' }}
+                            value={responsibleFilter}
+                            onChange={e => setResponsibleFilter(e.target.value)}
+                        >
+                            <option value="">All Assignees</option>
+                            {uniqueResponsible.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                    )}
                     <select
                         className="form-control"
                         style={{ width: '130px', height: '36px', fontSize: '13px' }}
@@ -280,11 +350,11 @@ const MyOpenPoints = ({ username: propUsername }) => {
                     >
                         {hideGreen ? `✅ Show Closed (${summary.green})` : '✅ Hide Closed'}
                     </button>
-                    {(projectFilter || statusFilter || priorityFilter) && (
+                    {(projectFilter || statusFilter || priorityFilter || assignerFilter || responsibleFilter) && (
                         <button
                             className="btn btn-sm btn-outline-secondary"
                             style={{ padding: '6px 12px' }}
-                            onClick={() => { setProjectFilter(''); setStatusFilter(''); setPriorityFilter(''); }}
+                            onClick={() => { setProjectFilter(''); setStatusFilter(''); setPriorityFilter(''); setAssignerFilter(''); setResponsibleFilter(''); }}
                         >
                             ✕ Clear Filters
                         </button>
@@ -298,8 +368,8 @@ const MyOpenPoints = ({ username: propUsername }) => {
                     </div>
                 ) : points.length === 0 ? (
                     <div style={{ textAlign: 'center', marginTop: '50px', color: '#64748b' }}>
-                        <h3>No Points Assigned</h3>
-                        <p>You don't have any open points assigned to you.</p>
+                        <h3>{isAssignedByMe ? 'No Points Assigned by You' : 'No Points Assigned'}</h3>
+                        <p>{isAssignedByMe ? "You haven't assigned any open points to others yet." : "You don't have any open points assigned to you."}</p>
                         <button className="btn btn-primary" onClick={() => navigate('/open-points')}>
                             Go to Projects
                         </button>
@@ -316,6 +386,8 @@ const MyOpenPoints = ({ username: propUsername }) => {
                                     <th style={{ width: '40px' }}>Sr. No</th>
                                     <th style={{ width: '150px' }}>Project Name</th>
                                     <th style={{ width: '18%' }}>Discussion Points</th>
+                                    {!isAssignedByMe && <th style={{ width: '100px' }}>Assigned By</th>}
+                                    <th style={{ width: '120px' }}>Assigned To</th>
                                     <th style={{ width: '80px' }}>Approval</th>
                                     <th style={{ width: '18%' }}>Gap / Action Point</th>
                                     <th style={{ width: '100px' }}>Target Date</th>
@@ -346,6 +418,26 @@ const MyOpenPoints = ({ username: propUsername }) => {
                                                 onInput={autoResize}
                                                 style={{ fieldSizing: 'content' }}
                                             />
+                                        </td>
+                                        {!isAssignedByMe && (
+                                            <td style={{ fontSize: '12px', color: '#444' }}>
+                                                {point.created_by ? (
+                                                    <div style={{ fontWeight: 600 }}>
+                                                        {point.created_by.first_name ? `${point.created_by.first_name} ${point.created_by.last_name || ''}` : point.created_by.username}
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>
+                                                )}
+                                            </td>
+                                        )}
+                                        <td style={{ fontSize: '12px', color: '#444' }}>
+                                            {point.responsible_person ? (
+                                                <div style={{ fontWeight: 600 }}>
+                                                    {point.responsible_person.first_name ? `${point.responsible_person.first_name} ${point.responsible_person.last_name || ''}` : point.responsible_person.username}
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: '#999', fontStyle: 'italic' }}>-</span>
+                                            )}
                                         </td>
                                         <td>
                                             <select

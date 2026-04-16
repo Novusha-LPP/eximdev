@@ -39,6 +39,7 @@ const EditChargeModal = ({
   const [suppliers, setSuppliers] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [cfsList, setCfsList] = useState([]);
+  const [transporters, setTransporters] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState({ index: null, section: null }); // Track which row/section has open dropdown
   const [paymentDetailsAudit, setPaymentDetailsAudit] = useState({});
   const dropdownRef = useRef(null);
@@ -68,16 +69,18 @@ const EditChargeModal = ({
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const [slRes, supRes, orgRes, cfsRes] = await Promise.all([
+        const [slRes, supRes, orgRes, cfsRes, transRes] = await Promise.all([
           axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
           axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`)
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`)
         ]);
         setShippingLines(slRes.data);
         setSuppliers(supRes.data);
         setOrganizations(orgRes.data.organizations || []);
         setCfsList(cfsRes.data);
+        setTransporters(transRes.data);
       } catch (error) {
         console.error("Error fetching master data:", error);
       }
@@ -166,9 +169,9 @@ const EditChargeModal = ({
         updated[index][otherSection][field] = value;
       }
       
-      // Auto-populate TDS if selecting a shipping line or CFS
+      // Auto-populate TDS if selecting a shipping line or CFS or transporter
       if (section === 'cost' && field === 'partyName') {
-        const allParties = [...shippingLines, ...cfsList];
+        const allParties = [...shippingLines, ...cfsList, ...transporters];
         const matchedSL = allParties.find(sl => sl.name?.toUpperCase() === value?.toUpperCase());
         if (matchedSL && matchedSL.tds_percent > 0) {
           updated[index][section].isTds = true;
@@ -210,7 +213,7 @@ const EditChargeModal = ({
 
         // GST Split Logic based on GSTIN (24 = Gujarat)
         const partyName = sectionRef.partyName;
-        const party = [...shippingLines, ...suppliers, ...cfsList].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+        const party = [...shippingLines, ...suppliers, ...cfsList, ...transporters].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
         const branchIndex = sectionRef.branchIndex || 0;
         const gstin = party?.branches?.[branchIndex]?.gst || "";
         
@@ -740,7 +743,8 @@ const EditChargeModal = ({
                                   {activeDropdown.index === i && activeDropdown.section === 'cost' && (row.cost?.partyName?.length >= 2) && (
                                     <ul className="ep-dropdown-list" ref={dropdownRef}>
                                       {(row.cost?.partyType?.toUpperCase() === 'AGENT' || row.cost?.partyType?.toUpperCase() === 'OTHERS' ? shippingLines : 
-                                        row.cost?.partyType?.toUpperCase() === 'VENDOR' || row.cost?.partyType?.toUpperCase() === 'TRANSPORTER' ? [...suppliers, ...shippingLines] :
+                                        row.cost?.partyType?.toUpperCase() === 'VENDOR' ? suppliers :
+                                        row.cost?.partyType?.toUpperCase() === 'TRANSPORTER' ? transporters :
                                         row.cost?.partyType?.toUpperCase() === 'IMPORTER' ? organizations : 
                                         row.cost?.partyType?.toUpperCase() === 'CFS' ? cfsList : [])
                                         .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
@@ -752,7 +756,8 @@ const EditChargeModal = ({
                                           </li>
                                         ))}
                                       {((row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
-                                        row.cost?.partyType === 'Vendor' || row.cost?.partyType === 'Transporter' ? [...suppliers, ...shippingLines] :
+                                        row.cost?.partyType === 'Vendor' ? suppliers :
+                                        row.cost?.partyType === 'Transporter' ? transporters :
                                         row.cost?.partyType === 'Importer' ? organizations : 
                                         row.cost?.partyType === 'CFS' ? cfsList : [])
                                         .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
@@ -847,7 +852,7 @@ const EditChargeModal = ({
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
-                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
                                         setPurchaseBookData(() => {
                                           const cost = row.cost || {};
                                           const rate = parseFloat(cost.gstRate) || 18;
@@ -908,7 +913,7 @@ const EditChargeModal = ({
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
-                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
                                         setPaymentRequestData({
                                           partyName,
                                           partyDetails,

@@ -7,6 +7,7 @@ import axios from "axios";
 import { navigateToModule } from "../../utils/navigateToModule.js";
 import { moduleCategories } from "../../utils/moduleCategories.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
+import { fetchMyPendingCount } from "../../services/openPointsService.js";
 
 const importPriority = [
   "Import - DSR",
@@ -79,6 +80,7 @@ function Home() {
   };
 
   const [pendingDocCount, setPendingDocCount] = useState(0);
+  const [openPointsCount, setOpenPointsCount] = useState(0);
 
   useEffect(() => {
     async function fetchPendingCount() {
@@ -91,7 +93,18 @@ function Home() {
         console.error("Error fetching pending doc count:", err);
       }
     }
+
+    async function fetchPointsCount() {
+      try {
+        const res = await fetchMyPendingCount();
+        setOpenPointsCount(res.count);
+      } catch (err) {
+        console.error("Error fetching open points count:", err);
+      }
+    }
+
     fetchPendingCount();
+    fetchPointsCount();
   }, []);
 
   return (
@@ -141,6 +154,30 @@ function Home() {
                           }}
                         >
                           {pendingDocCount}
+                        </span>
+                      )}
+                      {module === "Open Points" && openPointsCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {openPointsCount}
                         </span>
                       )}
                     </div>

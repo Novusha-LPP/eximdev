@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Edit2 } from 'lucide-react';
-import { message } from 'antd';
+import ActivityTimeline from './ActivityTimeline';
 
 export default function AccountDetailModal({ isOpen, onClose, account, onEdit, onRefresh }) {
   const [opportunities, setOpportunities] = useState([]);
@@ -160,6 +160,11 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
             ) : (
               <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>No opportunities for this account.</p>
             )}
+          </div>
+
+          {/* Activity Timeline */}
+          <div style={{ marginTop: '24px' }}>
+            <ActivityTimeline linkedId={account._id} linkedType="account" />
           </div>
         </div>
       </div>

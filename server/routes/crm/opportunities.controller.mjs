@@ -1,6 +1,7 @@
 import express from 'express';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
+import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
 
@@ -10,13 +11,13 @@ const VALID_STAGES = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiati
 // Stage transition rules (to prevent going backwards after closing)
 const TERMINAL_STAGES = ['won', 'lost'];
 const VALID_TRANSITIONS = {
-  'lead': ['qualified', 'opportunity', 'lost'],
-  'qualified': ['opportunity', 'proposal', 'lost'],
-  'opportunity': ['proposal', 'negotiation', 'lost'],
-  'proposal': ['negotiation', 'won', 'lost'],
-  'negotiation': ['won', 'lost'],
-  'won': [], // Cannot transition from won
-  'lost': []  // Cannot transition from lost
+  'lead': ['qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'],
+  'qualified': ['lead', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'],
+  'opportunity': ['lead', 'qualified', 'proposal', 'negotiation', 'won', 'lost'],
+  'proposal': ['lead', 'qualified', 'opportunity', 'negotiation', 'won', 'lost'],
+  'negotiation': ['lead', 'qualified', 'opportunity', 'proposal', 'won', 'lost'],
+  'won': ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'lost'],
+  'lost': ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won']
 };
 
 // Probability defaults for each stage
@@ -34,10 +35,6 @@ const STAGE_PROBABILITY = {
 const validateStageTransition = (currentStage, newStage) => {
   if (!VALID_STAGES.includes(newStage)) {
     return { valid: false, message: `Invalid stage: ${newStage}` };
-  }
-  
-  if (TERMINAL_STAGES.includes(currentStage)) {
-    return { valid: false, message: `Cannot transition from terminal stage: ${currentStage}` };
   }
   
   if (!VALID_TRANSITIONS[currentStage].includes(newStage)) {
@@ -200,7 +197,24 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update other allowed fields
-    Object.assign(opportunity, otherData);
+    const { newRemark, ...otherDataToAssign } = otherData;
+    Object.assign(opportunity, otherDataToAssign);
+
+    // Handle new remark if provided
+    if (newRemark && newRemark.trim()) {
+      let userName = req.body.userName;
+      if (!userName) {
+        const user = await UserModel.findById(req.user?._id).lean();
+        userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'System';
+      }
+      
+      opportunity.remarks.push({
+        text: newRemark.trim(),
+        userId: req.user?._id,
+        userName: userName,
+        createdAt: new Date()
+      });
+    }
     
     const updatedOpp = await opportunity.save();
     res.json({ success: true, data: updatedOpp });
@@ -266,6 +280,59 @@ router.patch('/:id/close', async (req, res) => {
     res.json(opp);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/crm/opportunities/:id/remarks/:remarkId (Edit Remark)
+router.put('/:id/remarks/:remarkId', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ message: 'Remark text is required' });
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ message: 'Opportunity not found' });
+
+    const remark = opportunity.remarks.id(req.params.remarkId);
+    if (!remark) return res.status(404).json({ message: 'Remark not found' });
+
+    // Check ownership: only creator or admin
+    const isAdmin = req.user?.role === 'Admin' || req.user?.crmRole === 'Admin';
+    if (!isAdmin && remark.userId?.toString() !== req.user?._id?.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to edit this remark' });
+    }
+
+    remark.text = text;
+    remark.updatedAt = new Date();
+    await opportunity.save();
+
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /api/crm/opportunities/:id/remarks/:remarkId (Delete Remark)
+router.delete('/:id/remarks/:remarkId', async (req, res) => {
+  try {
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ message: 'Opportunity not found' });
+
+    const remark = opportunity.remarks.id(req.params.remarkId);
+    if (!remark) return res.status(404).json({ message: 'Remark not found' });
+
+    // Check ownership
+    const isAdmin = req.user?.role === 'Admin' || req.user?.crmRole === 'Admin';
+    if (!isAdmin && remark.userId?.toString() !== req.user?._id?.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to delete this remark' });
+    }
+
+    // Use pull to remove from array
+    opportunity.remarks.pull({ _id: req.params.remarkId });
+    await opportunity.save();
+
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

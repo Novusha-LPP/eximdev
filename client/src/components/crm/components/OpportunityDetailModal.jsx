@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { X, Edit2, Trash2 } from 'lucide-react';
 import { message, Modal } from 'antd';
+import { UserContext } from '../../../contexts/UserContext';
+import ActivityTimeline from './ActivityTimeline';
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
 
@@ -21,37 +23,46 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
-  const [activities, setActivities] = useState([]);
+  const [newRemark, setNewRemark] = useState('');
+  const [editingRemarkId, setEditingRemarkId] = useState(null);
+  const [editingRemarkText, setEditingRemarkText] = useState('');
+  
+  const { user } = useContext(UserContext);
+  const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
 
   useEffect(() => {
     if (isOpen && opportunity?._id) {
       setFormData(opportunity);
-      fetchActivities();
+      setNewRemark('');
     }
   }, [isOpen, opportunity]);
 
-  const fetchActivities = async () => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/activities?opportunityId=${opportunity._id}`, { withCredentials: true });
-      setActivities(res.data);
-    } catch (err) {
-      console.error('Error loading activities:', err);
-    }
-  };
-
   const toggleService = (service) => {
-    const currentServices = formData.interestedServices || [];
+    const currentServices = formData.services || [];
     if (currentServices.includes(service)) {
       setFormData({ 
         ...formData, 
-        interestedServices: currentServices.filter(s => s !== service) 
+        services: currentServices.filter(s => s !== service) 
       });
     } else {
       setFormData({ 
         ...formData, 
-        interestedServices: [...currentServices, service] 
+        services: [...currentServices, service] 
       });
     }
+  };
+
+  const [customService, setCustomService] = useState('');
+  const handleAddCustomService = () => {
+    if (!customService.trim()) return;
+    const currentServices = formData.services || [];
+    if (!currentServices.includes(customService.trim())) {
+      setFormData({
+        ...formData,
+        services: [...currentServices, customService.trim()]
+      });
+    }
+    setCustomService('');
   };
 
   const handleSave = async () => {
@@ -67,7 +78,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         value: formData.value,
         probability: formData.probability,
         expectedCloseDate: formData.expectedCloseDate,
-        interestedServices: formData.interestedServices || []
+        services: formData.services || [],
+        newRemark: newRemark,
+        userName: fullUserName
       };
 
       // If stage changed, use the dedicated PATCH /stage endpoint
@@ -116,6 +129,44 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     });
   };
 
+  const handleEditRemark = async (remarkId) => {
+    if (!editingRemarkText.trim()) return;
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/remarks/${remarkId}`,
+        { text: editingRemarkText },
+        { withCredentials: true }
+      );
+      message.success('Remark updated');
+      setEditingRemarkId(null);
+      onRefresh();
+      // Update local state to show change immediately if possible, but onRefresh is safer
+    } catch (error) {
+      message.error('Error updating remark');
+    }
+  };
+
+  const handleDeleteRemark = (remarkId) => {
+    Modal.confirm({
+      title: 'Delete Remark',
+      content: 'Are you sure you want to delete this remark?',
+      okText: 'Delete',
+      okType: 'danger',
+      async onOk() {
+        try {
+          await axios.delete(
+            `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/remarks/${remarkId}`,
+            { withCredentials: true }
+          );
+          message.success('Remark deleted');
+          onRefresh();
+        } catch (error) {
+          message.error('Error deleting remark');
+        }
+      }
+    });
+  };
+
   if (!isOpen || !opportunity) return null;
 
   return (
@@ -130,7 +181,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 9999,
+      zIndex: 1010,
       padding: '20px'
     }}>
       <div style={{
@@ -253,7 +304,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Interested Services</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                   {ALLOWED_SERVICES.map(service => (
                     <button
                       key={service}
@@ -266,16 +317,62 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                         fontWeight: 600,
                         cursor: 'pointer',
                         border: '1px solid',
-                        borderColor: (formData.interestedServices || []).includes(service) ? '#4f46e5' : '#e2e8f0',
-                        background: (formData.interestedServices || []).includes(service) ? '#eef2ff' : '#fff',
-                        color: (formData.interestedServices || []).includes(service) ? '#4f46e5' : '#64748b',
+                        borderColor: (formData.services || []).includes(service) ? '#4f46e5' : '#e2e8f0',
+                        background: (formData.services || []).includes(service) ? '#eef2ff' : '#fff',
+                        color: (formData.services || []).includes(service) ? '#4f46e5' : '#64748b',
                         transition: 'all 0.2s'
                       }}
                     >
                       {service.charAt(0).toUpperCase() + service.slice(1)}
                     </button>
                   ))}
+                  {(formData.services || []).filter(s => !ALLOWED_SERVICES.includes(s)).map(service => (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => toggleService(service)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: '1px solid #4f46e5',
+                        background: '#eef2ff',
+                        color: '#4f46e5',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {service}
+                    </button>
+                  ))}
                 </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text"
+                    value={customService}
+                    onChange={(e) => setCustomService(e.target.value)}
+                    placeholder="Add custom service..."
+                    style={{ flex: 1, padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem' }}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomService())}
+                  />
+                  <button 
+                    onClick={handleAddCustomService}
+                    style={{ padding: '6px 12px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Add Remark</label>
+                <textarea
+                  value={newRemark}
+                  onChange={(e) => setNewRemark(e.target.value)}
+                  placeholder="Type a new remark here..."
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', resize: 'vertical' }}
+                />
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
@@ -313,11 +410,11 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
                 
                 {/* Services Display */}
-                {(formData.interestedServices || []).length > 0 && (
+                {(formData.services || []).length > 0 && (
                   <div>
                     <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px' }}>Interested Services</span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {(formData.interestedServices || []).map(service => (
+                      {(formData.services || []).map(service => (
                         <span
                           key={service}
                           style={{
@@ -338,29 +435,65 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 )}
               </div>
 
-              {/* Activities */}
-              <div>
-                <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Activities ({activities.length})</h4>
-                {activities.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {activities.slice(0, 5).map(activity => (
-                      <div key={activity._id} style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #4f46e5' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                          <span style={{ fontWeight: 600, color: '#334155' }}>{activity.subject}</span>
-                          <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#e2e8f0', padding: '2px 8px', borderRadius: '3px', textTransform: 'capitalize' }}>
-                            {activity.type}
-                          </span>
+              {/* Remarks History */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remarks History</h4>
+                {formData.remarks && formData.remarks.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {formData.remarks.slice().reverse().map((remark, idx) => (
+                      <div key={remark._id || idx} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', borderLeft: '4px solid #4f46e5', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.85rem' }}>{remark.userName || 'Unknown'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              {new Date(remark.createdAt).toLocaleDateString('en-IN')} {new Date(remark.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button 
+                                onClick={() => {
+                                  setEditingRemarkId(remark._id);
+                                  setEditingRemarkText(remark.text);
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '2px' }}
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteRemark(remark._id)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <p style={{ margin: '0', fontSize: '0.85rem', color: '#64748b' }}>{activity.description}</p>
-                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
-                          {new Date(activity.createdAt).toLocaleDateString('en-IN')}
-                        </span>
+                        
+                        {editingRemarkId === remark._id ? (
+                          <div style={{ marginTop: '8px' }}>
+                            <textarea
+                              value={editingRemarkText}
+                              onChange={(e) => setEditingRemarkText(e.target.value)}
+                              style={{ width: '100%', padding: '8px', border: '1px solid #3b82f6', borderRadius: '6px', fontSize: '0.9rem', minHeight: '60px' }}
+                            />
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                              <button onClick={() => setEditingRemarkId(null)} style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0', background: 'white' }}>Cancel</button>
+                              <button onClick={() => handleEditRemark(remark._id)} style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '4px', background: '#4f46e5', color: 'white', border: 'none' }}>Update</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>{remark.text}</p>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>No activities logged yet.</p>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic' }}>No remarks added yet.</p>
                 )}
+              </div>
+
+              {/* Activity Timeline */}
+              <div style={{ marginTop: '24px' }}>
+                <ActivityTimeline linkedId={opportunity._id} linkedType="opportunity" />
               </div>
             </>
           )}

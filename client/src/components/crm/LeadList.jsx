@@ -3,11 +3,14 @@ import axios from 'axios';
 import { message } from 'antd';
 
 import LeadFormModal from './components/LeadFormModal';
+import LeadDetailModal from './components/LeadDetailModal';
 
 export default function LeadList() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
   const [error, setError] = useState(null);
   const [converting, setConverting] = useState(null);
   
@@ -123,6 +126,20 @@ export default function LeadList() {
         onRefresh={fetchLeads} 
       />
       
+      <LeadDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedLead(null);
+        }}
+        lead={selectedLead}
+        onEdit={(lead) => {
+          // Future: handle edit from detail
+          setIsModalOpen(true);
+        }}
+        onRefresh={fetchLeads}
+      />
+      
       {/* Error notification */}
       {error && (
         <div style={{
@@ -203,28 +220,39 @@ export default function LeadList() {
                     {lead.status}
                   </span>
                 </td>
-                <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                  {lead.status !== 'converted' && (
-                    <button 
-                      onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
-                      disabled={converting === lead._id}
-                      style={{ 
-                        background: converting === lead._id ? '#d1d5db' : '#10b981', 
-                        color: 'white', 
-                        padding: '6px 14px', 
-                        border: 'none', 
-                        borderRadius: '6px', 
-                        cursor: converting === lead._id ? 'not-allowed' : 'pointer', 
-                        fontSize: '0.8rem', 
-                        fontWeight: 600,
-                        opacity: converting === lead._id ? 0.6 : 1,
-                        minWidth: '90px'
-                      }}
-                    >
-                      {converting === lead._id ? '⏳ Converting...' : 'Convert'}
-                    </button>
-                  )}
-                </td>
+                 <td style={{ padding: '16px 12px', textAlign: 'right' }}>
+                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                     <button
+                       onClick={() => {
+                         setSelectedLead(lead);
+                         setIsDetailModalOpen(true);
+                       }}
+                       style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                     >
+                       View
+                     </button>
+                     {lead.status !== 'converted' && (
+                       <button 
+                         onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
+                         disabled={converting === lead._id}
+                         style={{ 
+                           background: converting === lead._id ? '#d1d5db' : '#10b981', 
+                           color: 'white', 
+                           padding: '6px 14px', 
+                           border: 'none', 
+                           borderRadius: '6px', 
+                           cursor: converting === lead._id ? 'not-allowed' : 'pointer', 
+                           fontSize: '0.8rem', 
+                           fontWeight: 600,
+                           opacity: converting === lead._id ? 0.6 : 1,
+                           minWidth: '90px'
+                         }}
+                       >
+                         {converting === lead._id ? '⏳ Converting...' : 'Convert'}
+                       </button>
+                     )}
+                   </div>
+                 </td>
               </tr>
             ))}
           </tbody>

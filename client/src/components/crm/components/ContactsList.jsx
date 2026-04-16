@@ -3,11 +3,14 @@ import axios from 'axios';
 import { message, Modal } from 'antd';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import ContactFormModal from './ContactFormModal';
+import ContactDetailModal from './ContactDetailModal';
 
 export default function ContactsList() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
   const [editingContact, setEditingContact] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [accountFilter, setAccountFilter] = useState('');
@@ -118,6 +121,20 @@ export default function ContactsList() {
         getHeaders={getHeaders}
       />
 
+      <ContactDetailModal
+        isOpen={isDetailOpen}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setSelectedContact(null);
+        }}
+        contact={selectedContact}
+        onEdit={(contact) => {
+          setEditingContact(contact);
+          setIsFormOpen(true);
+        }}
+        onRefresh={fetchContacts}
+      />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>Contacts Management</h2>
@@ -185,6 +202,16 @@ export default function ContactsList() {
                   <td style={{ padding: '16px 12px', color: account?.name ? '#475569' : '#f97316' }}>{account?.name || 'No Account'}</td>
                   <td style={{ padding: '16px 12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
+                      <button
+                        onClick={() => {
+                          setSelectedContact(contact);
+                          setIsDetailOpen(true);
+                        }}
+                        title="View"
+                        style={{ background: '#f8fafc', color: '#475569', padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}
+                      >
+                        View
+                      </button>
                       <button
                         onClick={() => {
                           setEditingContact(contact);

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import OpportunityDetailModal from './components/OpportunityDetailModal';
+import confetti from 'canvas-confetti';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const PIPELINE_STAGES = [
   { id: 'lead', name: 'Lead', color: '#4f8ef7' },
@@ -20,6 +22,8 @@ export default function CRMKanbanBoard() {
   const [draggedOpportunity, setDraggedOpportunity] = useState(null);
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationDealName, setCelebrationDealName] = useState('');
 
   const fetchBoard = async () => {
     setLoading(true);
@@ -96,6 +100,53 @@ export default function CRMKanbanBoard() {
         { stage: newStage },
         { withCredentials: true }
       );
+
+      // Trigger celebration if moved to 'won'
+      if (newStage === 'won') {
+        const dealName = opportunity?.name || 'Great Deal';
+        setCelebrationDealName(dealName);
+        setShowCelebration(true);
+        
+        // Intense confetti burst
+        const duration = 6 * 1000;
+        const end = Date.now() + duration;
+
+        (function frame() {
+          // Left Canon
+          confetti({
+            particleCount: 3,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0, y: 0.6 },
+            colors: ['#4f46e5', '#10b981', '#f59e0b']
+          });
+          // Right Canon
+          confetti({
+            particleCount: 3,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1, y: 0.6 },
+            colors: ['#ef4444', '#8b5cf6', '#10b981']
+          });
+          // Center Canon
+          confetti({
+            particleCount: 2,
+            angle: 90,
+            spread: 100,
+            origin: { x: 0.5, y: 0.8 },
+            colors: ['#ffffff', '#06b6d4', '#4f46e5']
+          });
+
+          if (Date.now() < end) {
+            requestAnimationFrame(frame);
+          }
+        }());
+
+        // Auto-hide celebration message after 4 seconds
+        setTimeout(() => {
+          setShowCelebration(false);
+        }, 3000);
+      }
     } catch (error) {
       setBoard(oldBoard);
       setError(error.response?.data?.message || `Failed to move opportunity to ${newStage}`);
@@ -117,6 +168,50 @@ export default function CRMKanbanBoard() {
 
   return (
     <>
+      <AnimatePresence>
+        {showCelebration && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(10px)',
+              zIndex: 10000,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              textAlign: 'center',
+              pointerEvents: 'none'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.5, y: 50, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              transition={{ type: "spring", damping: 12, stiffness: 200 }}
+            >
+              <div style={{ fontSize: '5rem', marginBottom: '20px' }}>🏆</div>
+              <h1 style={{ fontSize: '4rem', fontWeight: 900, marginBottom: '10px', background: 'linear-gradient(to right, #4f46e5, #06b6d4, #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textTransform: 'uppercase' }}>
+                Congratulations!
+              </h1>
+              <h2 style={{ fontSize: '2rem', fontWeight: 700, color: '#f8fafc' }}>
+                {celebrationDealName}
+              </h2>
+              <p style={{ fontSize: '1.5rem', color: '#94a3b8', marginTop: '10px' }}>
+                You've successfully won this deal!
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <OpportunityDetailModal
         isOpen={isDetailOpen}
         onClose={() => {
@@ -203,9 +298,26 @@ export default function CRMKanbanBoard() {
                   >
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
                     <h4 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', color: '#1e293b', fontWeight: 600 }}>{opp.name}</h4>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
                       {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
                     </div>
+                    
+                    {opp.services && opp.services.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                        {opp.services.slice(0, 3).map((service, i) => (
+                          <span key={i} style={{ 
+                            fontSize: '0.65rem', background: '#f1f5f9', color: '#475569', 
+                            padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0',
+                            whiteSpace: 'nowrap', textTransform: 'capitalize'
+                          }}>
+                            {service}
+                          </span>
+                        ))}
+                        {opp.services.length > 3 && (
+                          <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>+{opp.services.length - 3}</span>
+                        )}
+                      </div>
+                    )}
                     
                     <div style={{ 
                       marginTop: 'auto', display: 'flex', justifyContent: 'space-between', 

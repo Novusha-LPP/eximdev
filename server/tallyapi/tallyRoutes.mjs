@@ -115,7 +115,11 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
     let prefix = "";
     if (type === "purchase") {
       const existing = await PurchaseBookEntryModel.find({
-        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }]
+        $or: [
+          { jobNo: canonicalJobNo }, 
+          { jobNo: jobNo },
+          { entryNo: { $regex: canonicalJobNo } }
+        ]
       }, { entryNo: 1 }).lean();
 
       existing.forEach(entry => {
@@ -129,7 +133,11 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
       prefix = "PB";
     } else if (type === "payment") {
       const existing = await PaymentRequestModel.find({
-        $or: [{ jobNo: canonicalJobNo }, { jobNo: jobNo }]
+        $or: [
+          { jobNo: canonicalJobNo }, 
+          { jobNo: jobNo },
+          { requestNo: { $regex: canonicalJobNo } }
+        ]
       }, { requestNo: 1 }).lean();
 
       existing.forEach(reqObj => {
@@ -227,8 +235,36 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
       }
     }
 
-    console.log("Saving Purchase Entry:", data.entryNo);
-    const entry = await PurchaseBookEntryModel.create(data);
+    let entry;
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        console.log("Saving Purchase Entry (Attempt " + (attempts + 1) + "):", data.entryNo);
+        entry = await PurchaseBookEntryModel.create(data);
+        break; 
+      } catch (err) {
+        if (err.code === 11000) {
+          console.warn("Duplicate Entry No detected, auto-incrementing:", data.entryNo);
+          const parts = data.entryNo.split('/');
+          const prefixPart = parts[0]; // e.g., PB01
+          const match = prefixPart.match(/\d+/);
+          if (match) {
+            const currentIdx = parseInt(match[0], 10);
+            const nextIdx = (currentIdx + 1).toString().padStart(2, '0');
+            const prefix = prefixPart.replace(/\d+/, nextIdx);
+            parts[0] = prefix;
+            data.entryNo = parts.join('/');
+            attempts++;
+          } else {
+            throw err; // Cannot auto-increment
+          }
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!entry) throw new Error("Failed to generate a unique Entry No after multiple attempts.");
 
     if (data.jobRef && data.chargeRef) {
       await JobModel.updateOne(
@@ -250,9 +286,6 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
     });
   } catch (error) {
     console.error("Tally Purchase Entry Storage Error:", error);
-    if (error.code === 11000) {
-      return res.status(400).json({ error: "Entry with this number already exists." });
-    }
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });
@@ -385,8 +418,36 @@ router.post("/payment-request", authApiKey, async (req, res) => {
       }
     }
 
-    console.log("Saving Payment Request:", data.requestNo);
-    const request = await PaymentRequestModel.create(data);
+    let request;
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        console.log("Saving Payment Request (Attempt " + (attempts + 1) + "):", data.requestNo);
+        request = await PaymentRequestModel.create(data);
+        break;
+      } catch (err) {
+        if (err.code === 11000) {
+          console.warn("Duplicate Request No detected, auto-incrementing:", data.requestNo);
+          const parts = data.requestNo.split('/');
+          const prefixPart = parts[0]; // e.g., R01
+          const match = prefixPart.match(/\d+/);
+          if (match) {
+            const currentIdx = parseInt(match[0], 10);
+            const nextIdx = (currentIdx + 1).toString().padStart(2, '0');
+            const prefix = prefixPart.replace(/\d+/, nextIdx);
+            parts[0] = prefix;
+            data.requestNo = parts.join('/');
+            attempts++;
+          } else {
+            throw err; // Cannot auto-increment
+          }
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!request) throw new Error("Failed to generate a unique Request No after multiple attempts.");
 
     if (data.jobRef && data.chargeRef) {
       await JobModel.updateOne(
@@ -410,9 +471,6 @@ router.post("/payment-request", authApiKey, async (req, res) => {
     });
   } catch (error) {
     console.error("Tally Payment Request Storage Error:", error);
-    if (error.code === 11000) {
-      return res.status(400).json({ error: "Payment request with this number already exists." });
-    }
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });

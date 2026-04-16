@@ -107,6 +107,38 @@ const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
 const dateKeyUTC = (dateVal) => moment.utc(dateVal).format('YYYY-MM-DD');
 const dateKeyLocal = (dateVal) => moment(dateVal).format('YYYY-MM-DD');
 
+const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
+
+const getBalanceSortValue = (balance) => {
+    const timestamps = [balance?.updatedAt, balance?.last_updated, balance?.createdAt]
+        .map((value) => {
+            const parsed = new Date(value).getTime();
+            return Number.isFinite(parsed) ? parsed : null;
+        })
+        .filter((value) => value !== null);
+
+    if (timestamps.length === 0) return 0;
+    return Math.max(...timestamps);
+};
+
+const dedupeBalancesByCanonicalKey = (balances = []) => {
+    const sortedBalances = [...balances].sort((a, b) => getBalanceSortValue(b) - getBalanceSortValue(a));
+    const seen = new Set();
+    const deduped = [];
+
+    for (const balance of sortedBalances) {
+        const leaveType = String(balance?.leave_type || '').toLowerCase().trim();
+        const policyId = String(balance?.leave_policy_id?._id || balance?.leave_policy_id || '').trim();
+        const key = IDENTITY_LEAVE_TYPES.has(leaveType) ? leaveType : policyId || String(balance?._id || '');
+
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(balance);
+    }
+
+    return deduped;
+};
+
 const findLeaveForDate = (leaves, dayMomentUtc) => {
     return leaves.find((leave) => {
         const leaveStart = moment.utc(leave.from_date).startOf('day');
@@ -2298,7 +2330,7 @@ export const createManualAdjustment = async (req, res) => {
 
         // Check if record exists
         let record = await AttendanceRecord.findOne({
-            employee_id, company_id: effectiveCompanyId, attendance_date: targetDate
+            employee_id, attendance_date: targetDate
         });
 
         if (!record) {
@@ -2309,6 +2341,11 @@ export const createManualAdjustment = async (req, res) => {
                 year_month: moment.utc(targetDate).format('YYYY-MM'),
                 status: status || 'present'
             });
+        } else {
+            // Update company_id if record was found under a different company (e.g. migration)
+            if (record.company_id?.toString() !== effectiveCompanyId?.toString()) {
+                record.company_id = effectiveCompanyId;
+            }
         }
 
         // Update with new data - Mode-Based Flag Validation
@@ -2516,8 +2553,9 @@ export const calculateDailyAttendance = async (req, res) => {
 
         // Save or update record
         const record = await AttendanceRecord.findOneAndUpdate(
-            { employee_id, attendance_date: dateObj, company_id: companyId },
+            { employee_id, attendance_date: dateObj },
             {
+                company_id: companyId,
                 shift_id: employee.shift_id,
                 total_work_hours: workData.total_work_hours,
                 work_sessions: workData.sessions,
@@ -2937,7 +2975,7 @@ export const getEmployeeFullProfile = async (req, res) => {
         const startYear = moment(start).year();
         const resolvedWeekOffPolicy = await PolicyResolver.resolveWeekOffPolicy(employee);
         const resolvedHolidayPolicy = await PolicyResolver.resolveHolidayPolicy(employee, startYear);
-        const normalizedBalances = (balances || []).map((b) => {
+        const normalizedBalances = dedupeBalancesByCanonicalKey((balances || []).map((b) => {
             const used = Number(b.used ?? b.consumed ?? 0);
             const pendingApproval = Number(b.pending_approval ?? b.pending ?? 0);
             const opening = Number(b.opening_balance ?? 0);
@@ -2953,7 +2991,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                 opening_balance: opening,
                 closing_balance: closing
             };
-        });
+        }));
 
         // Calculate Summary for Scorecard
         const summary = {

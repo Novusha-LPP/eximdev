@@ -120,6 +120,18 @@ const dedupeBalancePolicies = (policies = []) => {
     return deduped;
 };
 
+const getBalanceSortValue = (balance) => {
+    const timestamps = [balance?.updatedAt, balance?.last_updated, balance?.createdAt]
+        .map((value) => {
+            const parsed = new Date(value).getTime();
+            return Number.isFinite(parsed) ? parsed : null;
+        })
+        .filter((value) => value !== null);
+
+    if (timestamps.length === 0) return 0;
+    return Math.max(...timestamps);
+};
+
 const findBalanceForPolicy = async ({ employeeId, year, policy }) => {
     const leaveType = String(policy?.leave_type || '').toLowerCase().trim();
     const query = {
@@ -139,14 +151,19 @@ const pickBalanceForPolicy = (balances = [], policy) => {
     const policyId = String(policy?._id || '');
     const leaveType = String(policy?.leave_type || '').toLowerCase().trim();
 
-    const byPolicyId = balances.find((b) => String(b.leave_policy_id) === policyId);
-    if (byPolicyId) return byPolicyId;
+    const candidates = balances.filter((balance) => {
+        const balancePolicyId = normalizeId(balance?.leave_policy_id);
+        const balanceLeaveType = String(balance?.leave_type || '').toLowerCase().trim();
 
-    if (isIdempotentLeaveType(leaveType)) {
-        return balances.find((b) => String(b.leave_type || '').toLowerCase().trim() === leaveType) || null;
-    }
+        if (balancePolicyId && balancePolicyId === policyId) return true;
+        if (isIdempotentLeaveType(leaveType) && balanceLeaveType === leaveType) return true;
+        return false;
+    });
 
-    return null;
+    if (candidates.length === 0) return null;
+
+    candidates.sort((a, b) => getBalanceSortValue(b) - getBalanceSortValue(a));
+    return candidates[0] || null;
 };
 
 const checkOverlap = async (userId, fromDate, toDate, currentAppId = null) => {
@@ -452,12 +469,12 @@ export const getBalance = async (req, res) => {
             const isUnpaidPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
 
             // Extract balance values
-            const openingBalance = userBalance?.opening_balance || getDefaultOpeningBalance(policy);
+            const openingBalance = userBalance?.opening_balance ?? getDefaultOpeningBalance(policy);
             const used = userBalance?.used ?? userBalance?.consumed ?? usedByPolicy.get(String(policy._id)) ?? 0;
             const pending = userBalance?.pending ?? userBalance?.pending_approval ?? 0;
 
             // Balance Info
-            const availableFromPending = isUnpaidPolicy ? 0 : pending;
+            const availableFromPending = isUnpaidPolicy ? 0 : resolveAvailableFromBalance(userBalance);
             
             return {
                 _id: policy._id,
@@ -1216,7 +1233,7 @@ export const updateBalance = async (req, res) => {
             });
         } else {
             // Update existing balance record
-            const nextUsed = usedNum !== undefined ? usedNum : (balanceRecord.used || 0);
+            const nextUsed = usedNum !== undefined ? usedNum : (balanceRecord.used ?? 0);
             const nextPending = pendingNum !== undefined ? pendingNum : (balanceRecord.pending_approval || 0);
             const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
             const actualRemaining = Math.max(0, openingNum - nextUsed);
@@ -1230,6 +1247,9 @@ export const updateBalance = async (req, res) => {
             balanceRecord.opening_balance = openingNum;
             balanceRecord.used = nextUsed;
             balanceRecord.pending_approval = nextPending;
+            if (isIdempotentLeaveType(policy.leave_type) && String(balanceRecord.leave_policy_id || '') !== String(policy._id)) {
+                balanceRecord.leave_policy_id = policy._id;
+            }
             // Backfill required company_id for legacy records created before this field was mandatory.
             if (resolvedCompanyId && String(balanceRecord.company_id || '') !== String(resolvedCompanyId)) {
                 balanceRecord.company_id = resolvedCompanyId;

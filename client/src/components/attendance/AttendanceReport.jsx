@@ -699,71 +699,210 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     };
 
     const exportExcel = async () => {
-        // Dynamic import so it doesn't block initial page load
-        const ExcelJS = await import('exceljs');
-        const { saveAs } = await import('file-saver');
+    const ExcelJS = await import('exceljs');
+    const { saveAs } = await import('file-saver');
 
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'Exim Application';
-        const worksheet = workbook.addWorksheet(`Attendance`);
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Exim Application';
 
-        const cols = ['Employee', 'Company', 'P', 'A', 'L', 'Early In', 'Early Out', 'Leaves', 'Avg Hours'];
-        
-        // Report Header
-        const reportHeader = worksheet.addRow([`Attendance Report: ${startDate} to ${endDate}`]);
-        reportHeader.font = { bold: true, size: 14 };
-        worksheet.addRow([]); // Empty row
-        
-        for (const [sectionTitle, employees] of Object.entries(groups)) {
-            if (employees.length === 0) continue;
-            
-            const titleRow = worksheet.addRow([`${sectionTitle.toUpperCase()} (${employees.length})`]);
-            titleRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-            titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } }; // Slate color
-            worksheet.mergeCells(`A${titleRow.number}:I${titleRow.number}`);
+    // ── Helper: style a header row ──────────────────────────────────────
+    const styleHeader = (row, bgArgb, textArgb = 'FF0F172A') => {
+        row.eachCell(cell => {
+            cell.font  = { bold: true, color: { argb: textArgb }, name: 'Arial', size: 10 };
+            cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+            cell.border = {
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
+            };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+    };
 
-            const headerRow = worksheet.addRow(cols);
-            headerRow.font = { bold: true, color: { argb: 'FF0F172A' } };
-            headerRow.eachCell((cell) => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // Slate 100
+    // ── Group filtered employees by company ─────────────────────────────
+    const byCompany = {};
+    filtered.forEach(e => {
+        const co = e.company_name?.trim() || 'Unassigned';
+        if (!byCompany[co]) byCompany[co] = [];
+        byCompany[co].push(e);
+    });
+
+    // ── Build one worksheet per company ────────────────────────────────
+    Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([companyName, employees]) => {
+        const ws = workbook.addWorksheet(companyName.substring(0, 31)); // Excel sheet name limit
+
+        // ── Report title ──────────────────────────────────────────────
+        const titleRow = ws.addRow([`${companyName}  |  Attendance Report: ${startDate}  →  ${endDate}`]);
+        titleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+        titleRow.height = 28;
+        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+        titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+        ws.mergeCells(`A${titleRow.number}:H${titleRow.number}`);
+
+        ws.addRow([]); // spacer
+
+        // ── Column headers ────────────────────────────────────────────
+        const COLS = ['Employee', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Pending Leave', 'Avg Hours/Day'];
+        const headerRow = ws.addRow(COLS);
+        headerRow.height = 22;
+        styleHeader(headerRow, 'FF334155', 'FFFFFFFF');
+
+        // ── Data rows ─────────────────────────────────────────────────
+        const STATUS_COLORS = {
+            present : 'FF10b981',
+            absent  : 'FFef4444',
+            late    : 'FFf59e0b',
+            halfDay : 'FF3b82f6',
+            leaves  : 'FF8b5cf6',
+            pending : 'FFf97316',
+        };
+
+        employees.forEach((e, idx) => {
+            // Count pending leaves for this employee
+            const pendingLeaveCount = reportData
+                .find(r => r.id === e.id)
+                ?.pendingLeaves?.length ?? (e.pendingLeaves?.length ?? 0);
+
+            const row = ws.addRow([
+                e.name,
+                e.present,
+                e.absent,
+                e.late,
+                e.halfDay || 0,
+                e.leaves  || 0,
+                pendingLeaveCount,
+                e.avgHours,
+            ]);
+
+            row.height = 20;
+            row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+            row.getCell(1).alignment = { vertical: 'middle' };
+
+            // Zebra stripe
+            if (idx % 2 === 0) {
+                row.eachCell(cell => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                });
+            }
+
+            // Colour-code numeric cells
+            [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.late],
+             [5, STATUS_COLORS.halfDay], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.pending]]
+            .forEach(([col, color]) => {
+                const cell = row.getCell(col);
+                cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+
+            row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+
+            // Border on every row
+            row.eachCell(cell => {
                 cell.border = {
-                    top: { style: 'thin' }, left: { style: 'thin' },
-                    bottom: { style: 'thin' }, right: { style: 'thin' }
+                    bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+                    right:  { style: 'hair', color: { argb: 'FFE2E8F0' } },
                 };
             });
-            
-            employees.forEach(e => {
-                worksheet.addRow([
-                    e.name, 
-                    e.company_name || '-', 
-                    e.present, 
-                    e.absent, 
-                    e.late, 
-                    e.earlyIn || 0, 
-                    e.earlyOut || 0, 
-                    e.leaves, 
-                    e.avgHours
-                ]);
-            });
-            worksheet.addRow([]); // Empty row
-        }
-
-        // Auto format width lengths
-        worksheet.columns.forEach((column) => {
-            let maxLength = 0;
-            column.eachCell({ includeEmpty: true }, (cell) => {
-                const columnLength = cell.value ? cell.value.toString().length : 10;
-                if (columnLength > maxLength) {
-                    maxLength = columnLength;
-                }
-            });
-            column.width = Math.min(maxLength < 10 ? 10 : maxLength + 2, 50); // Min 10, Max 50
         });
 
-        // Trigger Download
-        const buffer = await workbook.xlsx.writeBuffer();
-        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `AttendanceReport_${startDate}_to_${endDate}.xlsx`);
-    };
+    // ── Totals row ────────────────────────────────────────────────
+ws.addRow([]); // spacer
+
+const totalRow = ws.addRow([
+    `Total  (${employees.length} employees)`,
+    employees.reduce((s, e) => s + (e.present || 0), 0),
+    employees.reduce((s, e) => s + (e.absent || 0), 0),
+    employees.reduce((s, e) => s + (e.late || 0), 0),
+    employees.reduce((s, e) => s + (e.halfDay || 0), 0),
+    employees.reduce((s, e) => s + (e.leaves || 0), 0),
+    employees.reduce((s, e) => {
+        const raw = reportData.find(r => r.id === e.id);
+        return s + (raw?.pendingLeaves?.length ?? e.pendingLeaves?.length ?? 0);
+    }, 0),
+    (() => {
+        const total = employees.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
+        return employees.length > 0 ? (total / employees.length).toFixed(1) : '0.0';
+    })(),
+]);
+totalRow.height = 22;
+styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
+
+        // ── Column widths ─────────────────────────────────────────────
+        ws.getColumn(1).width = 30;
+        [2,3,4,5,6,7].forEach(c => ws.getColumn(c).width = 13);
+        ws.getColumn(8).width = 16;
+
+        // Freeze pane below header
+        ws.views = [{ state: 'frozen', ySplit: 3 }];
+    });
+
+    // ── Summary sheet across all companies ──────────────────────────────
+    const summaryWs = workbook.addWorksheet('Summary');
+    summaryWs.views = [{ state: 'frozen', ySplit: 3 }];
+
+    const sTitleRow = summaryWs.addRow([`All Companies  |  Attendance Report: ${startDate}  →  ${endDate}`]);
+    sTitleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+    sTitleRow.height = 28;
+    sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    summaryWs.mergeCells(`A1:I1`);
+
+    summaryWs.addRow([]);
+
+    const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Pending Leave', 'Avg Hrs/Day']);
+    sHeaderRow.height = 22;
+    styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
+
+    Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([co, emps], idx) => {
+        const totPending = emps.reduce((s, e) => {
+            const raw = reportData.find(r => r.id === e.id);
+            return s + (raw?.pendingLeaves?.length ?? e.pendingLeaves?.length ?? 0);
+        }, 0);
+
+        const row = summaryWs.addRow([
+            co,
+            emps.length,
+            emps.reduce((s, e) => s + e.present, 0),
+            emps.reduce((s, e) => s + e.absent,  0),
+            emps.reduce((s, e) => s + e.late,    0),
+            emps.reduce((s, e) => s + (e.halfDay || 0), 0),
+            emps.reduce((s, e) => s + (e.leaves  || 0), 0),
+            totPending,
+            (emps.reduce((s,e) => s + parseFloat(e.avgHours||0), 0) / emps.length).toFixed(1),
+        ]);
+        row.height = 20;
+        if (idx % 2 === 0) {
+            row.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+            });
+        }
+        row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+        [2,3,4,5,6,7,8,9].forEach(c => { row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
+    });
+
+    summaryWs.getColumn(1).width = 32;
+    [2,3,4,5,6,7,8].forEach(c => summaryWs.getColumn(c).width = 14);
+    summaryWs.getColumn(9).width = 14;
+
+    // Move Summary to first position
+   const summarySheet = workbook._worksheets.find(ws => ws && ws.name === 'Summary');
+if (summarySheet) {
+    workbook._worksheets = [
+        undefined, // ExcelJS uses 1-based index, index 0 is always undefined
+        summarySheet,
+        ...workbook._worksheets.filter(ws => ws && ws.name !== 'Summary')
+    ];
+    // Re-assign sheet ids to match new order
+    workbook._worksheets.forEach((ws, i) => {
+        if (ws) ws.id = i;
+    });
+}
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(
+        new Blob([buffer], { type: 'application/octet-stream' }),
+        `AttendanceReport_${startDate}_to_${endDate}.xlsx`
+    );
+};
 
     const filtered = reportData.filter(e => {
         const matchesSearch = e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

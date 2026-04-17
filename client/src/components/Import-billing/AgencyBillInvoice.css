@@ -1,0 +1,465 @@
+.abi-page {
+    background: #fff;
+    font-family: Arial, sans-serif;
+    font-size: 10px;
+    color: #000;
+    max-width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    padding: 10mm;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0,0,0,0.15);
+    transform-origin: top center;
+    transform: scale(1.25); /* 25% on-screen zoom for better readability */
+}
+
+@media print {
+    @page {
+        size: A4;
+        margin: 0; /* Let .abi-page handle the padding */
+    }
+
+    body {
+        margin: 0;
+        background: #fff !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .abi-main-wrapper {
+        background: #fff !important;
+        padding: 0 !important;
+        min-height: auto !important;
+    }
+
+    .abi-page {
+        margin: 0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+        width: 100% !important;
+        max-width: none !important;
+        border: none !important;
+        padding: 10mm !important; /* Ensure some white space on actual paper */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        background: #fff !important;
+    }
+
+    /* Reset inputs for black & white if needed, but keeping colors as per 'screenshot' request */
+}
+
+.abi-page * {
+    box-sizing: border-box;
+}
+
+.abi-header-top {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.abi-header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #000;
+}
+
+.abi-logo-section {
+    width: 20%;
+    padding: 5px;
+}
+
+.abi-logo-section img {
+    max-width: 120px;
+}
+
+.abi-company-center {
+    flex: 1;
+    text-align: center;
+    padding: 5px;
+}
+
+.abi-company-center h1 {
+    font-size: 18px;
+    margin: 0 0 3px 0;
+    font-weight: 900;
+}
+
+.abi-company-center p {
+    margin: 1px 0;
+    font-size: 10px;
+}
+
+.abi-qr-section {
+    width: 15%;
+    padding: 5px;
+    text-align: center;
+}
+
+.abi-qr-box {
+    width: 70px;
+    height: 70px;
+    border: 1px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: #666;
+}
+
+/* Registration Block (Centered Rectangle) */
+.abi-registration-block {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 2.5px 0;
+    font-size: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 80px;
+    align-items: center;
+}
+
+.abi-reg-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.abi-reg-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5px 0;
+}
+
+.abi-reg-lbl {
+    font-weight: bold;
+    min-width: 55px;
+}
+
+.abi-reg-sep {
+    padding: 0 5px;
+}
+
+.abi-reg-val {
+    word-break: break-all;
+}
+
+/* Main Job Info Grid (Combined Box) */
+.abi-master-grid {
+    display: grid;
+    grid-template-columns: 55% 45%; 
+    border: 1px solid #000;
+    border-top: none;
+}
+
+.abi-grid-col {
+    display: grid;
+}
+
+.abi-grid-left {
+    border-right: 1px solid #000;
+    grid-template-columns: 1fr 1fr;
+}
+
+.abi-grid-right {
+    grid-template-columns: 1fr 1.2fr;
+}
+
+.abi-grid-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #000;
+    padding: 1.5px 4px;
+    min-height: 18px;
+}
+
+.abi-grid-row:last-child {
+    border-bottom: none;
+}
+
+/* Special Rows */
+.abi-row-span-2 {
+    grid-column: span 2;
+}
+
+.abi-lbl {
+    font-weight: bold;
+    min-width: 80px;
+    font-size: 10px;
+}
+
+.abi-sep {
+    font-weight: bold;
+    padding: 0 4px;
+}
+
+.abi-val {
+    flex: 1;
+    word-break: normal;
+}
+
+/* Full Rows (Importer/Containers) */
+.abi-full-box {
+    border: 1px solid #000;
+    border-top: none;
+}
+
+.abi-full-row {
+    display: flex;
+    border-bottom: 1px solid #000;
+    padding: 3px 5px;
+}
+
+.abi-full-row:last-child {
+    border-bottom: none;
+}
+
+.abi-full-lbl {
+    font-weight: bold;
+    width: 100px;
+}
+
+/* Table Design */
+.abi-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #000;
+    border-top: none;
+}
+
+.abi-table th {
+    border: 1px solid #000;
+    text-align: center;
+    padding: 3px;
+    font-weight: bold;
+    font-size: 9px;
+    background: #fdfdfd;
+}
+
+.abi-table td {
+    border-left: 1px solid #000;
+    border-right: 1px solid #000;
+    padding: 4px 6px; /* Balanced padding */
+    min-height: 22px;
+    vertical-align: middle;
+    font-size: 9.5px;
+    line-height: 1.4; /* Healthy line height for capture */
+}
+
+.abi-table tr:last-child td {
+    border-bottom: 1px solid #000;
+}
+
+.abi-subtotal-row td {
+    border-top: 1px solid #000;
+    border-bottom: 1px solid #000;
+    font-weight: bold;
+    padding: 4px 6px;
+}
+
+/* Legend & Bottom Controls */
+.abi-legend-bar {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 2px 5px;
+    font-size: 8px;
+    font-weight: bold;
+}
+
+.abi-btm-box {
+    display: flex;
+    border: 1px solid #000;
+    border-top: none;
+}
+
+.abi-bank-info {
+    width: 26%;
+    border-right: 1px solid #000;
+    font-size: 8.5px;
+}
+
+.abi-sac-summary {
+    width: 37%;
+    border-right: 1px solid #000;
+    padding: 2px;
+}
+
+.abi-totals-side {
+    width: 37%;
+}
+
+.abi-bank-header {
+    border-bottom: 1px solid #000;
+    font-weight: bold;
+    text-align: center;
+    padding: 2px;
+    background: #fdfdfd;
+}
+
+.abi-bank-inner-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: none;
+}
+
+.abi-bank-inner-table th, .abi-bank-inner-table td {
+    border: 1px solid #000;
+    text-align: center;
+    padding: 2px;
+    font-size: 8.5px;
+}
+
+.abi-tot-row {
+    display: flex;
+    border-bottom: 1px solid #000;
+    min-height: 18px;
+    align-items: center;
+}
+
+.abi-tot-row:last-child {
+    border-bottom: none;
+}
+
+.abi-tot-lbl {
+    font-weight: bold;
+    width: 55%;
+    padding: 2px 4px;
+    border-right: 1px solid #000;
+}
+
+.abi-tot-cur {
+    width: 15%;
+    padding: 2px 4px;
+    border-right: 1px solid #000;
+    text-align: center;
+}
+
+.abi-tot-val {
+    width: 30%;
+    padding: 2px 4px;
+    text-align: right;
+    font-weight: bold;
+}
+
+/* Text Areas */
+.abi-text-row {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 3px 5px;
+}
+
+.abi-signature-row {
+    display: flex;
+    border: 1px solid #000;
+    border-top: none;
+    min-height: 100px;
+}
+
+.abi-terms {
+    width: 63%;
+    padding: 5px;
+    font-size: 8.5px;
+    border-right: 1px solid #000;
+}
+
+.abi-sig-block {
+    width: 37%;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+}
+
+.abi-bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-weight: bold;
+    font-size: 8.5px;
+    padding: 0 5px;
+}
+
+/* Input Fields */
+.abi-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+    line-height: inherit; /* Direct inheritance from TD */
+    display: inline-block;
+    height: auto;
+}
+
+.abi-input:focus {
+    background: #f0fff0 !important;
+}
+
+/* Print Overrides */
+@media print {
+    .no-print { display: none !important; }
+    .abi-page { 
+        padding: 0; 
+        margin: 0; 
+        width: 100%;
+        max-width: none;
+    }
+    .abi-input { background: transparent !important; }
+    @page { margin: 10mm; }
+}
+
+/* Master Modal */
+.abi-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.abi-modal-content {
+    background: #fff;
+    width: 650px;
+    max-height: 85vh;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.abi-modal-header {
+    padding: 15px; border-bottom: 1px solid #eee;
+    display: flex; justify-content: space-between; align-items: center;
+}
+
+.abi-modal-body { padding: 15px; overflow-y: auto; }
+
+.abi-search-box input {
+    width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;
+}
+
+.abi-charge-list {
+    border: 1px solid #eee; margin-top: 10px; max-height: 350px; overflow-y: auto;
+}
+
+.abi-charge-item {
+    padding: 10px; border-bottom: 1px solid #f9f9f9;
+    display: flex; justify-content: space-between; align-items: center;
+}
+
+.abi-modal-footer {
+    padding: 15px; border-top: 1px solid #eee;
+    display: flex; justify-content: flex-end; gap: 10px;
+}
+
+.add-charge-row-btn {
+    padding: 6px 12px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer;
+}

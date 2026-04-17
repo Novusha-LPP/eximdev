@@ -183,7 +183,9 @@ const ChargeSchema = new mongoose.Schema({
   cost: ChargeLineSchema,
   copyToCost: { type: Boolean, default: true },
 
-
+  // New fields for heading and tax reporting
+  isHeader: { type: Boolean, default: false },
+  sacHsn: { type: String, trim: true },
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -707,6 +709,8 @@ const jobSchema = new mongoose.Schema({
   icd_cfs_invoice_img: [{ type: String, trim: true }],
   upload_agency_bill_img: { type: String },
   upload_reimbursement_bill_img: { type: String },
+  agency_invoice_no: { type: String, trim: true },
+  reimbursement_invoice_no: { type: String, trim: true },
   bill_amount: { type: String },
   do_list: { type: String, trim: true },
 

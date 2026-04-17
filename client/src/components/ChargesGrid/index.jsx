@@ -80,6 +80,21 @@ const ChargesGrid = ({
     setIsAddOpen(false);
   };
 
+  const handleAddHeading = async () => {
+    const headingName = window.prompt("Enter heading name (e.g., DOCUMENTATION CHARGES):");
+    if (!headingName) return;
+
+    const newHeading = {
+      parentId,
+      parentModule,
+      chargeHead: headingName.toUpperCase(),
+      isHeader: true,
+      category: 'Header'
+    };
+
+    await addChargesBulk([newHeading]);
+  };
+
   const handleSaveEdit = async (updatedCharges, shouldClose = true) => {
     for (const charge of updatedCharges) {
       await updateCharge(charge._id, charge);
@@ -137,6 +152,7 @@ const ChargesGrid = ({
       
       <Toolbar 
          onAddCharge={() => setIsAddOpen(true)}
+         onAddHeading={handleAddHeading}
          onDeleteSelected={handleDeleteSelected}
          readOnly={readOnly}
          isDeleteDisabled={isDeleteDisabled}

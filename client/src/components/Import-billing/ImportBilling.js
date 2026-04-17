@@ -11,6 +11,7 @@ import {
   Box,
   Badge,
   Typography,
+  Menu,
   MenuItem,
   Autocomplete,
 } from "@mui/material";
@@ -45,6 +46,8 @@ function ImportBilling({ workMode = 'Payment' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedRowData, setSelectedRowData] = useState(null);
 
   console.log(currentTab, "tab");
 
@@ -249,6 +252,32 @@ function ImportBilling({ workMode = 'Payment' }) {
       document.body.removeChild(textArea);
     }
   }, []);
+
+  const handleMenuOpen = (event, row) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedRowData(row);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedRowData(null);
+  };
+
+  const handleGenerateAction = (type) => {
+    handleMenuClose();
+    if (selectedRowData) {
+      if (type === 'Agency Bill') {
+        const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
+        navigate(`/agency-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
+      } else if (type === 'Reimbursement Bill') {
+        const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
+        navigate(`/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
+      } else {
+        console.log(`Generating ${type} for job ${selectedRowData.job_no}`);
+        // Future implementation for other bill types
+      }
+    }
+  };
 
   // Define table columns
   const columns = React.useMemo(
@@ -468,7 +497,27 @@ function ImportBilling({ workMode = 'Payment' }) {
         size: 200,
         Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
       },
+      {
+        accessorKey: "generate_bill",
+        header: "Generate Bill",
+        enableSorting: false,
+        size: 150,
+        Cell: ({ cell }) => (
+          <Button
+            variant="contained"
+            color="primary"
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMenuOpen(e, cell.row.original);
+            }}
+          >
+            Generate
+          </Button>
+        ),
+      },
     ],
+
     [navigate, handleCopy]
   );
 
@@ -644,6 +693,19 @@ function ImportBilling({ workMode = 'Payment' }) {
             showLastButton
           />
         </Box>
+
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => handleGenerateAction("Agency Bill")}>
+            Agency Bill
+          </MenuItem>
+          <MenuItem onClick={() => handleGenerateAction("Reimbursement Bill")}>
+            Reimbursement Bill
+          </MenuItem>
+        </Menu>
       </>
     </div>
   );

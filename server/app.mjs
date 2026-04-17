@@ -108,6 +108,7 @@ import hodApprovalPending from "./routes/CustomerKyc/hodApprovalPending.mjs";
 import deleteCustomerKyc from "./routes/CustomerKyc/deleteCustomerKyc.mjs";
 import financialDetailsApproval from "./routes/CustomerKyc/financialDetailsApproval.mjs";
 import financialApprovalPending from "./routes/CustomerKyc/financialApprovalPending.mjs";
+import getKycByIec from "./routes/CustomerKyc/getKycByIec.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -136,6 +137,8 @@ import unassignUsersFromModule from "./routes/unassignUsersFromModule.mjs";
 import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
 import toggleUserStatus from "./routes/toggleUserStatus.mjs";
 import assignDepartment from "./routes/home/assignDepartment.mjs";
+import invoiceGenerator from "./routes/billing/invoiceNumberGenerator.mjs";
+
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -406,6 +409,7 @@ app.use("/api", chargesRoutes);
 app.use("/api", Accounts);
 app.use("/api", reminderRoutes);
 app.use("/api", accountLedger);
+app.use("/api/billing", invoiceGenerator);
 
 // Documentation
 app.use(updateDocumentationJob);
@@ -435,6 +439,7 @@ app.use(viewRevisionList);
 app.use(hodApprovalPending);
 app.use(financialDetailsApproval);
 app.use(financialApprovalPending);
+app.use(getKycByIec);
 
 app.use(deleteCustomerKyc);
 

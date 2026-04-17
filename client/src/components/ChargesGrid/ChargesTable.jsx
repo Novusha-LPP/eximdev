@@ -149,6 +149,24 @@ const ChargesTable = ({
           ) : charges.map((ch, idx) => {
             const isSelected = selectedIds.has(ch._id);
             
+            if (ch.isHeader) {
+                return (
+                  <tr 
+                    key={ch._id || idx} 
+                    className={`header-row ${isSelected ? 'selected' : ''}`}
+                    onClick={() => !readOnly && onSelectCharge(ch._id)}
+                    style={{ backgroundColor: '#f0f4f8', cursor: 'pointer' }}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={isSelected} onChange={() => onSelectCharge(ch._id)} disabled={readOnly} />
+                    </td>
+                    <td colSpan="20" style={{ fontWeight: 'bold', color: '#061f45', textAlign: 'left', padding: '8px 12px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {ch.chargeHead}
+                    </td>
+                  </tr>
+                );
+            }
+
             return (
               <tr 
                 key={ch._id || idx} 

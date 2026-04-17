@@ -71,6 +71,8 @@ import EditDoPlanning from "../components/import-do/EditDoPlanning.js";
 import EditDoCompleted from "../components/import-do/EditDoCompleted.js";
 import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
 import EditFreeDaysConf from "../components/import-do/EditFreeDaysConf.js";
+import AgencyBillInvoice from "../components/Import-billing/AgencyBillInvoice.jsx";
+import ReimbursementBill from "../components/Import-billing/ReimbursementBill.jsx";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
 import ViewJob from "../components/import-dsr/ViewJob.js";
@@ -769,6 +771,22 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="Import - Billing">
                       <ViewBillingJob />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agency-bill/:branch_code/:trade_type/:mode/:job_no/:year"
+                  element={
+                    <ProtectedRoute requiredModule="Import - Billing">
+                      <AgencyBillInvoice />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reimbursement-bill/:branch_code/:trade_type/:mode/:job_no/:year"
+                  element={
+                    <ProtectedRoute requiredModule="Import - Billing">
+                      <ReimbursementBill />
                     </ProtectedRoute>
                   }
                 />

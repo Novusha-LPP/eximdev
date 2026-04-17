@@ -9,6 +9,7 @@ import './charges.css';
 import { generatePurchaseBookPDF } from '../../utils/purchaseBookPrint';
 import logo from '../../assets/images/logo.webp';
 import PrintIcon from '@mui/icons-material/Print';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { IconButton } from '@mui/material';
 
 const EditChargeModal = ({ 
@@ -274,6 +275,46 @@ const EditChargeModal = ({
     setActiveDropdown({ index: null, section: null });
   };
 
+  const handleCopyFromCost = (index) => {
+    const updated = [...formData];
+    const cost = updated[index].cost || {};
+    const revenue = { 
+      ...(updated[index].revenue || {}),
+      basis: cost.basis,
+      qty: cost.qty,
+      unit: cost.unit,
+      rate: cost.rate,
+      currency: cost.currency,
+      exchangeRate: cost.exchangeRate || 1,
+      isGst: cost.isGst !== undefined ? cost.isGst : true,
+      gstRate: cost.gstRate || 18,
+      chargeDescription: cost.chargeDescription,
+      partyName: cost.partyName,
+      partyType: cost.partyType,
+      branchIndex: cost.branchIndex,
+      branchCode: cost.branchCode
+    };
+    
+    // Recalculate everything for revenue
+    const qty = parseFloat(revenue.qty) || 0;
+    const rate = parseFloat(revenue.rate) || 0;
+    const exRate = parseFloat(revenue.exchangeRate) || 1;
+    const amount = qty * rate;
+    
+    revenue.amount = amount;
+    revenue.amountINR = amount * exRate;
+
+    const gstRate = parseFloat(revenue.gstRate) || 18;
+    const derivedBasic = amount / (1 + (gstRate / 100));
+    const derivedGst = amount - derivedBasic;
+    
+    revenue.gstAmount = derivedGst;
+    revenue.basicAmount = derivedBasic;
+
+    updated[index].revenue = revenue;
+    setFormData(updated);
+  };
+
   const handleSave = (shouldClose = true) => {
     onSave(formData, shouldClose);
   };
@@ -318,6 +359,15 @@ const EditChargeModal = ({
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Invoice Date</span>
                     <input type="date" className="form-input" value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
+                  </div>
+
+                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="form-label">SAC / HSN</span>
+                    <input type="text" className="form-input" placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} />
+                  </div>
+                  <div className="form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="form-label" style={{ marginBottom: 0 }}>Is Header?</span>
+                    <input type="checkbox" checked={row.isHeader || false} onChange={e => handleFieldChange(i, 'isHeader', e.target.checked)} />
                   </div>
 
                   {/* Tally Numbers & Status Row */}
@@ -622,8 +672,33 @@ const EditChargeModal = ({
                                 </div>
                               </div>
                             </div>
-                            <div className="ep-copy-row">
-                              Copy to Cost <input type="checkbox" checked={row.copyToCost || false} onChange={e => handleFieldChange(i, 'copyToCost', e.target.checked)} />
+                            <div className="ep-copy-row" style={{ gap: '15px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                Copy to Cost <input type="checkbox" checked={row.copyToCost || false} onChange={e => handleFieldChange(i, 'copyToCost', e.target.checked)} />
+                              </div>
+                              <button 
+                                type="button" 
+                                className="copy-btn" 
+                                style={{ 
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px', 
+                                  padding: '1px 8px', 
+                                  backgroundColor: '#fff', 
+                                  border: '1px solid #1976d2', 
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  color: '#1976d2',
+                                  fontWeight: '600',
+                                  transition: 'all 0.2s'
+                                }}
+                                onClick={(e) => { e.stopPropagation(); handleCopyFromCost(i); }}
+                                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f5faff'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                              >
+                                <ContentCopyIcon style={{ fontSize: '13px' }} /> Copy from Cost
+                              </button>
                             </div>
                           </div>
                         </td>

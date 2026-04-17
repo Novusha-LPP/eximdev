@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { createPortal } from 'react-dom';
 import FileUploadModal from './FileUploadModal';
 import RequestPaymentModal from './RequestPaymentModal';
 import PurchaseBookModal from './PurchaseBookModal';
@@ -46,6 +47,8 @@ const EditChargeModal = ({
   const modalRef = useRef(null);
 
   // Lock body scroll when modal is open
+  // NOTE: Restored document.body lock. The previous flicker was caused by CSS transforms on parent containers
+  // breaking the fixed positioning. createPortal fixes this.
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -290,8 +293,8 @@ const EditChargeModal = ({
     return Number(num).toFixed(2);
   };
 
-  return (
-    <div className="modal-overlay active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
+  return createPortal(
+    <div className="charge-modal-overlay active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
       <div className="edit-charge-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-title">Edit Charge</div>
         <div className="modal-body">
@@ -1016,7 +1019,8 @@ const EditChargeModal = ({
           }
         }}
       />
-    </div>
+    </div>,
+    document.body
   );
 };
 

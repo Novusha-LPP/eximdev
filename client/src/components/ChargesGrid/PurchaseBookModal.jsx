@@ -147,7 +147,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
 
     return (
-        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
+        <div className="charge-modal-overlay active" style={{ zIndex: 1100 }}>
             <div className="edit-charge-modal" style={{ width: '1000px', maxWidth: '95vw' }}>
                 <div className="modal-title">Purchase Book Entry</div>
                 <form onSubmit={handleSubmit}>

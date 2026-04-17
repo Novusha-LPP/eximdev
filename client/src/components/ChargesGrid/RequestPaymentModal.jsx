@@ -158,7 +158,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
 
 
     return (
-        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
+        <div className="charge-modal-overlay active" style={{ zIndex: 1100 }}>
             <div className="edit-charge-modal" style={{ width: '800px' }}>
                 <div className="modal-title">Request Payment</div>
                 <form>
@@ -262,7 +262,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
 
             {/* Validation Error Popup */}
             {errorPopup.isOpen && (
-                <div className="modal-overlay active" style={{ zIndex: 1200 }}>
+                <div className="charge-modal-overlay active" style={{ zIndex: 1200 }}>
                     <div className="edit-charge-modal" style={{ width: '400px' }}>
                         <div className="modal-title" style={{ background: 'linear-gradient(to bottom, #d32f2f, #b71c1c)' }}>
                             Validation Error

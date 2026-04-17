@@ -65,12 +65,12 @@
 }
 
 /* ══ MODAL OVERLAY ══ */
-.modal-overlay {
+.charge-modal-overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,.45); z-index: 1000;
   align-items: center; justify-content: center;
 }
-.modal-overlay.active { display: flex; }
+.charge-modal-overlay.active { display: flex; }
 
 /* ══ EDIT CHARGE MODAL ══ */
 .edit-charge-modal {

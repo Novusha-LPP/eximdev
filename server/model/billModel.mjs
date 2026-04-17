@@ -32,7 +32,10 @@ const billSchema = new mongoose.Schema({
     lastSaved: {
         type: Date,
         default: Date.now
-    }
+    },
+    generatedByFirstName: String,
+    generatedByLastName: String,
+    generatedAt: Date
 }, { timestamps: true });
 
 // Index for quick retrieval by job and type

@@ -70,15 +70,27 @@ router.post('/save', async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing jobId, type or billNo" });
         }
 
+        const updateData = { 
+            billNo, 
+            rows, 
+            editableFields,
+            ...totals,
+            lastSaved: new Date()
+        };
+
+        // If generation audit info is missing, capture it now
+        if (req.body.firstName || req.body.lastName) {
+            const existingBill = await BillModel.findOne({ jobId, type });
+            if (!existingBill || !existingBill.generatedAt) {
+                updateData.generatedByFirstName = req.body.firstName;
+                updateData.generatedByLastName = req.body.lastName;
+                updateData.generatedAt = new Date();
+            }
+        }
+
         const bill = await BillModel.findOneAndUpdate(
             { jobId, type },
-            { 
-                billNo, 
-                rows, 
-                editableFields,
-                ...totals,
-                lastSaved: new Date()
-            },
+            updateData,
             { upsert: true, new: true }
         );
 
@@ -92,7 +104,7 @@ router.post('/save', async (req, res) => {
  * Endpoint to generate a unique invoice number for a job
  */
 router.post('/generate-invoice-number', async (req, res) => {
-    const { jobId, type } = req.body;
+    const { jobId, type, firstName, lastName } = req.body;
 
     if (!jobId || !type) {
         return res.status(400).json({ success: false, message: "Missing jobId or type" });
@@ -105,17 +117,31 @@ router.post('/generate-invoice-number', async (req, res) => {
         }
 
         const fieldName = type === 'GIA' ? 'agency_invoice_no' : 'reimbursement_invoice_no';
-        if (job[fieldName]) {
-            return res.json({ success: true, invoiceNo: job[fieldName], alreadyExists: true });
+        let invoiceNo = job[fieldName];
+
+        if (!invoiceNo) {
+            const fy = job.year || job.financial_year || "24-25";
+            const sequence = await getNextSequence(type, fy);
+            const paddedSequence = sequence.toString().padStart(4, '0');
+            invoiceNo = `${type}/${paddedSequence}/${fy}`;
+
+            job[fieldName] = invoiceNo;
+            await job.save();
         }
 
-        const fy = job.year || job.financial_year || "24-25";
-        const sequence = await getNextSequence(type, fy);
-        const paddedSequence = sequence.toString().padStart(4, '0');
-        const invoiceNo = `${type}/${paddedSequence}/${fy}`;
-
-        job[fieldName] = invoiceNo;
-        await job.save();
+        // Capture generation audit log
+        if (firstName || lastName) {
+            await BillModel.findOneAndUpdate(
+                { jobId, type },
+                { 
+                    billNo: invoiceNo,
+                    generatedByFirstName: firstName,
+                    generatedByLastName: lastName,
+                    generatedAt: new Date()
+                },
+                { upsert: true }
+            );
+        }
 
         res.json({ success: true, invoiceNo });
     } catch (err) {

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./ReimbursementBill.css";
 import logo from '../../assets/images/logo.webp';
 import signature from '../../assets/images/signature.png';
 import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
+import { UserContext } from "../../contexts/UserContext";
 
 const ReimbursementBill = () => {
     const { branch_code, trade_type, mode, job_no, year } = useParams();
@@ -12,6 +13,8 @@ const ReimbursementBill = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+    const { user } = useContext(UserContext);
+    const [generationLog, setGenerationLog] = useState(null);
     const printableRef = React.useRef();
 
     const [invoiceRows, setInvoiceRows] = useState([]);
@@ -143,6 +146,15 @@ const ReimbursementBill = () => {
                     // Note: We always fresh-sync rows from the grid for now to avoid old cached "G" type data
                     // Only loading editable fields (invoice no, date, address) from save
                     setEditableFields(saved.editableFields || initialFields);
+                    
+                    if (saved.generatedAt) {
+                        setGenerationLog({
+                            firstName: saved.generatedByFirstName,
+                            lastName: saved.generatedByLastName,
+                            at: saved.generatedAt
+                        });
+                    }
+
                     setLoading(false);
                     return; 
                 }
@@ -191,7 +203,7 @@ const ReimbursementBill = () => {
                 });
                 const finalTotal = totalNonGst + totalTaxable + totalCgst + totalSgst;
 
-                await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
+                const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
                     jobId: jobData._id,
                     type: 'GIR',
                     billNo: editableFields.invoiceNo,
@@ -203,8 +215,19 @@ const ReimbursementBill = () => {
                         totalCgst,
                         totalSgst,
                         finalTotal
-                    }
+                    },
+                    firstName: user?.first_name,
+                    lastName: user?.last_name
                 });
+                
+                // If log was missing, update it from the save response
+                if (!generationLog && res.data.data?.generatedAt) {
+                    setGenerationLog({
+                        firstName: res.data.data.generatedByFirstName,
+                        lastName: res.data.data.generatedByLastName,
+                        at: res.data.data.generatedAt
+                    });
+                }
                 console.log("Reimbursement Bill auto-saved");
             } catch (err) {
                 console.error("Autosave error:", err);
@@ -236,10 +259,17 @@ const ReimbursementBill = () => {
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/generate-invoice-number`, {
                 jobId: jobData._id,
-                type
+                type,
+                firstName: user?.first_name,
+                lastName: user?.last_name
             });
             if (res.data.success) {
                 setEditableFields(prev => ({ ...prev, invoiceNo: res.data.invoiceNo }));
+                setGenerationLog({
+                    firstName: user?.first_name,
+                    lastName: user?.last_name,
+                    at: new Date()
+                });
             }
         } catch (err) {
             alert("Error generating invoice number: " + err.message);
@@ -252,7 +282,7 @@ const ReimbursementBill = () => {
             description: chargeHeadName,
             sac: "996713", // Default SAC
             receipt: "",
-            taxType: "N",
+            taxType: "P", // Default to Pure Agent for reimbursements
             nonGst: 0,
             taxable: 0,
             cgstPercent: 0,
@@ -270,7 +300,7 @@ const ReimbursementBill = () => {
                 description: ch.name || "",
                 sac: "996713", // Default SAC
                 receipt: "",
-                taxType: "N",
+                taxType: "P", // Default to Pure Agent
                 nonGst: 0,
                 taxable: 0,
                 cgstPercent: 0,
@@ -667,6 +697,12 @@ const ReimbursementBill = () => {
                         <div style={{ fontWeight: 'bold' }}>Authorised Signatory</div>
                     </div>
                 </div>
+
+                {generationLog && (
+                    <div className="no-print" style={{ marginTop: '10px', fontSize: '9px', color: '#666', fontStyle: 'italic', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                        * This bill was generated by {generationLog.firstName} {generationLog.lastName} on {new Date(generationLog.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </div>
+                )}
             </div>
             
             {isMasterModalOpen && (

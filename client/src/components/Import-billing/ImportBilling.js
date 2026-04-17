@@ -500,20 +500,24 @@ function ImportBilling({ workMode = 'Payment' }) {
       {
         accessorKey: "generate_bill",
         header: "Generate Bill",
+        muiTableHeadCellProps: { align: "center" },
+        muiTableBodyCellProps: { sx: { textAlign: "center", verticalAlign: "middle" } },
         enableSorting: false,
         size: 150,
         Cell: ({ cell }) => (
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMenuOpen(e, cell.row.original);
-            }}
-          >
-            Generate
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMenuOpen(e, cell.row.original);
+              }}
+            >
+              Generate
+            </Button>
+          </Box>
         ),
       },
     ],

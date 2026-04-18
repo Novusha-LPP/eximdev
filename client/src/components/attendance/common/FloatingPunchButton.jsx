@@ -165,6 +165,8 @@ const FloatingPunchButton = () => {
 
             if (response?.message) {
                 toast.success(response.message);
+                if (response?.warning?.message) toast.info(response.warning.message);
+                if (response?.info?.message) toast.info(response.info.message);
                 fetchStatus();
                 // Trigger a global refresh event if other components need to know
                 window.dispatchEvent(new CustomEvent('attendance-updated'));

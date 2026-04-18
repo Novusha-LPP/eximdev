@@ -25,6 +25,7 @@ const upload = multer({ storage });
 
 // Employee Routes
 router.get('/balance', attendanceAuthBridge, leaveCtrl.getBalance);
+router.get('/balances-bulk', attendanceAuthBridge, leaveCtrl.getBalancesBulk);
 router.get('/applications', attendanceAuthBridge, leaveCtrl.getApplications);
 router.get('/preview-application', attendanceAuthBridge, leaveCtrl.previewLeave);
 router.post('/apply', attendanceAuthBridge, upload.single('attachment'), leaveCtrl.applyLeave);

@@ -1074,35 +1074,65 @@ export const applyLeave = async (req, res) => {
     }
 };
 
-// Cancel Leave
+// Cancel Leave (Full or Partial)
 export const cancelLeave = async (req, res) => {
     try {
         const user = req.user;
         const { id } = req.params;
-        const application = await LeaveApplication.findOne({
-            _id: id,
-            employee_id: user._id
-        });
+        const {
+            cancel_type = 'full',       // 'full' | 'partial'
+            cancel_from,                // ISO date string for partial start
+            cancel_to,                  // ISO date string for partial end
+            cancellation_reason = ''
+        } = req.body;
+
+        const roleNorm = String(user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdmin = roleNorm === 'ADMIN';
+        const isHOD = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT';
+
+        // Build query — admins/HODs can cancel on behalf of employees
+        const query = { _id: id };
+        if (!isAdmin && !isHOD) {
+            query.employee_id = user._id;
+        }
+
+        const application = await LeaveApplication.findOne(query);
 
         if (!application) {
             return res.status(404).json({ message: 'Application not found' });
         }
-        if (!['pending'].includes(application.approval_status)) {
+
+        // Only pending or approved leaves can be cancelled
+        if (!['pending', 'approved'].includes(application.approval_status)) {
             return res.status(400).json({
-                message: 'Can only cancel non-finalized applications'
+                message: 'Only pending or approved leaves can be cancelled'
             });
         }
 
-        // Update Application Status
-        application.approval_status = 'cancelled';
-        application.cancelled_by = user._id;
-        application.cancelled_at = new Date();
-        await application.save();
+        const wasApprovedLeave = String(application.approval_status || '') === 'approved';
 
-        // Revert Balance
+        // Payroll cutoff guard: can't cancel leaves processed in payroll
+        if (application.payroll_status === 'processed') {
+            return res.status(400).json({
+                message: 'This leave has already been processed in payroll and cannot be cancelled'
+            });
+        }
+
+        // Date-based cutoff: leaves starting more than 30 days ago cannot be cancelled
+        const CUTOFF_DAYS = 30;
+        const cutoffDate = moment().subtract(CUTOFF_DAYS, 'days').startOf('day');
+        if (moment(application.from_date).isBefore(cutoffDate)) {
+            return res.status(400).json({
+                message: `Cannot cancel leaves that started more than ${CUTOFF_DAYS} days ago`
+            });
+        }
+
         const currentYear = new Date().getFullYear();
+        const isLwp = String(application.leave_type || '').toLowerCase() === 'lwp';
+
+        // Find balance record
         const balanceRecord = await LeaveBalance.findOne({
-            employee_id: user._id,
+            employee_id: application.employee_id,
             year: currentYear,
             $or: [
                 { leave_policy_id: application.leave_policy_id },
@@ -1110,12 +1140,160 @@ export const cancelLeave = async (req, res) => {
             ]
         }).sort({ updatedAt: -1, createdAt: -1 });
 
-        if (balanceRecord) {            
-            balanceRecord.pending_approval += application.total_days;
-            balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.pending_approval || 0));
+        // ── PARTIAL CANCELLATION (Split Approach) ──────────────────────────────
+        if (cancel_type === 'partial' && cancel_from && cancel_to) {
+            const origStart = moment(application.from_date).startOf('day');
+            const origEnd   = moment(application.to_date).startOf('day');
+            const cancelStart = moment(cancel_from).startOf('day');
+            const cancelEnd   = moment(cancel_to).startOf('day');
+
+            if (cancelStart.isBefore(origStart) || cancelEnd.isAfter(origEnd)) {
+                return res.status(400).json({ message: 'Cancel range must be within the leave date range' });
+            }
+            if (cancelStart.isAfter(cancelEnd)) {
+                return res.status(400).json({ message: 'Cancel start date must be before or equal to end date' });
+            }
+
+            // Calculate cancelled days proportionally from original total_days
+            const totalRangeDays   = origEnd.diff(origStart, 'days') + 1;
+            const cancelRangeDays  = cancelEnd.diff(cancelStart, 'days') + 1;
+            const cancelledDays    = Math.max(
+                0.5,
+                Math.round((cancelRangeDays / totalRangeDays) * application.total_days * 2) / 2
+            );
+
+            // Create the CANCELLED sub-record for the cancelled portion
+            const cancelledRecord = new LeaveApplication({
+                employee_id: application.employee_id,
+                company_id:  application.company_id,
+                department_id: application.department_id,
+                leave_policy_id: application.leave_policy_id,
+                leave_type: application.leave_type,
+                from_date: cancelStart.toDate(),
+                to_date:   cancelEnd.toDate(),
+                total_days: cancelledDays,
+                reason: application.reason,
+                is_half_day: false,
+                approval_status: 'cancelled',
+                approval_stage: application.approval_stage,
+                current_approver_id: application.current_approver_id,
+                approval_chain: application.approval_chain,
+                cancelled_by: user._id,
+                cancelled_at: new Date(),
+                cancellation_reason: cancellation_reason || 'Partial cancellation',
+                is_partial_cancellation: true,
+                parent_leave_id: application._id,
+                application_number: `LA-PC-${Date.now()}-${String(application.employee_id).slice(-4)}`
+            });
+            await cancelledRecord.save();
+
+            // Update the original record based on WHERE the cancelled sub-range falls
+            const cancellingEntireRange = cancelStart.isSame(origStart) && cancelEnd.isSame(origEnd);
+            const cancellingFromStart   = cancelStart.isSame(origStart);
+            const cancellingFromEnd     = cancelEnd.isSame(origEnd);
+
+            if (cancellingEntireRange) {
+                // Effectively a full cancel through the partial path
+                application.approval_status = 'cancelled';
+                application.cancelled_by   = user._id;
+                application.cancelled_at   = new Date();
+                application.cancellation_reason = cancellation_reason || 'Full cancellation via partial';
+            } else if (cancellingFromStart) {
+                // Advance the from_date past the cancelled portion
+                application.from_date  = cancelEnd.clone().add(1, 'day').toDate();
+                application.total_days = Math.max(
+                    0.5,
+                    Math.round((application.total_days - cancelledDays) * 2) / 2
+                );
+            } else if (cancellingFromEnd) {
+                // Retreat the to_date before the cancelled portion
+                application.to_date    = cancelStart.clone().subtract(1, 'day').toDate();
+                application.total_days = Math.max(
+                    0.5,
+                    Math.round((application.total_days - cancelledDays) * 2) / 2
+                );
+            } else {
+                // Cancelling from the middle — keep original for the first portion,
+                // create a new active remainder record for the trailing portion
+                const trailingStartDate = cancelEnd.clone().add(1, 'day').toDate();
+                const trailingRangeDays = origEnd.diff(cancelEnd, 'days');
+                const trailingDays = Math.max(
+                    0.5,
+                    Math.round((trailingRangeDays / totalRangeDays) * application.total_days * 2) / 2
+                );
+
+                const remainderRecord = new LeaveApplication({
+                    employee_id: application.employee_id,
+                    company_id:  application.company_id,
+                    department_id: application.department_id,
+                    leave_policy_id: application.leave_policy_id,
+                    leave_type: application.leave_type,
+                    from_date: trailingStartDate,
+                    to_date:   origEnd.toDate(),
+                    total_days: trailingDays,
+                    reason: application.reason,
+                    is_half_day: false,
+                    approval_status: application.approval_status,
+                    approval_stage:  application.approval_stage,
+                    current_approver_id: application.current_approver_id,
+                    approval_chain: application.approval_chain,
+                    is_split_remainder: true,
+                    parent_leave_id: application._id,
+                    application_number: `LA-SP-${Date.now()}-${String(application.employee_id).slice(-4)}`
+                });
+                await remainderRecord.save();
+
+                // Shrink original to the first (leading) portion only
+                const leadingRangeDays = cancelStart.diff(origStart, 'days');
+                const leadingDays = Math.max(
+                    0.5,
+                    Math.round((leadingRangeDays / totalRangeDays) * application.total_days * 2) / 2
+                );
+                application.to_date    = cancelStart.clone().subtract(1, 'day').toDate();
+                application.total_days = leadingDays;
+            }
+            await application.save();
+
+            // Restore exactly the cancelled days to balance.
+            // For approved leaves, also rollback the used counter.
+            if (balanceRecord && !isLwp) {
+                if (wasApprovedLeave) {
+                    balanceRecord.used = Math.max(0, Number(balanceRecord.used || 0) - cancelledDays);
+                }
+                balanceRecord.pending_approval = (Number(balanceRecord.pending_approval) || 0) + cancelledDays;
+                balanceRecord.closing_balance  = Math.max(0, Number(balanceRecord.pending_approval || 0));
+                await balanceRecord.save();
+            }
+
+            return res.json({
+                message: `Partial cancellation successful. ${cancelledDays} day(s) cancelled and restored to balance.`,
+                cancelled_days: cancelledDays
+            });
+        }
+
+        // ── FULL CANCELLATION ──────────────────────────────────────────────────
+        const daysToRestore = application.total_days;
+
+        application.approval_status     = 'cancelled';
+        application.cancelled_by        = user._id;
+        application.cancelled_at        = new Date();
+        if (cancellation_reason) application.cancellation_reason = cancellation_reason;
+        await application.save();
+
+        if (balanceRecord && !isLwp) {
+            if (wasApprovedLeave) {
+                balanceRecord.used = Math.max(0, Number(balanceRecord.used || 0) - daysToRestore);
+            }
+            balanceRecord.pending_approval = (Number(balanceRecord.pending_approval) || 0) + daysToRestore;
+            balanceRecord.closing_balance  = Math.max(0, Number(balanceRecord.pending_approval || 0));
             await balanceRecord.save();
         }
-        res.json({ message: 'Leave application cancelled successfully' });
+
+        return res.json({
+            message: 'Leave application cancelled successfully',
+            cancelled_days: daysToRestore
+        });
+
     } catch (err) {
         console.error('Error in cancelLeave:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
@@ -1277,6 +1455,56 @@ export const updateBalance = async (req, res) => {
         });
     } catch (err) {
         console.error('Error in updateBalance:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+/**
+ * Get leave balances for multiple employees
+ * Used for bulk report exports
+ */
+export const getBalancesBulk = async (req, res) => {
+    try {
+        const { employee_ids } = req.query;
+        
+        if (!employee_ids) {
+            return res.status(400).json({ message: 'employee_ids parameter is required' });
+        }
+
+        // Parse comma-separated IDs
+        const idArray = String(employee_ids)
+            .split(',')
+            .map(id => id.trim())
+            .filter(id => id && mongoose.Types.ObjectId.isValid(id));
+
+        if (idArray.length === 0) {
+            return res.status(400).json({ message: 'No valid employee IDs provided' });
+        }
+
+        const currentYear = new Date().getFullYear();
+
+        // Fetch all leave balances for the employees in the current year
+        const balances = await LeaveBalance.find({
+            employee_id: { $in: idArray },
+            year: currentYear
+        }).lean();
+
+        // Return balances in a format that can be easily consumed
+        res.json({ 
+            success: true,
+            data: balances.map(balance => ({
+                employee_id: balance.employee_id.toString(),
+                leave_policy_id: balance.leave_policy_id?.toString(),
+                leave_type: balance.leave_type,
+                opening_balance: balance.opening_balance || 0,
+                used: balance.used || 0,
+                pending_approval: balance.pending_approval || 0,
+                closing_balance: balance.closing_balance || 0,
+                year: balance.year
+            }))
+        });
+    } catch (err) {
+        console.error('Error in getBalancesBulk:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

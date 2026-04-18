@@ -1873,6 +1873,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             <button 
               onClick={() => {
                 if (localEmployeeId) setLocalEmployeeId(null);
+                else if (teamId) navigate(`/attendance/teams/${teamId}`);
                 else navigate('/attendance/admin/attendance');
               }} 
               style={{

@@ -264,13 +264,18 @@ const getShaliniApprover = async (companyId) => {
     }).select('_id username role');
 };
 
-const migrateLegacyPendingHodForCompany = async (companyId) => {
-    if (!companyId) return;
+export const migrateLegacyPendingLeaves = async ({ companyId, employeeIds }) => {
+    const query = { approval_status: 'pending_hod' };
+    
+    if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
+        query.employee_id = { $in: employeeIds };
+    } else if (companyId) {
+        query.company_id = companyId;
+    } else {
+        return;
+    }
 
-    const legacy = await LeaveApplication.find({
-        company_id: companyId,
-        approval_status: 'pending_hod'
-    }).select('_id team_id employee_id');
+    const legacy = await LeaveApplication.find(query).select('_id team_id employee_id');
 
     if (!legacy.length) return;
 
@@ -346,8 +351,6 @@ export const getDashboard = async (req, res) => {
         if (!companyId) {
             return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
         }
-
-        await migrateLegacyPendingHodForCompany(companyId);
 
         const debugLog = [];
         debugLog.push(`--- HOD DASHBOARD DEBUG ${new Date().toISOString()} ---`);
@@ -448,6 +451,12 @@ export const getDashboard = async (req, res) => {
             
             debugLog.push(`Loaded ${employees.length} active team member details`);
         }
+
+        employeeIds = employees.map(e => e._id);
+        const allCompanyIds = [...new Set(employees.map(e => e.company_id?.toString()).filter(Boolean))];
+
+        // Migrate legacy leaves for identified employees
+        await migrateLegacyPendingLeaves({ employeeIds });
 
         // Helper to resolve team name for an employee (used in HOD dashboard)
         const getTeamNameForMember = (empId) => {
@@ -650,7 +659,7 @@ export const getDashboard = async (req, res) => {
         debugLog.push(`Calendar range: ${startOfWeek.format('YYYY-MM-DD')} to ${endOfWeek.format('YYYY-MM-DD')}`);
 
         const weekHolidays = await Holiday.find({
-            company_id: companyId,
+            company_id: { $in: allCompanyIds },
             holiday_date: {
                 $gte: startOfWeek.toDate(),
                 $lte: endOfWeek.toDate()
@@ -1456,8 +1465,6 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         const companyId = admin.company_id?._id || admin.company_id;
 
-        await migrateLegacyPendingHodForCompany(companyId);
-
         const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
         const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
         const adminIdStr = admin._id?.toString();
@@ -1539,6 +1546,15 @@ export const getAdminLeaveRequests = async (req, res) => {
             });
 
             employeeFilter = { $in: objectIds };
+        }
+
+
+
+        // Migrate legacy leaves for identified employees or company
+        if (employeeFilter && employeeFilter.$in) {
+            await migrateLegacyPendingLeaves({ employeeIds: employeeFilter.$in });
+        } else {
+            await migrateLegacyPendingLeaves({ companyId });
         }
 
         const leaveQuery = isAllowedAdmin

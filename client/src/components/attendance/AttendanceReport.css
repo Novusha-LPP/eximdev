@@ -1098,6 +1098,12 @@
     color: var(--ink3);
 }
 
+.ar-pill-pending-leave {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px dashed #c4b5fd;
+}
+
 .ar-pill-default {
     background: var(--ink6);
     color: var(--ink3);

@@ -15,7 +15,13 @@ import leaveAPI from '../../api/attendance/leave.api';
 import masterAPI from '../../api/attendance/master.api';
 import { formatDate, getStatusVariant, minutesToHours, isToday } from './utils/helpers';
 import toast from 'react-hot-toast';
+import AdminAnalyticsTab from './AdminAnalyticsTab';
 import './Dashboard.css';
+
+/* -- Constants -- */
+const AUTHORIZED_DASHBOARD_ADMINS = new Set([
+  'shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope'
+]);
 
 /* -- Helpers -- */
 const greeting = () => {
@@ -107,6 +113,17 @@ export default function Dashboard() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayDetail, setDayDetail] = useState(null);
   const [liveTimer, setLiveTimer] = useState('0h 00m 00s');
+
+  // Adhoc Admin Tabs
+  const [activeTab, setActiveTab] = useState('calendar');
+  const [adminData, setAdminData] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminDate, setAdminDate] = useState(new Date().toISOString().split('T')[0]);
+  const [adminCompanyId, setAdminCompanyId] = useState('');
+  const [companies, setCompanies] = useState([]);
+
+  const username = String(user?.username || '').toLowerCase();
+  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username);
   const [weekOff, setWeekOff] = useState(0);
 
   /* -- Fetch -- */
@@ -145,7 +162,38 @@ export default function Dashboard() {
     finally { setLoading(false); }
   }, [isAdmin, isHOD]);
 
+  // Fetch companies for admin filtering
+  useEffect(() => {
+    if (isAuthorizedAdmin) {
+      masterAPI.getCompanies().then(res => {
+        if (res?.success) setCompanies(res.data || []);
+      }).catch(err => console.error('Failed to load companies', err));
+    }
+  }, [isAuthorizedAdmin]);
+
   useEffect(() => { load(month.getMonth() + 1, month.getFullYear()); }, [month]);
+
+  const loadAdminData = useCallback(async (date, companyId) => {
+    if (!isAuthorizedAdmin) return;
+    try {
+      setAdminLoading(true);
+      const res = await attendanceAPI.getAdminDashboard({ 
+        date, 
+        company_id: companyId || undefined 
+      });
+      if (res?.success) setAdminData(res.data);
+    } catch { 
+      toast.error('Failed to load admin analytics'); 
+    } finally { 
+      setAdminLoading(false); 
+    }
+  }, [isAuthorizedAdmin]);
+
+  useEffect(() => {
+    if (activeTab === 'daily' && isAuthorizedAdmin) {
+      loadAdminData(adminDate, adminCompanyId);
+    }
+  }, [activeTab, adminDate, adminCompanyId, isAuthorizedAdmin, loadAdminData]);
 
   useEffect(() => {
     const h = () => load(month.getMonth() + 1, month.getFullYear());
@@ -186,6 +234,8 @@ export default function Dashboard() {
       const r = await attendanceAPI.punch({ type, method: 'WEB', location });
       if (r?.message) {
         toast.success(r.message);
+        if (r?.warning?.message) toast.info(r.warning.message);
+        if (r?.info?.message) toast.info(r.info.message);
         load(month.getMonth() + 1, month.getFullYear());
         window.dispatchEvent(new CustomEvent('attendance-updated'));
       }
@@ -419,7 +469,7 @@ export default function Dashboard() {
           </div>
 
           {/* -- MANAGER: Overview strip -- */}
-          {isManager && (
+          {isManager && !isAuthorizedAdmin && (
             <div className="card insight-mini">
               <div className="card-head">
                 <span className="card-title">{isAdmin ? 'Company Overview' : 'Team Overview'}</span>
@@ -477,8 +527,27 @@ export default function Dashboard() {
             </div>
           )}
 
+          {isAuthorizedAdmin && (
+            <div className="db-main-tabs">
+              <button 
+                className={`db-main-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+                onClick={() => setActiveTab('calendar')}
+              >
+                <FiCalendar /> My Dashboard
+              </button>
+              <button 
+                className={`db-main-tab ${activeTab === 'daily' ? 'active' : ''}`}
+                onClick={() => setActiveTab('daily')}
+              >
+                <FiActivity /> Daily Summary
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'calendar' ? (
+            <>
           {/* -- MANAGER: Today's Alerts (Late / Absent) -- */}
-          {isManager && (
+          {isManager && !isAuthorizedAdmin && (
             <div className="card">
               <div className="card-head">
                 <span className="card-title">Today's Alerts</span>
@@ -687,7 +756,18 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-
+            </>
+          ) : (
+            <AdminAnalyticsTab 
+              data={adminData} 
+              loading={adminLoading}
+              currentDate={adminDate}
+              onDateChange={setAdminDate}
+              companies={companies}
+              selectedCompanyId={adminCompanyId}
+              onCompanyChange={setAdminCompanyId}
+            />
+          )}
         </div>
 
         {/* -- RIGHT SIDEBAR -- */}
@@ -782,16 +862,17 @@ export default function Dashboard() {
             }
           </div>
 
-          {/* Upcoming holidays – all roles */}
-          <div className="card">
-            <div className="card-head">
-              <span className="card-title">Upcoming Holidays</span>
-              {isAdmin && (
-                <button className="card-link" onClick={() => navigate('/attendance/admin/holidays')}>
-                  Manage <FiArrowRight size={12} />
-                </button>
-              )}
-            </div>
+          {/* Upcoming holidays – and manual refresh */}
+          {!isAuthorizedAdmin && (
+            <div className="card">
+              <div className="card-head">
+                <span className="card-title">Upcoming Holidays</span>
+                {isAdmin && (
+                  <button className="card-link" onClick={() => navigate('/attendance/admin/holidays')}>
+                    Manage <FiArrowRight size={12} />
+                  </button>
+                )}
+              </div>
             {(isAdmin ? holidays : upcomingHolidays).length === 0 ? (
               <div className="empty-msg">No upcoming holidays</div>
             ) : (isAdmin ? holidays : upcomingHolidays).map((h, i) => {
@@ -812,12 +893,14 @@ export default function Dashboard() {
               );
             })}
           </div>
+          )}
 
           {/* Quick actions – role-specific */}
-          <div className="card">
-            <div className="card-head">
-              <span className="card-title">Quick Actions</span>
-            </div>
+          {!isAuthorizedAdmin && (
+            <div className="card">
+              <div className="card-head">
+                <span className="card-title">Quick Actions</span>
+              </div>
             {(isAdmin ? adminActions : isHOD ? hodActions : employeeActions).map((item, i) => (
               <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
                 <div className="qa-icon">{item.icon}</div>
@@ -830,6 +913,7 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+          )}
 
         </div>
       </div>

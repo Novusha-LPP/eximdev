@@ -229,6 +229,8 @@ import feedback from "./routes/feedbackRoutes.js";
 //scrapper
 import cron from "node-cron";
 import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
+import ActiveSession from "./model/attendance/ActiveSession.js";
+import AttendanceRecord from "./model/attendance/AttendanceRecord.js";
 
 import currencyRateRoutes from "./routes/currencyRate.js";
 
@@ -258,6 +260,72 @@ import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+
+const MISSED_PUNCH_LIMIT_HOURS = 12;
+
+const autoMarkStaleMissedPunchSessions = async () => {
+  const now = new Date();
+  const threshold = new Date(now.getTime() - (MISSED_PUNCH_LIMIT_HOURS * 60 * 60 * 1000));
+
+  const staleSessions = await ActiveSession.find({
+    session_status: "active",
+    punch_in_time: { $lte: threshold },
+  }).lean();
+
+  let closedCount = 0;
+
+  for (const session of staleSessions) {
+    const updated = await ActiveSession.findOneAndUpdate(
+      {
+        _id: session._id,
+        session_status: "active",
+      },
+      {
+        $set: {
+          session_status: "abandoned",
+          abandoned_at: now,
+          abandoned_reason: "scheduler_auto_close",
+          auto_marked_missed_punch: true,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updated) continue;
+
+    const sessionDateKey = new Date(session.session_date).toISOString().slice(0, 10);
+    const attendanceDate = new Date(`${sessionDateKey}T00:00:00.000Z`);
+
+    await AttendanceRecord.findOneAndUpdate(
+      {
+        employee_id: session.employee_id,
+        attendance_date: attendanceDate,
+      },
+      {
+        $set: {
+          company_id: session.company_id,
+          shift_id: session.shift_id || null,
+          first_in: session.punch_in_time,
+          last_out: null,
+          status: "incomplete",
+          has_incomplete_session: true,
+          missed_punch: true,
+          missed_punch_reason: "scheduler_auto_close",
+          missed_punch_marked_at: now,
+          missed_punch_source: "cron",
+          year_month: sessionDateKey.slice(0, 7),
+          processed_at: now,
+          processed_by: "cron",
+        },
+      },
+      { upsert: true }
+    );
+
+    closedCount += 1;
+  }
+
+  return { scanned: staleSessions.length, closed: closedCount };
+};
 
 // Document Collection Module
 import documentCollectionRoutes from "./routes/document-collection/documentCollectionRoutes.mjs";
@@ -682,6 +750,23 @@ if (cluster.isPrimary) {
             },
             {
               timezone: "Asia/Kolkata", // IST timezone
+            }
+          );
+
+          cron.schedule(
+            "*/15 * * * *",
+            async () => {
+              try {
+                const result = await autoMarkStaleMissedPunchSessions();
+                if (result.closed > 0) {
+                  console.log(`✅ Auto-marked missed punch sessions: ${result.closed}/${result.scanned}`);
+                }
+              } catch (error) {
+                console.error("❌ Missed punch auto-mark scheduler failed:", error);
+              }
+            },
+            {
+              timezone: "Asia/Kolkata",
             }
           );
 

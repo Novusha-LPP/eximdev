@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter, FiSearch } from 'react-icons/fi';
+import { FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import attendanceAPI from '../../api/attendance/attendance.api';
+import leaveAPI from '../../api/attendance/leave.api';
 import { formatDate } from './utils/helpers';
 import { API_BASE_URL } from './utils/constants';
 import toast from 'react-hot-toast';
@@ -10,6 +11,139 @@ import './ApprovalPages.css';
 import LeavePolicyManagement from './admin/LeavePolicyManagement';
 import HolidayManagement from './admin/HolidayManagement';
 import LeaveBalanceManagement from './admin/LeaveBalanceManagement';
+
+// ── Cancel eligibility (30-day cutoff) ───────────────────────────────────────
+const CANCEL_CUTOFF_DAYS = 30;
+const isHistoryEligibleForCancel = (req) => {
+  if (!['pending', 'approved'].includes(req.status)) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - CANCEL_CUTOFF_DAYS);
+  return new Date(req.fromDate || req.from_date) >= cutoff;
+};
+
+// ── Inline Cancel Modal ───────────────────────────────────────────────────────
+const ApCancelModal = ({ req, onClose, onDone }) => {
+  const fromDate = req.fromDate || req.from_date;
+  const toDate   = req.toDate   || req.to_date;
+  const isMultiDay = !req.is_half_day && fromDate !== toDate;
+  const [cancelType, setCancelType] = useState('full');
+  const [cancelFrom, setCancelFrom] = useState(formatDate(fromDate, 'yyyy-MM-dd'));
+  const [cancelTo,   setCancelTo]   = useState(formatDate(toDate,   'yyyy-MM-dd'));
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const origFrom   = new Date(fromDate);
+  const origTo     = new Date(toDate);
+  const totalRange = Math.round((origTo - origFrom) / 86400000) + 1;
+
+  const previewDays = () => {
+    if (cancelType === 'full' || req.is_half_day) return req.totalDays;
+    const cf = new Date(cancelFrom), ct = new Date(cancelTo);
+    if (isNaN(cf) || isNaN(ct) || cf > ct) return 0;
+    const cr = Math.round((ct - cf) / 86400000) + 1;
+    return Math.max(0.5, Math.round((cr / totalRange) * req.totalDays * 2) / 2);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const payload = {
+        cancellation_reason: reason,
+        cancel_type: (cancelType === 'partial' && isMultiDay) ? 'partial' : 'full',
+      };
+      if (payload.cancel_type === 'partial') { payload.cancel_from = cancelFrom; payload.cancel_to = cancelTo; }
+      const res = await leaveAPI.cancelLeave(req.id, payload);
+      toast.success(res.message || 'Leave cancelled');
+      window.dispatchEvent(new CustomEvent('leave-balance-updated'));
+      onDone();
+    } catch (err) { toast.error(err?.message || 'Failed to cancel leave'); }
+    finally { setSubmitting(false); }
+  };
+
+  const estDays = previewDays();
+
+  return (
+    <div className="ap-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="ap-modal-card" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div className="ap-modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FiXCircle size={14} /> Cancel Leave
+        </div>
+
+        {/* Leave summary */}
+        <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: '.8125rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontWeight: 700 }}>{req.leaveType}</div>
+          <div style={{ color: '#475569' }}>
+            {formatDate(fromDate, 'dd MMM yyyy')} - {formatDate(toDate, 'dd MMM yyyy')} &bull; {req.is_half_day ? 'Half Day' : `${req.totalDays}d`}
+          </div>
+          <span className={`ap-status-badge ${req.status}`} style={{ alignSelf: 'flex-start', marginTop: 2 }}>
+            {req.status?.charAt(0).toUpperCase() + req.status?.slice(1)}
+          </span>
+        </div>
+
+        {/* Cancel type */}
+        {isMultiDay && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, marginBottom: 6 }}>Cancellation Type</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['full', 'partial'].map(t => (
+                <button key={t} type="button" onClick={() => setCancelType(t)}
+                  style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: '1.5px solid', cursor: 'pointer',
+                    borderColor: cancelType === t ? '#3b82f6' : '#e2e8f0',
+                    background: cancelType === t ? '#eff6ff' : '#fff',
+                    color: cancelType === t ? '#1d4ed8' : '#374151',
+                    fontWeight: cancelType === t ? 700 : 500, fontSize: '.8125rem' }}
+                >
+                  {t === 'full' ? 'Full Cancellation' : 'Partial Days'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Partial range */}
+        {cancelType === 'partial' && isMultiDay && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, marginBottom: 4 }}>From</label>
+              <input type="date" value={cancelFrom}
+                min={formatDate(fromDate, 'yyyy-MM-dd')} max={formatDate(toDate, 'yyyy-MM-dd')}
+                onChange={e => setCancelFrom(e.target.value)}
+                style={{ width: '100%', height: 34, borderRadius: 6, border: '1px solid #e5e7eb', padding: '0 8px', fontSize: '.8125rem' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, marginBottom: 4 }}>To</label>
+              <input type="date" value={cancelTo}
+                min={cancelFrom || formatDate(fromDate, 'yyyy-MM-dd')} max={formatDate(toDate, 'yyyy-MM-dd')}
+                onChange={e => setCancelTo(e.target.value)}
+                style={{ width: '100%', height: 34, borderRadius: 6, border: '1px solid #e5e7eb', padding: '0 8px', fontSize: '.8125rem' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Balance restore preview */}
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: '.8125rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#166534' }}>Days to be restored:</span>
+          <strong style={{ color: '#15803d', fontSize: '1rem' }}>{estDays}d</strong>
+        </div>
+
+        {/* Reason */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, marginBottom: 4 }}>Reason <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+          <textarea className="ap-modal-input" rows={2} value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for cancellation..." />
+        </div>
+
+        <div className="ap-modal-actions">
+          <button className="ap-btn reject" onClick={onClose}><FiX size={13} /> Keep Leave</button>
+          <button className="ap-btn approve" disabled={submitting} onClick={handleSubmit}>
+            <FiXCircle size={13} /> {submitting ? 'Cancelling...' : 'Confirm Cancel'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 const fmt = (d, f) => { try { return formatDate(d, f); } catch { return d || '-'; } };
@@ -109,6 +243,7 @@ const LeaveApproval = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rejectModal, setRejectModal] = useState({ open: false, id: null, remark: '' });
+  const [cancelModal, setCancelModal] = useState(null); // hold the req object
 
   // Admin-only team filter state
   const [teams, setTeams] = useState([]);
@@ -208,6 +343,9 @@ const LeaveApproval = () => {
   const handlePageChange = (newPage) => {
     fetchRequests(selectedTeam, newPage);
   };
+
+  // ── History cancel handler ──────────────────────────────────────────────────
+  const handleHistoryCancel = (req) => setCancelModal(req);
 
   const handleDeleteHistory = async (id) => {
     if (!window.confirm('Are you sure you want to delete this leave history record? This action cannot be undone.')) return;
@@ -582,7 +720,7 @@ const LeaveApproval = () => {
                         <th>Stage / Next</th>
                         <th>Remark</th>
                         <th>Processed On</th>
-                        {isAllowedAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
+                        <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -623,18 +761,20 @@ const LeaveApproval = () => {
                           <td className="td-dim">
                             {req.actionDate ? new Date(req.actionDate).toLocaleDateString('en', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
                           </td>
-                          {isAllowedAdmin && (
-                            <td style={{ textAlign: 'right' }}>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {isHistoryEligibleForCancel(req) ? (
                               <button
-                                className="ap-icon-btn delete"
-                                onClick={() => handleDeleteHistory(req.id)}
-                                title="Delete Record"
-                                style={{ color: '#ef4444' }}
+                                className="ap-icon-btn"
+                                onClick={() => handleHistoryCancel(req)}
+                                title="Cancel Leave"
+                                style={{ color: '#dc2626' }}
                               >
-                                <FiX size={14} />
+                                <FiXCircle size={14} />
                               </button>
-                            </td>
-                          )}
+                            ) : (
+                              <span style={{ color: '#9ca3af', fontSize: '.75rem' }}>—</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -689,6 +829,15 @@ const LeaveApproval = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cancel Leave Modal */}
+      {cancelModal && (
+        <ApCancelModal
+          req={cancelModal}
+          onClose={() => setCancelModal(null)}
+          onDone={() => { setCancelModal(null); fetchRequests(selectedTeam, historyPage); }}
+        />
       )}
     </div>
   );

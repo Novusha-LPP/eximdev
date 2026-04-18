@@ -170,6 +170,7 @@ const attendanceAPI = {
   getAdminDashboard: async (options = {}) => {
     try {
       const params = {};
+      if (options.date) params.date = options.date;
       if (options.company_id) params.company_id = options.company_id;
       const response = await apiClient.get('/attendance/adminDashboard', { params });
       return response.data;
@@ -395,6 +396,20 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to apply full month presence' };
+    }
+  },
+
+  /**
+   * Get leave balances for multiple employees
+   */
+  getLeaveBalances: async (employeeIds) => {
+    try {
+      const response = await apiClient.get('/leave/balances-bulk', { 
+        params: { employee_ids: employeeIds.join(',') } 
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch leave balances' };
     }
   }
 };

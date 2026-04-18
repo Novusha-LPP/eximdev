@@ -117,6 +117,23 @@
 .ap-empty p    { font-size:.875rem; }
 
 /* icon btn */
+.ap-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #e4e7f0;
+  background: #fff;
+  color: #4a5a7c;
+  font-size: .8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .15s;
+}
 .ap-icon-btn:hover { background:#1e2540;color:#fff;border-color:#1e2540; }
 .ap-icon-btn.delete:hover { background: #fdeaea; color: #b53535; border-color: #fdeaea; }
 

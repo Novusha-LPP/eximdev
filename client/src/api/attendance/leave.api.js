@@ -33,9 +33,10 @@ const leaveAPI = {
     }
   },
 
-  cancelLeave: async (id) => {
+  cancelLeave: async (id, payload = {}) => {
     try {
-      const response = await apiClient.post(`/leave/cancel/${id}`);
+      // payload: { cancel_type?, cancel_from?, cancel_to?, cancellation_reason? }
+      const response = await apiClient.post(`/leave/cancel/${id}`, payload);
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to cancel leave' };

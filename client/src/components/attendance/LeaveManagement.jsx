@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
   FiPlus, FiX, FiAlertCircle, FiFileText, FiInfo, FiSend,
   FiCalendar, FiBookOpen, FiShield, FiCheckCircle,
-  FiActivity, FiChevronLeft, FiChevronRight, FiSearch, FiFilter, FiXCircle
+  FiActivity, FiChevronLeft, FiChevronRight, FiSearch, FiXCircle
 } from 'react-icons/fi';
 import leaveAPI from '../../api/attendance/leave.api';
 import masterAPI from '../../api/attendance/master.api';
 import { API_BASE_URL } from './utils/constants';
 import { formatDate } from './utils/helpers';
 import toast from 'react-hot-toast';
-import { Modal } from 'antd';
 import './LeaveManagement.css';
 
 /* -- helpers -- */
@@ -26,9 +24,171 @@ const formatSession = (s) => {
 
 const PER_PAGE = 15;
 
+// ── Cancel Leave Modal ──────────────────────────────────────────────────────
+const CUTOFF_DAYS = 30;
+
+const isEligibleForCancel = (app) => {
+  if (!['pending', 'approved'].includes(app.status)) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - CUTOFF_DAYS);
+  return new Date(app.from_date) >= cutoff;
+};
+
+const CancelLeaveModal = ({ app, onClose, onDone }) => {
+  const isMultiDay = !app.is_half_day && app.from_date !== app.to_date;
+  const [cancelType, setCancelType] = useState('full');
+  const [cancelFrom, setCancelFrom] = useState(formatDate(app.from_date, 'yyyy-MM-dd'));
+  const [cancelTo, setCancelTo] = useState(formatDate(app.to_date, 'yyyy-MM-dd'));
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Estimated days to cancel
+  const origFrom = new Date(app.from_date);
+  const origTo   = new Date(app.to_date);
+  const totalRange = Math.round((origTo - origFrom) / 86400000) + 1;
+
+  const previewDays = () => {
+    if (cancelType === 'full' || app.is_half_day) return app.total_days;
+    const cfDate = new Date(cancelFrom);
+    const ctDate = new Date(cancelTo);
+    if (isNaN(cfDate) || isNaN(ctDate) || cfDate > ctDate) return 0;
+    const cancelRange = Math.round((ctDate - cfDate) / 86400000) + 1;
+    return Math.max(0.5, Math.round((cancelRange / totalRange) * app.total_days * 2) / 2);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const payload = {
+        cancellation_reason: reason,
+        cancel_type: (cancelType === 'partial' && isMultiDay) ? 'partial' : 'full',
+      };
+      if (payload.cancel_type === 'partial') {
+        payload.cancel_from = cancelFrom;
+        payload.cancel_to   = cancelTo;
+      }
+      const res = await leaveAPI.cancelLeave(app._id, payload);
+      toast.success(res.message || 'Leave cancelled successfully');
+      window.dispatchEvent(new CustomEvent('leave-balance-updated'));
+      onDone();
+    } catch (err) {
+      toast.error(err?.message || 'Failed to cancel leave');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const estDays = previewDays();
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="lm-modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div className="lm-modal-head">
+          <h2><FiXCircle size={15} /> Cancel Leave</h2>
+          <button className="lm-mclose" onClick={onClose}><FiX size={13} /></button>
+        </div>
+
+        <div style={{ padding: '0 1.125rem 1.125rem' }}>
+          {/* Leave summary */}
+          <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: '.8125rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontWeight: 700, color: '#0f172a' }}>{app.leave_type}</div>
+            <div style={{ color: '#475569' }}>
+              {formatDate(app.from_date, 'dd MMM yyyy')} - {formatDate(app.to_date, 'dd MMM yyyy')} &bull; {app.is_half_day ? 'Half Day' : `${app.total_days}d`}
+            </div>
+            <span className={`lmbadge ${app.status}`} style={{ alignSelf: 'flex-start' }}>{app.status}</span>
+          </div>
+
+          {/* Cancel type — only show if multi-day */}
+          {isMultiDay && (
+            <div className="fg" style={{ marginBottom: 14 }}>
+              <label>Cancellation Type</label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                {['full', 'partial'].map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setCancelType(t)}
+                    style={{
+                      flex: 1, padding: '7px 0', borderRadius: 7, border: '1.5px solid',
+                      borderColor: cancelType === t ? '#3b82f6' : '#e2e8f0',
+                      background: cancelType === t ? '#eff6ff' : '#fff',
+                      color: cancelType === t ? '#1d4ed8' : '#374151',
+                      fontWeight: cancelType === t ? 700 : 500,
+                      fontSize: '.8125rem', cursor: 'pointer'
+                    }}
+                  >
+                    {t === 'full' ? 'Full Cancellation' : 'Partial Days'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Partial range picker */}
+          {cancelType === 'partial' && isMultiDay && (
+            <div className="fg2" style={{ marginBottom: 14 }}>
+              <div className="fg">
+                <label>Cancel From</label>
+                <input
+                  type="date"
+                  value={cancelFrom}
+                  min={formatDate(app.from_date, 'yyyy-MM-dd')}
+                  max={formatDate(app.to_date, 'yyyy-MM-dd')}
+                  onChange={e => setCancelFrom(e.target.value)}
+                />
+              </div>
+              <div className="fg">
+                <label>Cancel To</label>
+                <input
+                  type="date"
+                  value={cancelTo}
+                  min={cancelFrom || formatDate(app.from_date, 'yyyy-MM-dd')}
+                  max={formatDate(app.to_date, 'yyyy-MM-dd')}
+                  onChange={e => setCancelTo(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Balance preview */}
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: '.8125rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#166534' }}>Days to be restored to balance:</span>
+            <strong style={{ color: '#15803d', fontSize: '1rem' }}>{estDays}d</strong>
+          </div>
+
+          {/* Reason */}
+          <div className="fg" style={{ marginBottom: 16 }}>
+            <label>Reason for Cancellation <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={2}
+              placeholder="Briefly describe why you are cancelling..."
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="lm-guide-btn" style={{ flex: 1 }} onClick={onClose}>Keep Leave</button>
+            <button
+              type="button"
+              className="lm-cancel"
+              style={{ flex: 1, padding: '9px 0', borderRadius: 8 }}
+              disabled={submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? 'Cancelling...' : 'Confirm Cancel'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Main Component ───────────────────────────────────────────────────────────
 const LeaveManagement = () => {
   const [loading, setLoading] = useState(true);
-  const [balances, setBalances] = useState([24]);
+  const [balances, setBalances] = useState([]);
   const [applications, setApplications] = useState([]);
   const [settings, setSettings] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -36,6 +196,9 @@ const LeaveManagement = () => {
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Cancel leave modal
+  const [cancelTarget, setCancelTarget] = useState(null); // the app to cancel
 
   /* filters */
   const [search, setSearch] = useState('');
@@ -136,24 +299,9 @@ const LeaveManagement = () => {
   };
 
 
-  const cancel = async (id) => {
-    Modal.confirm({
-      title: 'Cancel Application',
-      content: 'Are you sure you want to cancel this leave application? This action cannot be undone.',
-      okText: 'Yes, Cancel',
-      okType: 'danger',
-      cancelText: 'No, Keep it',
-      onOk: async () => {
-        try {
-          await leaveAPI.cancelLeave(id);
-          toast.success('Leave application cancelled');
-          fetchData();
-        } catch (err) {
-          toast.error(err?.response?.data?.message || 'Failed to cancel');
-        }
-      }
-    });
-  };
+  const openCancelModal = (app) => setCancelTarget(app);
+  const closeCancelModal = () => setCancelTarget(null);
+  const onCancelDone = () => { setCancelTarget(null); fetchData(); };
 
   /* -- filtered + paginated table data -- */
   const filtered = applications.filter(a => {
@@ -290,7 +438,7 @@ const LeaveManagement = () => {
                     {formatDate(app.from_date, 'dd MMM')} – {formatDate(app.to_date, 'dd MMM')} • {app.is_half_day ? `Half Day (${formatSession(app.half_day_session)})` : `${app.total_days}d`}
                   </span>
                 </div>
-                <button className="lm-cancel" onClick={() => cancel(app._id)}>Cancel</button>
+                <button className="lm-cancel" onClick={() => openCancelModal(app)}>Cancel</button>
               </div>
             ))}
           </div>
@@ -344,6 +492,7 @@ const LeaveManagement = () => {
                 <th>Reviewed By</th>
                 <th>Reason</th>
                 <th>Decision Remark</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -417,15 +566,30 @@ const LeaveManagement = () => {
                   {/* Decision Remark */}
                   <td
                     title={app.reviewer_remark || app.rejection_reason || ''}
-                    style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     {app.reviewer_remark || app.rejection_reason || '-'}
+                  </td>
+
+                  {/* Actions */}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {isEligibleForCancel(app) ? (
+                      <button
+                        className="lm-cancel"
+                        style={{ padding: '4px 12px', fontSize: '.75rem' }}
+                        onClick={() => openCancelModal(app)}
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <span style={{ color: '#9ca3af', fontSize: '.75rem' }}>—</span>
+                    )}
                   </td>
 
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={8} className="dt-empty">No applications found.</td>
+                  <td colSpan={9} className="dt-empty">No applications found.</td>
                 </tr>
               )}
             </tbody>
@@ -711,6 +875,15 @@ const LeaveManagement = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Cancel Leave Modal */}
+      {cancelTarget && (
+        <CancelLeaveModal
+          app={cancelTarget}
+          onClose={closeCancelModal}
+          onDone={onCancelDone}
+        />
       )}
 
     </div>

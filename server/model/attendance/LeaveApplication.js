@@ -99,6 +99,11 @@ const leaveApplicationSchema = new mongoose.Schema({
   cancelled_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   cancelled_at: { type: Date },
 
+  // Partial cancellation tracking (Split approach)
+  is_partial_cancellation: { type: Boolean, default: false }, // This record is a cancelled sub-range
+  parent_leave_id: { type: mongoose.Schema.Types.ObjectId, ref: 'LeaveApplication' }, // Original leave this was split from
+  is_split_remainder: { type: Boolean, default: false }, // This record is the remaining portion after a split
+
   // Payroll & Audit
   payroll_status: { type: String, enum: ['pending', 'processed', 'skipped'], default: 'pending' },
   balance_snapshot: {

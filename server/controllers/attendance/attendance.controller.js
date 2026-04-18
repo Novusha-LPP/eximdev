@@ -27,10 +27,8 @@ import { AttendanceStatusResolver } from '../../services/attendance/AttendanceSt
 const resolveCompanyId = (req) => {
     // If explicit company_id provided in query/body (for admin views)
     const explicitId = req.query?.company_id || req.body?.company_id;
-    if (explicitId) return explicitId;
-
-    // Fallback to user's company context
-    return req.user?.company_id?._id || req.user?.company_id;
+    if (explicitId === 'all' || !explicitId) return null;
+    return explicitId;
 };
 
 const logActivity = async (req, module, action, details, metadata = {}) => {
@@ -108,6 +106,7 @@ const dateKeyUTC = (dateVal) => moment.utc(dateVal).format('YYYY-MM-DD');
 const dateKeyLocal = (dateVal) => moment(dateVal).format('YYYY-MM-DD');
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
+const MISSED_PUNCH_LIMIT_HOURS = 12;
 
 const getBalanceSortValue = (balance) => {
     const timestamps = [balance?.updatedAt, balance?.last_updated, balance?.createdAt]
@@ -299,12 +298,13 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
 
         if (leave && (!rec || isSystemAbsent)) {
             const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
+            const isPending = String(leave.approval_status || '').toLowerCase() === 'pending';
             
-            hStatus = isHalf ? 'half_day' : 'leave';
+            hStatus = isHalf ? 'half_day' : (isPending ? 'pending_leave' : 'leave');
             hSession = leave.half_day_session || leave.start_half_session || leave.end_half_session;
             
             if (isHalf) actualHalfDay++;
-            else actualLeaves++;
+            else if (!isPending) actualLeaves++;
         } else if (rec) {
             hStatus = normalizeAttendanceStatus(rec, emp);
             hSession = rec.half_day_session;
@@ -398,6 +398,53 @@ async function processDailyAttendance(user, date) {
     return await AttendanceEngine.processDaily(user, date, company, shift);
 }
 
+const markAttendanceAsMissedPunch = async ({ session, reason, source, markedAt }) => {
+    if (!session?.employee_id || !session?.session_date) return;
+
+    const sessionDateKey = moment.utc(session.session_date).format('YYYY-MM-DD');
+    const attendanceDate = moment.utc(sessionDateKey).startOf('day').toDate();
+
+    await AttendanceRecord.findOneAndUpdate(
+        { employee_id: session.employee_id, attendance_date: attendanceDate },
+        {
+            $set: {
+                company_id: session.company_id,
+                shift_id: session.shift_id || null,
+                first_in: session.punch_in_time || null,
+                last_out: null,
+                status: 'incomplete',
+                has_incomplete_session: true,
+                missed_punch: true,
+                missed_punch_reason: reason,
+                missed_punch_marked_at: markedAt,
+                missed_punch_source: source,
+                year_month: moment.utc(sessionDateKey).format('YYYY-MM'),
+                processed_at: markedAt,
+                processed_by: source === 'cron' ? 'cron' : 'system'
+            }
+        },
+        { upsert: true, new: true }
+    );
+};
+
+const markSessionAsMissedPunch = async ({ session, reason, source, at }) => {
+    if (!session?._id) return;
+
+    await ActiveSession.findByIdAndUpdate(session._id, {
+        session_status: 'abandoned',
+        abandoned_at: at,
+        abandoned_reason: reason,
+        auto_marked_missed_punch: true
+    });
+
+    await markAttendanceAsMissedPunch({
+        session,
+        reason,
+        source,
+        markedAt: at
+    });
+};
+
 // --- HELPER: Fetch Day Overrides (Leave/Holiday/Weekly Off) ---
 async function fetchDayOverrides(employeeId, date, companyId) {
     const dateObj = moment.utc(date).startOf('day').toDate();
@@ -414,7 +461,7 @@ async function fetchDayOverrides(employeeId, date, companyId) {
     // Check for approved leave
     const leaveApp = await LeaveApplication.findOne({
         employee_id: employeeId,
-        approval_status: 'approved',
+        approval_status: { $in: ['approved', 'pending'] },
         $expr: {
             $and: [
                 { $gte: [moment.utc(date).startOf('day').toDate(), '$from_date'] },
@@ -536,20 +583,59 @@ export const punch = async (req, res) => {
         }
 
         // 4. Punch Logic (Intelligent detection of session state using ActiveSession)
-        const activeSession = await ActiveSession.findOne({
+        let activeSession = await ActiveSession.findOne({
             employee_id: user._id,
-            session_date: todayDate,
             session_status: 'active'
-        });
+        }).sort({ punch_in_time: -1 });
+
+        let warning = null;
+        let autoClosedPreviousSession = false;
 
         if (type === 'IN' && activeSession) {
-            return res.status(400).json({ 
-                message: 'Active session exists. Punch OUT first.', 
-                active_since: activeSession.punch_in_time 
-            });
+            const activeSessionDate = moment.utc(activeSession.session_date).format('YYYY-MM-DD');
+
+            if (activeSessionDate !== today) {
+                await markSessionAsMissedPunch({
+                    session: activeSession,
+                    reason: 'next_day_auto_close',
+                    source: 'next_day_punch_in',
+                    at: now.toDate()
+                });
+                autoClosedPreviousSession = true;
+                activeSession = null;
+            } else {
+                const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
+                if (elapsedHours >= MISSED_PUNCH_LIMIT_HOURS) {
+                    await markSessionAsMissedPunch({
+                        session: activeSession,
+                        reason: 'timeout_12h',
+                        source: 'system',
+                        at: now.toDate()
+                    });
+                    activeSession = null;
+                } else {
+                    return res.status(400).json({
+                        message: 'Active session exists. Punch OUT first.',
+                        active_since: activeSession.punch_in_time
+                    });
+                }
+            }
         }
+
         if (type === 'OUT' && !activeSession) {
             return res.status(400).json({ message: 'No active IN session found.' });
+        }
+
+        if (type === 'OUT' && activeSession) {
+            const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
+            if (elapsedHours > MISSED_PUNCH_LIMIT_HOURS) {
+                warning = {
+                    type: 'missed_punch_timeout',
+                    message: `Punch OUT recorded after ${elapsedHours.toFixed(1)} hours. This session is treated as missed punch.`,
+                    threshold_hours: MISSED_PUNCH_LIMIT_HOURS,
+                    elapsed_hours: parseFloat(elapsedHours.toFixed(2))
+                };
+            }
         }
 
         // 5. Save Punch
@@ -587,7 +673,19 @@ export const punch = async (req, res) => {
         }
 
         // 6. Rule-Driven Processing
-        await processDailyAttendance(user, today);
+        const processDate = type === 'OUT' && activeSession
+            ? moment.utc(activeSession.session_date).format('YYYY-MM-DD')
+            : today;
+        await processDailyAttendance(user, processDate);
+
+        if (type === 'OUT' && warning && activeSession) {
+            await markAttendanceAsMissedPunch({
+                session: activeSession,
+                reason: 'timeout_12h',
+                source: 'late_punch_out',
+                markedAt: now.toDate()
+            });
+        }
 
         // 7. SYNC User Profile State for Real-Time UI (NOT raw data, just status)
         await User.findByIdAndUpdate(user._id, {
@@ -596,7 +694,22 @@ export const punch = async (req, res) => {
             last_punch_date: now.toDate()
         });
 
-        res.json({ message: `Punch ${type} recorded successfully`, time: now.toDate() });
+        const response = {
+            message: `Punch ${type} recorded successfully`,
+            time: now.toDate()
+        };
+
+        if (warning) {
+            response.warning = warning;
+        }
+        if (autoClosedPreviousSession) {
+            response.info = {
+                type: 'previous_session_auto_closed',
+                message: 'Previous day open session was auto-marked as missed punch before starting a new session.'
+            };
+        }
+
+        res.json(response);
     } catch (err) {
         console.error('Punch Error:', err);
         res.status(500).json({ message: 'Server error' });
@@ -826,7 +939,7 @@ export const getDashboardData = async (req, res) => {
         // 7. Fetch Approved Leaves for the month to show on calendar
         const approvedLeaves = await LeaveApplication.find({
             employee_id: user._id,
-            approval_status: 'approved',
+            approval_status: { $in: ['approved', 'pending'] },
             from_date: { $lte: monthEndUTC },
             to_date: { $gte: monthStartUTC }
         });
@@ -1214,196 +1327,119 @@ export const getAdminDashboardData = async (req, res) => {
         if (!companyId) {
             return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
         }
-        const company = await Company.findById(companyId);
-        if (!company) {
-            return res.status(400).json({ message: `Company not found for id: ${companyId}. Please select a valid company.` });
-        }
-        const tz = 'Asia/Kolkata'; // Standardizing for this business
-        const istNow = moment().tz(tz);
-        const todayStr = istNow.format('YYYY-MM-DD');
-        const todayStart = istNow.clone().startOf('day').toDate();
-        const todayEnd = istNow.clone().endOf('day').toDate();
+
+        const { date } = req.query;
+        const tz = 'Asia/Kolkata'; 
+        const istNow = date ? moment.tz(date, tz) : moment().tz(tz);
+        const targetStart = istNow.clone().startOf('day').toDate();
+        const targetEnd = istNow.clone().endOf('day').toDate();
 
         const activeEmployeeQuery = {
-            company_id: companyId,
             role: { $nin: ['ADMIN', 'Admin'] },
             isActive: true
         };
+        if (companyId) activeEmployeeQuery.company_id = companyId;
 
-        const employeeIds = await User.find(activeEmployeeQuery).select('_id').lean();
-        const empIdList = employeeIds.map((e) => e._id);
-        const activeEmployeeIdSet = new Set(empIdList.map((id) => id.toString()));
-        const totalEmployees = activeEmployeeIdSet.size;
+        const employees = await User.find(activeEmployeeQuery)
+            .select('first_name last_name username role department_id')
+            .populate('department_id', 'department_name')
+            .lean();
+            
+        const empIdList = employees.map((e) => e._id);
+        const totalEmployees = employees.length;
 
-        const [presentRecs, activeLeaves] = await Promise.all([
-            AttendanceRecord.find({
-                company_id: companyId,
-                attendance_date: { $gte: todayStart, $lte: todayEnd },
-                employee_id: { $in: empIdList },
-                status: { $in: ['present', 'half_day'] }
-            }).select('employee_id'),
-            LeaveApplication.find({
-                company_id: companyId,
-                approval_status: 'approved',
-                employee_id: { $in: empIdList },
-                from_date: { $lte: todayEnd },
-                to_date: { $gte: todayStart }
-            }).select('employee_id')
+        const attendanceQuery = {
+            attendance_date: { $gte: targetStart, $lte: targetEnd },
+            employee_id: { $in: empIdList }
+        };
+        if (companyId) attendanceQuery.company_id = companyId;
+
+        const leaveQuery = {
+            employee_id: { $in: empIdList },
+            $or: [
+                { from_date: { $lte: targetEnd }, to_date: { $gte: targetStart } }
+            ]
+        };
+        if (companyId) leaveQuery.company_id = companyId;
+
+        const [attendanceRecs, activeLeaves] = await Promise.all([
+            AttendanceRecord.find(attendanceQuery).lean(),
+            LeaveApplication.find(leaveQuery).lean()
         ]);
 
-        const presentUserIds = [...new Set(presentRecs.map((r) => r.employee_id.toString()))]
-            .filter((id) => activeEmployeeIdSet.has(id));
-        const onLeaveUserIds = [...new Set(activeLeaves.map((r) => r.employee_id.toString()))]
-            .filter((id) => activeEmployeeIdSet.has(id));
-        const presentToday = presentUserIds.length;
-        const onLeaveToday = onLeaveUserIds.length;
-
-        // USE SETS TO PREVENT DOUBLE-COUNTING (Accounted = Present OR On Leave)
-        const accountedIds = new Set([...presentUserIds, ...onLeaveUserIds]);
-        const absentEmployeeIds = Array.from(activeEmployeeIdSet).filter((id) => !accountedIds.has(id));
-        const accountedObjectIds = Array.from(accountedIds)
-            .filter((id) => mongoose.Types.ObjectId.isValid(id))
-            .map((id) => new mongoose.Types.ObjectId(id));
-        const absentObjectIds = absentEmployeeIds
-            .filter((id) => mongoose.Types.ObjectId.isValid(id))
-            .map((id) => new mongoose.Types.ObjectId(id));
-        const absentToday = absentEmployeeIds.length;
-
-        const halfDayToday = await AttendanceRecord.countDocuments({
-            company_id: companyId,
-            attendance_date: { $gte: todayStart, $lte: todayEnd },
-            employee_id: { $in: empIdList },
-            status: 'half_day'
+        const attendanceMap = new Map(attendanceRecs.map(r => [r.employee_id.toString(), r]));
+        const leavesMap = new Map();
+        activeLeaves.forEach(l => {
+            const empId = l.employee_id.toString();
+            if (!leavesMap.has(empId)) leavesMap.set(empId, []);
+            leavesMap.get(empId).push(l);
         });
 
-        const lateToday = await AttendanceRecord.countDocuments({
-            company_id: companyId,
-            attendance_date: { $gte: todayStart, $lte: todayEnd },
-            employee_id: { $in: empIdList },
-            is_late: true
-        });
+        // 1. Precise Statistics
+        const presentUserIds = attendanceRecs.filter(r => ['present', 'half_day'].includes(r.status)).map(r => r.employee_id.toString());
+        const approvedLeaveUserIds = activeLeaves.filter(l => l.approval_status === 'approved').map(l => l.employee_id.toString());
+        
+        const presentToday = new Set(presentUserIds).size;
+        const onLeaveToday = new Set(approvedLeaveUserIds).size;
+        
+        const accountedIds = new Set([...presentUserIds, ...approvedLeaveUserIds]);
+        const absentToday = Math.max(0, totalEmployees - accountedIds.size);
 
-        const deptPerformance = [];
+        const halfDayToday = attendanceRecs.filter(r => r.status === 'half_day').length;
+        const lateToday = attendanceRecs.filter(r => r.is_late).length;
 
-        const pendingRegsCount = await RegularizationRequest.countDocuments({
-            company_id: companyId,
-            status: 'pending',
-            employee_id: { $in: empIdList }
-        });
-        const pendingLeavesCount = await LeaveApplication.countDocuments({
-            company_id: companyId,
-            approval_status: { $in: NON_FINAL_LEAVE_STATUSES },
-            employee_id: { $in: empIdList }
-        });
+        // 2. Build Daily Summary (Main requested feature)
+        const dailySummary = employees.map(emp => {
+            const empIdStr = emp._id.toString();
+            const att = attendanceMap.get(empIdStr);
+            const employeeLeaves = leavesMap.get(empIdStr) || [];
+            
+            // Resolve Leave Status
+            let leaveInfo = null;
+            if (employeeLeaves.length > 0) {
+                const activeL = employeeLeaves.find(l => l.approval_status === 'approved') 
+                            || employeeLeaves.find(l => l.approval_status === 'pending')
+                            || employeeLeaves[0];
+                leaveInfo = {
+                    type: activeL.leave_type,
+                    status: activeL.approval_status,
+                    stage: activeL.approval_stage
+                };
+            }
 
-        const alerts = [];
-        if (pendingRegsCount > 0) {
-            alerts.push({ type: 'warning', message: `${pendingRegsCount} regularization requests pending approval`, time: 'Action required' });
-        }
-        if (pendingLeavesCount > 0) {
-            alerts.push({ type: 'info', message: `${pendingLeavesCount} leave applications pending approval`, time: 'Review needed' });
-        }
-
-        const recentActivityLogs = await ActivityLog.find({ company_id: companyId })
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .populate('user_id', 'first_name last_name username');
-
-        const activity = recentActivityLogs.map(log => {
-            const userName = log.user_id
-                ? `${log.user_id.first_name || ''} ${log.user_id.last_name || ''}`.trim() || log.user_id.username
-                : 'System';
-
-            return {
-                title: log.details || `${log.module} ${log.action}`,
-                meta: `By ${userName}`,
-                time: moment(log.createdAt).fromNow(),
-                module: log.module
-            };
-        });
-
-        // 5. Advanced Detailed Lists for Executive UI
-        // To get REAL-TIME absentees, we find all active users and subtract those who are PRESENT today
-        // Already fetched above...
-
-        const [absentList, lateList, pLeaves, pRegs] = await Promise.all([
-            User.find({
-                ...activeEmployeeQuery,
-                _id: { $in: absentObjectIds }
-            })
-                .limit(50),
-
-            // Late arrivals (those with record but marked late)
-            AttendanceRecord.find({
-                company_id: companyId,
-                attendance_date: { $gte: todayStart, $lte: todayEnd },
-                employee_id: { $in: empIdList },
-                is_late: true
-            }).limit(10).populate('employee_id', 'first_name last_name username'),
-
-            // Pending Leaves
-            LeaveApplication.find({
-                company_id: companyId,
-                approval_status: { $in: NON_FINAL_LEAVE_STATUSES },
-                employee_id: { $in: empIdList }
-            })
-                .sort({ from_date: 1 }).limit(10)
-                .populate('employee_id', 'first_name last_name username'),
-
-            // Pending Regularizations
-            RegularizationRequest.find({
-                company_id: companyId,
-                status: 'pending',
-                employee_id: { $in: empIdList }
-            })
-                .sort({ attendance_date: 1 }).limit(10)
-                .populate('employee_id', 'first_name last_name username'),
-        ]);
-
-        const formatListRec = (recs, kind) => recs.map(r => {
-            const isRec = r.employee_id !== undefined || r.attendance_date !== undefined;
-            const emp = isRec ? r.employee_id : r;
-            const empIdStr = (emp?._id || r._id).toString();
-
-            let status = kind === 'absent' ? 'absent' : (r.status || 'present');
-            if (kind === 'absent' && onLeaveUserIds.includes(empIdStr)) {
+            // Resolve Attendance Status
+            let status = att?.status || 'absent';
+            if (status === 'absent' && leaveInfo?.status === 'approved') {
                 status = 'leave';
             }
 
             return {
-                id: r._id,
-                employee_id: empIdStr,
-                name: emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username : 'Unknown',
+                id: emp._id,
+                name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username,
+                department: emp.department_id?.department_name || 'General',
                 status: status,
-                first_in: r.first_in,
-                late_by: r.late_by_minutes
+                inTime: att?.first_in,
+                outTime: att?.last_out,
+                lateMinutes: att?.late_by_minutes || 0,
+                leave: leaveInfo
             };
         });
 
-        const formatAppRec = (recs, kind) => recs.map(r => ({
-            id: r._id,
-            employee_id: r.employee_id?._id || null,
-            employeeName: r.employee_id ? `${r.employee_id.first_name || ''} ${r.employee_id.last_name || ''}`.trim() : 'Unknown',
-            leaveType: r.leave_type || r.policy_name || (kind === 'reg' ? 'Regularization' : 'Leave'),
-            date: r.attendance_date || r.from_date,
-        }));        // FETCH UPCOMING HOLIDAYS (ALL UPCOMING - NEXT 5)
-        const allUpcomingRaw = await Holiday.find({
-            company_id: companyId,
-            holiday_date: { $gte: istNow.clone().startOf('day').toDate() }
-        }).sort({ holiday_date: 1 }).limit(5);
+        // 3. Activity Logs
+        const activityQuery = {};
+        if (companyId) activityQuery.company_id = companyId;
 
-        const upcomingHolidays = allUpcomingRaw.map(h => ({
-            id: h._id,
-            holiday_name: h.holiday_name,
-            holiday_date: h.holiday_date,
-            holiday_type: h.holiday_type,
-            dayName: moment(h.holiday_date).format('dddd'),
-            formattedDate: moment(h.holiday_date).format('DD MMM YYYY'),
-            daysUntil: moment(h.holiday_date).startOf('day').diff(istNow.clone().startOf('day'), 'days')
+        const recentActivityLogs = await ActivityLog.find(activityQuery)
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .populate('user_id', 'first_name last_name username');
+
+        const activity = recentActivityLogs.map(log => ({
+            title: log.details || `${log.module} ${log.action}`,
+            meta: `By ${log.user_id ? `${log.user_id.first_name || ''} ${log.user_id.last_name || ''}`.trim() : 'System'}`,
+            time: moment(log.createdAt).fromNow(),
+            module: log.module
         }));
-
-        // REMINDERS ONLY (NEXT 7 DAYS) - FOR THE BANNER
-        const holidayReminders = upcomingHolidays.filter(h => h.daysUntil <= 7);
 
         res.json({
             success: true,
@@ -1414,23 +1450,10 @@ export const getAdminDashboardData = async (req, res) => {
                     absent: absentToday,
                     onLeave: onLeaveToday,
                     halfDay: halfDayToday,
-                    late: lateToday,
-                    trends: { present: 0, absent: 0 }
+                    late: lateToday
                 },
-                departments: deptPerformance,
-                absentToday: formatListRec(absentList, 'absent'),
-                lateToday: formatListRec(lateList, 'late'),
-                pendingLeaves: formatAppRec(pLeaves, 'leave'),
-                pendingRegularization: formatAppRec(pRegs, 'reg'),
-                alerts: alerts,
-                activity: activity,
-                holidayReminders,
-                upcomingHolidays,
-                holidayRoleContext: {
-                    role: 'ADMIN',
-                    totalEmployees: totalEmployees,
-                    pendingLeaveCount: pendingLeavesCount
-                },
+                dailySummary,
+                activity,
                 timestamp: new Date()
             }
         });
@@ -1440,6 +1463,7 @@ export const getAdminDashboardData = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
 
 export const lockMonthAttendance = async (req, res) => {
     try {
@@ -1727,7 +1751,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
-                approval_status: 'approved',
+                approval_status: { $in: ['approved', 'pending'] },
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
@@ -1840,7 +1864,7 @@ export const getTeamAttendanceReport = async (req, res) => {
             }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
-                approval_status: 'approved',
+                approval_status: { $in: ['approved', 'pending'] },
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
@@ -2836,7 +2860,7 @@ export const getEmployeeFullProfile = async (req, res) => {
 
             LeaveApplication.find({
                 employee_id: id,
-                approval_status: 'approved',
+                approval_status: { $in: ['approved', 'pending'] },
                 $or: [
                     { from_date: { $gte: start, $lte: end } },
                     { to_date: { $gte: start, $lte: end } }

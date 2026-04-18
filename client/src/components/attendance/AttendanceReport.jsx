@@ -199,6 +199,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const isAdmin = Boolean(isAdminProp) && normalizedRole === 'ADMIN';
     const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
     const [showDailySummary, setShowDailySummary] = useState(false);
+    const [dashboardData, setDashboardData] = useState(null);
+    const [dashLoading, setDashLoading] = useState(false);
 
     const now = new Date();
     const [startDate, setStartDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
@@ -284,17 +286,106 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         try {
             setLoading(true);
             let r;
+            let dashR = null;
+
             if (isAdmin) {
-                r = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, companyId);
+                // Fetch report AND dashboard summary in parallel for the endDate to ensure accuracy
+                const [reportRes, dashRes] = await Promise.all([
+                    attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, companyId),
+                    attendanceAPI.getAdminDashboard({ 
+                        date: endDate, 
+                        company_id: companyId === 'all' ? undefined : companyId 
+                    }).catch(err => {
+                        console.error('[AttendanceReport] dashboard fetch failed:', err);
+                        return null;
+                    })
+                ]);
+                r = reportRes;
+                dashR = dashRes;
             } else {
                 r = await attendanceAPI.getTeamAttendanceReport(startDate, endDate, 'all');
             }
-            setReportData(r?.data || []);
+            
+            let data = r?.data || [];
+            
+            // If we have dashboard data, we can use it to enrich/correct the 'latestRecord' for the endDate
+            if (dashR?.success && dashR?.data?.dailySummary) {
+                setDashboardData(dashR.data);
+                const dashMap = new Map(dashR.data.dailySummary.map(item => [String(item.id), item]));
+                
+                data = data.map(emp => {
+                    const dashEmp = dashMap.get(String(emp.id));
+                    if (dashEmp) {
+                        // Override/Enrich latestRecord with dashboard data (which handles leaves/absences without recs better)
+                        return {
+                            ...emp,
+                            latestRecord: {
+                                ...(emp.latestRecord || {}),
+                                status: dashEmp.status,
+                                first_in: dashEmp.inTime || emp.latestRecord?.first_in,
+                                last_out: dashEmp.outTime || emp.latestRecord?.last_out,
+                                is_late: dashEmp.lateMinutes > 0
+                            }
+                        };
+                    }
+                    return emp;
+                });
+            } else {
+                setDashboardData(null);
+            }
+
+            const reportDataWithBalance = await enrichReportWithLeaveBalance(data);
+            setReportData(reportDataWithBalance);
         } catch (err) {
             console.error('[AttendanceReport] fetchReport error:', err?.response?.status || err?.status, err?.response?.data || err?.message || err);
             toast.error(err?.response?.data?.message || err?.message || 'Failed to load report');
         }
         finally { setLoading(false); }
+    };
+
+    const enrichReportWithLeaveBalance = async (data) => {
+        try {
+            // Fetch leave balances for all employees in the report
+            const employeeIds = data.map(emp => emp.id);
+            if (employeeIds.length === 0) return data;
+            
+            const balanceRes = await attendanceAPI.getLeaveBalances(employeeIds);
+            const privilegeBalanceMap = new Map();
+            const privilegeUsedMap = new Map();
+            const lwpUsedMap = new Map();
+            
+            // Create maps of employee metrics by leave type.
+            if (balanceRes?.data) {
+                balanceRes.data.forEach(balance => {
+                    const empId = balance.employee_id;
+                    const leaveType = String(balance.leave_type || '').toLowerCase();
+
+                    if (leaveType === 'privilege') {
+                        privilegeBalanceMap.set(empId, Number(balance.closing_balance || 0));
+                        privilegeUsedMap.set(empId, Number(balance.used || 0));
+                    } else if (leaveType === 'lwp') {
+                        lwpUsedMap.set(empId, Number(balance.used || 0));
+                    }
+                });
+            }
+            
+            // Enrich report data with leave balance
+            return data.map(emp => ({
+                ...emp,
+                leave_balance: privilegeBalanceMap.get(emp.id) || 0,
+                privilege_taken: privilegeUsedMap.get(emp.id) || 0,
+                lwp_taken: lwpUsedMap.get(emp.id) || 0
+            }));
+        } catch (err) {
+            console.error('[AttendanceReport] enrichReportWithLeaveBalance failed:', err);
+            // Return data without balance enrichment
+            return data.map(emp => ({
+                ...emp,
+                leave_balance: 0,
+                privilege_taken: 0,
+                lwp_taken: 0
+            }));
+        }
     };
 
     const openDrawer = async (emp, tab = 'attendance') => {
@@ -354,12 +445,14 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const handleQuickPunch = async (empId, currentStatus, empName) => {
         const type = currentStatus === 'Present' || currentStatus === 'present' ? 'OUT' : 'IN';
         try {
-            await attendanceAPI.punch({ 
+            const response = await attendanceAPI.punch({ 
                 type, 
                 employee_id: empId, 
                 method: 'Admin-Report-Panel' 
             });
-            toast.success(`Quick punch ${type} recorded for ${empName}!`);
+            toast.success(response?.message || `Quick punch ${type} recorded for ${empName}!`);
+            if (response?.warning?.message) toast.info(response.warning.message);
+            if (response?.info?.message) toast.info(response.info.message);
             fetchReport(); // refresh the list to show new status
         } catch (err) {
             toast.error(err?.message || 'Quick punch failed');
@@ -736,12 +829,12 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         titleRow.height = 28;
         titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
         titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        ws.mergeCells(`A${titleRow.number}:H${titleRow.number}`);
+        ws.mergeCells(`A${titleRow.number}:J${titleRow.number}`);
 
         ws.addRow([]); // spacer
 
         // ── Column headers ────────────────────────────────────────────
-        const COLS = ['Employee', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Pending Leave', 'Avg Hours/Day'];
+        const COLS = ['Employee', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Privilege Balance', 'Privilege Taken', 'LWP Taken', 'Avg Hours/Day'];
         const headerRow = ws.addRow(COLS);
         headerRow.height = 22;
         styleHeader(headerRow, 'FF334155', 'FFFFFFFF');
@@ -757,10 +850,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         };
 
         employees.forEach((e, idx) => {
-            // Count pending leaves for this employee
-            const pendingLeaveCount = reportData
+            const leaveMetrics = reportData
                 .find(r => r.id === e.id)
-                ?.pendingLeaves?.length ?? (e.pendingLeaves?.length ?? 0);
+                || {};
+
+            const leaveBalance = leaveMetrics.leave_balance ?? 0;
+            const privilegeTaken = leaveMetrics.privilege_taken ?? 0;
+            const lwpTaken = leaveMetrics.lwp_taken ?? 0;
 
             const row = ws.addRow([
                 e.name,
@@ -769,7 +865,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 e.late,
                 e.halfDay || 0,
                 e.leaves  || 0,
-                pendingLeaveCount,
+                Math.round(leaveBalance * 10) / 10,  // Round to 1 decimal place
+                Math.round(privilegeTaken * 10) / 10,
+                Math.round(lwpTaken * 10) / 10,
                 e.avgHours,
             ]);
 
@@ -786,14 +884,15 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
             // Colour-code numeric cells
             [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.late],
-             [5, STATUS_COLORS.halfDay], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.pending]]
+             [5, STATUS_COLORS.halfDay], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.pending],
+             [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending]]
             .forEach(([col, color]) => {
                 const cell = row.getCell(col);
                 cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
             });
 
-            row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(10).alignment = { horizontal: 'center', vertical: 'middle' };
 
             // Border on every row
             row.eachCell(cell => {
@@ -814,10 +913,27 @@ const totalRow = ws.addRow([
     employees.reduce((s, e) => s + (e.late || 0), 0),
     employees.reduce((s, e) => s + (e.halfDay || 0), 0),
     employees.reduce((s, e) => s + (e.leaves || 0), 0),
-    employees.reduce((s, e) => {
-        const raw = reportData.find(r => r.id === e.id);
-        return s + (raw?.pendingLeaves?.length ?? e.pendingLeaves?.length ?? 0);
-    }, 0),
+    (() => {
+        const total = employees.reduce((s, e) => {
+            const raw = reportData.find(r => r.id === e.id);
+            return s + (raw?.leave_balance ?? 0);
+        }, 0);
+        return Math.round(total * 10) / 10;
+    })(),
+    (() => {
+        const total = employees.reduce((s, e) => {
+            const raw = reportData.find(r => r.id === e.id);
+            return s + (raw?.privilege_taken ?? 0);
+        }, 0);
+        return Math.round(total * 10) / 10;
+    })(),
+    (() => {
+        const total = employees.reduce((s, e) => {
+            const raw = reportData.find(r => r.id === e.id);
+            return s + (raw?.lwp_taken ?? 0);
+        }, 0);
+        return Math.round(total * 10) / 10;
+    })(),
     (() => {
         const total = employees.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
         return employees.length > 0 ? (total / employees.length).toFixed(1) : '0.0';
@@ -828,8 +944,8 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
 
         // ── Column widths ─────────────────────────────────────────────
         ws.getColumn(1).width = 30;
-        [2,3,4,5,6,7].forEach(c => ws.getColumn(c).width = 13);
-        ws.getColumn(8).width = 16;
+        [2,3,4,5,6,7,8,9].forEach(c => ws.getColumn(c).width = 13);
+        ws.getColumn(10).width = 16;
 
         // Freeze pane below header
         ws.views = [{ state: 'frozen', ySplit: 3 }];
@@ -844,18 +960,26 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
     sTitleRow.height = 28;
     sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
     sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-    summaryWs.mergeCells(`A1:I1`);
+    summaryWs.mergeCells(`A1:K1`);
 
     summaryWs.addRow([]);
 
-    const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Pending Leave', 'Avg Hrs/Day']);
+    const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Privilege Balance', 'Privilege Taken', 'LWP Taken', 'Avg Hrs/Day']);
     sHeaderRow.height = 22;
     styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
 
     Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([co, emps], idx) => {
-        const totPending = emps.reduce((s, e) => {
+        const totLeaveBalance = emps.reduce((s, e) => {
             const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.pendingLeaves?.length ?? e.pendingLeaves?.length ?? 0);
+            return s + (raw?.leave_balance ?? 0);
+        }, 0);
+        const totPrivilegeTaken = emps.reduce((s, e) => {
+            const raw = reportData.find(r => r.id === e.id);
+            return s + (raw?.privilege_taken ?? 0);
+        }, 0);
+        const totLwpTaken = emps.reduce((s, e) => {
+            const raw = reportData.find(r => r.id === e.id);
+            return s + (raw?.lwp_taken ?? 0);
         }, 0);
 
         const row = summaryWs.addRow([
@@ -866,7 +990,9 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
             emps.reduce((s, e) => s + e.late,    0),
             emps.reduce((s, e) => s + (e.halfDay || 0), 0),
             emps.reduce((s, e) => s + (e.leaves  || 0), 0),
-            totPending,
+            Math.round(totLeaveBalance * 10) / 10,
+            Math.round(totPrivilegeTaken * 10) / 10,
+            Math.round(totLwpTaken * 10) / 10,
             (emps.reduce((s,e) => s + parseFloat(e.avgHours||0), 0) / emps.length).toFixed(1),
         ]);
         row.height = 20;
@@ -876,12 +1002,12 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
             });
         }
         row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-        [2,3,4,5,6,7,8,9].forEach(c => { row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
+        [2,3,4,5,6,7,8,9,10,11].forEach(c => { row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
     });
 
     summaryWs.getColumn(1).width = 32;
-    [2,3,4,5,6,7,8].forEach(c => summaryWs.getColumn(c).width = 14);
-    summaryWs.getColumn(9).width = 14;
+    [2,3,4,5,6,7,8,9,10].forEach(c => summaryWs.getColumn(c).width = 14);
+    summaryWs.getColumn(11).width = 14;
 
     // Move Summary to first position
    const summarySheet = workbook._worksheets.find(ws => ws && ws.name === 'Summary');
@@ -937,7 +1063,26 @@ if (summarySheet) {
             }, {});
         }
 
-        // Default: Group by Status
+        // Use dashboardData if available for single-day accuracy, otherwise fallback to range-based endDate scan
+        if (dashboardData?.dailySummary && moment(endDate).isSame(moment(dashboardData.timestamp || endDate), 'day')) {
+            const g = { 'Present': [], 'Late': [], 'Half Day': [], 'Absent': [], 'Leave': [], 'Other': [] };
+            const dashMap = new Map(dashboardData.dailySummary.map(item => [String(item.id), item]));
+            
+            filtered.forEach(e => {
+                const dashEmp = dashMap.get(String(e.id));
+                const status = dashEmp ? dashEmp.status : 'absent';
+                
+                if (status === 'present') g['Present'].push(e);
+                else if (status === 'late') g['Late'].push(e);
+                else if (status === 'half_day') g['Half Day'].push(e);
+                else if (status === 'absent') g['Absent'].push(e);
+                else if (status === 'leave') g['Leave'].push(e);
+                else g['Other'].push(e);
+            });
+            return g;
+        }
+
+        // Default: Group by Status using endDate from history
         const g = {
             'Present': [],
             'Late': [],
@@ -958,7 +1103,7 @@ if (summarySheet) {
             else g['Other'].push(e);
         });
         return g;
-    }, [filtered, endDate, groupBy]);
+    }, [filtered, endDate, groupBy, dashboardData]);
 
     return (
         <div className="ar-console">

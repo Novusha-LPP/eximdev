@@ -17,6 +17,11 @@ const activeSessionSchema = new mongoose.Schema({
   },
 
   expected_out_time: { type: Date }, // shift reference time for reporting
+  punch_out_entry_id: { type: mongoose.Schema.Types.ObjectId, ref: 'AttendancePunch' },
+  punch_out_time: { type: Date },
+  abandoned_at: { type: Date, default: null },
+  abandoned_reason: { type: String, default: null },
+  auto_marked_missed_punch: { type: Boolean, default: false },
 
 }, { timestamps: true });
 

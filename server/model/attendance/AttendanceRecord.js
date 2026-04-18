@@ -45,6 +45,18 @@ const recordSchema = new mongoose.Schema({
   }],
   total_work_sessions: { type: Number, default: 0 },
   has_incomplete_session: { type: Boolean, default: false },
+  missed_punch: { type: Boolean, default: false },
+  missed_punch_reason: {
+    type: String,
+    enum: ['timeout_12h', 'next_day_auto_close', 'scheduler_auto_close', null],
+    default: null
+  },
+  missed_punch_marked_at: { type: Date, default: null },
+  missed_punch_source: {
+    type: String,
+    enum: ['system', 'cron', 'next_day_punch_in', 'late_punch_out', null],
+    default: null
+  },
 
   is_holiday: { type: Boolean, default: false },
   holiday_type: { type: String }, // 'national', 'company', 'optional'

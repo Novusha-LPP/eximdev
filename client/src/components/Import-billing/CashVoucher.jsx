@@ -1,6 +1,6 @@
 import React from "react";
 import "./CashVoucher.css";
-import logo from "../../assets/images/logo.webp";
+import logo from "../../assets/images/logo.svg";
 
 const CashVoucher = React.forwardRef(({ data, paidTo = "Rambhai" }, ref) => {
     const today = new Date().toLocaleDateString("en-GB", {

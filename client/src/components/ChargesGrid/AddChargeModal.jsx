@@ -211,6 +211,8 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                 <option>Customs</option>
                 <option>Miscellaneous</option>
                 <option>Document</option>
+                <option>Margin</option>
+                <option>Other</option>
               </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./AgencyBillInvoice.css";
-import logo from '../../assets/images/logo.webp';
+import logo from '../../assets/images/logo.svg';
 import signature from '../../assets/images/signature.png';
 import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
 
@@ -84,7 +84,7 @@ const AgencyBillInvoice = () => {
                 termsOfInvoice: firstInv.toi || "CIF",
                 invoiceNo: job.agency_invoice_no || "", 
                 invoiceDate: formatDate(new Date()), 
-                dueDate: formatDate(new Date()),
+                dueDate: formatDate(new Date(new Date().setDate(new Date().getDate() + 15))),
                 placeOfSupply: `[${job.importer_address?.state || "24"}] ${job.importer_address?.state || "Gujarat"}`,
                 importerAddress: job.importer_address?.details || "",
                 panNo: job.pan_no || job.importer_pan || "",
@@ -241,7 +241,20 @@ const AgencyBillInvoice = () => {
     };
 
     const handleFieldChange = (field, value) => {
-        setEditableFields(prev => ({ ...prev, [field]: value }));
+        setEditableFields(prev => {
+            const updated = { ...prev, [field]: value };
+            if (field === 'invoiceDate') {
+                const parts = value.split('-');
+                if (parts.length === 3) {
+                    const parsedDate = new Date(`${parts[1]} ${parts[0]} ${parts[2]}`);
+                    if (!isNaN(parsedDate.getTime())) {
+                        parsedDate.setDate(parsedDate.getDate() + 15);
+                        updated.dueDate = formatDate(parsedDate);
+                    }
+                }
+            }
+            return updated;
+        });
     };
 
     const handleGenerateInvoice = async (type) => {

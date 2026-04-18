@@ -1324,8 +1324,15 @@ export const getAdminDashboardData = async (req, res) => {
             return res.status(403).json({ message: 'Only admins can access admin dashboard' });
         }
         const companyId = resolveCompanyId(req);
+        
+        // Diagnostic log as requested in previous troubleshooting
+        console.log(`[AdminDashboard] Request Date: ${req.query.date || 'Today'} | Resolved Company: ${companyId || 'ALL'} | Admin: ${req.user?.username}`);
+
+        // RELAXED: Handle missing companyId gracefully for Admins
+        // If companyId is null, the queries below will simply skip the company_id filter,
+        // allowing the admin to see data for all companies they have access to.
         if (!companyId) {
-            return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
+            console.warn(`[AdminDashboard] No specific company_id provided. Fetching global metrics for Admin: ${req.user?.username}`);
         }
 
         const { date } = req.query;

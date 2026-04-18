@@ -414,7 +414,7 @@ export default function Dashboard() {
       </div>
 
       {/* -- BODY -- */}
-      <div className="db-body">
+      <div className={`db-body ${activeTab === 'daily' ? 'full-width' : ''}`}>
 
         {/* -- LEFT / MAIN -- */}
         <div className="db-main">

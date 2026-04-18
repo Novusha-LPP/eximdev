@@ -126,6 +126,22 @@ function JobDetails() {
     fetchUnits();
   }, []);
 
+  // Fetch transporters from master directory
+  const [transportersList, setTransportersList] = useState([]);
+  useEffect(() => {
+    const fetchTransporters = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`);
+        if (Array.isArray(res.data)) {
+          setTransportersList(res.data.map(t => t.name).filter(Boolean));
+        }
+      } catch (error) {
+        console.error("Error fetching transporters:", error);
+      }
+    };
+    fetchTransporters();
+  }, []);
+
   const toggleSealExpansion = (index) => {
     setExpandedSealIndices(prev => ({
       ...prev,
@@ -3768,16 +3784,30 @@ function JobDetails() {
                                 />
 
                                 {container.transporter !== "SRCC" && (
-                                  <TextField
+                                  <Autocomplete
+                                    freeSolo
                                     fullWidth
+                                    sx={{ flex: 1, minWidth: "200px" }}
                                     size="small"
-                                    variant="outlined"
-                                    label="Transporter Name"
-                                    InputLabelProps={{ shrink: true }}
-                                    name={`container_nos[${index}].transporter`}
-                                    value={container.transporter}
-                                    onChange={formik.handleChange}
-                                    sx={compactInputSx}
+                                    options={transportersList}
+                                    value={container.transporter || ""}
+                                    onChange={(event, newValue) => {
+                                      formik.setFieldValue(`container_nos[${index}].transporter`, newValue || "");
+                                    }}
+                                    onInputChange={(event, newInputValue) => {
+                                      formik.setFieldValue(`container_nos[${index}].transporter`, newInputValue || "");
+                                    }}
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        fullWidth
+                                        variant="outlined"
+                                        label="Transporter Name"
+                                        InputLabelProps={{ shrink: true }}
+                                        name={`container_nos[${index}].transporter`}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
                                   />
                                 )}
                               </div>

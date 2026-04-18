@@ -819,6 +819,28 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             console.error("IGST submit failed:", e);
           }
         }}
+        onAutosave={async (updateData) => {
+          try {
+            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+            const headers = {
+              "Content-Type": "application/json",
+              "user-id": user.username || "unknown",
+              username: user.username || "unknown",
+              "user-role": user.role || "unknown",
+            };
+            const res = await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+              updateData,
+              { headers }
+            );
+            const serverJob = res?.data?.data || res?.data?.job || null;
+            if (typeof onRowDataUpdate === "function") {
+              onRowDataUpdate(_id, serverJob ? serverJob : updateData);
+            }
+          } catch (e) {
+            console.error("IGST autosave failed:", e);
+          }
+        }}
         rowData={rowData}
         dates={dates}
         containers={containers}

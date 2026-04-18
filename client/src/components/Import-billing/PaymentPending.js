@@ -70,6 +70,7 @@ function PaymentPending({ workMode = "Payment" }) {
   const [openRejectPopup, setOpenRejectPopup] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedRequestDate, setSelectedRequestDate] = useState(new Date().toLocaleString("en-CA", {timeZone: "Asia/Kolkata"}).split(',')[0]);
 
   const fetchPaymentRequestDetails = async (requestNo) => {
     try {
@@ -151,7 +152,8 @@ function PaymentPending({ workMode = "Payment" }) {
         selectedYearState,
         user?.username,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        selectedRequestDate
       );
     } catch (err) {
       console.error("Error updating UTR:", err);
@@ -193,7 +195,8 @@ function PaymentPending({ workMode = "Payment" }) {
         selectedYearState,
         user?.username,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        selectedRequestDate
       );
     } catch (err) {
       console.error("Error rejecting payment request:", err);
@@ -253,7 +256,8 @@ function PaymentPending({ workMode = "Payment" }) {
       selectedYearState,
       username,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      requestDate = ""
     ) => {
       setLoading(true);
       try {
@@ -269,6 +273,7 @@ function PaymentPending({ workMode = "Payment" }) {
               username: username || "",
               branchId: selectedBranch || "all",
               category: selectedCategory || "all",
+              requestDate,
               workMode
             },
           }
@@ -299,6 +304,7 @@ function PaymentPending({ workMode = "Payment" }) {
         user.username,
         selectedBranch,
         selectedCategory,
+        selectedRequestDate,
         workMode
       );
     }
@@ -311,8 +317,13 @@ function PaymentPending({ workMode = "Payment" }) {
     fetchJobs,
     selectedBranch,
     selectedCategory,
+    selectedRequestDate,
     workMode
   ]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedRequestDate]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -534,7 +545,44 @@ function PaymentPending({ workMode = "Payment" }) {
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>{workMode === "Payment" ? "Payment Approved" : "Purchase Book Approved"}: {totalJobs}</Typography>
         <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "150px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
+        <TextField
+          type="date"
+          size="small"
+          label="Request Date"
+          value={selectedRequestDate}
+          onChange={(e) => setSelectedRequestDate(e.target.value)}
+          sx={{ width: "160px" }}
+          InputLabelProps={{ shrink: true }}
+        />
         <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "300px" }} />
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => {
+            if (selectedRequestDate) {
+              setSelectedRequestDate("");
+            } else {
+              setSelectedRequestDate(new Date().toLocaleString("en-CA", {timeZone: "Asia/Kolkata"}).split(',')[0]);
+            }
+          }}
+          sx={{
+            borderRadius: 3,
+            textTransform: "none",
+            fontWeight: 500,
+            fontSize: "0.875rem",
+            padding: "8px 20px",
+            background: selectedRequestDate ? "linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%)" : "linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)",
+            color: "#ffffff",
+            whiteSpace: 'nowrap',
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            "&:hover": {
+              transform: "translateY(-1px)",
+              boxShadow: "0 6px 16px rgba(0,0,0,0.2)",
+            }
+          }}
+        >
+          {selectedRequestDate ? "SHOW ALL PENDING" : "SHOW TODAY'S ONLY"}
+        </Button>
       </div>
     ),
   };

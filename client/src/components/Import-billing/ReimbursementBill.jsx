@@ -444,7 +444,7 @@ const ReimbursementBill = () => {
                         <p>Tel. No.-07926402005</p>
                         <p>Email -account@surajforwarders.com</p>
                     </div>
-                    <div className="abi-qr-section"><div className="abi-qr-box">QR CODE</div></div>
+                    <div className="abi-qr-section"></div>
                 </div>
 
                 <div className="abi-registration-block">
@@ -460,17 +460,33 @@ const ReimbursementBill = () => {
 
                 <div className="abi-master-grid">
                     <div className="abi-grid-col abi-grid-left">
-                        <div className="abi-grid-row abi-row-span-2">
+                        <div className="abi-grid-row abi-row-span-2" style={{ alignItems: 'flex-start', paddingTop: '4px' }}>
                             <div className="abi-lbl" style={{ minWidth: '60px' }}>Customer</div><div className="abi-sep">:</div>
                             <div className="abi-val">
-                                <strong style={{ fontSize: '10.5px' }}>{jobData.importer || ""}</strong>
-                                <div style={{ marginTop: '2px' }}>
+                                <strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>{jobData.importer || ""}</strong>
+                                <div style={{ marginTop: '2px', lineHeight: '1.2' }}>
                                     <textarea className="abi-input" style={{ height: '35px', background: '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
-                                    <div>Gujarat, INDIA</div>
-                                    <strong>PAN No : </strong> <input className="abi-input" style={{ width: '100px', display: 'inline', background: '#e9ffe9' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
-                                    <br />
-                                    <strong>GSTIN : </strong> <input className="abi-input" style={{ width: '120px', display: 'inline', background: '#e9ffe9' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
-                                    <strong style={{ marginLeft: '10px' }}>State : </strong> [{editableFields.stateCode}] {editableFields.stateName}
+                                    <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
+                                        <div style={{ minWidth: '55px', fontWeight: 'bold' }}>PAN No</div>
+                                        <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
+                                        <div style={{ flex: 1 }}>
+                                            <input className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', marginTop: '2px', alignItems: 'center' }}>
+                                        <div style={{ minWidth: '55px', fontWeight: 'bold' }}>GSTIN</div>
+                                        <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
+                                        <div style={{ flex: 1 }}>
+                                            <input className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
+                                        <div style={{ minWidth: '55px', fontWeight: 'bold' }}>State</div>
+                                        <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
+                                        <div style={{ flex: 1 }}>
+                                            [{editableFields.stateCode}] {editableFields.stateName}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -612,7 +628,28 @@ const ReimbursementBill = () => {
                                 </tr>
                             )
                         })}
-                        <tr><td colSpan="10" style={{ height: '100px', borderBottom: 'none' }}></td></tr>
+                        <tr>
+                            <td style={{ height: '100px', borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none', padding: 0 }}>
+                                <div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
+                                    <div style={{ width: '40%', borderRight: '1px solid #000' }}></div>
+                                    <div style={{ width: '60%' }}></div>
+                                </div>
+                            </td>
+                            <td style={{ borderBottom: 'none', padding: 0 }}>
+                                <div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
+                                    <div style={{ width: '40%', borderRight: '1px solid #000' }}></div>
+                                    <div style={{ width: '60%' }}></div>
+                                </div>
+                            </td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                        </tr>
                         <tr className="abi-subtotal-row">
                             <td colSpan="5" style={{ textAlign: 'right', padding: '4px 8px' }}>Sub Total</td>
                             <td style={{ textAlign: 'right' }}>{formatCurrency(totalNonGst)}</td>

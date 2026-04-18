@@ -972,7 +972,20 @@ function JobDetails() {
     } catch (error) {
       console.error("Error submitting duty data:", error);
     }
-  }; // Check if duty_paid_date should be disabled
+  };
+
+  const handleDutyAutosave = async (updateData) => {
+    try {
+      Object.keys(updateData).forEach((key) => {
+        formik.setFieldValue(key, updateData[key]);
+      });
+      await formik.submitForm();
+    } catch (error) {
+      console.error("Error autosaving duty data:", error);
+    }
+  }; 
+  
+  // Check if duty_paid_date should be disabled
   const isDutyPaidDateDisabled =
     !formik.values.assessment_date || !formik.values.igst_ammount;
   function subtractOneDay(dateString) {
@@ -4402,6 +4415,7 @@ function JobDetails() {
         open={dutyModalOpen}
         onClose={handleCloseDutyModal}
         onSubmit={handleDutySubmit}
+        onAutosave={handleDutyAutosave}
         rowData={{
           ...formik.values,
           job_no: params.job_no,

@@ -1,0 +1,215 @@
+.cash-voucher-container {
+    width: 210mm;
+    height: auto;
+    min-height: 297mm; /* Full A4 height to help with centering logic if needed, but auto is safer */
+    background: #fff;
+    padding: 15mm 10mm; 
+    box-sizing: border-box;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    color: #000;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.voucher-content {
+    border: 1px solid #000;
+    padding: 8mm;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 auto;
+    background: #fff;
+}
+
+.voucher-title {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    text-decoration: underline;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+}
+
+.header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.logo-section .voucher-logo {
+    max-height: 65px;
+    width: auto;
+}
+
+.job-info {
+    font-size: 15px;
+    flex: 1;
+    text-align: center;
+    font-weight: bold;
+}
+
+.date-info {
+    display: flex;
+    gap: 15px;
+    font-size: 15px;
+}
+
+.date-val {
+    border-bottom: 1px dotted #000;
+    min-width: 130px;
+    display: inline-block;
+    text-align: center;
+}
+
+.company-address {
+    text-align: center;
+    font-size: 11px;
+    margin-bottom: 20px;
+}
+
+.voucher-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.voucher-table th, .voucher-table td {
+    border: 1px solid #000;
+    padding: 10px 8px;
+    font-size: 14px;
+    text-align: center;
+    overflow: hidden;
+}
+
+.col-desc { width: 55%; }
+.col-code { width: 15%; }
+.col-rs   { width: 12%; }
+.col-ps   { width: 10%; }
+.col-dr   { width: 8%; }
+
+.desc-cell {
+    text-align: left !important;
+    vertical-align: top;
+    line-height: 1.4;
+}
+
+.amt-cell {
+    font-weight: bold;
+    text-align: right !important;
+}
+
+.empty-row td {
+    height: 35px;
+}
+
+.particulars-section {
+    display: flex;
+    width: 100%;
+    border: 1px solid #000;
+    border-top: none;
+    min-height: 150px;
+}
+
+.particulars-left {
+    width: 70%; /* Matches col-desc (55%) + col-code (15%) */
+    display: flex;
+    border-right: 1px solid #000;
+}
+
+.particulars-label {
+    width: 35%; /* Relative to particulars-left */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 15px;
+    border-right: 1px solid #000;
+    padding: 10px;
+    text-align: center;
+}
+
+.particulars-text {
+    flex: 1;
+    padding: 15px 10px;
+    font-size: 13.5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.particulars-text p {
+    margin: 5px 0;
+}
+
+.words-amount {
+    margin-top: auto !important;
+    padding-top: 15px;
+    font-weight: bold;
+    font-style: italic;
+}
+
+.particulars-total-rs {
+    width: 12%; /* Matches col-rs */
+    border-right: 1px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.particulars-total-ps {
+    width: 10%; /* Matches col-ps */
+    border-right: 1px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.particulars-total-dr {
+    width: 8%; /* Matches col-dr */
+}
+
+.voucher-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 40px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.footer-item {
+    text-align: center;
+    flex: 1;
+}
+
+.sign-box-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.sign-box {
+    width: 140px;
+    height: 55px;
+    border: 1px solid #000;
+}
+
+.sign-label {
+    font-size: 13px;
+}
+
+@media print {
+    .cash-voucher-container {
+        padding: 0;
+        margin: 0;
+    }
+}

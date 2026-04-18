@@ -94,6 +94,9 @@ router.post('/save', async (req, res) => {
             { upsert: true, new: true }
         );
 
+        // Sync back to Job summary table (only if both are present)
+        await syncJobBillingInfo(jobId);
+
         res.json({ success: true, message: "Bill saved successfully", data: bill });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -143,11 +146,54 @@ router.post('/generate-invoice-number', async (req, res) => {
             );
         }
 
+        // Sync back to Job summary table (only if both are present)
+        await syncJobBillingInfo(jobId);
+
         res.json({ success: true, invoiceNo });
     } catch (err) {
         console.error("Error generating invoice number:", err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
+/**
+ * Helper to sync billing summary back to Job only when BOTH are present
+ */
+async function syncJobBillingInfo(jobId) {
+    try {
+        const job = await JobModel.findById(jobId);
+        if (!job) return;
+
+        // ONLY update the summary table when BOTH bills are generated
+        if (job.agency_invoice_no && job.reimbursement_invoice_no) {
+            const [giaBill, girBill] = await Promise.all([
+                BillModel.findOne({ jobId, type: 'GIA' }),
+                BillModel.findOne({ jobId, type: 'GIR' })
+            ]);
+
+            // Helper to format date for datetime-local input (YYYY-MM-DDTHH:MM)
+            const formatDate = (date) => {
+                if (!date) return "";
+                const d = new Date(date);
+                // Adjust to local time string for the input field
+                return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                    .toISOString()
+                    .slice(0, 16);
+            };
+
+            // Calculate totals from both bills
+            const giaAmt = giaBill?.finalTotal || 0;
+            const girAmt = girBill?.finalTotal || 0;
+
+            job.bill_no = `${job.agency_invoice_no},${job.reimbursement_invoice_no}`;
+            job.bill_date = `${formatDate(giaBill?.generatedAt)},${formatDate(girBill?.generatedAt)}`;
+            job.bill_amount = `${giaAmt},${girAmt}`;
+
+            await job.save();
+        }
+    } catch (err) {
+        console.error("Error syncing job billing info:", err);
+    }
+}
 
 export default router;

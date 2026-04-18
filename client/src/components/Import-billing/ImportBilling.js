@@ -24,7 +24,10 @@ import InvoiceDisplay from "../import-do/InvoiceDisplay.js";
 import { TabContext } from "../import-do/ImportDO.js";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
+import ReceiptIcon from "@mui/icons-material/Receipt";
 import ContainerTrackButton from '../ContainerTrackButton';
+import CashVoucher from "./CashVoucher";
+import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
 
 function ImportBilling({ workMode = 'Payment' }) {
   const { currentTab } = useContext(TabContext); // Access context
@@ -48,6 +51,8 @@ function ImportBilling({ workMode = 'Payment' }) {
   const [importers, setImporters] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
+  const [voucherData, setVoucherData] = useState(null);
+  const voucherRef = React.useRef();
 
   console.log(currentTab, "tab");
 
@@ -272,12 +277,27 @@ function ImportBilling({ workMode = 'Payment' }) {
       } else if (type === 'Reimbursement Bill') {
         const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
         navigate(`/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
+      } else if (type === 'Cash Voucher') {
+        handleDownloadVoucher(selectedRowData);
       } else {
         console.log(`Generating ${type} for job ${selectedRowData.job_no}`);
         // Future implementation for other bill types
       }
     }
   };
+
+  const handleDownloadVoucher = useCallback(async (job) => {
+    setVoucherData({ job });
+    // Small delay to ensure React has rendered the hidden component with new data
+    setTimeout(async () => {
+      const element = document.getElementById("hidden-voucher-capture-area");
+      if (element) {
+        const fileName = `CashVoucher_${job.job_number || job.job_no}.pdf`;
+        await downloadInvoiceAsPDF(element, fileName);
+        setVoucherData(null);
+      }
+    }, 200);
+  }, []);
 
   // Define table columns
   const columns = React.useMemo(
@@ -709,7 +729,21 @@ function ImportBilling({ workMode = 'Payment' }) {
           <MenuItem onClick={() => handleGenerateAction("Reimbursement Bill")}>
             Reimbursement Bill
           </MenuItem>
+          <MenuItem onClick={() => handleGenerateAction("Cash Voucher")}>
+            Cash Voucher
+          </MenuItem>
         </Menu>
+
+        {/* Hidden area for PDF capture */}
+        {voucherData && (
+          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+            <div id="hidden-voucher-capture-area">
+              <CashVoucher 
+                data={voucherData.job} 
+              />
+            </div>
+          </div>
+        )}
       </>
     </div>
   );

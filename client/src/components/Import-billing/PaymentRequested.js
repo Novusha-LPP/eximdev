@@ -170,7 +170,8 @@ function PaymentRequested({ workMode = "Payment" }) {
           showUnresolvedOnly,
           user?.username,
           selectedBranch,
-          selectedCategory
+          selectedCategory,
+          selectedTransactionType
         );
       }
     } catch (err) {
@@ -208,7 +209,8 @@ function PaymentRequested({ workMode = "Payment" }) {
         showUnresolvedOnly,
         user?.username,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        selectedTransactionType
       );
     } catch (err) {
       console.error("Error rejecting payment request:", err);

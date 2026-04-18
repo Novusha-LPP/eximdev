@@ -138,6 +138,7 @@ import getModuleUserCounts from "./routes/getModuleUserCounts.mjs";
 import toggleUserStatus from "./routes/toggleUserStatus.mjs";
 import assignDepartment from "./routes/home/assignDepartment.mjs";
 import invoiceGenerator from "./routes/billing/invoiceNumberGenerator.mjs";
+import generalOrgRoutes from "./routes/master-directory/generalOrgRoutes.mjs";
 
 
 // ImportersInfo
@@ -605,6 +606,7 @@ app.use("/api", portRoutes);
 app.use("/api", customHouseRoutes);
 app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);
+app.use("/api", generalOrgRoutes);
 
 
 // Tally API

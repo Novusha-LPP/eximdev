@@ -97,6 +97,7 @@ import UnitDirectory from "../components/master-directory/UnitDirectory.js";
 import OrganizationDirectory from "../components/master-directory/OrganizationDirectory.js";
 import OrganizationForm from "../components/master-directory/OrganizationForm.js";
 import ShippingLineDirectory from "../components/master-directory/ShippingLineDirectory.js";
+import GeneralOrgDirectory from "../components/master-directory/GeneralOrgDirectory.js";
 import SupplierDirectory from "../components/master-directory/SupplierDirectory.js";
 import CurrencyDirectory from "../components/master-directory/CurrencyDirectory.js";
 import PortDirectory from "../components/master-directory/PortDirectory.js";
@@ -643,6 +644,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <ShippingLineDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/general-org-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <GeneralOrgDirectory />
                     </ProtectedRoute>
                   }
                 />

@@ -782,7 +782,8 @@ router.get(
       unresolvedOnly,
       branchId,
       category,
-      workMode = 'Payment'
+      workMode = 'Payment',
+      requestDate
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -810,6 +811,18 @@ router.get(
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] }, [isApprovedField]: true } } }
         ],
       };
+
+      if (requestDate) {
+        let requestNos = [];
+        if (workMode === 'Purchase Book') {
+          const entries = await PurchaseBookEntryModel.find({ entryDate: requestDate }).select('entryNo').lean();
+          requestNos = entries.map(e => e.entryNo);
+        } else {
+          const requests = await PaymentRequestModel.find({ requestDate }).select('requestNo').lean();
+          requestNos = requests.map(r => r.requestNo);
+        }
+        matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      }
 
       if (req.userIcdFilter) {
         matchConditions.$and.push(req.userIcdFilter);

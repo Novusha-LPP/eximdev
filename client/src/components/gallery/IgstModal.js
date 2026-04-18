@@ -37,6 +37,7 @@ const IgstModal = ({
   open,
   onClose,
   onSubmit,
+  onAutosave,
   rowData,
   dates,
   containers = [],
@@ -268,6 +269,41 @@ const IgstModal = ({
     rowData?.be_date,
     containers,
   ]);
+
+  // Autosave calculation to DB debounced
+  useEffect(() => {
+    if (!open || !onAutosave) return;
+    
+    const timeoutId = setTimeout(() => {
+      const totalDuty = (
+        parseFloat(igstValues.bcd_ammount || 0) +
+        parseFloat(igstValues.igst_ammount || 0) +
+        parseFloat(igstValues.sws_ammount || 0) +
+        parseFloat(igstValues.intrest_ammount || 0) +
+        parseFloat(igstValues.penalty_amount || 0) + 
+        parseFloat(igstValues.fine_amount || 0)      
+      ).toFixed(2);
+
+      const updateData = {
+        assessable_ammount: igstValues.assessable_ammount,
+        igst_ammount: igstValues.igst_ammount,
+        bcd_ammount: igstValues.bcd_ammount,
+        sws_ammount: igstValues.sws_ammount,
+        intrest_ammount: igstValues.intrest_ammount,
+        penalty_amount: igstValues.penalty_amount, 
+        fine_amount: igstValues.fine_amount,       
+        total_duty: totalDuty,
+        igst_rate: igstValues.igstRate,
+        penalty_by_us: igstValues.penalty_by_us,
+        penalty_by_importer: igstValues.penalty_by_importer,
+        zero_penalty_as_per_bill_of_entry: igstValues.zero_penalty_as_per_bill_of_entry,
+      };
+
+      onAutosave(updateData);
+    }, 1000); // 1-second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [igstValues, open]);
 
   const handleCthDataFetch = async () => {
     if (rowData?.cth_no && rowData?.job_no) {

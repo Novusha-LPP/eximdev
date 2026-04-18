@@ -32,18 +32,6 @@ router.post("/api/admin/assign-icd-code", authMiddleware, requireAllowedAdmin, a
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Dynamic ICD codes from ports within branches
-    const branches = await BranchModel.find({ is_active: true });
-    // Extract unique port names from all branches
-    const validIcdCodes = [...new Set(branches.flatMap(b => b.ports.map(p => p.port_name)))];
-
-    // Validate all selected ICD codes
-    const invalidCodes = icdCodesArray.filter(code => !validIcdCodes.includes(code));
-    if (invalidCodes.length > 0) {
-      return res.status(400).json({
-        message: `Invalid ICD codes selected: ${invalidCodes.join(', ')}`
-      });
-    }
 
     // Update the user's ICD codes (remove duplicates)
     targetUser.selected_icd_codes = [...new Set(icdCodesArray)];
@@ -76,15 +64,6 @@ router.post("/api/admin/assign-icd-code-to-all", authMiddleware, requireAllowedA
       return res.status(403).json({ message: 'Admin identity mismatch' });
     }
 
-    const branches = await BranchModel.find({ is_active: true });
-    const validIcdCodes = [...new Set(branches.flatMap(b => b.ports.map(p => p.port_name)))];
-
-    const invalidCodes = icdCodesArray.filter(code => !validIcdCodes.includes(code));
-    if (invalidCodes.length > 0) {
-      return res.status(400).json({
-        message: `Invalid ICD codes selected: ${invalidCodes.join(', ')}`
-      });
-    }
 
     const result = await UserModel.updateMany(
       {},
@@ -118,15 +97,6 @@ router.post("/api/admin/assign-icd-code-to-users", authMiddleware, requireAllowe
       return res.status(403).json({ message: 'Admin identity mismatch' });
     }
 
-    const branches = await BranchModel.find({ is_active: true });
-    const validIcdCodes = [...new Set(branches.flatMap(b => b.ports.map(p => p.port_name)))];
-
-    const invalidCodes = icdCodesArray.filter(code => !validIcdCodes.includes(code));
-    if (invalidCodes.length > 0) {
-      return res.status(400).json({
-        message: `Invalid ICD codes selected: ${invalidCodes.join(', ')}`
-      });
-    }
 
     const result = await UserModel.updateMany(
       { _id: { $in: userIds } },

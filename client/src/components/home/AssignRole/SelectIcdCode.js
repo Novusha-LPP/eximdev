@@ -200,8 +200,8 @@ function SelectIcdCode({ selectedUser }) {
                 rules={[{ required: true, message: 'Please select at least one ICD code' }]}
               >
                 <Select
-                  mode="multiple"
-                  placeholder="Select ICD Codes"
+                  mode="tags"
+                  placeholder="Select or enter ICD Codes"
                   style={{ width: '100%' }}
                   onChange={setSelectedIcdCodes}
                 >

@@ -85,7 +85,7 @@ const ReimbursementBill = () => {
 
                         return {
                             id: ch._id || Math.random().toString(),
-                            description: ch.revenue?.partyName || ch.charge_description || ch.chargeHead || "Reimbursement",
+                            description: ch.charge_name || ch.chargeHead || ch.charge_description || "Reimbursement",
                             sac: ch.sacHsn || "996713", 
                             receipt: "", // Always blank as per user request
                             taxType: "P", 
@@ -115,8 +115,8 @@ const ReimbursementBill = () => {
                 dueDate: formatDate(new Date()),
                 placeOfSupply: `[${job.importer_address?.state || "24"}] ${job.importer_address?.state || "Gujarat"}`,
                 importerAddress: job.importer_address?.details || "",
-                panNo: job.importer_pan || "",
-                gstin: job.importer_gstin || "",
+                panNo: job.pan_no || job.importer_pan || "",
+                gstin: job.gst_no || job.importer_gstin || "",
                 stateName: job.importer_address?.state || "Gujarat",
                 stateCode: "24"
             };
@@ -128,8 +128,14 @@ const ReimbursementBill = () => {
                     if (kyc) {
                         const addr = `${kyc.principle_business_address_line_1 || ""} ${kyc.principle_business_address_line_2 || ""}, ${kyc.principle_business_address_city || ""}, ${kyc.principle_business_address_state || ""} - ${kyc.principle_business_address_pin_code || ""}`.trim();
                         initialFields.importerAddress = addr || initialFields.importerAddress;
-                        initialFields.panNo = kyc.pan_no || initialFields.panNo;
-                        initialFields.gstin = kyc.gst_no || initialFields.gstin;
+                        initialFields.panNo = initialFields.panNo || kyc.pan_no || "";
+                        
+                        let kycGst = kyc.gst_no;
+                        if (!kycGst && kyc.factory_addresses && kyc.factory_addresses.length > 0) {
+                            kycGst = kyc.factory_addresses[0].gst;
+                        }
+                        
+                        initialFields.gstin = initialFields.gstin || kycGst || "";
                         initialFields.stateName = kyc.principle_business_address_state || initialFields.stateName;
                         initialFields.placeOfSupply = `[${initialFields.stateCode}] ${initialFields.stateName}`;
                     }
@@ -145,7 +151,13 @@ const ReimbursementBill = () => {
                     const saved = savedBillRes.data.data;
                     // Note: We always fresh-sync rows from the grid for now to avoid old cached "G" type data
                     // Only loading editable fields (invoice no, date, address) from save
-                    setEditableFields(saved.editableFields || initialFields);
+                    const savedFields = saved.editableFields || {};
+                    setEditableFields({
+                        ...initialFields,
+                        ...savedFields,
+                        gstin: savedFields.gstin || initialFields.gstin,
+                        panNo: savedFields.panNo || initialFields.panNo
+                    });
                     
                     if (saved.generatedAt) {
                         setGenerationLog({
@@ -449,8 +461,8 @@ const ReimbursementBill = () => {
 
                 <div className="abi-registration-block">
                     <div className="abi-reg-col">
-                        <div className="abi-reg-item"><span className="abi-reg-lbl">GSTIN</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ fontWeight: 'bold' }}>24AAACS6838D1ZB</span></div>
-                        <div className="abi-reg-item"><span className="abi-reg-lbl">PAN No</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ fontWeight: 'bold' }}>AAACS6838D</span></div>
+                        <div className="abi-reg-item"><span className="abi-reg-lbl">GSTIN</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ fontWeight: 'bold' }}>24AAKCS6838D1Z8</span></div>
+                        <div className="abi-reg-item"><span className="abi-reg-lbl">PAN No</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ fontWeight: 'bold' }}>AAKCS6838D</span></div>
                     </div>
                     <div className="abi-reg-col">
                         <div className="abi-reg-item"><span className="abi-reg-lbl">State</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ textTransform: 'uppercase' }}>[24] GUJARAT</span></div>
@@ -554,34 +566,22 @@ const ReimbursementBill = () => {
                 <table className="abi-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '3%' }}>Sr No</th>
-                            <th style={{ width: '30%', textAlign: 'left' }}>Description</th>
-                            <th style={{ width: '8%' }}>SAC/ HSN</th>
-                            <th style={{ width: '12%' }}>Receipt Details</th>
-                            <th style={{ width: '5%' }}>Tax Type</th>
-                            <th style={{ width: '10%' }}>Non GST Exempt Value (INR)</th>
-                            <th style={{ width: '10%' }}>Taxable Value (INR)</th>
-                            <th style={{ width: '7%', padding: 0, height: '1px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'stretch' }}>
-                                    <div style={{ padding: '3px' }}>CGST</div>
-                                    <div style={{ height: '1px', background: '#000' }}></div>
-                                    <div style={{ display: 'flex', flex: 1, alignItems: 'stretch' }}>
-                                        <span style={{ width: '40%', borderRight: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>%</span>
-                                        <span style={{ width: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Tax</span>
-                                    </div>
-                                </div>
-                            </th>
-                            <th style={{ width: '7%', padding: 0, height: '1px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'stretch' }}>
-                                    <div style={{ padding: '3px' }}>SGST</div>
-                                    <div style={{ height: '1px', background: '#000' }}></div>
-                                    <div style={{ display: 'flex', flex: 1, alignItems: 'stretch' }}>
-                                        <span style={{ width: '40%', borderRight: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>%</span>
-                                        <span style={{ width: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Tax</span>
-                                    </div>
-                                </div>
-                            </th>
-                            <th style={{ width: '10%' }}>Total (INR)</th>
+                            <th rowSpan="2" style={{ width: '3%' }}>Sr No</th>
+                            <th rowSpan="2" style={{ width: '28%', textAlign: 'left' }}>Description</th>
+                            <th rowSpan="2" style={{ width: '7%' }}>SAC/ HSN</th>
+                            <th rowSpan="2" style={{ width: '12%' }}>Receipt Details</th>
+                            <th rowSpan="2" style={{ width: '4%' }}>Tax Type</th>
+                            <th rowSpan="2" style={{ width: '10%' }}>Non GST Exempt Value (INR)</th>
+                            <th rowSpan="2" style={{ width: '10%' }}>Taxable Value (INR)</th>
+                            <th colSpan="2" style={{ width: '8%', padding: '3px', borderBottom: '1px solid #000' }}>CGST</th>
+                            <th colSpan="2" style={{ width: '8%', padding: '3px', borderBottom: '1px solid #000' }}>SGST</th>
+                            <th rowSpan="2" style={{ width: '10%' }}>Total (INR)</th>
+                        </tr>
+                        <tr>
+                            <th style={{ width: '3.5%', borderRight: '1px solid #000', padding: '3px' }}>%</th>
+                            <th style={{ width: '4.5%', padding: '3px' }}>Tax</th>
+                            <th style={{ width: '3.5%', borderRight: '1px solid #000', padding: '3px' }}>%</th>
+                            <th style={{ width: '4.5%', padding: '3px' }}>Tax</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -602,27 +602,41 @@ const ReimbursementBill = () => {
                                             <button className="no-print" onClick={() => deleteRow(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: 0, fontSize: '12px' }}>x</button>
                                         </div>
                                     </td>
-                                    <td><input className="abi-input desc" value={r.description} onChange={e => handleRowChange(idx, 'description', e.target.value)} /></td>
+                                    <td style={{ verticalAlign: 'middle' }}>
+                                        <textarea 
+                                            className="abi-input desc" 
+                                            rows={1}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0' }}
+                                            value={r.description} 
+                                            onChange={e => handleRowChange(idx, 'description', e.target.value)} 
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if(el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
                                     <td style={{ textAlign: 'center' }}><input className="abi-input" style={{ textAlign: 'center' }} value={r.sac} onChange={e => handleRowChange(idx, 'sac', e.target.value)} /></td>
                                     <td><input className="abi-input" value={r.receipt} onChange={e => handleRowChange(idx, 'receipt', e.target.value)} /></td>
                                     <td style={{ textAlign: 'center' }}><input className="abi-input" style={{ textAlign: 'center' }} value={r.taxType} onChange={e => handleRowChange(idx, 'taxType', e.target.value)} /></td>
                                     <td style={{ textAlign: 'right' }}><input className="abi-input" style={{ textAlign: 'right' }} value={r.nonGst} onChange={e => handleRowChange(idx, 'nonGst', e.target.value)} /></td>
                                     <td style={{ textAlign: 'right' }}><input type="number" className="abi-input" style={{ textAlign: 'right' }} value={r.taxable} onChange={e => handleRowChange(idx, 'taxable', e.target.value)} /></td>
-                                    <td style={{ padding: 0, height: '1px' }}>
-                                        <div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
-                                            <div style={{ width: '40%', padding: '4px', borderRight: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                                                <input className="abi-input" style={{ textAlign: 'right' }} value={r.cgstPercent} onChange={e => handleRowChange(idx, 'cgstPercent', e.target.value)} />
-                                            </div>
-                                            <div style={{ width: '60%', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{cTax ? formatCurrency(cTax) : ''}</div>
-                                        </div>
+                                    <td style={{ padding: '4px', borderRight: '1px solid #000' }}>
+                                        <input className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.cgstPercent} onChange={e => handleRowChange(idx, 'cgstPercent', e.target.value)} />
                                     </td>
-                                    <td style={{ padding: 0, height: '1px' }}>
-                                        <div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
-                                            <div style={{ width: '40%', padding: '4px', borderRight: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                                                <input className="abi-input" style={{ textAlign: 'right' }} value={r.sgstPercent} onChange={e => handleRowChange(idx, 'sgstPercent', e.target.value)} />
-                                            </div>
-                                            <div style={{ width: '60%', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{sTax ? formatCurrency(sTax) : ''}</div>
-                                        </div>
+                                    <td style={{ padding: '4px', textAlign: 'right' }}>
+                                        {cTax ? formatCurrency(cTax) : ''}
+                                    </td>
+                                    <td style={{ padding: '4px', borderRight: '1px solid #000' }}>
+                                        <input className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.sgstPercent} onChange={e => handleRowChange(idx, 'sgstPercent', e.target.value)} />
+                                    </td>
+                                    <td style={{ padding: '4px', textAlign: 'right' }}>
+                                        {sTax ? formatCurrency(sTax) : ''}
                                     </td>
                                     <td style={{ textAlign: 'right' }}>{rowTotal ? formatCurrency(rowTotal) : ''}</td>
                                 </tr>
@@ -636,26 +650,20 @@ const ReimbursementBill = () => {
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
-                            <td style={{ borderBottom: 'none', padding: 0 }}>
-                                <div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
-                                    <div style={{ width: '40%', borderRight: '1px solid #000' }}></div>
-                                    <div style={{ width: '60%' }}></div>
-                                </div>
-                            </td>
-                            <td style={{ borderBottom: 'none', padding: 0 }}>
-                                <div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
-                                    <div style={{ width: '40%', borderRight: '1px solid #000' }}></div>
-                                    <div style={{ width: '60%' }}></div>
-                                </div>
-                            </td>
+                            <td style={{ borderBottom: 'none', borderRight: '1px solid #000' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none', borderRight: '1px solid #000' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                         </tr>
                         <tr className="abi-subtotal-row">
                             <td colSpan="5" style={{ textAlign: 'right', padding: '4px 8px' }}>Sub Total</td>
                             <td style={{ textAlign: 'right' }}>{formatCurrency(totalNonGst)}</td>
                             <td style={{ textAlign: 'right' }}>{formatCurrency(totalTaxable)}</td>
-                            <td style={{ padding: 0, height: '1px' }}><div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}><div style={{ width: '40%', borderRight: '1px solid #000' }}></div><div style={{ width: '60%', padding: '4px', textAlign: 'right' }}>{formatCurrency(totalCgst)}</div></div></td>
-                            <td style={{ padding: 0, height: '1px' }}><div style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}><div style={{ width: '40%', borderRight: '1px solid #000' }}></div><div style={{ width: '60%', padding: '4px', textAlign: 'right' }}>{formatCurrency(totalSgst)}</div></div></td>
+                            <td style={{ borderRight: '1px solid #000' }}></td>
+                            <td style={{ padding: '4px', textAlign: 'right' }}>{formatCurrency(totalCgst)}</td>
+                            <td style={{ borderRight: '1px solid #000' }}></td>
+                            <td style={{ padding: '4px', textAlign: 'right' }}>{formatCurrency(totalSgst)}</td>
                             <td style={{ textAlign: 'right' }}>{formatCurrency(finalTotal)}</td>
                         </tr>
                     </tbody>

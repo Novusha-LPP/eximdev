@@ -472,8 +472,19 @@ function PaymentRequested({ workMode = "Payment" }) {
         }
       },
       {
-        accessorKey: workMode === "Payment" ? "requested_by" : "supplier_inv_no",
+        id: "requested_by",
         header: workMode === "Payment" ? "Requested By" : "Supplier Inv No",
+        accessorFn: (row) => {
+          const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
+          const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
+          const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
+
+          const charges = row.charges || [];
+          const valid = charges.filter(c => c[filterField] && c[statusField] !== "Paid" && !c[isApprovedField]);
+          if (valid.length === 0) return 0;
+          const d = valid[0].createdAt || valid[0].payment_request_created_at;
+          return d ? new Date(d).getTime() : 0;
+        },
         Cell: ({ cell }) => {
           const charges = cell.row.original.charges || [];
           const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";

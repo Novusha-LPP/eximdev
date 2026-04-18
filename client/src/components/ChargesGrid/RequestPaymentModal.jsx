@@ -91,7 +91,13 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const updated = { ...prev, [name]: value };
+            if (name === "Transfer Mode" && value === 'Offline') {
+                updated["Transaction Type"] = "CASH";
+            }
+            return updated;
+        });
     };
 
     const handleSubmit = async (e) => {

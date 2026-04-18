@@ -24,7 +24,7 @@ export const downloadInvoiceAsPDF = async (element, fileName = 'Invoice.pdf') =>
                 clonedElement.style.boxShadow = 'none';
                 clonedElement.style.width = '210mm';
                 clonedElement.style.minHeight = 'auto'; // Let it grow to its natural height for capture
-                clonedElement.style.padding = '10mm';
+                clonedElement.style.padding = '5mm';
                 
                 // Hide any gaps or parent styles that might interfere
                 const wrapper = clonedElement.parentElement;
@@ -33,6 +33,11 @@ export const downloadInvoiceAsPDF = async (element, fileName = 'Invoice.pdf') =>
                     wrapper.style.margin = '0';
                     wrapper.style.background = '#fff';
                 }
+
+                // HIDDEN ELEMENTS
+                // Cleanly remove any element that shouldn't appear in the print capture
+                const noPrintElements = clonedElement.querySelectorAll('.no-print');
+                noPrintElements.forEach(el => el.style.display = 'none');
 
                 // FIX FOR HTML2CANVAS INPUT CLIPPING:
                 // Convert all inputs/textareas to plain text blocks to ensure flawless rendering

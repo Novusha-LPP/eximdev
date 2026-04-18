@@ -6,7 +6,7 @@
     max-width: 210mm;
     min-height: 297mm;
     margin: 20px auto;
-    padding: 10mm;
+    padding: 5mm;
     box-sizing: border-box;
     box-shadow: 0 0 20px rgba(0,0,0,0.15);
     transform-origin: top center;
@@ -41,7 +41,7 @@
         width: 100% !important;
         max-width: none !important;
         border: none !important;
-        padding: 10mm !important;
+        padding: 5mm !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         background: #fff !important;
@@ -235,6 +235,7 @@
     font-weight: bold;
     font-size: 9px;
     background: #fdfdfd;
+    vertical-align: middle !important;
 }
 
 .abi-table td {
@@ -242,9 +243,9 @@
     border-right: 1px solid #000;
     padding: 4px 6px;
     min-height: 22px;
-    vertical-align: middle;
+    vertical-align: middle !important;
     font-size: 9.5px;
-    line-height: 1.4;
+    line-height: 1.2;
 }
 
 .abi-table tr:last-child td {
@@ -314,7 +315,7 @@
     display: flex;
     border-bottom: 1px solid #000;
     min-height: 18px;
-    align-items: center;
+    align-items: stretch;
 }
 
 .abi-tot-row:last-child {
@@ -326,6 +327,8 @@
     width: 55%;
     padding: 2px 4px;
     border-right: 1px solid #000;
+    display: flex;
+    align-items: center;
 }
 
 .abi-tot-cur {
@@ -333,6 +336,9 @@
     padding: 2px 4px;
     border-right: 1px solid #000;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .abi-tot-val {
@@ -340,6 +346,9 @@
     padding: 2px 4px;
     text-align: right;
     font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 /* Text Areas */
@@ -410,7 +419,7 @@
         max-width: none;
     }
     .abi-input { background: transparent !important; }
-    @page { margin: 10mm; }
+    @page { margin: 5mm; }
 }
 
 /* Master Modal */

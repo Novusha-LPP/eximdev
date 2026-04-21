@@ -3,11 +3,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 import { FiUsers, FiCheckCircle, FiXCircle, FiClock, FiCalendar, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 const COLORS = {
-  present: '#10b981',
-  late: '#f59e0b',
-  leave: '#6366f1',
-  absent: '#ef4444',
-  half_day: '#8b5cf6'
+  present: '#36b60f',
+  late: '#b45309',
+  leave: '#1e40af',
+  absent: '#c02e2e',
+  half_day: '#ff9101'
 };
 
 const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies = [], selectedCompanyId, onCompanyChange }) => {
@@ -60,20 +60,25 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
 
   const onLeaveEmployees = dailySummary.filter(e => e.status === 'leave');
 
-  const getStatusLabel = (status) => {
-    const labels = {
-      present: 'Present',
-      late: 'Late',
-      leave: 'Leave',
-      absent: 'Absent',
-      half_day: 'Half Day'
+  const getStatusStyle = (status) => {
+    const styles = {
+      present: { label: 'Present', color: '#059669', bg: '#ecfdf5' },
+      late: { label: 'Late', color: '#b45309', bg: '#fffbeb' },
+      leave: { label: 'Leave', color: '#1e40af', bg: '#eff6ff' },
+      absent: { label: 'Absent', color: '#c02e2e', bg: '#fef2f2' },
+      half_day: { label: 'Half Day', color: '#ff9101', bg: '#fff7ed' }
     };
-    return labels[status] || status;
+    return styles[status] || { label: status, color: '#64748b', bg: '#f1f5f9' };
   };
 
   const fmtTime = (iso) => {
     if (!iso) return '--:--';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(iso);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    }).toUpperCase();
   };
 
   // Pagination Logic
@@ -116,28 +121,28 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
 
       <div className="adb-analytics-grid">
         <div className="adb-ms-card">
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.present }}><FiUsers /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(54, 182, 15, 0.1)', color: COLORS.present }}><FiUsers /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.present || 0}</span>
                 <span className="adb-ms-lbl">Total Present</span>
             </div>
         </div>
         <div className="adb-ms-card">
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.late }}><FiClock /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(180, 83, 9, 0.1)', color: COLORS.late }}><FiClock /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.late || 0}</span>
                 <span className="adb-ms-lbl">Late Arrivals</span>
             </div>
         </div>
         <div className="adb-ms-card">
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(30, 64, 175, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.onLeave || 0}</span>
                 <span className="adb-ms-lbl">On Leave</span>
             </div>
         </div>
         <div className="adb-ms-card">
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(192, 46, 46, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.absent || 0}</span>
                 <span className="adb-ms-lbl">Absent</span>
@@ -185,38 +190,42 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
             <tbody>
                 {paginatedData.length === 0 ? (
                 <tr><td colSpan="6" className="adb-td-empty">No employee records found</td></tr>
-                ) : paginatedData.map((emp) => (
-                <tr key={emp.id} className="analytics-row">
-                    <td>
-                    <div className="adb-td-user">
-                        <div className="adb-user-avatar">{emp.name?.charAt(0)}</div>
-                        <div className="adb-user-info">
-                        <div className="adb-user-name">{emp.name}</div>
-                        <div className="adb-user-dept">{emp.department}</div>
+                ) : paginatedData.map((emp) => {
+                  const statusStyle = getStatusStyle(emp.status);
+                  return (
+                    <tr key={emp.id} className="analytics-row">
+                        <td>
+                        <div className="adb-td-user">
+                            <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
+                            <div className="adb-user-info">
+                            <div className="adb-user-name">{emp.name}</div>
+                            </div>
                         </div>
-                    </div>
-                    </td>
-                    <td>
-                    <span className={`adb-status-pill ${emp.status}`}>
-                        {getStatusLabel(emp.status)}
-                    </span>
-                    </td>
-                    <td>
-                    {emp.leave ? (
-                        <div className="adb-leave-small">
-                        <span className="adb-ls-type">{emp.leave.type}</span>
-                        <span className={`adb-ls-status ${emp.leave.status}`}>
-                            {emp.leave.status === 'approved' ? 'Approved' : 'Pending'}
-                            {emp.leave.stage ? ` (${emp.leave.stage})` : ''}
+                        </td>
+                        <td>
+                        <span className={`adb-status-pill ${emp.status}`}>
+                            {statusStyle.label}
                         </span>
-                        </div>
-                    ) : <span className="adb-td-muted">---</span>}
-                    </td>
-                    <td>{fmtTime(emp.inTime)}</td>
-                    <td>{fmtTime(emp.outTime)}</td>
-                    <td>{emp.lateMinutes > 0 ? <span className="adb-late-warn">{emp.lateMinutes}m</span> : <span className="adb-td-muted">0m</span>}</td>
-                </tr>
-                ))}
+                        </td>
+                        <td>
+                        {emp.leave ? (
+                            <span className="adb-td-details">
+                            {emp.leave.type?.charAt(0).toUpperCase() + emp.leave.type?.slice(1)} {emp.leave.status === 'approved' ? 'Approved' : 'Pending'}
+                            </span>
+                        ) : <span className="adb-td-muted">—</span>}
+                        </td>
+                        <td className="adb-td-time">{fmtTime(emp.inTime)}</td>
+                        <td className="adb-td-time">{fmtTime(emp.outTime)}</td>
+                        <td className="adb-td-late">
+                            {emp.lateMinutes > 0 ? (
+                                <span className="adb-late-val">{emp.lateMinutes}m</span>
+                            ) : (
+                                <span className="adb-td-muted">0m</span>
+                            )}
+                        </td>
+                    </tr>
+                  );
+                })}
             </tbody>
             </table>
         </div>
@@ -253,23 +262,30 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
             </div>
 
             <div className="adb-leave-list-card">
-                <h3 className="adb-card-title"><FiCalendar /> ON LEAVE</h3>
+                <h3 className="adb-card-title">
+                    On Leave Today
+                    <span className="adb-on-leave-count">{onLeaveEmployees.length} employees</span>
+                </h3>
                 <div className="adb-leave-list-scroll">
-                    {onLeaveEmployees.length > 0 ? (
-                        onLeaveEmployees.map(emp => (
-                            <div key={emp.id} className="adb-leave-row">
-                                <div className="adb-lr-avatar">{emp.name?.charAt(0)}</div>
-                                <div className="adb-lr-info">
-                                    <div className="adb-lr-name">{emp.name}</div>
-                                    <div className="adb-lr-meta">{emp.department} • {emp.leave?.type || 'Leave'}</div>
-                                </div>
-                                <div className={`adb-lr-status ${emp.leave?.status}`}>{emp.leave?.status === 'approved' ? 'Approved' : 'Pending'}</div>
+                    {onLeaveEmployees.slice(0, 5).map(emp => (
+                        <div key={emp.id} className="adb-leave-row">
+                            <div className="adb-lr-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
+                            <div className="adb-lr-info">
+                                <div className="adb-lr-name">{emp.name}</div>
+                                <div className="adb-lr-meta">{emp.leave?.type?.charAt(0).toUpperCase() + emp.leave?.type?.slice(1)}</div>
                             </div>
-                        ))
-                    ) : (
+                            <div className={`adb-lr-status ${emp.leave?.status}`}>{emp.leave?.status === 'approved' ? 'Approved' : 'Pending'}</div>
+                        </div>
+                    ))}
+                    {onLeaveEmployees.length === 0 && (
                         <div className="adb-no-leave">No employees on leave for this date.</div>
                     )}
                 </div>
+                {onLeaveEmployees.length > 5 && (
+                    <a href="#" className="adb-view-all" onClick={(e) => e.preventDefault()}>
+                        View all {onLeaveEmployees.length} →
+                    </a>
+                )}
             </div>
         </div>
       </div>

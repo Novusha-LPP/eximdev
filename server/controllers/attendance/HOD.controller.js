@@ -243,7 +243,8 @@ const getActorPendingLeaveQuery = (actor) => {
 
     return {
         approval_status: { $in: PENDING_STATUSES },
-        current_approver_id: actorId
+        current_approver_id: actorId,
+        employee_id: { $ne: actorId }
     };
 };
 
@@ -1156,6 +1157,9 @@ export const approveRequest = async (req, res) => {
                 if (stage === LEAVE_STAGE.FINAL) {
                     if (!isAdminRole(actorRole) || !FINAL_APPROVER_USERNAMES.has(actorUsername)) {
                         return res.status(403).json({ message: 'Final leave approval is restricted to designated final approvers' });
+                    }
+                    if (currentApproverId && currentApproverId !== actorId) {
+                        return res.status(403).json({ message: 'Unauthorized: You are not the assigned stage-3 approver' });
                     }
 
                     if (status === 'rejected') {

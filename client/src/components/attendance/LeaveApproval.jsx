@@ -311,7 +311,13 @@ const LeaveApproval = () => {
         seen.add(k);
         return true;
       });
-      setRequests(dedupedPending);
+
+      const filteredPending = dedupedPending.filter((record) => {
+        if (!isAdmin || isAllowedUser(username)) return true;
+        return String(record.employeeId || '') !== String(user?._id || '');
+      });
+
+      setRequests(filteredPending);
       console.log('[LeaveApproval] Pending requests after dedupe:', dedupedPending.map(r => ({
         id: r.id,
         status: r.status,
@@ -737,7 +743,7 @@ const LeaveApproval = () => {
                           <td className="td-mono">
                             {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`}
                           </td>
-                          <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} &rarr; {fmt(req.toDate, 'dd MMM')}</td>
+                          <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}</td>
                           <td>
                             <span className={`ap-status-badge ${req.status}`}>
                               {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />}{' '}

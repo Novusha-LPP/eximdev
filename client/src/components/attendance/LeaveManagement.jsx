@@ -511,8 +511,7 @@ const LeaveManagement = () => {
                   <td>
                     <div className="dt-dates">
                       <span className="dt-date-range">
-                        {formatDate(app.from_date, 'dd MMM yyyy')}
-                        {app.from_date !== app.to_date && ` – ${formatDate(app.to_date, 'dd MMM yyyy')}`}
+                        {formatDate(app.from_date, 'dd MMM yyyy')} – {formatDate(app.to_date, 'dd MMM yyyy')}
                       </span>
                       {app.half_day_session && (
                         <span className="dt-date-days" style={{ textTransform: 'none' }}>
@@ -665,7 +664,7 @@ const LeaveManagement = () => {
               </div>
 
               {/* Policy preview */}
-              {selectedPolicy && (
+              {/* {selectedPolicy && (
                 <div className="policy-highlight ani-in">
                   <div className="ph-item">
                     <FiActivity size={12} className="ph-icon" />
@@ -676,7 +675,7 @@ const LeaveManagement = () => {
                     Doc req: <span className="ph-val">{selectedPolicy.policy?.document_required_after_days ? `>${selectedPolicy.policy.document_required_after_days}d` : 'No'}</span>
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* Zero-balance warning specifically for PL */}
               {selectedPolicy && 
@@ -695,106 +694,93 @@ const LeaveManagement = () => {
                 </div>
               )}
 
-              {/* Half day toggle */}
-              <div className="toggle-row">
-                <div>
-                  <div className="toggle-txt">Single Day Half Day</div>
-                  <div style={{ fontSize: '.6875rem', color: '#9ca3af', marginTop: 2 }}>
-                    {form.is_half_day ? 'Select one date only' : 'Work half on first/last day?'}
-                  </div>
-                </div>
-                <label className="sw">
-                  <input
-                    type="checkbox"
-                    checked={form.is_half_day}
-                    onChange={e => setForm({ ...form, is_half_day: e.target.checked, is_start_half_day: false, is_end_half_day: false, to_date: '', half_day_session: '' })}
-                  />
-                  <span className="sw-slider" />
-                </label>
-              </div>
-
-              {!form.is_half_day && form.from_date && form.to_date && form.from_date !== form.to_date && (
+              {form.from_date && form.to_date && (
                 <div className="ani-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: '#f8fafc', borderRadius: '8px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
+                  {form.from_date === form.to_date ? (
+                    /* Same day range simplified UI */
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          id="single-day-half"
+                          checked={form.is_start_half_day}
+                          onChange={e => setForm(v => ({ ...v, is_start_half_day: e.target.checked, is_end_half_day: e.target.checked }))}
+                        />
+                        <label htmlFor="single-day-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Apply as Half Day</label>
+                      </div>
+                      {form.is_start_half_day && (
+                        <select
+                          style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                          value={form.start_half_session}
+                          onChange={e => setForm(v => ({ ...v, start_half_session: e.target.value, end_half_session: e.target.value }))}
+                        >
+                          <option value="First Half">First Half</option>
+                          <option value="Second Half">Second Half</option>
+                        </select>
+                      )}
+                    </div>
+                  ) : (
+                    /* Multi-day range UI */
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <input 
-                                type="checkbox" 
-                                id="st-half"
-                                checked={form.is_start_half_day}
-                                onChange={e => setForm(v => ({ ...v, is_start_half_day: e.target.checked }))}
-                            />
-                            <label htmlFor="st-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Starts with Half Day</label>
+                          <input
+                            type="checkbox"
+                            id="st-half"
+                            checked={form.is_start_half_day}
+                            onChange={e => setForm(v => ({ ...v, is_start_half_day: e.target.checked }))}
+                          />
+                          <label htmlFor="st-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Starts with Half Day</label>
                         </div>
                         {form.is_start_half_day && (
-                            <select 
-                                style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                                value={form.start_half_session}
-                                onChange={e => setForm(v => ({ ...v, start_half_session: e.target.value }))}
-                            >
-                                <option value="First Half">First Half</option>
-                                <option value="Second Half">Second Half</option>
-                            </select>
+                          <select
+                            style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                            value={form.start_half_session}
+                            onChange={e => setForm(v => ({ ...v, start_half_session: e.target.value }))}
+                          >
+                            <option value="First Half">First Half</option>
+                            <option value="Second Half">Second Half</option>
+                          </select>
                         )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <input 
-                                type="checkbox" 
-                                id="en-half"
-                                checked={form.is_end_half_day}
-                                onChange={e => setForm(v => ({ ...v, is_end_half_day: e.target.checked }))}
-                            />
-                            <label htmlFor="en-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Ends with Half Day</label>
+                          <input
+                            type="checkbox"
+                            id="en-half"
+                            checked={form.is_end_half_day}
+                            onChange={e => setForm(v => ({ ...v, is_end_half_day: e.target.checked }))}
+                          />
+                          <label htmlFor="en-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Ends with Half Day</label>
                         </div>
                         {form.is_end_half_day && (
-                            <select 
-                                style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                                value={form.end_half_session}
-                                onChange={e => setForm(v => ({ ...v, end_half_session: e.target.value }))}
-                            >
-                                <option value="First Half">First Half</option>
-                                <option value="Second Half">Second Half</option>
-                            </select>
+                          <select
+                            style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                            value={form.end_half_session}
+                            onChange={e => setForm(v => ({ ...v, end_half_session: e.target.value }))}
+                          >
+                            <option value="First Half">First Half</option>
+                            <option value="Second Half">Second Half</option>
+                          </select>
                         )}
-                    </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
               {/* Dates */}
-              {form.is_half_day ? (
+              <div className="fg2">
                 <div className="fg">
-                  <label>Date</label>
-                  <input
-                    type="date"
-                    value={form.from_date}
-                    onChange={e => setForm({ ...form, from_date: e.target.value })}
-                    required
-                  />
+                  <label>From</label>
+                  <input type="date" value={form.from_date} onChange={e => setForm({ ...form, from_date: e.target.value })} required />
                 </div>
-              ) : (
-                <div className="fg2">
-                  <div className="fg">
-                    <label>From</label>
-                    <input type="date" value={form.from_date} onChange={e => setForm({ ...form, from_date: e.target.value })} required />
-                  </div>
-                  <div className="fg">
-                    <label>To</label>
-                    <input type="date" value={form.to_date} onChange={e => setForm({ ...form, to_date: e.target.value })} required />
-                  </div>
+                <div className="fg">
+                  <label>To</label>
+                  <input type="date" value={form.to_date} onChange={e => setForm({ ...form, to_date: e.target.value })} required />
                 </div>
-              )}
+              </div>
 
-              {/* Session */}
-              {form.is_half_day && (
-                <div className="fg ani-in">
-                  <label>Session</label>
-                  <select value={form.half_day_session} onChange={e => setForm({ ...form, half_day_session: e.target.value })} required>
-                    <option value="">Select session...</option>
-                    <option value="first_half">First Half (Morning)</option>
-                    <option value="second_half">Second Half (Afternoon)</option>
-                  </select>
-                </div>
-              )}
 
               {/* Reason */}
               <div className="fg">
@@ -815,7 +801,7 @@ const LeaveManagement = () => {
               </div>
 
               {/* Projected Balance Preview */}
-              {form.leave_policy_id && form.from_date && (form.to_date || form.is_half_day) && (
+              {form.leave_policy_id && form.from_date && form.to_date && (
                 <div className={`projection-card ani-in${loadingPreview ? ' loading' : ''}`} style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '15px' }}>
                   {loadingPreview ? (
                     <div className="proj-loader" style={{ textAlign: 'center', color: '#64748b', fontSize: '12px' }}>Calculating remaining balance...</div>

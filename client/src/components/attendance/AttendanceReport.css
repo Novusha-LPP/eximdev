@@ -690,6 +690,10 @@
     background: var(--blue) !important;
 }
 
+.ar-h-incomplete {
+    background: #f97316 !important;
+}
+
 .ar-h-half_day {
     background: var(--blue-mid) !important;
 }
@@ -1063,6 +1067,8 @@
 }
 
 /* Status pills */
+.ar-pill-holiday { background: #fdf4ff; color: #a21caf; border: 1px solid #fae8ff; }
+.ar-pill-missed-punch { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; }
 .ar-status-pill {
     display: inline-flex;
     padding: 3px 10px;

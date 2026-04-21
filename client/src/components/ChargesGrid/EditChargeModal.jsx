@@ -29,7 +29,8 @@ const EditChargeModal = ({
   jobInvoiceDate = '',
   jobInvoiceValue = '',
   jobCthNo = '',
-  workMode = 'Payment'
+  workMode = 'Payment',
+  readOnly = false
 }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
@@ -211,7 +212,7 @@ const EditChargeModal = ({
         updated[index][section].partyName = importerName;
       }
 
-      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate', 'partyName', 'basicAmount'];
+      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate', 'partyName', 'basicAmount', 'category'];
       if (fieldsToTriggerRecalc.includes(field)) {
         const sectionRef = updated[index][section];
         const qty = parseFloat(sectionRef.qty) || 0;
@@ -229,7 +230,10 @@ const EditChargeModal = ({
         const gstRate = parseFloat(sectionRef.gstRate) || 18;
         
         let derivedBasic, derivedGst;
-        if (field === 'basicAmount') {
+        if (updated[index].category === 'Margin') {
+          // For Margin charges, rate is treated as basic amount directly (no GST)
+          derivedBasic = amount;
+        } else if (field === 'basicAmount') {
           // Manual entry: use the value directly
           derivedBasic = parseFloat(value) || 0;
         } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
@@ -241,7 +245,7 @@ const EditChargeModal = ({
           derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
         }
         
-        derivedGst = amount - derivedBasic;
+        derivedGst = updated[index].category === 'Margin' ? 0 : amount - derivedBasic;
         sectionRef.gstAmount = derivedGst;
         sectionRef.basicAmount = derivedBasic;
 
@@ -377,8 +381,9 @@ const EditChargeModal = ({
     revenue.amountINR = amount * exRate;
 
     const gstRate = parseFloat(revenue.gstRate) || 18;
-    const derivedBasic = amount / (1 + (gstRate / 100));
-    const derivedGst = amount - derivedBasic;
+    const isMargin = updated[index].category === 'Margin';
+    const derivedBasic = isMargin ? amount : (amount / (1 + (gstRate / 100)));
+    const derivedGst = isMargin ? 0 : (amount - derivedBasic);
     
     revenue.gstAmount = derivedGst;
     revenue.basicAmount = derivedBasic;
@@ -412,13 +417,14 @@ const EditChargeModal = ({
     const rate = parseFloat(revenue.rate) || 0;
     const exRate = parseFloat(revenue.exchangeRate) || 1;
     const amount = qty * rate;
+    const isMargin = updated[index].category === 'Margin';
     
     revenue.amount = amount;
     revenue.amountINR = amount * exRate;
 
     const gstRate = parseFloat(revenue.gstRate) || 18;
-    const derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
-    const derivedGst = amount - derivedBasic;
+    const derivedBasic = isMargin ? amount : Number((amount / (1 + (gstRate / 100))).toFixed(2));
+    const derivedGst = isMargin ? 0 : (amount - derivedBasic);
     
     revenue.gstAmount = derivedGst;
     revenue.basicAmount = derivedBasic;
@@ -461,21 +467,25 @@ const EditChargeModal = ({
                   </div>
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Category</span>
-                    <input type="text" className="form-input" value={row.category || ''} onChange={e => handleFieldChange(i, 'category', e.target.value)} />
+                    <select disabled={readOnly} value={row.category || ''} onChange={e => handleFieldChange(i, 'category', e.target.value)}>
+                      <option value="">-- Category --</option>
+                      <option>Reimbursement</option>
+                      <option>Margin</option>
+                    </select>
                   </div>
 
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Invoice Number</span>
-                    <input type="text" className="form-input" value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} />
+                    <input type="text" disabled={readOnly} value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} />
                   </div>
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label">Invoice Date</span>
-                    <input type="date" className="form-input" value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
+                    <input type="date" disabled={readOnly} value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
                   </div>
 
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">SAC / HSN</span>
-                    <input type="text" className="form-input" placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} />
+                    <span className="form-label">SAC/HSN code</span>
+                    <input type="text" disabled={readOnly} placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} />
                   </div>
                   <div className="form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="form-label" style={{ marginBottom: 0 }}>Is Header?</span>
@@ -486,7 +496,7 @@ const EditChargeModal = ({
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="form-label" style={{ color: '#1565c0', fontWeight: 'bold' }}>PB No</span>
                     <div className="ep-inline">
-                        <input type="text" readOnly className="form-input" style={{ background: '#e3f2fd', color: '#1565c0', width: '60%' }} value={row.purchase_book_no || ''} />
+                        <input type="text" readOnly disabled={readOnly} style={{ background: '#e3f2fd', color: '#1565c0', width: '60%' }} value={row.purchase_book_no || ''} />
                         {row.purchase_book_no && (
                             <IconButton 
                                 size="small" 
@@ -517,7 +527,7 @@ const EditChargeModal = ({
                     <span className="form-label" style={{ color: '#d32f2f', fontWeight: 'bold' }}>PR No</span>
                     <div className="ep-inline" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                         <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
-                            <input type="text" readOnly className="form-input" style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
+                            <input type="text" readOnly disabled={readOnly} style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
                             {row.payment_request_no && (
                                 <IconButton 
                                     size="small" 
@@ -580,7 +590,7 @@ const EditChargeModal = ({
 
                   <div className="form-row" style={{ gridColumn: 'span 4' }}>
                     <span className="form-label">Remark</span>
-                    <input type="text" className="form-input" value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)} />
+                    <input type="text" disabled={readOnly} value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -1214,9 +1224,9 @@ const EditChargeModal = ({
           ))}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={() => handleSave(false)}>Update</button>
-          <button type="button" className="btn" onClick={() => handleSave(true)}>Update & Close</button>
-          <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
+          {!readOnly && <button type="button" className="btn" onClick={() => handleSave(false)}>Update</button>}
+          {!readOnly && <button type="button" className="btn" onClick={() => handleSave(true)}>Update & Close</button>}
+          <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>{readOnly ? 'Close' : 'Cancel'}</button>
         </div>
       </div>
 

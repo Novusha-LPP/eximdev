@@ -24,10 +24,24 @@ const ChargesGrid = ({
   invoiceDate = '',
   invoiceValue = '',
   cthNo = '',
+  jobStatus = '',
+  billNo = '',
   workMode = 'Payment'
 }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
+  // Get user role for locking logic
+  const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+  const isAdmin = user?.role === "Admin";
+  const isJobCompleted = jobStatus?.toUpperCase() === 'COMPLETED';
+  
+  // Lock if bill generated (any part of comma-separated bill_no)
+  const billNos = (billNo || "").split(",");
+  const hasBillGenerated = billNos.some(no => no && no.trim().length > 0);
+  
+  const isLocked = (isJobCompleted || hasBillGenerated) && !isAdmin;
+  const readOnlyFinal = readOnly || isLocked;
+
   const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedIds, setSelectedIds] = useState(new Set());
   
@@ -142,7 +156,7 @@ const ChargesGrid = ({
     await updateCharge(charge._id, updateData);
   };
 
-  const isDeleteDisabled = selectedIds.size === 0 || readOnly;
+  const isDeleteDisabled = selectedIds.size === 0 || readOnlyFinal;
 
   return (
     <div className="charges-comp-wrapper">
@@ -154,7 +168,7 @@ const ChargesGrid = ({
          onAddCharge={() => setIsAddOpen(true)}
          onAddHeading={handleAddHeading}
          onDeleteSelected={handleDeleteSelected}
-         readOnly={readOnly}
+         readOnly={readOnlyFinal}
          isDeleteDisabled={isDeleteDisabled}
       />
       
@@ -169,7 +183,7 @@ const ChargesGrid = ({
           onOpenFileModal={(charge) => setFileModalCharge({ charge, tab: activeTab })}
           onRemoveAttachment={handleRemoveAttachment}
           onEditCharge={(charge) => setEditingCharges([charge])}
-          readOnly={readOnly}
+          readOnly={readOnlyFinal}
         />
       </div>
 
@@ -196,6 +210,7 @@ const ChargesGrid = ({
         jobInvoiceValue={invoiceValue}
         jobCthNo={cthNo}
         workMode={workMode}
+        readOnly={readOnlyFinal}
       />
 
       {fileModalCharge && (

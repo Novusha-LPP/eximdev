@@ -8,8 +8,7 @@ const billSchema = new mongoose.Schema({
     },
     billNo: {
         type: String,
-        required: true,
-        unique: true
+        required: true
     },
     type: {
         type: String,
@@ -39,8 +38,15 @@ const billSchema = new mongoose.Schema({
     generatedAt: Date
 }, { timestamps: true });
 
-// Index for quick retrieval by job and type
-billSchema.index({ jobId: 1, type: 1 });
+// Index for quick retrieval and uniqueness by job and type
+billSchema.index({ jobId: 1, type: 1 }, { unique: true });
+
+// Partial unique index for billNo: Ensure real invoice numbers are globally unique, 
+// but allow multiple draft bills with empty strings.
+billSchema.index({ billNo: 1 }, { 
+    unique: true, 
+    partialFilterExpression: { billNo: { $gt: "" } } 
+});
 
 const BillModel = mongoose.model("Bill", billSchema);
 export default BillModel;

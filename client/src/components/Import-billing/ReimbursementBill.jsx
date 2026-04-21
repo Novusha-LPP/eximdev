@@ -11,18 +11,49 @@ import { UserContext } from "../../contexts/UserContext";
 const ReimbursementBill = () => {
     const { branch_code, trade_type, mode, job_no, year } = useParams();
     const [jobData, setJobData] = useState(null);
+    const [isReadOnly, setIsReadOnly] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
     const { user } = useContext(UserContext);
     const [generationLog, setGenerationLog] = useState(null);
+    const [suggestedNo, setSuggestedNo] = useState("");
     const printableRef = React.useRef();
+
+    const handleInvalidate = async () => {
+        const remark = window.prompt("Enter reason for invalidation (Remark):");
+        if (remark === null) return; 
+
+        if (window.confirm(`Are you sure you want to invalidate the GIR bill? The job status will move back to Pending.`)) {
+            try {
+                setLoading(true);
+                const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/invalidate`, {
+                    jobId: jobData._id,
+                    remark,
+                    type: 'GIR'
+                });
+                if (res.data.success) {
+                    alert("Bill invalidated and system reset to Pending.");
+                    navigate(-1);
+                }
+            } catch (err) {
+                console.error("Error invalidating:", err);
+                alert("Failed to invalidate bill.");
+                setLoading(false);
+            }
+        }
+    };
 
     const [invoiceRows, setInvoiceRows] = useState([]);
     const [chargeHeadsMaster, setChargeHeadsMaster] = useState([]);
     const [isMasterModalOpen, setIsMasterModalOpen] = useState(false);
     const [masterSearchTerm, setMasterSearchTerm] = useState("");
     const [selectedMasterHeads, setSelectedMasterHeads] = useState(new Set());
+
+    const isAdmin = user?.role === "Admin";
+    const isJobCompleted = jobData?.status?.toUpperCase() === "COMPLETED";
+    // Managed via state for manual control
 
     const [editableFields, setEditableFields] = useState({
         beHeading: "",
@@ -43,7 +74,9 @@ const ReimbursementBill = () => {
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
-        return new Date(dateString).toLocaleDateString('en-GB', {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "-";
+        return date.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
             year: 'numeric'
@@ -59,6 +92,20 @@ const ReimbursementBill = () => {
             const job = response.data;
             setJobData(job);
 
+            // Fetch suggested next available number
+            try {
+                const suggestRes = await axios.get(`${process.env.REACT_APP_API_STRING}/billing/next-suggested/GIR/${job._id}`);
+                if (suggestRes.data.success) {
+                    setSuggestedNo(suggestRes.data.suggestedNo);
+                }
+            } catch (e) {
+                console.error("Error fetching suggestion", e);
+            }
+
+            const isCompleted = job.status?.toUpperCase() === "COMPLETED";
+            const isAdmin = user?.role === "Admin";
+            setIsReadOnly(isCompleted && !isAdmin);
+
             try {
                 const chargeHeadsRes = await axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`);
                 if (chargeHeadsRes.data.success) {
@@ -69,33 +116,51 @@ const ReimbursementBill = () => {
             }
 
             try {
-                // Pull charges explicitly tagged as "Reimbursement"
-                const reimbursementCharges = (job.charges || []).filter(ch =>
-                    ch.category === "Reimbursement"
-                );
+                // Pull charges except those tagged as "Margin"
+                const reimbursementCharges = (job.charges || []).filter(ch => {
+                    const amtVal = parseFloat(ch.revenue?.amountINR || ch.revenue?.basicAmount || 0);
+                    // Include any charge with a non-zero value (fractional included)
+                    return ch.category !== "Margin" && Math.abs(amtVal) > 0.001;
+                });
 
                 if (reimbursementCharges.length > 0) {
-                    const mappedRows = reimbursementCharges.map(ch => {
-                        const isGst = ch.revenue?.isGst;
-                        const amount = ch.revenue?.amountINR || 0;
-                        const gstRate = ch.revenue?.gstRate || 0;
-
-                        // Format receipt details: Number Date Amount
-                        const receiptDetails = `${ch.invoice_number || ""} ${ch.invoice_date || ""} ${amount > 0 ? amount.toFixed(2) : ""}`.trim();
-
-                        return {
-                            id: ch._id || Math.random().toString(),
-                            description: ch.charge_name || ch.chargeHead || ch.charge_description || "Reimbursement",
-                            sac: ch.sacHsn || "996713",
-                            receipt: ch.invoice_number || "",
-                            taxType: "P",
-                            nonGst: Math.round(parseFloat(amount) || 0),
-                            taxable: 0,
-                            cgstPercent: 0,
-                            sgstPercent: 0
-                        };
+                    const clubbedRows = [];
+                    reimbursementCharges.forEach(ch => {
+                        const desc = (ch.charge_name || ch.chargeHead || ch.charge_description || "Reimbursement").trim().toUpperCase();
+                        const amount = Math.round(parseFloat(ch.revenue?.amountINR || ch.revenue?.basicAmount || 0));
+                        const invNoRaw = (ch.invoice_number || "").trim();
+                        const invNo = invNoRaw === "-" ? "" : invNoRaw;
+                        const invDate = invNo ? formatDate(ch.invoice_date) : "";
+                        const invAmtVal = parseFloat(ch.revenue?.amountINR || ch.revenue?.basicAmount || 0);
+                        const invAmtStr = invNo ? formatCurrency(invAmtVal) : "";
+                        
+                        const existingIdx = clubbedRows.findIndex(r => r.description.toUpperCase() === desc);
+                        
+                        if (existingIdx !== -1) {
+                            // Club into existing row
+                            clubbedRows[existingIdx].nonGst += amount;
+                            // Always append details to keep columns syncronized and show all contributions
+                            clubbedRows[existingIdx].receipt_no += `\n${invNo}`;
+                            clubbedRows[existingIdx].receipt_date += `\n${invDate}`;
+                            clubbedRows[existingIdx].receipt_amt += `\n${invAmtStr}`;
+                        } else {
+                            // Add new row
+                            clubbedRows.push({
+                                id: ch._id || Math.random().toString(),
+                                description: desc,
+                                sac: "",
+                                receipt_no: invNo,
+                                receipt_date: invDate,
+                                receipt_amt: invAmtStr,
+                                taxType: "P",
+                                nonGst: amount,
+                                taxable: 0,
+                                cgstPercent: 0,
+                                sgstPercent: 0
+                            });
+                        }
                     });
-                    setInvoiceRows(mappedRows);
+                    setInvoiceRows(clubbedRows);
                 }
             } catch (e) {
                 console.error("Error fetching reimbursement data", e);
@@ -110,8 +175,8 @@ const ReimbursementBill = () => {
                 customerRef: job.po_no || "",
                 cifValue: firstInv.total_inv_value || "",
                 termsOfInvoice: firstInv.toi || "CIF",
-                invoiceNo: job.reimbursement_invoice_no || "",
-                invoiceDate: formatDate(new Date()),
+                invoiceNo: (job.bill_no || "").split(",")[1] || "",
+                invoiceDate: (job.bill_date || "").split(",")[1] ? formatDate((job.bill_date || "").split(",")[1]) : formatDate(new Date()),
                 dueDate: formatDate(new Date(new Date().setDate(new Date().getDate() + 15))),
                 placeOfSupply: `[${job.importer_address?.state || "24"}] ${job.importer_address?.state || "Gujarat"}`,
                 importerAddress: job.importer_address?.details || "",
@@ -175,6 +240,9 @@ const ReimbursementBill = () => {
             }
 
             setEditableFields(initialFields);
+
+            // Set read-only if bill generated and user is not admin
+            setIsReadOnly(isCompleted && !isAdmin);
             setLoading(false);
         } catch (err) {
             setError("Failed to load job details. Please try again.");
@@ -193,49 +261,56 @@ const ReimbursementBill = () => {
         }
     };
 
-    useEffect(() => {
-        if (!editableFields.invoiceNo || !jobData?._id) return;
+    const handleSave = async (manual = false) => {
+        if (!jobData?._id || isReadOnly) return;
 
-        const timer = setTimeout(async () => {
-            try {
-                // Calculate totals for saving
-                let totalNonGst = 0;
-                let totalTaxable = 0;
-                let totalCgst = 0;
-                let totalSgst = 0;
+        try {
+            setSaveStatus('saving');
+            // Calculate totals for saving
+            let totalNonGst = 0;
+            let totalTaxable = 0;
+            let totalCgst = 0;
+            let totalSgst = 0;
+            invoiceRows.forEach(r => {
+                const nonGstAmount = Math.round(parseFloat(r.nonGst) || 0);
+                const taxableAmount = Math.round(parseFloat(r.taxable) || 0);
+                const cgstP = parseFloat(r.cgstPercent) || 0;
+                const sgstP = parseFloat(r.sgstPercent) || 0;
+                
+                totalNonGst += nonGstAmount;
+                totalTaxable += taxableAmount;
+                totalCgst += (taxableAmount * cgstP / 100);
+                totalSgst += (taxableAmount * sgstP / 100);
+            });
+            const rawFinalTotal = totalNonGst + totalTaxable + totalCgst + totalSgst;
+            const roundedFinalTotal = Math.round(rawFinalTotal);
+            const roundOff = roundedFinalTotal - rawFinalTotal;
 
-                invoiceRows.forEach(r => {
-                    totalNonGst += Math.round(parseFloat(r.nonGst) || 0);
-                    const amt = Math.round(parseFloat(r.taxable) || 0);
-                    const cgstP = parseFloat(r.cgstPercent) || 0;
-                    const sgstP = parseFloat(r.sgstPercent) || 0;
-                    totalTaxable += amt;
-                    totalCgst += (amt * cgstP / 100);
-                    totalSgst += (amt * sgstP / 100);
-                });
-                const rawFinalTotal = totalNonGst + totalTaxable + totalCgst + totalSgst;
-                const roundedFinalTotal = Math.round(rawFinalTotal);
-                const roundOff = roundedFinalTotal - rawFinalTotal;
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
+                jobId: jobData._id,
+                type: 'GIR',
+                billNo: editableFields.invoiceNo,
+                rows: invoiceRows,
+                editableFields,
+                totals: {
+                    totalNonGst,
+                    totalTaxable,
+                    totalCgst,
+                    totalSgst,
+                    roundOff,
+                    finalTotal: roundedFinalTotal
+                },
+                firstName: user?.first_name,
+                lastName: user?.last_name
+            });
 
-                const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
-                    jobId: jobData._id,
-                    type: 'GIR',
-                    billNo: editableFields.invoiceNo,
-                    rows: invoiceRows,
-                    editableFields,
-                    totals: {
-                        totalNonGst,
-                        totalTaxable,
-                        totalCgst,
-                        totalSgst,
-                        roundOff,
-                        finalTotal: roundedFinalTotal
-                    },
-                    firstName: user?.first_name,
-                    lastName: user?.last_name
-                });
+            if (res.data.success) {
+                // Sync backend rows (IDs) back to frontend state
+                if (res.data.data?.rows) {
+                    setInvoiceRows(res.data.data.rows);
+                }
 
-                // If log was missing, update it from the save response
+                // Update audit log if missing
                 if (!generationLog && res.data.data?.generatedAt) {
                     setGenerationLog({
                         firstName: res.data.data.generatedByFirstName,
@@ -243,12 +318,21 @@ const ReimbursementBill = () => {
                         at: res.data.data.generatedAt
                     });
                 }
-                console.log("Reimbursement Bill auto-saved");
-            } catch (err) {
-                console.error("Autosave error:", err);
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            } else {
+                setSaveStatus('error');
             }
-        }, 1000); // 1 second debounce
+        } catch (err) {
+            console.error("Save error:", err);
+            setSaveStatus('error');
+            if (manual) alert("Error saving bill: " + err.message);
+        }
+    };
 
+    useEffect(() => {
+        if (!jobData?._id) return;
+        const timer = setTimeout(() => handleSave(false), 1500);
         return () => clearTimeout(timer);
     }, [invoiceRows, editableFields, jobData?._id]);
 
@@ -263,6 +347,8 @@ const ReimbursementBill = () => {
         const newRows = [...invoiceRows];
         if (field === 'taxable' || field === 'nonGst') {
             newRows[index][field] = value === "" ? "" : Math.round(parseFloat(value) || 0);
+        } else if (field === 'receipt_no' || field === 'receipt_date' || field === 'receipt_amt') {
+            newRows[index][field] = value;
         } else {
             newRows[index][field] = value;
         }
@@ -309,12 +395,15 @@ const ReimbursementBill = () => {
     };
 
     const addChargeRow = (chargeHeadName = "") => {
+        if (generationLog) return;
         setInvoiceRows([...invoiceRows, {
             id: Math.random().toString(),
             description: chargeHeadName,
-            sac: "996713", // Default SAC
-            receipt: "",
-            taxType: "P", // Default to Pure Agent for reimbursements
+            sac: "",
+            receipt_no: "",
+            receipt_date: "",
+            receipt_amt: "",
+            taxType: "P",
             nonGst: 0,
             taxable: 0,
             cgstPercent: 0,
@@ -323,6 +412,7 @@ const ReimbursementBill = () => {
     };
 
     const addSelectedFromMaster = () => {
+        if (generationLog) return;
         const newRows = [...invoiceRows];
         const selected = chargeHeadsMaster.filter(ch => selectedMasterHeads.has(ch._id));
 
@@ -330,9 +420,11 @@ const ReimbursementBill = () => {
             newRows.push({
                 id: Math.random().toString(),
                 description: ch.name || "",
-                sac: "996713", // Default SAC
-                receipt: "",
-                taxType: "P", // Default to Pure Agent
+                sac: "",
+                receipt_no: "",
+                receipt_date: "",
+                receipt_amt: "",
+                taxType: "P",
                 nonGst: 0,
                 taxable: 0,
                 cgstPercent: 0,
@@ -455,11 +547,14 @@ const ReimbursementBill = () => {
         <div className="abi-main-wrapper" style={{ minHeight: '100vh', background: '#e0e0e0', paddingBottom: '40px' }}>
             <div className="no-print abi-action-bar" style={{ padding: '10px 20px', display: 'flex', gap: '10px', flexWrap: 'wrap', background: '#333', color: '#fff', position: 'sticky', top: 0, zIndex: 1000, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
                 <button onClick={() => navigate(-1)} style={{ padding: '6px 12px', cursor: 'pointer', background: '#eee', border: 'none', borderRadius: '4px' }}>Back</button>
+                <button onClick={() => addChargeRow()} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#007bff', color: '#fff', border: 'none', borderRadius: '4px' }}>+ Add Blank Row</button>
+                <button className="bill-master-btn" onClick={() => setIsMasterModalOpen(true)} disabled={isReadOnly} style={{ cursor: isReadOnly ? 'not-allowed' : 'pointer', opacity: isReadOnly ? 0.6 : 1 }}>+ Add Charge from Master</button>
                 <button className="bill-master-btn" onClick={handlePrint} style={{ backgroundColor: '#1976d2', padding: '6px 12px', cursor: 'pointer', border: 'none', borderRadius: '4px', color: '#fff' }}>Print Bill</button>
-                <button onClick={() => addChargeRow()} style={{ padding: '6px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px' }}>+ Add Row</button>
-                <button className="bill-master-btn" onClick={() => setIsMasterModalOpen(true)} style={{ padding: '6px 12px', cursor: 'pointer', background: '#17a2b8', color: '#fff', border: 'none', borderRadius: '4px' }}>+ Add Charge from Master</button>
                 {!editableFields.invoiceNo && (
-                    <button className="bill-generate-btn" onClick={() => handleGenerateInvoice('GIR')} style={{ padding: '6px 12px', cursor: 'pointer', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>⚡ Generate Bill No</button>
+                    <button className="bill-generate-btn" onClick={() => handleGenerateInvoice('GIR')} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>⚡ Generate Bill No</button>
+                )}
+                {isAdmin && editableFields.invoiceNo && (
+                    <button onClick={handleInvalidate} style={{ padding: '6px 12px', cursor: 'pointer', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Invalidate Bill</button>
                 )}
                 <span style={{ fontSize: '11px', alignSelf: 'center', color: '#ccc', marginLeft: 'auto' }}>
                     <strong>Editor Mode:</strong> 25% Zoom applied. Charges auto-populated correctly.
@@ -500,19 +595,19 @@ const ReimbursementBill = () => {
                             <div className="abi-val">
                                 <strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>{jobData.importer || ""}</strong>
                                 <div style={{ marginTop: '2px', lineHeight: '1.2' }}>
-                                    <textarea className="abi-input" style={{ height: '35px', background: '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
+                                    <textarea readOnly={isReadOnly} className="abi-input" style={{ height: '35px', background: '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
                                     <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
                                         <div style={{ minWidth: '55px', fontWeight: 'bold' }}>PAN No</div>
                                         <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
                                         <div style={{ flex: 1 }}>
-                                            <input className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
+                                            <input readOnly={isReadOnly} className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', marginTop: '2px', alignItems: 'center' }}>
                                         <div style={{ minWidth: '55px', fontWeight: 'bold' }}>GSTIN</div>
                                         <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
                                         <div style={{ flex: 1 }}>
-                                            <input className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
+                                            <input readOnly={isReadOnly} className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
@@ -547,19 +642,26 @@ const ReimbursementBill = () => {
                         <div className="abi-grid-row abi-row-span-2" style={{ padding: 0, display: 'grid' }}>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px', fontSize: '11px' }}>Bill No.</div><div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input highlight-field" style={{ fontWeight: '900', fontSize: '13.5px', color: '#000' }} value={editableFields.invoiceNo} onChange={e => handleFieldChange('invoiceNo', e.target.value)} /></div>
+                                <div className="abi-val">
+                                    <input className="abi-input highlight-field" style={{ fontWeight: '900', fontSize: '13.5px', color: '#000' }} value={editableFields.invoiceNo} onChange={e => handleFieldChange('invoiceNo', e.target.value)} />
+                                    {suggestedNo && !editableFields.invoiceNo && (
+                                        <div className="no-print" style={{ fontSize: '9px', color: '#dc3545', cursor: 'pointer', marginTop: '2px', fontWeight: 'bold' }} onClick={() => handleFieldChange('invoiceNo', suggestedNo)}>
+                                            Suggested: {suggestedNo} (Click to use)
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Bill Date</div><div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input" value={editableFields.invoiceDate} onChange={e => handleFieldChange('invoiceDate', e.target.value)} /></div>
+                                <div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.invoiceDate} onChange={e => handleFieldChange('invoiceDate', e.target.value)} /></div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Due Date</div><div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input" value={editableFields.dueDate} onChange={e => handleFieldChange('dueDate', e.target.value)} /></div>
+                                <div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.dueDate} onChange={e => handleFieldChange('dueDate', e.target.value)} /></div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Place of Supply</div><div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input" value={editableFields.placeOfSupply} onChange={e => handleFieldChange('placeOfSupply', e.target.value)} /></div>
+                                <div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.placeOfSupply} onChange={e => handleFieldChange('placeOfSupply', e.target.value)} /></div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Job Number</div><div className="abi-sep">:</div>
@@ -570,14 +672,14 @@ const ReimbursementBill = () => {
                                 <div className="abi-val">{mode === 'SEA' ? 'Sea' : 'Air'} {trade_type === 'IMP' ? 'Import' : 'Export'}</div>
                             </div>
                         </div>
-                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Customer Ref.</div><div className="abi-sep">:</div><div className="abi-val"><input className="abi-input" value={editableFields.customerRef} onChange={e => handleFieldChange('customerRef', e.target.value)} /></div></div>
+                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Customer Ref.</div><div className="abi-sep">:</div><div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.customerRef} onChange={e => handleFieldChange('customerRef', e.target.value)} /></div></div>
                         <div className="abi-grid-row abi-row-span-2">
                             <div className="abi-lbl" style={{ minWidth: '95px' }}>Invoice Number</div><div className="abi-sep">:</div>
                             <div style={{ marginRight: '20px' }}>{jobData.invoice_details?.[0]?.invoice_number || ""}</div>
                             <div className="abi-lbl" style={{ minWidth: 'auto', marginRight: '5px' }}>Date</div><div className="abi-sep">:</div>
                             <div className="abi-val">{formatDate(jobData.invoice_details?.[0]?.invoice_date)}</div>
                         </div>
-                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Terms of Invoice</div><div className="abi-sep">:</div><div className="abi-val"><input className="abi-input" value={editableFields.termsOfInvoice} onChange={e => handleFieldChange('termsOfInvoice', e.target.value)} /></div></div>
+                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Terms of Invoice</div><div className="abi-sep">:</div><div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.termsOfInvoice} onChange={e => handleFieldChange('termsOfInvoice', e.target.value)} /></div></div>
                         <div className="abi-grid-row abi-row-span-2">
                             <div className="abi-lbl" style={{ minWidth: '95px' }}>Invoice Value</div><div className="abi-sep">:</div>
                             <div style={{ marginRight: '20px', whiteSpace: 'nowrap' }}>{jobData.invoice_details?.[0]?.total_inv_value || "0"} {jobData.invoice_details?.[0]?.inv_currency || ""}</div>
@@ -626,17 +728,19 @@ const ReimbursementBill = () => {
                     <thead>
                         <tr>
                             <th rowSpan="2" style={{ width: '3%' }}>Sr No</th>
-                            <th rowSpan="2" style={{ width: '28%', textAlign: 'center' }}>Description</th>
-                            <th rowSpan="2" style={{ width: '7%' }}>SAC/ HSN</th>
-                            <th rowSpan="2" style={{ width: '12%' }}>Receipt Details</th>
+                            <th rowSpan="2" style={{ width: '22%', textAlign: 'center' }}>Description</th>
+                            <th rowSpan="2" style={{ width: '7%' }}>SAC/HSN code</th>
+                            <th colSpan="3" style={{ width: '25%' }}>Receipt Details</th>
                             <th rowSpan="2" style={{ width: '4%' }}>Tax Type</th>
-                            <th rowSpan="2" style={{ width: '10%' }}>Non GST Exempt Value (INR)</th>
-                            <th rowSpan="2" style={{ width: '10%' }}>Taxable Value (INR)</th>
+                            <th rowSpan="2" style={{ width: '13%' }}>Non GST Exempt Value (INR)</th>
                             <th colSpan="2" style={{ width: '8%', padding: '3px', borderBottom: '1px solid #000' }}>CGST</th>
                             <th colSpan="2" style={{ width: '8%', padding: '3px', borderBottom: '1px solid #000' }}>SGST</th>
                             <th rowSpan="2" style={{ width: '10%' }}>Total (INR)</th>
                         </tr>
                         <tr>
+                            <th style={{ width: '10%', borderRight: '1px solid #000', padding: '3px' }}>Inv No</th>
+                            <th style={{ width: '8%', borderRight: '1px solid #000', padding: '3px' }}>Date</th>
+                            <th style={{ width: '7%', borderRight: '1px solid #000', padding: '3px' }}>Amount</th>
                             <th style={{ width: '3.5%', borderRight: '1px solid #000', padding: '3px' }}>%</th>
                             <th style={{ width: '4.5%', padding: '3px' }}>Tax</th>
                             <th style={{ width: '3.5%', borderRight: '1px solid #000', padding: '3px' }}>%</th>
@@ -663,7 +767,7 @@ const ReimbursementBill = () => {
                                                 </svg>
                                             </div>
                                             {idx + 1}
-                                            <button className="no-print" onClick={() => deleteRow(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: 0, fontSize: '12px', marginLeft: '4px' }}>x</button>
+                                            <button className="no-print" onClick={() => !isReadOnly && deleteRow(idx)} disabled={isReadOnly} style={{ background: 'none', border: 'none', color: isReadOnly ? '#ccc' : 'red', cursor: isReadOnly ? 'not-allowed' : 'pointer', padding: 0, fontSize: '12px', marginLeft: '4px' }}>x</button>
                                         </div>
                                     </td>
                                     <td style={{ verticalAlign: 'middle', textAlign: 'left' }}>
@@ -685,19 +789,77 @@ const ReimbursementBill = () => {
                                             }}
                                         />
                                     </td>
-                                    <td style={{ textAlign: 'center' }}><input className="abi-input" style={{ textAlign: 'center' }} value={r.sac} onChange={e => handleRowChange(idx, 'sac', e.target.value)} /></td>
-                                    <td><input className="abi-input" value={r.receipt} onChange={e => handleRowChange(idx, 'receipt', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'center' }}><input className="abi-input" style={{ textAlign: 'center' }} value={r.taxType} onChange={e => handleRowChange(idx, 'taxType', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'right' }}><input className="abi-input" style={{ textAlign: 'right' }} value={r.nonGst} onChange={e => handleRowChange(idx, 'nonGst', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'right' }}><input type="number" className="abi-input" style={{ textAlign: 'right' }} value={r.taxable} onChange={e => handleRowChange(idx, 'taxable', e.target.value)} /></td>
+                                    <td style={{ textAlign: 'center' }}><input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'center' }} value={r.sac} onChange={e => handleRowChange(idx, 'sac', e.target.value)} /></td>
+                                    
+                                    {/* Receipt Details Subcolumns */}
+                                    <td style={{ verticalAlign: 'middle' }}>
+                                        <textarea
+                                            readOnly={isReadOnly} className="abi-input"
+                                            rows={1}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'left' }}
+                                            value={r.receipt_no}
+                                            onChange={e => handleRowChange(idx, 'receipt_no', e.target.value)}
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if (el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
+                                    <td style={{ verticalAlign: 'middle' }}>
+                                        <textarea
+                                            readOnly={isReadOnly} className="abi-input"
+                                            rows={1}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'center' }}
+                                            value={r.receipt_date}
+                                            onChange={e => handleRowChange(idx, 'receipt_date', e.target.value)}
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if (el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
+                                    <td style={{ verticalAlign: 'middle' }}>
+                                        <textarea
+                                            readOnly={isReadOnly} className="abi-input"
+                                            rows={1}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'right' }}
+                                            value={r.receipt_amt}
+                                            onChange={e => handleRowChange(idx, 'receipt_amt', e.target.value)}
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if (el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
+
+                                    <td style={{ textAlign: 'center' }}><input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'center' }} value={r.taxType} onChange={e => handleRowChange(idx, 'taxType', e.target.value)} /></td>
+                                    <td style={{ textAlign: 'right' }}><input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right' }} value={r.nonGst} onChange={e => handleRowChange(idx, 'nonGst', e.target.value)} /></td>
                                     <td style={{ padding: '4px', borderRight: '1px solid #000' }}>
-                                        <input className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.cgstPercent} onChange={e => handleRowChange(idx, 'cgstPercent', e.target.value)} />
+                                        <input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.cgstPercent} onChange={e => handleRowChange(idx, 'cgstPercent', e.target.value)} />
                                     </td>
                                     <td style={{ padding: '4px', textAlign: 'right' }}>
                                         {cTax ? formatCurrency(cTax) : ''}
                                     </td>
                                     <td style={{ padding: '4px', borderRight: '1px solid #000' }}>
-                                        <input className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.sgstPercent} onChange={e => handleRowChange(idx, 'sgstPercent', e.target.value)} />
+                                        <input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.sgstPercent} onChange={e => handleRowChange(idx, 'sgstPercent', e.target.value)} />
                                     </td>
                                     <td style={{ padding: '4px', textAlign: 'right' }}>
                                         {sTax ? formatCurrency(sTax) : ''}
@@ -714,16 +876,16 @@ const ReimbursementBill = () => {
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
-                            <td style={{ borderBottom: 'none', borderRight: '1px solid #000' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
-                            <td style={{ borderBottom: 'none', borderRight: '1px solid #000' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                         </tr>
                         <tr className="abi-subtotal-row">
-                            <td colSpan="5" style={{ textAlign: 'right', padding: '4px 8px' }}>Sub Total</td>
+                            <td colSpan="7" style={{ textAlign: 'right', padding: '4px 8px' }}>Sub Total</td>
                             <td style={{ textAlign: 'right' }}>{formatCurrency(totalNonGst)}</td>
-                            <td style={{ textAlign: 'right' }}>{formatCurrency(totalTaxable)}</td>
                             <td style={{ borderRight: '1px solid #000' }}></td>
                             <td style={{ padding: '4px', textAlign: 'right' }}>{formatCurrency(totalCgst)}</td>
                             <td style={{ borderRight: '1px solid #000' }}></td>
@@ -823,7 +985,7 @@ const ReimbursementBill = () => {
                             <div className="abi-charge-list">
                                 {chargeHeadsMaster
                                     .filter(ch => 
-                                        ch.category === "Reimbursement" &&
+                                        ch.category !== "Margin" &&
                                         ch.name.toLowerCase().includes(masterSearchTerm.toLowerCase())
                                     )
                                     .map(ch => (
@@ -841,6 +1003,84 @@ const ReimbursementBill = () => {
                     </div>
                 </div>
             )}
+
+            {/* Floating Save Button */}
+            <div 
+                className="no-print" 
+                style={{ 
+                    position: 'fixed', 
+                    bottom: '30px', 
+                    right: '30px', 
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: '10px'
+                }}
+            >
+                {saveStatus !== 'idle' && (
+                    <div style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        backgroundColor: saveStatus === 'error' ? '#fee2e2' : '#f0fdf4',
+                        color: saveStatus === 'error' ? '#dc2626' : '#16a34a',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                        border: `1px solid ${saveStatus === 'error' ? '#fecaca' : '#bbf7d0'}`,
+                        animation: 'slideIn 0.3s ease'
+                    }}>
+                        {saveStatus === 'saving' ? 'Saving changes...' : 
+                         saveStatus === 'saved' ? 'All changes saved' : 
+                         'Error saving changes'}
+                    </div>
+                )}
+                <button
+                    onClick={() => handleSave(true)}
+                    disabled={isReadOnly || saveStatus === 'saving'}
+                    style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '50%',
+                        backgroundColor: isReadOnly ? '#94a3b8' : '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        cursor: (isReadOnly || saveStatus === 'saving') ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 20px rgba(37, 99, 235, 0.4)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transform: saveStatus === 'saving' ? 'scale(0.95)' : 'scale(1)',
+                        opacity: 1
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!isReadOnly) {
+                            e.currentTarget.style.transform = 'translateY(-5px) scale(1.05)';
+                            e.currentTarget.style.boxShadow = '0 8px 30px rgba(37, 99, 235, 0.6)';
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        if (!isReadOnly) {
+                            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                            e.currentTarget.style.boxShadow = '0 4px 20px rgba(37, 99, 235, 0.4)';
+                        }
+                    }}
+                    title="Save Changes"
+                >
+                    {saveStatus === 'saving' ? (
+                        <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray="31.4" />
+                        </svg>
+                    ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

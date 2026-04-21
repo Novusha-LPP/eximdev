@@ -14,6 +14,8 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
   const [editingChargeId, setEditingChargeId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
+  const [editSacHsn, setEditSacHsn] = useState('');
+  const [customSacHsn, setCustomSacHsn] = useState('');
 
 
   useEffect(() => {
@@ -22,6 +24,7 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
       setSearchTerm('');
       setCustomName('');
       setCustomCategory('');
+      setCustomSacHsn('');
       setSelectedNames(new Set());
     }
   }, [isOpen, fetchChargeHeads]);
@@ -48,10 +51,11 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
       alert('A charge with this name already exists.');
       return;
     }
-    const res = await addChargeHead(name, cat);
+    const res = await addChargeHead(name, cat, customSacHsn.trim());
     if (res.success) {
       setCustomName('');
       setCustomCategory('');
+      setCustomSacHsn('');
       const newSelected = new Set(selectedNames);
       newSelected.add(name);
       setSelectedNames(newSelected);
@@ -72,13 +76,14 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
     setEditingChargeId(ch._id);
     setEditName(ch.name);
     setEditCategory(ch.category || '');
+    setEditSacHsn(ch.sacHsn || '');
   };
 
   const handleSaveEdit = async (ch, e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!editName.trim()) return alert('Name is required');
-    const res = await updateChargeHead(ch._id, editName.trim(), editCategory);
+    const res = await updateChargeHead(ch._id, editName.trim(), editCategory, editSacHsn.trim());
     if (res.success) {
       setEditingChargeId(null);
       // optionally update selectedNames if name changed, kept simple
@@ -149,16 +154,16 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                         style={{ padding: '4px' }}
                       >
                         <option value="">-- Category --</option>
-                        <option>Freight</option>
                         <option>Reimbursement</option>
-                        <option>Insurance</option>
-                        <option>Surcharge</option>
-                        <option>Transport</option>
-                        <option>Service Charge</option>
-                        <option>Customs</option>
-                        <option>Miscellaneous</option>
-                        <option>Document</option>
+                        <option>Margin</option>
                       </select>
+                      <input 
+                        type="text" 
+                        placeholder="SAC/HSN"
+                        value={editSacHsn} 
+                        onChange={e => setEditSacHsn(e.target.value)} 
+                        style={{ width: '80px', padding: '4px' }} 
+                      />
                       <button type="button" onClick={(e) => handleSaveEdit(ch, e)} style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Save</button>
                       <button type="button" onClick={handleCancelEdit} style={{ background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
                     </div>
@@ -174,6 +179,7 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                         onChange={() => handleToggle(ch.name)} 
                       />
                       <span className="predefined-item-name">{ch.name}</span>
+                      <span style={{ fontSize: '10px', color: '#64748b', marginRight: '8px' }}>{ch.sacHsn}</span>
                       <span className="predefined-item-cat">{ch.category}</span>
                     </label>
                     {isAdmin && (
@@ -202,18 +208,15 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                 onChange={(e) => setCustomCategory(e.target.value)}
               >
                 <option value="">-- Category --</option>
-                <option>Freight</option>
                 <option>Reimbursement</option>
-                <option>Insurance</option>
-                <option>Surcharge</option>
-                <option>Transport</option>
-                <option>Service Charge</option>
-                <option>Customs</option>
-                <option>Miscellaneous</option>
-                <option>Document</option>
                 <option>Margin</option>
-                <option>Other</option>
               </select>
+              <input 
+                type="text" 
+                placeholder="SAC/HSN code" 
+                value={customSacHsn}
+                onChange={(e) => setCustomSacHsn(e.target.value)}
+              />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="button" className="add-custom-btn" onClick={handleAddCustom}>Add to List</button>

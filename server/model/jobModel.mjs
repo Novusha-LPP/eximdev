@@ -713,8 +713,6 @@ const jobSchema = new mongoose.Schema({
   icd_cfs_invoice_img: [{ type: String, trim: true }],
   upload_agency_bill_img: { type: String },
   upload_reimbursement_bill_img: { type: String },
-  agency_invoice_no: { type: String, trim: true },
-  reimbursement_invoice_no: { type: String, trim: true },
   bill_amount: { type: String },
   do_list: { type: String, trim: true },
 

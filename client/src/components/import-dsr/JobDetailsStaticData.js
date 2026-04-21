@@ -93,6 +93,8 @@ function JobDetailsStaticData(props) {
       hss_postal_code: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.postal_code : props.data?.hss_postal_code) || "",
       hss_country: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.country : props.data?.hss_country) || "",
       hss_ad_code: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.ad_code : props.data?.hss_ad_code) || "",
+      bill_no: props.data?.bill_no || "",
+      bill_date: props.data?.bill_date || "",
     });
     setErrorMsg("");
     setEditModalOpen(true);
@@ -450,6 +452,11 @@ function JobDetailsStaticData(props) {
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Status</span>
                   <span style={{ fontSize: "0.9rem", color: "#007bff", fontWeight: "600" }}>{props.data.status}</span>
+                </div>
+                <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Bill No</span>
+                  <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data.bill_no || "-"}</span>
                 </div>
               </>
             )}
@@ -812,6 +819,18 @@ function JobDetailsStaticData(props) {
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>IGM Date: </span>
               <span style={valueStyle}>{props.data.igm_date}</span>
+            </Col>
+          </Row>
+
+          {/* Row 10: Billing Details (New) */}
+          <Row style={compactRowStyle}>
+            <Col xs={12} lg={6}>
+              <span style={labelStyle}>Bill No: </span>
+              <span style={{ ...valueStyle, color: "#28a745", fontWeight: "600" }}>{props.data.bill_no || "N/A"}</span>
+            </Col>
+            <Col xs={12} lg={6}>
+              <span style={labelStyle}>Bill Date: </span>
+              <span style={{ ...valueStyle, color: "#28a745", fontWeight: "600" }}>{props.data.bill_date || "N/A"}</span>
             </Col>
           </Row>
 

@@ -500,6 +500,12 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+
+  const isAdmin = user?.role === "Admin";
+  const billNos = (data?.bill_no || "").split(",");
+  const hasBillGenerated = billNos.some(no => no && no.trim().length > 0);
+  const isJobLocked = hasBillGenerated && !isAdmin;
+
   const formatDateTime = (date) => {
     return date ? new Date(date).toISOString().slice(0, 16) : "";
   };
@@ -3427,6 +3433,9 @@ function JobDetails() {
                   poNo={data?.po_no}
                   invoiceValue={data?.total_inv_value}
                   cthNo={data?.cth_no}
+                  jobStatus={data?.status}
+                  billNo={data?.bill_no}
+                  readOnly={isJobLocked}
                 />
               </div>
 

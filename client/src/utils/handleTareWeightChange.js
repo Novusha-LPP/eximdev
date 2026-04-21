@@ -85,8 +85,6 @@ export const handleActualWeightChange = (e, index, formik) => {
 // Update function to accept newActualWeight as parameter
 const calculateWeightExcessShortage = (index, formik, newActualWeight) => {
 
-  const weightAsPerDocument =
-    parseFloat(formik.values.container_nos[index].net_weight) || 0;
   const grossWeightAsPerDocument =
     parseFloat(formik.values.container_nos[index].container_gross_weight) || 0;
 

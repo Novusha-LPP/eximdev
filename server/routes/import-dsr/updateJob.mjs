@@ -56,6 +56,14 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
         return res.status(404).json({ error: "Job not found" });
       }
 
+      // --- Admin Lock Check ---
+      const billNos = (matchingJob.bill_no || "").split(",");
+      const hasInvoice = billNos.some(no => no && no.trim().length > 0);
+      
+      if (hasInvoice && req.user?.role !== 'Admin') {
+        return res.status(403).json({ error: "Job is locked as a bill has been generated. Please contact an Admin to make changes." });
+      }
+
       // 2. Determine the derived branch code based on the custom_house field
       let derived_branch_code;
       switch (matchingJob.custom_house) {
@@ -83,63 +91,6 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
         default:
           break;
       }
-
-      // 3. Check if the transporter is "SRCC" in the request body
-      // if (req.body.container_nos) {
-      //   const transporterContainers = req.body.container_nos.filter(
-      //     (container) => container.transporter === "SRCC"
-      //   );
-
-      //   if (transporterContainers.length > 0) {
-      //     // 4. Fetch the last document from PrModel and generate a 5-digit number
-      //     const lastPr = await PrModel.findOne().sort({ _id: -1 });
-
-      //     let lastPrNo;
-      //     if (lastPr) {
-      //       lastPrNo = parseInt(lastPr.pr_no) + 1;
-      //     } else {
-      //       lastPrNo = 1;
-      //     }
-      //     const paddedNo = lastPrNo.toString().padStart(5, "0");
-      //     const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
-
-      //     // 5. Update the job model
-      //     matchingJob.pr_no = `PR/${derived_branch_code}/${fiveDigitNo}/${matchingJob.year}`;
-
-      //     // 6. Create a new document in PrData collection
-      //     const newPrData = new PrData({
-      //       pr_date: new Date().toLocaleDateString("en-GB"),
-      //       pr_no: matchingJob.pr_no,
-      //       branch: matchingJob.custom_house,
-      //       consignor: matchingJob.importer,
-      //       consignee: matchingJob.importer,
-      //       container_type: "",
-      //       container_count: transporterContainers.length,
-      //       gross_weight: matchingJob.gross_weight,
-      //       type_of_vehicle: "",
-      //       description: "",
-      //       shipping_line: matchingJob.shipping_line_airline,
-      //       container_loading: "",
-      //       container_offloading: "",
-      //       do_validity: matchingJob.do_validity,
-      //       document_no: matchingJob.be_no,
-      //       document_date: matchingJob.be_date,
-      //       goods_pickup: "",
-      //       goods_delivery: "",
-      //       containers: transporterContainers,
-      //     });
-
-      //     // Save the new PrData document to the database
-      //     await newPrData.save();
-
-      //     const newPr = new PrModel({
-      //       pr_no: fiveDigitNo,
-      //     });
-
-      //     // Save the new PrModel document to the database
-      //     await newPr.save();
-      //   }
-      // }
 
       // Step 6: Add remaining fields from req.body to matching job
       if (req.body.arrival_date && req.body.container_nos) {
@@ -300,6 +251,7 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
       res.status(500).send("Server error");
     }
   });
+
 // PATCH route for updating only vessel_berthing and container arrival_date
 router.patch("/api/update-job/fields/:branch_code/:trade_type/:mode/:year/:jobNo",
   authMiddleware,
@@ -345,6 +297,7 @@ router.patch("/api/update-job/fields/:branch_code/:trade_type/:mode/:year/:jobNo
       res.status(500).send("Server error");
     }
   });
+
 // PUT route for admin to update any static job details
 router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:jobNo",
   authMiddleware,
@@ -390,7 +343,36 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
       }
 
       // Allow editing anything
+      if (updateData.bill_no !== undefined) {
+        const cleaned = updateData.bill_no.split(",").map(no => no.trim()).filter(Boolean);
+        updateData.bill_no = cleaned.length > 0 ? updateData.bill_no.trim() : "";
+        if (updateData.bill_no === ",") updateData.bill_no = "";
+      }
+      if (updateData.bill_date !== undefined) {
+        const cleanedDate = updateData.bill_date.split(",").map(d => d.trim()).filter(Boolean);
+        updateData.bill_date = cleanedDate.length > 0 ? updateData.bill_date.trim() : "";
+        if (updateData.bill_date === ",") updateData.bill_date = "";
+      }
+      if (updateData.bill_amount !== undefined) {
+          const cleanedAmt = updateData.bill_amount.split(",").map(a => a.trim()).filter(Boolean);
+          updateData.bill_amount = cleanedAmt.length > 0 ? updateData.bill_amount.trim() : "";
+          if (updateData.bill_amount === ",") updateData.bill_amount = "";
+      }
+
       Object.assign(matchingJob, updateData);
+
+      // ✅ Enhanced Status Reset Logic: If Admin clears the bill_no, force move job back to Pending status
+      // We do this AFTER Object.assign so that it overrides the status from the form
+      const currentBillNo = (matchingJob.bill_no || "").trim();
+      if (!currentBillNo || currentBillNo === "," || currentBillNo === "") {
+        matchingJob.status = "Pending";
+        matchingJob.bill_no = "";
+        matchingJob.bill_date = "";
+        matchingJob.bill_amount = "";
+        // Also clear legacy fields to prevent them from triggering "Completed" filters
+        matchingJob.agency_invoice_no = "";
+        matchingJob.reimbursement_invoice_no = "";
+      }
 
       await matchingJob.save();
 

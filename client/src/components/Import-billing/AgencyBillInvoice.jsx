@@ -15,9 +15,12 @@ const AgencyBillInvoice = () => {
     const { user } = useContext(UserContext);
 
     const [jobData, setJobData] = useState(null);
+    const [isReadOnly, setIsReadOnly] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [generationLog, setGenerationLog] = useState(null);
+    const [suggestedNo, setSuggestedNo] = useState("");
     const printableRef = React.useRef();
 
     const [invoiceRows, setInvoiceRows] = useState([]);
@@ -25,6 +28,10 @@ const AgencyBillInvoice = () => {
     const [isMasterModalOpen, setIsMasterModalOpen] = useState(false);
     const [masterSearchTerm, setMasterSearchTerm] = useState("");
     const [selectedMasterHeads, setSelectedMasterHeads] = useState(new Set());
+
+    const isAdmin = user?.role === "Admin";
+    const isJobCompleted = jobData?.status?.toUpperCase() === "COMPLETED";
+    // Managed via state for manual control
 
     // Editable top fields
     const [editableFields, setEditableFields] = useState({
@@ -45,6 +52,30 @@ const AgencyBillInvoice = () => {
         stateCode: "24"
     });
 
+    const handleInvalidate = async () => {
+        const remark = window.prompt("Enter reason for invalidation (Remark):");
+        if (remark === null) return; 
+
+        if (window.confirm(`Are you sure you want to invalidate the GIA bill? The job status will move back to Pending.`)) {
+            try {
+                setLoading(true);
+                const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/invalidate`, {
+                    jobId: jobData._id,
+                    remark,
+                    type: 'GIA'
+                });
+                if (res.data.success) {
+                    alert("Bill invalidated and system reset to Pending.");
+                    navigate(-1);
+                }
+            } catch (err) {
+                console.error("Error invalidating:", err);
+                alert("Failed to invalidate bill.");
+                setLoading(false);
+            }
+        }
+    };
+
     const fetchJobDetails = useCallback(async () => {
         try {
             setLoading(true);
@@ -53,6 +84,20 @@ const AgencyBillInvoice = () => {
             );
             const job = response.data;
             setJobData(job);
+            
+            // Fetch suggested next available number
+            try {
+                const suggestRes = await axios.get(`${process.env.REACT_APP_API_STRING}/billing/next-suggested/GIA/${job._id}`);
+                if (suggestRes.data.success) {
+                    setSuggestedNo(suggestRes.data.suggestedNo);
+                }
+            } catch (e) {
+                console.error("Error fetching suggestion", e);
+            }
+
+            const isCompleted = job.status?.toUpperCase() === "COMPLETED";
+            const isAdmin = user?.role === "Admin";
+            setIsReadOnly(isCompleted && !isAdmin);
 
             // Fetch Charge Heads for adding
             try {
@@ -70,7 +115,9 @@ const AgencyBillInvoice = () => {
                 id: `default-${name}`,
                 description: name,
                 sac: "996713",
-                receipt: "",
+                receipt_no: "",
+                receipt_date: "",
+                receipt_amt: "",
                 taxType: "T",
                 nonGst: "",
                 taxable: 0,
@@ -79,34 +126,45 @@ const AgencyBillInvoice = () => {
             }));
             
             // Pull Agency/Margin charges from job records
-            const agencyCharges = (job.charges || []).filter(ch => 
-                ch.category === "Agency" || ch.category === "Margin"
-            );
+            const agencyCharges = (job.charges || []).filter(ch => {
+                const categoryMatch = (ch.category || "").trim().toLowerCase() === "margin";
+                const amtVal = parseFloat(ch.revenue?.amountINR || ch.revenue?.basicAmount || 0);
+                return categoryMatch && Math.abs(amtVal) > 0.001;
+            });
 
-            // Integrate job charges into rows
+            // Integrated job charges into rows individually (No Clubbing)
             agencyCharges.forEach(ch => {
                 const desc = (ch.charge_name || ch.chargeHead || "").trim().toUpperCase();
-                const existingIdx = rows.findIndex(r => r.description.toUpperCase() === desc);
-
-                const mappedCharge = {
+                // Mandatory basic values for Agency Bill
+                let amount = Math.round(parseFloat(ch.revenue?.basicAmount || 0));
+                
+                // If basicAmount is missing, calculate it from total (Total / 1.18)
+                if (!amount || isNaN(amount)) {
+                    const totalAmt = parseFloat(ch.revenue?.amountINR || 0);
+                    amount = Math.round(totalAmt / 1.18);
+                }
+                
+                const invNoRaw = (ch.invoice_number || "").trim();
+                const invNo = invNoRaw === "-" ? "" : invNoRaw;
+                const invDate = invNo ? formatDate(ch.invoice_date) : "";
+                const invAmtVal = parseFloat(ch.revenue?.basicAmount || ch.revenue?.amountINR || 0);
+                const invAmtStr = invNo ? formatCurrency(invAmtVal) : "";
+                
+                // Add as a new individual row instead of clubbing
+                rows.push({
                     id: ch._id || Math.random().toString(),
                     description: desc || "Unnamed Charge",
                     sac: ch.sacHsn || "996713",
-                    receipt: ch.invoice_number || "",
+                    receipt_no: invNo,
+                    receipt_date: invDate,
+                    receipt_amt: invAmtStr,
                     taxType: "T",
                     nonGst: "",
-                    taxable: Math.round(parseFloat(ch.revenue?.basicAmount || ch.revenue?.amountINR) || 0),
-                    cgstPercent: (ch.revenue?.gstRate || 18) / 2,
-                    sgstPercent: (ch.revenue?.gstRate || 18) / 2
-                };
-
-                if (existingIdx !== -1) {
-                    // Update the existing default row with data from the job
-                    rows[existingIdx] = mappedCharge;
-                } else {
-                    // Add as a new row
-                    rows.push(mappedCharge);
-                }
+                    taxable: amount,
+                    // Always force 9%/9% for Agency Bill as per USER request
+                    cgstPercent: 9,
+                    sgstPercent: 9
+                });
             });
 
             setInvoiceRows(rows);
@@ -120,8 +178,8 @@ const AgencyBillInvoice = () => {
                 customerRef: job.po_no || "",
                 cifValue: firstInv.total_inv_value || "",
                 termsOfInvoice: firstInv.toi || "CIF",
-                invoiceNo: job.agency_invoice_no || "",
-                invoiceDate: formatDate(new Date()),
+                invoiceNo: (job.bill_no || "").split(",")[0] || "",
+                invoiceDate: (job.bill_date || "").split(",")[1] ? formatDate((job.bill_date || "").split(",")[0]) : formatDate(new Date()),
                 dueDate: formatDate(new Date(new Date().setDate(new Date().getDate() + 15))),
                 placeOfSupply: `[${job.importer_address?.state || "24"}] ${job.importer_address?.state || "Gujarat"}`,
                 importerAddress: job.importer_address?.details || "",
@@ -160,11 +218,108 @@ const AgencyBillInvoice = () => {
                 const savedBillRes = await axios.get(`${process.env.REACT_APP_API_STRING}/billing/${job._id}/GIA`);
                 if (savedBillRes.data.success && savedBillRes.data.data) {
                     const saved = savedBillRes.data.data;
-                    const roundedRows = (saved.rows || rows).map(r => ({
+                    let existingRows = [...(saved.rows || [])];
+                    
+                    // ALWAYS KEEP DEFAULT THREE CHARGES
+                    const defaultNames = ["DOCUMENTATION CHARGES", "EXAMINATION CHARGES", "IMPORT AGENCY CHARGES"];
+                    defaultNames.forEach(name => {
+                        const isPresent = existingRows.some(r => r.description.toUpperCase() === name);
+                        if (!isPresent) {
+                            existingRows.push({
+                                id: `default-${name}-${Math.random()}`,
+                                description: name,
+                                sac: "996713",
+                                receipt_no: "",
+                                receipt_date: "",
+                                receipt_amt: "",
+                                taxType: "T",
+                                nonGst: "",
+                                taxable: 0,
+                                cgstPercent: 9,
+                                sgstPercent: 9
+                            });
+                        }
+                    });
+
+                    // AUTO-SYNC NEW & UPDATED CHARGES WITH SAFE CLUBBING
+                    const allExistingIds = existingRows.map(r => r.id);
+                    const allExistingReceipts = existingRows.map(r => (r.receipt_no || "").split("\n")).flat().map(s => s.trim().toUpperCase()).filter(Boolean);
+
+                    // Group incoming agencyCharges by description to combine them
+                    const groupedIncoming = {};
+                    agencyCharges.forEach(ch => {
+                        if (!ch._id) return;
+                        const desc = (ch.charge_name || ch.chargeHead || "").trim().toUpperCase();
+                        if (!groupedIncoming[desc]) groupedIncoming[desc] = { ids: [], taxable: 0, receipts: [], date: "" };
+                        
+                        let amount = Math.round(parseFloat(ch.revenue?.basicAmount || 0));
+                        if (!amount || isNaN(amount)) {
+                            amount = Math.round(parseFloat(ch.revenue?.amountINR || 0) / 1.18);
+                        }
+                        
+                        // Split multiline invoice numbers to ensure uniqueness
+                        const invNoRaw = (ch.invoice_number || "").trim().toUpperCase();
+                        const individualNos = invNoRaw.split(/\r?\n/).map(s => s.trim()).filter(s => s && s !== "-");
+                        
+                        const invDate = (invNoRaw && invNoRaw !== "-") ? formatDate(ch.invoice_date) : "";
+                        const invAmtVal = parseFloat(ch.revenue?.basicAmount || ch.revenue?.amountINR || 0);
+                        
+                        groupedIncoming[desc].ids.push(ch._id.toString());
+                        groupedIncoming[desc].taxable += amount;
+                        // Sum the total receipt amount for the combined row
+                        groupedIncoming[desc].receiptTotal = (groupedIncoming[desc].receiptTotal || 0) + invAmtVal;
+                        
+                        individualNos.forEach(no => {
+                            if (!groupedIncoming[desc].receipts.includes(no)) {
+                                groupedIncoming[desc].receipts.push(no);
+                            }
+                        });
+                        
+                        if (!groupedIncoming[desc].date && invDate) groupedIncoming[desc].date = invDate;
+                    });
+
+                    // Sync the grouped charges into existingRows
+                    Object.entries(groupedIncoming).forEach(([desc, data]) => {
+                        // Priority 1: Find a row that already matches one of these IDs
+                        let existingIdx = existingRows.findIndex(r => data.ids.includes(r.id));
+                        
+                        // Priority 2: If not found by ID, find by Description (for default rows)
+                        if (existingIdx === -1) {
+                            existingIdx = existingRows.findIndex(r => r.description.toUpperCase() === desc);
+                        }
+
+                        if (existingIdx !== -1) {
+                            // Update existing row
+                            existingRows[existingIdx].description = desc;
+                            existingRows[existingIdx].taxable = data.taxable;
+                            existingRows[existingIdx].receipt_no = data.receipts.join("\n");
+                            existingRows[existingIdx].receipt_date = data.date;
+                            existingRows[existingIdx].receipt_amt = formatCurrency(data.receiptTotal); // Set the combined receipt amount
+                            existingRows[existingIdx].sourceIds = data.ids; 
+                        } else {
+                            // Add new combined row
+                            existingRows.push({
+                                id: data.ids[0],
+                                sourceIds: data.ids,
+                                description: desc,
+                                sac: "996713",
+                                receipt_no: data.receipts.join("\n"),
+                                receipt_date: data.date,
+                                receipt_amt: formatCurrency(data.receiptTotal), // Set the combined receipt amount
+                                taxType: "T",
+                                taxable: data.taxable,
+                                cgstPercent: 9,
+                                sgstPercent: 9
+                            });
+                        }
+                    });
+
+                    const roundedRows = existingRows.map(r => ({
                         ...r,
                         taxable: r.taxable === "" ? "" : Math.round(parseFloat(r.taxable) || 0),
                         nonGst: r.nonGst === "" ? "" : Math.round(parseFloat(r.nonGst) || 0)
                     }));
+                    
                     setInvoiceRows(roundedRows); 
                     const savedFields = saved.editableFields || {};
                     setEditableFields({
@@ -182,14 +337,17 @@ const AgencyBillInvoice = () => {
                         });
                     }
 
+                    setIsReadOnly(job.status?.toUpperCase() === "COMPLETED" && !isAdmin);
                     setLoading(false);
-                    return; // Stop here if loaded from save
+                    return; // Stop here after merging
                 }
             } catch (e) {
-                console.log("No saved bill found, using defaults");
+                console.log("No saved bill found, using defaults", e);
             }
 
             setEditableFields(initialFields);
+
+            setIsReadOnly(isCompleted && !isAdmin);
             setLoading(false);
         } catch (err) {
             console.error("Error fetching job details:", err);
@@ -209,45 +367,51 @@ const AgencyBillInvoice = () => {
         }
     };
 
-    useEffect(() => {
-        if (!editableFields.invoiceNo || !jobData?._id) return;
+    const handleSave = async (manual = false) => {
+        if (!jobData?._id || isReadOnly) return;
+        
+        try {
+            setSaveStatus('saving');
+            // Calculate totals for saving
+            let totalTaxable = 0;
+            let totalCgst = 0;
+            let totalSgst = 0;
+            invoiceRows.forEach(r => {
+                const amt = Math.round(parseFloat(r.taxable) || 0);
+                const cgstP = parseFloat(r.cgstPercent) || 0;
+                const sgstP = parseFloat(r.sgstPercent) || 0;
+                totalTaxable += amt;
+                totalCgst += (amt * cgstP / 100);
+                totalSgst += (amt * sgstP / 100);
+            });
+            const rawFinalTotal = totalTaxable + totalCgst + totalSgst;
+            const roundedFinalTotal = Math.round(rawFinalTotal);
+            const roundOff = roundedFinalTotal - rawFinalTotal;
 
-        const timer = setTimeout(async () => {
-            try {
-                // Calculate totals for saving
-                let totalTaxable = 0;
-                let totalCgst = 0;
-                let totalSgst = 0;
-                invoiceRows.forEach(r => {
-                    const amt = Math.round(parseFloat(r.taxable) || 0);
-                    const cgstP = parseFloat(r.cgstPercent) || 0;
-                    const sgstP = parseFloat(r.sgstPercent) || 0;
-                    totalTaxable += amt;
-                    totalCgst += (amt * cgstP / 100);
-                    totalSgst += (amt * sgstP / 100);
-                });
-                    const rawFinalTotal = totalTaxable + totalCgst + totalSgst;
-                    const roundedFinalTotal = Math.round(rawFinalTotal);
-                    const roundOff = roundedFinalTotal - rawFinalTotal;
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
+                jobId: jobData._id,
+                type: 'GIA',
+                billNo: editableFields.invoiceNo,
+                rows: invoiceRows,
+                editableFields,
+                totals: {
+                    totalTaxable,
+                    totalCgst,
+                    totalSgst,
+                    roundOff,
+                    finalTotal: roundedFinalTotal
+                },
+                firstName: user?.first_name,
+                lastName: user?.last_name
+            });
 
-                    const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
-                        jobId: jobData._id,
-                        type: 'GIA',
-                        billNo: editableFields.invoiceNo,
-                        rows: invoiceRows,
-                        editableFields,
-                        totals: {
-                            totalTaxable,
-                            totalCgst,
-                            totalSgst,
-                            roundOff,
-                            finalTotal: roundedFinalTotal
-                        },
-                        firstName: user?.first_name,
-                        lastName: user?.last_name
-                    });
-
-                // If log was missing, update it from the save response
+            if (res.data.success) {
+                // Sync backend rows (IDs) back to frontend state
+                if (res.data.data?.rows) {
+                    setInvoiceRows(res.data.data.rows);
+                }
+                
+                // Update audit log if missing
                 if (!generationLog && res.data.data?.generatedAt) {
                     setGenerationLog({
                         firstName: res.data.data.generatedByFirstName,
@@ -255,12 +419,21 @@ const AgencyBillInvoice = () => {
                         at: res.data.data.generatedAt
                     });
                 }
-                console.log("Bill auto-saved");
-            } catch (err) {
-                console.error("Autosave error:", err);
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            } else {
+                setSaveStatus('error');
             }
-        }, 1000); // 1 second debounce
+        } catch (err) {
+            console.error("Save error:", err);
+            setSaveStatus('error');
+            if (manual) alert("Error saving bill: " + err.message);
+        }
+    };
 
+    useEffect(() => {
+        if (!jobData?._id) return;
+        const timer = setTimeout(() => handleSave(false), 1500);
         return () => clearTimeout(timer);
     }, [invoiceRows, editableFields, jobData?._id]);
 
@@ -273,7 +446,9 @@ const AgencyBillInvoice = () => {
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
-        return new Date(dateString).toLocaleDateString('en-GB', {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "-";
+        return date.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
             year: 'numeric'
@@ -285,6 +460,8 @@ const AgencyBillInvoice = () => {
         if (field === 'taxable' || field === 'nonGst') {
             // Round to whole number for basic amounts
             newRows[index][field] = value === "" ? "" : Math.round(parseFloat(value) || 0);
+        } else if (field === 'receipt_no' || field === 'receipt_date' || field === 'receipt_amt') {
+            newRows[index][field] = value;
         } else {
             newRows[index][field] = value;
         }
@@ -335,7 +512,9 @@ const AgencyBillInvoice = () => {
             id: Math.random().toString(),
             description: chargeHeadName,
             sac: "996713",
-            receipt: "",
+            receipt_no: "",
+            receipt_date: "",
+            receipt_amt: "",
             taxType: "T",
             nonGst: "",
             taxable: 0,
@@ -352,8 +531,10 @@ const AgencyBillInvoice = () => {
             newRows.push({
                 id: Math.random().toString(),
                 description: ch.name || "",
-                sac: "996713",
-                receipt: "",
+                sac: ch.sacHsn || "996713",
+                receipt_no: "",
+                receipt_date: "",
+                receipt_amt: "",
                 taxType: "T",
                 nonGst: "",
                 taxable: 0,
@@ -449,11 +630,14 @@ const AgencyBillInvoice = () => {
             {/* Action Bar (Top Level, No Zoom) */}
             <div className="no-print abi-action-bar" style={{ padding: '10px 20px', display: 'flex', gap: '10px', flexWrap: 'wrap', background: '#333', color: '#fff', position: 'sticky', top: 0, zIndex: 1000, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
                 <button onClick={() => navigate(-1)} style={{ padding: '6px 12px', cursor: 'pointer', background: '#eee', border: 'none', borderRadius: '4px' }}>Back</button>
-                <button onClick={() => addChargeRow()} style={{ padding: '6px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px' }}>+ Add Blank Row</button>
-                <button className="bill-master-btn" onClick={() => setIsMasterModalOpen(true)}>+ Add Charge from Master</button>
+                <button onClick={() => addChargeRow()} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#007bff', color: '#fff', border: 'none', borderRadius: '4px' }}>+ Add Blank Row</button>
+                <button className="bill-master-btn" onClick={() => setIsMasterModalOpen(true)} disabled={isReadOnly} style={{ cursor: isReadOnly ? 'not-allowed' : 'pointer', opacity: isReadOnly ? 0.6 : 1 }}>+ Add Charge from Master</button>
                 <button className="bill-master-btn" onClick={handlePrint} style={{ backgroundColor: '#1976d2' }}>Print Bill</button>
                 {!editableFields.invoiceNo && (
-                    <button className="bill-generate-btn" onClick={() => handleGenerateInvoice('GIA')} style={{ padding: '6px 12px', cursor: 'pointer', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>⚡ Generate Invoice No</button>
+                    <button className="bill-generate-btn" onClick={() => handleGenerateInvoice('GIA')} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>⚡ Generate Invoice No</button>
+                )}
+                {isAdmin && editableFields.invoiceNo && (
+                    <button onClick={handleInvalidate} style={{ padding: '6px 12px', cursor: 'pointer', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Invalidate Bill</button>
                 )}
                 <span style={{ fontSize: '11px', alignSelf: 'center', color: '#ccc', marginLeft: 'auto' }}>
                     <strong>Editor Mode:</strong> 25% Zoom applied to invoice only. Green fields are editable.
@@ -499,19 +683,19 @@ const AgencyBillInvoice = () => {
                             <div className="abi-val">
                                 <strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>{jobData.importer || ""}</strong>
                                 <div style={{ marginTop: '2px', lineHeight: '1.2' }}>
-                                    <textarea className="abi-input" style={{ height: '35px', background: '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
+                                    <textarea readOnly={isReadOnly} className="abi-input" style={{ height: '35px', background: '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
                                     <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
                                         <div style={{ minWidth: '55px', fontWeight: 'bold' }}>PAN No</div>
                                         <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
                                         <div style={{ flex: 1 }}>
-                                            <input className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
+                                            <input readOnly={isReadOnly} className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', marginTop: '2px', alignItems: 'center' }}>
                                         <div style={{ minWidth: '55px', fontWeight: 'bold' }}>GSTIN</div>
                                         <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
                                         <div style={{ flex: 1 }}>
-                                            <input className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
+                                            <input readOnly={isReadOnly} className="abi-input" style={{ width: '100%', background: isReadOnly ? '#f5f5f5' : '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
@@ -560,22 +744,29 @@ const AgencyBillInvoice = () => {
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px', fontSize: '11px' }}>Invoice No.</div>
                                 <div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input highlight-field" style={{ fontWeight: '900', fontSize: '13.5px', color: '#000' }} value={editableFields.invoiceNo} onChange={e => handleFieldChange('invoiceNo', e.target.value)} /></div>
+                                <div className="abi-val">
+                                    <input className="abi-input highlight-field" style={{ fontWeight: '900', fontSize: '13.5px', color: '#000' }} value={editableFields.invoiceNo} onChange={e => handleFieldChange('invoiceNo', e.target.value)} />
+                                    {suggestedNo && !editableFields.invoiceNo && (
+                                        <div className="no-print" style={{ fontSize: '9px', color: '#dc3545', cursor: 'pointer', marginTop: '2px', fontWeight: 'bold' }} onClick={() => handleFieldChange('invoiceNo', suggestedNo)}>
+                                            Suggested: {suggestedNo} (Click to use)
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Invoice Date</div>
                                 <div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input" value={editableFields.invoiceDate} onChange={e => handleFieldChange('invoiceDate', e.target.value)} /></div>
+                                <div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.invoiceDate} onChange={e => handleFieldChange('invoiceDate', e.target.value)} /></div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Due Date</div>
                                 <div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input" value={editableFields.dueDate} onChange={e => handleFieldChange('dueDate', e.target.value)} /></div>
+                                <div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.dueDate} onChange={e => handleFieldChange('dueDate', e.target.value)} /></div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Place of Supply</div>
                                 <div className="abi-sep">:</div>
-                                <div className="abi-val"><input className="abi-input" value={editableFields.placeOfSupply} onChange={e => handleFieldChange('placeOfSupply', e.target.value)} /></div>
+                                <div className="abi-val"><input readOnly={isReadOnly} className="abi-input" value={editableFields.placeOfSupply} onChange={e => handleFieldChange('placeOfSupply', e.target.value)} /></div>
                             </div>
                             <div style={{ display: 'flex', borderBottom: '1px solid #000', padding: '1.5px 4px' }}>
                                 <div className="abi-lbl" style={{ minWidth: '95px' }}>Job Number</div>
@@ -674,19 +865,22 @@ const AgencyBillInvoice = () => {
                     <thead>
                         <tr>
                             <th rowSpan="2" style={{ width: '3%' }}>Sr No</th>
-                            <th rowSpan="2" style={{ width: '28%', textAlign: 'center' }}>Description</th>
-                            <th rowSpan="2" style={{ width: '7%' }}>SAC/ HSN</th>
-                            <th rowSpan="2" style={{ width: '12%' }}>Receipt Details</th>
+                            <th rowSpan="2" style={{ width: '22%', textAlign: 'center' }}>Description</th>
+                            <th rowSpan="2" style={{ width: '7.5%' }}>SAC/HSN code</th>
+                            <th colSpan="3" style={{ width: '24%', textAlign: 'center', borderBottom: '1px solid #000', padding: '3px' }}>Receipt Details</th>
                             <th rowSpan="2" style={{ width: '4%' }}>Tax Type</th>
-                            <th rowSpan="2" style={{ width: '10%' }}>Non GST Exempt Value (INR)</th>
-                            <th rowSpan="2" style={{ width: '10%' }}>Taxable Value (INR)</th>
+                            <th rowSpan="2" style={{ width: '7%' }}>Non GST Exempt Value (INR)</th>
+                            <th rowSpan="2" style={{ width: '8.5%' }}>Taxable Value (INR)</th>
                             <th colSpan="2" style={{ width: '8%', padding: '3px', borderBottom: '1px solid #000' }}>CGST</th>
                             <th colSpan="2" style={{ width: '8%', padding: '3px', borderBottom: '1px solid #000' }}>SGST</th>
                             <th rowSpan="2" style={{ width: '10%' }}>Total (INR)</th>
                         </tr>
                         <tr>
+                            <th style={{ width: '8%', borderRight: '1px solid #000', padding: '3px' }}>Inv No</th>
+                            <th style={{ width: '8%', borderRight: '1px solid #000', padding: '3px' }}>Date</th>
+                            <th style={{ width: '8%', borderRight: '1px solid #000', padding: '3px' }}>Amount</th>
                             <th style={{ width: '3.5%', borderRight: '1px solid #000', padding: '3px' }}>%</th>
-                            <th style={{ width: '4.5%', padding: '3px' }}>Tax</th>
+                            <th style={{ width: '4.5%', borderRight: '1px solid #000', padding: '3px' }}>Tax</th>
                             <th style={{ width: '3.5%', borderRight: '1px solid #000', padding: '3px' }}>%</th>
                             <th style={{ width: '4.5%', padding: '3px' }}>Tax</th>
                         </tr>
@@ -710,7 +904,7 @@ const AgencyBillInvoice = () => {
                                                 </svg>
                                             </div>
                                             {idx + 1}
-                                            <button className="no-print" onClick={() => deleteRow(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: 0, fontSize: '12px', marginLeft: '4px' }}>x</button>
+                                            <button className="no-print" onClick={() => !isReadOnly && deleteRow(idx)} disabled={isReadOnly} style={{ background: 'none', border: 'none', color: isReadOnly ? '#ccc' : 'red', cursor: isReadOnly ? 'not-allowed' : 'pointer', padding: 0, fontSize: '12px', marginLeft: '4px' }}>x</button>
                                         </div>
                                     </td>
                                     <td style={{ verticalAlign: 'middle', textAlign: 'left' }}>
@@ -732,19 +926,78 @@ const AgencyBillInvoice = () => {
                                             }}
                                         />
                                     </td>
-                                    <td style={{ textAlign: 'center' }}><input className="abi-input" style={{ textAlign: 'center' }} value={r.sac} onChange={e => handleRowChange(idx, 'sac', e.target.value)} /></td>
-                                    <td><input className="abi-input" value={r.receipt} onChange={e => handleRowChange(idx, 'receipt', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'center' }}><input className="abi-input" style={{ textAlign: 'center' }} value={r.taxType} onChange={e => handleRowChange(idx, 'taxType', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'right' }}><input className="abi-input" style={{ textAlign: 'right' }} value={r.nonGst} onChange={e => handleRowChange(idx, 'nonGst', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'right' }}><input type="number" className="abi-input" style={{ textAlign: 'right' }} value={r.taxable} onChange={e => handleRowChange(idx, 'taxable', e.target.value)} /></td>
+                                    <td style={{ textAlign: 'center' }}><input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'center' }} value={r.sac} onChange={e => handleRowChange(idx, 'sac', e.target.value)} /></td>
+                                    <td style={{ verticalAlign: 'middle', padding: '0 4px', borderRight: '1px solid #000' }}>
+                                        <textarea
+                                            className="abi-input"
+                                            readOnly={isReadOnly}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'left' }}
+                                            rows={1}
+                                            value={r.receipt_no}
+                                            onChange={e => handleRowChange(idx, 'receipt_no', e.target.value)}
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if (el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
+                                    <td style={{ verticalAlign: 'middle', padding: '0 4px', borderRight: '1px solid #000' }}>
+                                        <textarea
+                                            className="abi-input"
+                                            readOnly={isReadOnly}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'left' }}
+                                            rows={1}
+                                            value={r.receipt_date}
+                                            onChange={e => handleRowChange(idx, 'receipt_date', e.target.value)}
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if (el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
+                                    <td style={{ verticalAlign: 'middle', padding: '0 4px', borderRight: '1px solid #000' }}>
+                                        <textarea
+                                            className="abi-input"
+                                            readOnly={isReadOnly}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'right' }}
+                                            rows={1}
+                                            value={r.receipt_amt}
+                                            onChange={e => handleRowChange(idx, 'receipt_amt', e.target.value)}
+                                            onInput={(e) => {
+                                                e.target.style.height = '18px';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            ref={el => {
+                                                if (el) {
+                                                    el.style.height = '18px';
+                                                    el.style.height = el.scrollHeight + 'px';
+                                                }
+                                            }}
+                                        />
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}><input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'center' }} value={r.taxType} onChange={e => handleRowChange(idx, 'taxType', e.target.value)} /></td>
+                                    <td style={{ textAlign: 'right' }}><input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right' }} value={r.nonGst} onChange={e => handleRowChange(idx, 'nonGst', e.target.value)} /></td>
+                                    <td style={{ textAlign: 'right' }}><input type="number" readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right' }} value={r.taxable} onChange={e => handleRowChange(idx, 'taxable', e.target.value)} /></td>
                                     <td style={{ padding: '4px', borderRight: '1px solid #000' }}>
-                                        <input className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.cgstPercent} onChange={e => handleRowChange(idx, 'cgstPercent', e.target.value)} />
+                                        <input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.cgstPercent} onChange={e => handleRowChange(idx, 'cgstPercent', e.target.value)} />
                                     </td>
                                     <td style={{ padding: '4px', textAlign: 'right' }}>
                                         {cTax ? formatCurrency(cTax) : ''}
                                     </td>
                                     <td style={{ padding: '4px', borderRight: '1px solid #000' }}>
-                                        <input className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.sgstPercent} onChange={e => handleRowChange(idx, 'sgstPercent', e.target.value)} />
+                                        <input readOnly={isReadOnly} className="abi-input" style={{ textAlign: 'right', width: '100%' }} value={r.sgstPercent} onChange={e => handleRowChange(idx, 'sgstPercent', e.target.value)} />
                                     </td>
                                     <td style={{ padding: '4px', textAlign: 'right' }}>
                                         {sTax ? formatCurrency(sTax) : ''}
@@ -762,6 +1015,8 @@ const AgencyBillInvoice = () => {
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
+                            <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none', borderRight: '1px solid #000' }}></td>
                             <td style={{ borderBottom: 'none' }}></td>
                             <td style={{ borderBottom: 'none', borderRight: '1px solid #000' }}></td>
@@ -769,7 +1024,7 @@ const AgencyBillInvoice = () => {
                             <td style={{ borderBottom: 'none' }}></td>
                         </tr>
                         <tr className="abi-subtotal-row">
-                            <td colSpan="6" style={{ textAlign: 'right', padding: '4px 8px' }}>Sub Total</td>
+                            <td colSpan="8" style={{ textAlign: 'right', padding: '4px 8px' }}>Sub Total</td>
                             <td style={{ textAlign: 'right' }}>{formatCurrency(totalTaxable)}</td>
                             <td style={{ borderRight: '1px solid #000' }}></td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{formatCurrency(totalCgst)}</td>
@@ -921,7 +1176,7 @@ const AgencyBillInvoice = () => {
                             <div className="abi-charge-list">
                                 {chargeHeadsMaster
                                     .filter(ch => 
-                                        (ch.category === "Agency" || ch.category === "Margin") &&
+                                        ch.category === "Margin" &&
                                         ch.name.toLowerCase().includes(masterSearchTerm.toLowerCase())
                                     )
                                     .map(ch => (
@@ -953,6 +1208,83 @@ const AgencyBillInvoice = () => {
                     </div>
                 </div>
             )}
+            {/* Floating Save Button */}
+            <div 
+                className="no-print" 
+                style={{ 
+                    position: 'fixed', 
+                    bottom: '30px', 
+                    right: '30px', 
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: '10px'
+                }}
+            >
+                {saveStatus !== 'idle' && (
+                    <div style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        backgroundColor: saveStatus === 'error' ? '#fee2e2' : '#f0fdf4',
+                        color: saveStatus === 'error' ? '#dc2626' : '#16a34a',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                        border: `1px solid ${saveStatus === 'error' ? '#fecaca' : '#bbf7d0'}`,
+                        animation: 'slideIn 0.3s ease'
+                    }}>
+                        {saveStatus === 'saving' ? 'Saving changes...' : 
+                         saveStatus === 'saved' ? 'All changes saved' : 
+                         'Error saving changes'}
+                    </div>
+                )}
+                <button
+                    onClick={() => handleSave(true)}
+                    disabled={isReadOnly || saveStatus === 'saving'}
+                    style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '50%',
+                        backgroundColor: isReadOnly ? '#94a3b8' : '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        cursor: (isReadOnly || saveStatus === 'saving') ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 20px rgba(37, 99, 235, 0.4)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transform: saveStatus === 'saving' ? 'scale(0.95)' : 'scale(1)',
+                        opacity: 1
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!isReadOnly) {
+                            e.currentTarget.style.transform = 'translateY(-5px) scale(1.05)';
+                            e.currentTarget.style.boxShadow = '0 8px 30px rgba(37, 99, 235, 0.6)';
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        if (!isReadOnly) {
+                            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                            e.currentTarget.style.boxShadow = '0 4px 20px rgba(37, 99, 235, 0.4)';
+                        }
+                    }}
+                    title="Save Changes"
+                >
+                    {saveStatus === 'saving' ? (
+                        <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray="31.4" />
+                        </svg>
+                    ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

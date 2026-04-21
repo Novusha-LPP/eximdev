@@ -4,7 +4,7 @@ const billingCounterSchema = new mongoose.Schema({
     prefix: {
         type: String,
         required: true,
-        enum: ["GIA", "GIR"]
+        enum: ["GIA", "GIR", "BILLING"]
     },
     financial_year: {
         type: String,

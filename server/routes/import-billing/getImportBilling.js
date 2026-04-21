@@ -312,9 +312,7 @@ router.get(
 
       const baseQuery = {
         $and: [
-          {
-            bill_date: { $exists: true, $nin: [null, ""] },
-          },
+          { status: "Completed" },
         ],
       };
 

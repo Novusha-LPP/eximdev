@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -457,6 +458,151 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
         },
       },
 
+      {
+        accessorKey: "generated_bills",
+        header: "Generated Bills",
+        enableSorting: false,
+        size: 150,
+        Cell: ({ cell }) => {
+          const { 
+            branch_code, 
+            trade_type, 
+            mode, 
+            job_no, 
+            year,
+            agency_invoice_no,
+            reimbursement_invoice_no,
+            bill_no,
+            upload_agency_bill_img,
+            upload_reimbursement_bill_img
+          } = cell.row.original;
+
+          // Helper to extract manual bill numbers
+          const getManualBillNumbers = () => {
+            if (!bill_no) return { manualAgency: "", manualReimb: "" };
+            const parts = bill_no.split(",");
+            return {
+              manualAgency: parts[0]?.trim() || "",
+              manualReimb: parts[1]?.trim() || "",
+            };
+          };
+
+          const { manualAgency, manualReimb } = getManualBillNumbers();
+
+          // Priority: 1. Generated Invoice No, 2. Manual Bill No
+          const displayAgencyInv = (agency_invoice_no || manualAgency).trim();
+          const displayReimbInv = (reimbursement_invoice_no || manualReimb).trim();
+
+          const handleViewBill = (type) => {
+            const url = type === 'agency' 
+              ? `/agency-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`
+              : `/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`;
+            window.open(url, '_blank');
+          };
+
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {/* Agency Bill Section */}
+              {displayAgencyInv ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<PictureAsPdfIcon sx={{ fontSize: '14px !important' }} />}
+                  onClick={() => handleViewBill('agency')}
+                  sx={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 700, 
+                    padding: '2px 8px',
+                    minWidth: '120px',
+                    justifyContent: 'flex-start',
+                    textTransform: 'none'
+                  }}
+                >
+                  Agency Bill
+                </Button>
+              ) : upload_agency_bill_img ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  href={upload_agency_bill_img}
+                  target="_blank"
+                  startIcon={<PictureAsPdfIcon sx={{ fontSize: '14px !important' }} />}
+                  sx={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 700, 
+                    padding: '2px 8px',
+                    minWidth: '120px',
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    fontStyle: 'italic'
+                  }}
+                >
+                   Agency (Uploaded)
+                </Button>
+              ) : (
+                <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic', fontSize: '0.65rem' }}>
+                  No Agency Bill
+                </Typography>
+              )}
+
+              {/* Reimbursement Bill Section */}
+              {displayReimbInv ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<PictureAsPdfIcon sx={{ fontSize: '14px !important' }} />}
+                  onClick={() => handleViewBill('reimbursement')}
+                  sx={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 700, 
+                    padding: '2px 8px',
+                    minWidth: '120px',
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    color: '#e65100',
+                    borderColor: '#e65100',
+                    '&:hover': {
+                      borderColor: '#ef6c00',
+                      backgroundColor: 'rgba(230, 81, 0, 0.04)'
+                    }
+                  }}
+                >
+                  Reimb. Bill
+                </Button>
+              ) : upload_reimbursement_bill_img ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  href={upload_reimbursement_bill_img}
+                  target="_blank"
+                  startIcon={<PictureAsPdfIcon sx={{ fontSize: '14px !important' }} />}
+                  sx={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 700, 
+                    padding: '2px 8px',
+                    minWidth: '120px',
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    color: '#e65100',
+                    borderColor: '#e65100',
+                    fontStyle: 'italic'
+                  }}
+                >
+                  Reimb. (Uploaded)
+                </Button>
+              ) : (
+                <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic', fontSize: '0.65rem' }}>
+                  No Reimb. Bill
+                </Typography>
+              )}
+            </Box>
+          );
+        }
+      },
       {
         accessorKey: "Doc",
         header: "Documents",

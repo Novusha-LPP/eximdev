@@ -839,6 +839,7 @@ function JobDetailsStaticData(props) {
             </Col>
           </Row>
 
+
           {/* Row 11: Seller Name (HSS Conditional) */}
           {props.data.hss === "Yes" && (
             <Row style={compactRowStyle}>
@@ -1015,10 +1016,12 @@ function JobDetailsStaticData(props) {
                     <TextField
                       fullWidth
                       size="small"
+                      type={key.includes("date") ? "date" : "text"}
                       label={key === "importer_state" ? "State" : key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       name={key}
                       value={editFormData[key] || ""}
                       onChange={handleEditChange}
+                      InputLabelProps={key.includes("date") ? { shrink: true } : {}}
                     />
                   </Grid>
                 );

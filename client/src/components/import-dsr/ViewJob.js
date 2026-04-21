@@ -2073,6 +2073,28 @@ function JobDetails() {
                         </TextField>
                       </Col>
                     )}
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>NfIMS No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="nfims_no" name="nfims_no"
+                        value={formik.values.nfims_no || ""} onChange={formik.handleChange} placeholder="Enter NfIMS No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>NfIMS Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="nfims_date" name="nfims_date"
+                        value={formik.values.nfims_date ? (formik.values.nfims_date.length === 10 ? `${formik.values.nfims_date}T00:00` : formik.values.nfims_date) : ""}
+                        onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>SIMS No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="sims_no" name="sims_no"
+                        value={formik.values.sims_no || ""} onChange={formik.handleChange} placeholder="Enter SIMS No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>SIMS Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="sims_date" name="sims_date"
+                        value={formik.values.sims_date ? (formik.values.sims_date.length === 10 ? `${formik.values.sims_date}T00:00` : formik.values.sims_date) : ""}
+                        onChange={formik.handleChange} sx={compactInputSx} />
+                    </Col>
                   </Row>
                 </div>
 

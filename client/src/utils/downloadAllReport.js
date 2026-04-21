@@ -56,7 +56,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
-  });  const headers = [
+  }); const headers = [
     "JOB NO AND DATE",
     "IMPORTER",
     "SUPPLIER/ EXPORTER",
@@ -76,14 +76,13 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     "REMARKS",
     "DETAILED STATUS",
     "FIRST CHECK",
-    ""
+    "NFIMS / SIMS"
   ];
 
   // Row headers
   const dataWithHeaders = rowsWithoutBillNo.map((item) => {
-    const jobNoAndDate = `${item.job_no} | ${formatDate(item.job_date)} | ${
-      item.custom_house
-    } | ${item.type_of_b_e}`;
+    const jobNoAndDate = `${item.job_no} | ${formatDate(item.job_date)} | ${item.custom_house
+      } | ${item.type_of_b_e}`;
     const invoiceNoAndDate = `${item.invoice_number} | ${formatDate(
       item.invoice_date
     )}`;
@@ -96,43 +95,34 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       .map((date) => `Rail Out Date: ${formatDate(date)}`)
       .join(" | ");
 
-    const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
-      item.discharge_date ? item.discharge_date : item.vessel_berthing
-    }${
-      item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
-    }${
-      railOutDates ? ` | ${railOutDates}` : ""
-    }
-    ${
-      item.examination_date
+    const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${item.discharge_date ? item.discharge_date : item.vessel_berthing
+      }${item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
+      }${railOutDates ? ` | ${railOutDates}` : ""
+      }
+    ${item.examination_date
         ? ` | Examination Date: ${formatDate(item.examination_date)}`
         : ""
-    }${
-      item.duty_paid_date
+      }${item.duty_paid_date
         ? ` | Duty Paid Date: ${formatDate(item.duty_paid_date)}`
         : ""
-    }${
-      item.out_of_charge ? ` | OOC Date: ${formatDate(item.out_of_charge)}` : ""
-    }${item.sims_reg_no ? ` | SIMS Reg No: ${item.sims_reg_no}` : ""}${
-      item.sims_date ? ` | SIMS Reg Date: ${item.sims_date}` : ""
-    }${item.pims_reg_no ? ` | PIMS Reg No: ${item.pims_reg_no}` : ""}${
-      item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
-    }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${
-      item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
-    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
+      }${item.out_of_charge ? ` | OOC Date: ${formatDate(item.out_of_charge)}` : ""
+      }${item.sims_reg_no ? ` | SIMS Reg No: ${item.sims_reg_no}` : ""}${item.sims_date ? ` | SIMS Reg Date: ${item.sims_date}` : ""
+      }${item.pims_reg_no ? ` | PIMS Reg No: ${item.pims_reg_no}` : ""}${item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
+      }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
+      }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
 
-        // Safely handle container dates
- let arrivalDates = "";
-if (item.container_nos && item.container_nos.length > 0) {
-  arrivalDates = item.container_nos
-    .map((container) => {
-      // Show formatted date if available, else show Pending
-      return container.arrival_date
-        ? formatDate(container.arrival_date)
-        : "Pending";
-    })
-    .join(",\n"); // Or use '\n' if you want each on a new line
-}
+    // Safely handle container dates
+    let arrivalDates = "";
+    if (item.container_nos && item.container_nos.length > 0) {
+      arrivalDates = item.container_nos
+        .map((container) => {
+          // Show formatted date if available, else show Pending
+          return container.arrival_date
+            ? formatDate(container.arrival_date)
+            : "Pending";
+        })
+        .join(",\n"); // Or use '\n' if you want each on a new line
+    }
     const detentionFrom = formatContainerDates(
       item.container_nos,
       "detention_from"
@@ -179,6 +169,12 @@ if (item.container_nos && item.container_nos.length > 0) {
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,
       "FIRST CHECK": formatDate(item.firstCheck),
+      "NFIMS / SIMS": [
+        item.nfims_no ? `NFIMS NO: ${item.nfims_no}` : "",
+        item.nfims_date ? `DATE: ${formatDate(item.nfims_date)}` : "",
+        item.sims_no ? `SIMS NO: ${item.sims_no}` : "",
+        item.sims_date ? `DATE: ${formatDate(item.sims_date)}` : ""
+      ].filter(Boolean).join("\n"),
     };
 
     // eslint-disable-next-line
@@ -278,7 +274,7 @@ if (item.container_nos && item.container_nos.length > 0) {
     endColumnIndex < 26
       ? String.fromCharCode(65 + endColumnIndex)
       : String.fromCharCode(64 + Math.floor(endColumnIndex / 26)) +
-        String.fromCharCode(65 + (endColumnIndex % 26));
+      String.fromCharCode(65 + (endColumnIndex % 26));
   worksheet.mergeCells(`A3:${endColumn}3`);
 
   // Set the title for title row
@@ -519,6 +515,9 @@ if (item.container_nos && item.container_nos.length > 0) {
     }
     if (headers[id] === "REMARKS") {
       column.width = 45;
+    }
+    if (headers[id] === "NFIMS / SIMS") {
+      column.width = 25;
     }
   });
 

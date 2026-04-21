@@ -81,7 +81,7 @@ function ImportDO() {
           <BillingSheet />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={5}>
-          <ImportBilling />
+          <ImportBilling isDoView={true} />
         </CustomTabPanel>
         {/* <CustomTabPanel value={value} index={5}>
           <KycDetails />

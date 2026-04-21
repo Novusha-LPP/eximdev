@@ -8,7 +8,7 @@ router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:y
   auditMiddleware('Job'),
   async (req, res) => {
     const { branch_code, trade_type, mode, job_no, year } = req.params;
-    const { cth_documents, documents, queries, dsr_queries, esanchit_completed_date_time } = req.body;
+    const { cth_documents, documents, queries, dsr_queries, esanchit_completed_date_time, nfims_no, nfims_date, sims_no, sims_date } = req.body;
 
     try {
       const matchingJob = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), job_no, year });
@@ -71,6 +71,11 @@ router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:y
       if (typeof esanchit_completed_date_time !== 'undefined') {
         matchingJob.esanchit_completed_date_time = esanchit_completed_date_time;
       }
+      
+      if (typeof nfims_no !== 'undefined') matchingJob.nfims_no = nfims_no;
+      if (typeof nfims_date !== 'undefined') matchingJob.nfims_date = nfims_date;
+      if (typeof sims_no !== 'undefined') matchingJob.sims_no = sims_no;
+      if (typeof sims_date !== 'undefined') matchingJob.sims_date = sims_date;
 
       await matchingJob.save();
       res.send({ message: "Job updated successfully" });

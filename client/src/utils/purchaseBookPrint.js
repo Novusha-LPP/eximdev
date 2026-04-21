@@ -104,8 +104,6 @@ export const generatePurchaseBookPDF = (data, logoUrl) => {
         doc.text('Payment Detail', rx, currentY + 5);
         doc.setFont('helvetica', 'normal');
 
-        const taxable = Number(data.taxableValue || data.amount || 0);
-        const gst = Number(data.igstAmt || 0) + Number(data.cgstAmt || 0) + Number(data.sgstAmt || 0);
         const tds = Number(data.tdsAmt || data.tds || 0);
         const net = Number(data.total || data.amount || 0);
         const grossVal = net + tds; // Gross paid to vendor before TDS

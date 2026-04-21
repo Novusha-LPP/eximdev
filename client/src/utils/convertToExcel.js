@@ -89,7 +89,8 @@ export const convertToExcel = async (
     "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
-    "DETAILED STATUS"
+    "DETAILED STATUS",
+    "NFIMS / SIMS"
   ];
 
 
@@ -231,6 +232,12 @@ export const convertToExcel = async (
         "BE NUMBER AND DATE": beNoAndDate,
         REMARKS: remarks,
         "DETAILED STATUS": item.detailed_status || '',
+        "NFIMS / SIMS": [
+          item.nfims_no ? `NFIMS NO: ${item.nfims_no}` : "",
+          item.nfims_date ? `DATE: ${formatDate(item.nfims_date)}` : "",
+          item.sims_no ? `SIMS NO: ${item.sims_no}` : "",
+          item.sims_date ? `DATE: ${formatDate(item.sims_date)}` : ""
+        ].filter(Boolean).join("\n"),
       };
 
     const values = headers.map((val) => {
@@ -595,6 +602,9 @@ export const convertToExcel = async (
       column.width = 15;
     } if (headers[id] === "REMARKS") {
       column.width = 45;
+    }
+    if (headers[id] === "NFIMS / SIMS") {
+      column.width = 25;
     }
   });
 

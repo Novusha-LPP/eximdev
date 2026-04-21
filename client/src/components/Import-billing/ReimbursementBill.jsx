@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
+import { Reorder } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./ReimbursementBill.css";
@@ -22,7 +23,7 @@ const ReimbursementBill = () => {
     const [isMasterModalOpen, setIsMasterModalOpen] = useState(false);
     const [masterSearchTerm, setMasterSearchTerm] = useState("");
     const [selectedMasterHeads, setSelectedMasterHeads] = useState(new Set());
-    
+
     const [editableFields, setEditableFields] = useState({
         beHeading: "",
         shipperName: "",
@@ -57,7 +58,7 @@ const ReimbursementBill = () => {
             );
             const job = response.data;
             setJobData(job);
-            
+
             try {
                 const chargeHeadsRes = await axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`);
                 if (chargeHeadsRes.data.success) {
@@ -68,28 +69,27 @@ const ReimbursementBill = () => {
             }
 
             try {
-                // Get reimbursement charges directly from job charges grid revenue section
-                // We include all revenue charges that have an amount > 0
-                const reimbursementCharges = (job.charges || []).filter(ch => 
-                    ch.revenue?.amountINR > 0
+                // Pull charges explicitly tagged as "Reimbursement"
+                const reimbursementCharges = (job.charges || []).filter(ch =>
+                    ch.category === "Reimbursement"
                 );
-                
+
                 if (reimbursementCharges.length > 0) {
                     const mappedRows = reimbursementCharges.map(ch => {
                         const isGst = ch.revenue?.isGst;
                         const amount = ch.revenue?.amountINR || 0;
                         const gstRate = ch.revenue?.gstRate || 0;
-                        
+
                         // Format receipt details: Number Date Amount
                         const receiptDetails = `${ch.invoice_number || ""} ${ch.invoice_date || ""} ${amount > 0 ? amount.toFixed(2) : ""}`.trim();
 
                         return {
                             id: ch._id || Math.random().toString(),
                             description: ch.charge_name || ch.chargeHead || ch.charge_description || "Reimbursement",
-                            sac: ch.sacHsn || "996713", 
-                            receipt: "", // Always blank as per user request
-                            taxType: "P", 
-                            nonGst: amount, 
+                            sac: ch.sacHsn || "996713",
+                            receipt: ch.invoice_number || "",
+                            taxType: "P",
+                            nonGst: Math.round(parseFloat(amount) || 0),
                             taxable: 0,
                             cgstPercent: 0,
                             sgstPercent: 0
@@ -102,7 +102,7 @@ const ReimbursementBill = () => {
             }
 
             const firstInv = (job.invoice_details && job.invoice_details[0]) || {};
-            
+
             // Initialize editable fields with job data
             let initialFields = {
                 beHeading: job.item_description || job.description || "",
@@ -110,8 +110,8 @@ const ReimbursementBill = () => {
                 customerRef: job.po_no || "",
                 cifValue: firstInv.total_inv_value || "",
                 termsOfInvoice: firstInv.toi || "CIF",
-                invoiceNo: job.reimbursement_invoice_no || "", 
-                invoiceDate: formatDate(new Date()), 
+                invoiceNo: job.reimbursement_invoice_no || "",
+                invoiceDate: formatDate(new Date()),
                 dueDate: formatDate(new Date(new Date().setDate(new Date().getDate() + 15))),
                 placeOfSupply: `[${job.importer_address?.state || "24"}] ${job.importer_address?.state || "Gujarat"}`,
                 importerAddress: job.importer_address?.details || "",
@@ -129,12 +129,12 @@ const ReimbursementBill = () => {
                         const addr = `${kyc.principle_business_address_line_1 || ""} ${kyc.principle_business_address_line_2 || ""}, ${kyc.principle_business_address_city || ""}, ${kyc.principle_business_address_state || ""} - ${kyc.principle_business_address_pin_code || ""}`.trim();
                         initialFields.importerAddress = addr || initialFields.importerAddress;
                         initialFields.panNo = initialFields.panNo || kyc.pan_no || "";
-                        
+
                         let kycGst = kyc.gst_no;
                         if (!kycGst && kyc.factory_addresses && kyc.factory_addresses.length > 0) {
                             kycGst = kyc.factory_addresses[0].gst;
                         }
-                        
+
                         initialFields.gstin = initialFields.gstin || kycGst || "";
                         initialFields.stateName = kyc.principle_business_address_state || initialFields.stateName;
                         initialFields.placeOfSupply = `[${initialFields.stateCode}] ${initialFields.stateName}`;
@@ -158,7 +158,7 @@ const ReimbursementBill = () => {
                         gstin: savedFields.gstin || initialFields.gstin,
                         panNo: savedFields.panNo || initialFields.panNo
                     });
-                    
+
                     if (saved.generatedAt) {
                         setGenerationLog({
                             firstName: saved.generatedByFirstName,
@@ -168,7 +168,7 @@ const ReimbursementBill = () => {
                     }
 
                     setLoading(false);
-                    return; 
+                    return;
                 }
             } catch (e) {
                 console.log("No saved reimbursement bill found, proceeding with defaults");
@@ -205,15 +205,17 @@ const ReimbursementBill = () => {
                 let totalSgst = 0;
 
                 invoiceRows.forEach(r => {
-                    totalNonGst += parseFloat(r.nonGst) || 0;
-                    const amt = parseFloat(r.taxable) || 0;
+                    totalNonGst += Math.round(parseFloat(r.nonGst) || 0);
+                    const amt = Math.round(parseFloat(r.taxable) || 0);
                     const cgstP = parseFloat(r.cgstPercent) || 0;
                     const sgstP = parseFloat(r.sgstPercent) || 0;
                     totalTaxable += amt;
                     totalCgst += (amt * cgstP / 100);
                     totalSgst += (amt * sgstP / 100);
                 });
-                const finalTotal = totalNonGst + totalTaxable + totalCgst + totalSgst;
+                const rawFinalTotal = totalNonGst + totalTaxable + totalCgst + totalSgst;
+                const roundedFinalTotal = Math.round(rawFinalTotal);
+                const roundOff = roundedFinalTotal - rawFinalTotal;
 
                 const res = await axios.post(`${process.env.REACT_APP_API_STRING}/billing/save`, {
                     jobId: jobData._id,
@@ -226,12 +228,13 @@ const ReimbursementBill = () => {
                         totalTaxable,
                         totalCgst,
                         totalSgst,
-                        finalTotal
+                        roundOff,
+                        finalTotal: roundedFinalTotal
                     },
                     firstName: user?.first_name,
                     lastName: user?.last_name
                 });
-                
+
                 // If log was missing, update it from the save response
                 if (!generationLog && res.data.data?.generatedAt) {
                     setGenerationLog({
@@ -258,7 +261,11 @@ const ReimbursementBill = () => {
 
     const handleRowChange = (index, field, value) => {
         const newRows = [...invoiceRows];
-        newRows[index][field] = value;
+        if (field === 'taxable' || field === 'nonGst') {
+            newRows[index][field] = value === "" ? "" : Math.round(parseFloat(value) || 0);
+        } else {
+            newRows[index][field] = value;
+        }
         setInvoiceRows(newRows);
     };
 
@@ -318,7 +325,7 @@ const ReimbursementBill = () => {
     const addSelectedFromMaster = () => {
         const newRows = [...invoiceRows];
         const selected = chargeHeadsMaster.filter(ch => selectedMasterHeads.has(ch._id));
-        
+
         selected.forEach(ch => {
             newRows.push({
                 id: Math.random().toString(),
@@ -332,7 +339,7 @@ const ReimbursementBill = () => {
                 sgstPercent: 0
             });
         });
-        
+
         setInvoiceRows(newRows);
         setIsMasterModalOpen(false);
         setSelectedMasterHeads(new Set());
@@ -373,8 +380,8 @@ const ReimbursementBill = () => {
     let totalSgst = 0;
 
     invoiceRows.forEach(r => {
-        totalNonGst += parseFloat(r.nonGst) || 0;
-        const amt = parseFloat(r.taxable) || 0;
+        totalNonGst += Math.round(parseFloat(r.nonGst) || 0);
+        const amt = Math.round(parseFloat(r.taxable) || 0);
         const cgstP = parseFloat(r.cgstPercent) || 0;
         const sgstP = parseFloat(r.sgstPercent) || 0;
         totalTaxable += amt;
@@ -383,7 +390,9 @@ const ReimbursementBill = () => {
     });
 
     const totalGst = totalCgst + totalSgst;
-    const finalTotal = totalNonGst + totalTaxable + totalGst;
+    const rawFinalTotal = totalNonGst + totalTaxable + totalGst;
+    const roundedFinalTotal = Math.round(rawFinalTotal);
+    const roundOff = roundedFinalTotal - rawFinalTotal;
 
     const numberToWords = (num) => {
         const a = ['', 'ONE ', 'TWO ', 'THREE ', 'FOUR ', 'FIVE ', 'SIX ', 'SEVEN ', 'EIGHT ', 'NINE ', 'TEN ', 'ELEVEN ', 'TWELVE ', 'THIRTEEN ', 'FOURTEEN ', 'FIFTEEN ', 'SIXTEEN ', 'SEVENTEEN ', 'EIGHTEEN ', 'NINETEEN '];
@@ -416,7 +425,8 @@ const ReimbursementBill = () => {
         const summaryMap = {};
         invoiceRows.forEach(r => {
             const s = r.sac || "N/A";
-            const amt = parseFloat(r.taxable) || 0;
+            const nonGstAmt = Math.round(parseFloat(r.nonGst) || 0);
+            const amt = Math.round(parseFloat(r.taxable) || 0);
             const cP = parseFloat(r.cgstPercent) || 0;
             const sP = parseFloat(r.sgstPercent) || 0;
             const cVal = amt * (cP / 100);
@@ -465,22 +475,22 @@ const ReimbursementBill = () => {
                         <h1>SURAJ FORWARDERS PVT LTD</h1>
                         <p>A/204-205, WALL STREET II, OPP. ORIENT CLUB,</p>
                         <p>NR. GUJARAT COLLEGE, ELLIS BRIDGE,</p>
-                        <p>AHMEDABAD - 380006,GUJARAT</p>
-                        <p>Tel. No.-07926402005</p>
-                        <p>Email -account@surajforwarders.com</p>
+                        <p>AHMEDABAD - 380006, GUJARAT</p>
+                        <p>Tel : (079)26402005</p>
+                        <p>Email : account@surajforwarders.com</p>
+
+                        <div style={{ marginTop: '8px', borderTop: '1px solid #777', paddingTop: '4px', display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', columnGap: '40px', fontSize: '9px', textAlign: 'left' }}>
+                            <div style={{ paddingLeft: '20px' }}>
+                                <div style={{ display: 'flex' }}><span style={{ fontWeight: 'bold', minWidth: '45px' }}>GSTIN</span>: <span style={{ fontWeight: 'bold', marginLeft: '4px' }}>24AAKCS6838D1Z8</span></div>
+                                <div style={{ display: 'flex' }}><span style={{ fontWeight: 'bold', minWidth: '45px' }}>PAN No</span>: <span style={{ fontWeight: 'bold', marginLeft: '4px' }}>AAKCS6838D</span></div>
+                            </div>
+                            <div>
+                                <div style={{ display: 'flex' }}><span style={{ fontWeight: 'bold', minWidth: '45px' }}>State</span>: <span style={{ marginLeft: '4px', textTransform: 'uppercase' }}>[24] GUJARAT</span></div>
+                                <div style={{ display: 'flex' }}><span style={{ fontWeight: 'bold', minWidth: '45px' }}>CIN</span>: <span style={{ marginLeft: '4px' }}>U63090GJ2007PTC050253</span></div>
+                            </div>
+                        </div>
                     </div>
                     <div className="abi-qr-section"></div>
-                </div>
-
-                <div className="abi-registration-block">
-                    <div className="abi-reg-col">
-                        <div className="abi-reg-item"><span className="abi-reg-lbl">GSTIN</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ fontWeight: 'bold' }}>24AAKCS6838D1Z8</span></div>
-                        <div className="abi-reg-item"><span className="abi-reg-lbl">PAN No</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ fontWeight: 'bold' }}>AAKCS6838D</span></div>
-                    </div>
-                    <div className="abi-reg-col">
-                        <div className="abi-reg-item"><span className="abi-reg-lbl">State</span><span className="abi-reg-sep">:</span><span className="abi-reg-val" style={{ textTransform: 'uppercase' }}>[24] GUJARAT</span></div>
-                        <div className="abi-reg-item"><span className="abi-reg-lbl">CIN</span><span className="abi-reg-sep">:</span><span className="abi-reg-val">U63090GJ2007PTC050253</span></div>
-                    </div>
                 </div>
 
                 <div className="abi-master-grid">
@@ -529,8 +539,8 @@ const ReimbursementBill = () => {
                         <div className="abi-grid-row"><div className="abi-lbl">Net Wt.</div><div className="abi-sep">:</div><div className="abi-val">{jobData.job_net_weight || "0.000"} KGS</div></div>
                         <div className="abi-grid-row"><div className="abi-lbl">Custom House</div><div className="abi-sep">:</div><div className="abi-val">{jobData.custom_house || ""}</div></div>
                         <div className="abi-grid-row"><div className="abi-lbl">Chg. Wt.</div><div className="abi-sep">:</div><div className="abi-val">{jobData.chargeable_weight || "0.000"}</div></div>
-                        <div className="abi-grid-row"><div className="abi-lbl">Vessel</div><div className="abi-sep">:</div><div className="abi-val">{jobData.vessel_flight || ""}</div></div>
-                        <div className="abi-grid-row"><div className="abi-lbl">Voyage</div><div className="abi-sep">:</div><div className="abi-val">{jobData.voyage_no || ""}</div></div>
+                        <div className="abi-grid-row"><div className="abi-lbl">{mode === 'AIR' ? 'Flight' : 'Vessel'}</div><div className="abi-sep">:</div><div className="abi-val">{jobData.vessel_flight || ""}</div></div>
+                        <div className="abi-grid-row"><div className="abi-lbl">{mode === 'AIR' ? 'Flight No' : 'Voyage'}</div><div className="abi-sep">:</div><div className="abi-val">{jobData.voyage_no || ""}</div></div>
                         <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl">Origin Port</div><div className="abi-sep">:</div><div className="abi-val">{jobData.loading_port || ""}</div></div>
                     </div>
                     <div className="abi-grid-col abi-grid-right">
@@ -560,27 +570,63 @@ const ReimbursementBill = () => {
                                 <div className="abi-val">{mode === 'SEA' ? 'Sea' : 'Air'} {trade_type === 'IMP' ? 'Import' : 'Export'}</div>
                             </div>
                         </div>
-                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl">Customer Ref.</div><div className="abi-sep">:</div><div className="abi-val"><input className="abi-input" value={editableFields.customerRef} onChange={e => handleFieldChange('customerRef', e.target.value)} /></div></div>
-                        <div className="abi-grid-row"><div className="abi-lbl">Invoice Number</div><div className="abi-sep">:</div><div className="abi-val">{jobData.invoice_details?.[0]?.invoice_number || ""}</div></div>
-                        <div className="abi-grid-row"><div className="abi-lbl" style={{ minWidth: '40px' }}>Date</div><div className="abi-sep">:</div><div className="abi-val">{formatDate(jobData.invoice_details?.[0]?.invoice_date)}</div></div>
-                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl">Terms of Invoice</div><div className="abi-sep">:</div><div className="abi-val"><input className="abi-input" value={editableFields.termsOfInvoice} onChange={e => handleFieldChange('termsOfInvoice', e.target.value)} /></div></div>
-                        <div className="abi-grid-row"><div className="abi-lbl" style={{ minWidth: '70px' }}>Invoice Value</div><div className="abi-sep">:</div><div className="abi-val" style={{ whiteSpace: 'nowrap' }}>{jobData.invoice_details?.[0]?.total_inv_value || "0"} {jobData.invoice_details?.[0]?.inv_currency || ""}</div></div>
-                        <div className="abi-grid-row"><div className="abi-lbl" style={{ minWidth: '60px' }}>CIF Value</div><div className="abi-sep">:</div><div className="abi-val" style={{ whiteSpace: 'nowrap' }}><input className="abi-input" value={editableFields.cifValue} onChange={e => handleFieldChange('cifValue', e.target.value)} /></div></div>
-                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl">Assess Value</div><div className="abi-sep">:</div><div className="abi-val">{jobData.assessable_ammount || "0"} INR</div></div>
-                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl">Total Duty</div><div className="abi-sep">:</div><div className="abi-val">{jobData.total_duty || "0"} INR</div></div>
+                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Customer Ref.</div><div className="abi-sep">:</div><div className="abi-val"><input className="abi-input" value={editableFields.customerRef} onChange={e => handleFieldChange('customerRef', e.target.value)} /></div></div>
+                        <div className="abi-grid-row abi-row-span-2">
+                            <div className="abi-lbl" style={{ minWidth: '95px' }}>Invoice Number</div><div className="abi-sep">:</div>
+                            <div style={{ marginRight: '20px' }}>{jobData.invoice_details?.[0]?.invoice_number || ""}</div>
+                            <div className="abi-lbl" style={{ minWidth: 'auto', marginRight: '5px' }}>Date</div><div className="abi-sep">:</div>
+                            <div className="abi-val">{formatDate(jobData.invoice_details?.[0]?.invoice_date)}</div>
+                        </div>
+                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Terms of Invoice</div><div className="abi-sep">:</div><div className="abi-val"><input className="abi-input" value={editableFields.termsOfInvoice} onChange={e => handleFieldChange('termsOfInvoice', e.target.value)} /></div></div>
+                        <div className="abi-grid-row abi-row-span-2">
+                            <div className="abi-lbl" style={{ minWidth: '95px' }}>Invoice Value</div><div className="abi-sep">:</div>
+                            <div style={{ marginRight: '20px', whiteSpace: 'nowrap' }}>{jobData.invoice_details?.[0]?.total_inv_value || "0"} {jobData.invoice_details?.[0]?.inv_currency || ""}</div>
+                            <div className="abi-lbl" style={{ minWidth: 'auto', marginRight: '5px' }}>CIF Value</div><div className="abi-sep">:</div>
+                            <div className="abi-val" style={{ whiteSpace: 'nowrap' }}><input className="abi-input" value={editableFields.cifValue} onChange={e => handleFieldChange('cifValue', e.target.value)} /></div>
+                        </div>
+                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Assess Value</div><div className="abi-sep">:</div><div className="abi-val">{jobData.assessable_ammount || "0"} INR</div></div>
+                        <div className="abi-grid-row abi-row-span-2"><div className="abi-lbl" style={{ minWidth: '95px' }}>Total Duty</div><div className="abi-sep">:</div><div className="abi-val">{jobData.total_duty || "0"} INR</div></div>
+                        <div className="abi-grid-row abi-row-span-2">
+                            <div className="abi-lbl" style={{ minWidth: '95px' }}>Shipper Name</div><div className="abi-sep">:</div>
+                            <div className="abi-val"><input className="abi-input" value={editableFields.shipperName || ""} onChange={e => handleFieldChange('shipperName', e.target.value)} /></div>
+                        </div>
+                        <div className="abi-grid-row abi-row-span-2">
+                            <div className="abi-lbl" style={{ minWidth: '95px' }}>BE Heading</div><div className="abi-sep">:</div>
+                            <div className="abi-val">
+                                <textarea
+                                    className="abi-input"
+                                    style={{ fontWeight: 'bold', height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', display: 'block' }}
+                                    rows={1}
+                                    value={editableFields.beHeading || ""}
+                                    onChange={e => handleFieldChange('beHeading', e.target.value)}
+                                    onInput={(e) => {
+                                        e.target.style.height = '18px';
+                                        e.target.style.height = e.target.scrollHeight + 'px';
+                                    }}
+                                    ref={el => {
+                                        if (el) {
+                                            el.style.height = '18px';
+                                            el.style.height = el.scrollHeight + 'px';
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div className="abi-full-box">
                     <div className="abi-full-row"><div className="abi-full-lbl">Importer Name</div><div>: {jobData.importer || ""}</div></div>
-                    <div className="abi-full-row"><div className="abi-full-lbl">Containers</div><div>: {getContainerString()}</div></div>
+                    {mode !== 'AIR' && (
+                        <div className="abi-full-row"><div className="abi-full-lbl">Containers</div><div>: {getContainerString()}</div></div>
+                    )}
                 </div>
 
                 <table className="abi-table">
                     <thead>
                         <tr>
                             <th rowSpan="2" style={{ width: '3%' }}>Sr No</th>
-                            <th rowSpan="2" style={{ width: '28%', textAlign: 'left' }}>Description</th>
+                            <th rowSpan="2" style={{ width: '28%', textAlign: 'center' }}>Description</th>
                             <th rowSpan="2" style={{ width: '7%' }}>SAC/ HSN</th>
                             <th rowSpan="2" style={{ width: '12%' }}>Receipt Details</th>
                             <th rowSpan="2" style={{ width: '4%' }}>Tax Type</th>
@@ -597,10 +643,10 @@ const ReimbursementBill = () => {
                             <th style={{ width: '4.5%', padding: '3px' }}>Tax</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <Reorder.Group axis="y" values={invoiceRows} onReorder={setInvoiceRows} as="tbody">
                         {invoiceRows.map((r, idx) => {
-                            const nonGst = parseFloat(r.nonGst) || 0;
-                            const amt = parseFloat(r.taxable) || 0;
+                            const nonGst = Math.round(parseFloat(r.nonGst) || 0);
+                            const amt = Math.round(parseFloat(r.taxable) || 0);
                             const cP = parseFloat(r.cgstPercent) || 0;
                             const sP = parseFloat(r.sgstPercent) || 0;
                             const cTax = amt * (cP / 100);
@@ -608,26 +654,31 @@ const ReimbursementBill = () => {
                             const rowTotal = nonGst + amt + cTax + sTax;
 
                             return (
-                                <tr key={r.id}>
+                                <Reorder.Item value={r} key={r.id} as="tr">
                                     <td style={{ textAlign: 'center' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: '#666' }} className="no-print">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M10 13a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2zm-4-4a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2zm-4 8a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2z" />
+                                                </svg>
+                                            </div>
                                             {idx + 1}
-                                            <button className="no-print" onClick={() => deleteRow(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: 0, fontSize: '12px' }}>x</button>
+                                            <button className="no-print" onClick={() => deleteRow(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: 0, fontSize: '12px', marginLeft: '4px' }}>x</button>
                                         </div>
                                     </td>
-                                    <td style={{ verticalAlign: 'middle' }}>
-                                        <textarea 
-                                            className="abi-input desc" 
+                                    <td style={{ verticalAlign: 'middle', textAlign: 'left' }}>
+                                        <textarea
+                                            className="abi-input desc"
                                             rows={1}
-                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0' }}
-                                            value={r.description} 
-                                            onChange={e => handleRowChange(idx, 'description', e.target.value)} 
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'left' }}
+                                            value={r.description}
+                                            onChange={e => handleRowChange(idx, 'description', e.target.value)}
                                             onInput={(e) => {
                                                 e.target.style.height = '18px';
                                                 e.target.style.height = e.target.scrollHeight + 'px';
                                             }}
                                             ref={el => {
-                                                if(el) {
+                                                if (el) {
                                                     el.style.height = '18px';
                                                     el.style.height = el.scrollHeight + 'px';
                                                 }
@@ -652,7 +703,7 @@ const ReimbursementBill = () => {
                                         {sTax ? formatCurrency(sTax) : ''}
                                     </td>
                                     <td style={{ textAlign: 'right' }}>{rowTotal ? formatCurrency(rowTotal) : ''}</td>
-                                </tr>
+                                </Reorder.Item>
                             )
                         })}
                         <tr>
@@ -677,9 +728,9 @@ const ReimbursementBill = () => {
                             <td style={{ padding: '4px', textAlign: 'right' }}>{formatCurrency(totalCgst)}</td>
                             <td style={{ borderRight: '1px solid #000' }}></td>
                             <td style={{ padding: '4px', textAlign: 'right' }}>{formatCurrency(totalSgst)}</td>
-                            <td style={{ textAlign: 'right' }}>{formatCurrency(finalTotal)}</td>
+                            <td style={{ textAlign: 'right' }}>{formatCurrency(rawFinalTotal)}</td>
                         </tr>
-                    </tbody>
+                    </Reorder.Group>
                 </table>
 
                 <div className="abi-legend-bar">
@@ -690,9 +741,9 @@ const ReimbursementBill = () => {
                     <div className="abi-bank-info">
                         <div className="abi-bank-header">Bank Account Details</div>
                         <div style={{ padding: '4px' }}>
-                            <strong style={{ fontSize: '10.5px' }}>IDBI Bank Ltd.</strong><br/>
-                            C G ROAD BRANCH<br/>
-                            A/C No: 009102000030542<br/>
+                            <strong style={{ fontSize: '10.5px' }}>IDBI Bank Ltd.</strong><br />
+                            C G ROAD BRANCH, AHMEDABAD<br />
+                            A/C No: 009102000030542<br />
                             IFSC: IBKL0000009
                         </div>
                     </div>
@@ -723,34 +774,34 @@ const ReimbursementBill = () => {
                     <div className="abi-totals-side">
                         <div className="abi-tot-row"><div className="abi-tot-lbl">Total Amount Before Tax</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(totalTaxable + totalNonGst)}</div></div>
                         <div className="abi-tot-row"><div className="abi-tot-lbl">Add : GST</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(totalGst)}</div></div>
-                        <div className="abi-tot-row"><div className="abi-tot-lbl">Total Invoice Value</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(finalTotal)}</div></div>
+                        <div className="abi-tot-row"><div className="abi-tot-lbl">Total Invoice Value</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(rawFinalTotal)}</div></div>
                         <div className="abi-tot-row"><div className="abi-tot-lbl">Less : Advance Received</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">0.00</div></div>
-                        <div className="abi-tot-row"><div className="abi-tot-lbl">Round-Off</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">0.00</div></div>
-                        <div className="abi-tot-row" style={{ height: '22px' }}><div className="abi-tot-lbl" style={{ fontSize: '10px' }}>Net Payable</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val" style={{ fontSize: '10px' }}>{formatCurrency(finalTotal)}</div></div>
+                        <div className="abi-tot-row"><div className="abi-tot-lbl">Round-Off</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(roundOff)}</div></div>
+                        <div className="abi-tot-row" style={{ height: '22px' }}><div className="abi-tot-lbl" style={{ fontSize: '10px' }}>Net Payable</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val" style={{ fontSize: '10px' }}>{formatCurrency(roundedFinalTotal)}</div></div>
                         <div className="abi-tot-row" style={{ borderBottom: 'none' }}><div className="abi-tot-lbl">Tax Payable on Reverse Charges</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">0.00</div></div>
                     </div>
                 </div>
 
                 <div className="abi-text-row"><strong>Payment Details :</strong></div>
                 <div className="abi-text-row">
-                    <strong>Net Payable In Words (INR)</strong> <span style={{ marginLeft: '10px', textTransform: 'capitalize' }}>{numberToWords(finalTotal).toLowerCase()}</span>
+                    <strong>Net Payable In Words (INR)</strong> <span style={{ marginLeft: '10px', textTransform: 'capitalize' }}>{numberToWords(roundedFinalTotal).toLowerCase()}</span>
                 </div>
                 <div className="abi-text-row"><strong>Remarks :</strong></div>
 
                 <div className="abi-signature-row">
                     <div className="abi-terms">
                         <strong>Terms & Conditions :</strong>
-                        <ul style={{ margin: '3px 0 0 12px', padding: 0 }}>
-                            <li>In case of any discrepancy in the invoice, please bring the same to our attention within 7 days of receipt of invoice; else the same would be treated as correct.</li>
-                            <li>Delay in payment beyond the agreed credit period will attract interest @ 18% p.a.</li>
-                            <li>Government Taxes applied as per the prevailing rates.</li>
-                            <li>All disputes are subject to AHMEDABAD Jurisdiction.</li>
+                        <ul style={{ margin: '3px 0 0 0', paddingLeft: '15px' }}>
+                            <li style={{ paddingLeft: '10px' }}>In case of any discrepancy in the invoice, please bring the same to our attention within 7 days on receipt of invoice; else the same would be treated as correct.</li>
+                            <li style={{ paddingLeft: '10px' }}>Delay in payment beyond the agreed credit period will attract interest @ 18% p.a.</li>
+                            <li style={{ paddingLeft: '10px' }}>Government Taxes applied as per the prevailing rates.</li>
+                            <li style={{ paddingLeft: '10px' }}>All disputes are subject to AHMEDABAD Jurisdiction.</li>
                         </ul>
                     </div>
                     <div className="abi-sig-block">
                         <div style={{ fontWeight: 'bold' }}>For SURAJ FORWARDERS PVT LTD</div>
-                        <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <img src={signature} alt="Signature" style={{ maxHeight: '45px', mixBlendMode: 'multiply' }} />
+                        <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img src={signature} alt="Signature" style={{ maxHeight: '75px', mixBlendMode: 'multiply' }} />
                         </div>
                         <div style={{ fontWeight: 'bold' }}>Authorised Signatory</div>
                     </div>
@@ -762,7 +813,7 @@ const ReimbursementBill = () => {
                     </div>
                 )}
             </div>
-            
+
             {isMasterModalOpen && (
                 <div className="abi-modal-overlay no-print">
                     <div className="abi-modal-content">
@@ -770,7 +821,12 @@ const ReimbursementBill = () => {
                         <div className="abi-modal-body">
                             <input type="text" placeholder="Search charges..." value={masterSearchTerm} onChange={(e) => setMasterSearchTerm(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '15px' }} />
                             <div className="abi-charge-list">
-                                {chargeHeadsMaster.filter(ch => ch.name.toLowerCase().includes(masterSearchTerm.toLowerCase())).map(ch => (
+                                {chargeHeadsMaster
+                                    .filter(ch => 
+                                        ch.category === "Reimbursement" &&
+                                        ch.name.toLowerCase().includes(masterSearchTerm.toLowerCase())
+                                    )
+                                    .map(ch => (
                                     <div key={ch._id} className="abi-charge-item"><label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                                         <input type="checkbox" checked={selectedMasterHeads.has(ch._id)} onChange={() => toggleMasterSelection(ch._id)} />
                                         <span>{ch.name}</span></label>

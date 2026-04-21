@@ -178,8 +178,23 @@ const EditChargeModal = ({
       
       // Auto-populate TDS if selecting a shipping line or CFS or transporter
       if (section === 'cost' && field === 'partyName') {
-        const allParties = [...shippingLines, ...cfsList, ...transporters, ...generalOrgs];
-        const matchedSL = allParties.find(sl => sl.name?.toUpperCase() === value?.toUpperCase());
+        const partyType = updated[index][section].partyType?.toUpperCase();
+        const normName = value?.trim().toUpperCase();
+        
+        let searchList = [];
+        if (partyType === 'TRANSPORTER') searchList = transporters;
+        else if (partyType === 'VENDOR') searchList = suppliers;
+        else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+        else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+        else if (partyType === 'CFS') searchList = cfsList;
+        else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+        let matchedSL = searchList.find(sl => sl.name?.trim().toUpperCase() === normName);
+        if (!matchedSL) {
+          const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+          matchedSL = allParties.find(sl => sl.name?.trim().toUpperCase() === normName);
+        }
+
         if (matchedSL && matchedSL.tds_percent > 0) {
           updated[index][section].isTds = true;
           updated[index][section].tdsPercent = matchedSL.tds_percent;
@@ -196,7 +211,7 @@ const EditChargeModal = ({
         updated[index][section].partyName = importerName;
       }
 
-      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate', 'partyName'];
+      const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate', 'partyName', 'basicAmount'];
       if (fieldsToTriggerRecalc.includes(field)) {
         const sectionRef = updated[index][section];
         const qty = parseFloat(sectionRef.qty) || 0;
@@ -212,15 +227,43 @@ const EditChargeModal = ({
         // Basic is always GST-exclusive (Amount / 1.18)
         // GST is the difference (Amount - Basic)
         const gstRate = parseFloat(sectionRef.gstRate) || 18;
-        const derivedBasic = amount / (1 + (gstRate / 100));
-        const derivedGst = amount - derivedBasic;
         
+        let derivedBasic, derivedGst;
+        if (field === 'basicAmount') {
+          // Manual entry: use the value directly
+          derivedBasic = parseFloat(value) || 0;
+        } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
+          // Auto-calculation logic for primary amount-altering fields
+          derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+        } else {
+          // For other fields like isTds, tdsPercent, partyName, etc.
+          // Keep the existing basic amount (especially if it was manually overridden)
+          derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+        }
+        
+        derivedGst = amount - derivedBasic;
         sectionRef.gstAmount = derivedGst;
-        sectionRef.basicAmount = derivedBasic; // TDS always calculated on this
+        sectionRef.basicAmount = derivedBasic;
 
         // GST Split Logic based on GSTIN (24 = Gujarat)
         const partyName = sectionRef.partyName;
-        const party = [...shippingLines, ...suppliers, ...cfsList, ...transporters, ...generalOrgs].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+        const partyType = sectionRef.partyType?.toUpperCase();
+        const normName = partyName?.trim().toUpperCase();
+
+        let searchList = [];
+        if (partyType === 'TRANSPORTER') searchList = transporters;
+        else if (partyType === 'VENDOR') searchList = suppliers;
+        else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+        else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+        else if (partyType === 'CFS') searchList = cfsList;
+        else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+        let party = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+        if (!party) {
+          const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+          party = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+        }
+        
         const branchIndex = sectionRef.branchIndex || 0;
         const gstin = party?.branches?.[branchIndex]?.gst || "";
         
@@ -248,9 +291,9 @@ const EditChargeModal = ({
         // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
         const includeGst = sectionRef.isGst !== false;
         if (includeGst) {
-          sectionRef.netPayable = amount - sectionRef.tdsAmount;
+          sectionRef.netPayable = Math.round(amount - sectionRef.tdsAmount);
         } else {
-          sectionRef.netPayable = sectionRef.basicAmount - sectionRef.tdsAmount;
+          sectionRef.netPayable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
         }
       }
       
@@ -271,13 +314,36 @@ const EditChargeModal = ({
   };
 
   const handleSelectParty = (index, section, item) => {
-    handleFieldChange(index, 'partyName', item.name, section);
-    // Initialize branch index and trigger recalc
+    // To avoid race conditions, we perform all updates in a single logic block
+    // We update partyName and branchIndex together, then trigger any side effects
+    
     const updated = [...formData];
-    updated[index][section].branchIndex = 0;
+    const sectionRef = updated[index][section];
+    
+    sectionRef.partyName = item.name;
+    sectionRef.branchIndex = 0;
+    
+    // Trigger any auto-populate logic (TDS, etc.)
+    if (section === 'cost') {
+      const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+      const matchedSL = allParties.find(sl => sl.name?.toUpperCase() === item.name?.toUpperCase());
+      if (matchedSL && matchedSL.tds_percent > 0) {
+        sectionRef.isTds = true;
+        sectionRef.tdsPercent = matchedSL.tds_percent;
+      }
+    }
+    
+    // Now trigger the standard recalc logic (simulating call to handleFieldChange)
+    // We reuse the updated object as much as possible
     setFormData(updated);
-    // Explicitly trigger recalc for branch change
-    handleFieldChange(index, 'branchIndex', 0, section);
+    
+    // Finally, trigger the recalc by calling handleFieldChange with the 'branchIndex' update
+    // which will use the state resulting from the setFormData above.
+    // NOTE: Using a 10ms timeout to ensure setFormData has processed in the React cycle
+    setTimeout(() => {
+      handleFieldChange(index, 'branchIndex', 0, section);
+    }, 10);
+    
     setActiveDropdown({ index: null, section: null });
   };
 
@@ -312,6 +378,46 @@ const EditChargeModal = ({
 
     const gstRate = parseFloat(revenue.gstRate) || 18;
     const derivedBasic = amount / (1 + (gstRate / 100));
+    const derivedGst = amount - derivedBasic;
+    
+    revenue.gstAmount = derivedGst;
+    revenue.basicAmount = derivedBasic;
+
+    updated[index].revenue = revenue;
+    setFormData(updated);
+  };
+  
+  const handleCopyToRevenue = (index) => {
+    const updated = [...formData];
+    const cost = updated[index].cost || {};
+    const revenue = { 
+      ...(updated[index].revenue || {}),
+      basis: cost.basis,
+      qty: cost.qty,
+      unit: cost.unit,
+      rate: cost.rate,
+      currency: cost.currency,
+      exchangeRate: cost.exchangeRate || 1,
+      isGst: cost.isGst !== undefined ? cost.isGst : true,
+      gstRate: cost.gstRate || 18,
+      chargeDescription: cost.chargeDescription,
+      partyName: cost.partyName,
+      partyType: cost.partyType,
+      branchIndex: cost.branchIndex,
+      branchCode: cost.branchCode
+    };
+    
+    // Recalculate everything for revenue
+    const qty = parseFloat(revenue.qty) || 0;
+    const rate = parseFloat(revenue.rate) || 0;
+    const exRate = parseFloat(revenue.exchangeRate) || 1;
+    const amount = qty * rate;
+    
+    revenue.amount = amount;
+    revenue.amountINR = amount * exRate;
+
+    const gstRate = parseFloat(revenue.gstRate) || 18;
+    const derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
     const derivedGst = amount - derivedBasic;
     
     revenue.gstAmount = derivedGst;
@@ -575,7 +681,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Qty/Unit</span>
                                 <div className="ep-inline">
-                                  <input type="number" step="0.01" value={row.revenue?.qty ?? 1.00} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'revenue')} />
+                                  <input type="number" step="0.01" value={row.revenue?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'revenue')} />
                                   <input type="text" value={row.revenue?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'revenue')} />
                                 </div>
                               </div>
@@ -588,7 +694,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Rate</span>
                                 <div className="ep-inline">
-                                  <input type="number" step="0.01" value={row.revenue?.rate ?? 0.00} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'revenue')} />
+                                  <input type="number" step="0.01" value={row.revenue?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'revenue')} />
                                   <select value={row.revenue?.currency || 'INR'} onChange={e => handleFieldChange(i, 'currency', e.target.value, 'revenue')}>
                                     <option>INR</option><option>USD</option><option>EUR</option>
                                   </select>
@@ -668,7 +774,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Basic Amount</span>
                                 <div className="ep-inline">
-                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.revenue?.basicAmount)} />
+                                  <input type="number" step="0.01" className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.revenue?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'revenue')} />
                                 </div>
                               </div>
                               <div className="ep-row">
@@ -790,7 +896,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Qty/Unit</span>
                                 <div className="ep-inline">
-                                  <input type="number" step="0.01" value={row.cost?.qty ?? 1.00} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'cost')} />
+                                  <input type="number" step="0.01" value={row.cost?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'cost')} />
                                   <input type="text" value={row.cost?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'cost')} />
                                 </div>
                               </div>
@@ -803,7 +909,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Rate</span>
                                 <div className="ep-inline">
-                                  <input type="number" step="0.01" value={row.cost?.rate ?? 0.00} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'cost')} />
+                                  <input type="number" step="0.01" value={row.cost?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'cost')} />
                                   <select value={row.cost?.currency || 'INR'} onChange={e => handleFieldChange(i, 'currency', e.target.value, 'cost')}>
                                     <option>INR</option><option>USD</option><option>EUR</option>
                                   </select>
@@ -857,7 +963,24 @@ const EditChargeModal = ({
                                 </div>
                               </div>
                               {(() => {
-                                const party = [...shippingLines, ...suppliers, ...cfsList, ...generalOrgs].find(p => p.name?.toUpperCase() === row.cost?.partyName?.toUpperCase());
+                                const partyName = row.cost?.partyName;
+                                const partyType = row.cost?.partyType?.toUpperCase();
+                                const normName = partyName?.trim().toUpperCase();
+
+                                let searchList = [];
+                                if (partyType === 'TRANSPORTER') searchList = transporters;
+                                else if (partyType === 'VENDOR') searchList = suppliers;
+                                else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+                                else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+                                else if (partyType === 'CFS') searchList = cfsList;
+                                else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+                                let party = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+                                if (!party) {
+                                  const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+                                  party = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+                                }
+
                                 if (party && party.branches?.length > 1) {
                                   return (
                                     <div className="ep-row">
@@ -880,7 +1003,7 @@ const EditChargeModal = ({
                                   <input type="checkbox" checked={row.cost?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
                                   {row.cost?.isGst !== false && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <input type="number" style={{ width: '50px' }} value={row.cost?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} />
+                                      <input type="number" style={{ width: '50px' }} value={row.cost?.gstRate || ''} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} />
                                       <span style={{ fontSize: '11px' }}>%</span>
                                     </div>
                                   )}
@@ -889,7 +1012,7 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label">Basic Amount</span>
                                 <div className="ep-inline">
-                                  <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.cost?.basicAmount)} />
+                                  <input type="number" step="0.01" className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.cost?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'cost')} />
                                 </div>
                               </div>
                               <div className="ep-row">
@@ -919,7 +1042,36 @@ const EditChargeModal = ({
                               <div className="ep-row">
                                 <span className="ep-label" style={{ fontWeight: 'bold', color: '#d32f2f' }}>Net Payable</span>
                                 <div className="ep-inline">
-                                  <input type="number" readOnly className="ep-read" style={{ background: '#fff9f9', fontWeight: 'bold', color: '#d32f2f', border: '1px solid #ffcdd2' }} value={formatNumber(row.cost?.netPayable)} />
+                                  <input type="number" readOnly className="ep-read" style={{ background: '#fff9f9', fontWeight: 'bold', color: '#d32f2f', border: '1px solid #ffcdd2' }} value={Math.round(row.cost?.netPayable || 0)} />
+                                </div>
+                              </div>
+                              <div className="ep-copy-row" style={{ marginTop: '10px' }}>
+                                <button 
+                                  type="button" 
+                                  className="copy-btn" 
+                                  style={{ 
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontSize: '11px', 
+                                    padding: '1px 8px', 
+                                    backgroundColor: '#fff', 
+                                    border: '1px solid #1976d2', 
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    color: '#1976d2',
+                                    fontWeight: '600',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  onClick={(e) => { e.stopPropagation(); handleCopyToRevenue(i); }}
+                                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f5faff'; }}
+                                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                >
+                                  <ContentCopyIcon style={{ fontSize: '13px' }} /> Copy to Revenue
+                                </button>
+                              </div>
+                              <div className="ep-grid" style={{ marginTop: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   {/* Conditionally show based on workMode or if already exists */}
                                   {(!row.purchase_book_no && (workMode === 'Purchase Book' || !row.payment_request_no)) && (
                                     <button 
@@ -935,21 +1087,41 @@ const EditChargeModal = ({
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
-                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        const partyType = row.cost?.partyType?.toUpperCase();
+                                        const normName = partyName?.trim().toUpperCase();
+
+                                        let searchList = [];
+                                        if (partyType === 'TRANSPORTER') searchList = transporters;
+                                        else if (partyType === 'VENDOR') searchList = suppliers;
+                                        else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+                                        else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+                                        else if (partyType === 'CFS') searchList = cfsList;
+                                        else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+                                        let partyDetails = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+                                        if (!partyDetails) {
+                                          const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+                                          partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+                                        }
+
                                         setPurchaseBookData(() => {
                                           const cost = row.cost || {};
                                           const rate = parseFloat(cost.gstRate) || 18;
                                           const amt = parseFloat(cost.amount) || 0;
                                           const includeGst = cost.isGst || false;
                                           
-                                          let basic = amt;
-                                          let totalGst = 0;
+                                          let basic = parseFloat(cost.basicAmount);
+                                          let totalGst = parseFloat(cost.gstAmount);
                                           
-                                          if (includeGst) {
-                                            basic = amt / (1 + (rate / 100));
-                                            totalGst = amt - basic;
-                                          } else {
-                                            totalGst = amt * (rate / 100);
+                                          // Fallback in case they are missing
+                                          if (isNaN(basic)) {
+                                            if (includeGst) {
+                                              basic = amt / (1 + (rate / 100));
+                                              totalGst = amt - basic;
+                                            } else {
+                                              basic = amt;
+                                              totalGst = amt * (rate / 100);
+                                            }
                                           }
 
                                           const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
@@ -996,7 +1168,23 @@ const EditChargeModal = ({
                                       }}
                                       onClick={() => {
                                         const partyName = row.cost?.partyName;
-                                        const partyDetails = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs].find(p => p.name?.toUpperCase() === partyName?.toUpperCase());
+                                        const partyType = row.cost?.partyType?.toUpperCase();
+                                        const normName = partyName?.trim().toUpperCase();
+
+                                        let searchList = [];
+                                        if (partyType === 'TRANSPORTER') searchList = transporters;
+                                        else if (partyType === 'VENDOR') searchList = suppliers;
+                                        else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+                                        else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+                                        else if (partyType === 'CFS') searchList = cfsList;
+                                        else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+                                        let partyDetails = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+                                        if (!partyDetails) {
+                                          const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+                                          partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+                                        }
+
                                         setPaymentRequestData({
                                           partyName,
                                           partyDetails,

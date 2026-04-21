@@ -69,14 +69,19 @@
 }
 
 .abi-logo-section {
-    width: 20%;
-    padding: 5px;
+    width: 30%;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .abi-logo-section img {
-    width: 100%;
-    max-width: 220px;
+    max-width: 100%;
+    max-height: 190px;
     height: auto;
+    width: auto;
+    object-fit: contain;
 }
 
 .abi-company-center {
@@ -86,9 +91,10 @@
 }
 
 .abi-company-center h1 {
-    font-size: 18px;
-    margin: 0 0 3px 0;
-    font-weight: 900;
+    font-size: 19px;
+    margin: 0 0 2px 0;
+    font-weight: 800;
+    letter-spacing: 0.5px;
 }
 
 .abi-company-center p {
@@ -97,9 +103,11 @@
 }
 
 .abi-qr-section {
-    width: 15%;
+    width: 30%;
     padding: 5px;
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .abi-qr-box {
@@ -114,32 +122,7 @@
 }
 
 /* Registration Block (Centered Rectangle) */
-.abi-registration-block {
-    border: 1px solid #000;
-    border-top: none;
-    padding: 2.5px 0;
-    font-size: 10px;
-    display: flex;
-    justify-content: center;
-    gap: 80px;
-    align-items: center;
-}
-
-.abi-reg-col {
-    display: flex;
-    flex-direction: column;
-}
-
-.abi-reg-item {
-    display: flex;
-    align-items: center;
-    padding: 0.5px 0;
-}
-
-.abi-reg-lbl {
-    font-weight: bold;
-    min-width: 55px;
-}
+/* Registration info is now merged into company-center */
 
 .abi-reg-sep {
     padding: 0 5px;

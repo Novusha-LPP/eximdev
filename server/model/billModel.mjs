@@ -28,6 +28,7 @@ const billSchema = new mongoose.Schema({
     totalNonGst: Number,
     totalCgst: Number,
     totalSgst: Number,
+    roundOff: Number,
     finalTotal: Number,
     lastSaved: {
         type: Date,

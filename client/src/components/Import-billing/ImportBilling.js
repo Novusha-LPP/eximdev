@@ -29,7 +29,7 @@ import ContainerTrackButton from '../ContainerTrackButton';
 import CashVoucher from "./CashVoucher";
 import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
 
-function ImportBilling({ workMode = 'Payment' }) {
+function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
@@ -299,250 +299,258 @@ function ImportBilling({ workMode = 'Payment' }) {
     }, 200);
   }, []);
 
-  // Define table columns
   const columns = React.useMemo(
-    () => [
-      {
-        accessorKey: "job_no",
-        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
-        enableSorting: false,
-        size: 250,
-        Cell: ({ cell }) => {
-          const {
-            job_no,
-            job_number,
-            year,
-            _id,
-            type_of_b_e,
-            consignment_type,
-            custom_house,
-            detailed_status,
-            vessel_berthing,
-            colorPriority, // ✅ USE THIS FROM BACKEND
-            container_nos,
-            branch_code,
-            trade_type,
-            mode,
-          } = cell.row.original;
+    () => {
+      const baseColumns = [
+        {
+          accessorKey: "job_no",
+          header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+          enableSorting: false,
+          size: 250,
+          Cell: ({ cell }) => {
+            const {
+              job_no,
+              job_number,
+              year,
+              _id,
+              type_of_b_e,
+              consignment_type,
+              custom_house,
+              detailed_status,
+              vessel_berthing,
+              colorPriority, // ✅ USE THIS FROM BACKEND
+              container_nos,
+              branch_code,
+              trade_type,
+              mode,
+            } = cell.row.original;
 
-          // Color-coding logic based on job status and dates
-          // Color-coding logic - NOW USES BACKEND DATA
-          let bgColor = "";
-          let textColor = "blue";
+            // Color-coding logic based on job status and dates
+            // Color-coding logic - NOW USES BACKEND DATA
+            let bgColor = "";
+            let textColor = "blue";
 
-          const currentDate = new Date();
-          currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
+            const currentDate = new Date();
+            currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
 
-          // Function to calculate the days difference (MUST MATCH BACKEND)
-          const calculateDaysDifference = (targetDate) => {
-            if (!targetDate) return null;
+            // Function to calculate the days difference (MUST MATCH BACKEND)
+            const calculateDaysDifference = (targetDate) => {
+              if (!targetDate) return null;
 
-            const date = new Date(targetDate);
-            date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
+              const date = new Date(targetDate);
+              date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
 
-            const timeDifference = date.getTime() - currentDate.getTime();
-            return Math.floor(timeDifference / (1000 * 3600 * 24));
-          };
+              const timeDifference = date.getTime() - currentDate.getTime();
+              return Math.floor(timeDifference / (1000 * 3600 * 24));
+            };
 
-          // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
-          if (colorPriority) {
-            if (colorPriority === 1) {
-              bgColor = "red";
-              textColor = "white";
-            } else if (colorPriority === 2) {
-              bgColor = "orange";
-              textColor = "black";
-            } else if (colorPriority === 3) {
-              bgColor = "white";
-              textColor = "blue";
-            }
-          }
-          // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
-          else if (detailed_status === "Billing Pending" && container_nos) {
-            let mostCriticalDays = null;
-
-            container_nos.forEach((container) => {
-              const targetDate =
-                consignment_type === "LCL"
-                  ? container.delivery_date
-                  : container.emptyContainerOffLoadDate;
-
-              if (targetDate) {
-                const daysDifference = calculateDaysDifference(targetDate);
-
-                if (
-                  mostCriticalDays === null ||
-                  daysDifference < mostCriticalDays
-                ) {
-                  mostCriticalDays = daysDifference;
-                }
-              }
-            });
-
-            // Apply colors based on the most critical container
-            if (mostCriticalDays !== null && mostCriticalDays < 0) {
-              if (mostCriticalDays <= -10) {
+            // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
+            if (colorPriority) {
+              if (colorPriority === 1) {
                 bgColor = "red";
                 textColor = "white";
-              } else if (mostCriticalDays <= -6) {
+              } else if (colorPriority === 2) {
                 bgColor = "orange";
                 textColor = "black";
-              } else if (mostCriticalDays <= -1) {
+              } else if (colorPriority === 3) {
                 bgColor = "white";
                 textColor = "blue";
               }
             }
-          }
+            // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
+            else if (detailed_status === "Billing Pending" && container_nos) {
+              let mostCriticalDays = null;
 
-          const queryParams = new URLSearchParams({
-            selectedJobId: _id,
-          }).toString();
+              container_nos.forEach((container) => {
+                const targetDate =
+                  consignment_type === "LCL"
+                    ? container.delivery_date
+                    : container.emptyContainerOffLoadDate;
 
-          return currentTab === 0 ? (
-            <Link
-              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-              state={{ workMode }}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-block",
-                cursor: "pointer",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
-            </Link>
-          ) : (
-            <div
-              style={{
-                display: "inline-block",
-                cursor: "default",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                borderRadius: "5px",
-                textAlign: "center",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
-            </div>
-          );
+                if (targetDate) {
+                  const daysDifference = calculateDaysDifference(targetDate);
+
+                  if (
+                    mostCriticalDays === null ||
+                    daysDifference < mostCriticalDays
+                  ) {
+                    mostCriticalDays = daysDifference;
+                  }
+                }
+              });
+
+              // Apply colors based on the most critical container
+              if (mostCriticalDays !== null && mostCriticalDays < 0) {
+                if (mostCriticalDays <= -10) {
+                  bgColor = "red";
+                  textColor = "white";
+                } else if (mostCriticalDays <= -6) {
+                  bgColor = "orange";
+                  textColor = "black";
+                } else if (mostCriticalDays <= -1) {
+                  bgColor = "white";
+                  textColor = "blue";
+                }
+              }
+            }
+
+            const queryParams = new URLSearchParams({
+              selectedJobId: _id,
+            }).toString();
+
+            return currentTab === 0 ? (
+              <Link
+                to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                state={{ workMode }}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-block",
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor || "transparent",
+                  padding: "10px",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </Link>
+            ) : (
+              <div
+                style={{
+                  display: "inline-block",
+                  cursor: "default",
+                  color: textColor,
+                  backgroundColor: bgColor || "transparent",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </div>
+            );
+          },
         },
-      },
-      {
-        accessorKey: "importer",
-        header: "Importer",
-        enableSorting: false,
-        size: 150,
-      },
-
-      {
-        accessorKey: "awb_bl_no",
-        header: "BL Num & Date",
-        enableSorting: false,
-        size: 150,
-        Cell: ({ cell }) => {
-          const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
-          return (
-            <div>
-              {awb_bl_no} <br /> {awb_bl_date}
-            </div>
-          );
+        {
+          accessorKey: "importer",
+          header: "Importer",
+          enableSorting: false,
+          size: 150,
         },
-      },
-      {
-        accessorKey: "container_numbers",
-        header: "Container Numbers and Size",
-        size: 200,
-        Cell: ({ cell }) => {
-          const containerNos = cell.row.original.container_nos;
-          return (
-            <React.Fragment>
-              {containerNos?.map((container, id) => (
-                <div key={id} style={{ marginBottom: "4px" }}>
-                  {container.container_number} <ContainerTrackButton
-                    customHouse={cell?.row?.original?.custom_house}
-                    containerNo={container.container_number}
-                  />
-                  | "{container.size}"
-                  <IconButton
-                    size="small"
-                    onClick={(event) =>
-                      handleCopy(event, container.container_number)
-                    }
-                  >
-                    <ContentCopyIcon fontSize="inherit" />
-                  </IconButton>
-                </div>
-              ))}
-            </React.Fragment>
-          );
-        },
-      },
-      {
-        accessorKey: "bill_document_sent_to_accounts",
-        header: "Bill Doc Sent To Accounts",
-        enableSorting: false,
-        size: 300,
-        Cell: ({ cell }) => {
-          const value = cell.getValue();
-          if (!value) return "-";
-          const date = new Date(value);
-          return isNaN(date)
-            ? value
-            : date.toLocaleString("en-IN", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: true,
-            });
-        },
-      },
 
-      {
-        accessorKey: "Doc",
-        header: "Documents",
-        enableSorting: false,
-        size: 200,
-        Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
-      },
-      {
-        accessorKey: "generate_bill",
-        header: "Generate Bill",
-        muiTableHeadCellProps: { align: "center" },
-        muiTableBodyCellProps: { sx: { textAlign: "center", verticalAlign: "middle" } },
-        enableSorting: false,
-        size: 150,
-        Cell: ({ cell }) => (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <Button
-              variant="contained"
-              color="primary"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleMenuOpen(e, cell.row.original);
-              }}
-            >
-              Generate
-            </Button>
-          </Box>
-        ),
-      },
-    ],
+        {
+          accessorKey: "awb_bl_no",
+          header: "BL Num & Date",
+          enableSorting: false,
+          size: 150,
+          Cell: ({ cell }) => {
+            const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+            return (
+              <div>
+                {awb_bl_no} <br /> {awb_bl_date}
+              </div>
+            );
+          },
+        },
+        {
+          accessorKey: "container_numbers",
+          header: "Container Numbers and Size",
+          size: 200,
+          Cell: ({ cell }) => {
+            const containerNos = cell.row.original.container_nos;
+            return (
+              <React.Fragment>
+                {containerNos?.map((container, id) => (
+                  <div key={id} style={{ marginBottom: "4px" }}>
+                    {container.container_number} <ContainerTrackButton
+                      customHouse={cell?.row?.original?.custom_house}
+                      containerNo={container.container_number}
+                    />
+                    | "{container.size}"
+                    <IconButton
+                      size="small"
+                      onClick={(event) =>
+                        handleCopy(event, container.container_number)
+                      }
+                    >
+                      <ContentCopyIcon fontSize="inherit" />
+                    </IconButton>
+                  </div>
+                ))}
+              </React.Fragment>
+            );
+          },
+        },
+        {
+          accessorKey: "bill_document_sent_to_accounts",
+          header: "Bill Doc Sent To Accounts",
+          enableSorting: false,
+          size: 300,
+          Cell: ({ cell }) => {
+            const value = cell.getValue();
+            if (!value) return "-";
+            const date = new Date(value);
+            return isNaN(date)
+              ? value
+              : date.toLocaleString("en-IN", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+              });
+          },
+        },
 
-    [navigate, handleCopy]
+        {
+          accessorKey: "Doc",
+          header: "Documents",
+          enableSorting: false,
+          size: 200,
+          Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
+        },
+        {
+          accessorKey: "generate_bill",
+          header: "Generate Bill",
+          muiTableHeadCellProps: { align: "center" },
+          muiTableBodyCellProps: { sx: { textAlign: "center", verticalAlign: "middle" } },
+          enableSorting: false,
+          size: 150,
+          Cell: ({ cell }) => (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMenuOpen(e, cell.row.original);
+                }}
+              >
+                Generate
+              </Button>
+            </Box>
+          ),
+        },
+      ];
+
+      if (isDoView) {
+        return baseColumns.filter(c => 
+          c.accessorKey !== "generate_bill" && 
+          c.accessorKey !== "bill_document_sent_to_accounts"
+        );
+      }
+      return baseColumns;
+    },
+    [navigate, handleCopy, isDoView]
   );
 
   // Table configuration

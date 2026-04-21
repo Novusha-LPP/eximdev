@@ -172,6 +172,10 @@ function ViewESanchitJob() {
       queries: data.eSachitQueries || [{ query: "", reply: "" }],
       dsr_queries: data.dsr_queries || [],
       esanchit_completed_date_time: data.esanchit_completed_date_time || "",
+      nfims_no: data.nfims_no || "",
+      nfims_date: data.nfims_date || "",
+      sims_no: data.sims_no || "",
+      sims_date: data.sims_date || "",
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -182,6 +186,10 @@ function ViewESanchitJob() {
           queries: values.queries,
           esanchit_completed_date_time: values.esanchit_completed_date_time || "",
           dsr_queries: values.dsr_queries || [],
+          nfims_no: values.nfims_no,
+          nfims_date: values.nfims_date,
+          sims_no: values.sims_no,
+          sims_date: values.sims_date,
         };
 
         // Get user info from localStorage for audit trail
@@ -671,6 +679,64 @@ function ViewESanchitJob() {
                   jobYear={data.year}
                 />
               </Box>
+            </div>
+
+            <div className="job-details-container" style={{ marginTop: "20px" }}>
+              <h4>Registrations (NfIMS / SIMS)</h4>
+              <Row>
+                <Col xs={12} lg={6}>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="NfIMS Number"
+                      name="nfims_no"
+                      value={formik.values.nfims_no}
+                      onChange={formik.handleChange}
+                      disabled={isDisabled}
+                      sx={compactInputSx}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      label="NfIMS Date"
+                      name="nfims_date"
+                      value={formik.values.nfims_date}
+                      onChange={formik.handleChange}
+                      disabled={isDisabled}
+                      InputLabelProps={{ shrink: true }}
+                      sx={compactInputSx}
+                    />
+                  </Box>
+                </Col>
+                <Col xs={12} lg={6}>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="SIMS Number"
+                      name="sims_no"
+                      value={formik.values.sims_no}
+                      onChange={formik.handleChange}
+                      disabled={isDisabled}
+                      sx={compactInputSx}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      label="SIMS Date"
+                      name="sims_date"
+                      value={formik.values.sims_date}
+                      onChange={formik.handleChange}
+                      disabled={isDisabled}
+                      InputLabelProps={{ shrink: true }}
+                      sx={compactInputSx}
+                    />
+                  </Box>
+                </Col>
+              </Row>
             </div>
 
             <div className="job-details-container">

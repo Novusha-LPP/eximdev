@@ -20,6 +20,35 @@
   flex-shrink: 0;
   transition: width 0.3s ease;
   z-index: 10;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.attendance-sidebar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.attendance-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.attendance-sidebar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d1d9e6, #b8c5d8);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.attendance-sidebar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #b8c5d8, #9fb0c9);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.attendance-sidebar::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #9fb0c9, #8ca0be);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .attendance-sidebar.collapsed {

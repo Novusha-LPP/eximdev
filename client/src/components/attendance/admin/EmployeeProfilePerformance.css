@@ -120,6 +120,7 @@
 .ar-day-badge.half_day { background: #ff9101; color: #fff; }
 .ar-day-badge.weekly_off { background: #475569; color: #fff; }
 .ar-day-badge.holiday { background: #86198f; color: #fff; }
+.ar-day-badge.missed_punch { background: #f97316; color: #fff; }
 
 /* Activity Timeline */
 .ar-timeline {
@@ -246,3 +247,4 @@
 .ar-pill-half-day { background: #f5f3ff; color: #7c3aed; }
 .ar-pill-off { background: #f1f5f9; color: #64748b; }
 .ar-pill-holiday { background: #fdf4ff; color: #a21caf; }
+.ar-pill-missed-punch { background: #fff7ed; color: #ea580c; }

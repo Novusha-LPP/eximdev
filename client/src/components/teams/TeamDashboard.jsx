@@ -154,15 +154,13 @@ function TeamDashboard() {
         if (teams.length > 0) {
             if (teamId) {
                 const foundTeam = teams.find(t => t._id === teamId);
-                if (foundTeam && (!selectedTeam || selectedTeam._id !== foundTeam._id)) {
+                if (foundTeam && (!selectedTeam || selectedTeam !== foundTeam)) {
                     setSelectedTeam(foundTeam);
-                    if (userId) {
-                        // Keep selectedMember syncing logic below happy
-                    } else {
+                    if (!userId) {
                         setSelectedMember(null);
                     }
                 }
-            } else if (!teamId && teams.length > 0) {
+            } else if (teams.length > 0) {
                 navigate('/attendance/teams/' + teams[0]._id, { replace: true });
             }
         }
@@ -198,9 +196,13 @@ function TeamDashboard() {
                 `${process.env.REACT_APP_API_STRING}/teams/${selectedTeam._id}`
             );
             if (res.data.success) {
+                const teamData = res.data.team;
                 // Fetch full user details for members
-                const memberUsernames = res.data.team.members.map(m => m.username);
+                const memberUsernames = (teamData.members || []).map(m => m.username).filter(Boolean);
+                
                 if (memberUsernames.length > 0) {
+                    const lowercaseMemberUsernames = memberUsernames.map(u => u.toLowerCase());
+
                     // For admin, use enriched data if available, otherwise fetch from team's HOD endpoint
                     if (user?.role === 'Admin' && selectedTeam.membersDetails) {
                         // Use pre-fetched member details from all teams API
@@ -222,9 +224,9 @@ function TeamDashboard() {
                             `${process.env.REACT_APP_API_STRING}/teams/hod/${user.username}/members`
                         );
                         if (usersRes.data.success) {
-                            // Filter to only show members of this team
+                            // Filter to only show members of this team (case-insensitive)
                             const filteredMembers = usersRes.data.members.filter(m =>
-                                memberUsernames.includes(m.username)
+                                m.username && lowercaseMemberUsernames.includes(m.username.toLowerCase())
                             );
                             setTeamMembers(filteredMembers);
                         }
@@ -474,14 +476,14 @@ function TeamDashboard() {
                     <Table
                         columns={memberColumns}
                         dataSource={filteredMembers}
-                        rowKey="_id"
+                        rowKey={(record) => record._id || record.userId || record.username}
                         loading={loadingMembers}
                         pagination={{ pageSize: 10 }}
                         onRow={(record) => ({
-                            onClick: () => navigate('/attendance/teams/' + selectedTeam._id + '/user/' + record.username + '/performance'),
+                            onClick: () => record.username && navigate('/attendance/teams/' + selectedTeam._id + '/user/' + record.username + '/performance'),
                             style: {
                                 cursor: "pointer",
-                                background: selectedMember?._id === record._id ? "#e6f7ff" : undefined,
+                                background: selectedMember?._id === record._id || (selectedMember?.username && selectedMember.username === record.username) ? "#e6f7ff" : undefined,
                             },
                         })}
                     />

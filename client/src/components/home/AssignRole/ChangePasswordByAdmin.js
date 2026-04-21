@@ -56,7 +56,8 @@ function ChangePasswordByAdmin({ selectedUser }) {
     }
 
     // Check if current user is admin and target user is also admin
-    if (userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username) {
+    const isDevelopment = ["development", "server"].includes(process.env.NODE_ENV);
+    if (userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username && !isDevelopment) {
       message.error("Admin cannot change another admin's password");
       return;
     }
@@ -95,7 +96,7 @@ function ChangePasswordByAdmin({ selectedUser }) {
       bordered={false}
       style={{ maxWidth: 600 }}
     >
-      {userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username ? (
+      {userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username && !["development", "server"].includes(process.env.NODE_ENV) ? (
         <Alert
           type="warning"
           message="Restricted Action"

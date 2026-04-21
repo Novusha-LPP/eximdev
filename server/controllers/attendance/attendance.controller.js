@@ -280,6 +280,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualEarlyOut = 0;
     let actualLeaves = 0;
     let actualHalfDay = 0;
+    let actualMissedPunch = 0;
     let actualTotalHours = 0;
 
     const compactHistory = [];
@@ -313,6 +314,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             else if (hStatus === 'half_day') actualHalfDay++;
             else if (hStatus === 'absent') actualAbsent++;
             else if (hStatus === 'leave') actualLeaves++;
+            else if (hStatus === 'incomplete') actualMissedPunch++;
 
             if (rec.is_late) {
                 actualLate++;
@@ -361,6 +363,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         earlyOut: actualEarlyOut,
         leaves: actualLeaves,
         halfDay: actualHalfDay,
+        missedPunch: actualMissedPunch,
         avgHours: `${avgHoursH}h ${avgHoursM}m`,
         raw_total_hours: actualTotalHours,
         raw_total_present_days: actualPresent + actualHalfDay,
@@ -1680,14 +1683,20 @@ export const togglePayrollLock = async (req, res) => {
 export const getAdminAttendanceReport = async (req, res) => {
     try {
         const { startDate, endDate, departmentId } = req.query;
-        const companyId = resolveCompanyId(req);
+        let companyId = resolveCompanyId(req);
+        const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+
+        // If companyId is null (e.g. 'all' or not provided) and user is not an admin, fallback to their own company
+        if (!companyId && roleNorm !== 'ADMIN') {
+            companyId = req.user?.company_id;
+        }
 
         if (!startDate || !endDate) {
             return res.status(400).json({ message: 'startDate and endDate are required' });
         }
 
-        // Guard: companyId must be resolvable
-        if (!companyId) {
+        // Guard: companyId must be resolvable for non-admins (Admins can view 'all' as null)
+        if (!companyId && roleNorm !== 'ADMIN') {
             return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
         }
 
@@ -1695,12 +1704,10 @@ export const getAdminAttendanceReport = async (req, res) => {
         const end = moment(endDate).endOf('day').toDate();
 
         // 1. Build Query
-        const normalizedCompanyId = String(companyId).trim();
-        
         const userQuery = {
             isActive: true
         };
-        if (normalizedCompanyId !== 'all') {
+        if (companyId) {
             userQuery.company_id = companyId;
         }
 
@@ -1744,7 +1751,7 @@ export const getAdminAttendanceReport = async (req, res) => {
         }
 
         // 2. Fetch Bulk Data (Records, Leaves)
-        if (normalizedCompanyId !== 'all') {
+        if (companyId) {
             const company = await Company.findById(companyId).select('_id');
             if (!company) {
                 return res.status(400).json({ message: `Company not found for id: ${companyId}. Please select a valid company.` });

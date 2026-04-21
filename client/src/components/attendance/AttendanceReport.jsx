@@ -21,6 +21,7 @@ const getCalendarStatusClass = (status = '') => {
     const normalized = String(status || '').toLowerCase();
     if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
     if (normalized === 'present_late') return 'late';
+    if (normalized === 'incomplete') return 'incomplete';
     return normalized || 'none';
 };
 
@@ -37,6 +38,7 @@ const getCalendarStatusBadge = (status = '') => {
         present_late: 'L',
         absent: 'A',
         present: 'P',
+        incomplete: 'MP',
         pending_leave: 'PLV'
     };
     return map[normalized] || '';
@@ -50,7 +52,8 @@ const StatusPill = ({ status, session }) => {
         pending_leave: ['Pending Leave', 'pending-leave'],
         half_day: ['Half Day', 'half-day'], 
         weekly_off: ['Off', 'off'], 
-        holiday: ['Holiday', 'holiday'] 
+        holiday: ['Holiday', 'holiday'],
+        incomplete: ['Missed Punch', 'missed-punch']
     };
     const [label, cls] = map[status] || [status, 'default'];
     return (

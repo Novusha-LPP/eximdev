@@ -78,15 +78,28 @@ const formatSession = (s) => {
 
 const calClass = (rec, isCurrentDay, punchStatus) => {
   if (!rec) return '';
+  if (rec.status === 'incomplete') return 'missed_punch';
   if (rec.status === 'half_day') return 'half_day';
   if (isCurrentDay && (punchStatus?.status === 'Checked In' || punchStatus?.status === 'Checked Out')) {
     return rec?.isLate ? 'late' : 'present';
   }
   if (rec.status === 'present') return rec.isLate ? 'late' : 'present';
-  return { absent: 'absent', holiday: 'holiday', weekly_off: 'off', leave: 'leave' }[rec.status] || '';
+  return { absent: 'absent', holiday: 'holiday', weekly_off: 'weekly_off', leave: 'leave', incomplete: 'missed_punch' }[rec.status] || '';
 };
 
-const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'HD', weekly_off: 'O', empty: '' };
+const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'HD', weekly_off: 'O', missed_punch: 'M', empty: '' };
+
+const CAL_LABELS = {
+  present: 'Present',
+  late: 'Present',
+  absent: 'Absent',
+  half_day: 'Half-Day',
+  leave: 'Leave',
+  weekly_off: 'Weekly Off',
+  holiday: 'Holiday',
+  missed_punch: 'Missed Punch',
+  none: ''
+};
 
 /* ------------------------------------------
    UNIFIED DASHBOARD – All Roles
@@ -257,8 +270,7 @@ export default function Dashboard() {
   /* -- Calendar -- */
   const getCalDays = () => {
     const y = month.getFullYear(), mo = month.getMonth();
-    let fd = new Date(y, mo, 1).getDay();
-    fd = fd === 0 ? 6 : fd - 1;
+    const fd = new Date(y, mo, 1).getDay(); // Sunday-based
     const total = new Date(y, mo + 1, 0).getDate();
     return [...Array(fd).fill(null), ...Array.from({ length: total }, (_, i) => i + 1)];
   };
@@ -419,53 +431,72 @@ export default function Dashboard() {
         {/* -- LEFT / MAIN -- */}
         <div className="db-main">
 
-          {/* Personal punch card – compact for managers */}
-          <div className="ph-card">
-            <div className="ph-top">
-              <div>
-                <div className={`ph-status ${isIn ? 'on' : 'off'}`}>
-                  <span className="ph-dot" />
-                  <span className="ph-status-text">{isIn ? 'Clocked in' : 'Not clocked in'}</span>
-                </div>
-                <div className="ph-greeting">{ps?.shiftName || 'General Shift'}</div>
-                {ps?.shiftTime && <div className="ph-shift">{ps.shiftTime}</div>}
-                <div className="ph-timer">{liveTimer}</div>
-                <div className="ph-timer-lbl">Time logged today</div>
-                <div className="ph-meta">
-                  <div className="ph-meta-item">
-                    <span className="ph-meta-key">Punched In</span>
-                    <span className="ph-meta-val">{ps?.firstIn ? fmtTime(ps.firstIn) : '-'}</span>
+          <div className="db-upper-row">
+            {/* Personal punch card – compact for managers */}
+            <div className="ph-card">
+              <div className="ph-top">
+                <div>
+                  <div className={`ph-status ${isIn ? 'on' : 'off'}`}>
+                    <span className="ph-dot" />
+                    <span className="ph-status-text">{isIn ? 'Clocked in' : 'Not clocked in'}</span>
                   </div>
-                  <div className="ph-meta-item">
-                    <span className="ph-meta-key">Punched Out</span>
-                    <span className={`ph-meta-val ${showMiss ? 'red' : ''}`}>
-                      {showMiss ? 'Miss' : ps?.lastOut ? fmtTime(ps.lastOut) : '-'}
-                    </span>
-                  </div>
-                  <div className="ph-meta-item">
-                    <span className="ph-meta-key">Status</span>
-                    <span className={`ph-meta-val ${isIn ? 'green' : ''}`}>{ps?.status || '-'}</span>
-                  </div>
-                  {ps?.isLate && (
+                  <div className="ph-greeting">{ps?.shiftName || 'General Shift'}</div>
+                  {ps?.shiftTime && <div className="ph-shift">{ps.shiftTime}</div>}
+                  <div className="ph-timer">{liveTimer}</div>
+                  <div className="ph-timer-lbl">Time logged today</div>
+                  <div className="ph-meta">
                     <div className="ph-meta-item">
-                      <span className="ph-meta-key">Late By</span>
-                      <span className="ph-meta-val amber">{minutesToHours(ps.lateByMinutes)}</span>
+                      <span className="ph-meta-key">Punched In</span>
+                      <span className="ph-meta-val">{ps?.firstIn ? fmtTime(ps.firstIn) : '-'}</span>
                     </div>
-                  )}
+                    <div className="ph-meta-item">
+                      <span className="ph-meta-key">Punched Out</span>
+                      <span className={`ph-meta-val ${showMiss ? 'red' : ''}`}>
+                        {showMiss ? 'Miss' : ps?.lastOut ? fmtTime(ps.lastOut) : '-'}
+                      </span>
+                    </div>
+                    <div className="ph-meta-item">
+                      <span className="ph-meta-key">Status</span>
+                      <span className={`ph-meta-val ${isIn ? 'green' : ''}`}>{ps?.status || '-'}</span>
+                    </div>
+                    {ps?.isLate && (
+                      <div className="ph-meta-item">
+                        <span className="ph-meta-key">Late By</span>
+                        <span className="ph-meta-val amber">{minutesToHours(ps.lateByMinutes)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  className={`ph-ring ${isIn ? 'out' : ''}`}
+                  onClick={handlePunch}
+                  disabled={punching}
+                >
+                  {isIn
+                    ? <FiLogOut size={22} color="#ef4444" />
+                    : <FiLogIn size={22} color="#10b981" />
+                  }
+                  <span className="ph-ring-lbl">{punching ? '...' : isIn ? 'Out' : 'In'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* -- EMPLOYEE: Personal stat tiles beside ph-card for managers -- */}
+            {isManager && (
+              <div className="card personal-summary-card">
+                <div className="card-head">
+                  <span className="card-title">My Monthly Summary</span>
+                </div>
+                <div className="personal-stats-grid">
+                  {personalTiles.map((t, i) => (
+                    <div key={i} className={`personal-stat-box ${t.cls}`}>
+                      <div className="ps-val">{t.val}</div>
+                      <div className="ps-lbl">{t.lbl}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <button
-                className={`ph-ring ${isIn ? 'out' : ''}`}
-                onClick={handlePunch}
-                disabled={punching}
-              >
-                {isIn
-                  ? <FiLogOut size={22} color="#ef4444" />
-                  : <FiLogIn size={22} color="#10b981" />
-                }
-                <span className="ph-ring-lbl">{punching ? '...' : isIn ? 'Out' : 'In'}</span>
-              </button>
-            </div>
+            )}
           </div>
 
           {/* -- MANAGER: Overview strip -- */}
@@ -510,22 +541,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* -- EMPLOYEE: Personal stat tiles below calendar for managers -- */}
-          {isManager && (
-            <div className="card">
-              <div className="card-head">
-                <span className="card-title">My Monthly Summary</span>
-              </div>
-              <div className="personal-stats-row">
-                {personalTiles.map((t, i) => (
-                  <div key={i} className={`personal-stat ${t.cls}`}>
-                    <div className="personal-stat-val">{t.val}</div>
-                    <div className="personal-stat-lbl">{t.lbl}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {isAuthorizedAdmin && (
             <div className="db-main-tabs">
@@ -712,7 +728,9 @@ export default function Dashboard() {
               <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
             </div>
             <div className="cal-grid">
-              {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => <div key={d} className="cal-dname">{d}</div>)}
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                <div key={d} className="cal-day-header">{d}</div>
+              ))}
               {getCalDays().map((day, i) => {
                 const rec = getCalRecord(day);
                 const isTd = day && month.getMonth() === new Date().getMonth() && month.getFullYear() === new Date().getFullYear() && day === new Date().getDate();
@@ -723,34 +741,39 @@ export default function Dashboard() {
                   const dow = dObj.getDay();
                   const offDays = dash?.punchStatus?.weeklyOffDays || [0, 6];
                   if (offDays.includes(dow)) {
-                      cls = 'off';
+                      cls = 'weekly_off';
                   } else if (dObj <= new Date()) {
                       cls = 'absent';
                   }
                 }
 
+                const label = CAL_LABELS[cls] || '';
+
                 return (
                   <div
                     key={i}
-                    className={`cal-day ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
+                    className={`cal-day-v2 ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
                     onClick={() => openDay(day)}
                   >
-                    {day}
-                    {rec?.status === 'half_day' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>½</span>}
-                    {rec?.status === 'holiday' && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: '8px', fontWeight: 800, color: 'inherit', opacity: 0.8 }}>HD</span>}
+                    <span className="cal-day-num">{day}</span>
+                    {day && label && (
+                      <div className={`cal-status-badge ${cls}`}>
+                        {label}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
             <div className="cal-legend">
               {[
-                ['Present', '#10b981'],
-                ['Late', '#f59e0b'],
-                ['Absent', '#ef4444'],
-                ['Leave', '#8b5cf6'],
-                ['Half Day', '#0369a1'],
-                ['Weekly Off', '#cbd5e1'],
-                ['Holiday', '#e0e7ff']
+                ['Present', '#36b60f'],
+                ['Absent', '#c02e2e'],
+                ['Half-Day', '#ff9101'],
+                ['Leave', '#1e40af'],
+                ['Weekly Off', '#475569'],
+                ['Holiday', '#86198f'],
+                ['Missed Punch', '#f97316']
               ].map(([l, c]) => (
                 <span key={l}><span className="cal-ldot" style={{ background: c }} />{l}</span>
               ))}

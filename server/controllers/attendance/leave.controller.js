@@ -39,6 +39,21 @@ const getShaliniApprover = async (companyId) => {
     }).select('_id username role');
 };
 
+const getApproverByUsername = async (username, companyId) => {
+    const companyScoped = await UserModel.findOne({
+        username,
+        company_id: companyId,
+        isActive: true
+    }).select('_id username role');
+
+    if (companyScoped) return companyScoped;
+
+    return UserModel.findOne({
+        username,
+        isActive: true
+    }).select('_id username role');
+};
+
 const getDefaultOpeningBalance = (policy) => {
     const leaveType = String(policy?.leave_type || '').toLowerCase();
     if (leaveType === 'lwp') {
@@ -916,11 +931,25 @@ export const applyLeave = async (req, res) => {
         let currentApproverId = null;
         let approvalChain = [];
         const actorUsername = String(user.username || '').toLowerCase();
+        const actorObjectId = user._id?._id || user._id;
+        const actorId = normalizeId(actorObjectId);
+        let userTeam = null;
         try {
-            const userTeam = await TeamModel.findOne({
-                'members.userId': user._id,
+            userTeam = await TeamModel.findOne({
+                'members.userId': actorObjectId,
                 isActive: { $ne: false }
             });
+
+            if (!userTeam) {
+                userTeam = await TeamModel.findOne({
+                    isActive: { $ne: false },
+                    $or: [
+                        { hodId: actorObjectId },
+                        { hodUsername: actorUsername }
+                    ]
+                });
+            }
+
             if (userTeam) {
                 teamId = userTeam._id;
                 currentApproverId = userTeam.hodId || null;
@@ -936,10 +965,27 @@ export const applyLeave = async (req, res) => {
             });
         }
 
-        const isHodApplicant = isHodRole(user.role);
-        const isStage2OrFinalAdminApplicant = actorUsername === STAGE_2_APPROVER_USERNAME || STAGE_3_FINAL_APPROVER_USERNAMES.has(actorUsername);
-
-        if (isHodApplicant || isStage2OrFinalAdminApplicant) {
+        const isTeamHodApplicant = !!userTeam && (
+            (userTeam.hodId && normalizeId(userTeam.hodId) === actorId) ||
+            (userTeam.hodUsername && String(userTeam.hodUsername).toLowerCase() === actorUsername)
+        );
+        const isHodApplicant = isHodRole(user.role) || isTeamHodApplicant;
+        
+        // --- CUSTOM ROUTING FOR ADMINS ---
+        if (actorUsername === STAGE_2_APPROVER_USERNAME) {
+            // Shalini applying -> Goes to Manu Pillai
+            const manuUser = await getApproverByUsername('manu_pillai', companyId);
+            if (!manuUser) {
+                return res.status(400).json({ message: 'Unable to route leave approval: manu_pillai is not configured' });
+            }
+            assignedStage = 'stage_3_final';
+            currentApproverId = manuUser._id;
+        } else if (STAGE_3_FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+            // Manu/Suraj/Rajan applying -> Self-approve at Stage 3
+            assignedStage = 'stage_3_final';
+            currentApproverId = user._id;
+        } else if (isHodApplicant) {
+            // HOD applying -> Goes to Shalini (Stage 2)
             assignedStage = 'stage_2_shalini';
             currentApproverId = shaliniUser._id;
         }
@@ -966,11 +1012,16 @@ export const applyLeave = async (req, res) => {
                 approver_id: shaliniUser._id,
                 approver_username: STAGE_2_APPROVER_USERNAME,
                 approver_role: 'ADMIN',
-                action: assignedStage === 'stage_2_shalini' ? 'pending' : 'pending'
+                action: assignedStage === 'stage_1_hod' 
+                            ? 'pending' 
+                            : (assignedStage === 'stage_2_shalini' ? 'pending' : 'approved'),
+                action_date: assignedStage === 'stage_3_final' ? new Date() : undefined,
+                comments: assignedStage === 'stage_3_final' ? 'Stage skipped for senior admin requester' : undefined
             },
             {
                 level: 3,
                 stage: 'stage_3_final',
+                approver_id: (assignedStage === 'stage_3_final' ? currentApproverId : undefined),
                 approver_role: 'ADMIN',
                 action: 'pending',
                 comments: 'Final approver group: manu_pillai, suraj_rajan, rajan_aranamkatte'

@@ -189,7 +189,8 @@ function DoPlanning() {
       label: "SATURN GLOBAL TERMINAL PVT LTD",
     },
     { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
-    {value:"DONOR MARINE SERVICE PVT. LTD.",label:"DONOR MARINE SERVICE PVT. LTD."}
+    {value:"DONOR MARINE SERVICE PVT. LTD.",label:"DONOR MARINE SERVICE PVT. LTD."},
+    {value:"JAI ASHAPURA CONTAINER TERMINALS",label:"JAI ASHAPURA CONTAINER TERMINALS"}
   ];
 
   // Handle new job notification

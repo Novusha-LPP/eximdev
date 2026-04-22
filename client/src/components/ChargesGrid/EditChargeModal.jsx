@@ -258,6 +258,10 @@ const EditChargeModal = ({
                   derivedBasic = amount;
                   derivedGst = 0;
               }
+          } else if (updated[index].category === 'Reimbursement') {
+              // REIMBURSEMENT LOGIC: No GST calculation, Basic is derived from the GST rate formula for TDS
+              derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              derivedGst = 0;
           } else {
               // INCLUSIVE LOGIC for other categories
               if (field === 'basicAmount' && section === secKey) {
@@ -311,6 +315,7 @@ const EditChargeModal = ({
           const isTds = sectionRef.isTds || false;
           const tdsPercent = parseFloat(sectionRef.tdsPercent) || 0;
           if (isTds) {
+            // TDS is calculated on the basicAmount (which for Reimbursement is now Amount / 1.18)
             sectionRef.tdsAmount = sectionRef.basicAmount * (tdsPercent / 100);
           } else {
             sectionRef.tdsAmount = 0;
@@ -404,8 +409,9 @@ const EditChargeModal = ({
 
     const gstRate = parseFloat(revenue.gstRate) || 18;
     const isMargin = updated[index].category === 'Margin';
-    const derivedBasic = isMargin ? amount : (amount / (1 + (gstRate / 100)));
-    const derivedGst = isMargin ? 0 : (amount - derivedBasic);
+    const isReimbursement = updated[index].category === 'Reimbursement';
+    const derivedBasic = isMargin ? amount : Number((amount / (1 + (gstRate / 100))).toFixed(2));
+    const derivedGst = (isMargin || isReimbursement) ? 0 : (amount - derivedBasic);
     
     revenue.gstAmount = derivedGst;
     revenue.basicAmount = derivedBasic;
@@ -440,13 +446,14 @@ const EditChargeModal = ({
     const exRate = parseFloat(revenue.exchangeRate) || 1;
     const amount = qty * rate;
     const isMargin = updated[index].category === 'Margin';
+    const isReimbursement = updated[index].category === 'Reimbursement';
     
     revenue.amount = amount;
     revenue.amountINR = amount * exRate;
 
     const gstRate = parseFloat(revenue.gstRate) || 18;
     const derivedBasic = isMargin ? amount : Number((amount / (1 + (gstRate / 100))).toFixed(2));
-    const derivedGst = isMargin ? 0 : (amount - derivedBasic);
+    const derivedGst = (isMargin || isReimbursement) ? 0 : (amount - derivedBasic);
     
     revenue.gstAmount = derivedGst;
     revenue.basicAmount = derivedBasic;
@@ -1178,13 +1185,18 @@ const EditChargeModal = ({
                                           const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
                                           const isGujarat = branch.gst?.startsWith('24');
 
+                                          if (row.category === 'Reimbursement') {
+                                            basic = amt;
+                                            totalGst = 0;
+                                          }
+
                                           return {
                                             partyName,
                                             partyDetails,
                                             amount: amt,
                                             basicAmount: basic,
                                             gstAmount: totalGst,
-                                            gstRate: rate,
+                                            gstRate: (row.category === 'Reimbursement') ? 0 : rate,
                                             cgst: isGujarat ? totalGst / 2 : 0,
                                             sgst: isGujarat ? totalGst / 2 : 0,
                                             igst: !isGujarat ? totalGst : 0,

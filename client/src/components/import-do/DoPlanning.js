@@ -190,7 +190,8 @@ function DoPlanning() {
     },
     { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
     {value:"DONOR MARINE SERVICE PVT. LTD.",label:"DONOR MARINE SERVICE PVT. LTD."},
-    {value:"JAI ASHAPURA CONTAINER TERMINALS",label:"JAI ASHAPURA CONTAINER TERMINALS"}
+    {value:"JAI ASHAPURA CONTAINER TERMINALS",label:"JAI ASHAPURA CONTAINER TERMINALS"},
+    {value:"CCIS CMA CGM Inland Services India LLP",label:"CCIS CMA CGM Inland Services India LLP"}
   ];
 
   // Handle new job notification

@@ -129,7 +129,14 @@ const WeekOffPolicyManager = () => {
           await masterAPI.deleteWeekOffPolicy(id);
           toast.success('Deleted');
           fetchLists();
-        } catch (e) { toast.error(e.message); }
+        } catch (e) {
+          const errorMessage = e?.response?.data?.message || e.message || 'Delete failed';
+          if (e?.response?.status === 403) {
+            toast.error(`❌ ${errorMessage}`, { duration: 4 });
+          } else {
+            toast.error(errorMessage);
+          }
+        }
       }
     });
   };
@@ -155,7 +162,12 @@ const WeekOffPolicyManager = () => {
       setView('list');
       fetchLists();
     } catch (e) {
-      toast.error(e.message);
+      const errorMessage = e?.response?.data?.message || e.message || 'Failed to save policy';
+      if (e?.response?.status === 403) {
+        toast.error(`❌ ${errorMessage}`, { duration: 4 });
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSaving(false);
     }

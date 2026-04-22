@@ -50,6 +50,28 @@ const resolveCompanyId = (req) => {
 };
 
 // --- HELPER: Record Activity ---
+const canMutatePolicy = (policy, user) => {
+  if (!policy?.created_by) return true;
+  const username = (user?.username || '').toLowerCase();
+  return String(policy.created_by) === String(user._id) || ALLOWED_USERNAMES.has(username);
+};
+
+const getChangeDetails = (oldObj, newObj, fields = []) => {
+  const changes = [];
+  fields.forEach(field => {
+    const oldVal = oldObj[field];
+    const newVal = newObj[field];
+    if (oldVal !== newVal && JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      const label = field.replaceAll('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      let dOld = oldVal, dNew = newVal;
+      if (Array.isArray(oldVal)) { dOld = `${oldVal.length} items`; dNew = `${newVal.length} items`; }
+      else if (typeof oldVal === 'object' && oldVal !== null) { dOld = 'object'; dNew = 'object'; }
+      changes.push(`${label}: "${dOld}" -> "${dNew}"`);
+    }
+  });
+  return changes.join(', ');
+};
+
 const logActivity = async (req, module, action, details, metadata = {}) => {
   try {
     const activity = new ActivityLog({
@@ -97,20 +119,28 @@ export const updateShift = async (req, res) => {
     const companyId = resolveCompanyId(req);
     const { id } = req.params;
 
-    const shift = await Shift.findOneAndUpdate(
-      { _id: id, company_id: companyId },
-      { ...req.body, updated_by: req.user._id },
-      { new: true, runValidators: true }
-    );
-
+    const shift = await Shift.findOne({ _id: id, company_id: companyId });
     if (!shift) return res.status(404).json({ message: 'Shift not found' });
+    if (!canMutatePolicy(shift, req.user)) {
+        return res.status(403).json({ message: 'Only the admin who created this shift or a super admin can edit it' });
+    }
 
-    await logActivity(req, 'SHIFT', 'UPDATE_SHIFT', `Updated shift: ${shift.shift_name}`, {
+    const relFields = ['shift_name', 'shift_code', 'start_time', 'end_time', 'full_day_hours', 'late_allowed_minutes', 'early_leave_allowed_minutes'];
+    const diff = getChangeDetails(shift, req.body, relFields);
+    const details = diff ? `Updated shift ${shift.shift_name}: ${diff}` : `Updated shift: ${shift.shift_name}`;
+
+    if (!shift.created_by) shift.created_by = req.user._id;
+    Object.assign(shift, req.body, { updated_by: req.user._id });
+    await shift.save();
+
+    await logActivity(req, 'SHIFT', 'UPDATE_SHIFT', details, {
       shift_id: shift._id,
       policy_id: shift._id,
       policy_type: 'shift',
       policy_name: shift.shift_name
     });
+    // Return populated for UI
+    await shift.populate('created_by', 'first_name last_name username role');
     res.json(shift);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -159,15 +189,19 @@ export const getShifts = async (req, res) => {
 export const deleteShift = async (req, res) => {
   try {
     const companyId = resolveCompanyId(req);
-    const shift = await Shift.findOneAndDelete({ _id: req.params.id, company_id: companyId });
-    if (shift) {
-      await logActivity(req, 'SHIFT', 'DELETE_SHIFT', `Deleted shift: ${shift.shift_name}`, {
-        shift_id: shift._id,
-        policy_id: shift._id,
-        policy_type: 'shift',
-        policy_name: shift.shift_name
-      });
+    const shift = await Shift.findOne({ _id: req.params.id, company_id: companyId });
+    if (!shift) return res.status(404).json({ message: 'Shift not found' });
+    if (!canMutatePolicy(shift, req.user)) {
+        return res.status(403).json({ message: 'Only the admin who created this shift or a super admin can delete it' });
     }
+
+    await shift.deleteOne();
+    await logActivity(req, 'SHIFT', 'DELETE_SHIFT', `Deleted shift: ${shift.shift_name}`, {
+      shift_id: shift._id,
+      policy_id: shift._id,
+      policy_type: 'shift',
+      policy_name: shift.shift_name
+    });
     res.json({ message: 'Shift deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -208,7 +242,8 @@ export const createHoliday = async (req, res) => {
       holiday_date,
       holiday_name,
       holiday_type,
-      year: new Date(holiday_date).getFullYear()
+      year: new Date(holiday_date).getFullYear(),
+      created_by: req.user._id
     });
 
     await holiday.save();
@@ -226,7 +261,8 @@ export const getHolidays = async (req, res) => {
       Holiday,
       req.query,
       { company_id: companyId },
-      ['holiday_name']
+      ['holiday_name'],
+      ['created_by', 'updated_by']
     );
     res.json(result);
   } catch (err) {
@@ -367,15 +403,19 @@ export const updateLeavePolicy = async (req, res) => {
       return res.status(404).json({ message: 'Leave policy not found' });
     }
 
-    if (policy.created_by && String(policy.created_by) !== String(req.user._id)) {
-      return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
+    if (!canMutatePolicy(policy, req.user)) {
+      return res.status(403).json({ message: 'Only the admin who created this policy or a super admin can edit it' });
     }
+
+    const relFields = ['policy_name', 'leave_code', 'annual_quota', 'status', 'carry_forward', 'encashability'];
+    const diff = getChangeDetails(policy, req.body, relFields);
+    const details = diff ? `Updated leave policy ${policy.policy_name}: ${diff}` : `Updated leave policy: ${policy.policy_name}`;
 
     if (!policy.created_by) policy.created_by = req.user._id;
     Object.assign(policy, req.body, { updated_at: new Date(), updated_by: req.user._id });
     await policy.save();
 
-    await logActivity(req, 'LEAVE', 'UPDATE_POLICY', `Updated leave policy: ${policy.policy_name}`, {
+    await logActivity(req, 'LEAVE', 'UPDATE_POLICY', details, {
       policy_id: policy._id,
       policy_type: 'leave',
       policy_name: policy.policy_name

@@ -612,14 +612,18 @@ const LeaveApproval = () => {
 
                     <div className="ap-req-dates">
                       <div className="ap-date-block">
-                        <span className="ap-date-lbl">From</span>
+                        <span className="ap-date-lbl">{fmt(req.fromDate, 'dd MMM yyyy') === fmt(req.toDate, 'dd MMM yyyy') ? 'Date' : 'From'}</span>
                         <span className="ap-date-val">{fmt(req.fromDate, 'dd MMM yyyy')}</span>
                       </div>
-                      <span className="ap-date-arrow">&rarr;</span>
-                      <div className="ap-date-block">
-                        <span className="ap-date-lbl">To</span>
-                        <span className="ap-date-val">{fmt(req.toDate, 'dd MMM yyyy')}</span>
-                      </div>
+                      {fmt(req.fromDate, 'dd MMM yyyy') !== fmt(req.toDate, 'dd MMM yyyy') && (
+                        <>
+                          <span className="ap-date-arrow">&rarr;</span>
+                          <div className="ap-date-block">
+                            <span className="ap-date-lbl">To</span>
+                            <span className="ap-date-val">{fmt(req.toDate, 'dd MMM yyyy')}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {req.reason && <div className="ap-req-reason">"{req.reason}"</div>}
@@ -743,7 +747,12 @@ const LeaveApproval = () => {
                           <td className="td-mono">
                             {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`}
                           </td>
-                          <td className="td-mono">{fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}</td>
+                          <td className="td-mono">
+                            {fmt(req.fromDate, 'dd MMM') === fmt(req.toDate, 'dd MMM') 
+                              ? fmt(req.fromDate, 'dd MMM')
+                              : `${fmt(req.fromDate, 'dd MMM')} – ${fmt(req.toDate, 'dd MMM')}`
+                            }
+                          </td>
                           <td>
                             <span className={`ap-status-badge ${req.status}`}>
                               {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />}{' '}

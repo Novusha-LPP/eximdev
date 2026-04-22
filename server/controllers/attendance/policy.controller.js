@@ -143,6 +143,7 @@ export const getPolicyHistory = async (req, res) => {
 
 export const listWeekOffPolicies = async (req, res) => {
   try {
+    // Fetch all policies without company_id filtering
     const policies = await WeekOffPolicy.find({})
       .populate('applicability.teams.list', 'name')
       .populate('created_by', 'first_name last_name username role')
@@ -150,14 +151,36 @@ export const listWeekOffPolicies = async (req, res) => {
       .sort({ createdAt: -1 });
     res.json({ success: true, data: policies });
   } catch (err) {
+    console.error('listWeekOffPolicies error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getWeekOffPolicyById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const policy = await WeekOffPolicy.findById(id)
+      .populate('applicability.teams.list', 'name')
+      .populate('created_by', 'first_name last_name username role')
+      .populate('updated_by', 'first_name last_name username role');
+    
+    if (!policy) {
+      return res.status(404).json({ message: 'Week-off policy not found' });
+    }
+    
+    res.json({ success: true, data: policy });
+  } catch (err) {
+    console.error('getWeekOffPolicyById error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
 export const createWeekOffPolicy = async (req, res) => {
   try {
+    const companyId = resolveCompanyId(req);
     const policy = new WeekOffPolicy({
       ...req.body,
+      company_id: companyId,
       created_by: req.user._id
     });
     await policy.save();
@@ -177,8 +200,23 @@ export const createWeekOffPolicy = async (req, res) => {
 export const updateWeekOffPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const policy = await WeekOffPolicy.findById(id);
+    const companyId = resolveCompanyId(req);
+    
+    // Find policy (legacy or new)
+    let policy = await WeekOffPolicy.findById(id);
     if (!policy) return res.status(404).json({ message: 'Week-off policy not found' });
+    
+    // Auto-migrate legacy records
+    if (!policy.company_id && policy.created_by) {
+      const creator = await User.findById(policy.created_by).select('company_id');
+      policy.company_id = creator?.company_id || companyId;
+    }
+    
+    // Verify company access
+    if (policy.company_id && String(policy.company_id) !== String(companyId)) {
+      return res.status(403).json({ message: 'You do not have access to this policy' });
+    }
+    
     if (!canMutatePolicy(policy, req.user._id)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
     }
@@ -186,7 +224,7 @@ export const updateWeekOffPolicy = async (req, res) => {
     if (!policy.created_by) policy.created_by = req.user._id;
     Object.assign(policy, req.body, { updated_by: req.user._id });
     await policy.save();
-    // Populate for UI consistency
+    
     await policy.populate('applicability.teams.list', 'name');
     await log(req, 'POLICY', 'UPDATE_WEEKOFF_POLICY', `Updated week-off policy: ${policy.policy_name}`, {
       policy_id: policy._id,
@@ -195,6 +233,7 @@ export const updateWeekOffPolicy = async (req, res) => {
     });
     res.json({ success: true, data: policy });
   } catch (err) {
+    console.error('updateWeekOffPolicy error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -202,13 +241,30 @@ export const updateWeekOffPolicy = async (req, res) => {
 export const deleteWeekOffPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const policy = await WeekOffPolicy.findById(id);
+    const companyId = resolveCompanyId(req);
+    
+    // Find policy (legacy or new)
+    let policy = await WeekOffPolicy.findById(id);
     if (!policy) return res.status(404).json({ message: 'Week-off policy not found' });
+    
+    // Auto-migrate legacy records
+    if (!policy.company_id && policy.created_by) {
+      const creator = await User.findById(policy.created_by).select('company_id');
+      policy.company_id = creator?.company_id || companyId;
+    }
+    
+    // Verify company access
+    if (policy.company_id && String(policy.company_id) !== String(companyId)) {
+      return res.status(403).json({ message: 'You do not have access to this policy' });
+    }
+    
     if (!canMutatePolicy(policy, req.user._id)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can delete it' });
     }
+    
     if (!policy.created_by) policy.created_by = req.user._id;
     await policy.deleteOne();
+    
     await log(req, 'POLICY', 'DELETE_WEEKOFF_POLICY', `Deleted week-off policy: ${policy.policy_name}`, {
       policy_id: policy._id,
       policy_type: 'weekoff',
@@ -216,6 +272,7 @@ export const deleteWeekOffPolicy = async (req, res) => {
     });
     res.json({ success: true, message: 'Week-off policy deleted' });
   } catch (err) {
+    console.error('deleteWeekOffPolicy error:', err);
     res.status(500).json({ error: err.message });
   }
 };

@@ -130,7 +130,12 @@ const HolidayPolicyManager = ({ user: userProp }) => {
       setPolicyForm(emptyPolicyForm(user));
       loadPolicies();
     } catch (e) {
-      toast.error(e?.response?.data?.message || e.message || 'Save failed');
+      const errorMessage = e?.response?.data?.message || e.message || 'Save failed';
+      if (e?.response?.status === 403) {
+        toast.error(`❌ ${errorMessage}`, { duration: 4 });
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSavingPolicy(false);
     }
@@ -149,7 +154,8 @@ const HolidayPolicyManager = ({ user: userProp }) => {
           toast.success('Policy deleted');
           loadPolicies();
         } catch (e) {
-          toast.error(e.message || 'Delete failed');
+          const errorMessage = e?.response?.data?.message || e.message || 'Delete failed';
+          toast.error(errorMessage);
         }
       }
     });

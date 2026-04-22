@@ -138,7 +138,14 @@ const ShiftManagement = () => {
       setEditingId(null);
       setFormData(emptyForm());
       setTableKey(Date.now());
-    } catch (err) { toast.error(err.message || 'Failed'); }
+    } catch (err) {
+      const errorMessage = err?.response?.data?.message || err.message || 'Failed to save shift';
+      if (err?.response?.status === 403) {
+        toast.error(`❌ ${errorMessage}`, { duration: 4 });
+      } else {
+        toast.error(errorMessage);
+      }
+    }
   };
 
   const handleDelete = (id) => {
@@ -153,7 +160,14 @@ const ShiftManagement = () => {
           await masterAPI.deleteShift(id); 
           toast.success('Deleted'); 
           setTableKey(Date.now());
-        } catch (err) { toast.error(err.message || 'Failed'); }
+        } catch (err) {
+          const errorMessage = err?.response?.data?.message || err.message || 'Failed to delete shift';
+          if (err?.response?.status === 403) {
+            toast.error(`❌ ${errorMessage}`, { duration: 4 });
+          } else {
+            toast.error(errorMessage);
+          }
+        }
       }
     });
   };

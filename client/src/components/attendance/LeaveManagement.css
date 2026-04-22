@@ -227,7 +227,76 @@
 .lm-form { padding:20px; display:flex; flex-direction:column; gap:14px; }
 .fg  { display:flex; flex-direction:column; gap:5px; }
 .fg2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.fg label, .fg2 label { font-size:.75rem; font-weight:600; color:var(--t2); letter-spacing:.1px; }
+.fg label, .fg2 label, .fg-row label { font-size:.75rem; font-weight:600; color:var(--t2); letter-spacing:.1px; margin-bottom: 4px; display: block; }
+
+/* Grid for modal fields */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* Blocks for grouping related controls */
+.form-block { 
+    background: var(--card2); 
+    border: 1px solid var(--b1); 
+    border-radius: var(--r2); 
+    padding: 10px 12px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px;
+    height: 100%;
+    justify-content: center;
+}
+
+/* 3-Column Preview Layout */
+.preview-infobox {
+    margin-top: 16px;
+    background: #f0fdf4; /* Very light green, cohesive with s-green-bg */
+    border: 1px solid var(--s-green-br, #bbf7d0);
+    border-radius: var(--r3);
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    box-shadow: var(--sh1);
+}
+.p-info-col {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+}
+.p-info-col:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 15%;
+    bottom: 15%;
+    width: 1px;
+    background: var(--s-green-br, #bbf7d0);
+    opacity: 0.5;
+}
+.p-i-lbl {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #166534;
+    letter-spacing: 0.5px;
+}
+.p-i-val {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #14532d;
+}
+.p-i-val.deduct { color: var(--s-red); }
+.p-i-val.balance { color: var(--s-green); }
+
+.p-i-sub {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    width: fit-content;
+}
+.p-i-sub.positive { background: var(--s-green-bg); color: var(--s-green); }
+.p-i-sub.negative { background: var(--s-red-bg); color: var(--s-red); }
 
 .lm-form input[type="date"],
 .lm-form input[type="file"],

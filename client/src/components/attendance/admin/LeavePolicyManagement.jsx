@@ -416,7 +416,12 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
                     toast.success('Leave policy deleted');
                     setRefreshKey(k => k + 1);
                 } catch (err) {
-                    toast.error(err.message || 'Failed to delete');
+                    const errorMessage = err?.response?.data?.message || err.message || 'Failed to delete';
+                    if (err?.response?.status === 403) {
+                        toast.error(`❌ ${errorMessage}`, { duration: 4 });
+                    } else {
+                        toast.error(errorMessage);
+                    }
                 }
             }
         });
@@ -438,7 +443,12 @@ const LeavePolicyManagement = ({ embedded = false, readOnly = false }) => {
             handleCancel();
             setRefreshKey(k => k + 1);
         } catch (err) {
-            toast.error(err.message || 'Failed to save policy');
+            const errorMessage = err?.response?.data?.message || err.message || 'Failed to save policy';
+            if (err?.response?.status === 403) {
+                toast.error(`❌ ${errorMessage}`, { duration: 4 });
+            } else {
+                toast.error(errorMessage);
+            }
         }
     };
 

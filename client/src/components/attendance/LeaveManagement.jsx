@@ -9,6 +9,7 @@ import masterAPI from '../../api/attendance/master.api';
 import { API_BASE_URL } from './utils/constants';
 import { formatDate } from './utils/helpers';
 import toast from 'react-hot-toast';
+import ApplyLeaveModal from './ApplyLeaveModal';
 import './LeaveManagement.css';
 
 /* -- helpers -- */
@@ -205,15 +206,7 @@ const LeaveManagement = () => {
   const [statusFilt, setStatusFilt] = useState('all');
   const [curPage, setCurPage] = useState(1);
 
-  const [form, setForm] = useState({
-    leave_policy_id: '', from_date: '', to_date: '',
-    reason: '', is_half_day: false, is_start_half_day: false, is_end_half_day: false,
-    start_half_session: 'First Half', end_half_session: 'First Half',
-    half_day_session: '', attachment: null,
-  });
-
   const pending = applications.filter(a => a.status === 'pending');
-  const selectedPolicy = balances.find(b => b._id === form.leave_policy_id);
   const isLwpPolicy = (policy) => String(policy?.leave_type || '').toLowerCase() === 'lwp';
 
   useEffect(() => { fetchData(); }, []);
@@ -227,75 +220,15 @@ const LeaveManagement = () => {
         masterAPI.getCompanySettings(),
       ]);
       setBalances(br?.data || []);
+      console.log(br?.data);
       setApplications((ar?.data || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       setSettings(sr || null);
     } catch { toast.error('Failed to load leave data'); }
     finally { setLoading(false); }
   };
 
-  // Real-time Preview Effect
-  useEffect(() => {
-    const getPreview = async () => {
-      // Validate form readiness
-      if (form.leave_policy_id && form.from_date && (form.to_date || form.is_half_day)) {
-        if (form.is_half_day && !form.from_date) return;
-        if (!form.is_half_day && (!form.from_date || !form.to_date)) return;
-
-        setLoadingPreview(true);
-        try {
-          const res = await leaveAPI.previewLeave({
-            leave_policy_id: form.leave_policy_id,
-            from_date: form.from_date,
-            to_date: form.is_half_day ? form.from_date : form.to_date,
-            is_half_day: form.is_half_day.toString(),
-            is_start_half_day: form.is_start_half_day.toString(),
-            is_end_half_day: form.is_end_half_day.toString(),
-            start_half_session: form.start_half_session,
-            end_half_session: form.end_half_session
-          });
-          
-          if (res.success) {
-            setPreview(res.data);
-          }
-        } catch (err) {
-          console.error('[Preview Error]', err);
-          setPreview(null);
-        } finally {
-          setLoadingPreview(false);
-        }
-      } else {
-        setPreview(null);
-      }
-    };
-
-    const timer = setTimeout(getPreview, 500); // 500ms debounce
-    return () => clearTimeout(timer);
-  }, [form.leave_policy_id, form.from_date, form.to_date, form.is_half_day, form.is_start_half_day, form.is_end_half_day]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-      const fd = new FormData();
-      fd.append('leave_policy_id', form.leave_policy_id);
-      fd.append('from_date', form.from_date);
-      fd.append('to_date', form.is_half_day ? form.from_date : form.to_date);
-      fd.append('reason', form.reason);
-      fd.append('is_half_day', form.is_half_day);
-      fd.append('is_start_half_day', form.is_start_half_day);
-      fd.append('is_end_half_day', form.is_end_half_day);
-      fd.append('start_half_session', form.start_half_session);
-      fd.append('end_half_session', form.end_half_session);
-      if (form.is_half_day && form.half_day_session) fd.append('half_day_session', form.half_day_session);
-      if (form.attachment) fd.append('attachment', form.attachment);
-
-      await leaveAPI.applyLeave(fd);
-      toast.success('Leave application submitted');
-      setShowModal(false);
-      fetchData();
-      setForm({ leave_policy_id: '', from_date: '', to_date: '', reason: '', is_half_day: false, is_start_half_day: false, is_end_half_day: false, start_half_session: 'First Half', end_half_session: 'First Half', half_day_session: '', attachment: null });
-    } catch (err) { toast.error(err?.response?.data?.message || 'Failed to submit'); }
-    finally { setSubmitting(false); }
+  const handleApplyLeaveSuccess = () => {
+    fetchData();
   };
 
 
@@ -386,10 +319,11 @@ const LeaveManagement = () => {
       ) : (
         <div className="bal-grid">
           {balances.map(b => {
+            const balance = b.balance
             const total = b.opening_balance || b.total || b.annual_quota || 0;
             const used = b.used ?? 0;
             // The server now returns 'available' as Opening - Used (Gross)
-            const availableDisplay = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (total - used));
+            const availableDisplay = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (balance));
             const pend = b.pending || 0;
             const usedPct = total > 0 ? (used / total) * 100 : 0;
             const exhausted = (total - used) <= 0 && !isLwpPolicy(b);
@@ -435,7 +369,10 @@ const LeaveManagement = () => {
                 <div className="lm-alert-info">
                   <span className="lm-alert-type">{app.leave_type}</span>
                   <span className="lm-alert-dates">
-                    {formatDate(app.from_date, 'dd MMM')} – {formatDate(app.to_date, 'dd MMM')} • {app.is_half_day ? `Half Day (${formatSession(app.half_day_session)})` : `${app.total_days}d`}
+                    {formatDate(app.from_date, 'dd MMM') === formatDate(app.to_date, 'dd MMM')
+                      ? formatDate(app.from_date, 'dd MMM')
+                      : `${formatDate(app.from_date, 'dd MMM')} – ${formatDate(app.to_date, 'dd MMM')}`
+                    } • {app.is_half_day ? `Half Day (${formatSession(app.half_day_session)})` : `${app.total_days}d`}
                   </span>
                 </div>
                 <button className="lm-cancel" onClick={() => openCancelModal(app)}>Cancel</button>
@@ -511,7 +448,10 @@ const LeaveManagement = () => {
                   <td>
                     <div className="dt-dates">
                       <span className="dt-date-range">
-                        {formatDate(app.from_date, 'dd MMM yyyy')} – {formatDate(app.to_date, 'dd MMM yyyy')}
+                        {formatDate(app.from_date, 'dd MMM yyyy') === formatDate(app.to_date, 'dd MMM yyyy')
+                          ? formatDate(app.from_date, 'dd MMM yyyy')
+                          : `${formatDate(app.from_date, 'dd MMM yyyy')} – ${formatDate(app.to_date, 'dd MMM yyyy')}`
+                        }
                       </span>
                       {app.half_day_session && (
                         <span className="dt-date-days" style={{ textTransform: 'none' }}>
@@ -628,240 +568,13 @@ const LeaveManagement = () => {
         )}
       </div>
 
-      {/* -- Apply Modal -- */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="lm-modal" onClick={e => e.stopPropagation()}>
-            <div className="lm-modal-head">
-              <h2><FiCalendar size={15} /> Apply for Leave</h2>
-              <button className="lm-mclose" onClick={() => setShowModal(false)}>
-                <FiX size={13} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="lm-form">
-
-              {/* Leave type */}
-              <div className="fg">
-                <label>Leave Type</label>
-                <select
-                  value={form.leave_policy_id}
-                  onChange={e => setForm({ ...form, leave_policy_id: e.target.value })}
-                  required
-                >
-                  <option value="">Select leave type...</option>
-                  {balances
-                    .map(b => {
-                      const netBalance = isLwpPolicy(b) ? 'Unlimited' : (b.available ?? (b.opening_balance - (b.used || 0) - (b.pending || 0)));
-                      return (
-                        <option key={b._id} value={b._id}>
-                          {b.name}
-                          {isLwpPolicy(b) ? ' (Unlimited)' : ` • ${netBalance} days left`}
-                        </option>
-                      );
-                    })
-                  }
-                </select>
-              </div>
-
-              {/* Policy preview */}
-              {/* {selectedPolicy && (
-                <div className="policy-highlight ani-in">
-                  <div className="ph-item">
-                    <FiActivity size={12} className="ph-icon" />
-                    Half day: <span className="ph-val">{selectedPolicy.policy?.half_day_allowed ? 'Allowed' : 'No'}</span>
-                  </div>
-                  <div className="ph-item">
-                    <FiFileText size={12} className="ph-icon" />
-                    Doc req: <span className="ph-val">{selectedPolicy.policy?.document_required_after_days ? `>${selectedPolicy.policy.document_required_after_days}d` : 'No'}</span>
-                  </div>
-                </div>
-              )} */}
-
-              {/* Zero-balance warning specifically for PL */}
-              {selectedPolicy && 
-               (selectedPolicy.leave_type === 'privilege' || selectedPolicy.leave_code === 'PL') && 
-               (selectedPolicy.available <= 0) && (
-                <div className="lm-alert ani-in" style={{ 
-                    margin: '10px 0', 
-                    padding: '10px 12px', 
-                    background: 'var(--s-red-bg)', 
-                    borderColor: 'var(--s-red-br, var(--s-red-bg))' 
-                }}>
-                  <div className="lm-alert-head" style={{ marginBottom: 0, color: 'var(--s-red)' }}>
-                    <FiXCircle size={14} />
-                    <h3 style={{ color: 'var(--s-red)', fontSize: '.8125rem' }}>Contact admin for update PL</h3>
-                  </div>
-                </div>
-              )}
-
-              {form.from_date && form.to_date && (
-                <div className="ani-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: '#f8fafc', borderRadius: '8px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
-                  {form.from_date === form.to_date ? (
-                    /* Same day range simplified UI */
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                          type="checkbox"
-                          id="single-day-half"
-                          checked={form.is_start_half_day}
-                          onChange={e => setForm(v => ({ ...v, is_start_half_day: e.target.checked, is_end_half_day: e.target.checked }))}
-                        />
-                        <label htmlFor="single-day-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Apply as Half Day</label>
-                      </div>
-                      {form.is_start_half_day && (
-                        <select
-                          style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                          value={form.start_half_session}
-                          onChange={e => setForm(v => ({ ...v, start_half_session: e.target.value, end_half_session: e.target.value }))}
-                        >
-                          <option value="First Half">First Half</option>
-                          <option value="Second Half">Second Half</option>
-                        </select>
-                      )}
-                    </div>
-                  ) : (
-                    /* Multi-day range UI */
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <input
-                            type="checkbox"
-                            id="st-half"
-                            checked={form.is_start_half_day}
-                            onChange={e => setForm(v => ({ ...v, is_start_half_day: e.target.checked }))}
-                          />
-                          <label htmlFor="st-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Starts with Half Day</label>
-                        </div>
-                        {form.is_start_half_day && (
-                          <select
-                            style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                            value={form.start_half_session}
-                            onChange={e => setForm(v => ({ ...v, start_half_session: e.target.value }))}
-                          >
-                            <option value="First Half">First Half</option>
-                            <option value="Second Half">Second Half</option>
-                          </select>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <input
-                            type="checkbox"
-                            id="en-half"
-                            checked={form.is_end_half_day}
-                            onChange={e => setForm(v => ({ ...v, is_end_half_day: e.target.checked }))}
-                          />
-                          <label htmlFor="en-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Ends with Half Day</label>
-                        </div>
-                        {form.is_end_half_day && (
-                          <select
-                            style={{ fontSize: '11px', padding: '2px 4px', height: '24px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                            value={form.end_half_session}
-                            onChange={e => setForm(v => ({ ...v, end_half_session: e.target.value }))}
-                          >
-                            <option value="First Half">First Half</option>
-                            <option value="Second Half">Second Half</option>
-                          </select>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Dates */}
-              <div className="fg2">
-                <div className="fg">
-                  <label>From</label>
-                  <input type="date" value={form.from_date} onChange={e => setForm({ ...form, from_date: e.target.value })} required />
-                </div>
-                <div className="fg">
-                  <label>To</label>
-                  <input type="date" value={form.to_date} onChange={e => setForm({ ...form, to_date: e.target.value })} required />
-                </div>
-              </div>
-
-
-              {/* Reason */}
-              <div className="fg">
-                <label>Reason</label>
-                <textarea
-                  value={form.reason}
-                  onChange={e => setForm({ ...form, reason: e.target.value })}
-                  required
-                  rows={3}
-                  placeholder="Briefly describe the reason..."
-                />
-              </div>
-
-              {/* Attachment */}
-              <div className="fg">
-                <label>Supporting Document <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
-                <input type="file" onChange={e => setForm({ ...form, attachment: e.target.files[0] })} />
-              </div>
-
-              {/* Projected Balance Preview */}
-              {form.leave_policy_id && form.from_date && form.to_date && (
-                <div className={`projection-card ani-in${loadingPreview ? ' loading' : ''}`} style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '15px' }}>
-                  {loadingPreview ? (
-                    <div className="proj-loader" style={{ textAlign: 'center', color: '#64748b', fontSize: '12px' }}>Calculating remaining balance...</div>
-                  ) : preview ? (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>Total Range:</span>
-                        <strong style={{ fontSize: '13px' }}>{preview.breakdown?.total_range} Days</strong>
-                      </div>
-                      
-                      {preview.breakdown?.holiday_days > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', opacity: 0.8 }}>
-                          <span>Holidays Included:</span>
-                          <span>{preview.breakdown?.holiday_days} Days</span>
-                        </div>
-                      )}
-
-                      {preview.breakdown?.weekly_off_days > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', opacity: 0.8 }}>
-                          <span>Week-Offs Included:</span>
-                          <span>{preview.breakdown?.weekly_off_days} Days</span>
-                        </div>
-                      )}
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>Applied Leave (Deducted):</span>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>
-                          -{preview.totalDays} Days
-                          {preview.sandwichDays > 0 ? (
-                            <small style={{ color: '#ef4444', marginLeft: '4px' }}> (Sandwich)</small>
-                          ) : (
-                            <small style={{ color: '#10b981', marginLeft: '4px' }}> (No Sandwich)</small>
-                          )}
-                        </span>
-                      </div>
-
-                      <div style={{ height: '1px', background: '#e2e8f0', margin: '8px 0' }} />
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '600' }}>Projected Balance:</span>
-                        <span style={{ fontSize: '16px', fontWeight: '800', color: '#2563eb' }}>
-                          {isLwpPolicy(selectedPolicy) ? 'Unlimited' : `${preview.projected_balance} Days`}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="proj-error" style={{ textAlign: 'center', color: '#ef4444', fontSize: '12px' }}>Select a valid date range</div>
-                  )}
-                </div>
-              )}
-
-              <div className="lm-mfooter">
-                <button type="submit" className="lm-submit" disabled={submitting}>
-                  {submitting ? 'Submitting...' : <><FiSend size={14} /> Submit Request</>}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* -- Apply Leave Modal -- */}
+      <ApplyLeaveModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSuccess={handleApplyLeaveSuccess}
+        balances={balances}
+      />
 
       {/* Cancel Leave Modal */}
       {cancelTarget && (

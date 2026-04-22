@@ -27,6 +27,7 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
         isStartHalfDay: false,
         isEndHalfDay: false,
         halfDaySession: 'First Half',
+        isSingleDay: true,
         reason: '',
         attachment: null
     });
@@ -54,6 +55,7 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                 startHalfSession: 'First Half',
                 endHalfSession: 'First Half',
                 halfDaySession: 'First Half',
+                isSingleDay: true,
                 reason: '',
                 attachment: null
             });
@@ -186,103 +188,82 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                 </div>
 
                 <form className="lm-form" onSubmit={handleSubmit}>
-                    {/* Policy Selection */}
-                    <div className="fg">
-                        <label>Select Leave Type *</label>
-                        <select 
-                            value={formData.policyId} 
-                            onChange={handlePolicyChange}
-                            disabled={loading || submitting}
-                            required
-                        >
-                            <option value="">-- Choose leave type --</option>
-                            {balances.map(b => {
-                                const label = b.name || b.policy_name || b.leave_type || 'Policy';
-                                const isLwp = String(b.leave_type || label || '').toLowerCase().includes('lwp');
-                                const availableDays = b.available ?? b.balance ?? 0;
-                                return (
-                                    <option key={b._id} value={b._id}>
-                                        {label} {isLwp ? '(Unpaid)' : `(${availableDays} days available)`}
-                                    </option>
-                                );
-                            })}
-                        </select>
-                    </div>
-
-                    {/* Sessions Toggle */}
-                    <div className="toggle-row">
-                        <div className="toggle-txt">Single Day Half Day</div>
-                        <label className="sw">
-                            <input 
-                                type="checkbox" 
-                                checked={formData.isHalfDay}
-                                onChange={e => setFormData(p => ({ ...p, isHalfDay: e.target.checked, isStartHalfDay: false, isEndHalfDay: false }))}
-                            />
-                            <span className="sw-slider"></span>
-                        </label>
-                    </div>
-
-                    {!formData.isHalfDay && formData.fromDate && formData.toDate && formData.fromDate !== formData.toDate && (
-                        <div className="ani-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: '#f8fafc', borderRadius: '8px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
-                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        id="start-half"
-                                        checked={formData.isStartHalfDay}
-                                        onChange={e => setFormData(p => ({ ...p, isStartHalfDay: e.target.checked }))}
-                                    />
-                                    <label htmlFor="start-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Starts with Half Day</label>
-                                </div>
-                                {formData.isStartHalfDay && (
-                                    <select 
-                                        style={{ fontSize: '11px', padding: '2px 4px', height: '24px' }}
-                                        value={formData.startHalfSession}
-                                        onChange={e => setFormData(p => ({ ...p, startHalfSession: e.target.value }))}
-                                    >
-                                        <option value="First Half">First Half</option>
-                                        <option value="Second Half">Second Half</option>
-                                    </select>
-                                )}
-                           </div>
-                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        id="end-half"
-                                        checked={formData.isEndHalfDay}
-                                        onChange={e => setFormData(p => ({ ...p, isEndHalfDay: e.target.checked }))}
-                                    />
-                                    <label htmlFor="end-half" style={{ fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>Ends with Half Day</label>
-                                </div>
-                                {formData.isEndHalfDay && (
-                                    <select 
-                                        style={{ fontSize: '11px', padding: '2px 4px', height: '24px' }}
-                                        value={formData.endHalfSession}
-                                        onChange={e => setFormData(p => ({ ...p, endHalfSession: e.target.value }))}
-                                    >
-                                        <option value="First Half">First Half</option>
-                                        <option value="Second Half">Second Half</option>
-                                    </select>
-                                )}
-                           </div>
-                        </div>
-                    )}
-
-                    {/* Date Picker */}
-                    <div className="fg2">
+                    {/* Form Grid */}
+                    <div className="form-grid">
+                        {/* Policy Selection */}
                         <div className="fg">
-                            <label>{formData.isHalfDay ? 'Date *' : 'From Date *'}</label>
+                            <label>LEAVE TYPE</label>
+                            <select 
+                                value={formData.policyId} 
+                                onChange={handlePolicyChange}
+                                disabled={loading || submitting}
+                                required
+                            >
+                                <option value="">-- Choose leave type --</option>
+                                {balances.map(b => {
+                                    const label = b.name || b.policy_name || b.leave_type || 'Policy';
+                                    const isLwp = String(b.leave_type || label || '').toLowerCase().includes('lwp');
+                                    const availableDays = b.available ?? b.balance ?? 0;
+                                    return (
+                                        <option key={b._id} value={b._id}>
+                                            {label} {isLwp ? '(Unlimited)' : ` • ${availableDays} days left`}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+
+                        {/* Date Picker */}
+                        <div className="fg">
+                            <label>{formData.isSingleDay ? 'DATE' : 'FROM DATE'}</label>
                             <input 
                                 type="date" 
                                 value={formData.fromDate}
-                                onChange={e => setFormData(p => ({ ...p, fromDate: e.target.value }))}
+                                onChange={e => setFormData(p => ({ ...p, fromDate: e.target.value, toDate: formData.isSingleDay ? e.target.value : p.toDate }))}
                                 required
                             />
                         </div>
-                        {!formData.isHalfDay ? (
-                            <div className="fg">
-                                <label>To Date *</label>
+
+                        {/* Day Option Toggle */}
+                        <div className="fg">
+                            <label>DAY OPTION</label>
+                            <div className="form-block">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: 0 }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.isSingleDay}
+                                        onChange={e => setFormData(p => ({ ...p, isSingleDay: e.target.checked, toDate: e.target.checked ? p.fromDate : p.toDate }))}
+                                    />
+                                    <span style={{ fontSize: '13px', fontWeight: '500' }}>Apply for Single Day</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Half Day / Multi-to Toggle */}
+                        <div className="fg">
+                            <label>{formData.isSingleDay ? 'HALF DAY' : 'TO DATE'}</label>
+                            {formData.isSingleDay ? (
+                                <div className="form-block" style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, flex: 1 }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={formData.isHalfDay}
+                                            onChange={e => setFormData(p => ({ ...p, isHalfDay: e.target.checked, isStartHalfDay: e.target.checked, isEndHalfDay: e.target.checked }))}
+                                        />
+                                        <span style={{ fontSize: '13px', fontWeight: '500' }}>Apply as Half Day</span>
+                                    </label>
+                                    {formData.isHalfDay && (
+                                        <select 
+                                            style={{ fontSize: '11px', padding: '2px 4px', height: '24px', width: 'auto' }}
+                                            value={formData.halfDaySession}
+                                            onChange={e => setFormData(p => ({ ...p, halfDaySession: e.target.value, startHalfSession: e.target.value, endHalfSession: e.target.value }))}
+                                        >
+                                            <option value="First Half">First Half</option>
+                                            <option value="Second Half">Second Half</option>
+                                        </select>
+                                    )}
+                                </div>
+                            ) : (
                                 <input 
                                     type="date" 
                                     value={formData.toDate}
@@ -290,100 +271,115 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                                     onChange={e => setFormData(p => ({ ...p, toDate: e.target.value }))}
                                     required
                                 />
-                            </div>
-                        ) : (
-                            <div className="fg">
-                                <label>Session *</label>
-                                <select 
-                                    value={formData.halfDaySession}
-                                    onChange={e => setFormData(p => ({ ...p, halfDaySession: e.target.value }))}
-                                >
-                                    <option value="First Half">First Half</option>
-                                    <option value="Second Half">Second Half</option>
-                                </select>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
+
+                    {/* Multi-day Half Day Options */}
+                    {!formData.isSingleDay && formData.fromDate && formData.toDate && (
+                        <div className="ani-in form-block" style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.isStartHalfDay}
+                                        onChange={e => setFormData(p => ({ ...p, isStartHalfDay: e.target.checked, isHalfDay: false }))}
+                                    />
+                                    <span style={{ fontSize: '13px', fontWeight: '500' }}>Starts with Half Day</span>
+                                </label>
+                                {formData.isStartHalfDay && (
+                                    <select 
+                                        style={{ fontSize: '11px', padding: '2px 4px', height: '24px', width: 'auto' }}
+                                        value={formData.startHalfSession}
+                                        onChange={e => setFormData(p => ({ ...p, startHalfSession: e.target.value }))}
+                                    >
+                                        <option value="First Half">First Half</option>
+                                        <option value="Second Half">Second Half</option>
+                                    </select>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.isEndHalfDay}
+                                        onChange={e => setFormData(p => ({ ...p, isEndHalfDay: e.target.checked, isHalfDay: false }))}
+                                    />
+                                    <span style={{ fontSize: '13px', fontWeight: '500' }}>Ends with Half Day</span>
+                                </label>
+                                {formData.isEndHalfDay && (
+                                    <select 
+                                        style={{ fontSize: '11px', padding: '2px 4px', height: '24px', width: 'auto' }}
+                                        value={formData.endHalfSession}
+                                        onChange={e => setFormData(p => ({ ...p, endHalfSession: e.target.value }))}
+                                    >
+                                        <option value="First Half">First Half</option>
+                                        <option value="Second Half">Second Half</option>
+                                    </select>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Reason */}
                     <div className="fg">
-                        <label>Reason for Leave *</label>
+                        <label>REASON</label>
                         <textarea 
-                            placeholder="Please provide a briefly valid reason..."
+                            placeholder="Briefly describe the reason for your leave..."
                             value={formData.reason}
                             onChange={e => setFormData(p => ({ ...p, reason: e.target.value }))}
                             required
+                            rows={3}
                         />
                     </div>
 
                     {/* Attachment */}
                     <div className="fg">
-                        <label>Supportive Documents (Optional)</label>
+                        <label>SUPPORTING DOCUMENT <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
                         <input 
                             type="file" 
                             onChange={e => setFormData(p => ({ ...p, attachment: e.target.files[0] }))}
                         />
                     </div>
 
-                    {previewLoading ? (
-                        <div className="proj-loader ani-in">
-                            <Loader2 className="animate-spin" size={16} />
-                            <span>Calculating balance projection...</span>
-                        </div>
-                    ) : preview ? (
-                        <div className="projection-card ani-in">
-                            {!selectedPolicy?.leave_type?.toLowerCase().includes('lwp') && (
+                    {/* 3-Column Preview Box */}
+                    {formData.policyId && formData.fromDate && formData.toDate && (
+                        <div className={`preview-infobox ani-in${previewLoading ? ' loading' : ''}`}>
+                            {previewLoading ? (
+                                <div className="proj-loader" style={{ gridColumn: 'span 3' }}>
+                                    <Loader2 className="animate-spin" size={14} />
+                                    Calculating statistics...
+                                </div>
+                            ) : preview ? (
                                 <>
-                                    <div className="proj-row">
-                                        <span>Currently Available:</span>
-                                        <strong>{preview.available} Days</strong>
+                                    {/* Column 1: Total Range */}
+                                    <div className="p-info-col">
+                                        <span className="p-i-lbl">TOTAL RANGE</span>
+                                        <span className="p-i-val">{preview.breakdown?.total_range} Day{preview.breakdown?.total_range !== 1 ? 's' : ''}</span>
+                                        {preview.breakdown?.holiday_days > 0 && <span className="p-i-sub positive">+{preview.breakdown.holiday_days} Holiday</span>}
+                                        {preview.breakdown?.weekly_off_days > 0 && <span className="p-i-sub positive">+{preview.breakdown.weekly_off_days} Week-off</span>}
                                     </div>
-                                    <div className="proj-divider" />
-                                </>
-                            )}
-                            
-                            <div className="proj-row" style={{ fontSize: '12px', opacity: 0.8 }}>
-                                <span>Total Range:</span>
-                                <span>{preview.breakdown?.total_range} Days</span>
-                            </div>
-                            
-                            {preview.breakdown?.holiday_days > 0 && (
-                                <div className="proj-row" style={{ fontSize: '12px', opacity: 0.8 }}>
-                                    <span>Holidays Included:</span>
-                                    <span>{preview.breakdown?.holiday_days} Days</span>
-                                </div>
-                            )}
 
-                            {preview.breakdown?.weekly_off_days > 0 && (
-                                <div className="proj-row" style={{ fontSize: '12px', opacity: 0.8 }}>
-                                    <span>Week-Offs Included:</span>
-                                    <span>{preview.breakdown?.weekly_off_days} Days</span>
-                                </div>
-                            )}
+                                    {/* Column 2: Applied / Deducted */}
+                                    <div className="p-info-col">
+                                        <span className="p-i-lbl">APPLIED (DEDUCTED)</span>
+                                        <span className="p-i-val deduct">-{preview.totalDays} Day{preview.totalDays !== 1 ? 's' : ''}</span>
+                                        <span className={`p-i-sub ${preview.sandwichDays > 0 ? 'negative' : 'positive'}`}>
+                                            {preview.sandwichDays > 0 ? 'Sandwich Applied' : 'No Sandwich'}
+                                        </span>
+                                    </div>
 
-                            <div className="proj-row">
-                                <span>Applied Leave (Deducted):</span>
-                                <span className="requested-minus">
-                                    -{preview.totalDays} {!selectedPolicy?.leave_type?.toLowerCase().includes('lwp') && 'Days'}
-                                    {preview.sandwichDays > 0 ? (
-                                        <small style={{ color: '#ef4444' }}> (Sandwich Applied)</small>
-                                    ) : (
-                                        <small style={{ color: '#10b981' }}> (No Sandwich)</small>
-                                    )}
-                                </span>
-                            </div>
-
-                            {!selectedPolicy?.leave_type?.toLowerCase().includes('lwp') && (
-                                <>
-                                    <div className="proj-divider" />
-                                    <div className="proj-row final">
-                                        <span>Projected Balance:</span>
-                                        <span className="final-val">{preview.projected_balance} Days</span>
+                                    {/* Column 3: Available Balance */}
+                                    <div className="p-info-col">
+                                        <span className="p-i-lbl">AVAILABLE BALANCE</span>
+                                        <span className="p-i-val balance">
+                                            {selectedPolicy?.leave_type?.toLowerCase().includes('lwp') ? 'Unlimited' : `${preview.projected_balance} Day${preview.projected_balance !== 1 ? 's' : ''}`}
+                                        </span>
                                     </div>
                                 </>
-                            )}
+                            ) : null}
                         </div>
-                    ) : null}
+                    )}
 
                     <div className="lm-mfooter">
                         <button 

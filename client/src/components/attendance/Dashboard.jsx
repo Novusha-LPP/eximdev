@@ -16,6 +16,7 @@ import masterAPI from '../../api/attendance/master.api';
 import { formatDate, getStatusVariant, minutesToHours, isToday } from './utils/helpers';
 import toast from 'react-hot-toast';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
+import ApplyLeaveModal from './ApplyLeaveModal';
 import './Dashboard.css';
 
 /* -- Constants -- */
@@ -123,8 +124,7 @@ export default function Dashboard() {
   const [todayTab, setTodayTab] = useState('absent');
   const [holidays, setHolidays] = useState([]);
   const [month, setMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [dayDetail, setDayDetail] = useState(null);
+  const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
   const [liveTimer, setLiveTimer] = useState('0h 00m 00s');
 
   // Adhoc Admin Tabs
@@ -281,23 +281,14 @@ export default function Dashboard() {
     return dash.calendar[`${y}-${m}-${String(day).padStart(2, '0')}`] || null;
   };
 
-  const openDay = day => {
+  /* -- Open Apply Leave Modal -- */
+  const openApplyLeaveModal = (day) => {
     if (!day) return;
-    const y = month.getFullYear(), m = String(month.getMonth() + 1).padStart(2, '0');
-    const ds = `${y}-${m}-${String(day).padStart(2, '0')}`;
-    const rec = dash?.calendar?.[ds];
-    let status = rec?.status || 'No Data';
-    if (rec?.status === 'present') {
-      if (rec.isLate && rec.isEarlyExit) status = 'Present (Late & Early Exit)';
-      else if (rec.isLate) status = 'Present (Late)';
-      else if (rec.isEarlyExit) status = 'Present (Early Exit)';
-    } else if (rec?.status === 'half_day') {
-      status = rec?.half_day_session
-        ? `Half Day (${formatSession(rec.half_day_session)})`
-        : 'Half Day';
-    }
-    setSelectedDay(ds);
-    setDayDetail(rec ? { ...rec, status } : { status: 'No Data', hours: '0h 0m' });
+    setShowApplyLeaveModal(true);
+  };
+
+  const handleApplyLeaveSuccess = () => {
+    load(month.getMonth() + 1, month.getFullYear());
   };
 
   /* -- Team calendar -- */
@@ -753,7 +744,7 @@ export default function Dashboard() {
                   <div
                     key={i}
                     className={`cal-day-v2 ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
-                    onClick={() => openDay(day)}
+                    onClick={() => openApplyLeaveModal(day)}
                   >
                     <span className="cal-day-num">{day}</span>
                     {day && label && (
@@ -941,59 +932,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* -- DAY DETAIL MODAL -- */}
-      {selectedDay && (
-        <div className="attendance-modal-backdrop" onClick={() => setSelectedDay(null)}>
-          <div className="attendance-modal" onClick={e => e.stopPropagation()}>
-            <div className="attendance-modal-header">
-              <FiCalendar size={16} color="rgba(255,255,255,.6)" />
-              <div>
-                <h3>Day Details</h3>
-                <p>{formatDate(selectedDay, 'EEEE, dd MMM yyyy')}</p>
-              </div>
-              <button className="attendance-modal-close" onClick={() => setSelectedDay(null)}>
-                <FiX size={12} />
-              </button>
-            </div>
-            <div className="attendance-modal-body">
-              <div className="attendance-modal-row">
-                <span>Status</span>
-                <Badge variant={getStatusVariant(dayDetail?.is_half_day ? 'half_day' : dayDetail?.status)}>
-                  {dayDetail?.is_half_day
-                    ? (dayDetail?.half_day_session ? `Half Day (${formatSession(dayDetail.half_day_session)})` : 'Half Day')
-                    : (dayDetail?.status ? String(dayDetail.status).replace(/_/g, ' ') : 'No Data')}
-                </Badge>
-              </div>
-              <div className="attendance-modal-row">
-                <span>Duration</span>
-                <strong>
-                  {typeof dayDetail?.hours === 'number'
-                    ? `${Math.floor(dayDetail.hours)}h ${Math.round((dayDetail.hours % 1) * 60)}m`
-                    : (dayDetail?.hours || '-')}
-                </strong>
-              </div>
-              {dayDetail?.isLate && (
-                <div className="attendance-modal-row">
-                  <span>Late By</span>
-                  <strong style={{ color: 'var(--amber-text)' }}>{minutesToHours(dayDetail.lateByMinutes)}</strong>
-                </div>
-              )}
-              <div className="time-boxes">
-                <div className="time-box">
-                  <span>Check In</span>
-                  <strong>{dayDetail?.inTime ? fmtTime(dayDetail.inTime) : '-'}</strong>
-                </div>
-                <div className="time-box">
-                  <span>Check Out</span>
-                  <strong style={!dayDetail?.outTime && dayDetail?.inTime ? { color: 'var(--red-text)' } : {}}>
-                    {(!dayDetail?.outTime && dayDetail?.inTime) ? 'Miss' : dayDetail?.outTime ? fmtTime(dayDetail.outTime) : '-'}
-                  </strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* -- Apply Leave Modal -- */}
+      <ApplyLeaveModal
+        isOpen={showApplyLeaveModal}
+        onClose={() => setShowApplyLeaveModal(false)}
+        onSuccess={handleApplyLeaveSuccess}
+        balances={balances}
+      />
 
     </div>
   );

@@ -44,6 +44,7 @@ router.get('/departments', attendanceAuthBridge, masterCtrl.getDepartments);
 
 // ── Week-Off Policies ────────────────────────────────────────────────────────
 router.get('/weekoff-policies', attendanceAuthBridge, policyCtrl.listWeekOffPolicies);
+router.get('/weekoff-policies/:id', attendanceAuthBridge, policyCtrl.getWeekOffPolicyById);
 router.post('/weekoff-policies', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.createWeekOffPolicy);
 router.put('/weekoff-policies/:id', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.updateWeekOffPolicy);
 router.delete('/weekoff-policies/:id', attendanceAuthBridge, requireAllowedAdmin, policyCtrl.deleteWeekOffPolicy);

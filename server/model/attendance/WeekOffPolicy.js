@@ -21,6 +21,7 @@ const dayRuleSchema = new mongoose.Schema({
 const weekOffPolicySchema = new mongoose.Schema({
   policy_name: { type: String, required: true, trim: true },
   description: { type: String, trim: true },
+  company_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
 
   // --- Policy Type ---
   policy_type: {
@@ -54,5 +55,8 @@ const weekOffPolicySchema = new mongoose.Schema({
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 
 }, { timestamps: true });
+
+// Prevent duplicate policy name + company
+weekOffPolicySchema.index({ company_id: 1, policy_name: 1 }, { unique: true });
 
 export default mongoose.model('WeekOffPolicy', weekOffPolicySchema);

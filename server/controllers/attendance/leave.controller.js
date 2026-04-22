@@ -660,25 +660,29 @@ export const previewLeave = async (req, res) => {
             presenceThresholdHours: 4
         });
 
-        const currentYear = new Date().getFullYear();
-        const balance = await LeaveBalance.findOne({
+        const applicationYear = moment(from_date).year();
+        const balancesForYear = await LeaveBalance.find({
             employee_id: targetId,
-            leave_policy_id: policy._id,
-            year: currentYear
+            year: applicationYear
         });
+        const balance = pickBalanceForPolicy(balancesForYear, policy);
 
-        const closing = Number(balance?.closing_balance || (Number(balance?.opening_balance || 0) - Number(balance?.used || 0)));
         const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
-        const primaryBalance = isLwpPolicy ? 0 : closing;
+        
+        // Get available balance (already accounts for pending applications)
+        const primaryBalance = isLwpPolicy ? 0 : resolveAvailableFromBalance(balance);
+        
+        // Calculate projected balance after this leave application
+        const projectedBalance = isLwpPolicy
+            ? 0
+            : Math.max(0, primaryBalance - Number(result.totalDays || 0));
 
         res.json({
             success: true,
             data: {
                 ...result,
                 available: primaryBalance,
-                projected_balance: isLwpPolicy
-                    ? 0
-                    : Math.max(0, primaryBalance - Number(result.totalDays || 0))
+                projected_balance: projectedBalance
             }
         });
     } catch (err) {

@@ -23,6 +23,8 @@ const ChargesTable = ({
   onRemoveAttachment,
   onEditCharge,
   readOnly,
+  isLocked,
+  readOnlyBase,
   isAuthorized
 }) => {
   const formatNumber = (num) => {
@@ -88,7 +90,7 @@ const ChargesTable = ({
                 </a>
               }
               size="small"
-              onDelete={(readOnly || isIndividualLocked) ? undefined : (e) => {
+              onDelete={readOnlyBase ? undefined : (e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 const newUrls = urls.filter((_, i) => i !== urlIdx);
@@ -116,7 +118,7 @@ const ChargesTable = ({
            type="button"
            className="upload-btn" 
            onClick={() => onOpenFileModal(ch)}
-           disabled={readOnly || isIndividualLocked}
+           disabled={readOnlyBase}
            style={{ padding: "1px 4px", fontSize: "9px" }}
         >
           {Array.isArray(urls) && urls.length > 0 ? '+' : '⇧'}

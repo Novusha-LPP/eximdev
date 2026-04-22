@@ -189,10 +189,11 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     
     if (req.body.cost) {
         if (isLocked) {
-            // Block cost updates if locked, but maybe they sent the same data back?
-            // For now, we strictly block cost updates to be safe, unless it's an attachment
-            // Actually, let's just skip updating cost if locked
-            console.log(`Charge ${req.params.id} is locked. Skipping cost update.`);
+            // Allow updating attachments even if locked
+            if (req.body.cost.url) {
+                const currentCost = charge.cost ? charge.cost.toObject() : {};
+                charge.cost = { ...currentCost, url: req.body.cost.url };
+            }
         } else {
             charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };
         }

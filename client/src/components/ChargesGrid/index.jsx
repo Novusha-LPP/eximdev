@@ -207,6 +207,8 @@ const ChargesGrid = ({
           onRemoveAttachment={handleRemoveAttachment}
           onEditCharge={(charge) => setEditingCharges([charge])}
           readOnly={readOnlyFinal}
+          isLocked={isLocked}
+          readOnlyBase={readOnly}
           isAuthorized={isAuthorized}
         />
       </div>
@@ -237,6 +239,8 @@ const ChargesGrid = ({
           isAuthorized={isAuthorized}
           workMode={workMode}
           readOnly={readOnlyFinal}
+          isLocked={isLocked}
+          readOnlyBase={readOnly}
         />
       )}
 

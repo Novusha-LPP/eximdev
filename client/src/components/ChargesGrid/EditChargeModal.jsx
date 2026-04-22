@@ -31,7 +31,9 @@ const EditChargeModal = ({
   jobCthNo = '',
   workMode = 'Payment',
   readOnly = false,
-  isAuthorized = false
+  isAuthorized = false,
+  isLocked = false,
+  readOnlyBase = false
 }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
@@ -669,7 +671,7 @@ const EditChargeModal = ({
                                                 icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
                                                 label={extractFileName(url)}
                                                 size="small"
-                                                onDelete={effectiveReadOnly ? undefined : () => {
+                                                onDelete={readOnlyBase ? undefined : () => {
                                                     const newUrls = row.revenue.url.filter((_, i) => i !== urlIdx);
                                                     handleFieldChange(i, 'url', newUrls, 'revenue');
                                                 }}
@@ -684,7 +686,7 @@ const EditChargeModal = ({
                                     ) : (
                                         <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
                                     )}
-                                    <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} disabled={effectiveReadOnly} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
+                                    <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
                                         {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? 'Edit Files' : 'Upload Files'}
                                     </button>
                                 </div>
@@ -885,7 +887,7 @@ const EditChargeModal = ({
                                                 icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
                                                 label={extractFileName(url)}
                                                 size="small"
-                                                onDelete={effectiveReadOnly ? undefined : () => {
+                                                onDelete={readOnlyBase ? undefined : () => {
                                                     const newUrls = row.cost.url.filter((_, i) => i !== urlIdx);
                                                     handleFieldChange(i, 'url', newUrls, 'cost');
                                                 }}
@@ -900,7 +902,7 @@ const EditChargeModal = ({
                                     ) : (
                                         <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
                                     )}
-                                    <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} disabled={effectiveReadOnly} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
+                                    <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
                                         {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? 'Edit Files' : 'Upload Files'}
                                     </button>
                                 </div>
@@ -1258,7 +1260,7 @@ const EditChargeModal = ({
               const hasPB = row.purchase_book_no && String(row.purchase_book_no).trim().length > 0;
               return (hasPR || hasPB) && !isAuth;
             });
-            const showUpdate = !readOnly;
+            const showUpdate = !readOnlyBase;
             return (
               <>
                 {showUpdate && <button type="button" className="btn" onClick={() => handleSave(false)}>Update</button>}

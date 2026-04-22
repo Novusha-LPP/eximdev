@@ -3,7 +3,37 @@ import "./CashVoucher.css";
 import logo from "../../assets/images/logo.svg";
 
 const CashVoucher = React.forwardRef(({ data, paidTo = "Rambhai" }, ref) => {
-    const today = new Date().toLocaleDateString("en-GB", {
+    console.log("CashVoucher data:", data);
+    const formatDate = (dateStr) => {
+        if (!dateStr) return null;
+        
+        // Trim and remove extra spaces, but keep a space if it's separating date and time
+        let cleaned = dateStr.toString().trim();
+        
+        // Try to handle DD/MM/YYYY or DD-MM-YYYY with optional time and spaces
+        const dmyMatch = cleaned.match(/(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})/);
+        if (dmyMatch) {
+            const [_, day, month, year] = dmyMatch;
+            const date = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10));
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                });
+            }
+        }
+        
+        // Fallback to standard Date parsing for other formats (like ISO)
+        const fallbackDate = new Date(cleaned);
+        return isNaN(fallbackDate.getTime()) ? null : fallbackDate.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+        });
+    };
+
+    const voucherDate = formatDate(data?.out_of_charge) || new Date().toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -67,7 +97,7 @@ const CashVoucher = React.forwardRef(({ data, paidTo = "Rambhai" }, ref) => {
                     </div>
                     <div className="date-info">
                         <span>Date</span>
-                        <span className="date-val">{today}</span>
+                        <span className="date-val">{voucherDate}</span>
                     </div>
                 </div>
 

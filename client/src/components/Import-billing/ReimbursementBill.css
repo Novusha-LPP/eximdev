@@ -6,7 +6,7 @@
     max-width: 210mm;
     min-height: 297mm;
     margin: 20px auto;
-    padding: 5mm;
+    padding: 10mm;
     box-sizing: border-box;
     box-shadow: 0 0 20px rgba(0,0,0,0.15);
     transform-origin: top center;
@@ -41,7 +41,7 @@
         width: 100% !important;
         max-width: none !important;
         border: none !important;
-        padding: 5mm !important;
+        padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         background: #fff !important;
@@ -80,6 +80,7 @@
     height: auto;
     width: auto;
     object-fit: contain;
+    clip-path: inset(0 0 0 3%); /* Hide the artifact pipe on the left edge */
 }
 
 .abi-company-center {
@@ -404,7 +405,7 @@
         max-width: none;
     }
     .abi-input { background: transparent !important; }
-    @page { margin: 5mm; }
+    @page { margin: 2mm; }
 }
 
 /* Master Modal */

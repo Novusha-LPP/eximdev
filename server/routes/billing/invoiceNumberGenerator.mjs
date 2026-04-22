@@ -209,11 +209,28 @@ router.post('/save', async (req, res) => {
             }
 
             // 2. Sync Rows/Charges
+            const PROFIT_CHARGES = [
+                "DOCUMENTATION CHARGES",
+                "EXAMINATION CHARGES/DS",
+                "EXAMMINATION CHARGES/DS",
+                "IMPORT AGENCY CHARGES",
+                "EXAMINATION CHARGES"
+            ];
+
             for (let i = 0; i < (billData.rows || []).length; i++) {
                 const row = billData.rows[i];
                 if (!row.description && !row.taxable && !row.nonGst) continue;
 
                 const amount = parseFloat(row.taxable || row.nonGst || 0);
+
+                // Skip profit charges from syncing to Job Charges for Agency Bills (GIA)
+                if (type === 'GIA' && row.description) {
+                    const descUpper = row.description.trim().toUpperCase();
+                    if (PROFIT_CHARGES.includes(descUpper)) {
+                        continue; 
+                    }
+                }
+
                 const isExisting = mongoose.isValidObjectId(row.id);
                 const sourceIds = Array.isArray(row.sourceIds) ? row.sourceIds : [row.id].filter(id => mongoose.isValidObjectId(id));
                 

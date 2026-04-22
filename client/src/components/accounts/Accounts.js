@@ -5,12 +5,19 @@ import Box from "@mui/material/Box";
 import Forms from "./Forms";
 import ViewAccounts from "./ViewAccounts";
 import LedgerProcessor from "./LedgerProcessor";
+import BillCover from "./BillCover";
 import useTabs from "../../customHooks/useTabs";
+import { UserContext } from "../../contexts/UserContext";
 
 function Accounts() {
   const [value, setValue] = React.useState(0);
   const [entryToEdit, setEntryToEdit] = React.useState(null);
   const { a11yProps, CustomTabPanel } = useTabs();
+  const { user } = React.useContext(UserContext);
+  const userModules = user?.modules || [];
+
+  const hasAccounts = userModules.includes("Accounts");
+  const hasBillCover = userModules.includes("Bill Cover");
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
@@ -27,28 +34,45 @@ function Accounts() {
     setEntryToEdit(null);
   };
 
+  // Determine which tabs to show
+  const availableTabs = [];
+  if (hasAccounts) {
+    availableTabs.push({ label: "Forms", index: 0, component: <Forms /> });
+    availableTabs.push({ label: "View", index: 1, component: <ViewAccounts onEditEntry={handleEditEntry} /> });
+    availableTabs.push({ label: "Ledger Calc.", index: 2, component: <LedgerProcessor /> });
+  }
+  if (hasBillCover) {
+    availableTabs.push({ label: "Bill Cover", index: 3, component: <BillCover /> });
+  }
+
+  // Effect to set initial value to the first available tab if current index is invalid
+  React.useEffect(() => {
+    if (availableTabs.length > 0) {
+      const isCurrentValueValid = availableTabs.some(tab => tab.index === value);
+      if (!isCurrentValueValid) {
+        setValue(availableTabs[0].index);
+      }
+    }
+  }, [availableTabs, value]);
+
   return (
     <Box sx={{ width: "100%" }}>
       <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tabs
           value={value}
           onChange={handleChange}
-          aria-label="basic tabs example"
+          aria-label="accounts tabs"
         >
-          <Tab label="Forms" {...a11yProps(0)} />
-          <Tab label="View" {...a11yProps(1)} />
-          <Tab label="Ledger Calc." {...a11yProps(2)} />
+          {availableTabs.map((tab) => (
+            <Tab key={tab.index} label={tab.label} {...a11yProps(tab.index)} value={tab.index} />
+          ))}
         </Tabs>
       </Box>
-      <CustomTabPanel value={value} index={0}>
-        <Forms/>
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
-        <ViewAccounts onEditEntry={handleEditEntry} />{" "}
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={2}>
-        <LedgerProcessor />
-      </CustomTabPanel>
+      {availableTabs.map((tab) => (
+        <CustomTabPanel key={tab.index} value={value} index={tab.index}>
+          {tab.component}
+        </CustomTabPanel>
+      ))}
     </Box>
   );
 }

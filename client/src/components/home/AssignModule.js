@@ -37,7 +37,8 @@ const allModules = [
   "DGFT",
   "Pulse",
   "MasterDirectory",
-  "Attendance"
+  "Attendance",
+  "Bill Cover"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

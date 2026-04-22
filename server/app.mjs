@@ -78,6 +78,7 @@ import reminderRoutes, {
   initReminderSystem,
 } from "./routes/accounts/remiderRoutes.js";
 import accountLedger from "./routes/accounts/Ledger/accountLedger.mjs";
+import getBillCover from "./routes/accounts/getBillCover.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -478,6 +479,7 @@ app.use("/api", chargesRoutes);
 app.use("/api", Accounts);
 app.use("/api", reminderRoutes);
 app.use("/api", accountLedger);
+app.use("/api", getBillCover);
 app.use("/api/billing", invoiceGenerator);
 
 // Documentation

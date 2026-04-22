@@ -33,17 +33,24 @@ router.get("/api/get-importer-list/:year", authMiddleware, applyUserBranchFilter
     const uniqueImporters = await JobModel.aggregate([
       { $match: matchStage },
       {
+        $addFields: {
+          normalizedImporter: { $toUpper: { $trim: { input: "$importer" } } }
+        }
+      },
+      {
         $group: {
-          _id: { importer: "$importer", importerURL: "$importerURL" },
+          _id: "$normalizedImporter",
+          importer: { $first: "$importer" }, // Keep original case for display if preferred, or use normalized
+          importerURL: { $first: "$importerURL" },
           ie_code_no: { $first: "$ie_code_no" },
         },
       },
       {
         $project: {
           _id: 0,
-          importer: "$_id.importer",
-          importerURL: "$_id.importerURL",
-          ie_code_no: "$ie_code_no",
+          importer: 1,
+          importerURL: 1,
+          ie_code_no: 1,
         },
       },
       { $sort: { importer: 1 } },

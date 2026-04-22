@@ -152,6 +152,13 @@ const EditChargeModal = ({
       setFormData(initialData);
       setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
       setUploadIndex(null);
+
+      // Trigger a one-time calculation for both sections to ensure consistency when modal opens
+      setTimeout(() => {
+        initialData.forEach((_, i) => {
+          handleFieldChange(i, 'category', initialData[i].category);
+        });
+      }, 100);
     }
   }, [isOpen, selectedCharges]);
 
@@ -168,159 +175,168 @@ const EditChargeModal = ({
   };
 
   const handleFieldChange = (index, field, value, section = null) => {
-    const updated = [...formData];
-    if (section) {
-      updated[index][section] = updated[index][section] || {};
-      updated[index][section][field] = value;
-      
-      // Synchronize 'url' (attachments) between revenue and cost
-      if (field === 'url') {
-        const otherSection = section === 'revenue' ? 'cost' : 'revenue';
-        updated[index][otherSection] = updated[index][otherSection] || {};
-        updated[index][otherSection][field] = value;
-      }
-      
-      // Auto-populate TDS if selecting a shipping line or CFS or transporter
-      if (section === 'cost' && field === 'partyName') {
-        const partyType = updated[index][section].partyType?.toUpperCase();
-        const normName = value?.trim().toUpperCase();
+    setFormData(prev => {
+      const updated = [...prev];
+      if (!updated[index]) return prev;
+
+      if (section) {
+        updated[index][section] = updated[index][section] || {};
+        updated[index][section][field] = value;
         
-        let searchList = [];
-        if (partyType === 'TRANSPORTER') searchList = transporters;
-        else if (partyType === 'VENDOR') searchList = suppliers;
-        else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
-        else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
-        else if (partyType === 'CFS') searchList = cfsList;
-        else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+        // Synchronize 'url' (attachments) between revenue and cost
+        if (field === 'url') {
+          const otherSection = section === 'revenue' ? 'cost' : 'revenue';
+          updated[index][otherSection] = updated[index][otherSection] || {};
+          updated[index][otherSection][field] = value;
+        }
+        
+        // Auto-populate TDS if selecting a shipping line or CFS or transporter
+        if (section === 'cost' && field === 'partyName') {
+          const partyType = updated[index][section].partyType?.toUpperCase();
+          const normName = value?.trim().toUpperCase();
+          
+          let searchList = [];
+          if (partyType === 'TRANSPORTER') searchList = transporters;
+          else if (partyType === 'VENDOR') searchList = suppliers;
+          else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+          else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+          else if (partyType === 'CFS') searchList = cfsList;
+          else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
 
-        let matchedSL = searchList.find(sl => sl.name?.trim().toUpperCase() === normName);
-        if (!matchedSL) {
-          const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
-          matchedSL = allParties.find(sl => sl.name?.trim().toUpperCase() === normName);
+          let matchedSL = searchList.find(sl => sl.name?.trim().toUpperCase() === normName);
+          if (!matchedSL) {
+            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+            matchedSL = allParties.find(sl => sl.name?.trim().toUpperCase() === normName);
+          }
+
+          if (matchedSL && matchedSL.tds_percent > 0) {
+            updated[index][section].isTds = true;
+            updated[index][section].tdsPercent = matchedSL.tds_percent;
+          }
         }
 
-        if (matchedSL && matchedSL.tds_percent > 0) {
-          updated[index][section].isTds = true;
-          updated[index][section].tdsPercent = matchedSL.tds_percent;
+        // Auto-populate Payable To if type is 'Others' in Cost section
+        if (section === 'cost' && field === 'partyType' && value === 'Others' && shippingLineAirline) {
+          updated[index][section].partyName = shippingLineAirline;
         }
+
+        // Auto-populate Payable To if type is 'Importer' in Cost section
+        if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
+          updated[index][section].partyName = importerName;
+        }
+      } else {
+        updated[index][field] = value;
       }
 
-      // Auto-populate Payable To if type is 'Others' in Cost section
-      if (section === 'cost' && field === 'partyType' && value === 'Others' && shippingLineAirline) {
-        updated[index][section].partyName = shippingLineAirline;
-      }
-
-      // Auto-populate Payable To if type is 'Importer' in Cost section
-      if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
-        updated[index][section].partyName = importerName;
-      }
-
+      // --- CALCULATION LOGIC ---
       const fieldsToTriggerRecalc = ['qty', 'rate', 'isGst', 'gstRate', 'isTds', 'tdsPercent', 'exchangeRate', 'partyName', 'basicAmount', 'category'];
       if (fieldsToTriggerRecalc.includes(field)) {
-        const sectionRef = updated[index][section];
-        const qty = parseFloat(sectionRef.qty) || 0;
-        const rate = parseFloat(sectionRef.rate) || 0;
-        const exRate = parseFloat(sectionRef.exchangeRate) || 1;
+        const affectedSections = section ? [section] : ['revenue', 'cost'];
         
-        // GST Rate
-        const gstRate = parseFloat(sectionRef.gstRate) || 18;
-        const includeGst = sectionRef.isGst !== false;
-        
-        let amount = qty * rate;
-        let derivedBasic, derivedGst;
+        affectedSections.forEach(secKey => {
+          const sectionRef = updated[index][secKey];
+          if (!sectionRef) return;
 
-        if (updated[index].category === 'Margin') {
-            if (includeGst) {
-                // EXCLUSIVE LOGIC for Margin: Rate is Basic
-                derivedBasic = amount;
-                derivedGst = amount * (gstRate / 100);
-                amount = derivedBasic + derivedGst; // Adjust total amount to be basic + gst
-            } else {
-                derivedBasic = amount;
-                derivedGst = 0;
-            }
-        } else {
-            // INCLUSIVE LOGIC for other categories
-            if (field === 'basicAmount') {
-                derivedBasic = parseFloat(value) || 0;
-            } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
-                derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
-            } else {
-                derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
-            }
-            derivedGst = amount - derivedBasic;
-        }
+          const qty = parseFloat(sectionRef.qty) || 0;
+          const rate = parseFloat(sectionRef.rate) || 0;
+          const exRate = parseFloat(sectionRef.exchangeRate) || 1;
+          
+          // GST Rate
+          const gstRate = parseFloat(sectionRef.gstRate) || 18;
+          const includeGst = sectionRef.isGst !== false;
+          
+          let amount = qty * rate;
+          let derivedBasic, derivedGst;
 
-        sectionRef.amount = amount;
-        sectionRef.amountINR = amount * exRate;
-        sectionRef.gstAmount = derivedGst;
-        sectionRef.basicAmount = derivedBasic;
+          if (updated[index].category === 'Margin') {
+              if (includeGst) {
+                  // EXCLUSIVE LOGIC for Margin: Rate is Basic
+                  derivedBasic = amount;
+                  derivedGst = amount * (gstRate / 100);
+                  amount = derivedBasic + derivedGst; // Adjust total amount to be basic + gst
+              } else {
+                  derivedBasic = amount;
+                  derivedGst = 0;
+              }
+          } else {
+              // INCLUSIVE LOGIC for other categories
+              if (field === 'basicAmount' && section === secKey) {
+                  derivedBasic = parseFloat(value) || 0;
+              } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
+                  derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              } else {
+                  derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+              }
+              derivedGst = amount - derivedBasic;
+          }
 
-        // GST Split Logic based on GSTIN (24 = Gujarat)
-        const partyName = sectionRef.partyName;
-        const partyType = sectionRef.partyType?.toUpperCase();
-        const normName = partyName?.trim().toUpperCase();
+          sectionRef.amount = amount;
+          sectionRef.amountINR = amount * exRate;
+          sectionRef.gstAmount = derivedGst;
+          sectionRef.basicAmount = derivedBasic;
 
-        let searchList = [];
-        if (partyType === 'TRANSPORTER') searchList = transporters;
-        else if (partyType === 'VENDOR') searchList = suppliers;
-        else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
-        else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
-        else if (partyType === 'CFS') searchList = cfsList;
-        else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+          // GST Split Logic based on GSTIN (24 = Gujarat)
+          const partyName = sectionRef.partyName;
+          const partyType = sectionRef.partyType?.toUpperCase();
+          const normName = partyName?.trim().toUpperCase();
 
-        let party = searchList.find(p => p.name?.trim().toUpperCase() === normName);
-        if (!party) {
-          const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
-          party = allParties.find(p => p.name?.trim().toUpperCase() === normName);
-        }
-        
-        const branchIndex = sectionRef.branchIndex || 0;
-        const gstin = party?.branches?.[branchIndex]?.gst || "";
-        
-        if (gstin.startsWith("24")) {
-          sectionRef.cgst = derivedGst / 2;
-          sectionRef.sgst = derivedGst / 2;
-          sectionRef.igst = 0;
-        } else {
-          sectionRef.cgst = 0;
-          sectionRef.sgst = 0;
-          sectionRef.igst = derivedGst;
-        }
+          let searchList = [];
+          if (partyType === 'TRANSPORTER') searchList = transporters;
+          else if (partyType === 'VENDOR') searchList = suppliers;
+          else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+          else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+          else if (partyType === 'CFS') searchList = cfsList;
+          else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
 
-        // TDS Calculation: ALWAYS on the GST-exclusive Basic Amount
-        const isTds = sectionRef.isTds || false;
-        const tdsPercent = parseFloat(sectionRef.tdsPercent) || 0;
-        if (isTds) {
-          sectionRef.tdsAmount = sectionRef.basicAmount * (tdsPercent / 100);
-        } else {
-          sectionRef.tdsAmount = 0;
-        }
+          let party = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+          if (!party) {
+            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+            party = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+          }
+          
+          const branchIndex = sectionRef.branchIndex || 0;
+          const gstin = party?.branches?.[branchIndex]?.gst || "";
+          
+          if (gstin.startsWith("24")) {
+            sectionRef.cgst = derivedGst / 2;
+            sectionRef.sgst = derivedGst / 2;
+            sectionRef.igst = 0;
+          } else {
+            sectionRef.cgst = 0;
+            sectionRef.sgst = 0;
+            sectionRef.igst = derivedGst;
+          }
 
-        // Net Payable Calculation:
-        // "Include GST" (Checked): Net = Total Amount - TDS
-        // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
-        if (includeGst) {
-          sectionRef.netPayable = Math.round(amount - sectionRef.tdsAmount);
-        } else {
-          sectionRef.netPayable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
-        }
+          // TDS Calculation: ALWAYS on the GST-exclusive Basic Amount
+          const isTds = sectionRef.isTds || false;
+          const tdsPercent = parseFloat(sectionRef.tdsPercent) || 0;
+          if (isTds) {
+            sectionRef.tdsAmount = sectionRef.basicAmount * (tdsPercent / 100);
+          } else {
+            sectionRef.tdsAmount = 0;
+          }
+
+          // Net Payable Calculation:
+          // "Include GST" (Checked): Net = Total Amount - TDS
+          // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
+          if (includeGst) {
+            sectionRef.netPayable = Math.round(amount - sectionRef.tdsAmount);
+          } else {
+            sectionRef.netPayable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
+          }
+        });
       }
-      
-      // Open dropdown when typing party name
+      return updated;
+    });
+
+    // Side effects (dropdowns) outside the functional update
+    if (section) {
       if (field === 'partyName') {
         setActiveDropdown({ index, section });
       } else if (field === 'partyType') {
-        // Clear party selected when type changes
-        updated[index][section].partyName = '';
-        updated[index][section].isTds = false;
-        updated[index][section].tdsPercent = 0;
         setActiveDropdown({ index: null, section: null });
       }
-    } else {
-      updated[index][field] = value;
     }
-    setFormData(updated);
   };
 
   const handleSelectParty = (index, section, item) => {

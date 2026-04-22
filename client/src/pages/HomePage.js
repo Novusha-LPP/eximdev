@@ -275,7 +275,7 @@ function HomePageContent() {
                 <Route
                   path="/accounts"
                   element={
-                    <ProtectedRoute requiredModule="Accounts">
+                    <ProtectedRoute requiredModule={["Accounts", "Bill Cover"]}>
                       <Accounts />
                     </ProtectedRoute>
                   }

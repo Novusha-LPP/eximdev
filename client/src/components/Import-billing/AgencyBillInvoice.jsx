@@ -109,8 +109,13 @@ const AgencyBillInvoice = () => {
                 console.error("Error fetching charge heads", e);
             }
 
-            // Default static rows
-            const defaultChargeNames = ["DOCUMENTATION CHARGES", "EXAMINATION CHARGES", "IMPORT AGENCY CHARGES"];
+            // Default static rows (Profit charges)
+            const defaultChargeNames = [
+                "DOCUMENTATION CHARGES", 
+                "EXAMINATION CHARGES/DS",
+                "IMPORT AGENCY CHARGES", 
+                "EXAMINATION CHARGES"
+            ];
             let rows = defaultChargeNames.map(name => ({
                 id: `default-${name}`,
                 description: name,
@@ -125,11 +130,18 @@ const AgencyBillInvoice = () => {
                 sgstPercent: 9
             }));
             
+            const profitNames = defaultChargeNames.map(n => n.toUpperCase());
+
             // Pull Agency/Margin charges from job records
             const agencyCharges = (job.charges || []).filter(ch => {
                 const categoryMatch = (ch.category || "").trim().toLowerCase() === "margin";
                 const amtVal = parseFloat(ch.revenue?.amountINR || ch.revenue?.basicAmount || 0);
-                return categoryMatch && Math.abs(amtVal) > 0.001;
+                const desc = (ch.charge_name || ch.chargeHead || "").trim().toUpperCase();
+                
+                // Skip if it's already a profit/default charge handled above to avoid duplicates
+                const isProfitCharge = profitNames.includes(desc);
+                
+                return categoryMatch && Math.abs(amtVal) > 0.001 && !isProfitCharge;
             });
 
             // Integrated job charges into rows individually (No Clubbing)

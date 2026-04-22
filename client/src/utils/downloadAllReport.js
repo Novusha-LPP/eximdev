@@ -179,7 +179,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
 
     // eslint-disable-next-line
     const values = headers.map((val) => {
-      if (valueMap[val]) {
+      if (valueMap.hasOwnProperty(val)) {
         return valueMap[val];
       } else if (val === "CONTAINER NUM & SIZE") {
         return containerNumbersWithSizes;
@@ -336,53 +336,37 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
   // Add the data rows
   for (const row of dataWithHeaders) {
     const dataRow = worksheet.addRow(row);
-    const detailedStatus = row[row.length - 1]; // Get the Detailed Status from the last column
+    const detailedStatusIndex = headers.indexOf("DETAILED STATUS");
+    const detailedStatus = row[detailedStatusIndex]?.toString().trim(); // Get the Detailed Status from the correct column
 
     // Apply background color based on Detailed Status
+    let rowColor = "";
     if (detailedStatus === "Estimated Time of Arrival") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ffffff99" },
-      };
+      rowColor = "ffffff99";
     } else if (detailedStatus === "Custom Clearance Completed") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ffccffff" },
-      };
+      rowColor = "ffccffff";
     } else if (detailedStatus === "PCV Done, Duty Payment Pending") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ffffdbff" },
-      };
+      rowColor = "ffffdbff";
     } else if (detailedStatus === "Discharged") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ffffcc99" },
-      };
+      rowColor = "ffffcc99";
     } else if (detailedStatus === "BE Noted, Arrival Pending") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ff99ccff" },
-      };
+      rowColor = "ff99ccff";
     } else if (detailedStatus === "BE Noted, Clearance Pending") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ff99ccff" },
-      };
+      rowColor = "ff99ccff";
     } else if (detailedStatus === "Gateway IGM Filed") {
-      dataRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "ffffcc99" },
-      };
-    }    // Set text alignment to center for each cell in the data row
+      rowColor = "ffffcc99";
+    }
+
+    // Set text alignment and fill for each cell in the data row
     dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      if (rowColor) {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: rowColor },
+        };
+      }
+
       cell.alignment = {
         horizontal: "center",
         vertical: "middle",

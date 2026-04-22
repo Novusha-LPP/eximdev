@@ -9,7 +9,7 @@ const MasterDirectory = () => {
   const masterCategories = [
     { title: "Custom Houses", path: "/custom-house-directory", description: "List of supported custom houses (ICD)." },
     { title: "Shipping Lines", path: "/shipping-line-directory", description: "Database of shipping line partners." },
-    { title: "CFS List", path: "/cfs-directory", description: "Database of CFS partners." },
+    { title: "Terminals", path: "/terminal-directory", description: "Database of Terminal partners." },
     { title: "Suppliers", path: "/supplier-directory", description: "Database of international and local suppliers." },
     { title: "Transporters", path: "/transporter-directory", description: "Database of transport partners and logistics." },
     { title: "Currencies", path: "/currency-directory", description: "Database of global currencies and codes." },

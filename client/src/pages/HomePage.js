@@ -680,7 +680,7 @@ function HomePageContent() {
                   }
                 />
                 <Route
-                  path="/cfs-directory"
+                  path="/terminal-directory"
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <CFSDirectory />

@@ -1,6 +1,7 @@
 import express from 'express';
 import JobModel from '../../model/jobModel.mjs';
 import ChargeHeadModel from '../../model/ChargeHead.mjs';
+import verifyToken from '../../middleware/authMiddleware.mjs';
 
 const router = express.Router();
 
@@ -168,29 +169,46 @@ router.post('/charges/bulk', async (req, res) => {
   }
 });
 
-router.put('/charges/:id', async (req, res) => {
+router.put('/charges/:id', verifyToken, async (req, res) => {
   try {
     const job = await JobModel.findOne({ 'charges._id': req.params.id });
     if (!job) return res.status(404).json({ success: false, message: 'Charge not found' });
     
     const charge = job.charges.id(req.params.id);
+
+    const role = (req.user.role || "").toLowerCase();
+    const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
+
+    // If locked and not authorized, we only allow updates to NON-COST fields
+    const isLocked = (charge.payment_request_no || charge.purchase_book_no) && !isAuthorized;
     
     // Assign fields
     if (req.body.revenue) {
         charge.revenue = { ...(charge.revenue ? charge.revenue.toObject() : {}), ...req.body.revenue };
     }
+    
     if (req.body.cost) {
-        charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };
+        if (isLocked) {
+            // Block cost updates if locked, but maybe they sent the same data back?
+            // For now, we strictly block cost updates to be safe, unless it's an attachment
+            // Actually, let's just skip updating cost if locked
+            console.log(`Charge ${req.params.id} is locked. Skipping cost update.`);
+        } else {
+            charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };
+        }
     }
     
     // Other top level fields
-    const excludedFields = ['revenue', 'cost', '_id', 'createdAt', 'updatedAt', 'parentId', 'parentModule'];
+    const excludedFields = ['revenue', 'cost', '_id', 'createdAt', 'updatedAt', 'parentId', 'parentModule', 'payment_request_no', 'purchase_book_no'];
     for (const key of Object.keys(req.body)) {
-        if (!excludedFields.includes(key)) {
+      if (!excludedFields.includes(key)) {
+        if (isLocked && (key === 'payment_request_no' || key === 'purchase_book_no' || key === 'payment_request_status' || key === 'purchase_book_status')) {
+            // Skip
+        } else {
             charge[key] = req.body[key];
         }
+      }
     }
-
     await job.save();
     res.json({ success: true, data: charge });
   } catch (error) {
@@ -198,11 +216,24 @@ router.put('/charges/:id', async (req, res) => {
   }
 });
 
-router.delete('/charges/:id', async (req, res) => {
+router.delete('/charges/:id', verifyToken, async (req, res) => {
   try {
     const job = await JobModel.findOne({ 'charges._id': req.params.id });
     if (!job) return res.status(404).json({ success: false, message: 'Charge not found' });
     
+    const charge = job.charges.id(req.params.id);
+
+    // Check if locked
+    const isLocked = charge.payment_request_no || charge.purchase_book_no;
+    const isAuthorized = req.user.role === 'Admin' || req.user.role === 'Head_of_Department';
+
+    if (isLocked && !isAuthorized) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'This charge is locked because a Payment Request or Purchase Book number has been generated. Only Admins or HODs can delete it.' 
+      });
+    }
+
     job.charges.pull(req.params.id);
     await job.save();
     

@@ -22,7 +22,8 @@ const ChargesTable = ({
   onOpenFileModal,
   onRemoveAttachment,
   onEditCharge,
-  readOnly 
+  readOnly,
+  isAuthorized
 }) => {
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '0.00';
@@ -68,7 +69,7 @@ const ChargesTable = ({
     </>
   );
 
-  const renderAttachmentCell = (ch, urls) => (
+  const renderAttachmentCell = (ch, urls, isIndividualLocked) => (
     <td className="upload-cell" onClick={(e) => e.stopPropagation()}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center", justifyContent: "center" }}>
         {Array.isArray(urls) && urls.map((url, urlIdx) => (
@@ -87,7 +88,7 @@ const ChargesTable = ({
                 </a>
               }
               size="small"
-              onDelete={readOnly ? undefined : (e) => {
+              onDelete={(readOnly || isIndividualLocked) ? undefined : (e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 const newUrls = urls.filter((_, i) => i !== urlIdx);
@@ -115,7 +116,7 @@ const ChargesTable = ({
            type="button"
            className="upload-btn" 
            onClick={() => onOpenFileModal(ch)}
-           disabled={readOnly}
+           disabled={readOnly || isIndividualLocked}
            style={{ padding: "1px 4px", fontSize: "9px" }}
         >
           {Array.isArray(urls) && urls.length > 0 ? '+' : '⇧'}
@@ -150,15 +151,16 @@ const ChargesTable = ({
             const isSelected = selectedIds.has(ch._id);
             
             if (ch.isHeader) {
+                const isIndividualLocked = false; // Headers themselves aren't PR-locked usually
                 return (
                   <tr 
                     key={ch._id || idx} 
                     className={`header-row ${isSelected ? 'selected' : ''}`}
-                    onClick={() => !readOnly && onSelectCharge(ch._id)}
+                    onClick={() => !(readOnly || isIndividualLocked) && onSelectCharge(ch._id)}
                     style={{ backgroundColor: '#f0f4f8', cursor: 'pointer' }}
                   >
                     <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={isSelected} onChange={() => onSelectCharge(ch._id)} disabled={readOnly} />
+                      <input type="checkbox" checked={isSelected} onChange={() => onSelectCharge(ch._id)} disabled={readOnly || isIndividualLocked} />
                     </td>
                     <td colSpan="20" style={{ fontWeight: 'bold', color: '#061f45', textAlign: 'left', padding: '8px 12px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       {ch.chargeHead}
@@ -167,18 +169,36 @@ const ChargesTable = ({
                 );
             }
 
+            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+            const role = (user?.role || "").toLowerCase();
+            const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
+            
+            const hasPR = ch.payment_request_no && String(ch.payment_request_no).trim().length > 0;
+            const hasPB = ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0;
+            const isIndividualLocked = (hasPR || hasPB) && !isAuth;
+            const attachmentUrls = [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])];
+
             return (
               <tr 
                 key={ch._id || idx} 
-                className={isSelected ? 'selected' : ''} 
-                onClick={() => !readOnly && onSelectCharge(ch._id)}
-                onDoubleClick={() => !readOnly && onEditCharge(ch)}
+                className={`${isSelected ? 'selected' : ''} ${isIndividualLocked ? 'locked-row' : ''}`} 
+                onClick={() => !(readOnly || isIndividualLocked) && onSelectCharge(ch._id)}
+                onDoubleClick={() => onEditCharge(ch)}
+                title={isIndividualLocked ? "This charge is locked because a Payment Request or Purchase Book number has been generated." : ""}
               >
                 <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={isSelected} onChange={() => onSelectCharge(ch._id)} disabled={readOnly} />
+                  <input type="checkbox" checked={isSelected} onChange={() => onSelectCharge(ch._id)} disabled={readOnly || isIndividualLocked} />
                 </td>
-                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
-                <td style={{ fontWeight: 'bold', color: '#1a3a5c', textAlign: 'left' }}>{ch.chargeHead}</td>
+                <td style={{ textAlign: 'center' }}>
+                  {isIndividualLocked ? (
+                    <span title="Locked" style={{ cursor: 'help' }}>🔒</span>
+                  ) : (
+                    idx + 1
+                  )}
+                </td>
+                <td style={{ fontWeight: 'bold', color: isIndividualLocked ? '#666' : '#1a3a5c', textAlign: 'left' }}>
+                  {ch.chargeHead}
+                </td>
                 
                 {activeTab === 'particulars' && (
                   <>
@@ -189,7 +209,7 @@ const ChargesTable = ({
                     <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.remark || ''}>
                       {ch.remark || ''}
                     </td>
-                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
+                    {renderAttachmentCell(ch, attachmentUrls, isIndividualLocked)}
                   </>
                 )}
 
@@ -203,7 +223,7 @@ const ChargesTable = ({
                     <td className="number">{formatNumber(ch.revenue?.rate)}</td>
                     <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.revenue?.amount)}</td>
                     <td className="number" style={{ fontWeight: 'bold', color: '#0a5080' }}>{formatNumber(ch.revenue?.amountINR)}</td>
-                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
+                    {renderAttachmentCell(ch, attachmentUrls, isIndividualLocked)}
                   </>
                 )}
 
@@ -275,7 +295,7 @@ const ChargesTable = ({
                         <span style={{ fontSize: '10px', color: '#ccc', fontStyle: 'italic' }}>No PR</span>
                       )}
                     </td>
-                    {renderAttachmentCell(ch, [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])])}
+                    {renderAttachmentCell(ch, attachmentUrls, isIndividualLocked)}
                   </>
                 )}
               </tr>

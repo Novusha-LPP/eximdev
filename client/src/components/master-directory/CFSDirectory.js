@@ -195,10 +195,10 @@ const CFSDirectory = () => {
     try {
       if (editingId) {
         await axios.put(`${process.env.REACT_APP_API_STRING}/update-cfs/${editingId}`, formData);
-        handleSnackbar("CFS updated successfully", "success");
+        handleSnackbar("Terminal updated successfully", "success");
       } else {
         await axios.post(`${process.env.REACT_APP_API_STRING}/add-cfs`, formData);
-        handleSnackbar("CFS added successfully", "success");
+        handleSnackbar("Terminal added successfully", "success");
       }
       handleClose();
       fetchCfsList();
@@ -210,12 +210,12 @@ const CFSDirectory = () => {
   const handleDelete = (id) => {
     setConfirmDialog({
       open: true,
-      title: "Delete CFS",
-      message: "Are you sure you want to delete this CFS? This action cannot be undone.",
+      title: "Delete Terminal",
+      message: "Are you sure you want to delete this Terminal? This action cannot be undone.",
       onConfirm: async () => {
         try {
           await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-cfs/${id}`);
-          handleSnackbar("CFS deleted successfully", "success");
+          handleSnackbar("Terminal deleted successfully", "success");
           fetchCfsList();
         } catch (error) {
           handleSnackbar("Failed to delete CFS", "error");
@@ -292,13 +292,13 @@ const CFSDirectory = () => {
         >
           Master Directory
         </Link>
-        <Typography color="text.primary">CFS List</Typography>
+        <Typography color="text.primary">Terminals</Typography>
       </Breadcrumbs>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">CFS Directory</Typography>
+        <Typography variant="h4">Terminal Directory</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-            Add CFS
+            Add Terminal
         </Button>
       </Box>
 
@@ -375,7 +375,7 @@ const CFSDirectory = () => {
               {filteredList.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ p: 4 }}>
-                      No CFS entries found.
+                      No Terminal entries found.
                     </TableCell>
                 </TableRow>
               )}
@@ -386,12 +386,12 @@ const CFSDirectory = () => {
 
       {/* Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>{editingId ? "Edit CFS" : "Add New CFS"}</DialogTitle>
+        <DialogTitle>{editingId ? "Edit Terminal" : "Add New Terminal"}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
             <TextField
               fullWidth
-              label="CFS Name"
+              label="Terminal Name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
             />

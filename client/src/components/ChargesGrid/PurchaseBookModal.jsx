@@ -34,7 +34,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "Total": '',
         "Status": '',
         "chargeRef": '',
-        "jobRef": ''
+        "jobRef": '',
+        "Charge Head Category": ''
     });
 
     useEffect(() => {
@@ -99,7 +100,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "SAC": initialData.cthNo || '',
                     "Status": '',
                     "chargeRef": initialData.chargeId || '',
-                    "jobRef": initialData.jobId || ''
+                    "jobRef": initialData.jobId || '',
+                    "Charge Head Category": initialData.chargeHeadCategory || ''
                 }));
             }
         };
@@ -271,6 +273,10 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             <div className="ep-row">
                                 <span className="ep-label">Status</span>
                                 <input type="text" name="Status" className="ep-desc-input" value={formData["Status"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="ep-row">
+                                <span className="ep-label">Charge Head Category</span>
+                                <input type="text" name="Charge Head Category" className="ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
                             </div>
                         </div>
                     </div>

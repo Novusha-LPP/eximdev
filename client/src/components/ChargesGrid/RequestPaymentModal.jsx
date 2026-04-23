@@ -25,7 +25,8 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         "Requested By": '',
         "jobNo": '',
         "chargeRef": '',
-        "jobRef": ''
+        "jobRef": '',
+        "Charge Head Category": ''
     });
 
     const [errorPopup, setErrorPopup] = useState({ isOpen: false, messages: [] });
@@ -79,7 +80,8 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     "Status": '',
                     "jobNo": updatedJobNo,
                     "chargeRef": initialData.chargeId || '',
-                    "jobRef": initialData.jobId || ''
+                    "jobRef": initialData.jobId || '',
+                    "Charge Head Category": initialData.chargeHeadCategory || ''
                 }));
             }
         };
@@ -241,6 +243,10 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                             <div className="ep-row">
                                 <span className="ep-label">Beneficiary Code</span>
                                 <input type="text" name="Beneficiary Code" className="ep-desc-input" value={formData["Beneficiary Code"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="ep-row">
+                                <span className="ep-label">Charge Head Category</span>
+                                <input type="text" name="Charge Head Category" className="ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                              {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (

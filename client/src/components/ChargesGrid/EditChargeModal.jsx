@@ -1222,7 +1222,8 @@ const EditChargeModal = ({
                                             jobDisplayNumber,
                                             branchIndex: cost.branchIndex || 0,
                                             chargeId: row._id,
-                                            jobId: parentId
+                                            jobId: parentId,
+                                            chargeHeadCategory: row.category
                                           };
                                         });
                                       }}
@@ -1268,7 +1269,8 @@ const EditChargeModal = ({
                                           netPayable: row.cost?.netPayable,
                                           chargeHead: row.chargeHead,
                                           chargeId: row._id,
-                                          jobId: parentId
+                                          jobId: parentId,
+                                          chargeHeadCategory: row.category
                                         });
                                       }}
                                     >

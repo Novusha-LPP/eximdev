@@ -35,7 +35,18 @@ const getJobDetailsInternal = async (job_number) => {
     "Package Count": job.no_of_pkgs, // Legacy
     "Packages": job.no_of_pkgs,
     "Package Unit": job.unit,
-    "Container Count": job.container_nos?.length || 0,
+    "Container Count": (() => {
+      const containers = job.container_nos || [];
+      if (containers.length === 0) return "0";
+      const counts = {};
+      containers.forEach(c => {
+        const size = c.size || "20"; // Default to 20 if size missing
+        counts[size] = (counts[size] || 0) + 1;
+      });
+      return Object.entries(counts)
+        .map(([size, count]) => `${count} X ${size}`)
+        .join(", ");
+    })(),
     "Containers": (job.container_nos || []).map(c => c.container_number).filter(Boolean).join(", "),
     "BE No": job.be_no || "",
     "BE Date": job.be_date || "",
@@ -215,6 +226,7 @@ const mapPurchaseEntryData = (data) => {
     total: data["Total"] || data.total,
     chargeRef: data.chargeRef,
     jobRef: data.jobRef,
+    chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     status: data["Status"] || data.status || ''
   };
 };
@@ -307,6 +319,22 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
     const entry = await PurchaseBookEntryModel.findOne({ entryNo }).lean();
     if (!entry) return res.status(404).json({ error: "Purchase Book Entry not found." });
 
+    // Fallback for Charge Head Category if missing
+    let chargeCategory = entry.chargeHeadCategory;
+    if (!chargeCategory && entry.jobRef && entry.chargeRef) {
+      try {
+        const job = await JobModel.findOne(
+          { _id: entry.jobRef, "charges._id": entry.chargeRef },
+          { "charges.$": 1 }
+        ).lean();
+        if (job && job.charges && job.charges[0]) {
+          chargeCategory = job.charges[0].category;
+        }
+      } catch (err) {
+        console.error("Error fetching fallback category for purchase entry:", err);
+      }
+    }
+
     const formattedData = {
       "Entry No": entry.entryNo,
       "Entry Date": entry.entryDate,
@@ -335,6 +363,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "IGST": entry.igstAmt,
       "TDS": entry.tds,
       "Total": entry.total,
+      "Charge Head Category": chargeCategory || '',
       "Status": entry.status
     };
 
@@ -397,6 +426,7 @@ const mapPaymentRequestData = (data) => {
     transferMode: data["Transfer Mode"] || data.transferMode,
     requestedBy: data["Requested By"] || data.requestedBy,
     beneficiaryCode: data["Beneficiary Code"] || data.beneficiaryCode,
+    chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     status: data["Status"] || data.status || ''
   };
 };
@@ -491,6 +521,22 @@ router.get("/payment-request", authApiKey, async (req, res) => {
     const request = await PaymentRequestModel.findOne({ requestNo }).lean();
     if (!request) return res.status(404).json({ error: "Payment Request not found." });
 
+    // Fallback for Charge Head Category if missing
+    let chargeCategory = request.chargeHeadCategory;
+    if (!chargeCategory && request.jobRef && request.chargeRef) {
+      try {
+        const job = await JobModel.findOne(
+          { _id: request.jobRef, "charges._id": request.chargeRef },
+          { "charges.$": 1 }
+        ).lean();
+        if (job && job.charges && job.charges[0]) {
+          chargeCategory = job.charges[0].category;
+        }
+      } catch (err) {
+        console.error("Error fetching fallback category for payment request:", err);
+      }
+    }
+
     const formattedData = {
       "Request No": request.requestNo,
       "Request Date": request.requestDate,
@@ -506,6 +552,7 @@ router.get("/payment-request", authApiKey, async (req, res) => {
       "Instrument Date": request.instrumentDate,
       "Transfer Mode": request.transferMode,
       "Beneficiary Code": request.beneficiaryCode,
+      "Charge Head Category": chargeCategory || '',
       "Status": request.status
     };
 

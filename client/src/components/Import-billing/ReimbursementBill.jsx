@@ -51,6 +51,9 @@ const ReimbursementBill = () => {
     const [masterSearchTerm, setMasterSearchTerm] = useState("");
     const [selectedMasterHeads, setSelectedMasterHeads] = useState(new Set());
     const [preCombineRows, setPreCombineRows] = useState(null);
+    const [organizations, setOrganizations] = useState([]);
+    const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+    const [orgSearchTerm, setOrgSearchTerm] = useState("");
 
     const isAdmin = user?.role === "Admin";
     const isJobCompleted = jobData?.status?.toUpperCase() === "COMPLETED";
@@ -70,7 +73,8 @@ const ReimbursementBill = () => {
         panNo: "",
         gstin: "",
         stateName: "Gujarat",
-        stateCode: "24"
+        stateCode: "24",
+        importerName: ""
     });
 
     const formatDate = (dateString) => {
@@ -186,7 +190,8 @@ const ReimbursementBill = () => {
                 panNo: job.pan_no || job.importer_pan || "",
                 gstin: job.gst_no || job.importer_gstin || "",
                 stateName: job.importer_address?.state || "Gujarat",
-                stateCode: "24"
+                stateCode: "24",
+                importerName: job.importer || ""
             };
 
             if (job.ie_code_no) {
@@ -275,11 +280,23 @@ const ReimbursementBill = () => {
             setError("Failed to load job details. Please try again.");
             setLoading(false);
         }
-    }, [branch_code, trade_type, mode, job_no, year]);
+    }, [branch_code, trade_type, mode, job_no, year, user?.role]);
+
+    const fetchOrganizations = useCallback(async () => {
+        try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/organization`);
+            if (res.data.organizations) {
+                setOrganizations(res.data.organizations);
+            }
+        } catch (e) {
+            console.error("Error fetching organizations", e);
+        }
+    }, []);
 
     useEffect(() => {
         fetchJobDetails();
-    }, [fetchJobDetails]);
+        fetchOrganizations();
+    }, [fetchJobDetails, fetchOrganizations]);
 
     const handlePrint = () => {
         if (printableRef.current) {
@@ -393,6 +410,22 @@ const ReimbursementBill = () => {
             }
             return updated;
         });
+    };
+
+    const handleSelectOrganization = (org) => {
+        const addr = `${org.addressDetails.line1 || ""} ${org.addressDetails.line2 || ""}, ${org.addressDetails.city || ""}, ${org.addressDetails.state || ""} - ${org.addressDetails.pinCode || ""}`.trim();
+        
+        setEditableFields(prev => ({
+            ...prev,
+            importerName: org.name,
+            importerAddress: addr,
+            panNo: org.pan_no,
+            gstin: org.gst_no,
+            stateName: org.addressDetails.state || prev.stateName,
+            stateCode: (org.gst_no || "").substring(0, 2) || prev.stateCode,
+            placeOfSupply: `[${(org.gst_no || "").substring(0, 2) || prev.stateCode}] ${org.addressDetails.state || prev.stateName}`
+        }));
+        setIsOrgModalOpen(false);
     };
 
     const handleGenerateInvoice = async (type) => {
@@ -712,21 +745,41 @@ const ReimbursementBill = () => {
                         <div className="abi-grid-row abi-row-span-2" style={{ alignItems: 'flex-start', paddingTop: '4px' }}>
                             <div className="abi-lbl" style={{ minWidth: '60px' }}>Customer</div><div className="abi-sep">:</div>
                             <div className="abi-val">
-                                <strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>{jobData.importer || ""}</strong>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>{editableFields.importerName || jobData.importer || ""}</strong>
+                                    {!isReadOnly && !editableFields.invoiceNo && (
+                                        <button 
+                                            onClick={() => setIsOrgModalOpen(true)}
+                                            className="no-print"
+                                            style={{ 
+                                                padding: '2px 6px', 
+                                                fontSize: '10px', 
+                                                cursor: 'pointer', 
+                                                background: '#007bff', 
+                                                color: '#fff', 
+                                                border: 'none', 
+                                                borderRadius: '3px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            🔍 Change
+                                        </button>
+                                    )}
+                                </div>
                                 <div style={{ marginTop: '2px', lineHeight: '1.2' }}>
-                                    <textarea readOnly={isReadOnly} className="abi-input" style={{ height: '35px', background: '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
+                                    <textarea readOnly={isReadOnly || !!editableFields.invoiceNo} className="abi-input" style={{ height: '35px', background: (isReadOnly || !!editableFields.invoiceNo) ? '#f5f5f5' : '#e9ffe9' }} value={editableFields.importerAddress} onChange={(e) => handleFieldChange("importerAddress", e.target.value)} />
                                     <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
                                         <div style={{ minWidth: '55px', fontWeight: 'bold' }}>PAN No</div>
                                         <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
                                         <div style={{ flex: 1 }}>
-                                            <input readOnly={isReadOnly} className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
+                                            <input readOnly={isReadOnly || !!editableFields.invoiceNo} className="abi-input" style={{ width: '100%', background: (isReadOnly || !!editableFields.invoiceNo) ? '#f5f5f5' : '#e9ffe9', fontWeight: 'bold' }} value={editableFields.panNo} onChange={e => handleFieldChange('panNo', e.target.value)} />
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', marginTop: '2px', alignItems: 'center' }}>
                                         <div style={{ minWidth: '55px', fontWeight: 'bold' }}>GSTIN</div>
                                         <div style={{ padding: '0 5px', fontWeight: 'bold' }}>:</div>
                                         <div style={{ flex: 1 }}>
-                                            <input readOnly={isReadOnly} className="abi-input" style={{ width: '100%', background: '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
+                                            <input readOnly={isReadOnly || !!editableFields.invoiceNo} className="abi-input" style={{ width: '100%', background: (isReadOnly || !!editableFields.invoiceNo) ? '#f5f5f5' : '#e9ffe9', fontWeight: 'bold' }} value={editableFields.gstin} onChange={e => handleFieldChange('gstin', e.target.value)} />
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', marginTop: '4px', alignItems: 'center' }}>
@@ -837,7 +890,7 @@ const ReimbursementBill = () => {
                 </div>
 
                 <div className="abi-full-box">
-                    <div className="abi-full-row"><div className="abi-full-lbl">Importer Name</div><div>: {jobData.importer || ""}</div></div>
+                    <div className="abi-full-row"><div className="abi-full-lbl">Importer Name</div><div>: {editableFields.importerName || jobData.importer || ""}</div></div>
                     {mode !== 'AIR' && (
                         <div className="abi-full-row"><div className="abi-full-lbl">Containers</div><div>: {getContainerString()}</div></div>
                     )}
@@ -1132,6 +1185,67 @@ const ReimbursementBill = () => {
                     </div>
                 </div>
             )}
+
+            {/* Organization Master Modal */}
+            {isOrgModalOpen && (
+                <div className="abi-modal-overlay no-print">
+                    <div className="abi-modal-content" style={{ maxWidth: '600px' }}>
+                        <div className="abi-modal-header">
+                            <h3 style={{ margin: 0 }}>Select Organization (Customer)</h3>
+                            <button onClick={() => setIsOrgModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}>×</button>
+                        </div>
+                        <div className="abi-modal-body">
+                            <div className="abi-search-box">
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, GST, PAN or IEC..."
+                                    value={orgSearchTerm}
+                                    onChange={(e) => setOrgSearchTerm(e.target.value)}
+                                    style={{ width: '100%', padding: '10px', marginBottom: '15px', border: '1px solid #ccc', borderRadius: '4px' }}
+                                />
+                            </div>
+                            <div className="abi-charge-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                {organizations
+                                    .filter(org => 
+                                        org.name.toLowerCase().includes(orgSearchTerm.toLowerCase()) ||
+                                        (org.gst_no || "").toLowerCase().includes(orgSearchTerm.toLowerCase()) ||
+                                        (org.pan_no || "").toLowerCase().includes(orgSearchTerm.toLowerCase()) ||
+                                        (org.iec_no || "").toLowerCase().includes(orgSearchTerm.toLowerCase())
+                                    )
+                                    .map(org => (
+                                        <div 
+                                            key={org._id} 
+                                            className="abi-charge-item" 
+                                            onClick={() => handleSelectOrganization(org)}
+                                            style={{ cursor: 'pointer', padding: '10px', borderBottom: '1px solid #eee' }}
+                                        >
+                                            <div style={{ fontWeight: 'bold' }}>{org.name}</div>
+                                            <div style={{ fontSize: '11px', color: '#666' }}>
+                                                GST: {org.gst_no || 'N/A'} | PAN: {org.pan_no || 'N/A'} | IEC: {org.iec_no || 'N/A'}
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: '#888' }}>
+                                                {org.addressDetails.city}, {org.addressDetails.state}
+                                            </div>
+                                        </div>
+                                    ))
+                                }
+                                {organizations.filter(org => 
+                                    org.name.toLowerCase().includes(orgSearchTerm.toLowerCase()) ||
+                                    (org.gst_no || "").toLowerCase().includes(orgSearchTerm.toLowerCase()) ||
+                                    (org.pan_no || "").toLowerCase().includes(orgSearchTerm.toLowerCase()) ||
+                                    (org.iec_no || "").toLowerCase().includes(orgSearchTerm.toLowerCase())
+                                ).length === 0 && (
+                                    <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No organizations found matching "{orgSearchTerm}"</div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="abi-modal-footer">
+                            <button onClick={() => setIsOrgModalOpen(false)} style={{ padding: '8px 16px', cursor: 'pointer' }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Floating Save Button */}
             <div 

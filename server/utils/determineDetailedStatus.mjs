@@ -11,6 +11,7 @@ export function determineDetailedStatus(job, branchConfig = null) {
     consignment_type,
     type_of_Do,
     do_completed,
+    mode,
   } = job || {};
 
   const isValidDate = (date) => {
@@ -54,6 +55,11 @@ export function determineDetailedStatus(job, branchConfig = null) {
   const isInBond = norm(type_of_b_e) === "in-bond";
   const isLCL = norm(consignment_type) === "lcl";
   const isTypeDoIcd = norm(type_of_Do) === "icd";
+
+  // Special case for AIR: Delivery + OOC = Billing Pending
+  if (norm(mode) === "air" && validOOC && allDelivered) {
+    return "Billing Pending";
+  }
 
   // Special case for LCL In-Bond: if OOC is present, it goes directly to Billing Pending
   if (isLCL && isInBond && validOOC) {

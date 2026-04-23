@@ -33,6 +33,7 @@ const paymentRequestSchema = new mongoose.Schema({
   rejectedByLast: { type: String, trim: true },
   rejectedAt: { type: Date },
   rejectionReason: { type: String },
+  chargeHeadCategory: { type: String },
   status: { type: String, default: '' },
   requestedBy: { type: String },
   createdAt: { type: Date, default: Date.now }

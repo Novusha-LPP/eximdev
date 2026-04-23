@@ -250,17 +250,29 @@ const EditChargeModal = ({
 
           if (updated[index].category === 'Margin') {
               if (includeGst) {
-                  // EXCLUSIVE LOGIC for Margin: Rate is Basic
-                  derivedBasic = amount;
-                  derivedGst = amount * (gstRate / 100);
-                  amount = derivedBasic + derivedGst; // Adjust total amount to be basic + gst
+                  // EXCLUSIVE LOGIC for Margin
+                  if (field === 'basicAmount' && section === secKey) {
+                      derivedBasic = parseFloat(value) || 0;
+                  } else if (['qty', 'rate'].includes(field)) {
+                      derivedBasic = amount;
+                  } else {
+                      derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+                  }
+                  derivedGst = derivedBasic * (gstRate / 100);
+                  amount = derivedBasic + derivedGst; // Total = Basic + GST
               } else {
                   derivedBasic = amount;
                   derivedGst = 0;
               }
           } else if (updated[index].category === 'Reimbursement') {
-              // REIMBURSEMENT LOGIC: No GST calculation, Basic is derived from the GST rate formula for TDS
-              derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              // REIMBURSEMENT LOGIC: No GST calculation, but Basic is used for TDS
+              if (field === 'basicAmount' && section === secKey) {
+                  derivedBasic = parseFloat(value) || 0;
+              } else if (['qty', 'rate', 'gstRate'].includes(field)) {
+                  derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              } else {
+                  derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+              }
               derivedGst = 0;
           } else {
               // INCLUSIVE LOGIC for other categories
@@ -1210,7 +1222,8 @@ const EditChargeModal = ({
                                             jobDisplayNumber,
                                             branchIndex: cost.branchIndex || 0,
                                             chargeId: row._id,
-                                            jobId: parentId
+                                            jobId: parentId,
+                                            chargeHeadCategory: row.category
                                           };
                                         });
                                       }}
@@ -1256,7 +1269,8 @@ const EditChargeModal = ({
                                           netPayable: row.cost?.netPayable,
                                           chargeHead: row.chargeHead,
                                           chargeId: row._id,
-                                          jobId: parentId
+                                          jobId: parentId,
+                                          chargeHeadCategory: row.category
                                         });
                                       }}
                                     >

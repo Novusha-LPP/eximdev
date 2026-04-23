@@ -74,6 +74,7 @@ function DoPlanning() {
   const [showTodayJobs, setShowTodayJobs] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
   const [socketError, setSocketError] = useState(null);
+  const [emptyOffLocations, setEmptyOffLocations] = useState([]);
 
   // Use context for search functionality
   const {
@@ -158,40 +159,12 @@ function DoPlanning() {
     },
   ];
 
-  // DO List options
+  // DO List options (dynamic)
   const doListOptions = [
     { value: "", label: "Select DO List" },
-    {
-      value: "ICD Khodiyar / ICD AHMEDABAD",
-      label: "ICD Khodiyar / ICD AHMEDABAD",
-    },
-    { value: "ICD SANAND", label: "ICD SANAND" },
-    {
-      value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
-      label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
-    },
-    { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
-    {
-      value: "Golden Horn Container Services (Nr. ICD Khodiyar)",
-      label: "Golden Horn Container Services (Nr. ICD Khodiyar)",
-    },
-    {
-      value: "Golden Horn Container Services (Nr. ICD SANAND)",
-      label: "Golden Horn Container Services (Nr. ICD SANAND)",
-    },
-    {
-      value: "JAY BHAVANI CONTAINERS YARD",
-      label: "JAY BHAVANI CONTAINERS YARD",
-    },
-    { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
-    {
-      value: "SATURN GLOBAL TERMINAL PVT LTD",
-      label: "SATURN GLOBAL TERMINAL PVT LTD",
-    },
-    { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
-    {value:"DONOR MARINE SERVICE PVT. LTD.",label:"DONOR MARINE SERVICE PVT. LTD."},
-    {value:"JAI ASHAPURA CONTAINER TERMINALS",label:"JAI ASHAPURA CONTAINER TERMINALS"},
-    {value:"CCIS CMA CGM Inland Services India LLP",label:"CCIS CMA CGM Inland Services India LLP"}
+    ...emptyOffLocations
+      .filter(loc => loc.active?.toUpperCase() === "YES" && loc.assigned_branches.includes(selectedBranch ? branches.find(b => b._id === selectedBranch)?.branch_code : ""))
+      .map(loc => ({ value: loc.name, label: loc.name }))
   ];
 
   // Handle new job notification
@@ -498,6 +471,19 @@ function DoPlanning() {
       },
     });
   };
+
+  // Fetch empty off locations
+  useEffect(() => {
+    async function fetchEmptyOffLocations() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-off-locations`);
+        setEmptyOffLocations(res.data);
+      } catch (error) {
+        console.error("Error fetching empty off locations:", error);
+      }
+    }
+    fetchEmptyOffLocations();
+  }, []);
 
   // Fetch jobs function
   const fetchJobs = useCallback(

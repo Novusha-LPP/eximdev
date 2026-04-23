@@ -41,26 +41,6 @@ import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 
 
-const CFS_OPTIONS = [
-"ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED",
-"ALLCARGO TERMINALS LIMITED",
-"AMEYA LOGISTICS PVT LTD",
-"ASHUTOSH CONTAINER SERVICES PVT LTD",
-"CENTRAL WAREHOUSING CORPORATION (NEW)",
-"HIND TERMINALS PVT LTD.",
-"LANDMARK CFS PVT LTD",
-"MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD.",
-"MUNDHRA CONTAINER FREIGHT STATION PVT LTD.",
-"SAURASHTRA FREIGHT PVT LTD.",
-"SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD.",
-"TRANSWORLD TERMINALS PVT LTD.",
-"SATURN GLOBAL TERMINAL PVT.LTD.",
- "DONOR MARINE SERVICE PVT. LTD.",
- "JAI ASHAPURA CONTAINER TERMINALS",
- "CCIS CMA CGM Inland Services India LLP"
- 
-
-];
 
 
 
@@ -74,6 +54,7 @@ function ImportOperations() {
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
+  const [emptyOffLocations, setEmptyOffLocations] = useState([]);
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory, branches } = useContext(BranchContext);
   const dynamicICDs = useDynamicICDs();
@@ -308,6 +289,19 @@ function ImportOperations() {
     }
     getYears();
   }, [selectedYearState, setSelectedYearState]);
+
+  // Fetch empty off locations
+  useEffect(() => {
+    async function fetchEmptyOffLocations() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-off-locations`);
+        setEmptyOffLocations(res.data);
+      } catch (error) {
+        console.error("Error fetching empty off locations:", error);
+      }
+    }
+    fetchEmptyOffLocations();
+  }, []);
 
   useEffect(() => {
     // Special handling for restoration from job details
@@ -604,6 +598,10 @@ function ImportOperations() {
             alert("Failed to update CFS location. Please try again.");
           }
         };
+
+        const CFS_OPTIONS = emptyOffLocations
+          .filter(loc => loc.active?.toUpperCase() === "YES" && loc.assigned_branches.includes(selectedBranch ? branches.find(b => b._id === selectedBranch)?.branch_code : ""))
+          .map(loc => loc.name);
 
         return (
           <div style={{ textAlign: "center" }}>

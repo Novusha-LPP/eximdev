@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
+import axios from "axios";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
@@ -30,26 +31,6 @@ import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import { isAirMode, getContainerOrPackageLabel } from "../../utils/modeLogic";
 
-const CFS_OPTIONS = [
-"ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED",
-"ALLCARGO TERMINALS LIMITED",
-"AMEYA LOGISTICS PVT LTD",
-"ASHUTOSH CONTAINER SERVICES PVT LTD",
-"CENTRAL WAREHOUSING CORPORATION (NEW)",
-"HIND TERMINALS PVT LTD.",
-"LANDMARK CFS PVT LTD",
-"MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD.",
-"MUNDHRA CONTAINER FREIGHT STATION PVT LTD.",
-"SAURASHTRA FREIGHT PVT LTD.",
-"SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD.",
-"TRANSWORLD TERMINALS PVT LTD.",
-"SATURN GLOBAL TERMINAL PVT.LTD.",
-"DONOR MARINE SERVICE PVT. LTD.",
-"JAI ASHAPURA CONTAINER TERMINALS",
-"CCIS CMA CGM Inland Services India LLP"
-
-
-];
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
@@ -63,6 +44,7 @@ function ViewOperationsJob() {
   const gatePassCopyRef = useRef();
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
+  const [emptyOffLocations, setEmptyOffLocations] = useState([]);
 
   const [viewJobTab, setViewJobTab] = useState(0);
   const [selectedContainerIndex, setSelectedContainerIndex] = useState(0);
@@ -148,7 +130,22 @@ function ViewOperationsJob() {
         currentPage,
       });
     }
-  }, [location.state]); // Handle back click function - following e-sanchit pattern exactly
+  }, [location.state]); 
+
+  // Fetch empty off locations
+  useEffect(() => {
+    async function fetchEmptyOffLocations() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-off-locations`);
+        setEmptyOffLocations(res.data);
+      } catch (error) {
+        console.error("Error fetching empty off locations:", error);
+      }
+    }
+    fetchEmptyOffLocations();
+  }, []);
+
+  // Handle back click function - following e-sanchit pattern exactly
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab
 
@@ -637,11 +634,13 @@ function ViewOperationsJob() {
                                 <MenuItem value="">
                                   <em>Select CFS</em>
                                 </MenuItem>
-                                {CFS_OPTIONS.map((option) => (
-                                  <MenuItem key={option} value={option}>
-                                    {option}
-                                  </MenuItem>
-                                ))}
+                                {emptyOffLocations
+                                  .filter(loc => loc.active?.toUpperCase() === "YES" && loc.assigned_branches.includes(data?.branch_code))
+                                  .map((loc) => (
+                                    <MenuItem key={loc._id} value={loc.name}>
+                                      {loc.name}
+                                    </MenuItem>
+                                  ))}
                               </Select>
                             </FormControl>
                           </div>

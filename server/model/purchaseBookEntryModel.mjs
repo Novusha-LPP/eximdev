@@ -46,6 +46,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   paymentReceiptUrl: { type: String },
   bankFrom: { type: String },
   attachments: [{ type: String }],
+  chargeHeadCategory: { type: String },
   status: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });

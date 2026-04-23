@@ -362,7 +362,8 @@ function TeamDashboard() {
             name: team.name,
             description: team.description,
             department: team.department,
-            hodUsername: team.hodUsername
+            hodUsername: team.hodUsername,
+            allowedAdmins: team.allowedAdmins || []
         });
         setEditTeamModal(true);
     };
@@ -797,6 +798,27 @@ function TeamDashboard() {
                             allowClear
                         />
                     </Form.Item>
+                    {user?.role === 'Admin' && (
+                        <Form.Item
+                            name="allowedAdmins"
+                            label="Allowed Admins"
+                            tooltip="Select admins who are allowed to see and manage this team"
+                        >
+                            <Select
+                                mode="multiple"
+                                placeholder="Select admins"
+                                optionFilterProp="children"
+                            >
+                                {allUsers
+                                    .filter(u => u.isActive !== false && u.role === 'Admin')
+                                    .map(u => (
+                                        <Option key={u._id} value={u.username}>
+                                            {u.first_name} {u.last_name} ({u.username})
+                                        </Option>
+                                    ))}
+                            </Select>
+                        </Form.Item>
+                    )}
                     <Form.Item
                         name="description"
                         label="Description"
@@ -885,6 +907,27 @@ function TeamDashboard() {
                                     .filter(u => u.isActive !== false && (u.role === 'Admin' || u.role === 'Head_of_Department'))
                                     .map(u => (
                                         <Option key={u._id} value={u.username} label={`${u.first_name || ''} ${u.last_name || ''} (${u.username})`}>
+                                            {u.first_name} {u.last_name} ({u.username})
+                                        </Option>
+                                    ))}
+                            </Select>
+                        </Form.Item>
+                    )}
+                    {user?.role === 'Admin' && (
+                        <Form.Item
+                            name="allowedAdmins"
+                            label="Allowed Admins"
+                            tooltip="Select admins who are allowed to see and manage this team"
+                        >
+                            <Select
+                                mode="multiple"
+                                placeholder="Select admins"
+                                optionFilterProp="children"
+                            >
+                                {allUsers
+                                    .filter(u => u.isActive !== false && u.role === 'Admin')
+                                    .map(u => (
+                                        <Option key={u._id} value={u.username}>
                                             {u.first_name} {u.last_name} ({u.username})
                                         </Option>
                                     ))}

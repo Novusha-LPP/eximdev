@@ -41,8 +41,8 @@ const ADMIN_BASE_MENU = [
     { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-    // { section: 'Calendar' },
-    // { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays', hideForAllowedAdmin: true },
+    { section: 'Calendar' },
+    { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays', hideForAllowedAdmin: true },
 ];
 
 const ADMIN_PRIVILEGED_MENU = [
@@ -119,8 +119,8 @@ const AttendanceLayout = () => {
         menu.push(
             { section: 'Team' },
             { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Attendance' },
-            { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals' },
-            { path: '/attendance/teams', icon: FiUser, label: 'Teams' }
+            { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals' }
+            // Teams link removed for non-allowed admins
         );
     }
 

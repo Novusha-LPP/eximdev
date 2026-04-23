@@ -41,6 +41,12 @@ const teamSchema = new Schema({
             },
         },
     ],
+    allowedAdmins: [
+        {
+            type: String,
+            trim: true,
+        }
+    ],
     isActive: {
         type: Boolean,
         default: true,

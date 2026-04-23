@@ -2,12 +2,13 @@ import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import LeaveBalance from '../../model/attendance/LeaveBalance.js';
 import LeavePolicy from '../../model/attendance/LeavePolicy.js';
 import UserModel from '../../model/userModel.mjs';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import TeamModel from '../../model/teamModel.mjs';
 import LeaveCalculationService from '../../services/attendance/LeaveCalculationService.js';
 import mongoose from 'mongoose';
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
+import Company from '../../model/attendance/Company.js';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
 const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
@@ -181,9 +182,9 @@ const pickBalanceForPolicy = (balances = [], policy) => {
     return candidates[0] || null;
 };
 
-const checkOverlap = async (userId, fromDate, toDate, currentAppId = null) => {
-    const start = moment(fromDate).startOf('day').toDate();
-    const end = moment(toDate).endOf('day').toDate();
+const checkOverlap = async (userId, fromDate, toDate, currentAppId = null, tz = 'Asia/Kolkata') => {
+    const start = moment.tz(fromDate, 'YYYY-MM-DD', tz).startOf('day').toDate();
+    const end = moment.tz(toDate, 'YYYY-MM-DD', tz).endOf('day').toDate();
 
     const query = {
         employee_id: userId,
@@ -627,12 +628,14 @@ export const previewLeave = async (req, res) => {
         if (!policy) return res.status(404).json({ message: 'Policy not found' });
 
         const actualToDate = to_date || from_date;
+        const previewCompany = await Company.findById(targetUser.company_id).select('timezone').lean();
+        const previewTz = previewCompany?.timezone || 'Asia/Kolkata';
 
         // Resolve Week-Off and Holiday policies for accuracy
         const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(targetUser, moment(from_date).year());
 
         // Overlap Check
-        const hasOverlap = await checkOverlap(targetId, from_date, actualToDate);
+        const hasOverlap = await checkOverlap(targetId, from_date, actualToDate, null, previewTz);
         if (hasOverlap) {
             return res.status(400).json({ success: false, message: 'You already have a leave application for these dates.' });
         }
@@ -768,15 +771,22 @@ export const applyLeave = async (req, res) => {
             }
         }
 
+        const company = await Company.findById(companyId).select('timezone').lean();
+        const tz = company?.timezone || 'Asia/Kolkata';
+
         // Overlap Check
-        const hasOverlap = await checkOverlap(targetId, from_date, to_date);
+        const hasOverlap = await checkOverlap(targetId, from_date, to_date, null, tz);
         if (hasOverlap) {
             return res.status(400).json({ message: 'You already have a leave application for these dates.' });
         }
 
         // Fetch attendance context for sandwich and day-level presence checks
-        const start = moment(from_date).startOf('day');
-        const end = moment(to_date).endOf('day');
+        const { start, end } = normalizeLeaveRangeToTimezone({
+            fromDate: from_date,
+            toDate: to_date,
+            isHalfDay: is_half_day === 'true' || is_half_day === true,
+            tz
+        });
         const attendanceContext = await buildAttendanceContext({
             employeeId: targetId,
             fromDate: from_date,
@@ -1562,4 +1572,11 @@ export const getBalancesBulk = async (req, res) => {
         console.error('Error in getBalancesBulk:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
+};
+
+const normalizeLeaveRangeToTimezone = ({ fromDate, toDate, isHalfDay, tz = 'Asia/Kolkata' }) => {
+    const start = moment.tz(fromDate, 'YYYY-MM-DD', tz).startOf('day');
+    const endSource = isHalfDay ? fromDate : toDate;
+    const end = moment.tz(endSource, 'YYYY-MM-DD', tz).endOf('day');
+    return { start, end };
 };

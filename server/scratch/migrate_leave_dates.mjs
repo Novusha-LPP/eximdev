@@ -12,8 +12,9 @@ const DRY_RUN = process.env.DRY_RUN !== 'false'; // Default to true for safety
 
 async function migrate() {
     try {
-        const uri = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/exim";
-        console.log(`Connecting to ${uri}...`);
+       // const uri = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/exim";
+       const uri = process.env.PROD_MONGODB_URI;
+       console.log(`Connecting to ${uri}...`);
         await mongoose.connect(uri);
         console.log('Connected to DB');
         console.log(`Mode: ${DRY_RUN ? 'DRY RUN (No changes will be saved)' : 'LIVE (Changes will be saved)'}`);

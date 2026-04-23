@@ -31,6 +31,12 @@ const resolveCompanyId = (req) => {
     return explicitId;
 };
 
+const getLeaveLocalDateRange = (leave, tz = 'Asia/Kolkata') => {
+    const start = moment(leave.from_date).tz(tz).startOf('day');
+    const end = moment(leave.to_date).tz(tz).startOf('day');
+    return { start, end };
+};
+
 const logActivity = async (req, module, action, details, metadata = {}) => {
     try {
         const activity = new ActivityLog({
@@ -948,8 +954,7 @@ export const getDashboardData = async (req, res) => {
         });
 
         approvedLeaves.forEach(leave => {
-            let curr = moment.utc(leave.from_date);
-            let end = moment.utc(leave.to_date);
+            let { start: curr, end } = getLeaveLocalDateRange(leave, tz);
             while (curr.isSameOrBefore(end, 'day')) {
                 const dateStr = curr.format('YYYY-MM-DD');
                 if (dateStr.startsWith(currentYearMonth)) {

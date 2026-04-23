@@ -36,79 +36,8 @@ import ChargesGrid from "../ChargesGrid";
 import ContainerTrackButton from '../ContainerTrackButton';
 
 
-const doListOptionsAMD = [
-  { value: "", label: "Select DO List" },
-  { value: "ICD Khodiyar / ICD AHMEDABAD", label: "ICD Khodiyar / ICD AHMEDABAD" },
-  { value: "ICD SANAND", label: "ICD SANAND" },
-  { value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK", label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK" },
-  { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
-  { value: "Golden Horn Container Services (Nr. ICD Khodiyar)", label: "Golden Horn Container Services (Nr. ICD Khodiyar)" },
-  { value: "Golden Horn Container Services (Nr. ICD SANAND)", label: "Golden Horn Container Services (Nr. ICD SANAND)" },
-  { value: "JAY BHAVANI CONTAINERS YARD", label: "JAY BHAVANI CONTAINERS YARD" },
-  { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
-   { value: "SATURN GLOBAL TERMINAL PVT LTD", label: "SATURN GLOBAL TERMINAL PVT LTD" },
-    {value:"DONOR MARINE SERVICE PVT. LTD.",label:"DONOR MARINE SERVICE PVT. LTD."},
-  { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
-  { value: "ICD SACHANA", label: "ICD SACHANA" },
-  { value: "SHREE SHIV SHAKTI EMPTY PARK LLP", label: "SHREE SHIV SHAKTI EMPTY PARK LLP" },
-  { value: "ANIKET ROADLINES", label: "ANIKET ROADLINES" },
-];
+// DO list options are now fetched from the API
 
-const doListOptionsGIM = [
-  { value: "", label: "Select DO List" },
-  { value: "ASHTAVINAYAK ENTERPRISES", label: "ASHTAVINAYAK ENTERPRISES" },
-  { value: "CONTAINER SOLUTIONS INDIA PVT LTD", label: "CONTAINER SOLUTIONS INDIA PVT LTD" },
-  { value: "EMPEZAR LOGISTICS PRIVATE LIMITED", label: "EMPEZAR LOGISTICS PRIVATE LIMITED" },
-  { value: "J M J CONTAINER SOLUTION", label: "J M J CONTAINER SOLUTION" },
-  { value: "JDW TERMINALS PRIVATE LIMITED", label: "JDW TERMINALS PRIVATE LIMITED" },
-  { value: "KDPP Terminals", label: "KDPP Terminals" },
-  { value: "KEAVY GLOBAL LOGISITC PVT LTD", label: "KEAVY GLOBAL LOGISITC PVT LTD" },
-  { value: "KIAORA EMPTY YARD", label: "KIAORA EMPTY YARD" },
-  { value: "KMS MONDIALLE PVT LTD", label: "KMS MONDIALLE PVT LTD" },
-  { value: "KOTAK AGRO PROCESSING PVT LTD", label: "KOTAK AGRO PROCESSING PVT LTD" },
-  { value: "PANINDIA MARINE SERVICES PRIVATE LIMITED", label: "PANINDIA MARINE SERVICES PRIVATE LIMITED" },
-  { value: "PERFECT CONTAINER TERMINAL", label: "PERFECT CONTAINER TERMINAL" },
-  { value: "PERFECT MULTIMODAL LLP", label: "PERFECT MULTIMODAL LLP" },
-  { value: "SAI MARINE CONTAINER SERVICES", label: "SAI MARINE CONTAINER SERVICES" },
-  { value: "SAMVEDA CONTAINER CARE", label: "SAMVEDA CONTAINER CARE" },
-  { value: "SAMVEDA LOGISTICS RESOURCES", label: "SAMVEDA LOGISTICS RESOURCES" },
-  { value: "SHREE GANESH ENTERPRISES (GIM)", label: "SHREE GANESH ENTERPRISES (GIM)" },
-  { value: "SIDDHI VINAYAK LOGISTICS", label: "SIDDHI VINAYAK LOGISTICS" },
-  { value: "TURK MITHANI ENTERPRISE PVT LTD", label: "TURK MITHANI ENTERPRISE PVT LTD" },
-  { value: "UNITED FREIGHT CONTAINER TERMINAL", label: "UNITED FREIGHT CONTAINER TERMINAL" },
-  { value: "NAVDEEP SHIPPING PVT LTD", label: "NAVDEEP SHIPPING PVT LTD" },
-  { value: "KAMI-SAMA Marine Services Pvt. Ltd", label: "KAMI-SAMA Marine Services Pvt. Ltd" },
-  { value: "D & M MARINE LOGISTICS", label: "D & M MARINE LOGISTICS" },
-  { value: "SABARI CONTAINER TERMINAL PVT LTD.", label: "SABARI CONTAINER TERMINAL PVT LTD." },
-  { value: "ADMEK TERMINALS PVT. LTD", label: "ADMEK TERMINALS PVT. LTD" },
-  { value: "KK LOGISTICS AND SERVICES LLP", label: "KK LOGISTICS AND SERVICES LLP" },
-  { value: "OCEAN MEEN BOX LOGISTICS", label: "OCEAN MEEN BOX LOGISTICS" },
-  { value: "ARWA MARINE CONTAINER SERVICES", label: "ARWA MARINE CONTAINER SERVICES" },
-  { value: "JACT CONTAINER TERMINALS LLP", label: "JACT CONTAINER TERMINALS LLP" },
-  { value: "WILL MARINE CONTAINER SERVICES PVT LTD", label: "WILL MARINE CONTAINER SERVICES PVT LTD" },
-  { value: "KEJ MARINE CONTAINER SERVICE", label: "KEJ MARINE CONTAINER SERVICE" },
-  { value: "STAR TEX CONTAINER SERVICES LLP", label: "STAR TEX CONTAINER SERVICES LLP" },
-  { value: "SHUBHAM NEWPORT LLP", label: "SHUBHAM NEWPORT LLP" },
-  { value: "NAISHA EMPTY PARK PVT LTD.", label: "NAISHA EMPTY PARK PVT LTD." },
-  { value: "ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED", label: "ADANI PORTS AND SPECIAL ECONOMIC ZONE LIMITED" },
-  { value: "ALLCARGO TERMINALS LIMITED", label: "ALLCARGO TERMINALS LIMITED" },
-  { value: "AMEYA LOGISTICS PVT LTD", label: "AMEYA LOGISTICS PVT LTD" },
-  { value: "ASHUTOSH CONTAINER SERVICES PVT LTD", label: "ASHUTOSH CONTAINER SERVICES PVT LTD" },
-  { value: "CENTRAL WAREHOUSING CORPORATION (NEW)", label: "CENTRAL WAREHOUSING CORPORATION (NEW)" },
-  { value: "HIND TERMINALS PVT LTD.", label: "HIND TERMINALS PVT LTD." },
-  { value: "LANDMARK CFS PVT LTD", label: "LANDMARK CFS PVT LTD" },
-  { value: "MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD.", label: "MUNDRA INTERNATIONAL CONTAINER TERMINAL PVT LTD." },
-  { value: "MUNDHRA CONTAINER FREIGHT STATION PVT LTD.", label: "MUNDHRA CONTAINER FREIGHT STATION PVT LTD." },
-  { value: "SAURASHTRA FREIGHT PVT LTD.", label: "SAURASHTRA FREIGHT PVT LTD." },
-  { value: "SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD.", label: "SEABIRD MARINE SERVICES (GUJARAT) PVT. LTD." },
-  { value: "TRANSWORLD TERMINALS PVT LTD.", label: "TRANSWORLD TERMINALS PVT LTD." },
-   {value:"SATURN GLOBAL TERMINAL PVT.LTD.", label: "SATURN GLOBAL TERMINAL PVT.LTD."},
-   {value:"DONOR MARINE SERVICE PVT. LTD.",label:"DONOR MARINE SERVICE PVT. LTD."},
-   {value:"JAI ASHAPURA CONTAINER TERMINALS",label:"JAI ASHAPURA CONTAINER TERMINALS"},
-   {value:"CCIS CMA CGM Inland Services India LLP",label:"CCIS CMA CGM Inland Services India LLP"}
-
-
-];
 
 function EditDoPlanning() {
   const params = useParams();
@@ -129,6 +58,7 @@ function EditDoPlanning() {
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
+  const [emptyOffLocations, setEmptyOffLocations] = useState([]);
 
   // This might be the job you're editing...
 
@@ -254,6 +184,26 @@ function EditDoPlanning() {
 
     getData();
   }, [jobId]);
+
+  // Fetch empty off locations on component mount
+  useEffect(() => {
+    async function fetchEmptyOffLocations() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-off-locations`);
+        setEmptyOffLocations(res.data);
+      } catch (error) {
+        console.error("Error fetching empty off locations:", error);
+      }
+    }
+    fetchEmptyOffLocations();
+  }, []);
+
+  const filteredDoListOptions = [
+    { value: "", label: "Select DO List" },
+    ...emptyOffLocations
+      .filter(loc => loc.active?.toUpperCase() === "YES" && loc.assigned_branches.includes(branch_code))
+      .map(loc => ({ value: loc.name, label: loc.name }))
+  ];
 
   const formik = useFormik({
     initialValues: {
@@ -853,7 +803,7 @@ function EditDoPlanning() {
                         backgroundColor: "white",
                       }}
                     >
-                      {(branch_code === "GIM" ? doListOptionsGIM : doListOptionsAMD).map((option, index) => (
+                      {filteredDoListOptions.map((option, index) => (
                         <option key={index} value={option.value}>
                           {option.label}
                         </option>

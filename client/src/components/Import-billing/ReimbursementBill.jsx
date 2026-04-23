@@ -70,8 +70,7 @@ const ReimbursementBill = () => {
         panNo: "",
         gstin: "",
         stateName: "Gujarat",
-        stateCode: "24",
-        roundOffOverride: ""
+        stateCode: "24"
     });
 
     const formatDate = (dateString) => {
@@ -595,9 +594,8 @@ const ReimbursementBill = () => {
 
     const totalGst = totalCgst + totalSgst;
     const rawFinalTotal = totalNonGst + totalTaxable + totalGst;
-    const calculatedRoundOff = Math.round(rawFinalTotal) - rawFinalTotal;
-    const roundOff = editableFields.roundOffOverride !== "" ? parseFloat(editableFields.roundOffOverride) || 0 : calculatedRoundOff;
-    const roundedFinalTotal = rawFinalTotal + roundOff;
+    const roundedFinalTotal = Math.round(rawFinalTotal);
+    const roundOff = roundedFinalTotal - rawFinalTotal;
 
     const numberToWords = (num) => {
         const a = ['', 'ONE ', 'TWO ', 'THREE ', 'FOUR ', 'FIVE ', 'SIX ', 'SEVEN ', 'EIGHT ', 'NINE ', 'TEN ', 'ELEVEN ', 'TWELVE ', 'THIRTEEN ', 'FOURTEEN ', 'FIFTEEN ', 'SIXTEEN ', 'SEVENTEEN ', 'EIGHTEEN ', 'NINETEEN '];
@@ -1063,11 +1061,10 @@ const ReimbursementBill = () => {
                             <div className="abi-tot-cur">INR</div>
                             <div className="abi-tot-val">
                                 <input 
-                                    readOnly={isReadOnly} 
+                                    readOnly={true} 
                                     className="abi-input" 
-                                    style={{ textAlign: 'right', width: '100%', background: isReadOnly ? 'transparent' : '#e9ffe9' }} 
-                                    value={editableFields.roundOffOverride !== "" ? editableFields.roundOffOverride : roundOff.toFixed(2)} 
-                                    onChange={e => handleFieldChange('roundOffOverride', e.target.value)} 
+                                    style={{ textAlign: 'right', width: '100%', background: 'transparent' }} 
+                                    value={roundOff.toFixed(2)} 
                                 />
                             </div>
                         </div>

@@ -13,7 +13,7 @@ async function checkJobs() {
       mode: 'AIR',
       out_of_charge: { $nin: [null, ''] },
       'container_nos.delivery_date': { $nin: [null, ''] }
-    });
+    }).lean();
 
     console.log(`Found ${potentialJobs.length} potential AIR jobs meeting criteria.`);
     

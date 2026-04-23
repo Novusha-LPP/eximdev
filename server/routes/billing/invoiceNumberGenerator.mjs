@@ -236,23 +236,29 @@ router.post('/save', async (req, res) => {
                 
                 if (sourceIds.length > 0) {
                     // This handles both single rows and combined (clubbed) rows
+                    const isClubbed = sourceIds.length > 1;
+
                     sourceIds.forEach((sid, idx) => {
                         const chargeIdx = job.charges.findIndex(c => c._id && c._id.toString() === sid);
                         if (chargeIdx !== -1) {
                             const ch = job.charges[chargeIdx];
-                            // Only put the full amount into the FIRST charge in a group, others go to 0
-                            const targetAmount = (idx === 0) ? amount : 0;
-
-                            if (!ch.revenue) ch.revenue = { qty: 1, rate: targetAmount, amount: targetAmount, amountINR: targetAmount };
-                            else {
-                                ch.revenue.basicAmount = targetAmount;
-                                ch.revenue.amountINR = targetAmount;
-                                ch.revenue.rate = targetAmount;
-                                ch.revenue.amount = targetAmount;
+                            
+                            // Only update the amount if the row is NOT clubbed. 
+                            // If it's clubbed, we leave individual charge amounts AS IS (per user request).
+                            if (!isClubbed) {
+                                const targetAmount = amount;
+                                if (!ch.revenue) ch.revenue = { qty: 1, rate: targetAmount, amount: targetAmount, amountINR: targetAmount };
+                                else {
+                                    ch.revenue.basicAmount = targetAmount;
+                                    ch.revenue.amountINR = targetAmount;
+                                    ch.revenue.rate = targetAmount;
+                                    ch.revenue.amount = targetAmount;
+                                }
+                                const totalTax = (parseFloat(row.cgstPercent) || 0) + (parseFloat(row.sgstPercent) || 0);
+                                ch.revenue.gstRate = totalTax;
+                                ch.revenue.isGst = totalTax > 0;
                             }
-                            const totalTax = (parseFloat(row.cgstPercent) || 0) + (parseFloat(row.sgstPercent) || 0);
-                            ch.revenue.gstRate = totalTax;
-                            ch.revenue.isGst = totalTax > 0;
+                            
                             ch.sacHsn = row.sac;
                             ch.invoice_number = row.receipt_no;
                             ch.invoice_date = row.receipt_date;

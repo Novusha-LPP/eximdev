@@ -50,6 +50,7 @@ const ReimbursementBill = () => {
     const [isMasterModalOpen, setIsMasterModalOpen] = useState(false);
     const [masterSearchTerm, setMasterSearchTerm] = useState("");
     const [selectedMasterHeads, setSelectedMasterHeads] = useState(new Set());
+    const [preCombineRows, setPreCombineRows] = useState(null);
 
     const isAdmin = user?.role === "Admin";
     const isJobCompleted = jobData?.status?.toUpperCase() === "COMPLETED";
@@ -69,7 +70,8 @@ const ReimbursementBill = () => {
         panNo: "",
         gstin: "",
         stateName: "Gujarat",
-        stateCode: "24"
+        stateCode: "24",
+        roundOffOverride: ""
     });
 
     const formatDate = (dateString) => {
@@ -126,7 +128,9 @@ const ReimbursementBill = () => {
                 if (reimbursementCharges.length > 0) {
                     const clubbedRows = [];
                     reimbursementCharges.forEach(ch => {
-                        const desc = (ch.charge_name || ch.chargeHead || ch.charge_description || "Reimbursement").trim().toUpperCase();
+                        const baseDesc = (ch.charge_name || ch.chargeHead || "Reimbursement").trim().toUpperCase();
+                        const chargeDescStr = (ch.revenue?.chargeDescription || ch.charge_description || "").trim();
+                        const desc = chargeDescStr ? `${baseDesc}\n(${chargeDescStr})` : baseDesc;
                         const amount = Math.round(parseFloat(ch.revenue?.amountINR || ch.revenue?.basicAmount || 0));
                         const invNoRaw = (ch.invoice_number || "").trim();
                         const invNo = invNoRaw === "-" ? "" : invNoRaw;
@@ -214,6 +218,30 @@ const ReimbursementBill = () => {
                 const savedBillRes = await axios.get(`${process.env.REACT_APP_API_STRING}/billing/${job._id}/GIR`);
                 if (savedBillRes.data.success && savedBillRes.data.data) {
                     const saved = savedBillRes.data.data;
+                    const isInvoiceGenerated = saved.billNo || (saved.editableFields && saved.editableFields.invoiceNo);
+
+                    if (isInvoiceGenerated) {
+                        setInvoiceRows(saved.rows || []);
+                        const savedFields = saved.editableFields || {};
+                        setEditableFields({
+                            ...initialFields,
+                            ...savedFields,
+                            gstin: savedFields.gstin || initialFields.gstin,
+                            panNo: savedFields.panNo || initialFields.panNo
+                        });
+
+                        if (saved.generatedAt) {
+                            setGenerationLog({
+                                firstName: saved.generatedByFirstName,
+                                lastName: saved.generatedByLastName,
+                                at: saved.generatedAt
+                            });
+                        }
+                        setIsReadOnly(isCompleted && !isAdmin);
+                        setLoading(false);
+                        return;
+                    }
+
                     // Note: We always fresh-sync rows from the grid for now to avoid old cached "G" type data
                     // Only loading editable fields (invoice no, date, address) from save
                     const savedFields = saved.editableFields || {};
@@ -330,11 +358,7 @@ const ReimbursementBill = () => {
         }
     };
 
-    useEffect(() => {
-        if (!jobData?._id) return;
-        const timer = setTimeout(() => handleSave(false), 1500);
-        return () => clearTimeout(timer);
-    }, [invoiceRows, editableFields, jobData?._id]);
+    // Autosave removed as per request
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -465,6 +489,94 @@ const ReimbursementBill = () => {
         return Object.entries(counts).map(([k, v]) => `${v}x${k}`).join(', ');
     };
 
+    const handleCombineDuplicates = () => {
+        const combined = [];
+        let combinedCount = 0;
+
+        invoiceRows.forEach(row => {
+            if (!row.description) {
+                combined.push({ ...row });
+                return;
+            }
+            const heading = row.description.split("\n")[0].trim().toUpperCase();
+            
+            const existing = combined.find(r => 
+                r.description && 
+                r.description.split("\n")[0].trim().toUpperCase() === heading && 
+                r.sac === row.sac && 
+                r.taxType === row.taxType && 
+                r.cgstPercent === row.cgstPercent && 
+                r.sgstPercent === row.sgstPercent
+            );
+            
+            if (existing) {
+                combinedCount++;
+                existing.nonGst = (parseFloat(existing.nonGst) || 0) + (parseFloat(row.nonGst) || 0);
+                existing.taxable = (parseFloat(existing.taxable) || 0) + (parseFloat(row.taxable) || 0);
+
+                if (!existing.sourceIds) {
+                    existing.sourceIds = [existing.id];
+                }
+                if (row.sourceIds) {
+                    existing.sourceIds.push(...row.sourceIds);
+                } else if (row.id) {
+                    existing.sourceIds.push(row.id);
+                }
+
+                
+                const existingDescs = existing.description.split("\n").map(s => s.trim()).filter(Boolean);
+                const newDescs = row.description.split("\n").map(s => s.trim()).filter(Boolean);
+                
+                newDescs.forEach(nd => {
+                    if (!existingDescs.includes(nd)) {
+                        existingDescs.push(nd);
+                    }
+                });
+                existing.description = existingDescs.join("\n");
+                
+                const existingReceipts = (existing.receipt_no || "").toString().split("\n").map(s => s.trim()).filter(Boolean);
+                const newReceipts = (row.receipt_no || "").toString().split("\n").map(s => s.trim()).filter(Boolean);
+                
+                const existingDates = (existing.receipt_date || "").toString().split("\n").map(s => s.trim()).filter(Boolean);
+                const newDates = (row.receipt_date || "").toString().split("\n").map(s => s.trim()).filter(Boolean);
+                
+                const existingAmts = (existing.receipt_amt || "").toString().split("\n").map(s => s.trim()).filter(Boolean);
+                const newAmts = (row.receipt_amt || "").toString().split("\n").map(s => s.trim()).filter(Boolean);
+
+                newReceipts.forEach((nr, idx) => {
+                    if (!existingReceipts.includes(nr)) {
+                        existingReceipts.push(nr);
+                        existingDates.push(newDates[idx] || "");
+                        existingAmts.push(newAmts[idx] || "");
+                    }
+                });
+
+                existing.receipt_no = existingReceipts.join("\n");
+                existing.receipt_date = existingDates.join("\n");
+                existing.receipt_amt = existingAmts.join("\n");
+            } else {
+                combined.push({ ...row });
+            }
+        });
+
+        if (combinedCount > 0) {
+            if (window.confirm(`Found ${combinedCount} duplicate row(s) with identical headings. Do you want to combine them?`)) {
+                setPreCombineRows([...invoiceRows]);
+                setInvoiceRows(combined);
+            }
+        } else {
+            alert("No duplicate headings found to combine.");
+        }
+    };
+
+    const handleUndoCombine = () => {
+        if (preCombineRows) {
+            setInvoiceRows(preCombineRows);
+            setPreCombineRows(null);
+        }
+    };
+
+
     // Totals logic
     let totalNonGst = 0;
     let totalTaxable = 0;
@@ -483,8 +595,9 @@ const ReimbursementBill = () => {
 
     const totalGst = totalCgst + totalSgst;
     const rawFinalTotal = totalNonGst + totalTaxable + totalGst;
-    const roundedFinalTotal = Math.round(rawFinalTotal);
-    const roundOff = roundedFinalTotal - rawFinalTotal;
+    const calculatedRoundOff = Math.round(rawFinalTotal) - rawFinalTotal;
+    const roundOff = editableFields.roundOffOverride !== "" ? parseFloat(editableFields.roundOffOverride) || 0 : calculatedRoundOff;
+    const roundedFinalTotal = rawFinalTotal + roundOff;
 
     const numberToWords = (num) => {
         const a = ['', 'ONE ', 'TWO ', 'THREE ', 'FOUR ', 'FIVE ', 'SIX ', 'SEVEN ', 'EIGHT ', 'NINE ', 'TEN ', 'ELEVEN ', 'TWELVE ', 'THIRTEEN ', 'FOURTEEN ', 'FIFTEEN ', 'SIXTEEN ', 'SEVENTEEN ', 'EIGHTEEN ', 'NINETEEN '];
@@ -549,7 +662,15 @@ const ReimbursementBill = () => {
                 <button onClick={() => navigate(-1)} style={{ padding: '6px 12px', cursor: 'pointer', background: '#eee', border: 'none', borderRadius: '4px' }}>Back</button>
                 <button onClick={() => addChargeRow()} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#007bff', color: '#fff', border: 'none', borderRadius: '4px' }}>+ Add Blank Row</button>
                 <button className="bill-master-btn" onClick={() => setIsMasterModalOpen(true)} disabled={isReadOnly} style={{ cursor: isReadOnly ? 'not-allowed' : 'pointer', opacity: isReadOnly ? 0.6 : 1 }}>+ Add Charge from Master</button>
+                <button className="bill-master-btn" onClick={() => handleSave(true)} disabled={isReadOnly || saveStatus === 'saving'} style={{ backgroundColor: '#28a745', opacity: isReadOnly ? 0.6 : 1 }}>
+                    {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : 'Save Bill'}
+                </button>
                 <button className="bill-master-btn" onClick={handlePrint} style={{ backgroundColor: '#1976d2', padding: '6px 12px', cursor: 'pointer', border: 'none', borderRadius: '4px', color: '#fff' }}>Print Bill</button>
+                {preCombineRows ? (
+                    <button className="bill-generate-btn" onClick={handleUndoCombine} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>↩️ Undo Combine</button>
+                ) : (
+                    <button className="bill-generate-btn" onClick={handleCombineDuplicates} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#f0ad4e', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>🪄 Combine Duplicates</button>
+                )}
                 {!editableFields.invoiceNo && (
                     <button className="bill-generate-btn" onClick={() => handleGenerateInvoice('GIR')} disabled={isReadOnly} style={{ padding: '6px 12px', cursor: isReadOnly ? 'not-allowed' : 'pointer', background: isReadOnly ? '#ccc' : '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>⚡ Generate Bill No</button>
                 )}
@@ -832,11 +953,10 @@ const ReimbursementBill = () => {
                                     </td>
                                     <td style={{ verticalAlign: 'middle' }}>
                                         <textarea
-                                            readOnly={isReadOnly} className="abi-input"
+                                            readOnly={true} className="abi-input"
                                             rows={1}
-                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'right' }}
+                                            style={{ height: 'auto', minHeight: '18px', resize: 'none', overflow: 'hidden', width: '100%', padding: '2px 0', textAlign: 'right', background: 'transparent' }}
                                             value={r.receipt_amt}
-                                            onChange={e => handleRowChange(idx, 'receipt_amt', e.target.value)}
                                             onInput={(e) => {
                                                 e.target.style.height = '18px';
                                                 e.target.style.height = e.target.scrollHeight + 'px';
@@ -938,7 +1058,19 @@ const ReimbursementBill = () => {
                         <div className="abi-tot-row"><div className="abi-tot-lbl">Add : GST</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(totalGst)}</div></div>
                         <div className="abi-tot-row"><div className="abi-tot-lbl">Total Invoice Value</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(rawFinalTotal)}</div></div>
                         <div className="abi-tot-row"><div className="abi-tot-lbl">Less : Advance Received</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">0.00</div></div>
-                        <div className="abi-tot-row"><div className="abi-tot-lbl">Round-Off</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">{formatCurrency(roundOff)}</div></div>
+                        <div className="abi-tot-row">
+                            <div className="abi-tot-lbl">Round-Off</div>
+                            <div className="abi-tot-cur">INR</div>
+                            <div className="abi-tot-val">
+                                <input 
+                                    readOnly={isReadOnly} 
+                                    className="abi-input" 
+                                    style={{ textAlign: 'right', width: '100%', background: isReadOnly ? 'transparent' : '#e9ffe9' }} 
+                                    value={editableFields.roundOffOverride !== "" ? editableFields.roundOffOverride : roundOff.toFixed(2)} 
+                                    onChange={e => handleFieldChange('roundOffOverride', e.target.value)} 
+                                />
+                            </div>
+                        </div>
                         <div className="abi-tot-row" style={{ height: '22px' }}><div className="abi-tot-lbl" style={{ fontSize: '10px' }}>Net Payable</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val" style={{ fontSize: '10px' }}>{formatCurrency(roundedFinalTotal)}</div></div>
                         <div className="abi-tot-row" style={{ borderBottom: 'none' }}><div className="abi-tot-lbl">Tax Payable on Reverse Charges</div><div className="abi-tot-cur">INR</div><div className="abi-tot-val">0.00</div></div>
                     </div>

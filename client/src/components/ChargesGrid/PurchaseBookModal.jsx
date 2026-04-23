@@ -35,6 +35,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "Status": '',
         "chargeRef": '',
         "jobRef": '',
+        "Charge Description": '',
         "Charge Head Category": ''
     });
 
@@ -101,6 +102,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "Status": '',
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || '',
+                    "Charge Description": initialData.chargeDescription || '',
                     "Charge Head Category": initialData.chargeHeadCategory || ''
                 }));
             }
@@ -277,6 +279,10 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             <div className="ep-row">
                                 <span className="ep-label">Charge Head Category</span>
                                 <input type="text" name="Charge Head Category" className="ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="ep-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="ep-label">Charge Description</span>
+                                <input type="text" name="Charge Description" className="ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
                             </div>
                         </div>
                     </div>

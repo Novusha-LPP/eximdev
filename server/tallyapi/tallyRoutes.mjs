@@ -226,6 +226,7 @@ const mapPurchaseEntryData = (data) => {
     total: data["Total"] || data.total,
     chargeRef: data.chargeRef,
     jobRef: data.jobRef,
+    chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     status: data["Status"] || data.status || ''
   };
@@ -363,6 +364,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "IGST": entry.igstAmt,
       "TDS": entry.tds,
       "Total": entry.total,
+      "Charge Description": entry.chargeDescription || '',
       "Charge Head Category": chargeCategory || '',
       "Status": entry.status
     };
@@ -426,6 +428,7 @@ const mapPaymentRequestData = (data) => {
     transferMode: data["Transfer Mode"] || data.transferMode,
     requestedBy: data["Requested By"] || data.requestedBy,
     beneficiaryCode: data["Beneficiary Code"] || data.beneficiaryCode,
+    chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     status: data["Status"] || data.status || ''
   };
@@ -552,6 +555,7 @@ router.get("/payment-request", authApiKey, async (req, res) => {
       "Instrument Date": request.instrumentDate,
       "Transfer Mode": request.transferMode,
       "Beneficiary Code": request.beneficiaryCode,
+      "Charge Description": request.chargeDescription || '',
       "Charge Head Category": chargeCategory || '',
       "Status": request.status
     };

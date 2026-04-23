@@ -26,6 +26,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         "jobNo": '',
         "chargeRef": '',
         "jobRef": '',
+        "Charge Description": '',
         "Charge Head Category": ''
     });
 
@@ -81,6 +82,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     "jobNo": updatedJobNo,
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || '',
+                    "Charge Description": initialData.chargeDescription || '',
                     "Charge Head Category": initialData.chargeHeadCategory || ''
                 }));
             }
@@ -97,6 +99,16 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
             const updated = { ...prev, [name]: value };
             if (name === "Transfer Mode" && value === 'Offline') {
                 updated["Transaction Type"] = "CASH";
+                updated["Bank From"] = "CASH";
+                updated["Account No"] = "";
+                updated["IFSC Code"] = "";
+                updated["Bank Name"] = "";
+            }
+            if (name === "Transaction Type" && value === "CASH") {
+                updated["Bank From"] = "CASH";
+                updated["Account No"] = "";
+                updated["IFSC Code"] = "";
+                updated["Bank Name"] = "";
             }
             return updated;
         });
@@ -191,6 +203,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                     <option value="KOTAK BANK">KOTAK BANK</option>
                                     <option value="IDBI BANK">IDBI BANK</option>
                                     <option value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</option>
+                                    <option value="CASH">CASH</option>
                                 </select>
                             </div>
                             <div className="ep-row">
@@ -247,6 +260,10 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                             <div className="ep-row">
                                 <span className="ep-label">Charge Head Category</span>
                                 <input type="text" name="Charge Head Category" className="ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="ep-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="ep-label">Charge Description</span>
+                                <input type="text" name="Charge Description" className="ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                              {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (

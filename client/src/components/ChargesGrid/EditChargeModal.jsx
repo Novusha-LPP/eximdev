@@ -1223,7 +1223,8 @@ const EditChargeModal = ({
                                             branchIndex: cost.branchIndex || 0,
                                             chargeId: row._id,
                                             jobId: parentId,
-                                            chargeHeadCategory: row.category
+                                            chargeHeadCategory: row.category,
+                                            chargeDescription: row.cost?.chargeDescription || ''
                                           };
                                         });
                                       }}
@@ -1270,7 +1271,8 @@ const EditChargeModal = ({
                                           chargeHead: row.chargeHead,
                                           chargeId: row._id,
                                           jobId: parentId,
-                                          chargeHeadCategory: row.category
+                                          chargeHeadCategory: row.category,
+                                          chargeDescription: row.cost?.chargeDescription || ''
                                         });
                                       }}
                                     >

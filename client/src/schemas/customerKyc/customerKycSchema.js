@@ -58,7 +58,7 @@ export const validationSchema = Yup.object({
     })
   ),
 
-  // Factory Photos (Mandatory)
+  // Factory Photos (Optional)
   // factory_name_board_img: Yup.array().min(1, 'Factory Name Board photo is required'),
   // factory_selfie_img: Yup.array().min(1, 'Factory Selfie photo is required'),
 

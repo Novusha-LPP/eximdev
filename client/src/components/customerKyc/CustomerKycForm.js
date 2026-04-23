@@ -234,8 +234,6 @@ function CustomerKycForm() {
               })),
               hsn_codes: true,
               date_of_incorporation: true,
-              factory_name_board_img: true,
-              factory_selfie_img: true,
               contacts: values.contacts?.map(() => ({
                 name: true, designation: true, phone: true, email: true
               })),
@@ -1139,14 +1137,12 @@ function CustomerKycForm() {
                 </div>
               </div>
 
-              {/* Factory Photos (Mandatory) */}
+              {/* Factory Photos */}
 
-
-
-              {/* Factory Photos (Mandatory) */}
+              {/* Factory Photos */}
               <div className="section">
                 <div className="section-header">
-                  <span className="section-title section-title-accent">Factory Photos (Mandatory)</span>
+                  <span className="section-title section-title-accent">Factory Photos </span>
                 </div>
                 <div className="fields">
                   <div className="row">

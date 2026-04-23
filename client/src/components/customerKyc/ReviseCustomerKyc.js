@@ -1108,17 +1108,16 @@ function ReviseCustomerKyc() {
                 </div>
               </div>
 
-              {/* Factory Photos (Mandatory) */}
+              {/* Factory Photos */}
               <div className="section">
                 <div className="section-header">
-                  <span className="section-title section-title-accent">Factory Photos (Mandatory)</span>
+                  <span className="section-title section-title-accent">Factory Photos </span>
                 </div>
                 <div className="fields">
                   <div className="row">
                     <div className="field w-half">
-                      <label style={{ color: hasError("factory_name_board_img") ? "var(--red)" : "" }}>FACTORY NAME BOARD PHOTO <span className="req">*</span></label>
-                      {fieldError("factory_name_board_img") && <div className="err-msg">{fieldError("factory_name_board_img")}</div>}
-                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px', border: hasError("factory_name_board_img") ? '1px solid var(--red)' : '1px solid transparent', borderRadius: '4px', padding: hasError("factory_name_board_img") ? '4px' : '0' }}>
+                      <label>FACTORY NAME BOARD PHOTO</label>
+                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <FileUpload
                           label={<div className="upload-zone" style={{ margin: 0 }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
@@ -1143,9 +1142,8 @@ function ReviseCustomerKyc() {
                       </div>
                     </div>
                     <div className="field w-half">
-                      <label style={{ color: hasError("factory_selfie_img") ? "var(--red)" : "" }}>FACTORY SELFIE PHOTO <span className="req">*</span></label>
-                      {fieldError("factory_selfie_img") && <div className="err-msg">{fieldError("factory_selfie_img")}</div>}
-                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px', border: hasError("factory_selfie_img") ? '1px solid var(--red)' : '1px solid transparent', borderRadius: '4px', padding: hasError("factory_selfie_img") ? '4px' : '0' }}>
+                      <label>FACTORY SELFIE PHOTO</label>
+                      <div className="upload-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <FileUpload
                           label={<div className="upload-zone" style={{ margin: 0 }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>

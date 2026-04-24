@@ -16,9 +16,9 @@ const leaveApplicationSchema = new mongoose.Schema({
   is_half_day: { type: Boolean, default: false },
   is_start_half_day: { type: Boolean, default: false },
   is_end_half_day: { type: Boolean, default: false },
-  start_half_session: { type: String, enum: ['First Half', 'Second Half', null], default: null },
-  end_half_session: { type: String, enum: ['First Half', 'Second Half', null], default: null },
-  half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },
+  start_half_session: { type: String, enum: ['first_half', 'second_half', 'First Half', 'Second Half', null], default: null },
+  end_half_session: { type: String, enum: ['first_half', 'second_half', 'First Half', 'Second Half', null], default: null },
+  half_day_session: { type: String, enum: ['first_half', 'second_half', 'First Half', 'Second Half', null], default: null },
 
   reason: { type: String, required: true },
   contact_during_leave: { type: String },

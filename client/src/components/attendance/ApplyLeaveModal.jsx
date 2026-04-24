@@ -23,7 +23,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
     to_date: '',
     reason: '',
     is_half_day: false,
-    half_day_session: 'First Half',
+    half_day_session: 'first_half',
     attachment: null,
   });
 
@@ -70,7 +70,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
         to_date: '',
         reason: '',
         is_half_day: false,
-        half_day_session: 'First Half',
+        half_day_session: 'first_half',
         attachment: null,
       });
       setPreview(null);
@@ -232,8 +232,8 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
                     value={form.half_day_session}
                     onChange={e => setForm(v => ({ ...v, half_day_session: e.target.value }))}
                   >
-                    <option value="First Half">First Half</option>
-                    <option value="Second Half">Second Half</option>
+                    <option value="first_half">First Half</option>
+                    <option value="second_half">Second Half</option>
                   </select>
                 )}
               </div>

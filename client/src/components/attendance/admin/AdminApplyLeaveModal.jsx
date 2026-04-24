@@ -26,7 +26,7 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
         isHalfDay: false,
         isStartHalfDay: false,
         isEndHalfDay: false,
-        halfDaySession: 'First Half',
+        halfDaySession: 'first_half',
         isSingleDay: true,
         reason: '',
         attachment: null
@@ -52,9 +52,9 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                 isHalfDay: false,
                 isStartHalfDay: false,
                 isEndHalfDay: false,
-                startHalfSession: 'First Half',
-                endHalfSession: 'First Half',
-                halfDaySession: 'First Half',
+                startHalfSession: 'first_half',
+                endHalfSession: 'first_half',
+                halfDaySession: 'first_half',
                 isSingleDay: true,
                 reason: '',
                 attachment: null
@@ -258,8 +258,8 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                                             value={formData.halfDaySession}
                                             onChange={e => setFormData(p => ({ ...p, halfDaySession: e.target.value, startHalfSession: e.target.value, endHalfSession: e.target.value }))}
                                         >
-                                            <option value="First Half">First Half</option>
-                                            <option value="Second Half">Second Half</option>
+                                            <option value="first_half">First Half</option>
+                                            <option value="second_half">Second Half</option>
                                         </select>
                                     )}
                                 </div>
@@ -293,8 +293,8 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                                         value={formData.startHalfSession}
                                         onChange={e => setFormData(p => ({ ...p, startHalfSession: e.target.value }))}
                                     >
-                                        <option value="First Half">First Half</option>
-                                        <option value="Second Half">Second Half</option>
+                                        <option value="first_half">First Half</option>
+                                        <option value="second_half">Second Half</option>
                                     </select>
                                 )}
                             </div>
@@ -313,8 +313,8 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
                                         value={formData.endHalfSession}
                                         onChange={e => setFormData(p => ({ ...p, endHalfSession: e.target.value }))}
                                     >
-                                        <option value="First Half">First Half</option>
-                                        <option value="Second Half">Second Half</option>
+                                        <option value="first_half">First Half</option>
+                                        <option value="second_half">Second Half</option>
                                     </select>
                                 )}
                             </div>

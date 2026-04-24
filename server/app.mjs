@@ -285,7 +285,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
         $set: {
           session_status: "abandoned",
           abandoned_at: now,
-          abandoned_reason: "scheduler_auto_close",
+          abandoned_reason: "timeout_12h",
           auto_marked_missed_punch: true,
         },
       },
@@ -311,7 +311,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
           status: "incomplete",
           has_incomplete_session: true,
           missed_punch: true,
-          missed_punch_reason: "scheduler_auto_close",
+          missed_punch_reason: "timeout_12h",
           missed_punch_marked_at: now,
           missed_punch_source: "cron",
           year_month: sessionDateKey.slice(0, 7),

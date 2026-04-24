@@ -601,33 +601,22 @@ export const punch = async (req, res) => {
         let autoClosedPreviousSession = false;
 
         if (type === 'IN' && activeSession) {
-            const activeSessionDate = moment.utc(activeSession.session_date).format('YYYY-MM-DD');
+            const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
 
-            if (activeSessionDate !== today) {
+            if (elapsedHours >= MISSED_PUNCH_LIMIT_HOURS) {
                 await markSessionAsMissedPunch({
                     session: activeSession,
-                    reason: 'next_day_auto_close',
-                    source: 'next_day_punch_in',
+                    reason: 'timeout_12h',
+                    source: 'system',
                     at: now.toDate()
                 });
                 autoClosedPreviousSession = true;
                 activeSession = null;
             } else {
-                const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
-                if (elapsedHours >= MISSED_PUNCH_LIMIT_HOURS) {
-                    await markSessionAsMissedPunch({
-                        session: activeSession,
-                        reason: 'timeout_12h',
-                        source: 'system',
-                        at: now.toDate()
-                    });
-                    activeSession = null;
-                } else {
-                    return res.status(400).json({
-                        message: 'Active session exists. Punch OUT first.',
-                        active_since: activeSession.punch_in_time
-                    });
-                }
+                return res.status(400).json({
+                    message: 'Active session exists. Punch OUT first.',
+                    active_since: activeSession.punch_in_time
+                });
             }
         }
 
@@ -669,7 +658,7 @@ export const punch = async (req, res) => {
                 punch_in_entry_id: punch._id,
                 session_date: todayDate,
                 session_status: 'active',
-                expected_out_time: moment(now).add(12, 'hours').toDate() // Reasonable timeout
+                expected_out_time: moment(now).add(MISSED_PUNCH_LIMIT_HOURS, 'hours').toDate()
             });
             await newSession.save();
         } else if (type === 'OUT' && activeSession) {
@@ -714,7 +703,7 @@ export const punch = async (req, res) => {
         if (autoClosedPreviousSession) {
             response.info = {
                 type: 'previous_session_auto_closed',
-                message: 'Previous day open session was auto-marked as missed punch before starting a new session.'
+                message: `Open session without punch OUT was auto-marked as missed punch after ${MISSED_PUNCH_LIMIT_HOURS} hours before starting a new session.`
             };
         }
 

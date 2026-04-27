@@ -514,6 +514,6 @@ customerKycSchema.pre('save', function (next) {
 
 customerKycSchema.plugin(auditPlugin, { documentType: "CustomerKyc" });
 
-const CustomerKycModel = mongoose.model('CustomerKyc', customerKycSchema);
+const CustomerKycModel = mongoose.model('CustomerKyc', customerKycSchema, 'customerkycsimp');
 
 export default CustomerKycModel;

@@ -33,5 +33,5 @@ const portSchema = new mongoose.Schema({
     }
 });
 
-const PortModel = mongoose.model("Port", portSchema);
+const PortModel = mongoose.model("Port", portSchema, "portsimp");
 export default PortModel;

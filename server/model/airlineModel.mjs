@@ -32,5 +32,5 @@ const airlineSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const AirlineModel = mongoose.model("Airline", airlineSchema);
+const AirlineModel = mongoose.model("Airline", airlineSchema, "airlinesimp");
 export default AirlineModel;

@@ -8,5 +8,5 @@ const currencySchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const CurrencyModel = mongoose.model("Currency", currencySchema);
+const CurrencyModel = mongoose.model("Currency", currencySchema, "currenciesimp");
 export default CurrencyModel;

@@ -25,5 +25,5 @@ const supplierSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const SupplierModel = mongoose.model("Supplier", supplierSchema);
+const SupplierModel = mongoose.model("Supplier", supplierSchema, "suppliersimp");
 export default SupplierModel;

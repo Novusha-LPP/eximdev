@@ -31,5 +31,5 @@ const generalOrgSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const GeneralOrgModel = mongoose.model("GeneralOrg", generalOrgSchema);
+const GeneralOrgModel = mongoose.model("GeneralOrg", generalOrgSchema, "generalorgsimp");
 export default GeneralOrgModel;

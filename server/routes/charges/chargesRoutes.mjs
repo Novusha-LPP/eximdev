@@ -23,7 +23,7 @@ router.get('/charge-heads', async (req, res) => {
 
 router.post('/charge-heads', async (req, res) => {
   try {
-    const { name, category, sacHsn } = req.body;
+    const { name, category, sacHsn, isPurchaseBookMandatory } = req.body;
     
     // Check dupe (case insensitive)
     const existing = await ChargeHeadModel.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
@@ -31,7 +31,7 @@ router.post('/charge-heads', async (req, res) => {
       return res.status(409).json({ success: false, message: "Charge head already exists" });
     }
 
-    const newHead = new ChargeHeadModel({ name, category, sacHsn, isSystem: false });
+    const newHead = new ChargeHeadModel({ name, category, sacHsn, isPurchaseBookMandatory, isSystem: false });
     await newHead.save();
     res.json({ success: true, data: newHead });
   } catch (error) {
@@ -73,7 +73,7 @@ router.post('/charge-heads/seed', async (req, res) => {
 router.put('/charge-heads/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category, sacHsn, isActive } = req.body;
+    const { name, category, sacHsn, isActive, isPurchaseBookMandatory } = req.body;
     
     // Optional: check dupe name if name is provided
     if (name) {
@@ -85,7 +85,7 @@ router.put('/charge-heads/:id', async (req, res) => {
 
     const updated = await ChargeHeadModel.findByIdAndUpdate(
       id,
-      { $set: { name, category, sacHsn, isActive } },
+      { $set: { name, category, sacHsn, isActive, isPurchaseBookMandatory } },
       { new: true }
     );
     

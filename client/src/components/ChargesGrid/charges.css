@@ -216,7 +216,7 @@
 .add-modal-overlay.active { display: flex; }
 .add-modal {
   background: #dde4ed; border: 2px solid #7a9cbf; border-radius: 4px;
-  width: 560px; font-size: 12px; box-shadow: 4px 4px 16px rgba(0,0,0,.4);
+  width: 640px; font-size: 12px; box-shadow: 4px 4px 16px rgba(0,0,0,.4);
   overflow: hidden; max-height: 90vh; display: flex; flex-direction: column;
 }
 .add-modal-title {
@@ -251,7 +251,7 @@
   padding: 10px; background: #f4f8fc; border: 1px dashed #9aacbd; border-radius: 4px; margin-bottom: 4px;
 }
 .custom-charge-box .section-label { margin-bottom: 8px; }
-.custom-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.custom-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
 .custom-row input, .custom-row select {
   height: 24px; border: 1px solid #8faec7; font-size: 12px;
   background: white; border-radius: 2px; padding: 2px 6px;

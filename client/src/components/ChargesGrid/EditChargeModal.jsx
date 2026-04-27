@@ -520,7 +520,7 @@ const EditChargeModal = ({
               <div className="form-section-new">
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginRight: '30px', gap: '10px 20px' }}>
                   <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">Charge</span>
+                    <span className="form-label">Charge {row.isPurchaseBookMandatory && <span style={{ fontSize: '9px', background: '#ffebee', color: '#c62828', padding: '1px 6px', borderRadius: '4px', marginLeft: '8px', border: '1px solid #ef9a9a' }}>PB MANDATORY</span>}</span>
                     <div className="form-input-search">
                       <input type="text" readOnly className="form-input" style={{ background: '#f5f8fc', color: '#1a3a5c', fontWeight: 'bold' }} value={row.chargeHead || ''} />
                       <button type="button" className="search-btn" disabled={effectiveReadOnly}>🔍</button>
@@ -1277,6 +1277,10 @@ const EditChargeModal = ({
                                           partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
                                         }
 
+                                        if (row.isPurchaseBookMandatory && (!row.purchase_book_no || row.purchase_book_status === 'Rejected')) {
+                                          alert(`Purchase Book entry is mandatory for "${row.chargeHead}" before requesting payment.`);
+                                          return;
+                                        }
                                         setPaymentRequestData({
                                           partyName,
                                           partyDetails,

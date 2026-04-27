@@ -110,6 +110,7 @@ const ChargesGrid = ({
         parentModule,
         chargeHead: finalName,
         category: head.category,
+        isPurchaseBookMandatory: head.isPurchaseBookMandatory,
         revenue: { isGst: true },
         cost: { isGst: true },
         copyToCost: true

@@ -6,6 +6,7 @@ const ChargeHeadSchema = new mongoose.Schema({
   sacHsn: { type: String, trim: true },
   isSystem: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  isPurchaseBookMandatory: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

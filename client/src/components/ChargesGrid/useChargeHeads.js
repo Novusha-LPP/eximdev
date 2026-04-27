@@ -23,9 +23,9 @@ export const useChargeHeads = () => {
         }
     }, []);
 
-    const addChargeHead = async (name, category, sacHsn) => {
+    const addChargeHead = async (name, category, sacHsn, isPurchaseBookMandatory) => {
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/charge-heads`, { name, category, sacHsn });
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/charge-heads`, { name, category, sacHsn, isPurchaseBookMandatory });
             if (res.data.success) {
                 await fetchChargeHeads(); // refetch after adding
                 return { success: true, data: res.data.data };
@@ -35,9 +35,9 @@ export const useChargeHeads = () => {
         }
     };
 
-    const updateChargeHead = async (id, name, category, sacHsn) => {
+    const updateChargeHead = async (id, name, category, sacHsn, isPurchaseBookMandatory) => {
         try {
-            const res = await axios.put(`${process.env.REACT_APP_API_STRING}/charge-heads/${id}`, { name, category, sacHsn });
+            const res = await axios.put(`${process.env.REACT_APP_API_STRING}/charge-heads/${id}`, { name, category, sacHsn, isPurchaseBookMandatory });
             if (res.data.success) {
                 await fetchChargeHeads();
                 return { success: true, data: res.data.data };

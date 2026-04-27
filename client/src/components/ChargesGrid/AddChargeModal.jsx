@@ -15,7 +15,9 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editSacHsn, setEditSacHsn] = useState('');
+  const [editIsPurchaseBookMandatory, setEditIsPurchaseBookMandatory] = useState(false);
   const [customSacHsn, setCustomSacHsn] = useState('');
+  const [customIsPurchaseBookMandatory, setCustomIsPurchaseBookMandatory] = useState(false);
 
 
   useEffect(() => {
@@ -25,6 +27,7 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
       setCustomName('');
       setCustomCategory('');
       setCustomSacHsn('');
+      setCustomIsPurchaseBookMandatory(false);
       setSelectedNames(new Set());
     }
   }, [isOpen, fetchChargeHeads]);
@@ -51,11 +54,12 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
       alert('A charge with this name already exists.');
       return;
     }
-    const res = await addChargeHead(name, cat, customSacHsn.trim());
+    const res = await addChargeHead(name, cat, customSacHsn.trim(), customIsPurchaseBookMandatory);
     if (res.success) {
       setCustomName('');
       setCustomCategory('');
       setCustomSacHsn('');
+      setCustomIsPurchaseBookMandatory(false);
       const newSelected = new Set(selectedNames);
       newSelected.add(name);
       setSelectedNames(newSelected);
@@ -77,13 +81,14 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
     setEditName(ch.name);
     setEditCategory(ch.category || '');
     setEditSacHsn(ch.sacHsn || '');
+    setEditIsPurchaseBookMandatory(ch.isPurchaseBookMandatory || false);
   };
 
   const handleSaveEdit = async (ch, e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!editName.trim()) return alert('Name is required');
-    const res = await updateChargeHead(ch._id, editName.trim(), editCategory, editSacHsn.trim());
+    const res = await updateChargeHead(ch._id, editName.trim(), editCategory, editSacHsn.trim(), editIsPurchaseBookMandatory);
     if (res.success) {
       setEditingChargeId(null);
       // optionally update selectedNames if name changed, kept simple
@@ -164,6 +169,10 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                         onChange={e => setEditSacHsn(e.target.value)} 
                         style={{ width: '80px', padding: '4px' }} 
                       />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                        <input type="checkbox" checked={editIsPurchaseBookMandatory} onChange={e => setEditIsPurchaseBookMandatory(e.target.checked)} />
+                        PB Mandatory?
+                      </label>
                       <button type="button" onClick={(e) => handleSaveEdit(ch, e)} style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Save</button>
                       <button type="button" onClick={handleCancelEdit} style={{ background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
                     </div>
@@ -181,6 +190,7 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                       <span className="predefined-item-name">{ch.name}</span>
                       <span style={{ fontSize: '10px', color: '#64748b', marginRight: '8px' }}>{ch.sacHsn}</span>
                       <span className="predefined-item-cat">{ch.category}</span>
+                      {ch.isPurchaseBookMandatory && <span style={{ fontSize: '9px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 4px', borderRadius: '4px', marginLeft: '8px', fontWeight: 'bold' }}>PB REQ</span>}
                     </label>
                     {isAdmin && (
                       <div style={{ display: 'flex', gap: '8px', paddingRight: '12px' }}>
@@ -217,6 +227,10 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
                 value={customSacHsn}
                 onChange={(e) => setCustomSacHsn(e.target.value)}
               />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={customIsPurchaseBookMandatory} onChange={e => setCustomIsPurchaseBookMandatory(e.target.checked)} />
+                PB Mandatory?
+              </label>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="button" className="add-custom-btn" onClick={handleAddCustom}>Add to List</button>

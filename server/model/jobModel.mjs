@@ -162,6 +162,7 @@ const ChargeSchema = new mongoose.Schema({
   purchase_book_status: { type: String, default: '' },
   payment_request_no: { type: String, trim: true },
   payment_request_status: { type: String, default: '' },
+  isPurchaseBookMandatory: { type: Boolean, default: false },
   payment_request_is_approved: { type: Boolean, default: false },
   payment_request_approved_byFirst: { type: String, trim: true },
   payment_request_approved_byLast: { type: String, trim: true },

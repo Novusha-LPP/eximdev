@@ -16,6 +16,7 @@ import BuildIcon from "@mui/icons-material/Build";
 import SpeedIcon from "@mui/icons-material/Speed";
 import StarIcon from "@mui/icons-material/Star";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 import {
   Dialog,
   DialogTitle,
@@ -182,6 +183,17 @@ const UtilityParent = () => {
       path: "/duty-calculator",
       features: ["Real-time rates", "Multiple currencies", "Tax breakdown"],
     },
+    {
+      title: "Billing Reports Utility",
+      description: "Generate PB and PR reports for billing pending jobs",
+      icon: (
+        <AssessmentIcon
+          sx={{ fontSize: 45, color: theme.palette.primary.main }}
+        />
+      ),
+      path: "/billing-reports-utility",
+      features: ["PB & PR reports", "Multi-filter support", "Excel export"],
+    },
     ...(isLocal ? [{
       title: "Database Synchronization",
       description: "Sync production data to local database and run migrations",
@@ -310,7 +322,7 @@ const UtilityParent = () => {
                 <Button
                   fullWidth
                   variant="contained"
-                  startIcon={card.title === "CTH Directory Search" ? <BuildIcon /> : card.title === "Import Duty Calculator" ? <CalculateIcon /> : <CloudDownloadIcon />}
+                  startIcon={card.title === "CTH Directory Search" ? <BuildIcon /> : card.title === "Import Duty Calculator" ? <CalculateIcon /> : card.title === "Billing Reports Utility" ? <AssessmentIcon /> : <CloudDownloadIcon />}
                   sx={buttonStyles}
                   onClick={(e) => {
                     e.stopPropagation();

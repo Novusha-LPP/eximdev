@@ -133,6 +133,7 @@ import ReleaseNotes from "../components/home/ReleaseNotes.js";
 import Feedback from "../components/home/Feedback.js";
 
 import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
+import BillingReportsUtility from "../components/import-utility-tool/BillingReportsUtility.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
@@ -771,6 +772,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="Import Utility Tool">
                       <UtilityParent />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/billing-reports-utility"
+                  element={
+                    <ProtectedRoute requiredModule="Import Utility Tool">
+                      <BillingReportsUtility />
                     </ProtectedRoute>
                   }
                 />

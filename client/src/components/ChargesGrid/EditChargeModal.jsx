@@ -12,6 +12,7 @@ import logo from '../../assets/images/logo.webp';
 import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { IconButton } from '@mui/material';
+import HistoryIcon from '@mui/icons-material/History';
 
 const EditChargeModal = ({ 
   isOpen, 
@@ -48,6 +49,26 @@ const EditChargeModal = ({
   const [organizations, setOrganizations] = useState([]);
   const [generalOrgs, setGeneralOrgs] = useState([]);
   const [cfsList, setCfsList] = useState([]);
+  
+  const [showLogs, setShowLogs] = useState({ open: false, chargeId: null, chargeName: '' });
+  const [chargeLogs, setChargeLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const fetchChargeLogs = async (chargeId, chargeName) => {
+    setLogsLoading(true);
+    setChargeLogs([]);
+    setShowLogs({ open: true, chargeId, chargeName });
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/charges/audit-trail/${chargeId}`, { withCredentials: true });
+      if (res.data.success) {
+        setChargeLogs(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching charge logs", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
   const [transporters, setTransporters] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState({ index: null, section: null }); // Track which row/section has open dropdown
   const [paymentDetailsAudit, setPaymentDetailsAudit] = useState({});
@@ -554,11 +575,28 @@ const EditChargeModal = ({
               <div className="charges-form-section-new">
                 <div className="charges-form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginRight: '30px', gap: '10px 20px' }}>
                   <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="charges-form-label">Charge {row.isPurchaseBookMandatory && <span style={{ fontSize: '9px', background: '#ffebee', color: '#c62828', padding: '1px 6px', borderRadius: '4px', marginLeft: '8px', border: '1px solid #ef9a9a' }}>PB MANDATORY</span>}</span>
+                    <span className="charges-form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Charge {row.isPurchaseBookMandatory && <span style={{ fontSize: '9px', background: '#ffebee', color: '#c62828', padding: '1px 6px', borderRadius: '4px', marginLeft: '8px', border: '1px solid #ef9a9a' }}>PB MANDATORY</span>}</span>
+                      {isAuth && (
+                        <IconButton 
+                            size="small" 
+                            onClick={() => fetchChargeLogs(row._id, row.chargeHead)}
+                            title="View Edit Logs"
+                            style={{ padding: '2px' }}
+                        >
+                            <HistoryIcon style={{ fontSize: '16px', color: '#1976d2' }} />
+                        </IconButton>
+                      )}
+                    </span>
                     <div className="charges-form-input-search">
                       <input type="text" readOnly className="charges-form-input" style={{ background: '#f5f8fc', color: '#1a3a5c', fontWeight: 'bold' }} value={row.chargeHead || ''} />
                       <button type="button" className="charges-search-btn" disabled={effectiveReadOnly}>🔍</button>
                     </div>
+                    {row.createdBy && (
+                      <div style={{ fontSize: '10px', color: '#666', fontStyle: 'italic', marginTop: '2px', textAlign: 'right' }}>
+                        Created by: {row.createdBy.first_name} {row.createdBy.last_name}
+                      </div>
+                    )}
                   </div>
                   <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="charges-form-label">Category</span>
@@ -1477,9 +1515,81 @@ const EditChargeModal = ({
           }
         }}
       />
+      {showLogs.open && (
+        <ChargeLogsModal 
+            isOpen={showLogs.open} 
+            onClose={() => setShowLogs({ open: false, chargeId: null, chargeName: '' })} 
+            logs={chargeLogs} 
+            loading={logsLoading} 
+            chargeName={showLogs.chargeName} 
+        />
+      )}
     </div>,
     document.body
   );
+};
+
+const ChargeLogsModal = ({ isOpen, onClose, logs, loading, chargeName }) => {
+    if (!isOpen) return null;
+    return createPortal(
+        <div className="charges-edit-modal-overlay charges-active" style={{ zIndex: 1300 }}>
+            <div className="charges-edit-modal" style={{ width: '700px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                <div className="charges-modal-title" style={{ background: 'linear-gradient(to bottom, #1976d2, #1565c0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Audit Logs: {chargeName}</span>
+                    <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', fontSize: '20px' }}>×</button>
+                </div>
+                <div className="charges-modal-body" style={{ overflowY: 'auto', flex: 1, padding: '20px' }}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
+                           <div className="loading-spinner" style={{ margin: '0 auto 10px' }}></div>
+                           Loading audit trails...
+                        </div>
+                    ) : logs.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                           <HistoryIcon style={{ fontSize: '48px', color: '#ddd', marginBottom: '10px' }} />
+                           <div>No change logs found for this charge. Only changes to cost/revenue are tracked here.</div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            {logs.map((log, idx) => (
+                                <div key={log._id} style={{ borderLeft: '3px solid #2196f3', paddingLeft: '15px', paddingBottom: '10px', position: 'relative' }}>
+                                    <div style={{ position: 'absolute', left: '-8px', top: '0', width: '12px', height: '12px', borderRadius: '50%', background: '#2196f3', border: '2px solid white' }}></div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#1565c0', fontSize: '13px' }}>
+                                            {log.username} <span style={{ fontWeight: 'normal', color: '#666', fontSize: '11px', background: '#e3f2fd', padding: '2px 6px', borderRadius: '10px', marginLeft: '5px' }}>{log.userRole}</span>
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#888' }}>{new Date(log.timestamp).toLocaleString()}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        {log.changes.map((change, cIdx) => (
+                                            <div key={cIdx} style={{ fontSize: '11px', background: '#f8f9fa', padding: '8px', borderRadius: '6px', border: '1px solid #eee' }}>
+                                                <div style={{ fontWeight: 'bold', color: '#555', marginBottom: '4px', textTransform: 'capitalize' }}>
+                                                    {change.fieldPath.replace('charge.', '').replace(/\./g, ' ➔ ')}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ flex: 1, color: '#d32f2f', background: '#ffebee', padding: '2px 6px', borderRadius: '3px' }}>
+                                                        {change.oldValue === null || change.oldValue === undefined ? <em style={{opacity: 0.5}}>None</em> : String(change.oldValue)}
+                                                    </div>
+                                                    <span style={{ color: '#999' }}>➔</span>
+                                                    <div style={{ flex: 1, color: '#2e7d32', background: '#e8f5e9', padding: '2px 6px', borderRadius: '3px', fontWeight: 'bold' }}>
+                                                        {change.newValue === null || change.newValue === undefined ? <em style={{opacity: 0.5}}>None</em> : String(change.newValue)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="charges-modal-footer" style={{ borderTop: '1px solid #eee' }}>
+                    <button type="button" className="charges-btn" onClick={onClose} style={{ background: '#666' }}>Close</button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
 };
 
 export default memo(EditChargeModal);

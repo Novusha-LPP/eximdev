@@ -2,6 +2,8 @@ import express from 'express';
 import JobModel from '../../model/jobModel.mjs';
 import ChargeHeadModel from '../../model/ChargeHead.mjs';
 import verifyToken from '../../middleware/authMiddleware.mjs';
+import { findChanges, logAuditTrail } from '../../services/auditTrailService.mjs';
+import AuditTrailModel from '../../model/auditTrailModel.mjs';
 
 const router = express.Router();
 
@@ -120,7 +122,7 @@ router.get('/charges', async (req, res) => {
     if (!parentId || parentModule !== 'Job') {
       return res.status(400).json({ success: false, message: 'Valid Job parentId required' });
     }
-    const job = await JobModel.findById(parentId);
+    const job = await JobModel.findById(parentId).populate('charges.createdBy', 'first_name last_name');
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
     
     res.json({ success: true, data: job.charges || [] });
@@ -129,7 +131,7 @@ router.get('/charges', async (req, res) => {
   }
 });
 
-router.post('/charges', async (req, res) => {
+router.post('/charges', verifyToken, async (req, res) => {
   try {
     const { parentId, parentModule } = req.body;
     if (!parentId || parentModule !== 'Job') return res.status(400).json({ success: false, message: 'Valid Job parentId required' });
@@ -137,7 +139,8 @@ router.post('/charges', async (req, res) => {
     const job = await JobModel.findById(parentId);
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
-    job.charges.push(req.body);
+    const chargeData = { ...req.body, createdBy: req.user?._id };
+    job.charges.push(chargeData);
     await job.save();
     
     const newCharge = job.charges[job.charges.length - 1];
@@ -148,7 +151,7 @@ router.post('/charges', async (req, res) => {
 });
 
 // Add multiple charges at once
-router.post('/charges/bulk', async (req, res) => {
+router.post('/charges/bulk', verifyToken, async (req, res) => {
   try {
     const { charges } = req.body;
     if (!Array.isArray(charges) || charges.length === 0) {
@@ -159,7 +162,9 @@ router.post('/charges/bulk', async (req, res) => {
     const job = await JobModel.findById(parentId);
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
-    charges.forEach(chargeData => job.charges.push(chargeData));
+    charges.forEach(chargeData => {
+      job.charges.push({ ...chargeData, createdBy: req.user?._id });
+    });
     await job.save();
     
     const savedCharges = job.charges.slice(-charges.length);
@@ -175,6 +180,7 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     if (!job) return res.status(404).json({ success: false, message: 'Charge not found' });
     
     const charge = job.charges.id(req.params.id);
+    const originalCharge = charge.toObject();
 
     const role = (req.user.role || "").toLowerCase();
     const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
@@ -214,6 +220,29 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
       }
     }
     await job.save();
+
+    // Log targeted audit trail for the charge
+    const updatedCharge = charge.toObject();
+    const changes = findChanges(originalCharge, updatedCharge, "charge");
+    if (changes.length > 0) {
+      await logAuditTrail({
+        documentId: charge._id,
+        documentType: "Charge",
+        job_no: job.job_no,
+        year: job.year,
+        branchId: job.branchId || job.branch_id,
+        branch_code: job.branch_code,
+        userId: req.user.username,
+        username: req.user.username,
+        userRole: req.user.role,
+        action: "UPDATE",
+        heading: `Charge '${charge.chargeHead}' Updated`,
+        changes,
+        endpoint: req.originalUrl,
+        method: "PUT"
+      });
+    }
+
     res.json({ success: true, data: charge });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -247,6 +276,19 @@ router.delete('/charges/:id', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Deleted' });
   } catch (error) {
      res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/charges/audit-trail/:id', verifyToken, async (req, res) => {
+  try {
+    const role = (req.user.role || "").toLowerCase();
+    if (role !== 'admin' && role !== 'hod' && role !== 'head_of_department') {
+      return res.status(403).json({ success: false, message: 'Admins or HODs only' });
+    }
+    const logs = await AuditTrailModel.find({ documentId: req.params.id, documentType: "Charge" }).sort({ timestamp: -1 });
+    res.json({ success: true, data: logs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

@@ -201,11 +201,12 @@ const normalizeAttendanceStatusInput = (status) => {
     return normalized;
 };
 
-const findPendingLeaveForAttendance = async (employeeId, attendanceDate, currentLeaveId = null) => {
+const findPendingLeaveForAttendance = async (employeeId, attendanceDate, currentLeaveId = null, tz = 'Asia/Kolkata') => {
     if (!employeeId || !attendanceDate) return null;
 
-    const dayStart = moment(attendanceDate).startOf('day').toDate();
-    const dayEnd = moment(attendanceDate).endOf('day').toDate();
+    // Use timezone-aware day boundaries so we compare local days (prevents UTC drift causing false overlaps)
+    const dayStart = moment.tz(attendanceDate, tz).startOf('day').toDate();
+    const dayEnd = moment.tz(attendanceDate, tz).endOf('day').toDate();
     const query = {
         employee_id: employeeId,
         approval_status: 'pending',
@@ -222,10 +223,10 @@ const findPendingLeaveForAttendance = async (employeeId, attendanceDate, current
         .lean();
 };
 
-const buildPendingLeaveConflict = (leave, attendanceDate) => {
-    const fromDate = moment(leave.from_date).format('YYYY-MM-DD');
-    const toDate = moment(leave.to_date).format('YYYY-MM-DD');
-    const targetDate = moment(attendanceDate).format('YYYY-MM-DD');
+const buildPendingLeaveConflict = (leave, attendanceDate, tz = 'Asia/Kolkata') => {
+    const fromDate = moment(leave.from_date).tz(tz).format('YYYY-MM-DD');
+    const toDate = moment(leave.to_date).tz(tz).format('YYYY-MM-DD');
+    const targetDate = moment(attendanceDate).tz(tz).format('YYYY-MM-DD');
 
     return {
         error: 'PENDING_LEAVE_ACTION_REQUIRED',
@@ -2194,10 +2195,10 @@ export const updateAttendanceRecord = async (req, res) => {
 
         status = normalizeAttendanceStatusInput(status);
 
-        const pendingLeave = await findPendingLeaveForAttendance(record.employee_id, record.attendance_date, record._id);
+        const pendingLeave = await findPendingLeaveForAttendance(record.employee_id, record.attendance_date, record._id, company?.timezone || 'Asia/Kolkata');
         const allowOverride = toBoolean(force_override);
         if (pendingLeave && !allowOverride) {
-            return res.status(409).json(buildPendingLeaveConflict(pendingLeave, record.attendance_date));
+            return res.status(409).json(buildPendingLeaveConflict(pendingLeave, record.attendance_date, company?.timezone || 'Asia/Kolkata'));
         }
 
         if (status !== undefined) record.status = status;
@@ -2428,10 +2429,10 @@ export const createManualAdjustment = async (req, res) => {
 
         status = normalizeAttendanceStatusInput(status);
 
-        const pendingLeave = await findPendingLeaveForAttendance(employee_id, targetDate);
+        const pendingLeave = await findPendingLeaveForAttendance(employee_id, targetDate, null, company?.timezone || 'Asia/Kolkata');
         const allowOverride = toBoolean(force_override);
         if (pendingLeave && !allowOverride) {
-            return res.status(409).json(buildPendingLeaveConflict(pendingLeave, targetDate));
+            return res.status(409).json(buildPendingLeaveConflict(pendingLeave, targetDate, company?.timezone || 'Asia/Kolkata'));
         }
         if (status !== undefined) record.status = status;
 

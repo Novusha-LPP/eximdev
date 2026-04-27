@@ -146,6 +146,7 @@ const ChargeLineSchema = new mongoose.Schema({
   isTds: { type: Boolean, default: false },
   tdsPercent: { type: Number, default: 0 },
   tdsAmount: { type: Number, default: 0 },
+  tdsCategory: { type: String, default: '94C' },
   netPayable: { type: Number, default: 0 }
 }, { _id: false });
 
@@ -734,6 +735,13 @@ const jobSchema = new mongoose.Schema({
 // Automatically update `updatedAt` before saving
 jobSchema.pre("save", async function (next) {
   this.updatedAt = Date.now();
+  
+  // Automatically mark job as completed if fully billed (both Agency and Reimbursement)
+  const billNos = (this.bill_no || "").split(",");
+  if (billNos[0]?.trim() && billNos[1]?.trim()) {
+    this.status = "Completed";
+    this.detailed_status = "Billed";
+  }
 
   try {
     const jobObj = this.toObject();

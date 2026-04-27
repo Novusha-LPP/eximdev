@@ -484,6 +484,14 @@ async function syncJobBillingInfo(jobId) {
             job.bill_no = `${giaNo},${girNo}`;
             job.bill_date = `${formatDate(giaBill?.generatedAt)},${formatDate(girBill?.generatedAt)}`;
             
+            // Set billing_completed_date if not already set
+            if (!job.billing_completed_date) {
+                const completionDate = (giaBill?.generatedAt && girBill?.generatedAt) 
+                    ? (new Date(giaBill.generatedAt) > new Date(girBill.generatedAt) ? giaBill.generatedAt : girBill.generatedAt)
+                    : (giaBill?.generatedAt || girBill?.generatedAt || new Date());
+                job.billing_completed_date = formatDate(completionDate);
+            }
+
             // Set status to Completed when both bills are present
             job.status = "Completed";
 

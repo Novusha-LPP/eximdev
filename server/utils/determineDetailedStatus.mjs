@@ -12,7 +12,16 @@ export function determineDetailedStatus(job, branchConfig = null) {
     type_of_Do,
     do_completed,
     mode,
+    bill_no,
   } = job || {};
+
+  // Check if billed (both Agency and Reimbursement bills required)
+  const billNos = (bill_no || "").split(",");
+  const giaNo = (billNos[0] || "").trim();
+  const girNo = (billNos[1] || "").trim();
+  if (giaNo && girNo) {
+    return "Billed";
+  }
 
   const isValidDate = (date) => {
     if (!date) return false;

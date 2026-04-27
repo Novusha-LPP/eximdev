@@ -37,7 +37,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "chargeRef": '',
         "jobRef": '',
         "Charge Description": '',
-        "Charge Head Category": ''
+        "Charge Head Category": '',
+        "TDS Category": '94C'
     });
 
     useEffect(() => {
@@ -117,7 +118,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || '',
                     "Charge Description": initialData.chargeDescription || '',
-                    "Charge Head Category": initialData.chargeHeadCategory || ''
+                    "Charge Head Category": initialData.chargeHeadCategory || '',
+                    "TDS Category": initialData.tdsCategory || '94C'
                 }));
             }
         };
@@ -316,7 +318,14 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                                 <span className="charges-ep-label">Charge Head Category</span>
                                 <input type="text" name="Charge Head Category" className="charges-ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
                             </div>
-                            <div className="charges-ep-row" style={{ gridColumn: 'span 2' }}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">TDS Category</span>
+                                <select name="TDS Category" className="charges-ep-select" value={formData["TDS Category"]} onChange={handleInputChange}>
+                                    <option value="94C">94C</option>
+                                    <option value="94I">94I</option>
+                                </select>
+                            </div>
+                            <div className="charges-ep-row" style={{ gridColumn: 'span 1' }}>
                                 <span className="charges-ep-label">Charge Description</span>
                                 <input type="text" name="Charge Description" className="charges-ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
                             </div>

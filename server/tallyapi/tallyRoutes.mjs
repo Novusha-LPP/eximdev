@@ -229,6 +229,7 @@ const mapPurchaseEntryData = (data) => {
     jobRef: data.jobRef,
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
+    tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
     status: data["Status"] || data.status || ''
   };
 };
@@ -367,6 +368,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "Total": entry.total,
       "Charge Description": entry.chargeDescription || '',
       "Charge Head Category": chargeCategory || '',
+      "TDS Category": entry.tdsCategory || '94C',
       "Status": entry.status
     };
 
@@ -431,6 +433,7 @@ const mapPaymentRequestData = (data) => {
     beneficiaryCode: data["Beneficiary Code"] || data.beneficiaryCode,
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
+    tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
     status: data["Status"] || data.status || ''
   };
 };
@@ -558,6 +561,7 @@ router.get("/payment-request", authApiKey, async (req, res) => {
       "Beneficiary Code": request.beneficiaryCode,
       "Charge Description": request.chargeDescription || '',
       "Charge Head Category": chargeCategory || '',
+      "TDS Category": request.tdsCategory || '94C',
       "Status": request.status
     };
 

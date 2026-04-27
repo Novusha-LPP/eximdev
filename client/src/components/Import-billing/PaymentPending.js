@@ -446,6 +446,9 @@ function PaymentPending({ workMode = "Payment" }) {
                   <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }}>{reqGroups[no].heads.join(", ")}:</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Chip label={no} size="small" color="primary" variant="outlined" onClick={() => handleViewPaymentRequest(no)} sx={{ fontWeight: 'bold', height: '20px' }} />
+                    <IconButton size="small" onClick={(e) => handleCopy(e, no)} title="Copy No" sx={{ p: 0.2 }}>
+                      <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
+                    </IconButton>
                     {reqGroups[no].isApproved && (
                       <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
                     )}
@@ -648,8 +651,11 @@ function PaymentPending({ workMode = "Payment" }) {
                       {selectedPaymentRequest.isPurchaseBook ? "Entry No" : "Request No"}
                     </Typography>
                   </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
+                    <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.requestNo)} title="Copy No">
+                      <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                    </IconButton>
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>

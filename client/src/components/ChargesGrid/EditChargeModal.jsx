@@ -492,6 +492,32 @@ const EditChargeModal = ({
     return Number(num).toFixed(2);
   };
 
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return;
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   return createPortal(
     <div className="charges-edit-modal-overlay charges-active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
       <div className="charges-edit-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
@@ -559,6 +585,16 @@ const EditChargeModal = ({
                     <div className="charges-ep-inline">
                         <input type="text" readOnly disabled={readOnly} style={{ background: '#e3f2fd', color: '#1565c0', width: '60%' }} value={row.purchase_book_no || ''} />
                         {row.purchase_book_no && (
+                          <>
+                            <IconButton 
+                                size="small" 
+                                color="primary" 
+                                onClick={(e) => handleCopy(e, row.purchase_book_no)}
+                                style={{ marginLeft: '4px' }}
+                                title="Copy PB No"
+                            >
+                                <ContentCopyIcon style={{ fontSize: '16px' }} />
+                            </IconButton>
                             <IconButton 
                                 size="small" 
                                 color="primary" 
@@ -578,6 +614,7 @@ const EditChargeModal = ({
                             >
                                 <PrintIcon style={{ fontSize: '18px' }} />
                             </IconButton>
+                          </>
                         )}
                         <span className="ep-status-pill" style={{ 
                             marginLeft: '10px', 
@@ -599,6 +636,16 @@ const EditChargeModal = ({
                         <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
                             <input type="text" readOnly disabled={readOnly} style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
                             {row.payment_request_no && (
+                              <>
+                                <IconButton 
+                                    size="small" 
+                                    color="error" 
+                                    onClick={(e) => handleCopy(e, row.payment_request_no)}
+                                    style={{ marginLeft: '4px' }}
+                                    title="Copy PR No"
+                                >
+                                    <ContentCopyIcon style={{ fontSize: '16px' }} />
+                                </IconButton>
                                 <IconButton 
                                     size="small" 
                                     color="error" 
@@ -618,6 +665,7 @@ const EditChargeModal = ({
                                 >
                                     <PrintIcon style={{ fontSize: '18px' }} />
                                 </IconButton>
+                              </>
                             )}
                             <span className="ep-status-pill" style={{ 
                                 marginLeft: '10px', 

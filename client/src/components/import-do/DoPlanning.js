@@ -245,6 +245,28 @@ function DoPlanning() {
     ]
   );
 
+  const handleCopy = useCallback((event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A" || text === "-") return;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
+
   // Play notification sound
   const playNotificationSound = () => {
     try {
@@ -644,32 +666,6 @@ function DoPlanning() {
     getYears();
   }, [selectedYearState, setSelectedYear]);
 
-  const handleCopy = (event, text) => {
-    event.stopPropagation();
-    if (!text || text === "N/A") return;
-    if (
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => console.log("Copied:", text))
-        .catch((err) => console.error("Copy failed:", err));
-    } else {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        console.log("Copied (fallback):", text);
-      } catch (err) {
-        console.error("Fallback failed:", err);
-      }
-      document.body.removeChild(textArea);
-    }
-  };
-
   // Fetch jobs when dependencies change
   useEffect(() => {
     if (selectedYearState && user?.username) {
@@ -996,9 +992,16 @@ function DoPlanning() {
                       color: "#0288d1",
                       fontWeight: 500,
                       fontSize: "11px",
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
                     }}
                   >
-                    Req No: {req.payment_request_no} | {req.payment_request_requested_by || ""}
+                    Req No: {req.payment_request_no} 
+                    <IconButton size="small" onClick={(e) => handleCopy(e, req.payment_request_no)} sx={{ p: 0 }} title="Copy No">
+                      <ContentCopyIcon sx={{ fontSize: '12px' }} />
+                    </IconButton>
+                    | {req.payment_request_requested_by || ""}
                   </div>
                 ))}
               </div>

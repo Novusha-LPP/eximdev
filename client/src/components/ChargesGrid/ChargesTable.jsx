@@ -1,5 +1,6 @@
 import React from 'react';
-import { Chip } from '@mui/material';
+import { Chip, IconButton } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DescriptionIcon from '@mui/icons-material/Description';
 import './charges.css';
 
@@ -32,12 +33,50 @@ const ChargesTable = ({
     return Number(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const handleCopy = (e, text) => {
+    e.stopPropagation();
+    if (!text || text === "-" || text === "N/A") return;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   const renderParticularsHeaders = () => (
     <>
       <th>Category</th>
 
-      <th style={{ width: '100px' }}>Purchase Book No.</th>
-            <th style={{ width: '100px' }}>Payment Request No.</th>
+      <th style={{ width: '120px' }}>
+        PB No.
+        <IconButton size="small" onClick={(e) => {
+          const pbNos = charges.map(c => c.purchase_book_no).filter(no => no && no !== "-");
+          if (pbNos.length > 0) handleCopy(e, pbNos.join(", "));
+        }} title="Copy all PB Nos">
+          <ContentCopyIcon style={{ fontSize: '14px' }} />
+        </IconButton>
+      </th>
+      <th style={{ width: '120px' }}>
+        PR No.
+        <IconButton size="small" onClick={(e) => {
+          const prNos = charges.map(c => c.payment_request_no).filter(no => no && no !== "-");
+          if (prNos.length > 0) handleCopy(e, prNos.join(", "));
+        }} title="Copy all PR Nos">
+          <ContentCopyIcon style={{ fontSize: '14px' }} />
+        </IconButton>
+      </th>
       <th>Remarks</th>
       <th style={{ width: '100px' }}>Attach</th>
     </>
@@ -208,8 +247,22 @@ const ChargesTable = ({
                   <>
                     <td>{ch.category}</td>
                   
-                    <td style={{ fontWeight: '600', color: '#2e7d32' }}>{ch.purchase_book_no || '-'}</td>
-                      <td style={{ fontWeight: '600', color: '#1565c0' }}>{ch.payment_request_no || '-'}</td>
+                    <td style={{ fontWeight: '600', color: '#2e7d32' }}>
+                      {ch.purchase_book_no || '-'}
+                      {ch.purchase_book_no && (
+                        <IconButton size="small" onClick={(e) => handleCopy(e, ch.purchase_book_no)} title="Copy PB No">
+                          <ContentCopyIcon style={{ fontSize: '14px' }} />
+                        </IconButton>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: '600', color: '#1565c0' }}>
+                      {ch.payment_request_no || '-'}
+                      {ch.payment_request_no && (
+                        <IconButton size="small" onClick={(e) => handleCopy(e, ch.payment_request_no)} title="Copy PR No">
+                          <ContentCopyIcon style={{ fontSize: '14px' }} />
+                        </IconButton>
+                      )}
+                    </td>
                     <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.remark || ''}>
                       {ch.remark || ''}
                     </td>
@@ -245,7 +298,12 @@ const ChargesTable = ({
                     <td style={{ textAlign: 'center' }}>
                       {ch.payment_request_no ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                          <span style={{ fontSize: '10px', color: '#1565c0', fontWeight: 'bold' }}>{ch.payment_request_no}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '10px', color: '#1565c0', fontWeight: 'bold' }}>{ch.payment_request_no}</span>
+                            <IconButton size="small" onClick={(e) => handleCopy(e, ch.payment_request_no)} title="Copy PR No" sx={{ p: 0 }}>
+                              <ContentCopyIcon style={{ fontSize: '12px' }} />
+                            </IconButton>
+                          </div>
                           {ch.payment_request_status === 'Paid' ? (
                             ch.payment_request_receipt_url ? (
                               <a 

@@ -410,14 +410,19 @@ function PaymentRequested({ workMode = "Payment" }) {
                 return (
                   <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Chip 
-                        label={no} 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined" 
-                        onClick={() => handleViewPaymentRequest(no)} 
-                        sx={{ fontWeight: 'bold', height: '20px' }} 
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Chip 
+                          label={no} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined" 
+                          onClick={() => handleViewPaymentRequest(no)} 
+                          sx={{ fontWeight: 'bold', height: '20px' }} 
+                        />
+                        <IconButton size="small" onClick={(e) => handleCopy(e, no)} title="Copy No" sx={{ p: 0.2 }}>
+                          <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
+                      </Box>
                       {isApproved && (
                         <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
                       )}
@@ -567,7 +572,14 @@ function PaymentRequested({ workMode = "Payment" }) {
       <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: '2px solid #1a237e' } }}>
         <DialogTitle sx={{ backgroundColor: '#1a237e', color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
           <span>{selectedPaymentRequest?.isPurchaseBook ? "PURCHASE BOOK DETAILS" : "PAYMENT REQUEST DETAILS"}</span>
-          <Typography variant="subtitle2" sx={{ color: '#fff', opacity: 0.8 }}>{selectedPaymentRequest?.requestNo || "N/A"}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ color: '#fff', opacity: 0.8 }}>{selectedPaymentRequest?.requestNo || "N/A"}</Typography>
+            {selectedPaymentRequest?.requestNo && (
+              <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.requestNo)} sx={{ color: '#fff', opacity: 0.8, p: 0.5 }} title="Copy No">
+                <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
+            )}
+          </Box>
         </DialogTitle>
         <DialogContent sx={{ p: 0, backgroundColor: '#fff' }}>
           {isModalLoading ? <Box display="flex" justifyContent="center" p={4}><CircularProgress size={40} /></Box> : selectedPaymentRequest && (

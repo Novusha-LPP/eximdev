@@ -144,11 +144,13 @@ const EditChargeModal = ({
         payment_request_status: charge.payment_request_status || '',
         revenue: {
           ...(charge.revenue || {}),
-          isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true
+          isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
+          partyType: charge.revenue?.partyType || 'Customer'
         },
         cost: {
           ...(charge.cost || {}),
-          isGst: (charge.cost && charge.cost.isGst !== undefined) ? charge.cost.isGst : true
+          isGst: (charge.cost && charge.cost.isGst !== undefined) ? charge.cost.isGst : true,
+          partyType: charge.cost?.partyType || 'Vendor'
         }
       }));
       setFormData(initialData);
@@ -225,6 +227,11 @@ const EditChargeModal = ({
         // Auto-populate Payable To if type is 'Importer' in Cost section
         if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
           updated[index][section].partyName = importerName;
+        }
+
+        // Auto-populate Payable To if type is 'Custom Duty' in Cost section
+        if (section === 'cost' && field === 'partyType' && value === 'Custom Duty') {
+          updated[index][section].partyName = 'CUSTOM DUTY';
         }
       } else {
         updated[index][field] = value;
@@ -844,20 +851,22 @@ const EditChargeModal = ({
                                   </div>
                                   {activeDropdown.index === i && activeDropdown.section === 'revenue' && (row.revenue?.partyName?.length >= 2) && (
                                     <ul className="charges-ep-dropdown-list" ref={dropdownRef}>
-                                      {(row.revenue?.partyType?.toUpperCase() === 'AGENT' || row.revenue?.partyType?.toUpperCase() === 'CARRIER' ? shippingLines : 
-                                        row.revenue?.partyType?.toUpperCase() === 'CUSTOMER' ? organizations : [])
-                                        .filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase()))
-                                        .slice(0, 20)
-                                        .map((item, idx) => (
+                                      {(() => {
+                                        const pType = (row.revenue?.partyType || 'Customer').toUpperCase();
+                                        const searchList = (pType === 'AGENT' || pType === 'CARRIER') ? shippingLines : organizations;
+                                        const filtered = searchList.filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase())).slice(0, 20);
+                                        
+                                        if (filtered.length === 0) {
+                                          return <li className="charges-ep-dropdown-item"><span className="charges-ep-item-sub">No results found</span></li>;
+                                        }
+                                        
+                                        return filtered.map((item, idx) => (
                                           <li key={idx} className="charges-ep-dropdown-item" onClick={() => handleSelectParty(i, 'revenue', item)}>
                                             <span className="charges-ep-item-name">{item.name}</span>
                                             <span className="charges-ep-item-sub">{item.city || 'Master Directory'}</span>
                                           </li>
-                                        ))}
-                                      {((row.revenue?.partyType === 'Agent' || row.revenue?.partyType === 'Carrier' ? shippingLines : 
-                                        row.revenue?.partyType === 'Customer' ? organizations : [])
-                                        .filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase()))
-                                        .length === 0) && <li className="charges-ep-dropdown-item"><span className="charges-ep-item-sub">No results found</span></li>}
+                                        ));
+                                      })()}
                                     </ul>
                                   )}
                                 </div>
@@ -1032,8 +1041,8 @@ const EditChargeModal = ({
                               </div>
                               <div className="charges-ep-row">
                                 <span className="charges-ep-label">Payable Type</span>
-                                <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.cost?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
-                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option><option>Agent</option><option value="CFS">Terminal</option><option>General Org</option>
+                                <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.cost?.partyType || 'Vendor'} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
+                                  <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Custom Duty</option><option>Others</option><option>Agent</option><option value="CFS">Terminal</option><option>General Org</option>
                                 </select>
                               </div>
                               <div className="charges-ep-row">
@@ -1060,28 +1069,29 @@ const EditChargeModal = ({
                                   </div>
                                   {activeDropdown.index === i && activeDropdown.section === 'cost' && (row.cost?.partyName?.length >= 2) && (
                                     <ul className="charges-ep-dropdown-list" ref={dropdownRef}>
-                                      {(row.cost?.partyType?.toUpperCase() === 'AGENT' || row.cost?.partyType?.toUpperCase() === 'OTHERS' ? shippingLines : 
-                                        row.cost?.partyType?.toUpperCase() === 'VENDOR' ? suppliers :
-                                        row.cost?.partyType?.toUpperCase() === 'TRANSPORTER' ? transporters :
-                                        row.cost?.partyType?.toUpperCase() === 'IMPORTER' ? organizations : 
-                                        row.cost?.partyType?.toUpperCase() === 'GENERAL ORG' ? generalOrgs :
-                                        row.cost?.partyType?.toUpperCase() === 'CFS' ? cfsList : [])
-                                        .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
-                                        .slice(0, 20)
-                                        .map((item, idx) => (
+                                      {(() => {
+                                        const pType = (row.cost?.partyType || 'Vendor').toUpperCase();
+                                        let searchList = [];
+                                        if (pType === 'AGENT' || pType === 'OTHERS') searchList = shippingLines;
+                                        else if (pType === 'VENDOR') searchList = suppliers;
+                                        else if (pType === 'TRANSPORTER') searchList = transporters;
+                                        else if (pType === 'IMPORTER') searchList = organizations;
+                                        else if (pType === 'GENERAL ORG') searchList = generalOrgs;
+                                        else if (pType === 'CFS') searchList = cfsList;
+                                        
+                                        const filtered = searchList.filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase())).slice(0, 20);
+                                        
+                                        if (filtered.length === 0) {
+                                          return <li className="charges-ep-dropdown-item"><span className="charges-ep-item-sub">No results found</span></li>;
+                                        }
+                                        
+                                        return filtered.map((item, idx) => (
                                           <li key={idx} className="charges-ep-dropdown-item" onClick={() => handleSelectParty(i, 'cost', item)}>
                                             <span className="charges-ep-item-name">{item.name}</span>
                                             <span className="charges-ep-item-sub">{item.city || 'Master Directory'}</span>
                                           </li>
-                                        ))}
-                                      {((row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
-                                        row.cost?.partyType === 'Vendor' ? suppliers :
-                                        row.cost?.partyType === 'Transporter' ? transporters :
-                                        row.cost?.partyType === 'Importer' ? organizations : 
-                                        row.cost?.partyType === 'General Org' ? generalOrgs :
-                                        row.cost?.partyType === 'CFS' ? cfsList : [])
-                                        .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
-                                        .length === 0) && <li className="charges-ep-dropdown-item"><span className="charges-ep-item-sub">No results found</span></li>}
+                                        ));
+                                      })()}
                                     </ul>
                                   )}
                                 </div>

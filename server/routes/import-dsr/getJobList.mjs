@@ -55,6 +55,7 @@ const invalidateCache = (year = null) => {
 // ---------------- STATUS RANK ----------------
 
 const statusRank = {
+  "Billed": { rank: 0, field: "billing_completed_date" },
   "Billing Pending": { rank: 1, field: "emptyContainerOffLoadDate" },
   "Do completed and Delivery pending": { rank: 2, field: "do_completed" },
   "Custom Clearance Completed": { rank: 3, field: "detention_from" },
@@ -139,7 +140,7 @@ const buildAllContainerDateExists = (field) => ({
 
 const criticalFields = `
   _id job_no job_number branch_id branch_code trade_type mode cth_no year importer custom_house hawb_hbl_no awb_bl_no 
-  container_nos vessel_berthing detailed_status be_no be_date type_of_Do
+  container_nos vessel_berthing detailed_status be_no be_date type_of_Do billing_completed_date
   gateway_igm_date igm_date igm_no discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
@@ -360,6 +361,7 @@ router.get(
 
       // 5) detailed status mapping
       const statusMapping = {
+        billed: "Billed",
         billing_pending: "Billing Pending",
         eta_date_pending: "ETA Date Pending",
         estimated_time_of_arrival: "Estimated Time of Arrival",
@@ -514,11 +516,28 @@ router.get(
                 "air",
               ],
             },
+            isBilled: {
+              $let: {
+                vars: {
+                  billParts: { $split: [{ $ifNull: ["$bill_no", ""] }, ","] },
+                },
+                in: {
+                  $and: [
+                    { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: [{ $arrayElemAt: ["$$billParts", 0] }, ""] } } } }, 0] },
+                    { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: [{ $arrayElemAt: ["$$billParts", 1] }, ""] } } } }, 0] },
+                  ],
+                },
+              },
+            },
           },
           in: {
             $cond: [
-              { $and: ["$$isAir", "$$validOutOfCharge", "$$allDelivery"] },
-              "Billing Pending",
+              "$$isBilled",
+              "Billed",
+              {
+                $cond: [
+                  { $and: ["$$isAir", "$$validOutOfCharge", "$$allDelivery"] },
+                  "Billing Pending",
               {
                 $cond: [
                   { $and: ["$$isLcl", "$$isInBond", "$$validOutOfCharge"] },
@@ -685,6 +704,8 @@ router.get(
                     ],
                   },
                 ],
+              },
+            ],
               },
             ],
           },
@@ -963,14 +984,20 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
     const recomputedStatus = determineDetailedStatus(merged);
     const rowColor = getRowColorFromStatus(recomputedStatus);
 
+    const updateSet = {
+      ...updateData,
+      detailed_status: recomputedStatus,
+      row_color: rowColor,
+    };
+
+    if (recomputedStatus === "Billed") {
+      updateSet.status = "Completed";
+    }
+
     const finalDoc = await JobModel.findByIdAndUpdate(
       id,
       {
-        $set: {
-          ...updateData,
-          detailed_status: recomputedStatus,
-          row_color: rowColor,
-        },
+        $set: updateSet,
       },
       { new: true, runValidators: true }
     ).lean();

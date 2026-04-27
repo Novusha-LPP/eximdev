@@ -705,39 +705,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             (apiMessage.includes('time correction is not applicable') && apiMessage.includes('status'));
 
         if (apiErrorCode === 'PENDING_LEAVE_ACTION_REQUIRED') {
-          const conflict = err?.response?.data?.pending_leave;
-          const fromDate = conflict?.from_date ? moment(conflict.from_date).format('DD MMM YYYY') : 'the selected date';
-          const toDate = conflict?.to_date ? moment(conflict.to_date).format('DD MMM YYYY') : '';
-          const leaveLabel = conflict?.leave_type || conflict?.policy_name || 'leave';
-          const detail = toDate && fromDate !== toDate ? `${fromDate} to ${toDate}` : fromDate;
-          const retryWithOverride = window.confirm(`Pending ${leaveLabel} exists for ${detail}. Approve/reject/withdraw first, or force override this attendance change?`);
-
-          if (retryWithOverride) {
-            try {
-              setSaving(true);
-              const overridePayload = { ...payload, force_override: true };
-              if (editingId === 'new') {
-                await attendanceAPI.createManualAdjustment(overridePayload);
-              } else {
-                await attendanceAPI.updateAttendanceRecord(editingId, overridePayload);
-              }
-              toast.success('Record updated with override');
-              setEditingId(null);
-              if (tab === 'performance') {
-                fetchBrowseHistory(browseMonth, browseYear);
-              } else {
-                fetchData();
-              }
-              return;
-            } catch (overrideErr) {
-              toast.error(overrideErr?.response?.data?.message || 'Override failed');
-              return;
-            } finally {
-              setSaving(false);
-            }
-          }
-
-          toast.error(err?.response?.data?.message || 'Pending leave must be resolved before editing attendance');
+          toast.error(err?.response?.data?.message || 'Pending leave exists for this date. Approve, reject, or withdraw it before adjusting attendance.');
           return;
         }
 

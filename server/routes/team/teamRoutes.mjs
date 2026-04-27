@@ -66,17 +66,22 @@ router.get("/api/teams/hod/:hodUsername", authMiddleware, async (req, res) => {
 // Get all teams (for Admin) - Filtered by allowedAdmins
 router.get("/api/teams/all", authMiddleware, async (req, res) => {
     try {
-        const query = { isActive: true };
-        
-        // If user is Admin, filter by allowedAdmins or if they are the HOD
-        if (req.user.role === 'Admin') {
-            query.$or = [
-                { allowedAdmins: req.user.username },
-                { hodUsername: req.user.username }
-            ];
+        // Admins should see all teams used on the /assign page.
+        // Non-admins will continue to see only teams where they are HOD or listed in allowedAdmins.
+        let teamsQuery;
+        if (req.user && req.user.role === 'Admin') {
+            teamsQuery = { isActive: true };
+        } else {
+            teamsQuery = {
+                isActive: true,
+                $or: [
+                    { allowedAdmins: req.user.username },
+                    { hodUsername: req.user.username }
+                ]
+            };
         }
 
-        const teams = await TeamModel.find(query)
+        const teams = await TeamModel.find(teamsQuery)
             .sort({ createdAt: -1 });
 
         // Auto-add HOD to members if not already present (fixes old teams)
@@ -143,10 +148,8 @@ router.get("/api/teams/:teamId", authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
-        // Access control for Admins
-        if (req.user.role === 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
-            return res.status(403).json({ success: false, message: "You do not have permission to view this team" });
-        }
+        // Note: allow Admin users to view team details (read-only) so the Assign/HOD pages can load team info.
+        // Modify/delete operations still enforce allowedAdmins checks below.
 
         // Auto-add HOD to members if not already present (fixes old teams)
         const hodInMembers = team.members.some(m => m.username === team.hodUsername);

@@ -1,5 +1,7 @@
 import express from "express";
+import mongoose from "mongoose";
 import UserModel from "../../model/userModel.mjs";
+import TeamModel from "../../model/teamModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
@@ -113,6 +115,37 @@ router.patch("/api/users/:username/add-importer", authMiddleware, async (req, re
     res
       .status(500)
       .send({ message: "Internal Server Error", error: error.message });
+  }
+});
+
+// Return teams for assign page. Admins see all teams; others see limited teams.
+router.get("/api/assign/teams", authMiddleware, async (req, res) => {
+  try {
+    const user = req.user || {};
+    const isAdmin = String(user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '') === 'ADMIN';
+
+    if (isAdmin) {
+      const teams = await TeamModel.find({}).select('name department hodId hodUsername isActive members').lean();
+      return res.status(200).send({ success: true, teams });
+    }
+
+    const userId = user._id ? (mongoose.Types.ObjectId.isValid(user._id) ? user._id : null) : null;
+    const username = user.username || '';
+
+    const query = {
+      $or: [
+        { hodId: userId },
+        { 'members.userId': userId },
+        { allowedAdmins: username }
+      ],
+      isActive: { $ne: false }
+    };
+
+    const teams = await TeamModel.find(query).select('name department hodId hodUsername isActive members').lean();
+    return res.status(200).send({ success: true, teams });
+  } catch (error) {
+    console.error('Error fetching assign teams:', error);
+    return res.status(500).send({ success: false, message: 'Internal Server Error' });
   }
 });
 export default router;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import './charges.css';
 import { UserContext } from '../../contexts/UserContext';
@@ -177,7 +178,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
     };
 
 
-    return (
+    return createPortal(
         <div className="charges-edit-modal-overlay charges-active" style={{ zIndex: 1100 }}>
             <div className="charges-edit-modal" style={{ width: '800px' }}>
                 <div className="charges-modal-title">Request Payment</div>
@@ -319,7 +320,8 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     </div>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 };
 

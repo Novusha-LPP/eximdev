@@ -724,6 +724,9 @@ const jobSchema = new mongoose.Schema({
   imexcube_uploaded: { type: Boolean, default: false },
   imexcube_uploaded_at: { type: Date },
   imexcube_response: { type: mongoose.Schema.Types.Mixed },
+  imexcube_last_action: { type: String, enum: ["created", "updated", "duplicate", "error"] },
+  imexcube_last_status_code: { type: Number },
+  imexcube_last_message: { type: String },
 
   ////////////////////////////////////////////////// Display
 });

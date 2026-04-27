@@ -1926,7 +1926,7 @@ const getAssignedShiftIds = (employee) => {
     return [];
 };
 
-const buildDateTimeFromShift = (attendanceDate, hhmm, tz = 'Asia/Kolkata') => {
+export const buildDateTimeFromShift = (attendanceDate, hhmm, tz = 'Asia/Kolkata') => {
     const day = moment(attendanceDate).format('YYYY-MM-DD');
     return moment.tz(`${day} ${hhmm}`, 'YYYY-MM-DD HH:mm', tz).toDate();
 };
@@ -1983,7 +1983,7 @@ const getAssignedShift = async (employee, shiftId, companyId) => {
     return resolved || null;
 };
 
-const applyManualCorrectionTimes = (record, attendanceDate, status, shift, companyTz = 'Asia/Kolkata', providedFirstIn, providedLastOut) => {
+export const applyManualCorrectionTimes = (record, attendanceDate, status, shift, companyTz = 'Asia/Kolkata', providedFirstIn, providedLastOut, halfDaySession) => {
     const normalized = String(status || '').toLowerCase();
     const workingStatuses = new Set(['present', 'late', 'half_day', 'on_duty']);
 
@@ -2004,9 +2004,20 @@ const applyManualCorrectionTimes = (record, attendanceDate, status, shift, compa
 
     const inTime = shift?.start_time || '10:00';
     const outTime = shift?.end_time || '19:00';
-    const firstIn = providedFirstIn || buildDateTimeFromShift(attendanceDate, inTime, companyTz);
+    const firstInDefault = buildDateTimeFromShift(attendanceDate, inTime, companyTz);
+    const firstIn = providedFirstIn || firstInDefault;
 
     if (normalized === 'half_day') {
+        const half = String(halfDaySession || record.half_day_session || '').toLowerCase();
+        // If explicitly editing second half, set fixed 15:00 - 19:00 window
+        if (half.includes('second')) {
+            const secondFirst = providedFirstIn || buildDateTimeFromShift(attendanceDate, '15:00', companyTz);
+            const secondLast = providedLastOut || buildDateTimeFromShift(attendanceDate, '19:00', companyTz);
+            record.first_in = secondFirst;
+            record.last_out = secondLast;
+            return;
+        }
+
         const halfHours = Number(shift?.half_day_hours || 4);
         record.first_in = firstIn;
         record.last_out = providedLastOut || moment(firstIn).add(halfHours, 'hours').toDate();
@@ -2225,7 +2236,8 @@ export const updateAttendanceRecord = async (req, res) => {
                 fallbackShift,
                 company?.timezone || 'Asia/Kolkata',
                 first_in !== undefined ? (first_in || null) : undefined,
-                last_out !== undefined ? (last_out || null) : undefined
+                last_out !== undefined ? (last_out || null) : undefined,
+                half_day_session
             );
         } else if (isTimeCorrectionMode) {
             // Time Correction: Preserve manually-entered times, auto-derive status from work hours later
@@ -2458,7 +2470,8 @@ export const createManualAdjustment = async (req, res) => {
                 fallbackShift,
                 company?.timezone || 'Asia/Kolkata',
                 first_in !== undefined ? (first_in || null) : undefined,
-                last_out !== undefined ? (last_out || null) : undefined
+                last_out !== undefined ? (last_out || null) : undefined,
+                half_day_session
             );
         } else if (isTimeCorrectionMode) {
             // Time Correction: Preserve manually-entered times, auto-derive status from work hours later

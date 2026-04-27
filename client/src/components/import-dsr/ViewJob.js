@@ -407,14 +407,27 @@ function JobDetails() {
           ...(parsedPayload && { customPayload: parsedPayload })
         }
       );
-      setImexcubeSnackbar({ open: true, message: res.data?.message || "Uploaded successfully!", severity: "success" });
+      const action = res?.data?.action;
+      const successMsg =
+        action === "updated"
+          ? "Job updated in IMEXCUBE successfully"
+          : "Job created in IMEXCUBE successfully";
+      setImexcubeSnackbar({
+        open: true,
+        message: res.data?.message || successMsg,
+        severity: "success",
+      });
       
-      // Update local state to reflect success
+      // Mark uploaded only for successful create/update actions.
       if (setData) {
         setData(prev => ({
           ...prev,
           imexcube_uploaded: true,
-          imexcube_uploaded_at: new Date()
+          imexcube_uploaded_at: new Date(),
+          imexcube_last_action: action || "created",
+          imexcube_last_status_code: res?.data?.vendorStatusCode,
+          imexcube_last_message: res?.data?.vendorMessage || res?.data?.message,
+          imexcube_response: res?.data?.imexcubeResponse || prev?.imexcube_response,
         }));
       }
     } catch (err) {
@@ -423,7 +436,10 @@ function JobDetails() {
       const resData = err?.response?.data;
       
       if (resData) {
-        if (resData.details?.errors && Array.isArray(resData.details.errors)) {
+        if (resData.action === "duplicate" || err?.response?.status === 409) {
+          errMsg = resData.message || "Job already exists in IMEXCUBE";
+          errDetails = resData.imexcubeResponse || resData.details || null;
+        } else if (resData.details?.errors && Array.isArray(resData.details.errors)) {
           errMsg = "Validation Failed. Please correct the following fields:";
           errDetails = resData.details.errors;
         } else if (resData.details) {
@@ -438,7 +454,7 @@ function JobDetails() {
       
       setImexcubeErrorDialog({
         open: true,
-        title: "Upload Failed",
+        title: (resData?.action === "duplicate" || err?.response?.status === 409) ? "Duplicate Job" : "Upload Failed",
         message: errMsg,
         details: errDetails
       });

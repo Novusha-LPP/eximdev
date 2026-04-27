@@ -36,6 +36,7 @@ const getJobDetailsInternal = async (job_number) => {
     "Packages": job.no_of_pkgs,
     "Package Unit": job.unit,
     "Container Count": (() => {
+      if (job.mode === "AIR") return "";
       const containers = job.container_nos || [];
       if (containers.length === 0) return "0";
       const counts = {};
@@ -47,7 +48,7 @@ const getJobDetailsInternal = async (job_number) => {
         .map(([size, count]) => `${count} X ${size}`)
         .join(", ");
     })(),
-    "Containers": (job.container_nos || []).map(c => c.container_number).filter(Boolean).join(", "),
+    "Containers": job.mode === "AIR" ? "" : (job.container_nos || []).map(c => c.container_number).filter(Boolean).join(", "),
     "BE No": job.be_no || "",
     "BE Date": job.be_date || "",
     "BE Type": job.type_of_b_e,

@@ -32,5 +32,5 @@ const emptyOffLocationSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const EmptyOffLocationModel = mongoose.model("EmptyOffLocation", emptyOffLocationSchema);
+const EmptyOffLocationModel = mongoose.model("EmptyOffLocation", emptyOffLocationSchema, "emptyofflocationsimp");
 export default EmptyOffLocationModel;

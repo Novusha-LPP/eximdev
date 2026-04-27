@@ -23,5 +23,5 @@ const customHouseSchema = new mongoose.Schema({
     }
 });
 
-const CustomHouseModel = mongoose.model("CustomHouse", customHouseSchema);
+const CustomHouseModel = mongoose.model("CustomHouse", customHouseSchema, "customhousesimp");
 export default CustomHouseModel;

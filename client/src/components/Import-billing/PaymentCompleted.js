@@ -195,6 +195,28 @@ function PaymentCompleted({ workMode = "Payment" }) {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
+  const handleCopy = useCallback((event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A" || text === "-") return;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
+
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
     async (
@@ -301,40 +323,6 @@ function PaymentCompleted({ workMode = "Payment" }) {
     setSearchQuery(event.target.value);
   };
 
-  // Handle copy functionality
-  const handleCopy = useCallback((event, text) => {
-    event.stopPropagation();
-
-    if (
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          console.log("Text copied to clipboard:", text);
-        })
-        .catch((err) => {
-          alert("Failed to copy text to clipboard.");
-          console.error("Failed to copy:", err);
-        });
-    } else {
-      // Fallback approach for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
-      } catch (err) {
-        alert("Failed to copy text to clipboard.");
-        console.error("Fallback copy failed:", err);
-      }
-      document.body.removeChild(textArea);
-    }
-  }, []);
 
   const columns = React.useMemo(
     () => [
@@ -574,6 +562,9 @@ function PaymentCompleted({ workMode = "Payment" }) {
                             '& .MuiChip-label': { px: 1, fontSize: '0.65rem' }
                           }}
                         />
+                        <IconButton size="small" onClick={(e) => handleCopy(e, no)} title="Copy No" sx={{ p: 0.2 }}>
+                          <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
+                        </IconButton>
                         {isApproved && (
                           <Chip 
                             label="APPROVED" 
@@ -1002,8 +993,11 @@ function PaymentCompleted({ workMode = "Payment" }) {
                       {selectedPaymentRequest.isPurchaseBook ? "Entry No" : "Request No"}
                     </Typography>
                   </Grid>
-                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
+                    <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.requestNo)} title="Copy No">
+                      <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                    </IconButton>
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>

@@ -13,5 +13,5 @@ const unitSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const UnitModel = mongoose.model("Unit", unitSchema);
+const UnitModel = mongoose.model("Unit", unitSchema, "unitsimp");
 export default UnitModel;

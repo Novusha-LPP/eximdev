@@ -31,5 +31,5 @@ const cfsSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const CfsModel = mongoose.model("Cfs", cfsSchema);
+const CfsModel = mongoose.model("Cfs", cfsSchema, "cfssimp");
 export default CfsModel;

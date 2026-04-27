@@ -31,5 +31,5 @@ const shippingLineSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const ShippingLineModel = mongoose.model("ShippingLine", shippingLineSchema);
+const ShippingLineModel = mongoose.model("ShippingLine", shippingLineSchema, "shippinglinesimp");
 export default ShippingLineModel;

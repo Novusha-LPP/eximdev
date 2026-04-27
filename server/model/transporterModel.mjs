@@ -31,5 +31,5 @@ const transporterSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-const TransporterModel = mongoose.model("Transporter", transporterSchema);
+const TransporterModel = mongoose.model("Transporter", transporterSchema, "transportersimp");
 export default TransporterModel;

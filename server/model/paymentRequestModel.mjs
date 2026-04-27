@@ -35,6 +35,7 @@ const paymentRequestSchema = new mongoose.Schema({
   rejectionReason: { type: String },
   chargeDescription: { type: String },
   chargeHeadCategory: { type: String },
+  tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
   requestedBy: { type: String },
   createdAt: { type: Date, default: Date.now }

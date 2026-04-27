@@ -146,6 +146,7 @@ const ChargeLineSchema = new mongoose.Schema({
   isTds: { type: Boolean, default: false },
   tdsPercent: { type: Number, default: 0 },
   tdsAmount: { type: Number, default: 0 },
+  tdsCategory: { type: String, default: '94C' },
   netPayable: { type: Number, default: 0 }
 }, { _id: false });
 

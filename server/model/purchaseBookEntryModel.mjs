@@ -48,6 +48,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   attachments: [{ type: String }],
   chargeDescription: { type: String },
   chargeHeadCategory: { type: String },
+  tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });

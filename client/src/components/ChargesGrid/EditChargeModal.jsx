@@ -150,7 +150,8 @@ const EditChargeModal = ({
         cost: {
           ...(charge.cost || {}),
           isGst: (charge.cost && charge.cost.isGst !== undefined) ? charge.cost.isGst : true,
-          partyType: charge.cost?.partyType || 'Vendor'
+          partyType: charge.cost?.partyType || 'Vendor',
+          tdsCategory: charge.cost?.tdsCategory || '94C'
         }
       }));
       setFormData(initialData);
@@ -1167,9 +1168,21 @@ const EditChargeModal = ({
                                 <div className="charges-ep-inline">
                                   <input type="checkbox" disabled={effectiveReadOnly} checked={row.cost?.isTds || false} onChange={e => handleFieldChange(i, 'isTds', e.target.checked, 'cost')} />
                                   {row.cost?.isTds && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.tdsPercent ?? 0} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'cost')} />
-                                      <span style={{ fontSize: '11px' }}>%</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.tdsPercent ?? 0} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'cost')} />
+                                        <span style={{ fontSize: '11px' }}>%</span>
+                                      </div>
+                                      <select 
+                                        disabled={effectiveReadOnly} 
+                                        className="charges-ep-select" 
+                                        style={{ fontSize: '10px', height: '22px', padding: '0 4px', width: 'auto' }}
+                                        value={row.cost?.tdsCategory || '94C'} 
+                                        onChange={e => handleFieldChange(i, 'tdsCategory', e.target.value, 'cost')}
+                                      >
+                                        <option value="94C">94C</option>
+                                        <option value="94I">94I</option>
+                                      </select>
                                     </div>
                                   )}
                                 </div>
@@ -1297,6 +1310,7 @@ const EditChargeModal = ({
                                             jobId: parentId,
                                             chargeHeadCategory: row.category,
                                             chargeDescription: row.cost?.chargeDescription || '',
+                                            tdsCategory: row.cost?.tdsCategory || '94C',
                                             awbBlNo: awbBlNo
                                           };
                                         });
@@ -1349,7 +1363,8 @@ const EditChargeModal = ({
                                           chargeId: row._id,
                                           jobId: parentId,
                                           chargeHeadCategory: row.category,
-                                          chargeDescription: row.cost?.chargeDescription || ''
+                                          chargeDescription: row.cost?.chargeDescription || '',
+                                          tdsCategory: row.cost?.tdsCategory || '94C'
                                         });
                                       }}
                                     >

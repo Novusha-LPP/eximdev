@@ -35,7 +35,9 @@ const ChargesTable = ({
   const renderParticularsHeaders = () => (
     <>
       <th>Category</th>
-      <th>Charge Description</th>
+
+      <th style={{ width: '100px' }}>Purchase Book No.</th>
+            <th style={{ width: '100px' }}>Payment Request No.</th>
       <th>Remarks</th>
       <th style={{ width: '100px' }}>Attach</th>
     </>
@@ -205,9 +207,9 @@ const ChargesTable = ({
                 {activeTab === 'particulars' && (
                   <>
                     <td>{ch.category}</td>
-                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.cost?.chargeDescription || ch.revenue?.chargeDescription || ''}>
-                      {ch.cost?.chargeDescription || ch.revenue?.chargeDescription || ''}
-                    </td>
+                  
+                    <td style={{ fontWeight: '600', color: '#2e7d32' }}>{ch.purchase_book_no || '-'}</td>
+                      <td style={{ fontWeight: '600', color: '#1565c0' }}>{ch.payment_request_no || '-'}</td>
                     <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ch.remark || ''}>
                       {ch.remark || ''}
                     </td>

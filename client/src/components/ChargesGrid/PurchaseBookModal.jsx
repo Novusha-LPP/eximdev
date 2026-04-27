@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import './charges.css';
 
@@ -185,7 +186,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
     };
 
 
-    return (
+    return createPortal(
         <div className="charges-edit-modal-overlay charges-active" style={{ zIndex: 1100 }}>
             <div className="charges-edit-modal" style={{ width: '1000px', maxWidth: '95vw' }}>
                 <div className="charges-modal-title">Purchase Book Entry</div>
@@ -329,7 +330,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

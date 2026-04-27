@@ -451,6 +451,8 @@ function EditFreeDaysConf() {
                         shippingLineAirline={data?.shipping_line_airline}
                         jobNumber={job_no}
                         jobYear={year}
+                        awbBlNo={data?.awb_bl_no}
+                        awbBlDate={data?.awb_bl_date}
                     />
                 </Box>
 

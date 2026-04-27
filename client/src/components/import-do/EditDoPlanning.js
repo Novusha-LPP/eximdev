@@ -770,7 +770,9 @@ function EditDoPlanning() {
                 hideTabs={true} 
                 shippingLineAirline={data?.shipping_line_airline} 
                 jobNumber={data?.job_no}
-                jobYear={data?.year}
+                jobYear={year}
+                awbBlNo={data?.awb_bl_no}
+                awbBlDate={data?.awb_bl_date}
               />
 
 

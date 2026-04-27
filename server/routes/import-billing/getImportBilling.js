@@ -603,6 +603,7 @@ router.get(
                           { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          { $ne: [`$$charge.${statusField}`, "Rejected"] },
                           { $ne: [`$$charge.${isApprovedField}`, true] },
                         ],
                       },
@@ -674,7 +675,22 @@ router.get(
             branch_code: 1,
             trade_type: 1,
             mode: 1,
-            charges: 1,
+            charges: {
+              $filter: {
+                input: { $ifNull: ["$charges", []] },
+                as: "charge",
+                cond: {
+                  $and: [
+                    { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                    { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                    { $ne: [`$$charge.${filterField}`, "undefined"] },
+                    { $ne: [`$$charge.${statusField}`, "Paid"] },
+                    { $ne: [`$$charge.${statusField}`, "Rejected"] },
+                    { $ne: [`$$charge.${isApprovedField}`, true] },
+                  ],
+                },
+              },
+            },
           },
         },
       ];
@@ -891,7 +907,22 @@ router.get(
             type_of_b_e: 1,
             awb_bl_no: 1,
             container_nos: 1,
-            charges: 1,
+            charges: {
+              $filter: {
+                input: { $ifNull: ["$charges", []] },
+                as: "charge",
+                cond: {
+                  $and: [
+                    { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                    { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                    { $ne: [`$$charge.${filterField}`, "undefined"] },
+                    { $eq: [`$$charge.${isApprovedField}`, true] },
+                    { $ne: [`$$charge.${statusField}`, "Paid"] },
+                    { $ne: [`$$charge.${statusField}`, "Rejected"] },
+                  ],
+                },
+              },
+            },
             branch_code: 1,
             agency_invoice_no: 1,
             reimbursement_invoice_no: 1,
@@ -1117,7 +1148,20 @@ router.get(
             branch_code: 1,
             trade_type: 1,
             mode: 1,
-            charges: 1,
+            charges: {
+              $filter: {
+                input: { $ifNull: ["$charges", []] },
+                as: "charge",
+                cond: {
+                  $and: [
+                    { $eq: [{ $type: `$$charge.${filterField}` }, "string"] },
+                    { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
+                    { $ne: [`$$charge.${filterField}`, "undefined"] },
+                    { $eq: [`$$charge.${statusField}`, "Paid"] },
+                  ],
+                },
+              },
+            },
           },
         },
       ];
@@ -1202,7 +1246,8 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
           paymentReceiptUrl: purchaseEntry.paymentReceiptUrl,
           approvedByFirst: purchaseEntry.approvedByFirst,
           approvedByLast: purchaseEntry.approvedByLast,
-          approvedAt: purchaseEntry.approvedAt
+          approvedAt: purchaseEntry.approvedAt,
+          isRejected: purchaseEntry.status === 'Rejected' || purchaseEntry.isRejected === true
         };
       }
     }
@@ -1382,13 +1427,12 @@ router.post("/api/reject-payment-request", async (req, res) => {
       return res.status(404).json({ message: "Payment Request not found" });
     }
 
-    // 2. Reset JobModel charges (IMPORTANT: removing the request link to allow re-submission)
+    // 2. Update JobModel charges (Set status to Rejected but keep the number to show in UI)
     await JobModel.updateMany(
       { "charges.payment_request_no": requestNo },
       { 
         $set: { 
-          "charges.$[elem].payment_request_no": "",
-          "charges.$[elem].payment_request_status": "",
+          "charges.$[elem].payment_request_status": "Rejected",
           "charges.$[elem].payment_request_is_approved": false,
           "charges.$[elem].payment_request_requested_by": ""
         } 
@@ -1557,13 +1601,12 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
       return res.status(404).json({ message: "Purchase Book entry not found" });
     }
 
-    // 2. Reset JobModel charges (IMPORTANT: removing the link to allow re-submission)
+    // 2. Update JobModel charges (Set status to Rejected but keep the number to show in UI)
     await JobModel.updateMany(
       { "charges.purchase_book_no": requestNo },
       { 
         $set: { 
-          "charges.$[elem].purchase_book_no": "",
-          "charges.$[elem].purchase_book_status": "",
+          "charges.$[elem].purchase_book_status": "Rejected",
           "charges.$[elem].purchase_book_is_approved": false,
           "charges.$[elem].purchase_book_requested_by": ""
         } 

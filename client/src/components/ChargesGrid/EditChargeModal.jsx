@@ -33,7 +33,9 @@ const EditChargeModal = ({
   readOnly = false,
   isAuthorized = false,
   isLocked = false,
-  readOnlyBase = false
+  readOnlyBase = false,
+  awbBlNo = '',
+  awbBlDate = ''
 }) => {
   const [formData, setFormData] = useState([]);
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
@@ -503,7 +505,9 @@ const EditChargeModal = ({
             const role = (user?.role || "").toLowerCase();
             const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
             
-            const isIndividualLocked = (hasPR || hasPB) && !isAuth;
+            const hasActivePR = row.payment_request_no && row.payment_request_status !== 'Rejected';
+            const hasActivePB = row.purchase_book_no && row.purchase_book_status !== 'Rejected';
+            const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
             const effectiveReadOnly = readOnly || isIndividualLocked;
 
             return (
@@ -575,7 +579,16 @@ const EditChargeModal = ({
                                 <PrintIcon style={{ fontSize: '18px' }} />
                             </IconButton>
                         )}
-                        <span className="ep-status-pill" style={{ marginLeft: '10px', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: row.purchase_book_status ? '#e8f5e9' : '#f5f5f5', color: row.purchase_book_status === 'Active' ? '#2e7d32' : '#757575', border: '1px solid #ddd' }}>
+                        <span className="ep-status-pill" style={{ 
+                            marginLeft: '10px', 
+                            fontSize: '11px', 
+                            padding: '2px 8px', 
+                            borderRadius: '10px', 
+                            background: row.purchase_book_status === 'Rejected' ? '#ffebee' : (row.purchase_book_status ? '#e8f5e9' : '#f5f5f5'), 
+                            color: row.purchase_book_status === 'Rejected' ? '#c62828' : (row.purchase_book_status === 'Active' || row.purchase_book_status === 'Approved' || row.purchase_book_status === 'Paid' ? '#2e7d32' : '#757575'), 
+                            border: `1px solid ${row.purchase_book_status === 'Rejected' ? '#ef9a9a' : '#ddd'}`,
+                            fontWeight: 'bold'
+                        }}>
                             {row.purchase_book_status || 'Pending'}
                         </span>
                     </div>
@@ -611,11 +624,12 @@ const EditChargeModal = ({
                                 fontSize: '11px', 
                                 padding: '2px 8px', 
                                 borderRadius: '10px', 
-                                background: (row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#e8f5e9' : '#fff3e0', 
-                                color: (row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#2e7d32' : '#ef6c00', 
-                                border: '1px solid #ffe0e0' 
+                                background: row.payment_request_status === 'Rejected' ? '#ffebee' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#e8f5e9' : '#fff3e0'), 
+                                color: row.payment_request_status === 'Rejected' ? '#c62828' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#2e7d32' : '#ef6c00'), 
+                                border: `1px solid ${row.payment_request_status === 'Rejected' ? '#ef9a9a' : '#ffe0e0'}`,
+                                fontWeight: 'bold'
                             }}>
-                                {(row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? 'Payment Done' : (row.payment_request_status || 'Pending')}
+                                {row.payment_request_status === 'Rejected' ? 'Rejected' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? 'Payment Done' : (row.payment_request_status || 'Pending'))}
                             </span>
                         </div>
                         {paymentDetailsAudit[row.payment_request_no]?.utrNumber && (
@@ -1143,7 +1157,7 @@ const EditChargeModal = ({
                               <div className="ep-grid" style={{ marginTop: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   {/* Conditionally show based on workMode or if already exists */}
-                                  {(!row.purchase_book_no && (workMode === 'Purchase Book' || !row.payment_request_no)) && (
+                                  {(!row.purchase_book_no || row.purchase_book_status === 'Rejected') && (
                                     <button 
                                       type="button" 
                                       className="upload-btn" 
@@ -1224,7 +1238,8 @@ const EditChargeModal = ({
                                             chargeId: row._id,
                                             jobId: parentId,
                                             chargeHeadCategory: row.category,
-                                            chargeDescription: row.cost?.chargeDescription || ''
+                                            chargeDescription: row.cost?.chargeDescription || '',
+                                            awbBlNo: awbBlNo
                                           };
                                         });
                                       }}
@@ -1232,7 +1247,7 @@ const EditChargeModal = ({
                                       Purchase book
                                     </button>
                                   )}
-                                  {(!row.payment_request_no && (workMode === 'Payment' || !row.purchase_book_no)) && (
+                                  {(!row.payment_request_no || row.payment_request_status === 'Rejected') && (
                                     <button 
                                       type="button" 
                                       className="upload-btn" 
@@ -1364,6 +1379,8 @@ const EditChargeModal = ({
         jobNumber={jobNumber}
         jobDisplayNumber={jobDisplayNumber}
         jobYear={jobYear}
+        awbBlNo={awbBlNo}
+        awbBlDate={awbBlDate}
         onSuccess={(entryNo) => {
           // Update the localized formData state with the new number
           const updated = [...formData];

@@ -180,7 +180,10 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
 
     // If locked and not authorized, we only allow updates to NON-COST fields
-    const isLocked = (charge.payment_request_no || charge.purchase_book_no) && !isAuthorized;
+    // A charge is locked if it has a PB or PR number that is NOT rejected.
+    const hasActivePR = charge.payment_request_no && charge.payment_request_status !== 'Rejected';
+    const hasActivePB = charge.purchase_book_no && charge.purchase_book_status !== 'Rejected';
+    const isLocked = (hasActivePR || hasActivePB) && !isAuthorized;
     
     // Assign fields
     if (req.body.revenue) {
@@ -224,9 +227,11 @@ router.delete('/charges/:id', verifyToken, async (req, res) => {
     
     const charge = job.charges.id(req.params.id);
 
-    // Check if locked
-    const isLocked = charge.payment_request_no || charge.purchase_book_no;
-    const isAuthorized = req.user.role === 'Admin' || req.user.role === 'Head_of_Department';
+    // Check if locked (exclude rejected)
+    const hasActivePR = charge.payment_request_no && charge.payment_request_status !== 'Rejected';
+    const hasActivePB = charge.purchase_book_no && charge.purchase_book_status !== 'Rejected';
+    const isLocked = hasActivePR || hasActivePB;
+    const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
 
     if (isLocked && !isAuthorized) {
       return res.status(403).json({ 

@@ -394,7 +394,7 @@ function PaymentRequested({ workMode = "Payment" }) {
           const receiptField = workMode === "Payment" ? "payment_request_receipt_url" : "purchase_book_receipt_url";
 
           const reqGroups = charges.reduce((acc, c) => {
-            if (c[filterField] && c[statusField] !== "Paid" && !c[isApprovedField]) {
+            if (c[filterField] && c[statusField] !== "Paid" && c[statusField] !== "Rejected" && !c[isApprovedField]) {
               if (!acc[c[filterField]]) acc[c[filterField]] = [];
               acc[c[filterField]].push(c.chargeHead);
             }
@@ -790,7 +790,12 @@ function PaymentRequested({ workMode = "Payment" }) {
             <Button onClick={() => setOpenDetailModal(false)} size="small" variant="outlined">Close</Button>
           </Box>
           
-          {!isModalLoading && selectedPaymentRequest && !selectedPaymentRequest.isApproved && !selectedPaymentRequest.isRejected && (
+          {!isModalLoading && selectedPaymentRequest && 
+            !selectedPaymentRequest.isApproved && 
+            !selectedPaymentRequest.isRejected && 
+            selectedPaymentRequest.status !== 'Rejected' && 
+            selectedPaymentRequest.status !== 'Approved' && 
+            selectedPaymentRequest.status !== 'Paid' && (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button 
                 variant="contained" 

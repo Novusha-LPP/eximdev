@@ -3433,6 +3433,8 @@ function JobDetails() {
                   poNo={data?.po_no}
                   invoiceValue={data?.total_inv_value}
                   cthNo={data?.cth_no}
+                  awbBlNo={data?.awb_bl_no}
+                  awbBlDate={data?.awb_bl_date}
                   jobStatus={data?.status}
                   billNo={data?.bill_no}
                   readOnly={isJobLocked}

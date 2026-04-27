@@ -677,6 +677,8 @@ function ViewESanchitJob() {
                   jobDisplayNumber={data.job_number}
                   importerName={data.importer}
                   jobYear={data.year}
+                  awbBlNo={data?.awb_bl_no}
+                  awbBlDate={data?.awb_bl_date}
                 />
               </Box>
             </div>

@@ -243,6 +243,8 @@ function NfimsSimsJobs() {
                             jobDisplayNumber={row.original.job_number}
                             importerName={row.original.importer}
                             jobYear={row.original.year}
+                            awbBlNo={row.original.awb_bl_no}
+                            awbBlDate={row.original.awb_bl_date}
                         />
                     </Box>
                 )}

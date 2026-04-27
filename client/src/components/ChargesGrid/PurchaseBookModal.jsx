@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './charges.css';
 
-const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplayNumber, jobYear, onSuccess }) => {
+const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplayNumber, jobYear, awbBlNo, awbBlDate, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         "Entry No": '',
@@ -73,12 +73,25 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     console.error("Error fetching sequence:", error);
                 }
 
+                const formatToISO = (dateStr) => {
+                    if (!dateStr) return '';
+                    if (dateStr.includes('-')) return dateStr; // Already ISO
+                    if (dateStr.includes('/')) {
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            // DD/MM/YYYY to YYYY-MM-DD
+                            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        }
+                    }
+                    return dateStr;
+                };
+
                 setFormData(prev => ({
                     ...prev,
                     "Entry No": finalEntryNo,
                     "Job No": updatedJobNum,
-                    "Supplier Inv No": initialData.invoice_number || '',
-                    "Supplier Inv Date": initialData.invoice_date || '',
+                    "Supplier Inv No": initialData.invoice_number || initialData.awbBlNo || awbBlNo || '',
+                    "Supplier Inv Date": formatToISO(initialData.invoice_date || initialData.awbBlDate || awbBlDate || ''),
                     "Supplier Name": initialData.partyName || '',
                     "Address 1": branch.address || '',
                     "Address 2": branch.city || '',
@@ -109,7 +122,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         };
 
         fetchNextSequence();
-    }, [isOpen, initialData, jobNumber, jobDisplayNumber, jobYear]);
+    }, [isOpen, initialData, jobNumber, jobDisplayNumber, jobYear, awbBlNo, awbBlDate]);
 
     if (!isOpen) return null;
 
@@ -120,6 +133,28 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
     const handleSubmit = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+        
+        // Use AWB/BL No if Supplier Inv No is left blank
+        const finalFormData = { ...formData };
+        if (!finalFormData["Supplier Inv No"] || finalFormData["Supplier Inv No"].trim() === '') {
+            finalFormData["Supplier Inv No"] = initialData?.awbBlNo || awbBlNo || '';
+        }
+
+        // Use AWB/BL Date if Supplier Inv Date is left blank
+        if (!finalFormData["Supplier Inv Date"] || finalFormData["Supplier Inv Date"].trim() === '') {
+            const rawDate = initialData?.awbBlDate || awbBlDate || '';
+            if (rawDate) {
+                if (rawDate.includes('/')) {
+                    const parts = rawDate.split('/');
+                    if (parts.length === 3) {
+                        finalFormData["Supplier Inv Date"] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    }
+                } else {
+                    finalFormData["Supplier Inv Date"] = rawDate;
+                }
+            }
+        }
+
         setLoading(true);
         try {
             const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
@@ -127,7 +162,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
             // Fixed URL: process.env.REACT_APP_API_STRING already contains '/api'
             const response = await axios.post(
                 `${process.env.REACT_APP_API_STRING}/tally/purchase-entry`,
-                formData,
+                finalFormData,
                 {
                     headers: { 'x-api-key': API_KEY },
                     withCredentials: true
@@ -136,7 +171,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
             if (response.data.success) {
                 alert("Purchase Book Entry Submitted Successfully to Tally!");
-                if (onSuccess) onSuccess(formData["Entry No"]);
+                if (onSuccess) onSuccess(finalFormData["Entry No"]);
                 onClose();
             } else {
                 alert("Failed to submit to Tally: " + response.data.message);

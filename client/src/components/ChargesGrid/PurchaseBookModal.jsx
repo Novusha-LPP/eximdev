@@ -186,63 +186,63 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
 
     return (
-        <div className="charge-modal-overlay active" style={{ zIndex: 1100 }}>
-            <div className="edit-charge-modal" style={{ width: '1000px', maxWidth: '95vw' }}>
-                <div className="modal-title">Purchase Book Entry</div>
+        <div className="charges-edit-modal-overlay charges-active" style={{ zIndex: 1100 }}>
+            <div className="charges-edit-modal" style={{ width: '1000px', maxWidth: '95vw' }}>
+                <div className="charges-modal-title">Purchase Book Entry</div>
                 <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
-                        <div className="ep-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 20px', marginRight: '30px' }}>
-                            <div className="ep-row">
-                                <span className="ep-label">Entry No</span>
-                                <input type="text" name="Entry No" className="ep-desc-input" value={formData["Entry No"]} onChange={handleInputChange} />
+                    <div className="charges-modal-body">
+                        <div className="charges-ep-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 20px', marginRight: '30px' }}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Entry No</span>
+                                <input type="text" name="Entry No" className="charges-ep-desc-input" value={formData["Entry No"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Entry Date</span>
-                                <input type="date" name="Entry Date" className="ep-desc-input" value={formData["Entry Date"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Entry Date</span>
+                                <input type="date" name="Entry Date" className="charges-ep-desc-input" value={formData["Entry Date"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Supplier Inv No</span>
-                                <input type="text" name="Supplier Inv No" className="ep-desc-input" value={formData["Supplier Inv No"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Supplier Inv No</span>
+                                <input type="text" name="Supplier Inv No" className="charges-ep-desc-input" value={formData["Supplier Inv No"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Supplier Inv Date</span>
-                                <input type="date" name="Supplier Inv Date" className="ep-desc-input" value={formData["Supplier Inv Date"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Supplier Inv Date</span>
+                                <input type="date" name="Supplier Inv Date" className="charges-ep-desc-input" value={formData["Supplier Inv Date"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Job No</span>
-                                <input type="text" name="Job No" className="ep-desc-input" value={formData["Job No"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Job No</span>
+                                <input type="text" name="Job No" className="charges-ep-desc-input" value={formData["Job No"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Supplier Name</span>
-                                <input type="text" name="Supplier Name" className="ep-desc-input" value={formData["Supplier Name"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Supplier Name</span>
+                                <input type="text" name="Supplier Name" className="charges-ep-desc-input" value={formData["Supplier Name"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Address 1</span>
-                                <input type="text" name="Address 1" className="ep-desc-input" value={formData["Address 1"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Address 1</span>
+                                <input type="text" name="Address 1" className="charges-ep-desc-input" value={formData["Address 1"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Address 2</span>
-                                <input type="text" name="Address 2" className="ep-desc-input" value={formData["Address 2"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Address 2</span>
+                                <input type="text" name="Address 2" className="charges-ep-desc-input" value={formData["Address 2"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Address 3</span>
-                                <input type="text" name="Address 3" className="ep-desc-input" value={formData["Address 3"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Address 3</span>
+                                <input type="text" name="Address 3" className="charges-ep-desc-input" value={formData["Address 3"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">State</span>
-                                <input type="text" name="State" className="ep-desc-input" value={formData["State"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">State</span>
+                                <input type="text" name="State" className="charges-ep-desc-input" value={formData["State"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Country</span>
-                                <input type="text" name="Country" className="ep-desc-input" value={formData["Country"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Country</span>
+                                <input type="text" name="Country" className="charges-ep-desc-input" value={formData["Country"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Pin code</span>
-                                <input type="text" name="Pin Code" className="ep-desc-input" value={formData["Pin Code"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Pin code</span>
+                                <input type="text" name="Pin Code" className="charges-ep-desc-input" value={formData["Pin Code"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Registration Type</span>
-                                <select name="Registration Type" className="ep-select" value={formData["Registration Type"]} onChange={handleInputChange}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Registration Type</span>
+                                <select name="Registration Type" className="charges-ep-select" value={formData["Registration Type"]} onChange={handleInputChange}>
                                     <option value="Regular">Regular</option>
                                     <option value="Composite">Composite</option>
                                     <option value="Exempt">Exempt</option>
@@ -251,81 +251,81 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                                     <option value="Consumers">Consumers</option>
                                 </select>
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">GSTIN No</span>
-                                <input type="text" name="GSTIN No" className="ep-desc-input" value={formData["GSTIN No"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">GSTIN No</span>
+                                <input type="text" name="GSTIN No" className="charges-ep-desc-input" value={formData["GSTIN No"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">PAN</span>
-                                <input type="text" name="PAN" className="ep-desc-input" value={formData["PAN"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">PAN</span>
+                                <input type="text" name="PAN" className="charges-ep-desc-input" value={formData["PAN"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">CIN</span>
-                                <input type="text" name="CIN" className="ep-desc-input" value={formData["CIN"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">CIN</span>
+                                <input type="text" name="CIN" className="charges-ep-desc-input" value={formData["CIN"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Place of Supply</span>
-                                <input type="text" name="Place of Supply" className="ep-desc-input" value={formData["Place of Supply"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Place of Supply</span>
+                                <input type="text" name="Place of Supply" className="charges-ep-desc-input" value={formData["Place of Supply"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Credit Terms</span>
-                                <input type="text" name="Credit Terms" className="ep-desc-input" value={formData["Credit Terms"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Credit Terms</span>
+                                <input type="text" name="Credit Terms" className="charges-ep-desc-input" value={formData["Credit Terms"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Description of Services</span>
-                                <input type="text" name="Description of Services" className="ep-desc-input" value={formData["Description of Services"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Description of Services</span>
+                                <input type="text" name="Description of Services" className="charges-ep-desc-input" value={formData["Description of Services"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">SAC</span>
-                                <input type="text" name="SAC" className="ep-desc-input" value={formData["SAC"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">SAC</span>
+                                <input type="text" name="SAC" className="charges-ep-desc-input" value={formData["SAC"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Taxable Value</span>
-                                <input type="number" name="Taxable Value" className="ep-desc-input" value={formData["Taxable Value"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Taxable Value</span>
+                                <input type="number" name="Taxable Value" className="charges-ep-desc-input" value={formData["Taxable Value"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">GST%</span>
-                                <input type="number" name="GST%" className="ep-desc-input" value={formData["GST%"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">GST%</span>
+                                <input type="number" name="GST%" className="charges-ep-desc-input" value={formData["GST%"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">CGST</span>
-                                <input type="number" name="CGST" className="ep-desc-input" value={formData["CGST"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">CGST</span>
+                                <input type="number" name="CGST" className="charges-ep-desc-input" value={formData["CGST"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">SGST</span>
-                                <input type="number" name="SGST" className="ep-desc-input" value={formData["SGST"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">SGST</span>
+                                <input type="number" name="SGST" className="charges-ep-desc-input" value={formData["SGST"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">IGST</span>
-                                <input type="number" name="IGST" className="ep-desc-input" value={formData["IGST"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">IGST</span>
+                                <input type="number" name="IGST" className="charges-ep-desc-input" value={formData["IGST"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">TDS</span>
-                                <input type="number" name="TDS" className="ep-desc-input" value={formData["TDS"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">TDS</span>
+                                <input type="number" name="TDS" className="charges-ep-desc-input" value={formData["TDS"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Total</span>
-                                <input type="number" name="Total" className="ep-desc-input" value={formData["Total"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Total</span>
+                                <input type="number" name="Total" className="charges-ep-desc-input" value={formData["Total"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Status</span>
-                                <input type="text" name="Status" className="ep-desc-input" value={formData["Status"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Status</span>
+                                <input type="text" name="Status" className="charges-ep-desc-input" value={formData["Status"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Charge Head Category</span>
-                                <input type="text" name="Charge Head Category" className="ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Charge Head Category</span>
+                                <input type="text" name="Charge Head Category" className="charges-ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row" style={{ gridColumn: 'span 2' }}>
-                                <span className="ep-label">Charge Description</span>
-                                <input type="text" name="Charge Description" className="ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="charges-ep-label">Charge Description</span>
+                                <input type="text" name="Charge Description" className="charges-ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
                             </div>
                         </div>
                     </div>
-                    <div className="modal-footer">
-                        <button type="button" className="btn" onClick={handleSubmit} disabled={loading}>
+                    <div className="charges-modal-footer">
+                        <button type="button" className="charges-btn" onClick={handleSubmit} disabled={loading}>
                             {loading ? "Submitting..." : "Submit Purchase Entry"}
                         </button>
-                        <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
+                        <button type="button" className="charges-btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
                     </div>
                 </form>
             </div>

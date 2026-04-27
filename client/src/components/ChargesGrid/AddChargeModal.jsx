@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { useChargeHeads } from './useChargeHeads';
 import { UserContext } from '../../contexts/UserContext';
 
@@ -120,13 +121,13 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
     }
   };
 
-  return (
-    <div className="add-modal-overlay active">
-      <div className="add-modal">
-        <div className="add-modal-title">➕ Add Charge</div>
-        <div className="add-modal-body">
-          <div className="section-label">Search or select predefined charges</div>
-          <div className="add-search-wrap">
+  return createPortal(
+    <div className="charges-add-modal-overlay charges-active">
+      <div className="charges-add-modal">
+        <div className="charges-add-modal-title">➕ Add Charge</div>
+        <div className="charges-add-modal-body">
+          <div className="charges-section-label">Search or select predefined charges</div>
+          <div className="charges-add-search-wrap">
             <span>🔍</span>
             <input 
               type="text" 
@@ -136,9 +137,9 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
             />
           </div>
 
-          <div className="predefined-list">
+          <div className="charges-predefined-list">
             {filteredHeads.length === 0 ? (
-              <div className="no-results">No matching charges found</div>
+              <div className="charges-no-results">No matching charges found</div>
             ) : (
               filteredHeads.map(ch => {
                 const isChecked = selectedNames.has(ch.name);
@@ -146,7 +147,7 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
 
                 if (isEditing) {
                   return (
-                    <div key={ch._id || ch.name} className="predefined-item-edit" style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #dee2e6' }}>
+                    <div key={ch._id || ch.name} className="charges-predefined-item-edit" style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #dee2e6' }}>
                       <input 
                         type="text" 
                         value={editName} 
@@ -181,15 +182,15 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
 
                 return (
                   <div key={ch._id || ch.name} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                    <label className={`predefined-item ${isChecked ? 'checked' : ''}`} style={{ flex: 1, borderBottom: 'none', margin: 0 }}>
+                    <label className={`charges-predefined-item ${isChecked ? 'charges-checked' : ''}`} style={{ flex: 1, borderBottom: 'none', margin: 0 }}>
                       <input 
                         type="checkbox" 
                         checked={isChecked} 
                         onChange={() => handleToggle(ch.name)} 
                       />
-                      <span className="predefined-item-name">{ch.name}</span>
+                      <span className="charges-predefined-item-name">{ch.name}</span>
                       <span style={{ fontSize: '10px', color: '#64748b', marginRight: '8px' }}>{ch.sacHsn}</span>
-                      <span className="predefined-item-cat">{ch.category}</span>
+                      <span className="charges-predefined-item-cat">{ch.category}</span>
                       {ch.isPurchaseBookMandatory && <span style={{ fontSize: '9px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 4px', borderRadius: '4px', marginLeft: '8px', fontWeight: 'bold' }}>PB REQ</span>}
                     </label>
                     {isAdmin && (
@@ -204,9 +205,9 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
             )}
           </div>
 
-          <div className="custom-charge-box">
-            <div className="section-label">➕ Add Custom Charge</div>
-            <div className="custom-row">
+          <div className="charges-custom-charge-box">
+            <div className="charges-section-label">➕ Add Custom Charge</div>
+            <div className="charges-custom-row">
               <input 
                 type="text" 
                 placeholder="Enter charge name..." 
@@ -233,18 +234,20 @@ const AddChargeModal = ({ isOpen, onClose, onAddSelected }) => {
               </label>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="add-custom-btn" onClick={handleAddCustom}>Add to List</button>
+              <button type="button" className="charges-add-custom-btn" onClick={handleAddCustom}>Add to List</button>
             </div>
           </div>
         </div>
-        <div className="add-modal-footer">
-          <span className="sel-count">{selectedNames.size ? `${selectedNames.size} charge${selectedNames.size > 1 ? 's' : ''} selected` : ''}</span>
-          <button type="button" className="btn" onClick={handleAddSelected} disabled={selectedNames.size === 0}>Add Selected</button>
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+        <div className="charges-add-modal-footer">
+          <span className="charges-sel-count">{selectedNames.size ? `${selectedNames.size} charge${selectedNames.size > 1 ? 's' : ''} selected` : ''}</span>
+          <button type="button" className="charges-btn" onClick={handleAddSelected} disabled={selectedNames.size === 0}>Add Selected</button>
+          <button type="button" className="charges-btn" onClick={onClose}>Cancel</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
 export default AddChargeModal;
+

@@ -178,24 +178,24 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
 
 
     return (
-        <div className="charge-modal-overlay active" style={{ zIndex: 1100 }}>
-            <div className="edit-charge-modal" style={{ width: '800px' }}>
-                <div className="modal-title">Request Payment</div>
+        <div className="charges-edit-modal-overlay charges-active" style={{ zIndex: 1100 }}>
+            <div className="charges-edit-modal" style={{ width: '800px' }}>
+                <div className="charges-modal-title">Request Payment</div>
                 <form>
-                    <div className="modal-body">
-                        <div className="ep-grid" style={{ gridTemplateColumns: '1fr 1fr 30px', gap: '10px 20px', marginRight: '10px' }}>
-                            <div className="ep-row">
-                                <span className="ep-label">Request No <span style={{ color: 'red' }}>*</span></span>
-                                <input type="text" name="Request No" className="ep-desc-input" value={formData["Request No"]} onChange={handleInputChange} />
+                    <div className="charges-modal-body">
+                        <div className="charges-ep-grid" style={{ gridTemplateColumns: '1fr 1fr 30px', gap: '10px 20px', marginRight: '10px' }}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Request No <span style={{ color: 'red' }}>*</span></span>
+                                <input type="text" name="Request No" className="charges-ep-desc-input" value={formData["Request No"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Request Date <span style={{ color: 'red' }}>*</span></span>
-                                <input type="date" name="Request Date" className="ep-desc-input" value={formData["Request Date"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Request Date <span style={{ color: 'red' }}>*</span></span>
+                                <input type="date" name="Request Date" className="charges-ep-desc-input" value={formData["Request Date"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                            <div className="ep-row">
-                                <span className="ep-label">Bank From</span>
-                                <select name="Bank From" className="ep-select" value={formData["Bank From"]} onChange={handleInputChange}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Bank From</span>
+                                <select name="Bank From" className="charges-ep-select" value={formData["Bank From"]} onChange={handleInputChange}>
                                     <option value="">SELECT BANK</option>
                                     <option value="HDFC BANK">HDFC BANK</option>
                                     <option value="ICICI BANK">ICICI BANK</option>
@@ -206,44 +206,44 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                     <option value="CASH">CASH</option>
                                 </select>
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Payment to <span style={{ color: 'red' }}>*</span></span>
-                                <input type="text" name="Payment To" className="ep-desc-input" value={formData["Payment To"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Payment to <span style={{ color: 'red' }}>*</span></span>
+                                <input type="text" name="Payment To" className="charges-ep-desc-input" value={formData["Payment To"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                            <div className="ep-row">
-                                <span className="ep-label">Against Bill <span style={{ color: 'red' }}>*</span></span>
-                                <input type="text" name="Against Bill" className="ep-desc-input" value={formData["Against Bill"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Against Bill <span style={{ color: 'red' }}>*</span></span>
+                                <input type="text" name="Against Bill" className="charges-ep-desc-input" value={formData["Against Bill"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Amount <span style={{ color: 'red' }}>*</span></span>
-                                <input type="number" name="Amount" className="ep-desc-input" value={formData["Amount"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Amount <span style={{ color: 'red' }}>*</span></span>
+                                <input type="number" name="Amount" className="charges-ep-desc-input" value={formData["Amount"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                            <div className="ep-row">
-                                <span className="ep-label">Transfer Mode <span style={{ color: 'red' }}>*</span></span>
-                                <select name="Transfer Mode" className="ep-select" value={formData["Transfer Mode"]} onChange={handleInputChange}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Transfer Mode <span style={{ color: 'red' }}>*</span></span>
+                                <select name="Transfer Mode" className="charges-ep-select" value={formData["Transfer Mode"]} onChange={handleInputChange}>
                                     <option value="Online">Online</option>
                                     <option value="Offline">Offline</option>
                                 </select>
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">A/c No {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
-                                <input type="text" name="Account No" className="ep-desc-input" value={formData["Account No"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">A/c No {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
+                                <input type="text" name="Account No" className="charges-ep-desc-input" value={formData["Account No"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                            <div className="ep-row">
-                                <span className="ep-label">IFS Code {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
-                                <input type="text" name="IFSC Code" className="ep-desc-input" value={formData["IFSC Code"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">IFS Code {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
+                                <input type="text" name="IFSC Code" className="charges-ep-desc-input" value={formData["IFSC Code"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Bank Name {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
-                                <input type="text" name="Bank Name" className="ep-desc-input" value={formData["Bank Name"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Bank Name {formData["Transfer Mode"] === 'Online' && <span style={{ color: 'red' }}>*</span>}</span>
+                                <input type="text" name="Bank Name" className="charges-ep-desc-input" value={formData["Bank Name"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                            <div className="ep-row">
-                                <span className="ep-label">Transaction Type <span style={{ color: 'red' }}>*</span></span>
-                                <select name="Transaction Type" className="ep-select" value={formData["Transaction Type"]} onChange={handleInputChange}>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Transaction Type <span style={{ color: 'red' }}>*</span></span>
+                                <select name="Transaction Type" className="charges-ep-select" value={formData["Transaction Type"]} onChange={handleInputChange}>
                                     <option value="NEFT">NEFT</option>
                                     <option value="RTGS">RTGS</option>
                                     <option value="IMPS">IMPS</option>
@@ -253,50 +253,50 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                     <option value="ODEX">ODEX</option>
                                 </select>
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Beneficiary Code</span>
-                                <input type="text" name="Beneficiary Code" className="ep-desc-input" value={formData["Beneficiary Code"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Beneficiary Code</span>
+                                <input type="text" name="Beneficiary Code" className="charges-ep-desc-input" value={formData["Beneficiary Code"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row">
-                                <span className="ep-label">Charge Head Category</span>
-                                <input type="text" name="Charge Head Category" className="ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Charge Head Category</span>
+                                <input type="text" name="Charge Head Category" className="charges-ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
                             </div>
-                            <div className="ep-row" style={{ gridColumn: 'span 2' }}>
-                                <span className="ep-label">Charge Description</span>
-                                <input type="text" name="Charge Description" className="ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
+                            <div className="charges-ep-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="charges-ep-label">Charge Description</span>
+                                <input type="text" name="Charge Description" className="charges-ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                              {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (
                                 <>
-                                    <div className="ep-row">
-                                        <span className="ep-label">Instrument No</span>
-                                        <input type="text" name="Instrument No" className="ep-desc-input" value={formData["Instrument No"]} onChange={handleInputChange} />
+                                    <div className="charges-ep-row">
+                                        <span className="charges-ep-label">Instrument No</span>
+                                        <input type="text" name="Instrument No" className="charges-ep-desc-input" value={formData["Instrument No"]} onChange={handleInputChange} />
                                     </div>
-                                    <div className="ep-row">
-                                        <span className="ep-label">Instrument Date</span>
-                                        <input type="date" name="Instrument Date" className="ep-desc-input" value={formData["Instrument Date"]} onChange={handleInputChange} />
+                                    <div className="charges-ep-row">
+                                        <span className="charges-ep-label">Instrument Date</span>
+                                        <input type="date" name="Instrument Date" className="charges-ep-desc-input" value={formData["Instrument Date"]} onChange={handleInputChange} />
                                     </div>
                                 </>
                             )}
                         </div>
                     </div>
-                    <div className="modal-footer">
-                        <button type="button" className="btn" onClick={handleSubmit} disabled={loading}>
+                    <div className="charges-modal-footer">
+                        <button type="button" className="charges-btn" onClick={handleSubmit} disabled={loading}>
                             {loading ? "Submitting..." : "Submit Request"}
                         </button>
-                        <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
+                        <button type="button" className="charges-btn" onClick={onClose} style={{ marginRight: '30px' }}>Cancel</button>
                     </div>
                 </form>
             </div>
 
             {/* Validation Error Popup */}
             {errorPopup.isOpen && (
-                <div className="charge-modal-overlay active" style={{ zIndex: 1200 }}>
-                    <div className="edit-charge-modal" style={{ width: '400px' }}>
-                        <div className="modal-title" style={{ background: 'linear-gradient(to bottom, #d32f2f, #b71c1c)' }}>
+                <div className="charges-edit-modal-overlay charges-active" style={{ zIndex: 1200 }}>
+                    <div className="charges-edit-modal" style={{ width: '400px' }}>
+                        <div className="charges-modal-title" style={{ background: 'linear-gradient(to bottom, #d32f2f, #b71c1c)' }}>
                             Validation Error
                         </div>
-                        <div className="modal-body">
+                        <div className="charges-modal-body">
                             <div style={{ color: '#333', marginBottom: '10px', fontWeight: 'bold' }}>
                                 Please fill in the following mandatory fields:
                             </div>
@@ -306,10 +306,10 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                 ))}
                             </ul>
                         </div>
-                        <div className="modal-footer" style={{ justifyContent: 'center' }}>
+                        <div className="charges-modal-footer" style={{ justifyContent: 'center' }}>
                             <button 
                                 type="button" 
-                                className="btn" 
+                                className="charges-btn" 
                                 onClick={() => setErrorPopup({ isOpen: false, messages: [] })}
                                 style={{ background: 'linear-gradient(to bottom, #7fa8d0, #5580a8)', color: 'white' }}
                             >

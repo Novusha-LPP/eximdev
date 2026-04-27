@@ -493,10 +493,10 @@ const EditChargeModal = ({
   };
 
   return createPortal(
-    <div className="charge-modal-overlay active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
-      <div className="edit-charge-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-title">Edit Charge</div>
-        <div className="modal-body">
+    <div className="charges-edit-modal-overlay charges-active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
+      <div className="charges-edit-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="charges-modal-title">Edit Charge</div>
+        <div className="charges-modal-body">
           {formData.map((row, i) => {
             const hasPR = row.payment_request_no && String(row.payment_request_no).trim().length > 0;
             const hasPB = row.purchase_book_no && String(row.purchase_book_no).trim().length > 0;
@@ -517,17 +517,17 @@ const EditChargeModal = ({
                   🔒 This charge is locked because a Payment Request or Purchase Book number has been generated.
                 </div>
               )}
-              <div className="form-section-new">
-                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginRight: '30px', gap: '10px 20px' }}>
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">Charge {row.isPurchaseBookMandatory && <span style={{ fontSize: '9px', background: '#ffebee', color: '#c62828', padding: '1px 6px', borderRadius: '4px', marginLeft: '8px', border: '1px solid #ef9a9a' }}>PB MANDATORY</span>}</span>
-                    <div className="form-input-search">
-                      <input type="text" readOnly className="form-input" style={{ background: '#f5f8fc', color: '#1a3a5c', fontWeight: 'bold' }} value={row.chargeHead || ''} />
-                      <button type="button" className="search-btn" disabled={effectiveReadOnly}>🔍</button>
+              <div className="charges-form-section-new">
+                <div className="charges-form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginRight: '30px', gap: '10px 20px' }}>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label">Charge {row.isPurchaseBookMandatory && <span style={{ fontSize: '9px', background: '#ffebee', color: '#c62828', padding: '1px 6px', borderRadius: '4px', marginLeft: '8px', border: '1px solid #ef9a9a' }}>PB MANDATORY</span>}</span>
+                    <div className="charges-form-input-search">
+                      <input type="text" readOnly className="charges-form-input" style={{ background: '#f5f8fc', color: '#1a3a5c', fontWeight: 'bold' }} value={row.chargeHead || ''} />
+                      <button type="button" className="charges-search-btn" disabled={effectiveReadOnly}>🔍</button>
                     </div>
                   </div>
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">Category</span>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label">Category</span>
                     <select disabled={effectiveReadOnly} value={row.category || ''} onChange={e => handleFieldChange(i, 'category', e.target.value)}>
                       <option value="">-- Category --</option>
                       <option>Reimbursement</option>
@@ -535,28 +535,28 @@ const EditChargeModal = ({
                     </select>
                   </div>
 
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">Invoice Number</span>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label">Invoice Number</span>
                     <input type="text" disabled={effectiveReadOnly} value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} />
                   </div>
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">Invoice Date</span>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label">Invoice Date</span>
                     <input type="date" disabled={effectiveReadOnly} value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
                   </div>
 
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label">SAC/HSN code</span>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label">SAC/HSN code</span>
                     <input type="text" disabled={effectiveReadOnly} placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} />
                   </div>
-                  <div className="form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="form-label" style={{ marginBottom: 0 }}>Is Header?</span>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="charges-form-label" style={{ marginBottom: 0 }}>Is Header?</span>
                     <input type="checkbox" checked={row.isHeader || false} disabled={effectiveReadOnly} onChange={e => handleFieldChange(i, 'isHeader', e.target.checked)} />
                   </div>
 
                   {/* Tally Numbers & Status Row */}
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label" style={{ color: '#1565c0', fontWeight: 'bold' }}>PB No</span>
-                    <div className="ep-inline">
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label" style={{ color: '#1565c0', fontWeight: 'bold' }}>PB No</span>
+                    <div className="charges-ep-inline">
                         <input type="text" readOnly disabled={readOnly} style={{ background: '#e3f2fd', color: '#1565c0', width: '60%' }} value={row.purchase_book_no || ''} />
                         {row.purchase_book_no && (
                             <IconButton 
@@ -593,9 +593,9 @@ const EditChargeModal = ({
                         </span>
                     </div>
                   </div>
-                  <div className="form-row" style={{ gridColumn: 'span 2' }}>
-                    <span className="form-label" style={{ color: '#d32f2f', fontWeight: 'bold' }}>PR No</span>
-                    <div className="ep-inline" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label" style={{ color: '#d32f2f', fontWeight: 'bold' }}>PR No</span>
+                    <div className="charges-ep-inline" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                         <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
                             <input type="text" readOnly disabled={readOnly} style={{ background: '#ffebee', color: '#c62828', width: '60%' }} value={row.payment_request_no || ''} />
                             {row.payment_request_no && (
@@ -659,15 +659,15 @@ const EditChargeModal = ({
                     </div>
                   </div>
 
-                  <div className="form-row" style={{ gridColumn: 'span 4' }}>
-                    <span className="form-label">Remark</span>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 4' }}>
+                    <span className="charges-form-label">Remark</span>
                     <input type="text" disabled={effectiveReadOnly} value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)} />
                   </div>
                 </div>
               </div>
 
-              <div className="charge-table-wrap">
-                <table className="charge-table">
+              <div className="charges-table-wrap">
+                <table className="charges-table">
                   <thead>
                     <tr>
                       <th style={{ width: '60px' }}></th>
@@ -685,7 +685,7 @@ const EditChargeModal = ({
                   <tbody>
                     {/* --- REVENUE ROW --- */}
                     <tr style={{ cursor: 'pointer' }} onClick={() => togglePanel(i, 'rev')}>
-                      <td className="row-label">Revenue</td>
+                      <td className="charges-row-label">Revenue</td>
                       <td>{row.revenue?.basis || 'Per B/E - Per Shp'}</td>
                       <td>{row.revenue?.qty || '1.00'}</td>
                       <td>{row.revenue?.currency || 'INR'}</td>
@@ -695,7 +695,7 @@ const EditChargeModal = ({
                       <td style={{ textAlign: 'center' }}><input type="checkbox" checked={row.revenue?.overrideAutoRate || false} readOnly /></td>
                       <td style={{ textAlign: 'center' }}><input type="checkbox" checked={row.revenue?.isPosted || false} readOnly /></td>
                       <td>
-                        <button type="button" className="arrow-btn" onClick={(e) => { e.stopPropagation(); togglePanel(i, 'rev'); }}>
+                        <button type="button" className="charges-arrow-btn" onClick={(e) => { e.stopPropagation(); togglePanel(i, 'rev'); }}>
                           {panelOpen[i] === 'rev' ? '▲' : '▼'}
                         </button>
                       </td>
@@ -703,15 +703,15 @@ const EditChargeModal = ({
                     
                     {/* --- REVENUE EXPANDED --- */}
                     {panelOpen[i] === 'rev' && (
-                      <tr className="expand-row">
+                      <tr className="charges-expand-row">
                         <td colSpan="10">
-                          <div className="expand-panel open">
-                            <div className="ep-desc-row">
-                              <span className="ep-label">Charge Description</span>
-                              <input type="text" className="ep-desc-input" disabled={effectiveReadOnly} value={row.revenue?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'revenue')} />
+                          <div className="charges-expand-panel charges-open">
+                            <div className="charges-ep-desc-row">
+                              <span className="charges-ep-label">Charge Description</span>
+                              <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.revenue?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'revenue')} />
                             </div>
-                            <div className="ep-desc-row">
-                                <span className="ep-label">Attachment</span>
+                            <div className="charges-ep-desc-row">
+                                <span className="charges-ep-label">Attachment</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
                                     {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? (
                                         row.revenue.url.map((url, urlIdx) => (
@@ -735,15 +735,15 @@ const EditChargeModal = ({
                                     ) : (
                                         <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
                                     )}
-                                    <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
+                                    <button type="button" className="charges-upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
                                         {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? 'Edit Files' : 'Upload Files'}
                                     </button>
                                 </div>
                             </div>
-                            <div className="ep-grid" style={{ marginRight: '30px' }}>
-                              <div className="ep-row">
-                                <span className="ep-label">Basis</span>
-                                <select className="ep-select" disabled={effectiveReadOnly} value={row.revenue?.basis || 'Per B/E - Per Shp'} onChange={e => handleFieldChange(i, 'basis', e.target.value, 'revenue')}>
+                            <div className="charges-ep-grid" style={{ marginRight: '30px' }}>
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Basis</span>
+                                <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.revenue?.basis || 'Per B/E - Per Shp'} onChange={e => handleFieldChange(i, 'basis', e.target.value, 'revenue')}>
                                   <option>Per Package</option><option>By Gross Wt</option><option>By Chg Wt</option>
                                   <option>By Volume</option><option>Per Container</option><option>Per TEU</option>
                                   <option>Per FEU</option><option>% of Other Charges</option>
@@ -755,36 +755,36 @@ const EditChargeModal = ({
                                   <option>Per Product</option><option>By Net Wt</option><option>Per Invoice</option>
                                 </select>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Override Auto Rate</span>
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Override Auto Rate</span>
                                 <input type="checkbox" disabled={effectiveReadOnly} checked={row.revenue?.overrideAutoRate || false} onChange={e => handleFieldChange(i, 'overrideAutoRate', e.target.checked, 'revenue')} />
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Qty/Unit</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Qty/Unit</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.revenue?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'revenue')} />
                                   <input type="text" disabled={effectiveReadOnly} value={row.revenue?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'revenue')} />
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Receivable Type</span>
-                                <select className="ep-select" disabled={effectiveReadOnly} value={row.revenue?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'revenue')}>
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Receivable Type</span>
+                                <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.revenue?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'revenue')}>
                                   <option>Customer</option><option>Agent</option><option>Carrier</option>
                                 </select>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Rate</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Rate</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.revenue?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'revenue')} />
                                   <select disabled={effectiveReadOnly} value={row.revenue?.currency || 'INR'} onChange={e => handleFieldChange(i, 'currency', e.target.value, 'revenue')}>
                                     <option>INR</option><option>USD</option><option>EUR</option>
                                   </select>
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Receivable From</span>
-                                <div className="ep-search-container">
-                                  <div className="ep-search-wrap">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Receivable From</span>
+                                <div className="charges-ep-search-container">
+                                  <div className="charges-ep-search-wrap">
                                     <input 
                                       type="text" 
                                       disabled={effectiveReadOnly}
@@ -792,32 +792,32 @@ const EditChargeModal = ({
                                       onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'revenue')} 
                                       onFocus={() => !effectiveReadOnly && setActiveDropdown({ index: i, section: 'revenue' })}
                                     />
-                                    <button type="button" className="ep-search-btn" disabled={effectiveReadOnly}>🔍</button>
+                                    <button type="button" className="charges-ep-search-btn" disabled={effectiveReadOnly}>🔍</button>
                                   </div>
                                   {activeDropdown.index === i && activeDropdown.section === 'revenue' && (row.revenue?.partyName?.length >= 2) && (
-                                    <ul className="ep-dropdown-list" ref={dropdownRef}>
+                                    <ul className="charges-ep-dropdown-list" ref={dropdownRef}>
                                       {(row.revenue?.partyType?.toUpperCase() === 'AGENT' || row.revenue?.partyType?.toUpperCase() === 'CARRIER' ? shippingLines : 
                                         row.revenue?.partyType?.toUpperCase() === 'CUSTOMER' ? organizations : [])
                                         .filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase()))
                                         .slice(0, 20)
                                         .map((item, idx) => (
-                                          <li key={idx} className="ep-dropdown-item" onClick={() => handleSelectParty(i, 'revenue', item)}>
-                                            <span className="ep-item-name">{item.name}</span>
-                                            <span className="ep-item-sub">{item.city || 'Master Directory'}</span>
+                                          <li key={idx} className="charges-ep-dropdown-item" onClick={() => handleSelectParty(i, 'revenue', item)}>
+                                            <span className="charges-ep-item-name">{item.name}</span>
+                                            <span className="charges-ep-item-sub">{item.city || 'Master Directory'}</span>
                                           </li>
                                         ))}
                                       {((row.revenue?.partyType === 'Agent' || row.revenue?.partyType === 'Carrier' ? shippingLines : 
                                         row.revenue?.partyType === 'Customer' ? organizations : [])
                                         .filter(item => !row.revenue?.partyName || item.name.toLowerCase().includes(row.revenue.partyName.toLowerCase()))
-                                        .length === 0) && <li className="ep-dropdown-item"><span className="ep-item-sub">No results found</span></li>}
+                                        .length === 0) && <li className="charges-ep-dropdown-item"><span className="charges-ep-item-sub">No results found</span></li>}
                                     </ul>
                                   )}
                                 </div>
-                                {row.revenue?.branchCode && <span className="ep-link" style={{ marginLeft: '6px', whiteSpace: 'nowrap' }}>{row.revenue.branchCode}</span>}
+                                {row.revenue?.branchCode && <span className="charges-ep-link" style={{ marginLeft: '6px', whiteSpace: 'nowrap' }}>{row.revenue.branchCode}</span>}
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Total Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Total Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.revenue?.amountINR || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
                                 </div>
@@ -826,9 +826,9 @@ const EditChargeModal = ({
                                 const party = [...shippingLines, ...suppliers].find(p => p.name?.toUpperCase() === row.revenue?.partyName?.toUpperCase());
                                 if (party && party.branches?.length > 1) {
                                   return (
-                                    <div className="ep-row">
-                                      <span className="ep-label">Branch</span>
-                                      <select className="ep-select" disabled={effectiveReadOnly} value={row.revenue?.branchIndex || 0} onChange={e => handleFieldChange(i, 'branchIndex', parseInt(e.target.value), 'revenue')}>
+                                    <div className="charges-ep-row">
+                                      <span className="charges-ep-label">Branch</span>
+                                      <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.revenue?.branchIndex || 0} onChange={e => handleFieldChange(i, 'branchIndex', parseInt(e.target.value), 'revenue')}>
                                         {party.branches.map((b, bIdx) => (
                                           <option key={bIdx} value={bIdx}>{b.branchName || `Branch ${bIdx + 1}`}</option>
                                         ))}
@@ -840,9 +840,9 @@ const EditChargeModal = ({
                               })()}
 
                               {/* GST FIELDS FOR REVENUE */}
-                              <div className="ep-row">
-                                <span className="ep-label">Include GST?</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Include GST?</span>
+                                <div className="charges-ep-inline">
                                   <input type="checkbox" disabled={effectiveReadOnly} checked={row.revenue?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'revenue')} />
                                   {row.revenue?.isGst !== false && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -852,20 +852,20 @@ const EditChargeModal = ({
                                   )}
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Basic Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Basic Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.revenue?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'revenue')} />
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">GST Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">GST Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.revenue?.gstAmount)} />
                                 </div>
                               </div>
                             </div>
-                            <div className="ep-copy-row" style={{ gap: '15px' }}>
+                            <div className="charges-ep-copy-row" style={{ gap: '15px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 Copy to Cost <input type="checkbox" disabled={effectiveReadOnly} checked={row.copyToCost || false} onChange={e => handleFieldChange(i, 'copyToCost', e.target.checked)} />
                               </div>
@@ -901,7 +901,7 @@ const EditChargeModal = ({
 
                     {/* --- COST ROW --- */}
                     <tr style={{ cursor: 'pointer' }} onClick={() => togglePanel(i, 'cost')}>
-                      <td className="row-label">Cost</td>
+                      <td className="charges-row-label">Cost</td>
                       <td>{row.cost?.basis || 'Per B/E - Per Shp'}</td>
                       <td>{row.cost?.qty || '1.00'}</td>
                       <td>{row.cost?.currency || 'INR'}</td>
@@ -911,7 +911,7 @@ const EditChargeModal = ({
                       <td style={{ textAlign: 'center' }}><input type="checkbox" checked={row.cost?.overrideAutoRate || false} readOnly /></td>
                       <td style={{ textAlign: 'center' }}><input type="checkbox" checked={row.cost?.isPosted || false} readOnly /></td>
                       <td>
-                        <button type="button" className="arrow-btn" onClick={(e) => { e.stopPropagation(); togglePanel(i, 'cost'); }}>
+                        <button type="button" className="charges-arrow-btn" onClick={(e) => { e.stopPropagation(); togglePanel(i, 'cost'); }}>
                           {panelOpen[i] === 'cost' ? '▲' : '▼'}
                         </button>
                       </td>
@@ -919,15 +919,15 @@ const EditChargeModal = ({
 
                     {/* --- COST EXPANDED --- */}
                     {panelOpen[i] === 'cost' && (
-                      <tr className="expand-row">
+                      <tr className="charges-expand-row">
                         <td colSpan="10">
-                          <div className="expand-panel open">
-                            <div className="ep-desc-row">
-                              <span className="ep-label">Charge Description</span>
-                              <input type="text" className="ep-desc-input" disabled={effectiveReadOnly} value={row.cost?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'cost')} />
+                          <div className="charges-expand-panel charges-open">
+                            <div className="charges-ep-desc-row">
+                              <span className="charges-ep-label">Charge Description</span>
+                              <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.cost?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'cost')} />
                             </div>
-                            <div className="ep-desc-row">
-                                <span className="ep-label">Attachment</span>
+                            <div className="charges-ep-desc-row">
+                                <span className="charges-ep-label">Attachment</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
                                     {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? (
                                         row.cost.url.map((url, urlIdx) => (
@@ -951,15 +951,15 @@ const EditChargeModal = ({
                                     ) : (
                                         <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
                                     )}
-                                    <button type="button" className="upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
+                                    <button type="button" className="charges-upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
                                         {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? 'Edit Files' : 'Upload Files'}
                                     </button>
                                 </div>
                             </div>
-                            <div className="ep-grid" style={{ marginRight: '30px' }}>
-                              <div className="ep-row">
-                                <span className="ep-label">Basis</span>
-                                <select className="ep-select" disabled={effectiveReadOnly} value={row.cost?.basis || 'Per B/E - Per Shp'} onChange={e => handleFieldChange(i, 'basis', e.target.value, 'cost')}>
+                            <div className="charges-ep-grid" style={{ marginRight: '30px' }}>
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Basis</span>
+                                <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.cost?.basis || 'Per B/E - Per Shp'} onChange={e => handleFieldChange(i, 'basis', e.target.value, 'cost')}>
                                   <option>Per Package</option><option>By Gross Wt</option><option>By Chg Wt</option>
                                   <option>By Volume</option><option>Per Container</option><option>Per TEU</option>
                                   <option>Per FEU</option><option>% of Other Charges</option>
@@ -971,36 +971,36 @@ const EditChargeModal = ({
                                   <option>Per Product</option><option>By Net Wt</option><option>Per Invoice</option>
                                 </select>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Override Auto Rate</span>
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Override Auto Rate</span>
                                 <input type="checkbox" disabled={effectiveReadOnly} checked={row.cost?.overrideAutoRate || false} onChange={e => handleFieldChange(i, 'overrideAutoRate', e.target.checked, 'cost')} />
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Qty/Unit</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Qty/Unit</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.cost?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'cost')} />
                                   <input type="text" disabled={effectiveReadOnly} value={row.cost?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'cost')} />
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Payable Type</span>
-                                <select className="ep-select" disabled={effectiveReadOnly} value={row.cost?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Payable Type</span>
+                                <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.cost?.partyType || ''} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
                                   <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Others</option><option>Agent</option><option value="CFS">Terminal</option><option>General Org</option>
                                 </select>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Rate</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Rate</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.cost?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'cost')} />
                                   <select disabled={effectiveReadOnly} value={row.cost?.currency || 'INR'} onChange={e => handleFieldChange(i, 'currency', e.target.value, 'cost')}>
                                     <option>INR</option><option>USD</option><option>EUR</option>
                                   </select>
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Payable To</span>
-                                <div className="ep-search-container">
-                                  <div className="ep-search-wrap">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Payable To</span>
+                                <div className="charges-ep-search-container">
+                                  <div className="charges-ep-search-wrap">
                                     <input 
                                       type="text" 
                                       disabled={effectiveReadOnly}
@@ -1008,10 +1008,10 @@ const EditChargeModal = ({
                                       onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'cost')} 
                                       onFocus={() => !effectiveReadOnly && setActiveDropdown({ index: i, section: 'cost' })}
                                     />
-                                    <button type="button" className="ep-search-btn" disabled={effectiveReadOnly}>🔍</button>
+                                    <button type="button" className="charges-ep-search-btn" disabled={effectiveReadOnly}>🔍</button>
                                   </div>
                                   {activeDropdown.index === i && activeDropdown.section === 'cost' && (row.cost?.partyName?.length >= 2) && (
-                                    <ul className="ep-dropdown-list" ref={dropdownRef}>
+                                    <ul className="charges-ep-dropdown-list" ref={dropdownRef}>
                                       {(row.cost?.partyType?.toUpperCase() === 'AGENT' || row.cost?.partyType?.toUpperCase() === 'OTHERS' ? shippingLines : 
                                         row.cost?.partyType?.toUpperCase() === 'VENDOR' ? suppliers :
                                         row.cost?.partyType?.toUpperCase() === 'TRANSPORTER' ? transporters :
@@ -1021,9 +1021,9 @@ const EditChargeModal = ({
                                         .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
                                         .slice(0, 20)
                                         .map((item, idx) => (
-                                          <li key={idx} className="ep-dropdown-item" onClick={() => handleSelectParty(i, 'cost', item)}>
-                                            <span className="ep-item-name">{item.name}</span>
-                                            <span className="ep-item-sub">{item.city || 'Master Directory'}</span>
+                                          <li key={idx} className="charges-ep-dropdown-item" onClick={() => handleSelectParty(i, 'cost', item)}>
+                                            <span className="charges-ep-item-name">{item.name}</span>
+                                            <span className="charges-ep-item-sub">{item.city || 'Master Directory'}</span>
                                           </li>
                                         ))}
                                       {((row.cost?.partyType === 'Agent' || row.cost?.partyType === 'Others' ? shippingLines : 
@@ -1033,14 +1033,14 @@ const EditChargeModal = ({
                                         row.cost?.partyType === 'General Org' ? generalOrgs :
                                         row.cost?.partyType === 'CFS' ? cfsList : [])
                                         .filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase()))
-                                        .length === 0) && <li className="ep-dropdown-item"><span className="ep-item-sub">No results found</span></li>}
+                                        .length === 0) && <li className="charges-ep-dropdown-item"><span className="charges-ep-item-sub">No results found</span></li>}
                                     </ul>
                                   )}
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Total Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Total Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amountINR || 0} />
                                   <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
                                 </div>
@@ -1066,9 +1066,9 @@ const EditChargeModal = ({
 
                                 if (party && party.branches?.length > 1) {
                                   return (
-                                    <div className="ep-row">
-                                      <span className="ep-label">Branch</span>
-                                      <select className="ep-select" disabled={effectiveReadOnly} value={row.cost?.branchIndex || 0} onChange={e => handleFieldChange(i, 'branchIndex', parseInt(e.target.value), 'cost')}>
+                                    <div className="charges-ep-row">
+                                      <span className="charges-ep-label">Branch</span>
+                                      <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.cost?.branchIndex || 0} onChange={e => handleFieldChange(i, 'branchIndex', parseInt(e.target.value), 'cost')}>
                                         {party.branches.map((b, bIdx) => (
                                           <option key={bIdx} value={bIdx}>{b.branchName || `Branch ${bIdx + 1}`}</option>
                                         ))}
@@ -1080,9 +1080,9 @@ const EditChargeModal = ({
                               })()}
 
                               {/* GST & TDS FIELDS FOR COST */}
-                              <div className="ep-row">
-                                <span className="ep-label">Include GST?</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Include GST?</span>
+                                <div className="charges-ep-inline">
                                   <input type="checkbox" disabled={effectiveReadOnly} checked={row.cost?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
                                   {row.cost?.isGst !== false && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1092,21 +1092,21 @@ const EditChargeModal = ({
                                   )}
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Basic Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Basic Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.cost?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'cost')} />
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">GST Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">GST Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.cost?.gstAmount)} />
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">Apply TDS?</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">Apply TDS?</span>
+                                <div className="charges-ep-inline">
                                   <input type="checkbox" disabled={effectiveReadOnly} checked={row.cost?.isTds || false} onChange={e => handleFieldChange(i, 'isTds', e.target.checked, 'cost')} />
                                   {row.cost?.isTds && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1116,19 +1116,19 @@ const EditChargeModal = ({
                                   )}
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label">TDS Amount</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label">TDS Amount</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.cost?.tdsAmount)} />
                                 </div>
                               </div>
-                              <div className="ep-row">
-                                <span className="ep-label" style={{ fontWeight: 'bold', color: '#d32f2f' }}>Net Payable</span>
-                                <div className="ep-inline">
+                              <div className="charges-ep-row">
+                                <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#d32f2f' }}>Net Payable</span>
+                                <div className="charges-ep-inline">
                                   <input type="number" readOnly className="ep-read" style={{ background: '#fff9f9', fontWeight: 'bold', color: '#d32f2f', border: '1px solid #ffcdd2' }} value={Math.round(row.cost?.netPayable || 0)} />
                                 </div>
                               </div>
-                              <div className="ep-copy-row" style={{ marginTop: '10px' }}>
+                              <div className="charges-ep-copy-row" style={{ marginTop: '10px' }}>
                                 <button 
                                   type="button" 
                                   className="copy-btn" 
@@ -1154,13 +1154,13 @@ const EditChargeModal = ({
                                   <ContentCopyIcon style={{ fontSize: '13px' }} /> Copy to Revenue
                                 </button>
                               </div>
-                              <div className="ep-grid" style={{ marginTop: '10px' }}>
+                              <div className="charges-ep-grid" style={{ marginTop: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   {/* Conditionally show based on workMode or if already exists */}
                                   {(!row.purchase_book_no || row.purchase_book_status === 'Rejected') && (
                                     <button 
                                       type="button" 
-                                      className="upload-btn" 
+                                      className="charges-upload-btn" 
                                       style={{ 
                                         marginRight: '10px', 
                                         backgroundColor: '#1976d2', 
@@ -1250,7 +1250,7 @@ const EditChargeModal = ({
                                   {(!row.payment_request_no || row.payment_request_status === 'Rejected') && (
                                     <button 
                                       type="button" 
-                                      className="upload-btn" 
+                                      className="charges-upload-btn" 
                                       style={{ 
                                         backgroundColor: '#d32f2f', 
                                         color: '#fff', 
@@ -1312,7 +1312,7 @@ const EditChargeModal = ({
             );
           })}
         </div>
-        <div className="modal-footer">
+        <div className="charges-modal-footer">
           {(() => {
             const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
             const role = (user?.role || "").toLowerCase();
@@ -1326,9 +1326,9 @@ const EditChargeModal = ({
             const showUpdate = !readOnlyBase;
             return (
               <>
-                {showUpdate && <button type="button" className="btn" onClick={() => handleSave(false)}>Update</button>}
-                {showUpdate && <button type="button" className="btn" onClick={() => handleSave(true)}>Update & Close</button>}
-                <button type="button" className="btn" onClick={onClose} style={{ marginRight: '30px' }}>{!showUpdate ? 'Close' : 'Cancel'}</button>
+                {showUpdate && <button type="button" className="charges-btn" onClick={() => handleSave(false)}>Update</button>}
+                {showUpdate && <button type="button" className="charges-btn" onClick={() => handleSave(true)}>Update & Close</button>}
+                <button type="button" className="charges-btn" onClick={onClose} style={{ marginRight: '30px' }}>{!showUpdate ? 'Close' : 'Cancel'}</button>
               </>
             );
           })()}

@@ -128,10 +128,10 @@ const ChargesTable = ({
   );
 
   return (
-    <div className="grid-wrapper" style={{ marginTop: '0' }}>
-      <table className="main-grid">
+    <div className="charges-grid-wrapper" style={{ marginTop: '0' }}>
+      <table className="charges-main-grid">
         <thead>
-          <tr className="header">
+          <tr className="charges-header">
             <th style={{ width: '30px', textAlign: 'center' }}>
               <input type="checkbox" onChange={onSelectAll} disabled={readOnly} />
             </th>
@@ -157,7 +157,7 @@ const ChargesTable = ({
                 return (
                   <tr 
                     key={ch._id || idx} 
-                    className={`header-row ${isSelected ? 'selected' : ''}`}
+                    className={`charges-header-row ${isSelected ? 'charges-selected' : ''}`}
                     onClick={() => !(readOnly || isIndividualLocked) && onSelectCharge(ch._id)}
                     style={{ backgroundColor: '#f0f4f8', cursor: 'pointer' }}
                   >
@@ -183,7 +183,7 @@ const ChargesTable = ({
             return (
               <tr 
                 key={ch._id || idx} 
-                className={`${isSelected ? 'selected' : ''} ${isIndividualLocked ? 'locked-row' : ''}`} 
+                className={`${isSelected ? 'charges-selected' : ''} ${isIndividualLocked ? 'charges-locked-row' : ''}`} 
                 onClick={() => !(readOnly || isIndividualLocked) && onSelectCharge(ch._id)}
                 onDoubleClick={() => onEditCharge(ch)}
                 title={isIndividualLocked ? "This charge is locked because a Payment Request or Purchase Book number has been generated." : ""}
@@ -220,11 +220,11 @@ const ChargesTable = ({
                     <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ch.revenue?.partyName || '-'}</td>
                     <td>{ch.revenue?.basis || '-'}</td>
                     <td>{ch.revenue?.currency || 'INR'}</td>
-                    <td className="number">{formatNumber(ch.revenue?.exchangeRate)}</td>
-                    <td className="number">{ch.revenue?.qty || 0}</td>
-                    <td className="number">{formatNumber(ch.revenue?.rate)}</td>
-                    <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.revenue?.amount)}</td>
-                    <td className="number" style={{ fontWeight: 'bold', color: '#0a5080' }}>{formatNumber(ch.revenue?.amountINR)}</td>
+                    <td className="charges-number">{formatNumber(ch.revenue?.exchangeRate)}</td>
+                    <td className="charges-number">{ch.revenue?.qty || 0}</td>
+                    <td className="charges-number">{formatNumber(ch.revenue?.rate)}</td>
+                    <td className="charges-number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.revenue?.amount)}</td>
+                    <td className="charges-number" style={{ fontWeight: 'bold', color: '#0a5080' }}>{formatNumber(ch.revenue?.amountINR)}</td>
                     {renderAttachmentCell(ch, attachmentUrls, isIndividualLocked)}
                   </>
                 )}
@@ -234,12 +234,12 @@ const ChargesTable = ({
                     <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ch.cost?.partyName || '-'}</td>
                     <td>{ch.cost?.basis || '-'}</td>
                     <td>{ch.cost?.currency || 'INR'}</td>
-                    <td className="number">{formatNumber(ch.cost?.exchangeRate)}</td>
-                    <td className="number">{ch.cost?.qty || 0}</td>
-                    <td className="number">{formatNumber(ch.cost?.rate)}</td>
-                    <td className="number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.cost?.amount)}</td>
-                    <td className="number" style={{ fontWeight: 'bold', color: '#6c4a30' }}>{formatNumber(ch.cost?.amountINR)}</td>
-                    <td className="number" style={{ fontWeight: 'bold', color: '#d32f2f' }}>{formatNumber(ch.cost?.netPayable)}</td>
+                    <td className="charges-number">{formatNumber(ch.cost?.exchangeRate)}</td>
+                    <td className="charges-number">{ch.cost?.qty || 0}</td>
+                    <td className="charges-number">{formatNumber(ch.cost?.rate)}</td>
+                    <td className="charges-number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.cost?.amount)}</td>
+                    <td className="charges-number" style={{ fontWeight: 'bold', color: '#6c4a30' }}>{formatNumber(ch.cost?.amountINR)}</td>
+                    <td className="charges-number" style={{ fontWeight: 'bold', color: '#d32f2f' }}>{formatNumber(ch.cost?.netPayable)}</td>
                     <td style={{ textAlign: 'center' }}>
                       {ch.payment_request_no ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>

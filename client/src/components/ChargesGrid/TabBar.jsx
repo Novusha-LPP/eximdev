@@ -9,11 +9,11 @@ const TabBar = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <div className="tab-bar">
+    <div className="charges-tab-bar">
       {tabs.map((tab) => (
         <div
           key={tab.id}
-          className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+          className={`charges-tab ${activeTab === tab.id ? 'charges-active' : ''}`}
           onClick={() => onTabChange(tab.id)}
         >
           {tab.label}

@@ -231,6 +231,7 @@ router.delete('/charges/:id', verifyToken, async (req, res) => {
     const hasActivePR = charge.payment_request_no && charge.payment_request_status !== 'Rejected';
     const hasActivePB = charge.purchase_book_no && charge.purchase_book_status !== 'Rejected';
     const isLocked = hasActivePR || hasActivePB;
+    const role = (req.user?.role || "").toLowerCase();
     const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
 
     if (isLocked && !isAuthorized) {

@@ -78,6 +78,7 @@ function CustomerKycForm() {
       principle_business_telephone: "",
       principle_address_email: "",
       principle_business_website: "",
+      principle_business_gst_no: "",
       sameAsPermanentAddress: false,
 
       authorised_signatories: [],
@@ -167,102 +168,6 @@ function CustomerKycForm() {
       { resetForm, setErrors, setTouched, validateForm }
     ) => {
       try {
-        const errors = await validateForm();
-        if (Object.keys(errors).length > 0) {
-          if (submitType === "save_draft") {
-            if (errors.iec_no || errors.name_of_individual) {
-              setDialogState({
-                isOpen: true,
-                title: "Draft Requirement Missing",
-                severity: "warning",
-                content: (
-                  <div>
-                    <p>
-                      Please fill <strong>IEC number</strong> and{" "}
-                      <strong>Name</strong> to save as draft.
-                    </p>
-                  </div>
-                ),
-              });
-              setTouched({
-                iec_no: true,
-                name_of_individual: true,
-              });
-              return;
-            }
-          } else {
-            // For final submission
-            setTouched({
-              category: true,
-              name_of_individual: true,
-              status: true,
-              permanent_address_line_1: true,
-              permanent_address_city: true,
-              permanent_address_state: true,
-              permanent_address_pin_code: true,
-              permanent_address_telephone: true,
-              permanent_address_email: true,
-              principle_business_address_line_1: true,
-              principle_business_address_city: true,
-              principle_business_address_state: true,
-              principle_business_address_pin_code: true,
-              principle_business_telephone: true,
-              principle_address_email: true,
-              iec_no: true,
-              pan_no: true,
-              factory_addresses: values.factory_addresses?.map(() => ({
-                factory_address_line_1: true,
-                factory_address_city: true,
-                factory_address_state: true,
-                factory_address_pin_code: true,
-                gst: true,
-              })),
-              banks: values.banks?.map(() => ({
-                bankers_name: true,
-                branch_address: true,
-                account_no: true,
-                ifsc: true,
-                adCode: true,
-              })),
-              branches: values.branches?.map(() => ({
-                branch_name: true,
-                branch_code: true,
-                address: true,
-                city: true,
-                state: true,
-                postal_code: true,
-              })),
-              hsn_codes: true,
-              date_of_incorporation: true,
-              contacts: values.contacts?.map(() => ({
-                name: true, designation: true, phone: true, email: true
-              })),
-            });
-
-            scrollToFirstError(errors);
-
-            setDialogState({
-              isOpen: true,
-              title: "Validation Errors",
-              severity: "error",
-              content: (
-                <div>
-                  <p>
-                    There are <strong>{countErrors(errors)}</strong> missing or
-                    invalid fields.
-                  </p>
-                  <p>
-                    First issue: <strong>{getFirstErrorFieldName(errors)}</strong>
-                  </p>
-                </div>
-              ),
-            });
-            return;
-          }
-        }
-
-        validateBanks(values.banks);
-
         const payload = { ...values };
         if (payload.date_of_incorporation === "") {
           payload.date_of_incorporation = null;
@@ -499,17 +404,53 @@ function CustomerKycForm() {
   };
 
   const countErrors = (errors) => {
-    // simplified count
-    return Object.keys(errors).length;
+    let count = 0;
+    const recurse = (obj) => {
+      if (!obj) return;
+      if (typeof obj === 'string') {
+        count++;
+      } else if (Array.isArray(obj)) {
+        obj.forEach(recurse);
+      } else {
+        Object.values(obj).forEach(recurse);
+      }
+    };
+    recurse(errors);
+    return count;
   };
 
   const getFirstErrorFieldName = (errors) => {
-    // simplified
-    return Object.keys(errors)[0] || "Unknown Field";
+    const recurse = (obj, prefix = "") => {
+      if (!obj) return null;
+      if (typeof obj === 'string') return prefix;
+      if (Array.isArray(obj)) {
+        for (let i = 0; i < obj.length; i++) {
+          const res = recurse(obj[i], `${prefix}[${i}]`);
+          if (res) return res;
+        }
+      } else {
+        const keys = Object.keys(obj);
+        for (const key of keys) {
+          const res = recurse(obj[key], prefix ? `${prefix}.${key}` : key);
+          if (res) return res;
+        }
+      }
+      return null;
+    };
+    const field = recurse(errors);
+    if (!field) return "Unknown Field";
+    return field.replace(/_/g, " ").replace(/\./g, " > ").toUpperCase();
   };
 
   const scrollToFirstError = (errors) => {
-    // Logic from previous file kept primarily
+    const firstField = Object.keys(errors)[0];
+    if (firstField) {
+      const element = document.getElementsByName(firstField)[0];
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.focus();
+      }
+    }
   };
 
   const renderUpload = (field, bucket, multiple = false) => (
@@ -937,6 +878,20 @@ function CustomerKycForm() {
                         value={formik.values.principle_business_website}
                         onChange={formik.handleChange}
                       />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>GST No (Principal Address)</label>
+                      <input
+                        type="text"
+                        name="principle_business_gst_no"
+                        placeholder="22AAAAA0000A1Z5"
+                        value={formik.values.principle_business_gst_no}
+                        onChange={formik.handleChange}
+                        className={formik.touched.principle_business_gst_no && formik.errors.principle_business_gst_no ? "error" : ""}
+                      />
+                      {formik.touched.principle_business_gst_no && formik.errors.principle_business_gst_no && <div className="err-msg">{formik.errors.principle_business_gst_no}</div>}
                     </div>
                   </div>
                 </div>
@@ -1465,29 +1420,53 @@ function CustomerKycForm() {
                     <div className="row">
                       <div className="field w-quarter">
                         <label>Credit Period</label>
-                        <input type="text" placeholder="e.g. 30 Days" />
+                        <input
+                          type="text"
+                          name="credit_period"
+                          placeholder="e.g. 30 Days"
+                          value={formik.values.credit_period}
+                          onChange={formik.handleChange}
+                        />
                       </div>
                       <div className="field w-quarter">
                         <label>Credit Limit Validity</label>
-                        <input type="date" />
+                        <input
+                          type="date"
+                          name="credit_limit_validity_date"
+                          value={formik.values.credit_limit_validity_date}
+                          onChange={formik.handleChange}
+                        />
                       </div>
                       <div className="field w-quarter">
                         <label>O/S Limit</label>
-                        <input type="text" placeholder="Outstanding limit" />
+                        <input
+                          type="text"
+                          name="outstanding_limit"
+                          placeholder="Outstanding limit"
+                          value={formik.values.outstanding_limit}
+                          onChange={formik.handleChange}
+                        />
                       </div>
                       <div className="field w-quarter">
                         <label>Quotation Given?</label>
                         <div className="inline-radios">
                           <label>
-                            <input type="radio" name="quotation" value="yes" />{" "}
+                            <input
+                              type="radio"
+                              name="quotation"
+                              value="Yes"
+                              checked={formik.values.quotation === "Yes"}
+                              onChange={formik.handleChange}
+                            />{" "}
                             Yes
                           </label>
                           <label>
                             <input
                               type="radio"
                               name="quotation"
-                              value="no"
-                              defaultChecked
+                              value="No"
+                              checked={formik.values.quotation === "No"}
+                              onChange={formik.handleChange}
                             />{" "}
                             No
                           </label>
@@ -1497,7 +1476,12 @@ function CustomerKycForm() {
                     <div className="row">
                       <div className="field">
                         <label className="field-checkbox">
-                          <input type="checkbox" />{" "}
+                          <input
+                            type="checkbox"
+                            name="advance_payment"
+                            checked={formik.values.advance_payment}
+                            onChange={formik.handleChange}
+                          />{" "}
                           <span>Advance Payment Required</span>
                         </label>
                       </div>
@@ -1654,10 +1638,31 @@ function CustomerKycForm() {
               <button
                 type="button"
                 className="btn btn-draft"
-                onClick={() => {
+                onClick={async () => {
                   setSubmitType("save_draft");
                   setSubmissionAttempted(true);
-                  formik.handleSubmit();
+                  const errors = await formik.validateForm();
+                  if (errors.iec_no || errors.name_of_individual) {
+                    setDialogState({
+                      isOpen: true,
+                      title: "Draft Requirement Missing",
+                      severity: "warning",
+                      content: (
+                        <div>
+                          <p>
+                            Please fill <strong>IEC number</strong> and{" "}
+                            <strong>Name</strong> to save as draft.
+                          </p>
+                        </div>
+                      ),
+                    });
+                    formik.setTouched({
+                      iec_no: true,
+                      name_of_individual: true,
+                    });
+                  } else {
+                    formik.handleSubmit();
+                  }
                 }}
               >
                 💾 Save Draft
@@ -1666,18 +1671,48 @@ function CustomerKycForm() {
                 type="button"
                 className="btn btn-success"
                 onClick={async () => {
-                  console.log("submit");
                   setSubmitType("save");
                   setSubmissionAttempted(true);
-                  setTimeout(async () => {
-                    const errors = await formik.validateForm();
-                    if (Object.keys(errors).length > 0) {
-                      showError("Please fix the validation errors before submitting. Scroll up to see the issue.");
-                      formik.setTouched(Object.keys(errors).reduce((a, c) => ({...a, [c]: true}), {}));
-                    } else {
-                      formik.handleSubmit();
-                    }
-                  }, 0);
+                  const errors = await formik.validateForm();
+                  if (Object.keys(errors).length > 0) {
+                    scrollToFirstError(errors);
+                    setDialogState({
+                      isOpen: true,
+                      title: "Validation Errors",
+                      severity: "error",
+                      content: (
+                        <div>
+                          <p>
+                            There are <strong>{countErrors(errors)}</strong> missing or
+                            invalid fields.
+                          </p>
+                          <p>
+                            First issue: <strong>{getFirstErrorFieldName(errors)}</strong>
+                          </p>
+                          <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+                            Please scroll up to find the fields marked in red.
+                          </p>
+                        </div>
+                      ),
+                    });
+                    // Touch all fields to show errors
+                    const touchAll = (obj) => {
+                      const touched = {};
+                      Object.keys(obj).forEach(key => {
+                        if (Array.isArray(obj[key])) {
+                          touched[key] = obj[key].map(item => touchAll(item));
+                        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                          touched[key] = touchAll(obj[key]);
+                        } else {
+                          touched[key] = true;
+                        }
+                      });
+                      return touched;
+                    };
+                    formik.setTouched(touchAll(formik.values));
+                  } else {
+                    formik.handleSubmit();
+                  }
                 }}
               >
                 📤 Submit Application

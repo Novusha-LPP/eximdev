@@ -32,6 +32,9 @@ export const validationSchema = Yup.object({
   principle_address_email: Yup.string()
     .email('Invalid email format')
     .required('Email is required'),
+  principle_business_gst_no: Yup.string()
+    .matches(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GST format')
+    .nullable(),
 
   // IEC Information
   iec_no: Yup.string()

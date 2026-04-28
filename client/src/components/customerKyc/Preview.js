@@ -328,7 +328,10 @@ export default function Preview(props) {
                   <strong>PIN Code: </strong>
                   {props.data.principle_business_address_pin_code}
                 </Col>
-                <Col></Col>
+                <Col>
+                  <strong>GST No: </strong>
+                  {props.data.principle_business_gst_no}
+                </Col>
               </Row>
               <br />
               <h4>Factory Addresses</h4>

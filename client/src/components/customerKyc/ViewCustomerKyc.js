@@ -304,6 +304,7 @@ function ViewCustomerKyc() {
                 <Field label="State" value={data.principle_business_address_state} />
                 <Field label="Pin Code" value={data.principle_business_address_pin_code} />
               </div>
+              <Field label="GST No" value={data.principle_business_gst_no} mono />
             </div>
           </div>
 

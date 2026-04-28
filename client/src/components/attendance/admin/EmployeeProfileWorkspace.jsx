@@ -95,6 +95,9 @@ const formatStatus = (s) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
+const getAttendanceDateKey = (value) => moment(value).format('YYYY-MM-DD');
+const getAttendanceDateLabel = (value) => moment(value).format('D MMM, ddd');
+
 const getCalendarStatusClass = (status = '') => {
   const normalized = String(status || '').toLowerCase();
   if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
@@ -569,7 +572,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     };
   };
 
-  const startEdit = rec => {
+  const startEdit = (rec, overrideDate = null) => {
     const employee = profile?.employee || {};
     const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
     const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
@@ -578,7 +581,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';
 
     const baseForm = {
-        attendance_date: rec.attendance_date,
+        attendance_date: overrideDate || rec.attendance_date,
         employee_id: id,
         correction_mode: defaultCorrectionMode,
       apply_status_correction: defaultCorrectionMode === 'status_correction',
@@ -1972,7 +1975,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       
                       for (let d = 1; d <= totalDays; d++) {
                         const dateStr = moment([browseYear, browseMonth - 1, d]).format('YYYY-MM-DD');
-                        const record = empHistory.find(r => moment(r.attendance_date).format('YYYY-MM-DD') === dateStr) || { attendance_date: dateStr, status: 'none' };
+                        const record = empHistory.find(r => getAttendanceDateKey(r.attendance_date) === dateStr) || { attendance_date: dateStr, status: 'none' };
                         const statusClass = getCalendarStatusClass(record.status);
                         const badge = getCalendarStatusBadge(record.status);
                         
@@ -1980,7 +1983,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                           <div 
                             key={d} 
                             className={`ar-cal-day ${statusClass}`}
-                            onClick={() => startEdit(record)}
+                            onClick={() => startEdit(record, dateStr)}
                           >
                             <span className="ar-day-num">{d}</span>
                             {badge && <span className={`ar-day-badge ${statusClass}`}>{badge}</span>}
@@ -2055,7 +2058,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                                <FiClock size={16} />
                              </div>
                              <div className="ar-time-info">
-                               <div className="ar-time-title">{moment(rec.attendance_date).format('D MMM, ddd')}</div>
+                               <div className="ar-time-title">{getAttendanceDateLabel(rec.attendance_date)}</div>
                                <div className="ar-time-sub">
                                  <StatusPill status={getCalendarStatusClass(rec.status)} session={rec.half_day_session} />
                                  {rec.first_in && <span style={{ marginLeft: '8px' }}>{moment(rec.first_in).format('h:mm a')}</span>}

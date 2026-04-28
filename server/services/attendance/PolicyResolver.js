@@ -11,7 +11,7 @@ import WeekOffPolicy from '../../model/attendance/WeekOffPolicy.js';
 import HolidayPolicy from '../../model/attendance/HolidayPolicy.js';
 import Shift from '../../model/attendance/Shift.js';
 import TeamModel from '../../model/teamModel.mjs';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 const CACHE_TTL_MS = 60 * 1000;
 const weekOffPolicyCache = { data: null, expiresAt: 0 };
@@ -43,15 +43,25 @@ class PolicyResolver {
     return teamIds;
   }
 
-  static async getActiveWeekOffPolicies() {
+  static async getActiveWeekOffPolicies(companyId) {
     const now = Date.now();
-    if (weekOffPolicyCache.data && weekOffPolicyCache.expiresAt > now) {
-      return weekOffPolicyCache.data;
+    const cacheKey = companyId ? String(companyId) : 'global';
+    
+    if (weekOffPolicyCache.data && weekOffPolicyCache.data[cacheKey] && weekOffPolicyCache.expiresAt > now) {
+      return weekOffPolicyCache.data[cacheKey];
     }
 
-    const policies = await WeekOffPolicy.find({ status: 'active' }).lean();
-    weekOffPolicyCache.data = policies;
+    const query = { status: 'active' };
+    if (companyId) {
+        query.company_id = companyId;
+    }
+
+    const policies = await WeekOffPolicy.find(query).lean();
+    
+    if (!weekOffPolicyCache.data) weekOffPolicyCache.data = {};
+    weekOffPolicyCache.data[cacheKey] = policies;
     weekOffPolicyCache.expiresAt = now + CACHE_TTL_MS;
+    
     return policies;
   }
 
@@ -139,8 +149,9 @@ class PolicyResolver {
    * @returns {Promise<Object|null>}
    */
   static async resolveWeekOffPolicy(user, options = {}) {
+    const companyId = user.company_id?._id || user.company_id;
     const userTeamIds = await this.getUserTeamIds(user, options.teamIds);
-    const policies = await this.getActiveWeekOffPolicies();
+    const policies = await this.getActiveWeekOffPolicies(companyId);
 
     if (user.weekoff_policy_id) {
       const explicit = policies.find((p) => String(p._id) === String(user.weekoff_policy_id));
@@ -170,8 +181,8 @@ class PolicyResolver {
    * @param {Object|null} weekOffPolicy
    * @returns {{ isOff: boolean, isHalfDay: boolean }}
    */
-  static resolveWeeklyOffStatus(date, weekOffPolicy) {
-    const d = moment(date);
+  static resolveWeeklyOffStatus(date, weekOffPolicy, tz = 'Asia/Kolkata') {
+    const d = moment.tz(date, tz);
     const dayOfWeek = d.day(); // 0=Sun … 6=Sat
 
     if (!weekOffPolicy) {

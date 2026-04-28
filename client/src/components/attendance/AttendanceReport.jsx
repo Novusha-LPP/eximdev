@@ -12,10 +12,13 @@ import moment from 'moment';
 import toast from 'react-hot-toast';
 import { UserContext } from '../../contexts/UserContext';
 import AdminApplyLeaveModal from './admin/AdminApplyLeaveModal';
+import './admin/EmployeeProfilePerformance.css';
 import './AttendanceReport.css';
 
 const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
+const getAttendanceDateKey = (value) => moment(value).format('YYYY-MM-DD');
+const getAttendanceDateLabel = (value) => moment(value).format('DD MMM');
 
 const getCalendarStatusClass = (status = '') => {
     const normalized = String(status || '').toLowerCase();
@@ -736,7 +739,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         }
     };
 
-    const startEdit = rec => {
+    const startEdit = (rec, overrideDate = null) => {
         const employee = profileData?.employee || {};
         const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
         const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
@@ -745,7 +748,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';
 
         const baseForm = {
-            attendance_date: rec.attendance_date,
+            attendance_date: overrideDate || rec.attendance_date,
             employee_id: selectedEmp.id,
             correction_mode: defaultCorrectionMode,
             apply_status_correction: defaultCorrectionMode === 'status_correction',
@@ -1512,19 +1515,19 @@ if (summarySheet) {
                                             )}
 
                                             <div className="ar-cal-grid">
-                                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="ar-cal-day-lbl">{d}</div>)}
+                                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="ar-day-header">{d}</div>)}
                                                 {(() => {
                                                     const startOfMonth = moment([browseYear, browseMonth - 1]).startOf('month');
                                                     const endOfMonth = moment([browseYear, browseMonth - 1]).endOf('month');
                                                     const days = [];
 
                                                     // Padding for first week
-                                                    for (let i = 0; i < startOfMonth.day(); i++) days.push(<div key={`pad-${i}`} className="ar-cal-cell empty" />);
+                                                    for (let i = 0; i < startOfMonth.day(); i++) days.push(<div key={`pad-${i}`} className="ar-cal-day empty" />);
 
                                                     // Days of month
                                                     for (let day = 1; day <= endOfMonth.date(); day++) {
                                                         const dateStr = moment([browseYear, browseMonth - 1, day]).format('YYYY-MM-DD');
-                                                        const rec = empHistory.find(r => r.attendance_date && moment(r.attendance_date).format('YYYY-MM-DD') === dateStr);
+                                                        const rec = empHistory.find(r => r.attendance_date && getAttendanceDateKey(r.attendance_date) === dateStr);
                                                         const isToday = dateStr === moment().format('YYYY-MM-DD');
                                                         const statusClass = getCalendarStatusClass(rec?.status);
                                                         const statusBadge = getCalendarStatusBadge(rec?.status);
@@ -1532,16 +1535,16 @@ if (summarySheet) {
                                                         days.push(
                                                             <div
                                                                 key={day}
-                                                                className={`ar-cal-cell ${statusClass} ${isToday ? 'today' : ''}`}
+                                                                className={`ar-cal-day ${statusClass} ${isToday ? 'today' : ''}`}
                                                                 onClick={() => {
                                                                     // Allowing both ADMIN and HOD to edit/adjust
-                                                                    if (rec) startEdit(rec);
+                                                                    if (rec) startEdit(rec, dateStr);
                                                                     else startEdit({ attendance_date: dateStr, status: 'absent' });
                                                                 }}
-                                                                title={rec ? `${moment(dateStr).format('DD MMM')}: ${rec.status}` : 'No Record'}
+                                                                title={rec ? `${getAttendanceDateLabel(dateStr)}: ${rec.status}` : 'No Record'}
                                                             >
-                                                                {day}
-                                                                {statusBadge ? <div className="ar-cal-status-tag">{statusBadge}</div> : (rec && <div className="ar-cal-dot" />)}
+                                                                <span className="ar-day-num">{day}</span>
+                                                                {statusBadge ? <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span> : (rec && <div className="ar-cal-dot" />)}
                                                             </div>
                                                         );
                                                     }
@@ -1551,19 +1554,22 @@ if (summarySheet) {
                                         </div>
 
                                         {/* Daily Log - Collapsed for clean UI */}
-                                        <div className="ar-timeline-minimal">
-                                            <h4 className="ar-pane-title">Activity Highlights</h4>
-                                            <div className="ar-timeline-body">
-                                                {empHistory.slice(0, 10).map((rec, i) => (
-                                                    <div key={i} className="ar-tl-mini-row" onClick={() => (isAdmin || isHOD) && startEdit(rec)}>
-                                                        <span className="ar-tl-mini-date">{moment(rec.attendance_date).format('DD MMM')}</span>
-                                                        <StatusPill status={rec.status} session={rec.half_day_session} />
-                                                        <span className="ar-tl-mini-time">{rec.first_in ? formatTime12Hr(rec.first_in) : '--:--'}</span>
-                                                        <FiArrowRight size={10} />
-                                                        <span className="ar-tl-mini-time">{rec.last_out ? formatTime12Hr(rec.last_out) : '--:--'}</span>
+                                        <div className="ar-timeline">
+                                            <h4 className="ar-pane-title" style={{ margin: 0 }}>Activity Highlights</h4>
+                                            {empHistory.slice(0, 10).map((rec, i) => (
+                                                <div key={i} className="ar-time-item" onClick={() => (isAdmin || isHOD) && startEdit(rec, getAttendanceDateKey(rec.attendance_date))}>
+                                                    <div className="ar-time-icon">
+                                                        <FiClock size={16} />
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <div className="ar-time-info">
+                                                        <div className="ar-time-title">{getAttendanceDateLabel(rec.attendance_date)}</div>
+                                                        <div className="ar-time-sub">
+                                                            <StatusPill status={getCalendarStatusClass(rec.status)} session={rec.half_day_session} />
+                                                            {rec.first_in && <span style={{ marginLeft: '8px' }}>{formatTime12Hr(rec.first_in)}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </>
                                 )}

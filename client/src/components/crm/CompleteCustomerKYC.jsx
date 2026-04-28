@@ -101,7 +101,14 @@ function OverviewTab({ record, contacts }) {
             {address('principle_business_address') ? (
               <div>
                 <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Principal Business</Text>
-                <Paragraph style={{ margin: 0, fontSize: 13 }}>{address('principle_business_address')}</Paragraph>
+                <Paragraph style={{ margin: 0, fontSize: 13 }}>
+                  {address('principle_business_address')}
+                  {record.principle_business_gst_no && (
+                    <div style={{ marginTop: 4 }}>
+                      <Tag color="blue" style={{ fontSize: 10 }}>GST: {record.principle_business_gst_no}</Tag>
+                    </div>
+                  )}
+                </Paragraph>
               </div>
             ) : null}
             {!address('permanent_address') && !address('principle_business_address') && (
@@ -282,6 +289,7 @@ function FinanceTab({ form, record }) {
       </Form.Item></Col>
       <Col xs={24} sm={8}><Form.Item name="advance_payment"  label="Advance Payment" valuePropName="checked"><Switch /></Form.Item></Col>
       <Col xs={24} sm={8}><Form.Item name="date_of_incorporation" label="Date of Incorporation">  <DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24} sm={8}><Form.Item name="principle_business_gst_no" label="Principal Address GST No"> <Input placeholder="GST No" /></Form.Item></Col>
       <Col xs={24}><Form.Item name="hsn_codes" label="HSN Codes (comma-separated)"><Input.TextArea rows={2} placeholder="8471, 8473, 9013" /></Form.Item></Col>
     </Row>
   );

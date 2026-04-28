@@ -920,6 +920,8 @@ export const getDashboardData = async (req, res) => {
         ]);
 
         const calendarMap = {};
+        console.log(`[DEBUG] Dashboard Calendar for ${user.username} (${currentYearMonth})`);
+        console.log(`[DEBUG] Policy: ${resolvedWeekOffPolicy?.policy_name || 'NONE'}`);
         calendarRecords.forEach(r => {
             const d = moment.utc(r.attendance_date).format('YYYY-MM-DD');
             calendarMap[d] = {
@@ -969,15 +971,17 @@ export const getDashboardData = async (req, res) => {
         for (let i = 1; i <= daysInMonth; i++) {
             const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
             if (!calendarMap[dateStr]) {
-                const dayMoment = moment.utc(dateStr, 'YYYY-MM-DD', true);
+                const dayMoment = moment.tz(dateStr, 'YYYY-MM-DD', tz);
+                const dayDate = dayMoment.toDate();
                 const holidayStatus = await WorkingDayEngine.getHolidayInfo(
                     dayMoment,
                     companyId,
                     resolvedHolidayPolicy
                 );
-                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayMoment.toDate(), resolvedWeekOffPolicy);
+                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, resolvedWeekOffPolicy);
 
                 if (holidayStatus?.isHoliday) {
+                    console.log(`[DEBUG] ${dateStr} is HOLIDAY: ${holidayStatus.name}`);
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'holiday',
@@ -988,6 +992,7 @@ export const getDashboardData = async (req, res) => {
                         holiday_name: holidayStatus?.name || 'Holiday'
                     };
                 } else if (weekOffStatus?.isOff) {
+                    console.log(`[DEBUG] ${dateStr} is WEEKOFF`);
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'weekly_off',
@@ -996,6 +1001,10 @@ export const getDashboardData = async (req, res) => {
                         isEarlyExit: false,
                         lateByMinutes: 0
                     };
+                } else {
+                    if (dateStr === '2026-04-25') {
+                        console.log(`[DEBUG] 2026-04-25 resolved NOT off. Status:`, weekOffStatus);
+                    }
                 }
             }
         }
@@ -1212,9 +1221,21 @@ export const getHistory = async (req, res) => {
     try {
         const companyId = req.user.company_id;
         const baseFilters = { company_id: companyId };
+        const queryParams = { ...req.query };
 
         // Disable caching for this sensitive route
         res.set('Cache-Control', 'no-store');
+
+        const { startDate, endDate } = req.query;
+        const hasValidStart = startDate && startDate !== 'Invalid date';
+        const hasValidEnd = endDate && endDate !== 'Invalid date';
+        if (hasValidStart || hasValidEnd) {
+            baseFilters.attendance_date = {};
+            if (hasValidStart) baseFilters.attendance_date.$gte = moment(startDate).startOf('day').toDate();
+            if (hasValidEnd) baseFilters.attendance_date.$lte = moment(endDate).endOf('day').toDate();
+            delete queryParams.startDate;
+            delete queryParams.endDate;
+        }
 
         // Data Isolation:
         if (req.user.role === 'EMPLOYEE') {
@@ -1227,7 +1248,7 @@ export const getHistory = async (req, res) => {
             baseFilters.employee_id = { $in: teamMemberIds };
         }
 
-        const { designation } = req.query;
+        const { designation } = queryParams;
         if (designation && designation !== 'all') {
             const userSubQuery = { company_id: companyId, designation };
             if (baseFilters.employee_id?.$in?.length) {
@@ -1240,7 +1261,7 @@ export const getHistory = async (req, res) => {
 
         const result = await QueryBuilder.build(
             AttendanceRecord,
-            req.query,
+            queryParams,
             baseFilters,
             ['attendance_date', 'status'],
             ['employee_id']
@@ -1248,7 +1269,7 @@ export const getHistory = async (req, res) => {
 
         // --- NEW: Merge Holidays for History View ---
         // Only if we have a date range and viewing a specific employee or small enough subset
-        const { startDate, endDate, employee_id } = req.query;
+        const { employee_id } = req.query;
         if (startDate && endDate && (employee_id || req.user.role === 'EMPLOYEE')) {
             const holidays = await Holiday.find({
                 company_id: companyId,
@@ -1276,7 +1297,50 @@ export const getHistory = async (req, res) => {
                 // Re-sort data
                 result.data.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
             }
+
+            // --- NEW: Merge Weekly-Offs for History View (for single-employee / employee-scoped queries)
+            // This ensures the history view includes virtual weekly-off markers when no attendance record exists.
+            if (startDate && endDate && (employee_id || req.user.role === 'EMPLOYEE')) {
+                // Resolve the target user whose policy should be applied
+                let targetUser = null;
+                if (employee_id) targetUser = await User.findById(employee_id).lean();
+                else targetUser = req.user;
+
+                if (targetUser) {
+                    const resolvedWeekOffPolicy = await PolicyResolver.resolveWeekOffPolicy(targetUser);
+                    const company = await Company.findById(companyId);
+                    const tz = company?.timezone || 'Asia/Kolkata';
+
+                    const existingDates = new Set(result.data.map(r => moment.utc(r.attendance_date).format('YYYY-MM-DD')));
+                    let curr = moment.tz(startDate, tz).startOf('day');
+                    const end = moment.tz(endDate, tz).endOf('day');
+
+                    while (curr.isSameOrBefore(end, 'day')) {
+                        const dStr = curr.format('YYYY-MM-DD');
+                        if (!existingDates.has(dStr)) {
+                            const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(curr.toDate(), resolvedWeekOffPolicy, tz);
+                            if (weekOffStatus?.isOff) {
+                                result.data.push({
+                                    attendance_date: curr.toDate(),
+                                    status: 'weekly_off',
+                                    is_virtual: true
+                                });
+                                existingDates.add(dStr);
+                            }
+                        }
+                        curr.add(1, 'day');
+                    }
+
+                    // Re-sort after adding weekoffs
+                    result.data.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
+                }
+            }
         }
+
+        // Keep pagination metadata aligned with merged virtual rows so report UIs do not
+        // treat the month as empty when only policy-generated records exist.
+        result.pagination.total = result.data.length;
+        result.pagination.pages = Math.max(1, Math.ceil(result.data.length / (result.pagination.limit || 1)));
 
         res.json(result);
     } catch (err) {

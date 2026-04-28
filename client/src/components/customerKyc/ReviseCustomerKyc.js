@@ -107,6 +107,7 @@ function ReviseCustomerKyc() {
       principle_business_telephone: "",
       principle_address_email: "",
       principle_business_website: "",
+      principle_business_gst_no: "",
       sameAsPermanentAddress: false, // UI state helper
 
       authorised_signatories: [],
@@ -242,6 +243,7 @@ function ReviseCustomerKyc() {
             financial_details_approved: res.data.financial_details_approved || false,
             financial_details_approved_by: res.data.financial_details_approved_by || "",
             customer_tier: res.data.customer_tier || "",
+            principle_business_gst_no: res.data.principle_business_gst_no || "",
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -902,6 +904,20 @@ function ReviseCustomerKyc() {
                         value={formik.values.principle_business_website}
                         onChange={formik.handleChange}
                       />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>GST No (Principal Address)</label>
+                      <input
+                        type="text"
+                        name="principle_business_gst_no"
+                        placeholder="22AAAAA0000A1Z5"
+                        value={formik.values.principle_business_gst_no}
+                        onChange={formik.handleChange}
+                        className={formik.touched.principle_business_gst_no && formik.errors.principle_business_gst_no ? "error" : ""}
+                      />
+                      {formik.touched.principle_business_gst_no && formik.errors.principle_business_gst_no && <div className="err-msg">{formik.errors.principle_business_gst_no}</div>}
                     </div>
                   </div>
                 </div>

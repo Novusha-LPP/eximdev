@@ -187,6 +187,11 @@ const customerKycSchema = new Schema({
     required: false,
     trim: true
   },
+  principle_business_gst_no: {
+    type: String,
+    required: false,
+    trim: true
+  },
   sameAsPermanentAddress: {
     type: Boolean,
     default: false

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import leaveAPI from '../../api/attendance/leave.api';
-import { formatDate } from './utils/helpers';
+import { formatAttendanceDate, formatDate } from './utils/helpers';
 import { API_BASE_URL } from './utils/constants';
 import toast from 'react-hot-toast';
 import './ApprovalPages.css';
@@ -27,8 +27,8 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
   const toDate   = req.toDate   || req.to_date;
   const isMultiDay = !req.is_half_day && fromDate !== toDate;
   const [cancelType, setCancelType] = useState('full');
-  const [cancelFrom, setCancelFrom] = useState(formatDate(fromDate, 'yyyy-MM-dd'));
-  const [cancelTo,   setCancelTo]   = useState(formatDate(toDate,   'yyyy-MM-dd'));
+  const [cancelFrom, setCancelFrom] = useState(formatAttendanceDate(fromDate, 'yyyy-MM-dd'));
+  const [cancelTo,   setCancelTo]   = useState(formatAttendanceDate(toDate,   'yyyy-MM-dd'));
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,7 +73,7 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
         <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: '.8125rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ fontWeight: 700 }}>{req.leaveType}</div>
           <div style={{ color: '#475569' }}>
-            {formatDate(fromDate, 'dd MMM yyyy')} - {formatDate(toDate, 'dd MMM yyyy')} &bull; {req.is_half_day ? 'Half Day' : `${req.totalDays}d`}
+            {formatAttendanceDate(fromDate, 'dd MMM yyyy')} - {formatAttendanceDate(toDate, 'dd MMM yyyy')} &bull; {req.is_half_day ? 'Half Day' : `${req.totalDays}d`}
           </div>
           <span className={`ap-status-badge ${req.status}`} style={{ alignSelf: 'flex-start', marginTop: 2 }}>
             {req.status?.charAt(0).toUpperCase() + req.status?.slice(1)}
@@ -106,7 +106,7 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
             <div>
               <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, marginBottom: 4 }}>From</label>
               <input type="date" value={cancelFrom}
-                min={formatDate(fromDate, 'yyyy-MM-dd')} max={formatDate(toDate, 'yyyy-MM-dd')}
+                min={formatAttendanceDate(fromDate, 'yyyy-MM-dd')} max={formatAttendanceDate(toDate, 'yyyy-MM-dd')}
                 onChange={e => setCancelFrom(e.target.value)}
                 style={{ width: '100%', height: 34, borderRadius: 6, border: '1px solid #e5e7eb', padding: '0 8px', fontSize: '.8125rem' }}
               />
@@ -114,7 +114,7 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
             <div>
               <label style={{ display: 'block', fontSize: '.8rem', fontWeight: 600, marginBottom: 4 }}>To</label>
               <input type="date" value={cancelTo}
-                min={cancelFrom || formatDate(fromDate, 'yyyy-MM-dd')} max={formatDate(toDate, 'yyyy-MM-dd')}
+                min={cancelFrom || formatAttendanceDate(fromDate, 'yyyy-MM-dd')} max={formatAttendanceDate(toDate, 'yyyy-MM-dd')}
                 onChange={e => setCancelTo(e.target.value)}
                 style={{ width: '100%', height: 34, borderRadius: 6, border: '1px solid #e5e7eb', padding: '0 8px', fontSize: '.8125rem' }}
               />

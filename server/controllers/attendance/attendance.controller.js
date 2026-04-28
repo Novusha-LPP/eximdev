@@ -923,7 +923,7 @@ export const getDashboardData = async (req, res) => {
         console.log(`[DEBUG] Dashboard Calendar for ${user.username} (${currentYearMonth})`);
         console.log(`[DEBUG] Policy: ${resolvedWeekOffPolicy?.policy_name || 'NONE'}`);
         calendarRecords.forEach(r => {
-            const d = moment.utc(r.attendance_date).format('YYYY-MM-DD');
+            const d = moment(r.attendance_date).tz(tz).format('YYYY-MM-DD');
             calendarMap[d] = {
                 date: d,
                 status: r.status,

@@ -7,7 +7,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import masterAPI from '../../api/attendance/master.api';
-import { formatTime12Hr, minutesToHours, formatDate } from './utils/helpers';
+import { formatAttendanceDate, formatTime12Hr, minutesToHours, formatDate } from './utils/helpers';
 import moment from 'moment';
 import toast from 'react-hot-toast';
 import { UserContext } from '../../contexts/UserContext';
@@ -1585,7 +1585,7 @@ if (summarySheet) {
                                                             <div className="ar-pending-info">
                                                                 <div className="ar-p-type">{leave.leave_policy_id?.policy_name || leave.leave_type}</div>
                                                                 <div className="ar-p-dates">
-                                                                    {moment(leave.from_date).format('DD MMM')} - {moment(leave.to_date).format('DD MMM')} 
+                                                                    {formatAttendanceDate(leave.from_date, 'dd MMM')} - {formatAttendanceDate(leave.to_date, 'dd MMM')} 
                                                                     <span className="ar-p-days">({leave.total_days} days)</span>
                                                                 </div>
                                                                 {leave.reason && <div className="ar-p-reason">"{leave.reason}"</div>}
@@ -1652,9 +1652,9 @@ if (summarySheet) {
                                                                     </td>
                                                                     <td style={{ textAlign: 'right' }}>
                                                                         <div className="ar-lv-date-cell" style={{ alignItems: 'flex-end' }}>
-                                                                            <span>{moment(lv.from_date).format('DD MMM YYYY')}</span>
+                                                                            <span>{formatAttendanceDate(lv.from_date, 'dd MMM yyyy')}</span>
                                                                             {lv.total_days > 1 && (
-                                                                                <small>to {moment(lv.to_date).format('DD MMM YYYY')} ({lv.total_days} days)</small>
+                                                                                <small>to {formatAttendanceDate(lv.to_date, 'dd MMM yyyy')} ({lv.total_days} days)</small>
                                                                             )}
                                                                         </div>
                                                                     </td>

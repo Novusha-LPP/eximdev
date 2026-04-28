@@ -64,35 +64,19 @@ const getDefaultOpeningBalance = (policy) => {
 };
 
 const resolveAvailableFromBalance = (balanceRecord) => {
+    if (!balanceRecord) return 0;
+
     const pendingApproval = Number(balanceRecord?.pending_approval);
-    const legacyPending = Number(balanceRecord?.pending);
     const opening = Number(balanceRecord?.opening_balance || 0);
     const used = Number(balanceRecord?.used || 0);
     const closing = Number(balanceRecord?.closing_balance);
-    const computedRemaining = Math.max(0, opening - used);
-    const fallbackAvailable = Math.max(
-        0,
-        Number.isFinite(closing) ? closing : 0,
-        computedRemaining
-    );
+    const pending = Number.isFinite(pendingApproval) ? pendingApproval : 0;
 
-    if (Number.isFinite(pendingApproval) && pendingApproval > 0) {
-        return pendingApproval;
+    if (Number.isFinite(closing)) {
+        return Math.max(0, closing);
     }
 
-    if (Number.isFinite(legacyPending) && legacyPending > 0) {
-        return legacyPending;
-    }
-
-    if (pendingApproval === 0 && fallbackAvailable === 0) {
-        return 0;
-    }
-
-    if (!Number.isFinite(pendingApproval) || pendingApproval < 0 || (pendingApproval === 0 && fallbackAvailable > 0)) {
-        return fallbackAvailable;
-    }
-
-    return 0;
+    return Math.max(0, opening - used - pending);
 };
 
 const normalizeId = (value) => {
@@ -182,6 +166,61 @@ const pickBalanceForPolicy = (balances = [], policy) => {
     return candidates[0] || null;
 };
 
+const syncBalanceFromApplications = async ({ employeeId, year, policy, balanceRecord }) => {
+    if (!balanceRecord || String(policy?.leave_type || '').toLowerCase() === 'lwp') {
+        return balanceRecord;
+    }
+
+    const yearStart = moment.utc(`${year}-01-01`).startOf('day').toDate();
+    const yearEnd = moment.utc(`${year}-12-31`).endOf('day').toDate();
+    const leaveType = String(policy?.leave_type || '').toLowerCase().trim();
+    const match = {
+        employee_id: new mongoose.Types.ObjectId(employeeId),
+        approval_status: { $in: ['pending', 'approved'] },
+        from_date: { $lte: yearEnd },
+        to_date: { $gte: yearStart },
+        $or: [{ leave_policy_id: policy._id }]
+    };
+
+    if (isIdempotentLeaveType(leaveType)) {
+        match.$or.push({ leave_type: leaveType });
+    }
+
+    const usage = await LeaveApplication.aggregate([
+        { $match: match },
+        {
+            $group: {
+                _id: '$approval_status',
+                total: { $sum: '$total_days' }
+            }
+        }
+    ]);
+
+    const totals = usage.reduce((acc, row) => {
+        acc[row._id] = Number(row.total || 0);
+        return acc;
+    }, {});
+
+    const opening = Number(balanceRecord.opening_balance || 0);
+    const used = Number(totals.approved || 0);
+    const pending = Number(totals.pending || 0);
+    const closing = Math.max(0, opening - used - pending);
+
+    if (
+        Number(balanceRecord.used || 0) !== used ||
+        Number(balanceRecord.pending_approval || 0) !== pending ||
+        Number(balanceRecord.closing_balance || 0) !== closing
+    ) {
+        balanceRecord.used = used;
+        balanceRecord.pending_approval = pending;
+        balanceRecord.closing_balance = closing;
+        balanceRecord.last_updated = new Date();
+        await balanceRecord.save();
+    }
+
+    return balanceRecord;
+};
+
 const checkOverlap = async (userId, fromDate, toDate, currentAppId = null, tz = 'Asia/Kolkata') => {
     const start = moment.tz(fromDate, 'YYYY-MM-DD', tz).startOf('day').toDate();
     const end = moment.tz(toDate, 'YYYY-MM-DD', tz).endOf('day').toDate();
@@ -222,9 +261,6 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
         status: 'active'
     });
 
-    // Exclude 'privilege' from auto-recovery so it remains completely hidden until assigned
-    recoveredPolicies = recoveredPolicies.filter(p => p.leave_type !== 'privilege');
-
     if (recoveredPolicies.length > 0) {
         return recoveredPolicies;
     }
@@ -242,7 +278,7 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
         leave_type: { $in: [...new Set(balanceLeaveTypes)] }
     });
 
-    return recoveredPolicies.filter(p => p.leave_type !== 'privilege');
+    return recoveredPolicies;
 };
 
 const filterEligiblePolicies = (policies, employee) => {
@@ -463,19 +499,29 @@ export const getBalance = async (req, res) => {
             {
                 $match: {
                     employee_id: new mongoose.Types.ObjectId(targetId),
-                    approval_status: 'approved',
+                    approval_status: { $in: ['pending', 'approved'] },
                     from_date: { $lte: yearEnd },
                     to_date: { $gte: yearStart }
                 }
             },
             {
                 $group: {
-                    _id: '$leave_policy_id',
+                    _id: {
+                        policy_id: '$leave_policy_id',
+                        status: '$approval_status'
+                    },
                     used: { $sum: '$total_days' }
                 }
             }
         ]);
-        const usedByPolicy = new Map(usedAgg.map((row) => [String(row._id), Number(row.used || 0)]));
+        const usageByPolicy = new Map();
+        for (const row of usedAgg) {
+            const policyId = String(row._id?.policy_id || '');
+            if (!policyId) continue;
+            const current = usageByPolicy.get(policyId) || { approved: 0, pending: 0 };
+            current[row._id.status] = Number(row.used || 0);
+            usageByPolicy.set(policyId, current);
+        }
 
         // 3. Merge Policies with Balances
         const formattedData = policies.map(policy => {
@@ -486,11 +532,14 @@ export const getBalance = async (req, res) => {
 
             // Extract balance values
             const openingBalance = userBalance?.opening_balance ?? getDefaultOpeningBalance(policy);
-            const used = userBalance?.used ?? userBalance?.consumed ?? usedByPolicy.get(String(policy._id)) ?? 0;
-            const pending = userBalance?.pending ?? userBalance?.pending_approval ?? 0;
+            const applicationUsage = usageByPolicy.get(String(policy._id)) || {};
+            const used = isUnpaidPolicy ? 0 : Number(applicationUsage.approved ?? userBalance?.used ?? userBalance?.consumed ?? 0);
+            const pending = isUnpaidPolicy ? 0 : Number(applicationUsage.pending ?? userBalance?.pending_approval ?? userBalance?.pending ?? 0);
 
             // Balance Info
-            const availableFromPending = isUnpaidPolicy ? 0 : resolveAvailableFromBalance(userBalance);
+            const availableFromBalance = isUnpaidPolicy
+                ? 0
+                : Math.max(0, Number(openingBalance || 0) - used - pending);
             
             return {
                 _id: policy._id,
@@ -507,17 +556,17 @@ export const getBalance = async (req, res) => {
                 // Balance Info
                 opening_balance: openingBalance,
                 used: used,
-                pending: isUnpaidPolicy ? 0 : pending,
-                available: availableFromPending, // Using pending_approval as the source of truth for available
-                balance: availableFromPending,
-                closing_balance: availableFromPending, 
+                pending: pending,
+                available: availableFromBalance,
+                balance: availableFromBalance,
+                closing_balance: availableFromBalance, 
                 
                 // Display helpers
                 display: {
                     used: used,
                     total: openingBalance,
-                    pending: isUnpaidPolicy ? 0 : pending,
-                    remaining: availableFromPending
+                    pending: pending,
+                    remaining: availableFromBalance
                 }
             };
         });
@@ -631,8 +680,16 @@ export const previewLeave = async (req, res) => {
         const previewCompany = await Company.findById(targetUser.company_id).select('timezone').lean();
         const previewTz = previewCompany?.timezone || 'Asia/Kolkata';
 
+        // Normalize dates to correct timezone before calculation
+        const { start: previewStart, end: previewEnd } = normalizeLeaveRangeToTimezone({
+            fromDate: from_date,
+            toDate: actualToDate,
+            isHalfDay: is_half_day === 'true',
+            tz: previewTz
+        });
+
         // Resolve Week-Off and Holiday policies for accuracy
-        const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(targetUser, moment(from_date).year());
+        const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(targetUser, previewStart.year());
 
         // Overlap Check
         const hasOverlap = await checkOverlap(targetId, from_date, actualToDate, null, previewTz);
@@ -647,8 +704,8 @@ export const previewLeave = async (req, res) => {
         });
 
         const result = await LeaveCalculationService.calculateLeaveDays({
-            fromDate: from_date,
-            toDate: actualToDate,
+            fromDate: previewStart.format('YYYY-MM-DD'), // Use timezone-normalized date
+            toDate: previewEnd.format('YYYY-MM-DD'),     // Use timezone-normalized date
             isHalfDay: is_half_day === 'true',
             isStartHalfDay: is_start_half_day === 'true',
             isEndHalfDay: is_end_half_day === 'true',
@@ -663,14 +720,22 @@ export const previewLeave = async (req, res) => {
             presenceThresholdHours: 4
         });
 
-        const applicationYear = moment(from_date).year();
+        const applicationYear = previewStart.year();
         const balancesForYear = await LeaveBalance.find({
             employee_id: targetId,
             year: applicationYear
         });
-        const balance = pickBalanceForPolicy(balancesForYear, policy);
+        let balance = pickBalanceForPolicy(balancesForYear, policy);
 
         const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
+        if (balance && !isLwpPolicy) {
+            balance = await syncBalanceFromApplications({
+                employeeId: targetId,
+                year: applicationYear,
+                policy,
+                balanceRecord: balance
+            });
+        }
         
         // Get available balance (already accounts for pending applications)
         const primaryBalance = isLwpPolicy ? 0 : resolveAvailableFromBalance(balance);
@@ -801,8 +866,8 @@ export const applyLeave = async (req, res) => {
         const isEndHalfDay = is_end_half_day === 'true' || is_end_half_day === true;
 
         const calc = await LeaveCalculationService.calculateLeaveDays({
-            fromDate: from_date,
-            toDate: to_date,
+            fromDate: start.format('YYYY-MM-DD'), // Use the normalized date (already in correct timezone)
+            toDate: end.format('YYYY-MM-DD'),     // Use the normalized date (already in correct timezone)
             isHalfDay,
             isStartHalfDay,
             isEndHalfDay,
@@ -849,79 +914,46 @@ export const applyLeave = async (req, res) => {
                 leave_type: policy.leave_type,
                 year: currentYear,
                 opening_balance: quota,
-                closing_balance: quota,
                 used: 0,
-                pending_approval: quota
+                pending_approval: 0,
+                closing_balance: quota
             });
             await balanceRecord.save();
+            console.log(`[DEBUG] Created new balance record: opening=${quota}, pending=0, leave_type=${policy.leave_type}`);
         }
 
         let isUnpaidLeave = String(policy.leave_type || '').toLowerCase() === 'lwp';
-        let wasAutoConvertedToLwp = false;
 
         if (!isUnpaidLeave) {
-            const syncedAvailable = resolveAvailableFromBalance(balanceRecord);
-            if (Number(balanceRecord.pending_approval || 0) !== syncedAvailable) {
-                balanceRecord.pending_approval = syncedAvailable;
-                balanceRecord.closing_balance = syncedAvailable;
-                await balanceRecord.save();
-            }
+            balanceRecord = await syncBalanceFromApplications({
+                employeeId: user._id,
+                year: currentYear,
+                policy,
+                balanceRecord
+            });
         }
 
         let availableBalance = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(balanceRecord);
 
-        // Auto-convert insufficient paid leave requests to LWP.
-        if (!isUnpaidLeave && availableBalance < total_days) {
-            let lwpPolicy = await LeavePolicy.findOne({
-                _id: { $in: assignedPolicyIds },
-                status: 'active',
-                leave_type: 'lwp'
-            });
-
-            if (!lwpPolicy) {
-                lwpPolicy = await getAnyActiveLwpPolicy();
-            }
-
-            if (!lwpPolicy) {
-                return res.status(400).json({
-                    message: `Insufficient leave balance. Available: ${availableBalance}, Required: ${total_days}`
-                });
-            }
-
-            await UserModel.updateOne(
-                { _id: user._id },
-                { $addToSet: { 'leave_settings.special_leave_policies': lwpPolicy._id } }
-            );
-
-            policy = lwpPolicy;
-            isUnpaidLeave = true;
-            wasAutoConvertedToLwp = true;
-
-            balanceRecord = await findBalanceForPolicy({
-                employeeId: user._id,
-                year: currentYear,
-                policy
-            });
-
-            if (!balanceRecord) {
-                const quota = getDefaultOpeningBalance(policy);
-                balanceRecord = new LeaveBalance({
-                    company_id: companyId,
-                    employee_id: user._id,
-                    leave_policy_id: policy._id,
-                    leave_type: policy.leave_type,
+        // Re-fetch the most recent balance to ensure we have the latest state
+        if (!isUnpaidLeave) {
+            const latestBalance = await LeaveBalance.findById(balanceRecord._id);
+            if (latestBalance) {
+                balanceRecord = await syncBalanceFromApplications({
+                    employeeId: user._id,
                     year: currentYear,
-                    opening_balance: quota,
-                    closing_balance: quota,
-                    used: 0,
-                    pending_approval: quota
+                    policy,
+                    balanceRecord: latestBalance
                 });
-                await balanceRecord.save();
+                availableBalance = resolveAvailableFromBalance(balanceRecord);
             }
+        }
 
-            const lwpOpening = Number(balanceRecord.opening_balance || 0);
-            const lwpUsed = Number(balanceRecord.used || 0);
-            availableBalance = Math.max(0, lwpOpening - lwpUsed);
+        if (!isUnpaidLeave && availableBalance < total_days) {
+            console.error(`[Leave Apply] Insufficient balance. Policy: ${policy.leave_type}, Available: ${availableBalance}, Required: ${total_days}`);
+            return res.status(400).json({
+                message: `Insufficient leave balance for selected policy. Available: ${availableBalance}, Required: ${total_days}`
+            });
         }
 
         // 5. Check for Overlapping Applications
@@ -979,11 +1011,15 @@ export const applyLeave = async (req, res) => {
             });
         }
 
-        const isTeamHodApplicant = !!userTeam && (
-            (userTeam.hodId && normalizeId(userTeam.hodId) === actorId) ||
-            (userTeam.hodUsername && String(userTeam.hodUsername).toLowerCase() === actorUsername)
-        );
-        const isHodApplicant = isHodRole(user.role) || isTeamHodApplicant;
+        const isActuallyHodOfSomeTeam = await TeamModel.exists({
+            isActive: { $ne: false },
+            $or: [
+                { hodId: actorObjectId },
+                { hodUsername: { $regex: new RegExp(`^${actorUsername}$`, 'i') } }
+            ]
+        });
+
+        const isHodApplicant = isHodRole(user.role) || isActuallyHodOfSomeTeam;
         
         // --- CUSTOM ROUTING FOR ADMINS ---
         if (actorUsername === STAGE_2_APPROVER_USERNAME) {
@@ -1014,11 +1050,11 @@ export const applyLeave = async (req, res) => {
             {
                 level: 1,
                 stage: 'stage_1_hod',
-                approver_id: currentApproverId,
+                approver_id: isHodApplicant ? actorObjectId : (currentApproverId === shaliniUser._id ? actorObjectId : currentApproverId),
                 approver_role: 'HOD',
-                action: assignedStage === 'stage_1_hod' ? 'pending' : 'approved',
-                action_date: assignedStage === 'stage_1_hod' ? undefined : new Date(),
-                comments: assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for HOD/admin requester'
+                action: isHodApplicant ? 'approved' : (assignedStage === 'stage_1_hod' ? 'pending' : 'approved'),
+                action_date: isHodApplicant ? new Date() : (assignedStage === 'stage_1_hod' ? undefined : new Date()),
+                comments: isHodApplicant ? 'Stage skipped for HOD requester' : (assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for admin requester')
             },
             {
                 level: 2,
@@ -1051,19 +1087,27 @@ export const applyLeave = async (req, res) => {
         // session.startTransaction(); removed to support standalone MongoDB
         try {
             console.log('[DEBUG] Re-verifying balance...');
-            const currentBalance = await LeaveBalance.findById(balanceRecord._id);
+            let currentBalance = await LeaveBalance.findById(balanceRecord._id);
             console.log('[DEBUG] Current balance found:', currentBalance ? 'YES' : 'NO');
             
-            const currentAvailable = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(currentBalance);
-
-            if (!isUnpaidLeave && Number(currentBalance.pending_approval) !== currentAvailable) {
-                currentBalance.pending_approval = currentAvailable;
-                currentBalance.closing_balance = currentAvailable;
-                await currentBalance.save();
+            if (!currentBalance) {
+                throw new Error('Balance record was unexpectedly deleted during transaction');
             }
 
+            if (!isUnpaidLeave) {
+                currentBalance = await syncBalanceFromApplications({
+                    employeeId: user._id,
+                    year: currentYear,
+                    policy,
+                    balanceRecord: currentBalance
+                });
+            }
+
+            const currentAvailable = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(currentBalance);
+            console.log(`[DEBUG] Current available balance: ${currentAvailable}, Required: ${total_days}, LeaveType: ${policy.leave_type}`);
+
             if (!isUnpaidLeave && currentAvailable < total_days) {
-                throw new Error(`Insufficient balance during transaction. Available: ${currentAvailable}`);
+                throw new Error(`Insufficient balance during transaction. Available: ${currentAvailable}, Required: ${total_days}`);
             }
 
             console.log('[DEBUG] Creating application...');
@@ -1115,18 +1159,18 @@ export const applyLeave = async (req, res) => {
             // 8. Update Balance (Deduct from Pending/Available)
             console.log('[DEBUG] Updating currentBalance...');
             if (!isUnpaidLeave) {
-                currentBalance.pending_approval -= total_days;
+                currentBalance.pending_approval = Number(currentBalance.pending_approval || 0) + total_days;
             }
-            currentBalance.closing_balance = Math.max(0, Number(currentBalance.pending_approval || 0));
+            currentBalance.closing_balance = isUnpaidLeave
+                ? currentBalance.closing_balance
+                : Math.max(0, Number(currentBalance.opening_balance || 0) - Number(currentBalance.used || 0) - Number(currentBalance.pending_approval || 0));
             console.log('[DEBUG] Saving balance...');
             await currentBalance.save();
             console.log('[DEBUG] Balance saved.');
 
             res.json({
                 success: true,
-                message: wasAutoConvertedToLwp
-                    ? 'Leave application submitted successfully as LWP due to insufficient balance'
-                    : 'Leave application submitted successfully',
+                message: 'Leave application submitted successfully',
                 application_id: application._id
             });
         } catch (error) {
@@ -1319,15 +1363,13 @@ export const cancelLeave = async (req, res) => {
             }
             await application.save();
 
-            // Restore exactly the cancelled days to balance.
-            // For approved leaves, also rollback the used counter.
             if (balanceRecord && !isLwp) {
-                if (wasApprovedLeave) {
-                    balanceRecord.used = Math.max(0, Number(balanceRecord.used || 0) - cancelledDays);
-                }
-                balanceRecord.pending_approval = (Number(balanceRecord.pending_approval) || 0) + cancelledDays;
-                balanceRecord.closing_balance  = Math.max(0, Number(balanceRecord.pending_approval || 0));
-                await balanceRecord.save();
+                await syncBalanceFromApplications({
+                    employeeId: application.employee_id,
+                    year: currentYear,
+                    policy: { _id: application.leave_policy_id, leave_type: application.leave_type },
+                    balanceRecord
+                });
             }
 
             return res.json({
@@ -1346,12 +1388,12 @@ export const cancelLeave = async (req, res) => {
         await application.save();
 
         if (balanceRecord && !isLwp) {
-            if (wasApprovedLeave) {
-                balanceRecord.used = Math.max(0, Number(balanceRecord.used || 0) - daysToRestore);
-            }
-            balanceRecord.pending_approval = (Number(balanceRecord.pending_approval) || 0) + daysToRestore;
-            balanceRecord.closing_balance  = Math.max(0, Number(balanceRecord.pending_approval || 0));
-            await balanceRecord.save();
+            await syncBalanceFromApplications({
+                employeeId: application.employee_id,
+                year: currentYear,
+                policy: { _id: application.leave_policy_id, leave_type: application.leave_type },
+                balanceRecord
+            });
         }
 
         return res.json({
@@ -1455,9 +1497,10 @@ export const updateBalance = async (req, res) => {
             const nextUsed = usedNum !== undefined ? usedNum : 0;
             const nextPending = pendingNum !== undefined ? pendingNum : 0;
             const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
-            const actualRemaining = Math.max(0, openingNum - nextUsed);
+            const remainingBeforePending = Math.max(0, openingNum - nextUsed);
+            const actualRemaining = Math.max(0, openingNum - nextUsed - nextPending);
 
-            if (!isUnpaidPolicy && nextPending > actualRemaining) {
+            if (!isUnpaidPolicy && nextPending > remainingBeforePending) {
                 return res.status(400).json({
                     message: 'Invalid balance: pending cannot exceed remaining paid balance'
                 });
@@ -1479,9 +1522,10 @@ export const updateBalance = async (req, res) => {
             const nextUsed = usedNum !== undefined ? usedNum : (balanceRecord.used ?? 0);
             const nextPending = pendingNum !== undefined ? pendingNum : (balanceRecord.pending_approval || 0);
             const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
-            const actualRemaining = Math.max(0, openingNum - nextUsed);
+            const remainingBeforePending = Math.max(0, openingNum - nextUsed);
+            const actualRemaining = Math.max(0, openingNum - nextUsed - nextPending);
 
-            if (!isUnpaidPolicy && nextPending > actualRemaining) {
+            if (!isUnpaidPolicy && nextPending > remainingBeforePending) {
                 return res.status(400).json({
                     message: 'Invalid balance: pending cannot exceed remaining paid balance'
                 });

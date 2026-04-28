@@ -7,7 +7,7 @@ import {
 import leaveAPI from '../../api/attendance/leave.api';
 import masterAPI from '../../api/attendance/master.api';
 import { API_BASE_URL } from './utils/constants';
-import { formatDate } from './utils/helpers';
+import { formatAttendanceDate, formatDate } from './utils/helpers';
 import toast from 'react-hot-toast';
 import ApplyLeaveModal from './ApplyLeaveModal';
 import './LeaveManagement.css';
@@ -38,8 +38,8 @@ const isEligibleForCancel = (app) => {
 const CancelLeaveModal = ({ app, onClose, onDone }) => {
   const isMultiDay = !app.is_half_day && app.from_date !== app.to_date;
   const [cancelType, setCancelType] = useState('full');
-  const [cancelFrom, setCancelFrom] = useState(formatDate(app.from_date, 'yyyy-MM-dd'));
-  const [cancelTo, setCancelTo] = useState(formatDate(app.to_date, 'yyyy-MM-dd'));
+  const [cancelFrom, setCancelFrom] = useState(formatAttendanceDate(app.from_date, 'yyyy-MM-dd'));
+  const [cancelTo, setCancelTo] = useState(formatAttendanceDate(app.to_date, 'yyyy-MM-dd'));
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -94,7 +94,7 @@ const CancelLeaveModal = ({ app, onClose, onDone }) => {
           <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: '.8125rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontWeight: 700, color: '#0f172a' }}>{app.leave_type}</div>
             <div style={{ color: '#475569' }}>
-              {formatDate(app.from_date, 'dd MMM yyyy')} - {formatDate(app.to_date, 'dd MMM yyyy')} &bull; {app.is_half_day ? 'Half Day' : `${app.total_days}d`}
+              {formatAttendanceDate(app.from_date, 'dd MMM yyyy')} - {formatAttendanceDate(app.to_date, 'dd MMM yyyy')} &bull; {app.is_half_day ? 'Half Day' : `${app.total_days}d`}
             </div>
             <span className={`lmbadge ${app.status}`} style={{ alignSelf: 'flex-start' }}>{app.status}</span>
           </div>
@@ -133,8 +133,8 @@ const CancelLeaveModal = ({ app, onClose, onDone }) => {
                 <input
                   type="date"
                   value={cancelFrom}
-                  min={formatDate(app.from_date, 'yyyy-MM-dd')}
-                  max={formatDate(app.to_date, 'yyyy-MM-dd')}
+                  min={formatAttendanceDate(app.from_date, 'yyyy-MM-dd')}
+                  max={formatAttendanceDate(app.to_date, 'yyyy-MM-dd')}
                   onChange={e => setCancelFrom(e.target.value)}
                 />
               </div>
@@ -143,8 +143,8 @@ const CancelLeaveModal = ({ app, onClose, onDone }) => {
                 <input
                   type="date"
                   value={cancelTo}
-                  min={cancelFrom || formatDate(app.from_date, 'yyyy-MM-dd')}
-                  max={formatDate(app.to_date, 'yyyy-MM-dd')}
+                  min={cancelFrom || formatAttendanceDate(app.from_date, 'yyyy-MM-dd')}
+                  max={formatAttendanceDate(app.to_date, 'yyyy-MM-dd')}
                   onChange={e => setCancelTo(e.target.value)}
                 />
               </div>
@@ -369,9 +369,9 @@ const LeaveManagement = () => {
                 <div className="lm-alert-info">
                   <span className="lm-alert-type">{app.leave_type}</span>
                   <span className="lm-alert-dates">
-                    {formatDate(app.from_date, 'dd MMM') === formatDate(app.to_date, 'dd MMM')
-                      ? formatDate(app.from_date, 'dd MMM')
-                      : `${formatDate(app.from_date, 'dd MMM')} – ${formatDate(app.to_date, 'dd MMM')}`
+                    {formatAttendanceDate(app.from_date, 'dd MMM') === formatAttendanceDate(app.to_date, 'dd MMM')
+                      ? formatAttendanceDate(app.from_date, 'dd MMM')
+                      : `${formatAttendanceDate(app.from_date, 'dd MMM')} – ${formatAttendanceDate(app.to_date, 'dd MMM')}`
                     } • {app.is_half_day ? `Half Day (${formatSession(app.half_day_session)})` : `${app.total_days}d`}
                   </span>
                 </div>
@@ -448,9 +448,9 @@ const LeaveManagement = () => {
                   <td>
                     <div className="dt-dates">
                       <span className="dt-date-range">
-                        {formatDate(app.from_date, 'dd MMM yyyy') === formatDate(app.to_date, 'dd MMM yyyy')
-                          ? formatDate(app.from_date, 'dd MMM yyyy')
-                          : `${formatDate(app.from_date, 'dd MMM yyyy')} – ${formatDate(app.to_date, 'dd MMM yyyy')}`
+                        {formatAttendanceDate(app.from_date, 'dd MMM yyyy') === formatAttendanceDate(app.to_date, 'dd MMM yyyy')
+                          ? formatAttendanceDate(app.from_date, 'dd MMM yyyy')
+                          : `${formatAttendanceDate(app.from_date, 'dd MMM yyyy')} – ${formatAttendanceDate(app.to_date, 'dd MMM yyyy')}`
                         }
                       </span>
                       {app.half_day_session && (

@@ -13,7 +13,7 @@ import Badge from './common/Badge';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import leaveAPI from '../../api/attendance/leave.api';
 import masterAPI from '../../api/attendance/master.api';
-import { formatDate, getStatusVariant, minutesToHours, isToday } from './utils/helpers';
+import { getAttendanceDateKey, minutesToHours, isToday } from './utils/helpers';
 import toast from 'react-hot-toast';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
 import ApplyLeaveModal from './ApplyLeaveModal';
@@ -667,7 +667,7 @@ export default function Dashboard() {
                             </div>
                           </td>
                           {weekDays.map((d, di) => {
-                            const ds = d.toISOString().split('T')[0];
+                            const ds = getAttendanceDateKey(d);
                             let status = emp.attendance?.[ds] || 'empty';
                             const isW = d.getDay() === 0 || d.getDay() === 6;
                             const isT = d.toDateString() === todayStr;

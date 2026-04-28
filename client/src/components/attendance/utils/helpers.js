@@ -1,6 +1,60 @@
 import { format, parseISO, isValid, differenceInMinutes, differenceInHours, isToday as fnsIsToday } from 'date-fns';
 import { DATE_FORMATS } from './constants';
 
+export const ATTENDANCE_TIME_ZONE = 'Asia/Kolkata';
+
+const getTimeZoneParts = (date, timeZone = ATTENDANCE_TIME_ZONE) => {
+  if (!date) return null;
+
+  const dateObj = typeof date === 'string' ? parseISO(date) : date;
+  if (!isValid(dateObj)) return null;
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(dateObj);
+
+  return parts.reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+};
+
+/**
+ * Stable YYYY-MM-DD key for attendance/leave calendar dates.
+ * This avoids browser timezone drift where a leave from May 4 can render as May 3.
+ */
+export const getAttendanceDateKey = (date, timeZone = ATTENDANCE_TIME_ZONE) => {
+  const parts = getTimeZoneParts(date, timeZone);
+  if (!parts) return '';
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+/**
+ * Format attendance/leave dates in the attendance timezone instead of browser timezone.
+ */
+export const formatAttendanceDate = (date, formatStr = DATE_FORMATS.DISPLAY, timeZone = ATTENDANCE_TIME_ZONE) => {
+  const parts = getTimeZoneParts(date, timeZone);
+  if (!parts) return '';
+
+  const dateForFormatting = new Date(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour || 0),
+    Number(parts.minute || 0),
+    Number(parts.second || 0)
+  );
+
+  return format(dateForFormatting, formatStr);
+};
+
 /**
  * Format date with specified format
  */

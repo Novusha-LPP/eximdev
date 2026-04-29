@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../../server/.env') });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.PROD_MONGODB_URI || 'mongodb://localhost:27017/exim';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
 

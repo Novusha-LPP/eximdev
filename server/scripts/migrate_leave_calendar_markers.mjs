@@ -25,11 +25,7 @@ const OVERWRITE_EMPTY = hasFlag('--overwrite-empty');
 const TZ_OVERRIDE = getArg('--tz', '');
 const MONGO_URI = getArg(
   '--uri',
-  process.env.DEV_MONGODB_URI ||
-    process.env.SERVER_MONGODB_URI ||
-    process.env.MONGODB_URI ||
-    process.env.PROD_MONGODB_URI ||
-    'mongodb://localhost:27017/exim'
+    process.env.PROD_MONGODB_URI 
 );
 const COMPANY_ID = getArg('--company', '');
 const EMPLOYEE_ID = getArg('--employee', '');
@@ -270,6 +266,31 @@ async function cleanExtraRecords({ employeeId, companyId, tz, desiredDates, desi
       unsafe += 1;
       pushUnique(unsafeDates, localDate);
       if (!QUIET) console.log('    SKIP unsafe record: has punches/hours, is locked, or is not a clean leave marker');
+
+      // Check if has punches
+      const hasPunchTimes = Boolean(record.first_in || record.last_out);
+      const hasPunchCount = Number(record.total_punches || 0) > 0;
+
+      if (hasPunchTimes || hasPunchCount) {
+        if (!QUIET) console.log('    UPDATE to present due to punches');
+        if (!DRY_RUN) {
+          await AttendanceRecord.updateOne(
+            { _id: record._id },
+            {
+              $set: {
+                status: 'present',
+                is_on_leave: false,
+                leave_application_id: null,
+                is_half_day: false,
+                half_day_session: null,
+                remarks: record.remarks || 'Corrected extra leave with punches'
+              }
+            },
+            { runValidators: false }
+          );
+        }
+      }
+
       continue;
     }
 

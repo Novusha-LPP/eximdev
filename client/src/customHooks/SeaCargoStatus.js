@@ -298,12 +298,12 @@ const SeaCargoStatus = ({
       }
 
       // IGM Fields mapping based on branch and configuration
-      const isAmdBranch = branchCode?.toUpperCase()?.startsWith("AMD");
+      const isAmdOrBrdBranch = branchCode?.toUpperCase()?.startsWith("AMD") || branchCode?.toUpperCase()?.startsWith("BRD");
       const gatewayIgmEnabled = branchConfig?.gateway_igm_enabled !== false;
       const gatewayIgmDateEnabled = branchConfig?.gateway_igm_date_enabled !== false;
 
       if (isValidValue(summary.igmNo)) {
-        if (isAmdBranch && gatewayIgmEnabled) {
+        if (isAmdOrBrdBranch && gatewayIgmEnabled) {
           updateData.gateway_igm = summary.igmNo;
         } else {
           updateData.igm_no = summary.igmNo;
@@ -312,7 +312,7 @@ const SeaCargoStatus = ({
 
       const formattedIgmDate = formatDateForDatabase(summary.igmDate);
       if (isValidValue(formattedIgmDate)) {
-        if (isAmdBranch && gatewayIgmDateEnabled) {
+        if (isAmdOrBrdBranch && gatewayIgmDateEnabled) {
           updateData.gateway_igm_date = formattedIgmDate;
         } else {
           updateData.igm_date = formattedIgmDate;

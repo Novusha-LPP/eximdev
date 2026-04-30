@@ -123,8 +123,8 @@ const BLTrackingCell = ({
 
   // Unified tracking handler
   const handleOpenTracking = (event, num) => {
-    if (branch_code?.startsWith('AMD') && mode === 'SEA') {
-      // AMD SEA branch uses BL tracking
+    if ((branch_code?.startsWith('AMD') || branch_code?.startsWith('BRD')) && mode === 'SEA') {
+      // AMD and BRD SEA branch uses BL tracking
       handleOpenAirCargoDialog(event, num);
     } else if (mode === 'SEA' || branch_code?.startsWith('GIM')) {
       handleOpenSeaCargoDialog(event, num);

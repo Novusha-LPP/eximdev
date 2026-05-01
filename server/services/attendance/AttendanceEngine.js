@@ -141,6 +141,7 @@ class AttendanceEngine {
                 const isShiftOver = now.isAfter(shiftEnd);
                 const isCurrentlyPunchedOut = !lastInPunch;
                 const hoursSinceLastPunch = lastOut ? now.diff(moment(lastOut.punch_time).tz(tz), 'hours') : 0;
+                const hoursSinceIn = lastInPunch ? now.diff(moment(lastInPunch.punch_time).tz(tz), 'hours', true) : 0;
                 const isGapTooLarge = isCurrentlyPunchedOut && hoursSinceLastPunch >= 4;
 
                 // Determine status based on cumulative work hours
@@ -186,15 +187,16 @@ class AttendanceEngine {
                 } else if (effectiveHours >= adjustedFullDay) {
                     status = 'present';
                 } else if (effectiveHours <= adjustedHalfDay) {
-                    if (!isToday || isShiftOver || isCurrentlyPunchedOut) {
-                        status = isWeeklyOffHalfDay ? 'half_day' : 'half_day';
+                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 12h
+                    if ((!isToday && (isShiftOver || hoursSinceIn > 12)) || isCurrentlyPunchedOut) {
+                        status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
                     } else {
                         status = 'present';
                     }
                 } else {
-                    if (!isToday || isShiftOver || isGapTooLarge || isCurrentlyPunchedOut) {
+                    if ((!isToday && (isShiftOver || hoursSinceIn > 12)) || isGapTooLarge || isCurrentlyPunchedOut) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;
@@ -203,7 +205,8 @@ class AttendanceEngine {
                     }
                 }
 
-                if (!isToday && lastInPunch && status === 'present') {
+                // ✅ Fix: Don't mark as incomplete until 12 hours after punch-in
+                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > 12) {
                     status = 'incomplete';
                     isHalfDayFlag = false;
                 }
@@ -274,13 +277,12 @@ class AttendanceEngine {
 
             // ✅ Don't mark absent for today until 4 hours after shift start
             if (status === 'absent' && company && shift) {
-                if (isToday) {
-                    const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
-                    const fourHourMark = shiftStart.clone().add(4, 'hours');
-                    if (now.isBefore(fourHourMark)) {
-                        // Too early to mark absent — skip writing record
-                        return null;
-                    }
+                const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
+                const fourHourMark = shiftStart.clone().add(4, 'hours');
+                
+                // If it's still within 4 hours of shift start, don't finalize as absent yet
+                if (now.isBefore(fourHourMark)) {
+                    return null;
                 }
             }
 

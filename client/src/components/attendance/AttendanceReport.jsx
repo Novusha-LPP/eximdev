@@ -20,6 +20,21 @@ const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 const getAttendanceDateKey = (value) => moment(value).format('YYYY-MM-DD');
 const getAttendanceDateLabel = (value) => moment(value).format('DD MMM');
 
+const formatLeaveBadge = (leaveType) => {
+    if (!leaveType) return '';
+    const lt = leaveType.toLowerCase();
+    if (lt.includes('privilege') || lt.includes('earned')) return 'PL';
+    if (lt.includes('without pay') || lt === 'lwp') return 'LWP';
+
+    return leaveType
+        .split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 3);
+};
+
+
 const getCalendarStatusClass = (status = '') => {
     const normalized = String(status || '').toLowerCase();
     if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
@@ -1427,10 +1442,26 @@ if (summarySheet) {
                                         <div className="ar-cal-preview">
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                                                 <h4 className="ar-pane-title" style={{ margin: 0 }}>Attendance Continuity</h4>
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                    <select className="ar-history-select" style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }} value={browseMonth} onChange={e => setBrowseMonth(parseInt(e.target.value))}>
-                                                        {moment.months().map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                                                    </select>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <button 
+                                                        onClick={() => {
+                                                            const prev = moment([browseYear, browseMonth - 1]).subtract(1, 'month');
+                                                            setBrowseYear(prev.year());
+                                                            setBrowseMonth(prev.month() + 1);
+                                                        }}
+                                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
+                                                    >←</button>
+                                                    <span style={{ fontSize: '13px', fontWeight: '700', minWidth: '100px', textAlign: 'center' }}>
+                                                        {moment([browseYear, browseMonth - 1]).format('MMMM YYYY')}
+                                                    </span>
+                                                    <button 
+                                                        onClick={() => {
+                                                            const next = moment([browseYear, browseMonth - 1]).add(1, 'month');
+                                                            setBrowseYear(next.year());
+                                                            setBrowseMonth(next.month() + 1);
+                                                        }}
+                                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
+                                                    >→</button>
                                                 </div>
                                             </div>
 
@@ -1438,79 +1469,47 @@ if (summarySheet) {
                                                 <div style={{ 
                                                     marginBottom: '20px', 
                                                     background: '#f8fafc', 
-                                                    padding: '16px', 
+                                                    padding: '12px', 
                                                     borderRadius: '12px', 
-                                                    border: '1px solid #e2e8f0',
-                                                    boxShadow: 'inset 0 2px 4px 0 rgba(0,0,0,0.05)'
+                                                    border: '1px solid #e2e8f0'
                                                 }}>
-                                                    <form onSubmit={handleApplyFullMonthPresence} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#000' }}>Selected Month</label>
-                                                            <div style={{ padding: '8px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }}>
-                                                                {moment([browseYear, browseMonth - 1]).format('MMMM YYYY')}
-                                                            </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                                        <FiActivity size={14} color="#4f46e5" />
+                                                        <span style={{ fontSize: '13px', fontWeight: '700' }}>Admin Controls</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={fullMonthPresenceEnabled} 
+                                                                onChange={(e) => setFullMonthPresenceEnabled(e.target.checked)} 
+                                                            />
+                                                            Enable Full Month Presence
+                                                        </label>
+                                                        
+                                                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                                            Mark all working days as present, skipping week-offs and preserving leaves.
                                                         </div>
 
-                                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', gridColumn: '1 / -1' }}>
-                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#000' }}>Enable Full Month Presence:</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setFullMonthPresenceEnabled(true)}
-                                                                style={{
-                                                                    padding: '6px 12px',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #cbd5e1',
-                                                                    background: fullMonthPresenceEnabled ? '#0f172a' : '#fff',
-                                                                    color: fullMonthPresenceEnabled ? '#fff' : '#0f172a',
-                                                                    fontWeight: '700',
-                                                                    fontSize: '12px',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                Yes
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setFullMonthPresenceEnabled(false)}
-                                                                style={{
-                                                                    padding: '6px 12px',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #cbd5e1',
-                                                                    background: !fullMonthPresenceEnabled ? '#0f172a' : '#fff',
-                                                                    color: !fullMonthPresenceEnabled ? '#fff' : '#0f172a',
-                                                                    fontWeight: '700',
-                                                                    fontSize: '12px',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                No
-                                                            </button>
-                                                        </div>
-
-                                                        <div style={{ fontSize: '11px', color: '#64748b', gridColumn: '1 / -1' }}>
-                                                            Applies present status to the selected month, skips all configured week-offs, and preserves leave/holiday/weekly-off records.
-                                                        </div>
-                                                        <div style={{ gridColumn: '1 / -1' }}>
-                                                            <button 
-                                                                type="submit" 
-                                                                disabled={applyingFullMonth || !fullMonthPresenceEnabled}
-                                                                style={{ 
-                                                                    width: '100%', 
-                                                                    padding: '10px', 
-                                                                    background: '#0f172a', 
-                                                                    color: '#fff', 
-                                                                    border: 'none', 
-                                                                    borderRadius: '8px', 
-                                                                    fontWeight: '700', 
-                                                                    fontSize: '13px',
-                                                                    cursor: 'pointer',
-                                                                    opacity: applyingFullMonth || !fullMonthPresenceEnabled ? 0.7 : 1
-                                                                }}
-                                                            >
-                                                                {applyingFullMonth ? 'Applying...' : 'Apply Full Month Presence'}
-                                                            </button>
-                                                        </div>
-                                                    </form>
+                                                        <button 
+                                                            onClick={handleApplyFullMonthPresence} 
+                                                            disabled={applyingFullMonth || !fullMonthPresenceEnabled}
+                                                            style={{ 
+                                                                width: '100%', 
+                                                                padding: '8px', 
+                                                                background: '#0f172a', 
+                                                                color: '#fff', 
+                                                                border: 'none', 
+                                                                borderRadius: '6px', 
+                                                                fontWeight: '700', 
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer',
+                                                                opacity: fullMonthPresenceEnabled ? 1 : 0.5
+                                                            }}
+                                                        >
+                                                            {applyingFullMonth ? 'Applying...' : 'Mark Full Month Present'}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -1530,7 +1529,21 @@ if (summarySheet) {
                                                         const rec = empHistory.find(r => r.attendance_date && getAttendanceDateKey(r.attendance_date) === dateStr);
                                                         const isToday = dateStr === moment().format('YYYY-MM-DD');
                                                         const statusClass = getCalendarStatusClass(rec?.status);
-                                                        const statusBadge = getCalendarStatusBadge(rec?.status);
+                                                        
+                                                        let statusBadge = getCalendarStatusBadge(rec?.status);
+                                                        if (rec?.status === 'half_day') {
+                                                            const session = rec.half_day_session || '';
+                                                            statusBadge = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
+                                                        }
+
+                                                        const lType = rec?.leaveType || rec?.leave_type;
+                                                        const lStatus = rec?.leaveStatus || rec?.approval_status;
+                                                        let leaveBadge = null;
+                                                        if (lType) {
+                                                            const badge = formatLeaveBadge(lType);
+                                                            const isApproved = lStatus === 'approved' || rec?.status === 'leave';
+                                                            leaveBadge = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+                                                        }
 
                                                         days.push(
                                                             <div
@@ -1544,7 +1557,10 @@ if (summarySheet) {
                                                                 title={rec ? `${getAttendanceDateLabel(dateStr)}: ${rec.status}` : 'No Record'}
                                                             >
                                                                 <span className="ar-day-num">{day}</span>
-                                                                {statusBadge ? <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span> : (rec && <div className="ar-cal-dot" />)}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
+                                                                    {statusBadge && <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span>}
+                                                                    {leaveBadge && <span className="ar-day-badge leave">{leaveBadge}</span>}
+                                                                </div>
                                                             </div>
                                                         );
                                                     }
@@ -1553,24 +1569,7 @@ if (summarySheet) {
                                             </div>
                                         </div>
 
-                                        {/* Daily Log - Collapsed for clean UI */}
-                                        <div className="ar-timeline">
-                                            <h4 className="ar-pane-title" style={{ margin: 0 }}>Activity Highlights</h4>
-                                            {empHistory.slice(0, 10).map((rec, i) => (
-                                                <div key={i} className="ar-time-item" onClick={() => (isAdmin || isHOD) && startEdit(rec, getAttendanceDateKey(rec.attendance_date))}>
-                                                    <div className="ar-time-icon">
-                                                        <FiClock size={16} />
-                                                    </div>
-                                                    <div className="ar-time-info">
-                                                        <div className="ar-time-title">{getAttendanceDateLabel(rec.attendance_date)}</div>
-                                                        <div className="ar-time-sub">
-                                                            <StatusPill status={getCalendarStatusClass(rec.status)} session={rec.half_day_session} />
-                                                            {rec.first_in && <span style={{ marginLeft: '8px' }}>{formatTime12Hr(rec.first_in)}</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+
                                     </>
                                 )}
 

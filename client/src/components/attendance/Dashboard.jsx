@@ -77,10 +77,27 @@ const formatSession = (s) => {
   return s === 'first_half' ? '1st Half' : '2nd Half';
 };
 
+const formatLeaveBadge = (leaveType) => {
+  if (!leaveType) return '';
+  const lt = leaveType.toLowerCase();
+  if (lt.includes('privilege') || lt.includes('earned')) return 'PL';
+  if (lt.includes('without pay') || lt === 'lwp') return 'LWP';
+
+  return leaveType
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 3);
+};
+
+const isHalfDayRequest = (req) => Boolean(req?.is_half_day || req?.is_start_half_day || req?.is_end_half_day);
+const getHalfDaySession = (req) => req?.half_day_session || req?.start_half_session || req?.end_half_session || '';
+
 const calClass = (rec, isCurrentDay, punchStatus) => {
   if (!rec) return '';
   if (rec.status === 'incomplete') return 'missed_punch';
-  if (rec.status === 'half_day') return 'half_day';
+  if (rec.status === 'half_day' || rec?.is_half_day || rec?.half_day_session) return 'half_day';
   if (isCurrentDay && (punchStatus?.status === 'Checked In' || punchStatus?.status === 'Checked Out')) {
     return rec?.isLate ? 'late' : 'present';
   }
@@ -335,8 +352,7 @@ export default function Dashboard() {
   /* -- Role-aware stat tiles -- */
   const personalTiles = [
     { cls: 'green', val: ms?.present ?? 0, lbl: 'Days Present', sub: `of ${ms?.workingDays ?? 0} working days` },
-    { cls: 'blue', val: balances.reduce((s, b) => s + (b.available || b.balance || 0), 0), lbl: 'Leave Balance', sub: `${balances.reduce((s, b) => s + (b.used ?? 0), 0)} used this month` },
-    { cls: 'amber', val: ms?.late ?? 0, lbl: 'Late Arrivals', sub: ms?.avgLateMinutes ? `avg ${ms.avgLateMinutes} min late` : 'this month' },
+    { cls: 'blue', val: ms?.leaves ?? 0, lbl: 'Leaves Taken', sub: 'this month' },
     { cls: 'gray', val: ms?.weeklyAvgHours ? `${Math.floor(ms.weeklyAvgHours)}h${Math.floor((ms.weeklyAvgHours % 1) * 60)}m` : '-', lbl: 'Weekly Avg Hours', sub: 'based on days worked' },
   ];
 
@@ -738,7 +754,18 @@ export default function Dashboard() {
                   }
                 }
 
-                const label = CAL_LABELS[cls] || '';
+                let statusLabel = CAL_LABELS[cls] || '';
+                if (cls === 'half_day') {
+                  const session = rec?.half_day_session || '';
+                  statusLabel = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
+                }
+                let leaveLabel = '';
+
+                if (rec?.leaveType) {
+                  const badge = formatLeaveBadge(rec.leaveType);
+                  const isApproved = rec.leaveStatus === 'approved' || cls === 'leave';
+                  leaveLabel = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+                }
 
                 return (
                   <div
@@ -747,9 +774,10 @@ export default function Dashboard() {
                     onClick={() => openApplyLeaveModal(day)}
                   >
                     <span className="cal-day-num">{day}</span>
-                    {day && label && (
-                      <div className={`cal-status-badge ${cls}`}>
-                        {label}
+                    {day && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center' }}>
+                        {statusLabel && <div className={`cal-status-badge ${cls}`}>{statusLabel}</div>}
+                        {leaveLabel && <div className="cal-status-badge leave">{leaveLabel}</div>}
                       </div>
                     )}
                   </div>
@@ -807,7 +835,7 @@ export default function Dashboard() {
                     <div className="approval-meta">
                       {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
                       {req._kind === 'leave' && req.totalDays ? (
-                        req.is_half_day ? ` • Half Day (${formatSession(req.half_day_session)})` : ` • ${req.totalDays} day${req.totalDays > 1 ? 's' : ''}`
+                        isHalfDayRequest(req) ? ` • Half Day (${formatSession(getHalfDaySession(req))})` : ` • ${req.totalDays} day${req.totalDays > 1 ? 's' : ''}`
                       ) : ''}
                       {req._kind === 'reg' && req.date ? ` • ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}` : ''}
                     </div>

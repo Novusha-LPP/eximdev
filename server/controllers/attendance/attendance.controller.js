@@ -346,7 +346,14 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             }
         }
 
-        compactHistory.push({ date: dayStr, status: hStatus || 'absent', session: hSession });
+        compactHistory.push({ 
+            date: dayStr, 
+            status: hStatus || 'absent', 
+            session: hSession,
+            leaveType: leave?.leave_type || null,
+            leaveStatus: leave?.approval_status || null,
+            is_half_day_leave: !!(leave?.is_half_day || leave?.is_start_half_day || leave?.is_end_half_day)
+        });
         curr.add(1, 'day');
     }
 
@@ -940,7 +947,7 @@ export const getDashboardData = async (req, res) => {
         // 7. Fetch Approved Leaves for the month to show on calendar
         const approvedLeaves = await LeaveApplication.find({
             employee_id: user._id,
-            approval_status: { $in: ['approved', 'pending'] },
+            approval_status: { $nin: ['rejected', 'cancelled', 'withdrawn'] },
             from_date: { $lte: monthEndUTC },
             to_date: { $gte: monthStartUTC }
         });
@@ -950,16 +957,33 @@ export const getDashboardData = async (req, res) => {
             while (curr.isSameOrBefore(end, 'day')) {
                 const dateStr = curr.format('YYYY-MM-DD');
                 if (dateStr.startsWith(currentYearMonth)) {
-                    if (!calendarMap[dateStr] || ['absent', 'weekly_off'].includes(calendarMap[dateStr].status)) {
-                        const hasRecord = !!calendarMap[dateStr];
+                    const existing = calendarMap[dateStr];
+                    const isHalfLeave = Boolean(leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
+                    const sessionValue = leave.half_day_session || leave.start_half_session || leave.end_half_session;
+                    const mergedStatus = isHalfLeave ? 'half_day' : 'leave';
+
+                    if (!existing || ['absent', 'weekly_off'].includes(existing.status)) {
                         calendarMap[dateStr] = {
                             date: dateStr,
-                            status: (leave.is_half_day && !hasRecord) ? 'absent' : (leave.is_half_day ? 'half_day' : 'leave'),
-                            hours: 0,
-                            isLate: false,
+                            status: mergedStatus,
+                            hours: existing?.hours || 0,
+                            isLate: existing?.isLate || false,
                             leaveType: leave.leave_type,
-                            is_half_day: leave.is_half_day,
-                            half_day_session: leave.half_day_session
+                            is_half_day: isHalfLeave,
+                            half_day_session: sessionValue,
+                            is_half_day_leave: isHalfLeave,
+                            leaveStatus: leave.approval_status
+                        };
+                    } else {
+                        // Merge with existing record (e.g. half-day present)
+                        calendarMap[dateStr] = {
+                            ...existing,
+                            leaveType: leave.leave_type,
+                            is_half_day: isHalfLeave,
+                            half_day_session: sessionValue,
+                            is_half_day_leave: isHalfLeave,
+                            leaveStatus: leave.approval_status,
+                            status: mergedStatus
                         };
                     }
                 }
@@ -2019,31 +2043,16 @@ const getCorrectionFlags = (body = {}) => {
     };
 };
 
-const getAssignedShift = async (employee, shiftId, companyId) => {
+const getAssignedShift = async (employee, shiftId/*, companyId */) => {
     if (shiftId !== undefined && shiftId !== null && shiftId !== '') {
         const selectedShift = await Shift.findById(shiftId);
         if (!selectedShift || selectedShift.status !== 'active') {
             throw new Error('Selected shift is invalid or inactive');
         }
-
-        const selectedCompanyId = selectedShift.company_id?._id || selectedShift.company_id;
-        if (companyId && selectedCompanyId && String(selectedCompanyId) !== String(companyId)) {
-            const assignedIds = getAssignedShiftIds(employee);
-            console.log('[DEBUG_SHIFT] Company Mismatch:', { 
-                targetCompanyId: String(companyId), 
-                shiftCompanyId: String(selectedCompanyId), 
-                requestedShiftId: String(shiftId),
-                assignedIds 
-            });
-            if (!assignedIds.includes(String(shiftId))) {
-                throw new Error('Selected shift does not belong to this company');
-            }
-        }
-
         return selectedShift;
     }
 
-    const resolved = await PolicyResolver.resolveShift(employee, companyId);
+    const resolved = await PolicyResolver.resolveShift(employee);
     return resolved || null;
 };
 
@@ -3007,26 +3016,38 @@ export const getEmployeeFullProfile = async (req, res) => {
           
             const leave = findLeaveForDateLocal(leaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
 
-            if (leave && (!existingRecord || String(existingRecord.status).toLowerCase() === 'absent')) {
-                if (existingRecord) {
-                    attendanceByDay.delete(dayStr);
-                    const idx = continuityAttendance.findIndex(item => String(item._id) === String(existingRecord._id));
-                    if (idx >= 0) continuityAttendance.splice(idx, 1);
-                }
+            if (leave) {
                 const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
-                continuityAttendance.push({
-                    _id: `virtual-leave-${dayStr}`,
-                    attendance_date: dayCursor.toDate(),
-                    status: (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day) ? 'half_day' : 'leave',
-                    leave_type: leave.leave_type || null,
-                    approval_status: leave.approval_status || 'pending',
-                    half_day_session: leave.half_day_session || null,
-                    start_half_session: leave.start_half_session || null,
-                    end_half_session: leave.end_half_session || null,
-                    remarks: isPending ? 'Pending Leave Application' : 'Approved Leave',
-                    is_pending: isPending,
-                    is_virtual: true
-                });
+                const isHalfLeave = !!(leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
+
+                if (!existingRecord || String(existingRecord.status).toLowerCase() === 'absent') {
+                    if (existingRecord) {
+                        attendanceByDay.delete(dayStr);
+                        const idx = continuityAttendance.findIndex(item => String(item._id) === String(existingRecord._id));
+                        if (idx >= 0) continuityAttendance.splice(idx, 1);
+                    }
+                    continuityAttendance.push({
+                        _id: `virtual-leave-${dayStr}`,
+                        attendance_date: dayCursor.toDate(),
+                        status: isHalfLeave ? 'half_day' : 'leave',
+                        leaveType: leave.leave_type || null,
+                        leaveStatus: leave.approval_status || 'pending',
+                        half_day_session: leave.half_day_session || null,
+                        start_half_session: leave.start_half_session || null,
+                        end_half_session: leave.end_half_session || null,
+                        remarks: isPending ? 'Pending Leave Application' : 'Approved Leave',
+                        is_pending: isPending,
+                        is_virtual: true
+                    });
+                } else {
+                    // Merge leave info into existing record (e.g. half-day present)
+                    existingRecord.leaveType = leave.leave_type || null;
+                    existingRecord.leaveStatus = leave.approval_status || 'pending';
+                    existingRecord.is_pending = isPending;
+                    if (!isHalfLeave) {
+                        existingRecord.status = 'leave';
+                    }
+                }
                 dayCursor.add(1, 'day');
                 continue;
             }

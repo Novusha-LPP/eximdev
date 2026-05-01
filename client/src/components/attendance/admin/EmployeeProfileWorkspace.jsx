@@ -107,6 +107,20 @@ const getCalendarStatusClass = (status = '') => {
   return normalized || 'none';
 };
 
+const formatLeaveBadge = (leaveType) => {
+  if (!leaveType) return '';
+  const lt = leaveType.toLowerCase();
+  if (lt.includes('privilege') || lt.includes('earned')) return 'PL';
+  if (lt.includes('without pay') || lt === 'lwp') return 'LWP';
+
+  return leaveType
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 3);
+};
+
 const getCalendarStatusBadge = (status = '') => {
   const normalized = String(status || '').toLowerCase();
   const map = {
@@ -126,7 +140,7 @@ const getCalendarStatusBadge = (status = '') => {
   return map[normalized] || '';
 };
 
-const StatusPill = ({ status, session }) => {
+const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
   const map = { 
     present: ['Present', 'present'], 
     absent: ['Absent', 'absent'], 
@@ -138,10 +152,20 @@ const StatusPill = ({ status, session }) => {
     incomplete: ['Missed Punch', 'missed-punch'],
     missed_punch: ['Missed Punch', 'missed-punch']
   };
-  const [label, cls] = map[status] || [status, 'default'];
+  let [label, cls] = map[status] || [status, 'default'];
+
+  if (leaveType) {
+    const badge = formatLeaveBadge(leaveType);
+    const isApproved = leaveStatus === 'approved' || status === 'leave';
+    label = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+    cls = isApproved ? 'leave' : 'pending-leave';
+  } else if (status === 'half_day') {
+    label = session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : '½ Day';
+  }
+
   return (
       <span className={`ar-status-pill ar-pill-${cls}`}>
-          {status === 'half_day' ? (session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
+          {label}
       </span>
   );
 };
@@ -432,6 +456,16 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       }
       if (status === 'absent') stats.absent += 1;
       if (status === 'leave' || status === 'pending_leave') stats.leaves += 1;
+      if (status === 'half_day') {
+        const hasLeave = !!(rec.leaveType || rec.leave_type);
+        if (hasLeave) {
+          stats.leaves += 0.5;
+          stats.present += 0.5;
+        } else {
+          stats.present += 0.5;
+          stats.absent += 0.5;
+        }
+      }
       if (status === 'weekly_off') stats.weeklyOff += 1;
       if (status === 'holiday') stats.holidays += 1;
     });
@@ -1977,7 +2011,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         const dateStr = moment([browseYear, browseMonth - 1, d]).format('YYYY-MM-DD');
                         const record = empHistory.find(r => getAttendanceDateKey(r.attendance_date) === dateStr) || { attendance_date: dateStr, status: 'none' };
                         const statusClass = getCalendarStatusClass(record.status);
-                        const badge = getCalendarStatusBadge(record.status);
+                        let statusBadge = getCalendarStatusBadge(record.status);
+                        if (record.status === 'half_day') {
+                          const session = record.half_day_session || '';
+                          statusBadge = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
+                        }
+                        
+                        const lType = record.leaveType || record.leave_type;
+                        const lStatus = record.leaveStatus || record.approval_status;
+                        let leaveBadge = null;
+                        if (lType) {
+                          const badge = formatLeaveBadge(lType);
+                          const isApproved = lStatus === 'approved' || record.status === 'leave';
+                          leaveBadge = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+                        }
                         
                         cells.push(
                           <div 
@@ -1986,7 +2033,10 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                             onClick={() => startEdit(record, dateStr)}
                           >
                             <span className="ar-day-num">{d}</span>
-                            {badge && <span className={`ar-day-badge ${statusClass}`}>{badge}</span>}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
+                              {statusBadge && <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span>}
+                              {leaveBadge && <span className="ar-day-badge leave">{leaveBadge}</span>}
+                            </div>
                           </div>
                         );
                       }
@@ -2060,7 +2110,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                              <div className="ar-time-info">
                                <div className="ar-time-title">{getAttendanceDateLabel(rec.attendance_date)}</div>
                                <div className="ar-time-sub">
-                                 <StatusPill status={getCalendarStatusClass(rec.status)} session={rec.half_day_session} />
+                                 <StatusPill 
+                                   status={getCalendarStatusClass(rec.status)} 
+                                   session={rec.half_day_session} 
+                                   leaveType={rec.leaveType || rec.leave_type}
+                                   leaveStatus={rec.leaveStatus || rec.approval_status}
+                                 />
                                  {rec.first_in && <span style={{ marginLeft: '8px' }}>{moment(rec.first_in).format('h:mm a')}</span>}
                                </div>
                              </div>
@@ -2136,9 +2191,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       <tr key={row._id} style={{ borderBottom: `1px solid ${THEME.border}`, transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                         <td style={{ padding: '12px 8px', color: THEME.navy }}>{formatDateOrdinal(row.attendance_date)}</td>
                         <td style={{ padding: '12px 8px' }}>
-                          <span style={{ fontWeight: '500', color: THEME.text }}>
-                            {formatStatus(row.status)}
-                          </span>
+                          <StatusPill 
+                            status={getCalendarStatusClass(row.status)} 
+                            session={row.half_day_session}
+                            leaveType={row.leaveType || row.leave_type}
+                            leaveStatus={row.leaveStatus || row.approval_status}
+                          />
                         </td>
                         <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.first_in ? new Date(row.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
                         <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.last_out ? new Date(row.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
@@ -2167,10 +2225,10 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               <form onSubmit={handleUpdateBalance} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap' }}>
                   <label style={{ fontWeight: '700', fontSize: '12px', color: '#000', minWidth: '60px' }}>Policy:</label>
-                  <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={balanceForm.leave_policy_id} onChange={(e) => setBalanceForm({ ...balanceForm, leave_policy_id: e.target.value })}>
+                  <select style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px', flex: '1 1 180px' }} value={String(balanceForm.leave_policy_id)} onChange={(e) => setBalanceForm({ ...balanceForm, leave_policy_id: e.target.value })}>
                     <option value="">Select policy</option>
                     {availablePolicies.map((p) => (
-                      <option key={p._id} value={p._id}>{p.policy_name || p.leave_type}</option>
+                      <option key={p._id} value={String(p._id)}>{p.policy_name || p.leave_type}</option>
                     ))}
                   </select>
                 </div>

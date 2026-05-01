@@ -1468,21 +1468,26 @@ export const updateBalance = async (req, res) => {
             return res.status(404).json({ message: `Leave policy (ID: ${leave_policy_id}) not found or inactive` });
         }
 
-        // Find or create the leave balance record
-        let balanceRecord = await findBalanceForPolicy({
-            employeeId: employee_id,
-            year: currentYear,
-            policy
-        });
-
         const employeeCompanyId = employee.company_id?._id || employee.company_id;
         const resolvedCompanyId =
             employeeCompanyId ||
-            balanceRecord?.company_id ||
             policy.company_id?._id ||
             policy.company_id ||
             admin.company_id?._id ||
             admin.company_id;
+
+        // Calculate next values
+        const nextUsed = usedNum !== undefined ? usedNum : 0;
+        const nextPending = pendingNum !== undefined ? pendingNum : 0;
+        const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
+        const remainingBeforePending = Math.max(0, openingNum - nextUsed);
+        const actualRemaining = Math.max(0, openingNum - nextUsed - nextPending);
+
+        if (!isUnpaidPolicy && nextPending > remainingBeforePending) {
+            return res.status(400).json({
+                message: 'Invalid balance: pending cannot exceed remaining paid balance'
+            });
+        }
 
         const assignedPolicyIds = getAssignedPolicyIds(employee);
         if (!assignedPolicyIds.includes(String(policy._id))) {
@@ -1492,62 +1497,33 @@ export const updateBalance = async (req, res) => {
             );
         }
 
-        if (!balanceRecord) {
-            // Create new balance record
-            const nextUsed = usedNum !== undefined ? usedNum : 0;
-            const nextPending = pendingNum !== undefined ? pendingNum : 0;
-            const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
-            const remainingBeforePending = Math.max(0, openingNum - nextUsed);
-            const actualRemaining = Math.max(0, openingNum - nextUsed - nextPending);
-
-            if (!isUnpaidPolicy && nextPending > remainingBeforePending) {
-                return res.status(400).json({
-                    message: 'Invalid balance: pending cannot exceed remaining paid balance'
-                });
-            }
-            
-            balanceRecord = new LeaveBalance({
+        // Use atomic findOneAndUpdate with upsert to avoid duplicate key errors
+        const balanceRecord = await LeaveBalance.findOneAndUpdate(
+            {
                 employee_id: employee_id,
-                ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
                 leave_policy_id: leave_policy_id,
-                leave_type: policy.leave_type,
-                year: currentYear,
-                opening_balance: openingNum,
-                used: nextUsed,
-                pending_approval: nextPending,
-                closing_balance: actualRemaining
-            });
-        } else {
-            // Update existing balance record
-            const nextUsed = usedNum !== undefined ? usedNum : (balanceRecord.used ?? 0);
-            const nextPending = pendingNum !== undefined ? pendingNum : (balanceRecord.pending_approval || 0);
-            const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
-            const remainingBeforePending = Math.max(0, openingNum - nextUsed);
-            const actualRemaining = Math.max(0, openingNum - nextUsed - nextPending);
-
-            if (!isUnpaidPolicy && nextPending > remainingBeforePending) {
-                return res.status(400).json({
-                    message: 'Invalid balance: pending cannot exceed remaining paid balance'
-                });
+                year: currentYear
+            },
+            {
+                $set: {
+                    employee_id: employee_id,
+                    leave_policy_id: leave_policy_id,
+                    leave_type: policy.leave_type,
+                    year: currentYear,
+                    opening_balance: openingNum,
+                    used: nextUsed,
+                    pending_approval: nextPending,
+                    closing_balance: actualRemaining,
+                    last_updated: new Date(),
+                    ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {})
+                }
+            },
+            { 
+                new: true,
+                upsert: true,
+                runValidators: true
             }
-
-            balanceRecord.opening_balance = openingNum;
-            balanceRecord.used = nextUsed;
-            balanceRecord.pending_approval = nextPending;
-            if (isIdempotentLeaveType(policy.leave_type) && String(balanceRecord.leave_policy_id || '') !== String(policy._id)) {
-                balanceRecord.leave_policy_id = policy._id;
-            }
-            // Backfill required company_id for legacy records created before this field was mandatory.
-            if (resolvedCompanyId && String(balanceRecord.company_id || '') !== String(resolvedCompanyId)) {
-                balanceRecord.company_id = resolvedCompanyId;
-            }
-            
-            // Recalculate closing balance (actual remaining only)
-            balanceRecord.closing_balance = actualRemaining;
-        }
-
-        balanceRecord.last_updated = new Date();
-        await balanceRecord.save();
+        );
 
         res.json({
             message: 'Leave balance updated successfully',

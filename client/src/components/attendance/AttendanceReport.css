@@ -812,7 +812,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    width: 620px;
+    width: 820px;
     background: var(--surface);
     box-shadow: -16px 0 40px rgba(13, 27, 42, .12);
     transform: translateX(100%);
@@ -826,6 +826,11 @@
 
 .ar-overlay.open .ar-drawer {
     transform: translateX(0);
+}
+
+.ar-drawer .ar-cal-day {
+    aspect-ratio: 1 / 1.1;
+    min-height: 80px;
 }
 
 

@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { FiUsers, FiCheckCircle, FiXCircle, FiClock, FiCalendar, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
+const formatLeaveBadge = (leaveType) => {
+    if (!leaveType) return '';
+    const lt = leaveType.toLowerCase();
+    if (lt.includes('privilege') || lt.includes('earned')) return 'PL';
+    if (lt.includes('without pay') || lt === 'lwp') return 'LWP';
+
+    return leaveType
+        .split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 3);
+};
+
 const COLORS = {
   present: '#36b60f',
   late: '#b45309',
@@ -52,8 +66,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
   // console.log('AdminAnalyticsTab Data:', { keys: Object.keys(data || {}), stats, dailySummaryLength: dailySummary.length });
 
   const chartData = [
-    { name: 'Present', value: (stats.present || 0) - (stats.late || 0), color: COLORS.present },
-    { name: 'Late', value: stats.late || 0, color: COLORS.late },
+    { name: 'Present', value: stats.present || 0, color: COLORS.present },
     { name: 'On Leave', value: stats.onLeave || 0, color: COLORS.leave },
     { name: 'Absent', value: stats.absent || 0, color: COLORS.absent },
   ].filter(d => d.value > 0);
@@ -127,13 +140,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
                 <span className="adb-ms-lbl">Total Present</span>
             </div>
         </div>
-        <div className="adb-ms-card">
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(180, 83, 9, 0.1)', color: COLORS.late }}><FiClock /></div>
-            <div className="adb-ms-info">
-                <span className="adb-ms-val">{stats.late || 0}</span>
-                <span className="adb-ms-lbl">Late Arrivals</span>
-            </div>
-        </div>
+
         <div className="adb-ms-card">
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(30, 64, 175, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
@@ -210,7 +217,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
                         <td>
                         {emp.leave ? (
                             <span className="adb-td-details">
-                            {emp.leave.type?.charAt(0).toUpperCase() + emp.leave.type?.slice(1)} {emp.leave.status === 'approved' ? 'Approved' : 'Pending'}
+                                {formatLeaveBadge(emp.leave.type)} {emp.leave.status === 'approved' ? 'Approved' : 'Applied'}
                             </span>
                         ) : <span className="adb-td-muted">—</span>}
                         </td>

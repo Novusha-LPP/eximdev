@@ -638,28 +638,28 @@ const useImportJobForm = () => {
     if (job.hss) setHSS(job.hss);
     if (job.bank_name) setBankName(job.bank_name);
     // HSS Address Refactor
-    if (job.hss_address) {
-      if (typeof job.hss_address === 'object' && !Array.isArray(job.hss_address)) {
-        const addr = job.hss_address;
-        if (addr.category) setHssAddress(addr.category);
-        if (addr.details) setHssAddressDetails(addr.details);
-        if (addr.city) setHssCity(addr.city);
-        if (addr.state) setHssState(addr.state);
-        if (addr.postal_code) setHssPostalCode(addr.postal_code);
-        if (addr.country) setHssCountry(addr.country);
-        if (addr.ad_code) setHssAdCode(addr.ad_code);
-      } else {
-        setHssAddress(job.hss_address);
-      }
+    if (job.hss_address && typeof job.hss_address === 'object' && !Array.isArray(job.hss_address)) {
+      const addr = job.hss_address;
+      if (addr.category) setHssAddress(addr.category);
+      if (addr.details) setHssAddressDetails(addr.details);
+      if (addr.city) setHssCity(addr.city);
+      if (addr.state) setHssState(addr.state);
+      if (addr.postal_code) setHssPostalCode(addr.postal_code);
+      if (addr.country) setHssCountry(addr.country);
+      if (addr.ad_code) setHssAdCode(addr.ad_code);
+    } else if (job.hss_address) {
+      setHssAddress(job.hss_address);
     }
-    if (job.hss_address_details) setHssAddressDetails(job.hss_address_details);
+
+    // Top-level legacy fields (only set if not already set by object)
+    if (job.hss_address_details && !job.hss_address?.details) setHssAddressDetails(job.hss_address_details);
     if (job.hss_branch_id) setHssBranchId(job.hss_branch_id);
-    if (job.hss_city) setHssCity(job.hss_city);
-    if (job.hss_state) setHssState(job.hss_state);
+    if (job.hss_city && !job.hss_address?.city) setHssCity(job.hss_city);
+    if (job.hss_state && !job.hss_address?.state) setHssState(job.hss_state);
     if (job.hss_ie_code_no) setHssIeCodeNo(job.hss_ie_code_no);
-    if (job.hss_postal_code) setHssPostalCode(job.hss_postal_code);
-    if (job.hss_country) setHssCountry(job.hss_country);
-    if (job.hss_ad_code) setHssAdCode(job.hss_ad_code);
+    if (job.hss_postal_code && !job.hss_address?.postal_code) setHssPostalCode(job.hss_postal_code);
+    if (job.hss_country && !job.hss_address?.country) setHssCountry(job.hss_country);
+    if (job.hss_ad_code && !job.hss_address?.ad_code) setHssAdCode(job.hss_ad_code);
     
     // Importer Address Refactor
     if (job.importer_address) {
@@ -800,17 +800,12 @@ const useImportJobForm = () => {
           saller_name: sallerName,
            hss: HSS,
            bank_name: bankName,
-           hss_address,
-           hss_address_details,
            hss_branch_id,
-           hss_city,
-           hss_state,
-           hss_ie_code_no: hss_ie_code_no,
-           hss_postal_code,
-           hss_country,
-           hss_ad_code,
-           detailed_status: "ETA Date Pending",
+           hss_ie_code_no,
+            detailed_status: "ETA Date Pending",
         };
+
+        console.log("📤 Submitting Job Payload:", JSON.stringify(payload, null, 2));
 
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");

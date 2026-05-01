@@ -137,6 +137,8 @@ const ChargeLineSchema = new mongoose.Schema({
   partyType: { type: String },
   branchCode: { type: String },
   url: [{ type: String }],
+  url_draft: [{ type: String }],
+  url_final: [{ type: String }],
 
   // GST & TDS Fields
   isGst: { type: Boolean, default: false },

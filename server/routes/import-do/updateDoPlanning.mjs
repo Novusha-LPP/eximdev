@@ -64,7 +64,14 @@ router.patch("/api/update-do-planning", extractJobInfo, auditMiddleware("Job"), 
       "do_doc_recieved_date",
       "do_shipping_line_invoice",
       "insurance_copy",
-      "other_do_documents"
+      "other_do_documents",
+      "dsr_queries",
+      "icd_cfs_invoice",
+      "icd_cfs_invoice_img",
+      "other_invoices_img",
+      "thar_invoices",
+      "hasti_invoices",
+      "concor_invoice_and_receipt_copy"
     ];
 
     const updateFields = {

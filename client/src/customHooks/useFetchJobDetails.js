@@ -322,6 +322,7 @@ function useFetchJobDetails(
       hss_address_details: "",
       hss_branch_id: "",
       hss_city: "",
+      hss_state: "",
       hss_ie_code_no: "",
       hss_postal_code: "",
       hss_country: "",
@@ -494,7 +495,7 @@ function useFetchJobDetails(
           hawb_hbl_date: values.hawb_hbl_date,
           awb_bl_no: values.awb_bl_no,
           awb_bl_date: values.awb_bl_date,
-          cth_no: values.description_details?.[0]?.cth_no || values.cth_no,
+          cth_no: values.cth_no || values.description_details?.[0]?.cth_no,
           free_time: values.free_time,
           status: values.status,
           detailed_status: values.detailed_status,
@@ -506,8 +507,7 @@ function useFetchJobDetails(
           job_sticker_upload: values.job_sticker_upload,
           // rail_out_date: values.rail_out_date,
           remarks: values.remarks,
-          description:
-            values.description_details?.[0]?.description || values.description,
+          description: values.description || values.description_details?.[0]?.description,
           consignment_type: values.consignment_type,
           sims_reg_no: values.sims_reg_no,
           pims_reg_no: values.pims_reg_no,
@@ -525,19 +525,21 @@ function useFetchJobDetails(
           igm_date: values.igm_date,
           igm_no: values.igm_no,
           line_no: values.line_no,
-          no_of_pkgs:
-            values.description_details?.[0]?.quantity || values.no_of_pkgs,
-          unit: values.description_details?.[0]?.unit || values.unit,
+          no_of_pkgs: values.no_of_pkgs || values.description_details?.[0]?.quantity,
+          unit: values.unit || values.description_details?.[0]?.unit,
           hss: values.hss,
           saller_name: values.saller_name,
-          hss_address: values.hss_address,
-          hss_address_details: values.hss_address_details,
+          hss_address: {
+            category: values.hss_address,
+            details: values.hss_address_details,
+            city: values.hss_city,
+            state: values.hss_state,
+            postal_code: values.hss_postal_code,
+            country: values.hss_country,
+            ad_code: values.hss_ad_code,
+          },
           hss_branch_id: values.hss_branch_id,
-          hss_city: values.hss_city,
           hss_ie_code_no: values.hss_ie_code_no,
-          hss_postal_code: values.hss_postal_code,
-          hss_country: values.hss_country,
-          hss_ad_code: values.hss_ad_code,
           adCode: values.adCode,
           bank_name: values.bank_name,
           firstCheck: values.firstCheck,
@@ -830,14 +832,15 @@ function useFetchJobDetails(
         sent_to_submission_user_name: safeValue(data.sent_to_submission_user_name, ""),
         sent_to_submission_date_time: safeValue(data.sent_to_submission_date_time, ""),
         saller_name: safeValue(data.saller_name),
-        hss_address: safeValue(data.hss_address),
-        hss_address_details: safeValue(data.hss_address_details),
+        hss_address: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.category) : safeValue(data.hss_address),
+        hss_address_details: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.details) : safeValue(data.hss_address_details),
         hss_branch_id: safeValue(data.hss_branch_id),
-        hss_city: safeValue(data.hss_city),
+        hss_city: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.city) : safeValue(data.hss_city),
+        hss_state: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.state) : safeValue(data.hss_state),
         hss_ie_code_no: safeValue(data.hss_ie_code_no),
-        hss_postal_code: safeValue(data.hss_postal_code),
-        hss_country: safeValue(data.hss_country),
-        hss_ad_code: safeValue(data.hss_ad_code),
+        hss_postal_code: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.postal_code) : safeValue(data.hss_postal_code),
+        hss_country: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.country) : safeValue(data.hss_country),
+        hss_ad_code: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.ad_code) : safeValue(data.hss_ad_code),
         adCode: safeValue(data.adCode),
         bank_name: safeValue(data.bank_name),
         firstCheck: safeValue(data.firstCheck),
@@ -1064,14 +1067,14 @@ function useFetchJobDetails(
   useEffect(() => {
     if (formik.values.description_details?.length > 0) {
       const firstRow = formik.values.description_details[0];
-      if (firstRow.description !== formik.values.description) formik.setFieldValue("description", firstRow.description || "");
-      if (firstRow.cth_no !== formik.values.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
-      if (firstRow.clearance_under !== formik.values.clearanceValue) formik.setFieldValue("clearanceValue", firstRow.clearance_under || "");
-      if (firstRow.sr_no_invoice !== formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.sr_no_invoice || "");
-      if (firstRow.quantity !== formik.values.no_of_pkgs) formik.setFieldValue("no_of_pkgs", firstRow.quantity || "");
-      if (firstRow.unit !== formik.values.unit) formik.setFieldValue("unit", firstRow.unit || "");
-      if (firstRow.unit_price !== formik.values.unit_price) formik.setFieldValue("unit_price", firstRow.unit_price || "");
-      if (firstRow.amount !== formik.values.cif_amount) formik.setFieldValue("cif_amount", firstRow.amount || "");
+      if (firstRow.description && !formik.values.description) formik.setFieldValue("description", firstRow.description || "");
+      if (firstRow.cth_no && !formik.values.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
+      if (firstRow.clearance_under && !formik.values.clearanceValue) formik.setFieldValue("clearanceValue", firstRow.clearance_under || "");
+      if (firstRow.sr_no_invoice && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.sr_no_invoice || "");
+      if (firstRow.quantity && !formik.values.no_of_pkgs) formik.setFieldValue("no_of_pkgs", firstRow.quantity || "");
+      if (firstRow.unit && !formik.values.unit) formik.setFieldValue("unit", firstRow.unit || "");
+      if (firstRow.unit_price && !formik.values.unit_price) formik.setFieldValue("unit_price", firstRow.unit_price || "");
+      if (firstRow.amount && !formik.values.cif_amount) formik.setFieldValue("cif_amount", firstRow.amount || "");
     }
   }, [serializedDescriptionDetails]);
 
@@ -1079,13 +1082,13 @@ function useFetchJobDetails(
   useEffect(() => {
     if (formik.values.invoice_details?.length > 0) {
       const firstRow = formik.values.invoice_details[0];
-      if (firstRow.invoice_number !== formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
-      if (firstRow.invoice_date !== formik.values.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
-      if (firstRow.po_no !== formik.values.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
-      if (firstRow.total_inv_value !== formik.values.total_inv_value) formik.setFieldValue("total_inv_value", firstRow.total_inv_value || "");
-      if (firstRow.toi !== formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
-      if (firstRow.freight !== formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
-      if (firstRow.insurance !== formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
+      if (firstRow.invoice_number && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
+      if (firstRow.invoice_date && !formik.values.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
+      if (firstRow.po_no && !formik.values.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
+      if (firstRow.total_inv_value && !formik.values.total_inv_value) formik.setFieldValue("total_inv_value", firstRow.total_inv_value || "");
+      if (firstRow.toi && !formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
+      if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
+      if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
     }
   }, [serializedInvoiceDetails]);
 

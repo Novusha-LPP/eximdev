@@ -14,7 +14,6 @@ import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import { TabContext } from "./ImportDO";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   Checkbox,
   FormControlLabel,
@@ -23,17 +22,65 @@ import {
   Button,
   Box,
   FormControl,
+  MenuItem,
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DeleteIcon from "@mui/icons-material/Delete";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 
 import ChargesGrid from "../ChargesGrid";
 
 
 import ContainerTrackButton from '../ContainerTrackButton';
+
+const excelStyles = {
+  table: {
+    width: "70%", // Reduced width as requested
+    marginLeft: "0",
+    borderCollapse: "collapse",
+    fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontSize: "12px",
+    backgroundColor: "#ffffff",
+    border: "2px solid #000000",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    marginBottom: "20px",
+  },
+  th: {
+    backgroundColor: "#061f45",
+    color: "#ffffff",
+    border: "1px solid #000000",
+    padding: "12px 14px",
+    textAlign: "left",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: "13px",
+    letterSpacing: "0.5px",
+    verticalAlign: "middle",
+  },
+  td: {
+    border: "1px solid #000000",
+    padding: "10px 14px",
+    verticalAlign: "middle",
+    backgroundColor: "#ffffff",
+    fontSize: "13px",
+    color: "#000000",
+    fontWeight: "500",
+  },
+  link: {
+    color: "#0056b3",
+    textDecoration: "none",
+    fontWeight: "600",
+    display: "inline-block",
+    marginRight: "10px",
+    marginBottom: "2px",
+    transition: "all 0.2s ease"
+  }
+};
 
 
 // DO list options are now fetched from the API
@@ -109,6 +156,129 @@ function EditDoPlanning() {
     return `${year}-${month}-${day}`;
   };
 
+  // Extract filename from URL
+  const extractFileName = (url) => {
+    if (!url) return "No file uploaded";
+    try {
+      const parts = url.split("/");
+      return decodeURIComponent(parts[parts.length - 1]);
+    } catch (error) {
+      console.error("Failed to extract file name:", error);
+      return url;
+    }
+  };
+
+  // Helper to render consistent rows
+  const renderUploadRow = (label, fieldName, bucketPath, extraLeftContent = null) => {
+    return (
+      <tr key={fieldName} style={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+        <td style={{ ...excelStyles.td, fontWeight: 700, color: '#000', width: '30%', verticalAlign: 'top' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span>{label}</span>
+            {extraLeftContent}
+          </div>
+        </td>
+        <td style={{ ...excelStyles.td, padding: '8px', width: '70%', verticalAlign: 'middle' }}>
+          <Box display="flex" alignItems="flex-start" justifyContent="space-between" width="100%">
+            {/* Left: Files List */}
+            <Box display="flex" flexDirection="column" gap={1} flexGrow={1} mr={2}>
+              {(formik.values[fieldName] || []).length > 0 ? (
+                (formik.values[fieldName] || []).map((url, index) => (
+                  <Box
+                    key={index}
+                    display="flex"
+                    alignItems="center"
+                    sx={{
+                      borderBottom: '1px solid #eee',
+                      paddingBottom: '4px',
+                      minHeight: '36px' // Match button height
+                    }}
+                  >
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: '12px',
+                        color: '#0056b3',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '350px',
+                        display: 'inline-block'
+                      }}
+                    >
+                      {extractFileName(url)}
+                    </a>
+                  </Box>
+                ))
+              ) : (
+                <span style={{ color: '#aaa', fontStyle: 'italic', fontSize: '12px', padding: '10px 0' }}>
+                  No files uploaded
+                </span>
+              )}
+            </Box>
+
+            {/* Right: Actions Group */}
+            <Box flexShrink={0} display="flex" flexDirection="row" gap={1} alignItems="flex-start">
+              {/* Upload Button */}
+              <Box>
+                <FileUpload
+                  label={<CloudUploadIcon fontSize="small" />}
+                  bucketPath={bucketPath}
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values[fieldName] || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue(fieldName, updatedFiles);
+                  }}
+                  multiple={true}
+                  containerStyles={{ marginTop: 0 }}
+                  buttonSx={{
+                    minWidth: '36px',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    padding: 0,
+                    backgroundColor: 'black',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#333' },
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                />
+              </Box>
+
+              {/* Delete Buttons Column (Right side of Upload) */}
+              <Box display="flex" flexDirection="column" gap={1}>
+                {(formik.values[fieldName] || []).map((_, index) => (
+                  <IconButton
+                    key={`del-${index}`}
+                    size="small"
+                    onClick={() => {
+                      const updatedFiles = [...formik.values[fieldName]];
+                      updatedFiles.splice(index, 1);
+                      formik.setFieldValue(fieldName, updatedFiles);
+                    }}
+                    sx={{
+                      width: '36px',
+                      height: '36px',
+                      padding: 0,
+                      color: '#d32f2f',
+                      '&:hover': { backgroundColor: '#ffebee' }
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+        </td>
+      </tr>
+    );
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     async function getData() {
@@ -173,6 +343,7 @@ function EditDoPlanning() {
           do_shipping_line_invoice: doShippingLineInvoice,
           insurance_copy: insuranceCopy,
           other_do_documents: otherDoDocuments,
+          dsr_queries: jobData.dsr_queries || [],
         });
 
         setLoading(false);
@@ -295,6 +466,14 @@ function EditDoPlanning() {
           payable: "",
         },
       ],
+      dsr_queries: [],
+      icd_cfs_invoice: "",
+      icd_cfs_invoice_img: [],
+      other_invoices_img: [],
+      shipping_line_invoice_imgs: [],
+      thar_invoices: [],
+      hasti_invoices: [],
+      concor_invoice_and_receipt_copy: [],
     },
 
     onSubmit: async (values, { resetForm }) => {
@@ -329,6 +508,7 @@ function EditDoPlanning() {
         do_list: values.do_list,
         is_do_doc_recieved: values.is_do_doc_recieved,
         do_doc_recieved_date: values.do_doc_recieved_date,
+        dsr_queries: values.dsr_queries,
       };
 
       try {
@@ -370,10 +550,11 @@ function EditDoPlanning() {
   });
 
   // Derived state to determine if DO Completed can be enabled
-  const isDoCompletedEnabled =
-    formik.values.do_copies[0] &&
-    formik.values.do_validity &&
-    formik.values.do_list
+  const isDoCompletedEnabled = data?.mode === "AIR"
+    ? formik.values.do_copies && formik.values.do_copies[0]
+    : formik.values.do_copies && formik.values.do_copies[0] &&
+      formik.values.do_validity &&
+      formik.values.do_list;
 
 
 
@@ -486,6 +667,13 @@ function EditDoPlanning() {
         is_do_doc_recieved: data.is_do_doc_recieved || false, // Add this field
         do_doc_recieved_date: data.do_doc_recieved_date || "",
         _id: data._id, // Explicitly include _id
+        icd_cfs_invoice: data.icd_cfs_invoice || "",
+        icd_cfs_invoice_img: data.icd_cfs_invoice_img || [],
+        other_invoices_img: data.other_invoices_img || [],
+        shipping_line_invoice_imgs: data.shipping_line_invoice_imgs || [],
+        thar_invoices: data.thar_invoices || [],
+        hasti_invoices: data.hasti_invoices || [],
+        concor_invoice_and_receipt_copy: data.concor_invoice_and_receipt_copy || [],
       };
 
       formik.setValues(updatedData);
@@ -513,6 +701,7 @@ function EditDoPlanning() {
       ...prev,
       dsr_queries: updatedQueries,
     }));
+    formik.setFieldValue("dsr_queries", updatedQueries);
   };
 
   const handleResolveQuery = (resolvedQuery, index) => {
@@ -673,7 +862,7 @@ function EditDoPlanning() {
 
 
   const handleDoCopiesUpload = (urls) => {
-    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+    formik.setFieldValue("do_copies", [...(formik.values.do_copies || []), ...urls]);
   };
 
   const handleRemoveDoCopy = (index) => {
@@ -731,7 +920,7 @@ function EditDoPlanning() {
       {data && (
         <div>
           <QueriesComponent
-            queries={data.dsr_queries}
+            queries={formik.values.dsr_queries}
             currentModule="Do Planning"
             onQueriesChange={handleQueriesChange}
             title="Do Queries"
@@ -774,62 +963,132 @@ function EditDoPlanning() {
                 awbBlNo={data?.awb_bl_no}
                 awbBlDate={data?.awb_bl_date}
               />
+              
+              <div style={{ overflowX: 'auto', margin: '20px 0' }}>
+                <table style={excelStyles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...excelStyles.th, width: '30%' }}>Invoice Type</th>
+                      <th style={{ ...excelStyles.th, width: '70%' }}>Document</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* ICD CFS Invoices */}
+                    {renderUploadRow(
+                      "ICD CFS Invoices",
+                      "icd_cfs_invoice_img",
+                      "icd_cfs_invoice_img",
+                      data?.custom_house === "ICD Sabarmati, Ahmedabad" ? (
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          id="icd_cfs_invoice"
+                          name="icd_cfs_invoice"
+                          label="Is Applicable?"
+                          value={formik.values.icd_cfs_invoice}
+                          onChange={formik.handleChange}
+                          sx={{ marginTop: '5px' }}
+                        >
+                          <MenuItem value="No">No</MenuItem>
+                          <MenuItem value="Yes">Yes</MenuItem>
+                        </TextField>
+                      ) : null
+                    )}
+
+                    {/* Concor Invoice (Conditional) */}
+                    {data?.custom_house?.includes("ICD KHODIYAR") &&
+                      renderUploadRow(
+                        "Concor Invoice & Receipt Copy",
+                        "concor_invoice_and_receipt_copy",
+                        "concor_invoice_and_receipt_copy"
+                      )}
+
+                    {/* Other Invoices */}
+                    {renderUploadRow(
+                      "Other Invoices",
+                      "other_invoices_img",
+                      "other_invoices_img"
+                    )}
+
+                    {/* Shipping Line Invoices */}
+                    {renderUploadRow(
+                      "Shipping Line Invoices",
+                      "shipping_line_invoice_imgs",
+                      "shipping_line_invoice_imgs"
+                    )}
+
+                    {/* Conditional Invoices for ICD SANAND */}
+                    {data?.custom_house === "ICD SANAND" && (
+                      <>
+                        {renderUploadRow(
+                          "Thar Invoices",
+                          "thar_invoices",
+                          "thar_invoices"
+                        )}
+                        {renderUploadRow(
+                          "Hasti Invoices",
+                          "hasti_invoices",
+                          "hasti_invoices"
+                        )}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
 
 
               <div className="job-details-container">
-                <h5
-                  style={{
-                    marginBottom: "12px",
-                    fontWeight: 600,
-                    color: "#1a237e",
-                  }}
-                >
-                  EmptyOff LOC
-                </h5>
+                {data?.mode !== "AIR" && (
+                  <Row className="mb-3">
+                    <Col xs={12} md={8}>
+                      <JobDetailsRowHeading heading="EmptyOff LOC" />
+                      <select
+                        id="do_list"
+                        name="do_list"
+                        value={formik.values.do_list || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          formik.setFieldValue("do_list", val);
+                        }
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "8.5px 12px",
+                          fontSize: "14px",
+                          borderRadius: "4px",
+                          border: "1px solid #ccc",
+                          backgroundColor: "white",
+                        }}
+                      >
+                        {filteredDoListOptions.map((option, index) => (
+                          <option key={index} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Col>
 
-                <Row className="align-items-center">
-                  {/* DO List dropdown */}
-                  <Col xs={12} md={8}>
-                    <select
-                      value={formik.values.do_list || ""}
-                      onChange={(e) =>
-                        formik.setFieldValue("do_list", e.target.value)
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "8.5px 12px",
-                        fontSize: "14px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc",
-                        backgroundColor: "white",
-                      }}
-                    >
-                      {filteredDoListOptions.map((option, index) => (
-                        <option key={index} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Col>
-
-                  {/* DO Validity Date */}
-                  <Col xs={12} md={4}>
-                    <TextField
-                      type="date"
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="do_validity"
-                      name="do_validity"
-                      label="DO Validity"
-                      value={formik.values.do_validity}
-                      onChange={formik.handleChange}
-                      InputLabelProps={{ shrink: true }}
-                      sx={{ m: 0 }}
-                    />
-                  </Col>
-                </Row>
+                    {/* DO Validity Date */}
+                    <Col xs={12} md={4}>
+                      <TextField
+                        type="date"
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        id="do_validity"
+                        name="do_validity"
+                        label="DO Validity"
+                        value={formik.values.do_validity}
+                        onChange={formik.handleChange}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ m: 0 }}
+                      />
+                    </Col>
+                  </Row>
+                )}
 
                 {/* Display selected DO List value if any */}
                 {formik.values.do_list && formik.values.do_list.trim() !== "" && (
@@ -911,8 +1170,10 @@ function EditDoPlanning() {
                   <Row>
                     <Col xs={12}>
                       <span style={{ color: "red", fontSize: "0.9em" }}>
-                        Please set DO Validity, Do List and upload at least one DO Copy
-                        to enable DO Completed.
+                        {data?.mode === "AIR"
+                          ? "Please upload at least one DO Copy to enable DO Completed."
+                          : "Please set DO Validity, Do List and upload at least one DO Copy to enable DO Completed."
+                        }
                       </span>
                     </Col>
                   </Row>

@@ -17,17 +17,15 @@ router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, nex
     shipping_line_bond_valid_upto,
     shipping_line_bond_docs,
     shipping_line_bond_charges,
-    // ADD THESE MISSING FIELDS
     do_shipping_line_invoice,
     insurance_copy,
     other_do_documents,
     security_deposit,
-    do_copies
+    do_copies,
+    dsr_queries
   } = req.body;
 
   try {
-    const currentDate = new Date().toLocaleDateString("en-GB");
-
     // Fetch the existing job document
     const existingJob = await JobModel.findOne({ _id });
 
@@ -35,17 +33,21 @@ router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, nex
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-  
-    // Create an object to hold the fields to update - INCLUDE ALL FIELDS
+    // Create an object to hold the fields to update
     const updateFields = {
-      // ADD THE MISSING DOCUMENT FIELDS
+      shipping_line_bond_completed,
+      shipping_line_kyc_completed,
+      shipping_line_invoice_received,
+      shipping_line_insurance,
       do_shipping_line_invoice,
       insurance_copy,
       other_do_documents,
       security_deposit,
+      do_copies,
+      dsr_queries
     };
 
-    // Update Job document - THIS WILL NOW UPDATE ALL FIELDS
+    // Update Job document
     await JobModel.updateOne({ _id }, { $set: updateFields });
 
     // Find the existing KYC document

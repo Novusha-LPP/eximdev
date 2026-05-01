@@ -158,7 +158,7 @@ const ChargesTable = ({
         <button 
            type="button"
            className="upload-btn" 
-           onClick={() => onOpenFileModal(ch)}
+           onClick={() => onOpenFileModal(ch, activeTab)}
            disabled={readOnlyBase}
            style={{ padding: "1px 4px", fontSize: "9px" }}
         >
@@ -219,7 +219,14 @@ const ChargesTable = ({
             const hasPR = ch.payment_request_no && String(ch.payment_request_no).trim().length > 0;
             const hasPB = ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0;
             const isIndividualLocked = (hasPR || hasPB) && !isAuth;
-            const attachmentUrls = [...new Set([...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []), ...(Array.isArray(ch.cost?.url) ? ch.cost.url : [])])];
+            const attachmentUrls = [...new Set([
+              ...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []),
+              ...(Array.isArray(ch.revenue?.url_draft) ? ch.revenue.url_draft : []),
+              ...(Array.isArray(ch.revenue?.url_final) ? ch.revenue.url_final : []),
+              ...(Array.isArray(ch.cost?.url) ? ch.cost.url : []),
+              ...(Array.isArray(ch.cost?.url_draft) ? ch.cost.url_draft : []),
+              ...(Array.isArray(ch.cost?.url_final) ? ch.cost.url_final : []),
+            ])];
 
             return (
               <tr 

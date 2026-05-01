@@ -459,6 +459,8 @@ const ImportCreateJob = () => {
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
   const [suppliers, setSuppliers] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
+  const [availableBanks, setAvailableBanks] = useState([]);
+  const [availableHssBanks, setAvailableHssBanks] = useState([]);
 
   const selectedBranchData = branches.find((b) => b._id === branch_id);
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
@@ -893,10 +895,18 @@ const ImportCreateJob = () => {
 
                             // Handle bank details for AD code
                             if (org.banks && org.banks.length > 0) {
-                              const bank = org.banks.find(b => b.adCode) || org.banks[0];
-                              setAdCode(bank.adCode || "");
-                              setBankName(bank.bankers_name || "");
+                              setAvailableBanks(org.banks);
+                              if (org.banks.length === 1) {
+                                const bank = org.banks[0];
+                                setAdCode(bank.adCode || "");
+                                setBankName(bank.bankers_name || "");
+                              } else {
+                                // Multiple banks: Clear to let user select
+                                setAdCode("");
+                                setBankName("");
+                              }
                             } else {
+                              setAvailableBanks([]);
                               setAdCode("");
                               setBankName("");
                             }
@@ -912,6 +922,7 @@ const ImportCreateJob = () => {
                             setImporterCountry("");
                             setAdCode("");
                             setBankName("");
+                            setAvailableBanks([]);
                             setGstNo("");
                           }
                         }}
@@ -1141,25 +1152,79 @@ const ImportCreateJob = () => {
                     </FormField>
 
                     <FormField label="AD Code">
-                      <TextField
-                        value={adCode}
-                        onChange={(e) => setAdCode(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        sx={compactInput}
-                      />
+                      {availableBanks.length > 1 ? (
+                        <Autocomplete
+                          options={availableBanks}
+                          getOptionLabel={(option) => typeof option === 'string' ? option : (option.adCode || "")}
+                          value={availableBanks.find(b => b.adCode === adCode) || adCode}
+                          onInputChange={(event, newInputValue) => {
+                            setAdCode(newInputValue);
+                          }}
+                          onChange={(event, newValue) => {
+                            if (newValue && typeof newValue === 'object') {
+                              setAdCode(newValue.adCode || "");
+                              setBankName(newValue.bankers_name || "");
+                            }
+                          }}
+                          freeSolo
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              variant="outlined"
+                              size="small"
+                              fullWidth
+                              sx={compactInput}
+                            />
+                          )}
+                        />
+                      ) : (
+                        <TextField
+                          value={adCode}
+                          onChange={(e) => setAdCode(e.target.value)}
+                          variant="outlined"
+                          size="small"
+                          fullWidth
+                          sx={compactInput}
+                        />
+                      )}
                     </FormField>
 
                     <FormField label="Bank Name">
-                      <TextField
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        sx={compactInput}
-                      />
+                      {availableBanks.length > 1 ? (
+                        <Autocomplete
+                          options={availableBanks}
+                          getOptionLabel={(option) => typeof option === 'string' ? option : (option.bankers_name || "")}
+                          value={availableBanks.find(b => b.bankers_name === bankName) || bankName}
+                          onInputChange={(event, newInputValue) => {
+                            setBankName(newInputValue);
+                          }}
+                          onChange={(event, newValue) => {
+                            if (newValue && typeof newValue === 'object') {
+                              setAdCode(newValue.adCode || "");
+                              setBankName(newValue.bankers_name || "");
+                            }
+                          }}
+                          freeSolo
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              variant="outlined"
+                              size="small"
+                              fullWidth
+                              sx={compactInput}
+                            />
+                          )}
+                        />
+                      ) : (
+                        <TextField
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          variant="outlined"
+                          size="small"
+                          fullWidth
+                          sx={compactInput}
+                        />
+                      )}
                     </FormField>
 
                     <FormField label="Supplier/Exporter">
@@ -1229,9 +1294,14 @@ const ImportCreateJob = () => {
 
                                 // Set AD Code from banks
                                 if (org.banks && org.banks.length > 0) {
-                                  const bank = org.banks.find(b => b.adCode) || org.banks[0];
-                                  setHssAdCode(bank.adCode || "");
+                                  setAvailableHssBanks(org.banks);
+                                  if (org.banks.length === 1) {
+                                    setHssAdCode(org.banks[0].adCode || "");
+                                  } else {
+                                    setHssAdCode("");
+                                  }
                                 } else {
+                                  setAvailableHssBanks([]);
                                   setHssAdCode("");
                                 }
 
@@ -1240,6 +1310,7 @@ const ImportCreateJob = () => {
                                   const addrObj = org.addressDetails || {};
                                   setHssAddressDetails(`${addrObj.line1 || ""} ${addrObj.line2 || ""}`.trim());
                                   setHssCity(addrObj.city || "");
+                                  setHssState(addrObj.state || "");
                                   setHssPostalCode(addrObj.pinCode || "");
                                   setHssCountry("India");
                                   setHssBranchId("");
@@ -1249,6 +1320,7 @@ const ImportCreateJob = () => {
                                   setHssBranchId(branch.branch_code || "");
                                   setHssAddressDetails(branch.address || "");
                                   setHssCity(branch.city || "");
+                                  setHssState(branch.state || "");
                                   setHssPostalCode(branch.postal_code || "");
                                   setHssCountry(branch.country || "India");
                                 }
@@ -1258,6 +1330,7 @@ const ImportCreateJob = () => {
                                 setHssBranchId("");
                                 setHssAddressDetails("");
                                 setHssCity("");
+                                setHssState("");
                                 setHssPostalCode("");
                                 setHssCountry("");
                               }
@@ -1341,6 +1414,17 @@ const ImportCreateJob = () => {
                           />
                         </FormField>
 
+                        <FormField label="State" md={3}>
+                          <TextField
+                            value={hss_state}
+                            onChange={(e) => setHssState(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        </FormField>
+
                         <FormField label="Postal Code" md={3}>
                           <TextField
                             value={hss_postal_code}
@@ -1371,14 +1455,40 @@ const ImportCreateJob = () => {
                         </FormField>
 
                         <FormField label="AD Code" md={6}>
-                          <TextField
-                            value={hss_ad_code}
-                            onChange={(e) => setHssAdCode(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            fullWidth
-                            sx={compactInput}
-                          />
+                          {availableHssBanks.length > 1 ? (
+                            <Autocomplete
+                              options={availableHssBanks}
+                              getOptionLabel={(option) => typeof option === 'string' ? option : (option.adCode || "")}
+                              value={availableHssBanks.find(b => b.adCode === hss_ad_code) || hss_ad_code}
+                              onInputChange={(event, newInputValue) => {
+                                setHssAdCode(newInputValue);
+                              }}
+                              onChange={(event, newValue) => {
+                                if (newValue && typeof newValue === 'object') {
+                                  setHssAdCode(newValue.adCode || "");
+                                }
+                              }}
+                              freeSolo
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  size="small"
+                                  fullWidth
+                                  sx={compactInput}
+                                />
+                              )}
+                            />
+                          ) : (
+                            <TextField
+                              value={hss_ad_code}
+                              onChange={(e) => setHssAdCode(e.target.value)}
+                              variant="outlined"
+                              size="small"
+                              fullWidth
+                              sx={compactInput}
+                            />
+                          )}
                         </FormField>
                       </Grid>
                     )}

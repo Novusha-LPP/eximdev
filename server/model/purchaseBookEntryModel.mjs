@@ -47,6 +47,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   bankFrom: { type: String },
   attachments: [{ type: String }],
   chargeDescription: { type: String },
+  chargeHeading: { type: String },
   chargeHeadCategory: { type: String },
   tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },

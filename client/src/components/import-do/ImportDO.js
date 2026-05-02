@@ -61,7 +61,7 @@ function ImportDO() {
             <Tab label="DO Planning" {...a11yProps(2)} />
             <Tab label="DO Completed" {...a11yProps(3)} />
             <Tab label="Billing Sheet" {...a11yProps(4)} />
-            <Tab label="Sent to Account Team" {...a11yProps(4)} />
+            <Tab label="Sent to Account Team" {...a11yProps(5)} />
             {/* <Tab label="KYC Details" {...a11yProps(5)} /> */}
           </Tabs>
         </Box>

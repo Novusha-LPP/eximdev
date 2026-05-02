@@ -160,14 +160,47 @@ const ChargesGrid = ({
     });
   };
 
-  const handleAttachFiles = async (urls) => {
+  const handleAttachFiles = async (data, type = 'general') => {
     if (fileModalCharge) {
       const { charge } = fileModalCharge;
       const updateData = {};
-      
-      // Synchronize 'url' (attachments) between revenue and cost
-      updateData.revenue = { ...(charge.revenue || {}), url: urls };
-      updateData.cost = { ...(charge.cost || {}), url: urls };
+      const isShippingLine = charge.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase();
+
+      if (isShippingLine && type === 'bulk') {
+        updateData.revenue = { 
+          ...(charge.revenue || {}), 
+          url_draft: data.draft || [],
+          url_final: data.final || [],
+          url: [] 
+        };
+        updateData.cost = { 
+          ...(charge.cost || {}), 
+          url_draft: data.draft || [],
+          url_final: data.final || [],
+          url: [] 
+        };
+      } else {
+        let targetField = 'url';
+        if (isShippingLine) {
+          if (type === 'draft') targetField = 'url_draft';
+          else if (type === 'final') targetField = 'url_final';
+          else targetField = 'url_draft'; // fallback for shipping line
+        }
+
+        updateData.revenue = { 
+          ...(charge.revenue || {}), 
+          [targetField]: data 
+        };
+        updateData.cost = { 
+          ...(charge.cost || {}), 
+          [targetField]: data 
+        };
+
+        if (isShippingLine) {
+          updateData.revenue.url = [];
+          updateData.cost.url = [];
+        }
+      }
       
       await updateCharge(charge._id, updateData);
       setFileModalCharge(null);
@@ -177,6 +210,8 @@ const ChargesGrid = ({
   const handleRemoveAttachment = async (charge, tab, newUrls) => {
     const updateData = {};
     // Synchronize 'url' (attachments) between revenue and cost
+    // Note: In table view we only show/remove 'url' (General), 
+    // for draft/final users use the Edit modal for better management.
     updateData.revenue = { ...(charge.revenue || {}), url: newUrls };
     updateData.cost = { ...(charge.cost || {}), url: newUrls };
     await updateCharge(charge._id, updateData);
@@ -254,10 +289,36 @@ const ChargesGrid = ({
           isOpen={!!fileModalCharge}
           onClose={() => setFileModalCharge(null)}
           chargeLabel={`${fileModalCharge.charge.chargeHead} (${fileModalCharge.tab})`}
+          showTypeSelection={fileModalCharge.charge.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase()}
           initialUrls={
             fileModalCharge.tab === 'cost' 
-              ? fileModalCharge.charge.cost?.url || []
-              : fileModalCharge.charge.revenue?.url || []
+              ? [
+                  ...(fileModalCharge.charge.cost?.url || []),
+                  ...(fileModalCharge.charge.cost?.url_draft || []),
+                  ...(fileModalCharge.charge.cost?.url_final || [])
+                ]
+              : [
+                  ...(fileModalCharge.charge.revenue?.url || []),
+                  ...(fileModalCharge.charge.revenue?.url_draft || []),
+                  ...(fileModalCharge.charge.revenue?.url_final || [])
+                ]
+          }
+          categorizedUrls={
+            fileModalCharge.tab === 'cost' 
+              ? { 
+                  draft: [
+                    ...(fileModalCharge.charge.cost?.url || []),
+                    ...(fileModalCharge.charge.cost?.url_draft || [])
+                  ], 
+                  final: fileModalCharge.charge.cost?.url_final || [] 
+                }
+              : { 
+                  draft: [
+                    ...(fileModalCharge.charge.revenue?.url || []),
+                    ...(fileModalCharge.charge.revenue?.url_draft || [])
+                  ], 
+                  final: fileModalCharge.charge.revenue?.url_final || [] 
+                }
           }
           onAttach={handleAttachFiles}
         />

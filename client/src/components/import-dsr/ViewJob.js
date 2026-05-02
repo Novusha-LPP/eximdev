@@ -2069,6 +2069,11 @@ function JobDetails() {
                             disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_city || ""} onChange={formik.handleChange} sx={compactInputSx} />
                         </Col>
                         <Col xs={6} md={2} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>State</label>
+                          <TextField fullWidth size="small" variant="outlined" id="hss_state" name="hss_state"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_state || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                        </Col>
+                        <Col xs={6} md={2} lg={2} className="mb-3">
                           <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Postal Code</label>
                           <TextField fullWidth size="small" variant="outlined" id="hss_postal_code" name="hss_postal_code"
                             disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_postal_code || ""} onChange={formik.handleChange} sx={compactInputSx} />

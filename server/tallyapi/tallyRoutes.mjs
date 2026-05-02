@@ -217,6 +217,7 @@ const mapPurchaseEntryData = (data) => {
     placeOfSupply: data["Place of Supply"] || data.placeOfSupply,
     creditTerms: data["Credit Terms"] || data.creditTerms,
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices,
+    chargeHeading: data["Charge Heading"] || data.chargeHeading,
     sac: data["SAC"] || data.sac,
     taxableValue: data["Taxable Value"] || data.taxableValue,
     gstPercent: data["GST%"] || data.gstPercent,
@@ -357,7 +358,8 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "CIN": entry.cin,
       "Place of Supply": entry.placeOfSupply,
       "Credit Terms": entry.creditTerms,
-      "Description of Services": entry.descriptionOfServices,
+      "Description of Services": entry.descriptionOfServices || "",
+      "Charge Heading": entry.chargeHeading || "",
       "SAC": entry.sac,
       "Taxable Value": entry.taxableValue,
       "GST%": entry.gstPercent,
@@ -434,6 +436,8 @@ const mapPaymentRequestData = (data) => {
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
+    chargeHeading: data["Charge Heading"] || data.chargeHeading || '',
+    descriptionOfServices: data["Description of Services"] || data.descriptionOfServices || '',
     status: data["Status"] || data.status || ''
   };
 };
@@ -560,6 +564,8 @@ router.get("/payment-request", authApiKey, async (req, res) => {
       "Transfer Mode": request.transferMode,
       "Beneficiary Code": request.beneficiaryCode,
       "Charge Description": request.chargeDescription || '',
+      "Charge Heading": request.chargeHeading || '',
+      "Description of Services": request.descriptionOfServices || '',
       "Charge Head Category": chargeCategory || '',
       "TDS Category": request.tdsCategory || '94C',
       "Status": request.status

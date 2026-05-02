@@ -210,7 +210,7 @@ const EditChargeModal = ({
         updated[index][section][field] = value;
         
         // Synchronize 'url' (attachments) between revenue and cost
-        if (field === 'url') {
+        if (field === 'url' || field === 'url_draft' || field === 'url_final') {
           const otherSection = section === 'revenue' ? 'cost' : 'revenue';
           updated[index][otherSection] = updated[index][otherSection] || {};
           updated[index][otherSection][field] = value;
@@ -806,33 +806,86 @@ const EditChargeModal = ({
                             </div>
                             <div className="charges-ep-desc-row">
                                 <span className="charges-ep-label">Attachment</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
-                                    {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? (
-                                        row.revenue.url.map((url, urlIdx) => (
-                                            <Chip
-                                                key={urlIdx}
-                                                icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
-                                                label={extractFileName(url)}
-                                                size="small"
-                                                onDelete={readOnlyBase ? undefined : () => {
-                                                    const newUrls = row.revenue.url.filter((_, i) => i !== urlIdx);
-                                                    handleFieldChange(i, 'url', newUrls, 'revenue');
-                                                }}
-                                                component="a"
-                                                href={url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                clickable
-                                                sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
-                                            />
-                                        ))
-                                    ) : (
-                                        <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
-                                    )}
-                                    <button type="button" className="charges-upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
-                                        {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? 'Edit Files' : 'Upload Files'}
-                                    </button>
-                                </div>
+                                {(() => {
+                                    const row = formData[i];
+                                    // Use case-insensitive check to ensure reliable detection
+                                    const isShippingLine = row.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase();
+                                    
+                                    if (!isShippingLine) {
+                                        return (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+                                                {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? (
+                                                    row.revenue.url.map((url, urlIdx) => (
+                                                        <Chip
+                                                            key={urlIdx}
+                                                            icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
+                                                            label={extractFileName(url)}
+                                                            size="small"
+                                                            onDelete={readOnlyBase ? undefined : () => {
+                                                                const newUrls = row.revenue.url.filter((_, i) => i !== urlIdx);
+                                                                handleFieldChange(i, 'url', newUrls, 'revenue');
+                                                            }}
+                                                            component="a"
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            clickable
+                                                            sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
+                                                )}
+                                                <button type="button" className="charges-upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
+                                                    {Array.isArray(row.revenue?.url) && row.revenue.url.length > 0 ? 'Edit Files' : 'Upload Files'}
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+
+                                    // For Shipping Line Charges, show categorized sections
+                                    const renderCategory = (label, field, color) => {
+                                        const urls = row.revenue?.[field] || [];
+                                        return (
+                                            <div style={{ width: '100%', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 'bold', minWidth: '80px', color: '#555' }}>{label}:</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
+                                                    {urls.map((url, urlIdx) => (
+                                                        <Chip
+                                                            key={urlIdx}
+                                                            icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
+                                                            label={extractFileName(url)}
+                                                            size="small"
+                                                            onDelete={readOnlyBase ? undefined : () => {
+                                                                const newUrls = urls.filter((_, i) => i !== urlIdx);
+                                                                handleFieldChange(i, field, newUrls, 'revenue');
+                                                            }}
+                                                            component="a"
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            clickable
+                                                            sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: color, color: "#1565c0" }}
+                                                        />
+                                                    ))}
+                                                    {urls.length === 0 && <span style={{ fontSize: '10px', color: '#8aA0b0' }}>None</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    };
+
+                                    return (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                            {renderCategory('Draft Inv.', 'url_draft', '#fff3e0')}
+                                            {renderCategory('Final Inv.', 'url_final', '#e8f5e9')}
+                                            <div style={{ marginTop: '4px' }}>
+                                                <button type="button" className="charges-upload-btn" style={{ padding: '2px 10px', backgroundColor: '#2e7d32', color: '#fff' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('revenue'); }}>
+                                                    Upload / Edit categorized files
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div className="charges-ep-grid" style={{ marginRight: '30px' }}>
                               <div className="charges-ep-row">
@@ -1022,35 +1075,114 @@ const EditChargeModal = ({
                               <span className="charges-ep-label">Charge Description</span>
                               <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.cost?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'cost')} />
                             </div>
+                            <div className="charges-ep-desc-row" style={{ backgroundColor: '#f8f9fa', padding: '4px', borderRadius: '4px', border: '1px solid #e9ecef', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px' }}>
+                                    <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '120px' }}>Tally: Description of Service</span>
+                                    <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.cost?.partyName || ''} />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px', borderLeft: '1px solid #dee2e6', paddingLeft: '10px' }}>
+                                    <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '110px' }}>Tally: Charge Heading</span>
+                                    <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.chargeHead || ''} />
+                                </div>
+                            </div>
                             <div className="charges-ep-desc-row">
                                 <span className="charges-ep-label">Attachment</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
-                                    {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? (
-                                        row.cost.url.map((url, urlIdx) => (
-                                            <Chip
-                                                key={urlIdx}
-                                                icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
-                                                label={extractFileName(url)}
-                                                size="small"
-                                                onDelete={readOnlyBase ? undefined : () => {
-                                                    const newUrls = row.cost.url.filter((_, i) => i !== urlIdx);
-                                                    handleFieldChange(i, 'url', newUrls, 'cost');
-                                                }}
-                                                component="a"
-                                                href={url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                clickable
-                                                sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
-                                            />
-                                        ))
-                                    ) : (
-                                        <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
-                                    )}
-                                    <button type="button" className="charges-upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
-                                        {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? 'Edit Files' : 'Upload Files'}
-                                    </button>
-                                </div>
+                                {(() => {
+                                    const row = formData[i];
+                                    // Use case-insensitive check to ensure reliable detection
+                                    const isShippingLine = row.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase();
+                                    
+                                    if (!isShippingLine) {
+                                        return (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+                                                {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? (
+                                                    row.cost.url.map((url, urlIdx) => (
+                                                        <Chip
+                                                            key={urlIdx}
+                                                            icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
+                                                            label={extractFileName(url)}
+                                                            size="small"
+                                                            onDelete={readOnlyBase ? undefined : () => {
+                                                                const newUrls = row.cost.url.filter((_, i) => i !== urlIdx);
+                                                                handleFieldChange(i, 'url', newUrls, 'cost');
+                                                            }}
+                                                            component="a"
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            clickable
+                                                            sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: "#e3f2fd", color: "#1565c0" }}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <span style={{ fontSize: '11px', color: '#8aA0b0', fontStyle: 'italic' }}>No files attached</span>
+                                                )}
+                                                <button type="button" className="charges-upload-btn" style={{ padding: '2px 8px' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
+                                                    {Array.isArray(row.cost?.url) && row.cost.url.length > 0 ? 'Edit Files' : 'Upload Files'}
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+
+                                    // For Shipping Line Charges, show categorized sections
+                                    const renderCategory = (label, field, color) => {
+                                        let urls = row.cost?.[field] || [];
+                                        // Merge legacy 'url' field into 'Draft' for display
+                                        if (field === 'url_draft' && Array.isArray(row.cost?.url)) {
+                                            urls = [...row.cost.url, ...urls];
+                                        }
+                                        return (
+                                            <div style={{ width: '100%', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 'bold', minWidth: '80px', color: '#555' }}>{label}:</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
+                                                    {urls.map((url, urlIdx) => (
+                                                        <Chip
+                                                            key={urlIdx}
+                                                            icon={<DescriptionIcon style={{ fontSize: "14px" }} />}
+                                                            label={extractFileName(url)}
+                                                            size="small"
+                                                            onDelete={readOnlyBase ? undefined : () => {
+                                                                if (field === 'url_draft') {
+                                                                    const legacyUrls = row.cost?.url || [];
+                                                                    if (urlIdx < legacyUrls.length) {
+                                                                        const newLegacy = legacyUrls.filter((_, i) => i !== urlIdx);
+                                                                        handleFieldChange(i, 'url', newLegacy, 'cost');
+                                                                    } else {
+                                                                        const draftIdx = urlIdx - legacyUrls.length;
+                                                                        const newDraft = (row.cost?.url_draft || []).filter((_, i) => i !== draftIdx);
+                                                                        handleFieldChange(i, 'url_draft', newDraft, 'cost');
+                                                                    }
+                                                                } else {
+                                                                    const newUrls = urls.filter((_, i) => i !== urlIdx);
+                                                                    handleFieldChange(i, field, newUrls, 'cost');
+                                                                }
+                                                            }}
+                                                            component="a"
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            clickable
+                                                            sx={{ maxWidth: "180px", fontSize: "10px", height: "22px", backgroundColor: color, color: "#1565c0" }}
+                                                        />
+                                                    ))}
+                                                    {urls.length === 0 && <span style={{ fontSize: '10px', color: '#8aA0b0' }}>None</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    };
+
+                                    return (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                            {renderCategory('Draft Inv.', 'url_draft', '#fff3e0')}
+                                            {renderCategory('Tax Inv.', 'url_final', '#e8f5e9')}
+                                            <div style={{ marginTop: '4px' }}>
+                                                <button type="button" className="charges-upload-btn" style={{ padding: '2px 10px', backgroundColor: '#2e7d32', color: '#fff' }} disabled={readOnlyBase} onClick={() => { setUploadIndex(i); setUploadSection('cost'); }}>
+                                                    Upload / Edit categorized files
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div className="charges-ep-grid" style={{ marginRight: '30px' }}>
                               <div className="charges-ep-row">
@@ -1326,7 +1458,8 @@ const EditChargeModal = ({
                                           }
 
                                           return {
-                                            partyName,
+                                            partyName: `NEW ${partyName}`,
+                                            chargeHeading: partyName,
                                             partyDetails,
                                             amount: amt,
                                             basicAmount: basic,
@@ -1392,7 +1525,8 @@ const EditChargeModal = ({
                                           return;
                                         }
                                         setPaymentRequestData({
-                                          partyName,
+                                          partyName: `NEW ${partyName}`,
+                                          chargeHeading: partyName,
                                           partyDetails,
                                           jobDisplayNumber,
                                           branchIndex: row.cost?.branchIndex || 0,
@@ -1451,9 +1585,36 @@ const EditChargeModal = ({
             isOpen={true}
             onClose={() => { setUploadIndex(null); setUploadSection(null); }}
             chargeLabel={`${formData[uploadIndex]?.chargeHead} (${uploadSection})`}
-            initialUrls={formData[uploadIndex]?.[uploadSection]?.url || []}
-            onAttach={(urls) => {
-                handleFieldChange(uploadIndex, 'url', urls, uploadSection);
+            showTypeSelection={formData[uploadIndex]?.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase()}
+            initialUrls={[
+                ...(formData[uploadIndex]?.[uploadSection]?.url || []),
+                ...(formData[uploadIndex]?.[uploadSection]?.url_draft || []),
+                ...(formData[uploadIndex]?.[uploadSection]?.url_final || [])
+            ]}
+            categorizedUrls={{
+                draft: [
+                    ...(formData[uploadIndex]?.[uploadSection]?.url || []),
+                    ...(formData[uploadIndex]?.[uploadSection]?.url_draft || [])
+                ],
+                final: formData[uploadIndex]?.[uploadSection]?.url_final || []
+            }}
+            onAttach={(data, type = 'draft') => {
+                const isShippingLine = formData[uploadIndex]?.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase();
+                
+                if (isShippingLine && type === 'bulk') {
+                    // Bulk update for both categories
+                    handleFieldChange(uploadIndex, 'url_draft', data.draft, uploadSection);
+                    handleFieldChange(uploadIndex, 'url_final', data.final, uploadSection);
+                    // Clear the legacy 'url' field to migrate files to categorized fields
+                    handleFieldChange(uploadIndex, 'url', [], uploadSection);
+                } else if (isShippingLine) {
+                    let targetField = 'url_draft';
+                    if (type === 'final') targetField = 'url_final';
+                    handleFieldChange(uploadIndex, targetField, data, uploadSection);
+                    handleFieldChange(uploadIndex, 'url', [], uploadSection);
+                } else {
+                    handleFieldChange(uploadIndex, 'url', data, uploadSection);
+                }
                 setUploadIndex(null);
                 setUploadSection(null);
             }}

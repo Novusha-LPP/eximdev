@@ -207,6 +207,7 @@ function EditDoList() {
           insurance_copy: jobRes.data.insurance_copy || [],
           do_copies: jobRes.data.do_copies || [],
           security_deposit: jobRes.data.security_deposit || [],
+          dsr_queries: jobRes.data.dsr_queries || [],
         };
 
         setData(mergedData);
@@ -254,6 +255,8 @@ function EditDoList() {
               document_amount_details: "",
             }],
           security_deposit: mergedData.security_deposit || [],
+          do_copies: mergedData.do_copies || [],
+          dsr_queries: mergedData.dsr_queries || [],
         });
 
         setLoading(false);
@@ -270,10 +273,9 @@ function EditDoList() {
   const handleQueriesChange = (updatedQueries) => {
     setData((prev) => ({
       ...prev,
-      do_validity: data?.do_validity || "",
-      do_copies: data?.do_copies || [],
-      do_queries: updatedQueries,
+      dsr_queries: updatedQueries,
     }));
+    formik.setFieldValue("dsr_queries", updatedQueries);
   };
 
   const handleResolveQuery = (resolvedQuery, index) => {
@@ -321,6 +323,7 @@ function EditDoList() {
       ],
       do_copies: [],
       security_deposit: [],
+      dsr_queries: [],
     },
 
     onSubmit: async (values, { resetForm }) => {
@@ -348,6 +351,7 @@ function EditDoList() {
           insurance_copy: values.insurance_copy,
           other_do_documents: values.other_do_documents,
           security_deposit: values.security_deposit,
+          dsr_queries: values.dsr_queries,
         };
 
         // Get user info from localStorage for audit trail
@@ -407,7 +411,7 @@ function EditDoList() {
   }
 
   const handleDoCopiesUpload = (urls) => {
-    formik.setFieldValue("do_copies", [...formik.values.do_copies, ...urls]);
+    formik.setFieldValue("do_copies", [...(formik.values.do_copies || []), ...urls]);
   };
 
   const handleRemoveDoCopy = (index) => {
@@ -471,10 +475,10 @@ function EditDoList() {
         </Button>
       </Box>
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
-      {data && data.dsr_queries && (
+      {data && (
         <div>
           <QueriesComponent
-            queries={data.dsr_queries}
+            queries={formik.values.dsr_queries}
             currentModule="Do List"
             onQueriesChange={handleQueriesChange}
             title="Do Queries"

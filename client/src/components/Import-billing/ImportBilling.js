@@ -398,9 +398,12 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
               selectedJobId: _id,
             }).toString();
 
-            return currentTab === 0 ? (
+            return isDoView || currentTab === 0 ? (
               <Link
-                to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                to={isDoView 
+                  ? `/edit-billing-sheet/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?${queryParams}`
+                  : `/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`
+                }
                 state={{ workMode }}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -439,18 +442,19 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         },
         {
           accessorKey: "importer",
-          header: "Importer",
+          header: isDoView ? "Party" : "Importer",
           enableSorting: false,
           size: 150,
         },
 
         {
           accessorKey: "awb_bl_no",
-          header: "BL Num & Date",
+          header: isDoView ? "BL Number" : "BL Num & Date",
           enableSorting: false,
           size: 150,
           Cell: ({ cell }) => {
             const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+            if (isDoView) return awb_bl_no;
             return (
               <div>
                 {awb_bl_no} <br /> {awb_bl_date}
@@ -488,6 +492,18 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
           },
         },
         {
+          accessorKey: "shipping_line_airline",
+          header: "Shipping Line",
+          enableSorting: false,
+          size: 200,
+        },
+        {
+          accessorKey: "obl_telex_bl",
+          header: "BL",
+          enableSorting: false,
+          size: 180,
+        },
+        {
           accessorKey: "bill_document_sent_to_accounts",
           header: "Bill Doc Sent To Accounts",
           enableSorting: false,
@@ -512,7 +528,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
 
         {
           accessorKey: "Doc",
-          header: "Documents",
+          header: isDoView ? "Docs" : "Documents",
           enableSorting: false,
           size: 200,
           Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
@@ -545,12 +561,16 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       if (isDoView) {
         return baseColumns.filter(c => 
           c.accessorKey !== "generate_bill" && 
-          c.accessorKey !== "bill_document_sent_to_accounts"
+          c.accessorKey !== "bill_document_sent_to_accounts" &&
+          c.accessorKey !== "container_numbers"
         );
       }
-      return baseColumns;
+      return baseColumns.filter(c => 
+        c.accessorKey !== "shipping_line_airline" && 
+        c.accessorKey !== "obl_telex_bl"
+      );
     },
-    [navigate, handleCopy, isDoView]
+    [navigate, handleCopy, isDoView, currentTab, workMode]
   );
 
   // Table configuration

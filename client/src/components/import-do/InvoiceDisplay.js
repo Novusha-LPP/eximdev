@@ -259,25 +259,35 @@ const InvoiceDisplay = ({ row, showOOC = true, showInvoices = true, showCTH = tr
         const { chargeHead, revenue, cost } = charge;
 
         const processPart = (part, type) => {
-          if (part && Array.isArray(part.url)) {
-            part.url.forEach((url, i) => {
-              if (!url) return;
-              if (!urlToDetails.has(url)) {
-                urlToDetails.set(url, {
-                  chargeHeads: new Set(),
-                  types: new Set(),
-                  indices: new Set(),
-                  chargeId: charge._id, // Use the first charge ID for the key
-                });
-              }
-              const details = urlToDetails.get(url);
-              details.chargeHeads.add(chargeHead);
-              details.types.add(type);
-              if (part.url.length > 1) {
-                details.indices.add(i + 1);
-              }
-            });
-          }
+          if (!part) return;
+
+          const handleUrlList = (urlList, labelSuffix) => {
+            if (Array.isArray(urlList)) {
+              urlList.forEach((url, i) => {
+                if (!url) return;
+                if (!urlToDetails.has(url)) {
+                  urlToDetails.set(url, {
+                    chargeHeads: new Set(),
+                    types: new Set(),
+                    indices: new Set(),
+                    categories: new Set(),
+                    chargeId: charge._id,
+                  });
+                }
+                const details = urlToDetails.get(url);
+                details.chargeHeads.add(chargeHead);
+                details.types.add(type);
+                if (labelSuffix) details.categories.add(labelSuffix);
+                if (urlList.length > 1) {
+                  details.indices.add(i + 1);
+                }
+              });
+            }
+          };
+
+          handleUrlList(part.url, "");
+          handleUrlList(part.url_draft, "Draft");
+          handleUrlList(part.url_final, "Tax Inv.");
         };
 
         processPart(revenue, "Rev");
@@ -285,14 +295,16 @@ const InvoiceDisplay = ({ row, showOOC = true, showInvoices = true, showCTH = tr
       });
 
       // Second pass: build the items with combined labels
-      const chargeItems = [];
+      const draftItems = [];
+      const finalItems = [];
+      const generalItems = [];
+
       urlToDetails.forEach((details, url) => {
         const heads = Array.from(details.chargeHeads).join(", ");
         const types = Array.from(details.types).join(" & ");
+        const categories = Array.from(details.categories);
         const indices = Array.from(details.indices).join(", ");
         
-        // Build a smart label
-        // Example: "M S C (Rev & Cost)" or "M S C - Rev 1, 2"
         let label = heads;
         if (details.types.size > 0 || details.indices.size > 0) {
           const suffixParts = [];
@@ -301,22 +313,32 @@ const InvoiceDisplay = ({ row, showOOC = true, showInvoices = true, showCTH = tr
           label += ` (${suffixParts.join(" - ")})`;
         }
 
-        chargeItems.push({
+        const item = {
           type: "item",
           label: label,
           url: url,
-          key: `charge-doc-${url.split('/').pop()}`, // Use filename for stable key
+          key: `charge-doc-${url.split('/').pop()}`,
           icon: <DescriptionIcon fontSize="small" />,
-        });
+        };
+
+        if (categories.includes("Tax Inv.")) finalItems.push(item);
+        else if (categories.includes("Draft")) draftItems.push(item);
+        else generalItems.push(item);
       });
 
-      if (chargeItems.length > 0) {
-        options.push({
-          type: "header",
-          label: "Charges Attachments",
-          key: "charges-header",
-        });
-        options.push(...chargeItems);
+      if (draftItems.length > 0) {
+        options.push({ type: "header", label: "Draft SL Invoice", key: "draft-header" });
+        options.push(...draftItems);
+      }
+
+      if (finalItems.length > 0) {
+        options.push({ type: "header", label: "Tax SL Invoice", key: "tax-inv-header" });
+        options.push(...finalItems);
+      }
+
+      if (generalItems.length > 0) {
+        options.push({ type: "header", label: "General Attachments (Charges)", key: "charges-header" });
+        options.push(...generalItems);
       }
     }
 

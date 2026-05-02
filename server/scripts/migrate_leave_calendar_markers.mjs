@@ -25,7 +25,7 @@ const OVERWRITE_EMPTY = hasFlag('--overwrite-empty');
 const TZ_OVERRIDE = getArg('--tz', '');
 const MONGO_URI = getArg(
   '--uri',
-    process.env.DEV_MONGODB_URI 
+    process.env.PROD_MONGODB_URI 
 );
 const COMPANY_ID = getArg('--company', '');
 const EMPLOYEE_ID = getArg('--employee', '');

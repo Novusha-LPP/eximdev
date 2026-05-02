@@ -1458,8 +1458,8 @@ const EditChargeModal = ({
                                           }
 
                                           return {
-                                            partyName: `NEW ${partyName}`,
-                                            chargeHeading: partyName,
+                                            partyName: partyName,
+                                            chargeHeading: `NEW ${partyName}`,
                                             partyDetails,
                                             amount: amt,
                                             basicAmount: basic,
@@ -1525,8 +1525,8 @@ const EditChargeModal = ({
                                           return;
                                         }
                                         setPaymentRequestData({
-                                          partyName: `NEW ${partyName}`,
-                                          chargeHeading: partyName,
+                                          partyName: partyName,
+                                          chargeHeading: `NEW ${partyName}`,
                                           partyDetails,
                                           jobDisplayNumber,
                                           branchIndex: row.cost?.branchIndex || 0,

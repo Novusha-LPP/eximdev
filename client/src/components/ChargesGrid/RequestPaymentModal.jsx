@@ -28,8 +28,10 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         "chargeRef": '',
         "jobRef": '',
         "Charge Description": '',
+        "Charge Heading": '',
         "Charge Head Category": '',
-        "TDS Category": '94C'
+        "TDS Category": '94C',
+        "Description of Services": ''
     });
 
     const [errorPopup, setErrorPopup] = useState({ isOpen: false, messages: [] });
@@ -85,8 +87,10 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || '',
                     "Charge Description": initialData.chargeDescription || '',
+                    "Charge Heading": initialData.chargeHead || '',
                     "Charge Head Category": initialData.chargeHeadCategory || '',
-                    "TDS Category": initialData.tdsCategory || '94C'
+                    "TDS Category": initialData.tdsCategory || '94C',
+                    "Description of Services": initialData.chargeHeading || ''
                 }));
             }
         };
@@ -274,6 +278,14 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                             <div className="charges-ep-row" style={{ gridColumn: 'span 1' }}>
                                 <span className="charges-ep-label">Charge Description</span>
                                 <input type="text" name="Charge Description" className="charges-ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Description of Services</span>
+                                <input type="text" name="Description of Services" className="charges-ep-desc-input" value={formData["Description of Services"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Charge Heading</span>
+                                <input type="text" name="Charge Heading" className="charges-ep-desc-input" value={formData["Charge Heading"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
                              {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (

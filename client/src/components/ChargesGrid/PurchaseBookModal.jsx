@@ -25,6 +25,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "Place of Supply": '',
         "Credit Terms": '',
         "Description of Services": '',
+        "Charge Heading": '',
         "SAC": '',
         "Taxable Value": '',
         "GST%": '',
@@ -112,7 +113,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "IGST": (initialData.igst > 0) ? initialData.igst.toFixed(2) : '',
                     "TDS": initialData.tdsAmount ? initialData.tdsAmount.toFixed(2) : '',
                     "Total": initialData.netPayable ? initialData.netPayable.toFixed(2) : '',
-                    "Description of Services": initialData.chargeHead || '',
+                    "Description of Services": initialData.chargeHeading || '',
+                    "Charge Heading": initialData.chargeHead || '',
                     "SAC": initialData.cthNo || '',
                     "Status": '',
                     "chargeRef": initialData.chargeId || '',
@@ -277,6 +279,10 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             <div className="charges-ep-row">
                                 <span className="charges-ep-label">Description of Services</span>
                                 <input type="text" name="Description of Services" className="charges-ep-desc-input" value={formData["Description of Services"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label">Charge Heading</span>
+                                <input type="text" name="Charge Heading" className="charges-ep-desc-input" value={formData["Charge Heading"]} onChange={handleInputChange} />
                             </div>
                             <div className="charges-ep-row">
                                 <span className="charges-ep-label">SAC</span>

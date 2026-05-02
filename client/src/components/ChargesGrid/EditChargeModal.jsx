@@ -1075,6 +1075,16 @@ const EditChargeModal = ({
                               <span className="charges-ep-label">Charge Description</span>
                               <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.cost?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'cost')} />
                             </div>
+                            <div className="charges-ep-desc-row" style={{ backgroundColor: '#f8f9fa', padding: '4px', borderRadius: '4px', border: '1px solid #e9ecef', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px' }}>
+                                    <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '120px' }}>Tally: Description of Service</span>
+                                    <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.cost?.partyName || ''} />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px', borderLeft: '1px solid #dee2e6', paddingLeft: '10px' }}>
+                                    <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '110px' }}>Tally: Charge Heading</span>
+                                    <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.chargeHead || ''} />
+                                </div>
+                            </div>
                             <div className="charges-ep-desc-row">
                                 <span className="charges-ep-label">Attachment</span>
                                 {(() => {
@@ -1448,7 +1458,8 @@ const EditChargeModal = ({
                                           }
 
                                           return {
-                                            partyName,
+                                            partyName: `NEW ${partyName}`,
+                                            chargeHeading: partyName,
                                             partyDetails,
                                             amount: amt,
                                             basicAmount: basic,
@@ -1514,7 +1525,8 @@ const EditChargeModal = ({
                                           return;
                                         }
                                         setPaymentRequestData({
-                                          partyName,
+                                          partyName: `NEW ${partyName}`,
+                                          chargeHeading: partyName,
                                           partyDetails,
                                           jobDisplayNumber,
                                           branchIndex: row.cost?.branchIndex || 0,

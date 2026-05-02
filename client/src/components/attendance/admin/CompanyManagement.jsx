@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX, FiMapPin, FiGlobe, FiShield, FiUserPlus, FiSettings } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX, FiMapPin, FiGlobe, FiShield, FiUserPlus, FiSettings, FiCheck, FiNavigation } from 'react-icons/fi';
+import LocationPickerModal from '../common/LocationPickerModal';
+import LocationDirectorySelect from '../common/LocationDirectorySelect';
 import { Modal } from 'antd';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
@@ -98,6 +100,7 @@ const CompanyManagement = () => {
     const [shifts, setShifts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedCompany, setExpandedCompany] = useState(null);
+    const [pickerModal, setPickerModal] = useState({ open: false, index: -1 });
     const [modal, setModal] = useState({ open: false, type: 'add', record: null });
     const [migrationModal, setMigrationModal] = useState({ open: false, user: null });
     const [historyModal, setHistoryModal] = useState({ open: false, company: null, logs: [], loading: false });
@@ -265,6 +268,40 @@ const CompanyManagement = () => {
                 allowed_locations: prev.settings.allowed_locations.filter((_, i) => i !== index)
             }
         }));
+    };
+
+    const handleMapConfirm = (locationData) => {
+        if (pickerModal.index === -1) return;
+        setForm(prev => {
+            const nextLocs = [...prev.settings.allowed_locations];
+            nextLocs[pickerModal.index] = {
+                ...nextLocs[pickerModal.index],
+                latitude: locationData.lat,
+                longitude: locationData.lng,
+                radius_meters: locationData.radius_meters
+            };
+            return {
+                ...prev,
+                settings: { ...prev.settings, allowed_locations: nextLocs }
+            };
+        });
+        setPickerModal({ open: false, index: -1 });
+    };
+
+    const handleDirectorySelect = (index, loc) => {
+        setForm(prev => {
+            const nextLocs = [...prev.settings.allowed_locations];
+            nextLocs[index] = {
+                name: loc.name,
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                radius_meters: loc.radius_meters
+            };
+            return {
+                ...prev,
+                settings: { ...prev.settings, allowed_locations: nextLocs }
+            };
+        });
     };
 
     const updateLocationField = (index, field, value) => {
@@ -542,21 +579,36 @@ const CompanyManagement = () => {
                                                                 <div className="cm-loc-fields">
                                                                     <div className="cm-loc-field">
                                                                         <label>Location Name</label>
+                                                                        <LocationDirectorySelect 
+                                                                            currentName={loc.name}
+                                                                            onSelect={(l) => handleDirectorySelect(index, l)}
+                                                                        />
                                                                         <input 
                                                                             type="text" 
                                                                             value={loc.name} 
                                                                             onChange={e => updateLocationField(index, 'name', e.target.value)}
-                                                                            placeholder="Head Office"
+                                                                            placeholder="Or type custom name..."
+                                                                            style={{ marginTop: '4px' }}
                                                                         />
                                                                     </div>
                                                                     <div className="cm-loc-field">
                                                                         <label>Latitude</label>
-                                                                        <input 
-                                                                            type="number" 
-                                                                            step="0.0000001"
-                                                                            value={loc.latitude} 
-                                                                            onChange={e => updateLocationField(index, 'latitude', parseFloat(e.target.value))}
-                                                                        />
+                                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                                            <input 
+                                                                                type="number" 
+                                                                                step="0.0000001"
+                                                                                value={loc.latitude} 
+                                                                                onChange={e => updateLocationField(index, 'latitude', parseFloat(e.target.value))}
+                                                                            />
+                                                                            <button 
+                                                                                type="button" 
+                                                                                onClick={() => setPickerModal({ open: true, index })}
+                                                                                style={{ padding: '4px 8px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                                                                                title="Pick from Map"
+                                                                            >
+                                                                                <FiGlobe size={14} />
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                     <div className="cm-loc-field">
                                                                         <label>Longitude</label>
@@ -679,6 +731,17 @@ const CompanyManagement = () => {
                     </div>
                 </div>
             )}
+            {/* Location Picker Modal */}
+            <LocationPickerModal 
+                isOpen={pickerModal.open}
+                onClose={() => setPickerModal({ open: false, index: -1 })}
+                onConfirm={handleMapConfirm}
+                initialLocation={
+                    pickerModal.index !== -1 && form.settings.allowed_locations[pickerModal.index]?.latitude 
+                        ? { lat: form.settings.allowed_locations[pickerModal.index].latitude, lng: form.settings.allowed_locations[pickerModal.index].longitude }
+                        : null
+                }
+            />
         </div>
     );
 };

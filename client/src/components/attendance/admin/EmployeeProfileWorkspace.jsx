@@ -4,11 +4,14 @@ import toast from 'react-hot-toast';
 import moment from 'moment';
 import { 
   FiActivity, FiArrowRight, FiCheckCircle, FiClock, FiUsers, FiAlertTriangle, 
-  FiUser, FiX, FiCalendar, FiLogIn, FiLogOut, FiEdit, FiFileText, FiRefreshCw, FiDownload, FiSearch, FiGrid, FiList, FiChevronDown, FiChevronRight
+  FiUser, FiX, FiCalendar, FiLogIn, FiLogOut, FiEdit, FiFileText, FiRefreshCw, FiDownload, FiSearch, FiGrid, FiList, FiChevronDown, FiChevronRight,
+  FiGlobe
 } from 'react-icons/fi';
 import attendanceAPI from '../../../api/attendance/attendance.api';
 import leaveAPI from '../../../api/attendance/leave.api';
 import masterAPI from '../../../api/attendance/master.api';
+import LocationPickerModal from '../common/LocationPickerModal';
+import LocationDirectorySelect from '../common/LocationDirectorySelect';
 import { formatTime12Hr, minutesToHours, formatDate } from '../../attendance/utils/helpers';
 import AdminApplyLeaveModal from './AdminApplyLeaveModal';
 import './EmployeeProfilePerformance.css';
@@ -175,6 +178,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const navigate = useNavigate();
     const location = useLocation();
   const [localEmployeeId, setLocalEmployeeId] = useState(null);
+  const [pickerModal, setPickerModal] = useState({ open: false, index: -1 });
   
   // Resolve the employee ID, ensuring we don't pick up route paths like 'teams' or 'users' as IDs
   const idFromParams = userId || idFromRoute;
@@ -397,6 +401,40 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     excludeSundays: true,
     excludeSaturdays: true
   });
+
+  const handleMapConfirm = (locationData) => {
+    if (pickerModal.index === -1) return;
+    setPolicyForm(prev => {
+      const newList = [...(prev.attendance_settings?.allowed_locations || [])];
+      newList[pickerModal.index] = {
+        ...newList[pickerModal.index],
+        latitude: locationData.lat,
+        longitude: locationData.lng,
+        radius_meters: locationData.radius_meters
+      };
+      return {
+        ...prev,
+        attendance_settings: { ...prev.attendance_settings, allowed_locations: newList }
+      };
+    });
+    setPickerModal({ open: false, index: -1 });
+  };
+
+  const handleDirectorySelect = (index, loc) => {
+    setPolicyForm(prev => {
+      const newList = [...(prev.attendance_settings?.allowed_locations || [])];
+      newList[index] = {
+        name: loc.name,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        radius_meters: loc.radius_meters
+      };
+      return {
+        ...prev,
+        attendance_settings: { ...prev.attendance_settings, allowed_locations: newList }
+      };
+    });
+  };
 
   // ─── Search & Filtering & Grouping Logic ───
   const filteredEmployees = useMemo(() => {
@@ -2545,42 +2583,60 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                           {(policyForm.attendance_settings.allowed_locations || []).map((loc, idx) => (
-                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 100px 40px', gap: '10px', alignItems: 'center' }}>
-                              <input
-                                placeholder="Location Name"
-                                disabled={!isEditingPolicy}
-                                value={loc.name}
-                                onChange={(e) => {
-                                  setPolicyForm(prev => {
-                                    const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
-                                      i === idx ? { ...loc, name: e.target.value } : loc
-                                    );
-                                    return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
-                                  });
-                                }}
-                                style={{ ...inputStyle, padding: '8px' }}
-                              />
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 80px 40px', gap: '10px', alignItems: 'start' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <LocationDirectorySelect 
+                                  currentName={loc.name}
+                                  onSelect={(l) => handleDirectorySelect(idx, l)}
+                                />
+                                <input
+                                  placeholder="Or type custom name..."
+                                  disabled={!isEditingPolicy}
+                                  value={loc.name}
+                                  onChange={(e) => {
+                                    setPolicyForm(prev => {
+                                      const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
+                                        i === idx ? { ...loc, name: e.target.value } : loc
+                                      );
+                                      return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
+                                    });
+                                  }}
+                                  style={{ ...inputStyle, padding: '8px', fontSize: '11px' }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  placeholder="Lat"
+                                  disabled={!isEditingPolicy}
+                                  value={loc.latitude}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                    setPolicyForm(prev => {
+                                      const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
+                                        i === idx ? { ...loc, latitude: val } : loc
+                                      );
+                                      return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
+                                    });
+                                  }}
+                                  style={{ ...inputStyle, padding: '8px' }}
+                                />
+                                {isEditingPolicy && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setPickerModal({ open: true, index: idx })}
+                                    style={{ padding: '8px', background: THEME.bg, border: `1px solid ${THEME.border}`, borderRadius: '8px', color: THEME.indigo }}
+                                    title="Pick from Map"
+                                  >
+                                    <FiGlobe size={14} />
+                                  </button>
+                                )}
+                              </div>
                               <input
                                 type="number"
                                 step="any"
-                                placeholder="Latitude"
-                                disabled={!isEditingPolicy}
-                                value={loc.latitude}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                                  setPolicyForm(prev => {
-                                    const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
-                                      i === idx ? { ...loc, latitude: val } : loc
-                                    );
-                                    return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
-                                  });
-                                }}
-                                style={{ ...inputStyle, padding: '8px' }}
-                              />
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="Longitude"
+                                placeholder="Long"
                                 disabled={!isEditingPolicy}
                                 value={loc.longitude}
                                 onChange={(e) => {
@@ -3085,6 +3141,16 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                 </div>
             </div>
         )}
+        <LocationPickerModal 
+          isOpen={pickerModal.open}
+          onClose={() => setPickerModal({ open: false, index: -1 })}
+          onConfirm={handleMapConfirm}
+          initialLocation={
+            pickerModal.index !== -1 && policyForm.attendance_settings?.allowed_locations[pickerModal.index]?.latitude 
+              ? { lat: policyForm.attendance_settings.allowed_locations[pickerModal.index].latitude, lng: policyForm.attendance_settings.allowed_locations[pickerModal.index].longitude }
+              : null
+          }
+        />
       </div>
     </div>
   );

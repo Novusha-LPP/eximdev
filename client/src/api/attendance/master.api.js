@@ -166,6 +166,11 @@ const masterAPI = {
       return response.data;
   },
 
+  getDistinctLocations: async () => {
+      const response = await apiClient.get('/master/locations/distinct');
+      return response.data;
+  },
+
   // ── Week-Off Policies ────────────────────────────────────────────────────
   getWeekOffPolicies: async () => {
       const response = await apiClient.get('/master/weekoff-policies');

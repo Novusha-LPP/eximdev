@@ -41,6 +41,7 @@ router.get('/users', attendanceAuthBridge, masterCtrl.getUsers);
 router.get('/organizations', attendanceAuthBridge, masterCtrl.getOrganizations);
 router.get('/branches', attendanceAuthBridge, masterCtrl.getBranches);
 router.get('/departments', attendanceAuthBridge, masterCtrl.getDepartments);
+router.get('/locations/distinct', attendanceAuthBridge, masterCtrl.getDistinctLocations);
 
 // ── Week-Off Policies ────────────────────────────────────────────────────────
 router.get('/weekoff-policies', attendanceAuthBridge, policyCtrl.listWeekOffPolicies);

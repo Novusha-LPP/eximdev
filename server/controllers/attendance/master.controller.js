@@ -800,6 +800,44 @@ export const getDepartments = async (req, res) => {
   }
 };
 
+/**
+ * Retrieve all unique geofencing locations used across all companies and users.
+ * This acts as a directory for quick selection.
+ */
+export const getDistinctLocations = async (req, res) => {
+  try {
+    // 1. Get locations from all companies
+    const companies = await Company.find({}).select('settings.allowed_locations').lean();
+    const companyLocs = companies.flatMap(c => c.settings?.allowed_locations || []);
+
+    // 2. Get locations from all users (who have individual overrides)
+    const users = await User.find({ 'attendance_settings.allowed_locations': { $exists: true, $not: { $size: 0 } } })
+      .select('attendance_settings.allowed_locations').lean();
+    const userLocs = users.flatMap(u => u.attendance_settings?.allowed_locations || []);
+
+    // 3. Combine and filter for unique locations by Name + Lat + Long
+    const allLocs = [...companyLocs, ...userLocs];
+    const uniqueMap = new Map();
+
+    allLocs.forEach(loc => {
+      if (!loc.name || !loc.latitude || !loc.longitude) return;
+      const key = `${loc.name.toLowerCase().trim()}_${loc.latitude}_${loc.longitude}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, {
+          name: loc.name,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          radius_meters: loc.radius_meters || 200
+        });
+      }
+    });
+
+    res.json({ success: true, data: Array.from(uniqueMap.values()) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 export const getBranches = async (req, res) => {
   try {
     const companyId = resolveCompanyId(req);

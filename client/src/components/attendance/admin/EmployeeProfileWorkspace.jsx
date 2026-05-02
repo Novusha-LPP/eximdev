@@ -9,7 +9,7 @@ import {
 import attendanceAPI from '../../../api/attendance/attendance.api';
 import leaveAPI from '../../../api/attendance/leave.api';
 import masterAPI from '../../../api/attendance/master.api';
-import { formatTime12Hr, minutesToHours, formatDate } from '../../attendance/utils/helpers';
+import { formatTime12Hr, minutesToHours, formatDate, getAttendanceDateKey, formatAttendanceDate, ATTENDANCE_TIME_ZONE } from '../../attendance/utils/helpers';
 import AdminApplyLeaveModal from './AdminApplyLeaveModal';
 import './EmployeeProfilePerformance.css';
 
@@ -95,8 +95,7 @@ const formatStatus = (s) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
-const getAttendanceDateKey = (value) => moment(value).format('YYYY-MM-DD');
-const getAttendanceDateLabel = (value) => moment(value).format('D MMM, ddd');
+const getAttendanceDateLabel = (value) => formatAttendanceDate(value, 'D MMM, EEE', ATTENDANCE_TIME_ZONE);
 
 const getCalendarStatusClass = (status = '') => {
   const normalized = String(status || '').toLowerCase();

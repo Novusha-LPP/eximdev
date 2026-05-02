@@ -7,7 +7,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import masterAPI from '../../api/attendance/master.api';
-import { formatAttendanceDate, formatTime12Hr, minutesToHours, formatDate } from './utils/helpers';
+import { formatAttendanceDate, formatTime12Hr, minutesToHours, formatDate, getAttendanceDateKey, ATTENDANCE_TIME_ZONE } from './utils/helpers';
 import moment from 'moment';
 import toast from 'react-hot-toast';
 import { UserContext } from '../../contexts/UserContext';
@@ -17,8 +17,8 @@ import './AttendanceReport.css';
 
 const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
-const getAttendanceDateKey = (value) => moment(value).format('YYYY-MM-DD');
-const getAttendanceDateLabel = (value) => moment(value).format('DD MMM');
+// NOTE: getAttendanceDateKey is now imported from helpers.js (timezone-aware)
+const getAttendanceDateLabel = (value) => formatAttendanceDate(value, 'dd MMM', ATTENDANCE_TIME_ZONE);
 
 const formatLeaveBadge = (leaveType) => {
     if (!leaveType) return '';
@@ -82,8 +82,9 @@ const StatusPill = ({ status, session }) => {
 };
 
 const RenderHeatmap = ({ history, startDate, endDate }) => {
-    const start = moment.utc(startDate);
-    const end = moment.utc(endDate);
+    // Parse dates in Asia/Kolkata timezone instead of UTC to match attendance data timezone
+    const start = moment(startDate);
+    const end = moment(endDate);
     const diff = Math.min(end.diff(start, 'days') + 1, 31);
     const dots = [];
     for (let i = 0; i < diff; i++) {

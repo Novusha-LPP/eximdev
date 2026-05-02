@@ -75,8 +75,21 @@ const HODDashboard = () => {
   const handlePersonalPunch = async () => {
     try {
       setPunching(true);
+      let location = null;
+      try {
+        const pos = await new Promise((res, rej) => 
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          })
+        );
+        location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      } catch (e) {
+        console.warn("Geolocation failed:", e);
+      }
       const isIn = personal?.first_in && !personal?.last_out;
-      await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB' });
+      await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB', location });
       toast.success(`Punched ${isIn ? 'OUT' : 'IN'}`);
       fetchData();
     } catch (e) {

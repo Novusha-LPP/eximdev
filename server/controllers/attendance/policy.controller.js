@@ -497,11 +497,12 @@ export const getHolidaysForCurrentUser = async (req, res) => {
 export const assignPolicyToUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { weekoff_policy_id, holiday_policy_id, shift_id, shift_ids, leave_policy_ids } = req.body;
+    const { weekoff_policy_id, holiday_policy_id, shift_id, shift_ids, leave_policy_ids, attendance_settings } = req.body;
 
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
+    
     if (shift_ids !== undefined) {
       const normalizedShiftIds = Array.isArray(shift_ids) ? shift_ids.filter(Boolean) : [];
       update.shift_ids = normalizedShiftIds;
@@ -510,12 +511,29 @@ export const assignPolicyToUser = async (req, res) => {
       update.shift_id = shift_id || null;
       update.shift_ids = shift_id ? [shift_id] : [];
     }
+
     if (leave_policy_ids !== undefined) {
       update['leave_settings.special_leave_policies'] = Array.isArray(leave_policy_ids) ? leave_policy_ids : [];
     }
 
-    const user = await User.findByIdAndUpdate(userId, update, { new: true });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (attendance_settings !== undefined && attendance_settings !== null) {
+      if (typeof attendance_settings === 'object') {
+        Object.keys(attendance_settings).forEach(key => {
+          update[`attendance_settings.${key}`] = attendance_settings[key];
+        });
+      }
+    }
+
+    console.log('>>> [DEBUG] updateOne filter:', { _id: userId });
+    console.log('>>> [DEBUG] updateOne body:', JSON.stringify(update, null, 2));
+
+    const result = await User.updateOne({ _id: userId }, { $set: update });
+    console.log('>>> [DEBUG] updateOne result:', JSON.stringify(result, null, 2));
+
+    if (result.matchedCount === 0) return res.status(404).json({ message: 'User not found' });
+
+    const user = await User.findById(userId).lean();
+    console.log('>>> [DEBUG] Fetched user from DB after update:', JSON.stringify(user?.attendance_settings, null, 2));
 
     await log(req, 'POLICY', 'ASSIGN_POLICY_TO_USER', `Assigned policies to user ${user.username}`);
     res.json({
@@ -525,7 +543,8 @@ export const assignPolicyToUser = async (req, res) => {
         holiday_policy_id: user.holiday_policy_id,
         shift_id: user.shift_id,
         shift_ids: user.shift_ids || [],
-        leave_policy_ids: user.leave_settings?.special_leave_policies || []
+        leave_policy_ids: user.leave_settings?.special_leave_policies || [],
+        attendance_settings: user.attendance_settings
       }
     });
   } catch (err) {
@@ -545,7 +564,8 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
       holiday_policy_id,
       shift_id,
       shift_ids,
-      leave_policy_ids
+      leave_policy_ids,
+      attendance_settings
     } = req.body || {};
 
     if (!Array.isArray(user_ids) || user_ids.length === 0) {
@@ -557,7 +577,8 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
       holiday_policy_id !== undefined ||
       shift_id !== undefined ||
       shift_ids !== undefined ||
-      leave_policy_ids !== undefined;
+      leave_policy_ids !== undefined ||
+      attendance_settings !== undefined;
 
     if (!hasAnyAssignment) {
       return res.status(400).json({ message: 'Provide at least one policy field to assign' });
@@ -581,6 +602,14 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
     }
     if (leave_policy_ids !== undefined) {
       update['leave_settings.special_leave_policies'] = Array.isArray(leave_policy_ids) ? leave_policy_ids : [];
+    }
+
+    if (attendance_settings !== undefined && attendance_settings !== null) {
+      if (typeof attendance_settings === 'object') {
+        Object.keys(attendance_settings).forEach(key => {
+          update[`attendance_settings.${key}`] = attendance_settings[key];
+        });
+      }
     }
 
     await User.updateMany({ _id: { $in: users.map(u => u._id) } }, { $set: update });

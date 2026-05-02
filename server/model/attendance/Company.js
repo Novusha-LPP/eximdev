@@ -53,6 +53,12 @@ const companySchema = new mongoose.Schema({
     ip_restriction_enabled: { type: Boolean, default: false },
     allowed_ips: [{ type: String }],
     geo_fencing_enabled: { type: Boolean, default: false },
+    allowed_locations: [{
+      name: { type: String, trim: true },
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
+      radius_meters: { type: Number, default: 200 }
+    }],
     face_recognition_enabled: { type: Boolean, default: false },
     biometric_integration_enabled: { type: Boolean, default: false }
   },

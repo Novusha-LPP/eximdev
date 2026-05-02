@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX, FiMapPin, FiGlobe, FiShield, FiUserPlus, FiSettings } from 'react-icons/fi';
 import { Modal } from 'antd';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
@@ -103,13 +103,17 @@ const CompanyManagement = () => {
     const [historyModal, setHistoryModal] = useState({ open: false, company: null, logs: [], loading: false });
     const [searchTerm, setSearchTerm] = useState('');
     const [policyFilter, setPolicyFilter] = useState('all');
+    const [activeTab, setActiveTab] = useState('basic');
     const [form, setForm] = useState({
         company_name: '',
         company_code: '',
         shift_policy_id: '',
         branch_ids: [],
         selected_user_ids: [],
-        settings: {}
+        settings: {
+            geo_fencing_enabled: false,
+            allowed_locations: []
+        }
     });
     const [saving, setSaving] = useState(false);
 
@@ -199,7 +203,11 @@ const CompanyManagement = () => {
                 shift_policy_id: record.shift_policy_id || '',
                 branch_ids: (record.branch_ids || []).map((b) => b._id || b),
                 selected_user_ids: userIdsInCompany,
-                settings: record.settings || {}
+                settings: {
+                    ...(record.settings || {}),
+                    geo_fencing_enabled: record.settings?.geo_fencing_enabled || false,
+                    allowed_locations: record.settings?.allowed_locations || []
+                }
             });
         } else {
             setForm({
@@ -208,9 +216,13 @@ const CompanyManagement = () => {
                 shift_policy_id: '',
                 branch_ids: [],
                 selected_user_ids: [],
-                settings: {}
+                settings: {
+                    geo_fencing_enabled: false,
+                    allowed_locations: []
+                }
             });
         }
+        setActiveTab('basic');
     };
 
     const toggleUserSelection = (userId) => {
@@ -227,6 +239,46 @@ const CompanyManagement = () => {
             ? form.branch_ids.filter((id) => id !== branchId)
             : [...form.branch_ids, branchId];
         setForm({ ...form, branch_ids });
+    };
+
+    const addLocation = () => {
+        const newLocation = {
+            name: '',
+            latitude: 0,
+            longitude: 0,
+            radius_meters: 200
+        };
+        setForm(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                allowed_locations: [...(prev.settings.allowed_locations || []), newLocation]
+            }
+        }));
+    };
+
+    const removeLocation = (index) => {
+        setForm(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                allowed_locations: prev.settings.allowed_locations.filter((_, i) => i !== index)
+            }
+        }));
+    };
+
+    const updateLocationField = (index, field, value) => {
+        setForm(prev => {
+            const newList = [...prev.settings.allowed_locations];
+            newList[index] = { ...newList[index], [field]: value };
+            return {
+                ...prev,
+                settings: {
+                    ...prev.settings,
+                    allowed_locations: newList
+                }
+            };
+        });
     };
 
     const getCompanyUsers = (companyId) => users.filter((u) => String(u.company_id?._id || u.company_id) === String(companyId));
@@ -329,85 +381,214 @@ const CompanyManagement = () => {
                             <h2>{modal.type === 'add' ? 'Register New Organization' : 'Edit Configuration'}</h2>
                         </div>
                         <form onSubmit={handleSave}>
-                            <div className="cm-modal-body">
-                                <div className="cm-modal-grid">
-                                    <div className="cm-modal-column">
-                                        <div className="cm-form-group">
-                                            <label>Company Name</label>
-                                            <input 
-                                                type="text" 
-                                                value={form.company_name} 
-                                                onChange={e => setForm({ ...form, company_name: e.target.value })}
-                                                placeholder="e.g. Acme Corporation"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="cm-form-group">
-                                            <label>Company Code (Unique Identifier)</label>
-                                            <input 
-                                                type="text" 
-                                                value={form.company_code} 
-                                                onChange={e => setForm({ ...form, company_code: e.target.value.toUpperCase() })}
-                                                placeholder="e.g. ACME_IND"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="cm-form-group">
-                                            <label>Shift Policy (From Shift Management)</label>
-                                            <select 
-                                                value={form.shift_policy_id}
-                                                onChange={e => setForm({ ...form, shift_policy_id: e.target.value })}
-                                                required
-                                            >
-                                                <option value="">Select a Shift Policy...</option>
-                                                {shifts.map(s => (
-                                                    <option key={s._id} value={s._id}>
-                                                        {s.shift_name} ({s.shift_code})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="cm-form-group">
-                                            <label>Select Branches</label>
-                                            <p className="cm-field-note">Selected: {form.branch_ids.length}</p>
-                                            <div className="cm-selection-grid">
-                                                {branches.map((branch) => (
-                                                    <label key={branch._id} className="cm-check-row">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={form.branch_ids.includes(branch._id)}
-                                                            onChange={() => toggleBranchSelection(branch._id)}
-                                                        />
-                                                        <span>{branch.branch_code} - {branch.branch_name} ({branch.category})</span>
-                                                    </label>
-                                                ))}
+                        <div className="cm-modal-tabs">
+                            <button 
+                                type="button" 
+                                className={`cm-tab-btn ${activeTab === 'basic' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('basic')}
+                            >
+                                <FiSettings size={14} /> Basic Info
+                            </button>
+                            <button 
+                                type="button" 
+                                className={`cm-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('users')}
+                            >
+                                <FiUserPlus size={14} /> User Assignment
+                            </button>
+                            <button 
+                                type="button" 
+                                className={`cm-tab-btn ${activeTab === 'attendance' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('attendance')}
+                            >
+                                <FiGlobe size={14} /> Attendance & Security
+                            </button>
+                        </div>
+
+                        <div className="cm-modal-body">
+                            {activeTab === 'basic' && (
+                                <div className="cm-tab-content">
+                                    <div className="cm-modal-grid">
+                                        <div className="cm-modal-column">
+                                            <div className="cm-form-group">
+                                                <label>Company Name</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={form.company_name} 
+                                                    onChange={e => setForm({ ...form, company_name: e.target.value })}
+                                                    placeholder="e.g. Acme Corporation"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="cm-form-group">
+                                                <label>Company Code (Unique Identifier)</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={form.company_code} 
+                                                    onChange={e => setForm({ ...form, company_code: e.target.value.toUpperCase() })}
+                                                    placeholder="e.g. ACME_IND"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="cm-form-group">
+                                                <label>Shift Policy (From Shift Management)</label>
+                                                <select 
+                                                    value={form.shift_policy_id}
+                                                    onChange={e => setForm({ ...form, shift_policy_id: e.target.value })}
+                                                    required
+                                                >
+                                                    <option value="">Select a Shift Policy...</option>
+                                                    {shifts.map(s => (
+                                                        <option key={s._id} value={s._id}>
+                                                            {s.shift_name} ({s.shift_code})
+                                                        </option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="cm-modal-column">
-                                        <div className="cm-form-group">
-                                            <label>Select Users For Organization</label>
-                                            <p className="cm-field-note">Selected: {form.selected_user_ids.length}</p>
-                                            <div className="cm-selection-grid cm-user-selection-grid">
-                                                {assignableUsers.map((user) => (
-                                                    <label key={user._id} className="cm-check-row">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={form.selected_user_ids.includes(user._id)}
-                                                            onChange={() => toggleUserSelection(user._id)}
-                                                        />
-                                                        <span>
-                                                            {(user.first_name || user.username || 'User')} {user.last_name || ''}
-                                                            <small>{user.employee_code || user.username || 'No code'}</small>
-                                                        </span>
-                                                    </label>
-                                                ))}
+                                        <div className="cm-modal-column">
+                                            <div className="cm-form-group">
+                                                <label>Select Branches</label>
+                                                <p className="cm-field-note">Selected: {form.branch_ids.length}</p>
+                                                <div className="cm-selection-grid">
+                                                    {branches.map((branch) => (
+                                                        <label key={branch._id} className="cm-check-row">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={form.branch_ids.includes(branch._id)}
+                                                                onChange={() => toggleBranchSelection(branch._id)}
+                                                            />
+                                                            <span>{branch.branch_code} - {branch.branch_name} ({branch.category})</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
+
+                            {activeTab === 'users' && (
+                                <div className="cm-tab-content">
+                                    <div className="cm-form-group">
+                                        <label>Select Users For Organization</label>
+                                        <p className="cm-field-note">Selected: {form.selected_user_ids.length}</p>
+                                        <div className="cm-selection-grid cm-user-selection-grid" style={{maxHeight: '400px'}}>
+                                            {assignableUsers.map((user) => (
+                                                <label key={user._id} className="cm-check-row">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.selected_user_ids.includes(user._id)}
+                                                        onChange={() => toggleUserSelection(user._id)}
+                                                    />
+                                                    <span>
+                                                        {(user.first_name || user.username || 'User')} {user.last_name || ''}
+                                                        <small>{user.employee_code || user.username || 'No code'}</small>
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'attendance' && (
+                                <div className="cm-tab-content">
+                                    <div className="cm-settings-section">
+                                        <div className="cm-settings-header">
+                                            <FiShield />
+                                            <h3>Geofencing Policy</h3>
+                                        </div>
+                                        
+                                        <div className="cm-setting-row">
+                                            <div className="cm-setting-info">
+                                                <strong>Enable Geofencing</strong>
+                                                <span>Force all organization members to punch only from whitelisted locations.</span>
+                                            </div>
+                                            <div className="cm-switch-wrap">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="geo_fencing_enabled"
+                                                    checked={form.settings.geo_fencing_enabled}
+                                                    onChange={e => setForm({
+                                                        ...form,
+                                                        settings: { ...form.settings, geo_fencing_enabled: e.target.checked }
+                                                    })}
+                                                />
+                                                <label htmlFor="geo_fencing_enabled"></label>
+                                            </div>
+                                        </div>
+
+                                        {form.settings.geo_fencing_enabled && (
+                                            <div className="cm-locations-mgmt">
+                                                <div className="cm-locations-header">
+                                                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                                        <FiMapPin />
+                                                        <strong>Allowed Locations</strong>
+                                                    </div>
+                                                    <button type="button" className="cm-add-loc-btn" onClick={addLocation}>
+                                                        <FiPlus /> Add Office/Site
+                                                    </button>
+                                                </div>
+
+                                                <div className="cm-locations-list">
+                                                    {form.settings.allowed_locations?.length === 0 ? (
+                                                        <div className="cm-empty-locations">
+                                                            No locations added. Add at least one to enable geofencing.
+                                                        </div>
+                                                    ) : (
+                                                        form.settings.allowed_locations.map((loc, index) => (
+                                                            <div key={index} className="cm-location-item">
+                                                                <div className="cm-loc-fields">
+                                                                    <div className="cm-loc-field">
+                                                                        <label>Location Name</label>
+                                                                        <input 
+                                                                            type="text" 
+                                                                            value={loc.name} 
+                                                                            onChange={e => updateLocationField(index, 'name', e.target.value)}
+                                                                            placeholder="Head Office"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="cm-loc-field">
+                                                                        <label>Latitude</label>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            step="0.0000001"
+                                                                            value={loc.latitude} 
+                                                                            onChange={e => updateLocationField(index, 'latitude', parseFloat(e.target.value))}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="cm-loc-field">
+                                                                        <label>Longitude</label>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            step="0.0000001"
+                                                                            value={loc.longitude} 
+                                                                            onChange={e => updateLocationField(index, 'longitude', parseFloat(e.target.value))}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="cm-loc-field">
+                                                                        <label>Radius (m)</label>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            value={loc.radius_meters} 
+                                                                            onChange={e => updateLocationField(index, 'radius_meters', parseInt(e.target.value))}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <button type="button" className="cm-loc-remove" onClick={() => removeLocation(index)}>
+                                                                    <FiTrash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                             <div className="cm-modal-footer">
                                 <button type="button" className="cm-btn cm-btn-secondary" onClick={() => setModal({ open: false })}>
                                     Discard Changes

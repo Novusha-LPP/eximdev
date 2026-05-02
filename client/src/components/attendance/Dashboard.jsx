@@ -257,9 +257,17 @@ export default function Dashboard() {
       setPunching(true);
       let location = null;
       try {
-        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+        const pos = await new Promise((res, rej) => 
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          })
+        );
         location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-      } catch { }
+      } catch (e) {
+        console.warn("Geolocation failed:", e);
+      }
       const type = dash?.punchStatus?.action || 'IN';
       const r = await attendanceAPI.punch({ type, method: 'WEB', location });
       if (r?.message) {

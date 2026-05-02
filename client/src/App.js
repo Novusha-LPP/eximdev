@@ -8,6 +8,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -72,6 +73,7 @@ function App() {
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
+      <Toaster position="top-right" reverseOrder={false} />
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
       </LocalizationProvider>

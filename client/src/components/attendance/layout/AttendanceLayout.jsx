@@ -147,7 +147,20 @@ const AttendanceLayout = () => {
         const isIn = punchStatus?.isInSession ?? (punchStatus?.first_in && !punchStatus?.last_out);
         setPunching(true);
         try {
-            await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB' });
+            let location = null;
+            try {
+                const pos = await new Promise((res, rej) => 
+                    navigator.geolocation.getCurrentPosition(res, rej, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    })
+                );
+                location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+            } catch (e) {
+                console.warn("Geolocation failed:", e);
+            }
+            await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB', location });
             toast.success(`Punched ${isIn ? 'OUT' : 'IN'} successfully!`);
             fetchPunchStatus();
         } catch (e) {

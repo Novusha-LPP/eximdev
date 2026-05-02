@@ -57,24 +57,45 @@ class ValidationEngine {
         // 3. Check Geo-Fencing
         const isGeoFencingRequired = userSettings.geo_fencing_required !== undefined ? userSettings.geo_fencing_required : companySettings.geo_fencing_enabled;
 
+        console.log(`[DEBUG] Validation for ${user.username}: isGeoFencingRequired=${isGeoFencingRequired}`);
+        console.log(`[DEBUG] User Geo Required: ${userSettings.geo_fencing_required}, Company Geo Enabled: ${companySettings.geo_fencing_enabled}`);
+
         if (isGeoFencingRequired) {
             if (!location || !location.latitude || !location.longitude) {
                 return { isValid: false, message: 'Location access is required for geo-fenced attendance.' };
             }
 
-            // Check User Allowed Locations
+            let withinRange = false;
+            let checksPerformed = false;
+
+            // 3.1 Check User-Specific Allowed Locations (Overrides)
             if (userSettings.allowed_locations && userSettings.allowed_locations.length > 0) {
-                let withinRange = false;
+                checksPerformed = true;
                 for (const loc of userSettings.allowed_locations) {
                     const dist = this.calculateDistance(location.latitude, location.longitude, loc.latitude, loc.longitude);
-                    if (dist <= loc.radius_meters) {
+                    if (dist <= (loc.radius_meters || 200)) {
                         withinRange = true;
                         break;
                     }
                 }
-                if (!withinRange) return { isValid: false, message: 'You are outside the allowed location radius.' };
             }
-            // Fallback to Company Allowed Locations? (Usually company has sites/branches, but if not defined, skip)
+
+            // 3.2 Fallback to Company Allowed Locations if user has no specific ones OR if not yet found
+            // (Note: If user has specific locations, they are treated as an override list)
+            if (!withinRange && companySettings.allowed_locations && companySettings.allowed_locations.length > 0) {
+                checksPerformed = true;
+                for (const loc of companySettings.allowed_locations) {
+                    const dist = this.calculateDistance(location.latitude, location.longitude, loc.latitude, loc.longitude);
+                    if (dist <= (loc.radius_meters || 200)) {
+                        withinRange = true;
+                        break;
+                    }
+                }
+            }
+
+            if (checksPerformed && !withinRange) {
+                return { isValid: false, message: 'You are outside the allowed location radius for this company.' };
+            }
         }
 
         return { isValid: true, message: 'Success' };

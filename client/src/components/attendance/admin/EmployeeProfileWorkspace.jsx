@@ -382,7 +382,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [policyForm, setPolicyForm] = useState({
     weekoff_policy_id: '',
     holiday_policy_id: '',
-    shift_id: ''
+    shift_id: '',
+    attendance_settings: {
+      geo_fencing_required: true,
+      allowed_locations: []
+    }
   });
 
   const [bulkManualForm, setBulkManualForm] = useState({
@@ -786,9 +790,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     });
   }, [editingId, hasInitialPunchIn, editForm.status, editForm.correction_mode]);
 
-  // Sync individual policy form with profile data
   useEffect(() => {
-    if (!profile?.employee) return;
+    if (!profile?.employee || isEditingPolicy) return;
 
     const employee = profile.employee;
     const overrides = employee.policy_overrides || {};
@@ -798,7 +801,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     setPolicyForm({
       weekoff_policy_id: employee.weekoff_policy_id?._id || employee.weekoff_policy_id || overrides.weekoff_policy_id?._id || overrides.weekoff_policy_id || '',
       holiday_policy_id: employee.holiday_policy_id?._id || employee.holiday_policy_id || overrides.holiday_policy_id?._id || overrides.holiday_policy_id || '',
-      shift_id: shiftExists ? resolvedShiftId : ''
+      shift_id: shiftExists ? resolvedShiftId : '',
+      attendance_settings: employee.attendance_settings || { geo_fencing_required: true, allowed_locations: [] }
     });
   }, [profile, policyShiftOptions]);
 
@@ -1092,6 +1096,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     if (e) e.preventDefault();
     setPolicySaving(true);
     try {
+      console.log(">>> [DEBUG] Sending policy update for user", id, ":", JSON.stringify(policyForm, null, 2));
       const result = await masterAPI.assignPolicyToUser(id, policyForm);
       if (result) {
         toast.success('Individual policies updated successfully');
@@ -2479,6 +2484,155 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   </select>
                 </div>
 
+                <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${THEME.border}`, paddingTop: '20px', marginTop: '10px' }}>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '15px', color: THEME.navy, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📍 Geofencing Configuration
+                  </h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isEditingPolicy ? 'pointer' : 'not-allowed', fontSize: '14px', fontWeight: '600' }}>
+                        <input
+                          type="checkbox"
+                          disabled={!isEditingPolicy}
+                          checked={policyForm.attendance_settings?.geo_fencing_required ?? (profile?.employee?.company_id?.settings?.geo_fencing_enabled || false)}
+                          onChange={(e) => setPolicyForm(prev => ({
+                            ...prev,
+                            attendance_settings: {
+                              ...(prev.attendance_settings || {}),
+                              geo_fencing_required: e.target.checked
+                            }
+                          }))}
+                          style={{ width: '18px', height: '18px' }}
+                        />
+                        Geo-fencing Required for this Employee
+                      </label>
+                      {policyForm.attendance_settings?.geo_fencing_required === undefined && profile?.employee?.company_id?.settings?.geo_fencing_enabled && (
+                        <span style={{ fontSize: '11px', color: THEME.indigo, marginLeft: '28px', fontWeight: '600' }}>
+                          (Inherited from {profile?.employee?.company_id?.company_name})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {(policyForm.attendance_settings?.geo_fencing_required ?? (profile?.employee?.company_id?.settings?.geo_fencing_enabled || false)) && (
+                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: `1px solid ${THEME.border}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: THEME.navy }}>Individual Allowed Locations (Whitelist)</span>
+                        {isEditingPolicy && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLocation = { name: '', latitude: 0, longitude: 0, radius_meters: 200 };
+                              setPolicyForm(prev => ({
+                                ...prev,
+                                attendance_settings: {
+                                  ...(prev.attendance_settings || {}),
+                                  allowed_locations: [...(prev.attendance_settings?.allowed_locations || []), newLocation]
+                                }
+                              }));
+                            }}
+                            style={{ ...buttonStyle, background: THEME.bg, border: `1px solid ${THEME.border}`, color: THEME.primary, padding: '4px 12px', fontSize: '12px' }}
+                          >
+                            + Add Custom Location
+                          </button>
+                        )}
+                      </div>
+                      
+                      {(!policyForm.attendance_settings?.allowed_locations || policyForm.attendance_settings.allowed_locations.length === 0) ? (
+                        <p style={{ fontSize: '12px', color: THEME.muted, fontStyle: 'italic', margin: 0 }}>
+                          No individual locations defined. System will fallback to organization-level allowed locations.
+                        </p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {(policyForm.attendance_settings.allowed_locations || []).map((loc, idx) => (
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 100px 40px', gap: '10px', alignItems: 'center' }}>
+                              <input
+                                placeholder="Location Name"
+                                disabled={!isEditingPolicy}
+                                value={loc.name}
+                                onChange={(e) => {
+                                  setPolicyForm(prev => {
+                                    const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
+                                      i === idx ? { ...loc, name: e.target.value } : loc
+                                    );
+                                    return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
+                                  });
+                                }}
+                                style={{ ...inputStyle, padding: '8px' }}
+                              />
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="Latitude"
+                                disabled={!isEditingPolicy}
+                                value={loc.latitude}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                  setPolicyForm(prev => {
+                                    const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
+                                      i === idx ? { ...loc, latitude: val } : loc
+                                    );
+                                    return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
+                                  });
+                                }}
+                                style={{ ...inputStyle, padding: '8px' }}
+                              />
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="Longitude"
+                                disabled={!isEditingPolicy}
+                                value={loc.longitude}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                  setPolicyForm(prev => {
+                                    const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
+                                      i === idx ? { ...loc, longitude: val } : loc
+                                    );
+                                    return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
+                                  });
+                                }}
+                                style={{ ...inputStyle, padding: '8px' }}
+                              />
+                              <div style={{ position: 'relative' }}>
+                                <input
+                                  type="number"
+                                  placeholder="Radius"
+                                  disabled={!isEditingPolicy}
+                                  value={loc.radius_meters}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                                    setPolicyForm(prev => {
+                                      const newList = (prev.attendance_settings?.allowed_locations || []).map((loc, i) => 
+                                        i === idx ? { ...loc, radius_meters: val } : loc
+                                      );
+                                      return { ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } };
+                                    });
+                                  }}
+                                  style={{ ...inputStyle, padding: '8px', paddingRight: '20px' }}
+                                />
+                                <span style={{ position: 'absolute', right: '5px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', color: THEME.muted }}>m</span>
+                              </div>
+                              {isEditingPolicy && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newList = policyForm.attendance_settings.allowed_locations.filter((_, i) => i !== idx);
+                                    setPolicyForm(prev => ({ ...prev, attendance_settings: { ...prev.attendance_settings, allowed_locations: newList } }));
+                                  }}
+                                  style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}
+                                >
+                                  🗑️
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {isEditingPolicy && (
                   <div style={{ gridColumn: '1 / -1', marginTop: '10px', display: 'flex', gap: '12px' }}>
                     <button
@@ -2491,7 +2645,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         setPolicyForm({
                           weekoff_policy_id: employee.weekoff_policy_id?._id || employee.weekoff_policy_id || overrides.weekoff_policy_id?._id || overrides.weekoff_policy_id || '',
                           holiday_policy_id: employee.holiday_policy_id?._id || employee.holiday_policy_id || overrides.holiday_policy_id?._id || overrides.holiday_policy_id || '',
-                          shift_id: resolveShiftPolicyId(employee, overrides.shift_id)
+                          shift_id: resolveShiftPolicyId(employee, overrides.shift_id),
+                          attendance_settings: employee.attendance_settings || { geo_fencing_required: true, allowed_locations: [] }
                         });
                       }}
                       style={{

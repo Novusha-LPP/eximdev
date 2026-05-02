@@ -95,7 +95,7 @@ const userSchema = new Schema({
   attendance_settings: {
     punch_allowed: { type: Boolean, default: true },
     punch_methods: [{ type: String, enum: ['web', 'mobile', 'biometric'] }],
-    geo_fencing_required: { type: Boolean, default: false },
+    geo_fencing_required: { type: Boolean },
     allowed_locations: [{
       name: String,
       latitude: Number,

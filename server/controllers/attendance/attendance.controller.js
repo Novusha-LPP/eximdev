@@ -3217,7 +3217,7 @@ export const updateEmployeeProfileAdmin = async (req, res) => {
         const user = await User.findById(id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const fields = ['first_name', 'last_name', 'email', 'employee_code', 'department_id', 'shift_id', 'role', 'isActive'];
+        const fields = ['first_name', 'last_name', 'email', 'employee_code', 'department_id', 'shift_id', 'role', 'isActive', 'attendance_settings'];
         fields.forEach(f => {
             if (updates[f] !== undefined) user[f] = updates[f];
         });

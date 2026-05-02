@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiClock, FiFileText, FiShield, FiBriefcase, FiPlus } from 'react-icons/fi';
+import { FiClock, FiFileText, FiShield, FiBriefcase, FiPlus, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
@@ -50,6 +50,24 @@ const Settings = () => {
 
   const setNested = (parent, key, value) =>
     setSettings(prev => ({ ...prev, [parent]: { ...prev[parent], [key]: value } }));
+
+  const addGeoLocation = () => {
+    const locs = [...(settings.settings?.allowed_locations || [])];
+    locs.push({ name: '', latitude: 0, longitude: 0, radius_meters: 200 });
+    setNested('settings', 'allowed_locations', locs);
+  };
+
+  const updateGeoLocation = (idx, key, val) => {
+    const locs = [...(settings.settings?.allowed_locations || [])];
+    locs[idx] = { ...locs[idx], [key]: val };
+    setNested('settings', 'allowed_locations', locs);
+  };
+
+  const removeGeoLocation = (idx) => {
+    const locs = [...(settings.settings?.allowed_locations || [])];
+    locs.splice(idx, 1);
+    setNested('settings', 'allowed_locations', locs);
+  };
 
   const TABS = [
     { key: 'company_info', icon: <FiBriefcase size={13} />, label: 'Company' },
@@ -173,6 +191,49 @@ const Settings = () => {
                 <span className="slider" />
               </label>
             </div>
+
+            {settings.settings?.geo_fencing_enabled && (
+              <div className="geo-fencing-section" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--as-border)', paddingTop: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '.875rem', color: 'var(--as-t1)' }}>Allowed Locations (Company Defaults)</h4>
+                  <button className="ui-add-btn-small" onClick={addGeoLocation} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '4px 8px' }}>
+                    <FiPlus size={12} /> Add Location
+                  </button>
+                </div>
+                
+                {(!settings.settings.allowed_locations || settings.settings.allowed_locations.length === 0) ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', background: 'var(--as-bg2)', borderRadius: '8px', border: '1px dashed var(--as-border)' }}>
+                    <p style={{ fontSize: '.75rem', color: 'var(--as-t3)', margin: 0 }}>No locations defined. All users will be able to punch from anywhere unless they have individual restrictions.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {settings.settings.allowed_locations.map((loc, idx) => (
+                      <div key={idx} className="geo-loc-row" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 0.8fr 40px', gap: '0.75rem', alignItems: 'end', background: 'var(--as-bg2)', padding: '12px', borderRadius: '8px' }}>
+                        <div className="form-group-small">
+                          <label style={{ fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Location Name</label>
+                          <input type="text" className="form-input" style={{ padding: '6px 10px', fontSize: '13px' }} placeholder="Office Name" value={loc.name} onChange={e => updateGeoLocation(idx, 'name', e.target.value)} />
+                        </div>
+                        <div className="form-group-small">
+                          <label style={{ fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Latitude</label>
+                          <input type="number" className="form-input" style={{ padding: '6px 10px', fontSize: '13px' }} placeholder="0.0000" value={loc.latitude} onChange={e => updateGeoLocation(idx, 'latitude', Number(e.target.value))} />
+                        </div>
+                        <div className="form-group-small">
+                          <label style={{ fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Longitude</label>
+                          <input type="number" className="form-input" style={{ padding: '6px 10px', fontSize: '13px' }} placeholder="0.0000" value={loc.longitude} onChange={e => updateGeoLocation(idx, 'longitude', Number(e.target.value))} />
+                        </div>
+                        <div className="form-group-small">
+                          <label style={{ fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Radius (m)</label>
+                          <input type="number" className="form-input" style={{ padding: '6px 10px', fontSize: '13px' }} placeholder="200" value={loc.radius_meters} onChange={e => updateGeoLocation(idx, 'radius_meters', Number(e.target.value))} />
+                        </div>
+                        <button className="btn-delete-small" onClick={() => removeGeoLocation(idx)} style={{ height: '34px', background: 'transparent', border: '1px solid #fee2e2', color: '#ef4444', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FiX size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving ' : 'Save Changes'}</button>
         </div>

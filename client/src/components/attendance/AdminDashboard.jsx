@@ -169,8 +169,21 @@ const AdminDashboard = () => {
   const handlePunch = async () => {
     try {
       setPunching(true);
+      let location = null;
+      try {
+        const pos = await new Promise((res, rej) => 
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          })
+        );
+        location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      } catch (e) {
+        console.warn("Geolocation failed:", e);
+      }
       const isIn = myStatus?.isInSession || (myStatus?.first_in && !myStatus?.last_out);
-      await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB' });
+      await attendanceAPI.punch({ type: isIn ? 'OUT' : 'IN', method: 'WEB', location });
       toast.success('Punched successfully');
       loadStats(companyId);
       loadCalendar(calMonth.getMonth() + 1, calMonth.getFullYear());

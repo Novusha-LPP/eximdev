@@ -24,6 +24,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import FileUpload from "../gallery/FileUpload";
 import kpiPioneerBadge from "../../assets/images/kpi-pioneer-badge.png";
 import { FiLogIn, FiLogOut } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import Attendance from '../attendance/Attendance';
 
 
@@ -799,15 +800,30 @@ const UserProfile = ({ username: propUsername }) => {
     const handlePunch = async (type) => {
         setPunchLoading(true);
         try {
-            const punchParams = { type, method: 'web' };
+            let location = null;
+            try {
+                const pos = await new Promise((resolve, reject) =>
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    })
+                );
+                location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+            } catch (geoError) {
+                console.warn("Geolocation failed:", geoError);
+                // We proceed, but the backend will block if geofencing is mandatory for this user
+            }
+
+            const punchParams = { type, method: 'web', location };
             if (!isOwnProfile) punchParams.employee_id = profileData._id;
             
             await attendanceAPI.punch(punchParams);
-            setSnackbar({ open: true, message: `Punch ${type} recorded successfully!`, severity: 'success' });
+            toast.success(`Punch ${type} recorded successfully!`);
             // Refresh data
             setTimeout(() => fetchAttendanceData(), 500);
         } catch (err) {
-            setSnackbar({ open: true, message: err?.message || `Punch ${type} failed`, severity: 'error' });
+            toast.error(err?.message || `Punch ${type} failed`);
         } finally {
             setPunchLoading(false);
         }

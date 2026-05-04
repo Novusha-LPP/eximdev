@@ -17,7 +17,7 @@ const getArg = (name, fallback = '') => {
 
 const DRY_RUN = !hasFlag('--apply');
 const TZ = getArg('--tz', 'Asia/Kolkata');
-const MONGO_URI = getArg('--uri', process.env.PROD_MONGODB_URI || process.env.SERVER_MONGODB_URI || process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/exim');
+const MONGO_URI = getArg('--uri', process.env.PROD_MONGODB_URI);
 const COMPANY_ID = getArg('--company', '');
 const EMPLOYEE_ID = getArg('--employee', '');
 const APP_ID = getArg('--appId', '');

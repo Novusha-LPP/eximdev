@@ -1,4 +1,4 @@
-import moment from 'moment';
+import moment from 'moment-timezone';
 import WorkingDayEngine from './WorkingDayEngine.js';
 
 class LeaveCalculationService {
@@ -67,8 +67,8 @@ class LeaveCalculationService {
         attendanceRecords = [],
         presenceThresholdHours = 4
     }) {
-        const start = moment(fromDate).startOf('day');
-        const end = moment(toDate || fromDate).startOf('day');
+        const start = moment(fromDate).tz('Asia/Kolkata').startOf('day');
+        const end = moment(toDate || fromDate).tz('Asia/Kolkata').startOf('day');
         
         // Single day half-day is a special case
         if (isHalfDay) {
@@ -95,7 +95,7 @@ class LeaveCalculationService {
 
         const attendanceByDate = new Map(
             (attendanceRecords || []).map((record) => [
-                moment(record.attendance_date).format('YYYY-MM-DD'),
+                moment(record.attendance_date).tz('Asia/Kolkata').format('YYYY-MM-DD'),
                 record
             ])
         );

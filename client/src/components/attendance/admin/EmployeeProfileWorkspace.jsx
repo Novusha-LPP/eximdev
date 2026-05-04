@@ -2256,8 +2256,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                             leaveStatus={row.leaveStatus || row.approval_status}
                           />
                         </td>
-                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.first_in ? new Date(row.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
-                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.last_out ? new Date(row.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</td>
+                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.first_in ? formatTime12Hr(row.first_in) : '--'}</td>
+                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.last_out ? formatTime12Hr(row.last_out) : '--'}</td>
                         <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '500', color: THEME.text }}>{toWhole(row.total_work_hours || 0)}h</td>
                       </tr>
                     ))}
@@ -2453,8 +2453,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   {leaveHistory.map((l) => (
                     <tr key={l._id} style={{ borderBottom: `1px solid ${THEME.border}` }}>
                       <td style={{ padding: '6px 8px' }}>{l.leave_type || l.leave_policy_id?.policy_name || 'Leave'}</td>
-                      <td style={{ padding: '6px 8px' }}>{l.from_date ? new Date(l.from_date).toLocaleDateString() : '--'}</td>
-                      <td style={{ padding: '6px 8px' }}>{l.to_date ? new Date(l.to_date).toLocaleDateString() : '--'}</td>
+                      <td style={{ padding: '6px 8px' }}>{l.from_date ? formatAttendanceDate(l.from_date) : '--'}</td>
+                      <td style={{ padding: '6px 8px' }}>{l.to_date ? formatAttendanceDate(l.to_date) : '--'}</td>
                       <td style={{ padding: '6px 8px' }}><span style={{ background: THEME.bg, padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>{l.approval_status || l.status || '--'}</span></td>
                     </tr>
                   ))}

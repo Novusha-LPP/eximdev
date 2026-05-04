@@ -108,8 +108,8 @@ const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
     return days.length > 0 ? days : [0];
 };
 
-const dateKeyUTC = (dateVal) => moment.utc(dateVal).format('YYYY-MM-DD');
-const dateKeyLocal = (dateVal) => moment(dateVal).format('YYYY-MM-DD');
+const dateKeyUTC = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
+const dateKeyLocal = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
 const MISSED_PUNCH_LIMIT_HOURS = 12;
@@ -145,18 +145,20 @@ const dedupeBalancesByCanonicalKey = (balances = []) => {
 };
 
 const findLeaveForDate = (leaves, dayMomentUtc) => {
+    const dayStr = dayMomentUtc.format('YYYY-MM-DD');
     return leaves.find((leave) => {
-        const leaveStart = moment.utc(leave.from_date).startOf('day');
-        const leaveEnd = moment.utc(leave.to_date).endOf('day');
-        return dayMomentUtc.isSameOrAfter(leaveStart) && dayMomentUtc.isSameOrBefore(leaveEnd);
+        const leaveStart = moment(leave.from_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        const leaveEnd = moment(leave.to_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        return dayStr >= leaveStart && dayStr <= leaveEnd;
     });
 };
 
 const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
+    const dayStr = dayMomentLocal.format('YYYY-MM-DD');
     return leaves.find((leave) => {
-        const leaveStart = moment(leave.from_date).startOf('day');
-        const leaveEnd = moment(leave.to_date).endOf('day');
-        return dayMomentLocal.isSameOrAfter(leaveStart) && dayMomentLocal.isSameOrBefore(leaveEnd);
+        const leaveStart = moment(leave.from_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        const leaveEnd = moment(leave.to_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        return dayStr >= leaveStart && dayStr <= leaveEnd;
     });
 };
 
@@ -291,8 +293,8 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualTotalHours = 0;
 
     const compactHistory = [];
-    let curr = moment.utc(startDate).startOf('day');
-    const stop = moment.utc(endDate).endOf('day');
+    let curr = moment(startDate).tz('Asia/Kolkata').startOf('day');
+    const stop = moment(endDate).tz('Asia/Kolkata').endOf('day');
 
     while (curr.isSameOrBefore(stop, 'day')) {
         const dayStr = curr.format('YYYY-MM-DD');
@@ -342,7 +344,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
                 hStatus = 'holiday';
             } else if (weekOffStatus?.isOff) {
                 hStatus = 'weekly_off';
-            } else if (curr.isBefore(moment(), 'day')) {
+            } else if (curr.isBefore(moment().tz('Asia/Kolkata'), 'day')) {
                 actualAbsent++;
             }
         }
@@ -363,7 +365,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     const avgHoursH = Math.floor(avgHoursValue);
     const avgHoursM = Math.floor((avgHoursValue - avgHoursH) * 60);
 
-    const exactDateStr = moment.utc(endDate).format('YYYY-MM-DD');
+    const exactDateStr = moment(endDate).tz('Asia/Kolkata').format('YYYY-MM-DD');
     const latestRecord = recordsByDay.get(exactDateStr);
 
     const firstPolicyBucket = policyByYear.values().next().value || { weekOffPolicy: null, holidayPolicy: null };
@@ -3059,12 +3061,12 @@ export const getEmployeeFullProfile = async (req, res) => {
         // Normalize dates safely - handle malformed strings like 'Invalid date' from frontend
         const isValidStart = startDate && startDate !== 'Invalid date';
         const isValidEnd = endDate && endDate !== 'Invalid date';
-        let start = moment(isValidStart ? startDate : new Date()).startOf('day').toDate();
-        let end = moment(isValidEnd ? endDate : new Date()).endOf('day').toDate();
+        let start = moment(isValidStart ? startDate : new Date()).tz('Asia/Kolkata').startOf('day').toDate();
+        let end = moment(isValidEnd ? endDate : new Date()).tz('Asia/Kolkata').endOf('day').toDate();
 
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            start = moment().startOf('month').toDate();
-            end = moment().endOf('month').toDate();
+            start = moment().tz('Asia/Kolkata').startOf('month').toDate();
+            end = moment().tz('Asia/Kolkata').endOf('month').toDate();
         }
 
         const profileCompanyId = employee.company_id?._id || employee.company_id;
@@ -3138,8 +3140,8 @@ export const getEmployeeFullProfile = async (req, res) => {
         const attendanceByDay = new Map((attendance || []).map((record) => [dateKeyLocal(record.attendance_date), record]));
         const continuityAttendance = [...(attendance || [])];
 
-        let dayCursor = moment(start).startOf('day');
-        const dayEnd = moment(end).endOf('day');
+        let dayCursor = moment(start).tz('Asia/Kolkata').startOf('day');
+        const dayEnd = moment(end).tz('Asia/Kolkata').endOf('day');
 
         while (dayCursor.isSameOrBefore(dayEnd, 'day')) {
             const dayStr = dayCursor.format('YYYY-MM-DD');
@@ -3221,7 +3223,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                     remarks: 'Policy week off',
                     is_virtual: true
                 });
-            } else if (dayCursor.isSameOrBefore(moment(), 'day')) {
+            } else if (dayCursor.isSameOrBefore(moment().tz('Asia/Kolkata'), 'day')) {
                 continuityAttendance.push({
                     _id: `virtual-absent-${dayStr}`,
                     attendance_date: dayCursor.toDate(),

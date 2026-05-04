@@ -662,7 +662,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 toast.error(res.message || 'Failed to apply full month presence');
             }
         } catch (error) {
-            toast.error(error?.response?.data?.message || 'Error applying full month presence');
+            const msg = error?.message || error?.response?.data?.message || 'Error applying full month presence';
+            toast.error(msg);
         } finally {
             setApplyingFullMonth(false);
         }
@@ -708,16 +709,18 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             // Refresh main report if relevant
             fetchReport();
         } catch (err) {
-            const apiErrorCode = err?.response?.data?.error || err?.response?.data?.code;
-            const apiMessage = String(err?.response?.data?.message || '').toLowerCase();
-            const shouldAutoSwitchToTimeUnchanged =
-                apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
-                (apiMessage.includes('time correction is not applicable') && apiMessage.includes('status'));
+            const apiErrorCode = err?.error || err?.code || err?.response?.data?.error || err?.response?.data?.code;
+            const apiMessage = err?.message || err?.response?.data?.message || '';
+            const apiMessageLower = String(apiMessage).toLowerCase();
 
             if (apiErrorCode === 'PENDING_LEAVE_ACTION_REQUIRED') {
-                toast.error(err?.response?.data?.message || 'Pending leave exists for this date. Approve, reject, or withdraw it before adjusting attendance.');
+                toast.error(apiMessage || 'Pending leave exists for this date. Approve, reject, or withdraw it before adjusting attendance.');
                 return;
             }
+
+            const shouldAutoSwitchToTimeUnchanged =
+                apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
+                (apiMessageLower.includes('time correction is not applicable') && apiMessageLower.includes('status'));
 
             if (shouldAutoSwitchToTimeUnchanged) {
                 setAutoSwitchHintShown(true);
@@ -731,7 +734,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 return;
             }
 
-            toast.error(err?.response?.data?.message || 'Update failed');
+            toast.error(apiMessage || 'Update failed');
         }
         finally { setSaving(false); }
     };
@@ -749,7 +752,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             // Refresh main report
             fetchReport();
         } catch (err) {
-            toast.error(err.message || 'Update failed');
+            const msg = err?.message || err?.response?.data?.message || 'Update failed';
+            toast.error(msg);
         } finally {
             setUpdatingProfile(false);
         }

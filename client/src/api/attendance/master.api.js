@@ -161,6 +161,12 @@ const masterAPI = {
       return response.data;
   },
 
+  getTeamsByCompany: async (companyId) => {
+      // Teams are currently global/HOD-linked, fetching all active teams for the admin
+      const response = await apiClient.get('teams/all');
+      return response.data;
+  },
+
   getDepartments: async (params) => {
       const response = await apiClient.get('/master/departments', { params });
       return response.data;

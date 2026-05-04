@@ -71,7 +71,12 @@ function TeamDashboard() {
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
     const [moduleTab, setModuleTab] = useState(() => {
-        return localStorage.getItem("teamDashboard_moduleTab") || (teamId || userId ? "teams" : "users");
+        // If URL contains a teamId or userId, default to the users view
+        // so refreshing stays on the selected employee profile.
+        return (
+            localStorage.getItem("teamDashboard_moduleTab") ||
+            (teamId || userId ? "users" : "teams")
+        );
     });
     const [teamShortcutUserIds, setTeamShortcutUserIds] = useState([]);
 
@@ -169,8 +174,8 @@ function TeamDashboard() {
     useEffect(() => {
         if (selectedTeam && teamMembers.length > 0) {
             if (userId) {
-                const foundMember = teamMembers.find(m => m.username === userId);
-                if (foundMember && (!selectedMember || selectedMember.username !== foundMember.username)) {
+                const foundMember = teamMembers.find(m => m.username === userId || m._id === userId || m.userId === userId);
+                if (foundMember && (!selectedMember || (selectedMember.username !== foundMember.username && selectedMember._id !== foundMember._id))) {
                     setSelectedMember(foundMember);
                     if(activeTab === 'Members') setActiveTab('Profile');
                 }
@@ -481,7 +486,10 @@ function TeamDashboard() {
                         loading={loadingMembers}
                         pagination={{ pageSize: 10 }}
                         onRow={(record) => ({
-                            onClick: () => record.username && navigate('/attendance/teams/' + selectedTeam._id + '/user/' + record.username + '/performance'),
+                            onClick: () => {
+                                const userIdPath = record.username || record._id || record.userId;
+                                if (userIdPath) navigate('/attendance/teams/' + selectedTeam._id + '/user/' + userIdPath + '/performance');
+                            },
                             style: {
                                 cursor: "pointer",
                                 background: selectedMember?._id === record._id || (selectedMember?.username && selectedMember.username === record.username) ? "#e6f7ff" : undefined,

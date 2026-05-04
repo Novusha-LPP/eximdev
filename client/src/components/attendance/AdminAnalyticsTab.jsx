@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { FiUsers, FiCheckCircle, FiXCircle, FiClock, FiCalendar, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { 
+  FiUsers, FiCheckCircle, FiXCircle, FiClock, FiCalendar, 
+  FiChevronLeft, FiChevronRight, FiX, FiSearch, FiDownload, FiFilter, FiMapPin
+} from 'react-icons/fi';
+import attendanceAPI from '../../api/attendance/attendance.api';
+import toast from 'react-hot-toast';
+import AttendanceAnalyticsModal from './AttendanceAnalyticsModal';
+import EmployeeAttendanceDetailModal from './EmployeeAttendanceDetailModal';
 
 const formatLeaveBadge = (leaveType) => {
     if (!leaveType) return '';
@@ -24,13 +31,27 @@ const COLORS = {
   half_day: '#ff9101'
 };
 
-const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies = [], selectedCompanyId, onCompanyChange }) => {
+const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: 'present',
+  });
+
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [data]);
+
+  const openModal = (type) => {
+    setModalConfig({
+      isOpen: true,
+      type
+    });
+  };
   if (loading) return (
     <div className="adb-analytics-loading">
         <div className="adb-loader"></div>
@@ -39,7 +60,6 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
   );
   if (!data) return <div className="adb-empty">No data available for the selected date.</div>;
 
-  const stats = data?.stats || {};
   const dailySummarySource =
     (Array.isArray(data?.dailySummary) && data.dailySummary) ||
     (Array.isArray(data?.daily_summary) && data.daily_summary) ||
@@ -61,17 +81,22 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
       leave: emp?.leave || null
     };
   });
+
+  const onLeaveList = dailySummary.filter(e => e.status === 'leave');
+  const presentList = dailySummary.filter(e => ['present', 'late', 'half_day'].includes(e.status));
+  const absentList = dailySummary.filter(e => e.status === 'absent');
+
+  const stats = {
+    present: presentList.length,
+    onLeave: onLeaveList.length,
+    absent: absentList.length
+  };
   
-  // Helpful while troubleshooting payload drift between environments.
-  // console.log('AdminAnalyticsTab Data:', { keys: Object.keys(data || {}), stats, dailySummaryLength: dailySummary.length });
-
   const chartData = [
-    { name: 'Present', value: stats.present || 0, color: COLORS.present },
-    { name: 'On Leave', value: stats.onLeave || 0, color: COLORS.leave },
-    { name: 'Absent', value: stats.absent || 0, color: COLORS.absent },
+    { name: 'Present', value: stats.present, color: COLORS.present },
+    { name: 'On Leave', value: stats.onLeave, color: COLORS.leave },
+    { name: 'Absent', value: stats.absent, color: COLORS.absent },
   ].filter(d => d.value > 0);
-
-  const onLeaveEmployees = dailySummary.filter(e => e.status === 'leave');
 
   const getStatusStyle = (status) => {
     const styles = {
@@ -99,11 +124,16 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = dailySummary.slice(startIndex, startIndex + itemsPerPage);
 
+  const handleMonthChange = (val) => {
+    onDateChange(`${val}-01`);
+  };
+
   return (
     <div className="adb-analytics-tab">
       <div className="adb-analytics-header">
          <div className="adb-header-controls">
             <div className="adb-date-picker-wrap">
+                <span style={{ fontSize: '12px', color: '#6b7280', marginRight: '8px' }}>From:</span>
                 <FiCalendar className="adb-dp-icon" />
                 <input 
                     type="date" 
@@ -111,6 +141,18 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
                     value={currentDate} 
                     max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => onDateChange(e.target.value)}
+                />
+            </div>
+
+            <div className="adb-date-picker-wrap">
+                <span style={{ fontSize: '12px', color: '#6b7280', marginRight: '8px' }}>To:</span>
+                <FiCalendar className="adb-dp-icon" />
+                <input 
+                    type="date" 
+                    className="adb-date-input" 
+                    value={endDate} 
+                    max={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => onEndDateChange(e.target.value)}
                 />
             </div>
 
@@ -133,25 +175,25 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
       </div>
 
       <div className="adb-analytics-grid">
-        <div className="adb-ms-card">
+        <div className="adb-ms-card clickable" onClick={() => openModal('present')}>
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(54, 182, 15, 0.1)', color: COLORS.present }}><FiUsers /></div>
             <div className="adb-ms-info">
-                <span className="adb-ms-val">{stats.present || 0}</span>
+                <span className="adb-ms-val">{stats.present}</span>
                 <span className="adb-ms-lbl">Total Present</span>
             </div>
         </div>
 
-        <div className="adb-ms-card">
+        <div className="adb-ms-card clickable" onClick={() => openModal('leave')}>
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(30, 64, 175, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
-                <span className="adb-ms-val">{stats.onLeave || 0}</span>
+                <span className="adb-ms-val">{stats.onLeave}</span>
                 <span className="adb-ms-lbl">On Leave</span>
             </div>
         </div>
-        <div className="adb-ms-card">
+        <div className="adb-ms-card clickable" onClick={() => openModal('absent')}>
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(192, 46, 46, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
             <div className="adb-ms-info">
-                <span className="adb-ms-val">{stats.absent || 0}</span>
+                <span className="adb-ms-val">{stats.absent}</span>
                 <span className="adb-ms-lbl">Absent</span>
             </div>
         </div>
@@ -200,7 +242,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
                 ) : paginatedData.map((emp) => {
                   const statusStyle = getStatusStyle(emp.status);
                   return (
-                    <tr key={emp.id} className="analytics-row">
+                    <tr key={emp.id} className="analytics-row clickable" onClick={() => setSelectedEmployee(emp)} style={{ cursor: 'pointer' }}>
                         <td>
                         <div className="adb-td-user">
                             <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
@@ -271,10 +313,10 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
             <div className="adb-leave-list-card">
                 <h3 className="adb-card-title">
                     On Leave Today
-                    <span className="adb-on-leave-count">{onLeaveEmployees.length} employees</span>
+                    <span className="adb-on-leave-count">{onLeaveList.length} employees</span>
                 </h3>
                 <div className="adb-leave-list-scroll">
-                    {onLeaveEmployees.slice(0, 5).map(emp => (
+                    {onLeaveList.slice(0, 5).map(emp => (
                         <div key={emp.id} className="adb-leave-row">
                             <div className="adb-lr-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
                             <div className="adb-lr-info">
@@ -284,18 +326,36 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, onDateChange, companies
                             <div className={`adb-lr-status ${emp.leave?.status}`}>{emp.leave?.status === 'approved' ? 'Approved' : 'Pending'}</div>
                         </div>
                     ))}
-                    {onLeaveEmployees.length === 0 && (
+                    {onLeaveList.length === 0 && (
                         <div className="adb-no-leave">No employees on leave for this date.</div>
                     )}
                 </div>
-                {onLeaveEmployees.length > 5 && (
+                {onLeaveList.length > 5 && (
                     <a href="#" className="adb-view-all" onClick={(e) => e.preventDefault()}>
-                        View all {onLeaveEmployees.length} →
+                        View all {onLeaveList.length} →
                     </a>
                 )}
             </div>
         </div>
       </div>
+
+      {/* Analytics Detail Modal */}
+      <AttendanceAnalyticsModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        type={modalConfig.type}
+        initialDate={currentDate}
+        companyId={selectedCompanyId}
+        role="ADMIN"
+      />
+
+      <EmployeeAttendanceDetailModal 
+        isOpen={!!selectedEmployee}
+        onClose={() => setSelectedEmployee(null)}
+        employee={selectedEmployee}
+        startDate={currentDate}
+        endDate={endDate}
+      />
     </div>
   );
 };

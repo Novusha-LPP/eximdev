@@ -129,7 +129,16 @@ const AttendanceManagement = () => {
             await attendanceAPI.updateAttendanceRecord(editForm._id, editForm);
             toast.success('Record updated');
             setDrawer({ open: false }); fetchData();
-        } catch (err) { toast.error(err.message || 'Update failed'); }
+        } catch (err) {
+            const apiErrorCode = err?.error || err?.code || err?.response?.data?.error || err?.response?.data?.code;
+            const apiMessage = err?.message || err?.response?.data?.message || 'Update failed';
+
+            if (apiErrorCode === 'PENDING_LEAVE_ACTION_REQUIRED') {
+                toast.error(apiMessage || 'Pending leave exists for this date. Approve, reject, or withdraw it before adjusting attendance.');
+                return;
+            }
+            toast.error(apiMessage);
+        }
         finally { setSaving(false); }
     };
 

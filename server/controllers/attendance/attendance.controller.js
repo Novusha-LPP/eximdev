@@ -163,7 +163,7 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
 const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
 const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session';
-const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session';
+const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
 
 const mapWithConcurrency = async (items, concurrency, mapper) => {
     if (!Array.isArray(items) || items.length === 0) return [];
@@ -303,8 +303,9 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
 
         const leave = findLeaveForDate(empLeaves, curr);
         const isSystemAbsent = rec && String(rec.status).toLowerCase() === 'absent';
+        const isWorking = rec && ['present', 'late', 'half_day'].includes(String(rec.status || '').toLowerCase());
 
-        if (leave && (!rec || isSystemAbsent)) {
+        if (leave && !isWorking) {
             const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
             const isPending = String(leave.approval_status || '').toLowerCase() === 'pending';
             
@@ -312,7 +313,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             hSession = leave.half_day_session || leave.start_half_session || leave.end_half_session;
             
             if (isHalf) actualHalfDay++;
-            else if (!isPending) actualLeaves++;
+            else actualLeaves++;
         } else if (rec) {
             hStatus = normalizeAttendanceStatus(rec, emp);
             hSession = rec.half_day_session;
@@ -352,6 +353,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             session: hSession,
             leaveType: leave?.leave_type || null,
             leaveStatus: leave?.approval_status || null,
+            leaveReason: leave?.reason || null,
             is_half_day_leave: !!(leave?.is_half_day || leave?.is_start_half_day || leave?.is_end_half_day)
         });
         curr.add(1, 'day');
@@ -867,24 +869,7 @@ export const getDashboardData = async (req, res) => {
             punchStatus.weeklyOffDays = getWeeklyOffDaysFromPolicy(weekOffPolicy);
         }
 
-        // 4. Personal Month Stats
-        const monthRecs = await AttendanceRecord.find({ employee_id: user._id, year_month: currentYearMonth });
-        let pCount = 0, aCount = 0, lCount = 0, ltCount = 0, totalHrs = 0;
-        monthRecs.forEach(r => {
-            if (['present', 'late', 'half_day'].includes(r.status)) pCount++;
-            if (r.status === 'absent') aCount++;
-            if (r.status === 'leave') lCount++;
-            if (r.is_late) ltCount++;
-            totalHrs += (r.total_work_hours || 0);
-        });
-
-        const monthStats = {
-            present: pCount,
-            absent: aCount,
-            leaves: lCount,
-            late: ltCount,
-            totalHours: totalHrs
-        };
+        // 4. Personal Month Stats (Calculated later after calendar logic)
 
         // 5. MANAGEMENT SNAPSHOT (The Solution for HOD/Admin)
         let mgmtSnapshot = null;
@@ -918,7 +903,7 @@ export const getDashboardData = async (req, res) => {
         }
 
         // 6. Calendar & Holidays (policy-aware, same source of truth as continuity views)
-        const calendarRecords = await AttendanceRecord.find({ employee_id: user._id, year_month: currentYearMonth });
+        const calendarRecords = await AttendanceRecord.find({ employee_id: user._id, company_id: companyId, year_month: currentYearMonth });
         const monthStartUTC = moment.utc(`${currentYearMonth}-01`).startOf('month').toDate();
         const monthEndUTC = moment.utc(`${currentYearMonth}-01`).endOf('month').toDate();
         const [resolvedWeekOffPolicy, resolvedHolidayPolicy] = await Promise.all([
@@ -1036,6 +1021,25 @@ export const getDashboardData = async (req, res) => {
         // Convert Map to Array
         const calendar = Object.values(calendarMap);
 
+        // 4. Recalculate Month Stats based on Final Calendar (Consistency Fix)
+        let pCount = 0, aCount = 0, lCount = 0, ltCount = 0, totalHrs = 0;
+        calendar.forEach(r => {
+            const s = String(r.status || '').toLowerCase();
+            if (['present', 'late', 'half_day'].includes(s)) pCount++;
+            if (s === 'absent') aCount++;
+            if (['leave', 'pending_leave'].includes(s)) lCount++;
+            if (r.isLate) ltCount++;
+            totalHrs += (r.hours || 0);
+        });
+
+        const monthStats = {
+            present: pCount,
+            absent: aCount,
+            leaves: lCount,
+            late: ltCount,
+            totalHours: totalHrs
+        };
+
 
 
         // --- CALENDAR LOGIC END ---
@@ -1043,6 +1047,7 @@ export const getDashboardData = async (req, res) => {
         const pendingActions = [];
         const incompleteRecords = await AttendanceRecord.find({
             employee_id: user._id,
+            company_id: companyId,
             attendance_date: { $lt: today },
             first_in: { $ne: null },
             last_out: null
@@ -1074,7 +1079,7 @@ export const getDashboardData = async (req, res) => {
             });
         });
 
-        const recent = await AttendanceRecord.find({ employee_id: user._id })
+        const recent = await AttendanceRecord.find({ employee_id: user._id, company_id: companyId })
             .sort({ attendance_date: -1 })
             .limit(5)
             .select('attendance_date first_in last_out total_work_hours status is_late late_by_minutes');
@@ -1421,11 +1426,18 @@ export const getAdminDashboardData = async (req, res) => {
             console.warn(`[AdminDashboard] No specific company_id provided. Fetching global metrics for Admin: ${req.user?.username}`);
         }
 
-        const { date } = req.query;
+        const { date, start_date, end_date } = req.query;
         const tz = 'Asia/Kolkata'; 
-        const istNow = date ? moment.tz(date, tz) : moment().tz(tz);
-        const targetStart = istNow.clone().startOf('day').toDate();
-        const targetEnd = istNow.clone().endOf('day').toDate();
+        
+        let targetStart, targetEnd;
+        if (start_date && end_date) {
+            targetStart = moment.tz(start_date, tz).startOf('day').toDate();
+            targetEnd = moment.tz(end_date, tz).endOf('day').toDate();
+        } else {
+            const istNow = date ? moment.tz(date, tz) : moment().tz(tz);
+            targetStart = istNow.clone().startOf('day').toDate();
+            targetEnd = istNow.clone().endOf('day').toDate();
+        }
 
         const activeEmployeeQuery = {
             role: { $nin: ['ADMIN', 'Admin'] },
@@ -1470,12 +1482,13 @@ export const getAdminDashboardData = async (req, res) => {
 
         // 1. Precise Statistics
         const presentUserIds = attendanceRecs.filter(r => ['present', 'half_day'].includes(r.status)).map(r => r.employee_id.toString());
-        const approvedLeaveUserIds = activeLeaves.filter(l => l.approval_status === 'approved').map(l => l.employee_id.toString());
+        // INCLUDE pending leaves in the count for consistency as requested
+        const leaveUserIds = activeLeaves.filter(l => l.approval_status === 'approved' || l.approval_status === 'pending').map(l => l.employee_id.toString());
         
         const presentToday = new Set(presentUserIds).size;
-        const onLeaveToday = new Set(approvedLeaveUserIds).size;
+        const onLeaveToday = new Set(leaveUserIds).size;
         
-        const accountedIds = new Set([...presentUserIds, ...approvedLeaveUserIds]);
+        const accountedIds = new Set([...presentUserIds, ...leaveUserIds]);
         const absentToday = Math.max(0, totalEmployees - accountedIds.size);
 
         const halfDayToday = attendanceRecs.filter(r => r.status === 'half_day').length;
@@ -1500,9 +1513,9 @@ export const getAdminDashboardData = async (req, res) => {
                 };
             }
 
-            // Resolve Attendance Status
+            // Resolve Attendance Status - Prioritize Leave over Weekly Off/Holiday for statistical consistency
             let status = att?.status || 'absent';
-            if (status === 'absent' && leaveInfo?.status === 'approved') {
+            if (leaveInfo?.status === 'approved' || leaveInfo?.status === 'pending') {
                 status = 'leave';
             }
 
@@ -1597,8 +1610,15 @@ export const getPayrollData = async (req, res) => {
         if (req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
-        const { month, year } = req.query;
-        const companyId = resolveCompanyId(req);
+        
+        const { month, year, company_id } = req.query;
+        
+        // Use company_id from query if provided, else resolve from user context
+        let companyId = company_id || resolveCompanyId(req) || req.user?.company_id;
+        
+        if (!companyId) {
+            return res.status(400).json({ message: 'Company selection is required for payroll data' });
+        }
 
         // Fix: Provide defaults and ensure month is string for padStart
         const targetMonth = month || (moment().month() + 1).toString();
@@ -1607,65 +1627,193 @@ export const getPayrollData = async (req, res) => {
 
         const isAdmin = req.user.role === 'ADMIN';
 
+        // Validate company exists
         const company = await Company.findById(companyId);
-        if (!company) return res.status(404).json({ message: 'Company not found' });
+        if (!company) {
+            return res.status(404).json({ message: 'Company not found', debug: { companyId } });
+        }
 
-        const employees = await User.find({ company_id: companyId, role: 'EMPLOYEE', isActive: true })
-            .select('first_name last_name username employee_code department department_id shift_id joining_date employment_type monthly_salary')
+        // Query employees - handle both ObjectId and string formats
+        const query = {
+            role: { $nin: ['ADMIN', 'Admin'] }
+        };
+        
+        // Add company filter - try both formats
+        if (mongoose.Types.ObjectId.isValid(companyId)) {
+            query.$or = [
+                { company_id: new mongoose.Types.ObjectId(companyId) },
+                { company_id: companyId }
+            ];
+        } else {
+            query.company_id = companyId;
+        }
+        
+        const employees = await User.find(query)
+            .select('first_name last_name username employee_code department department_id shift_id joining_date employment_type monthly_salary company_id')
             .populate('department_id')
-            .populate('shift_id');
+            .populate('shift_id')
+            .lean();
+        
+        // Debug: Log query result
+        if (employees.length === 0) {
+            console.log('No employees found with query:', JSON.stringify(query));
+            // Try simplified query as fallback
+            const fallbackCount = await User.countDocuments({ 
+                company_id: companyId,
+                role: { $nin: ['ADMIN', 'Admin'] }
+            });
+            console.log('Fallback query would return:', fallbackCount, 'employees');
+        }
 
         const payrollData = await Promise.all(employees.map(async (emp) => {
-            const result = await PayrollEngine.calculatePayableDays(emp, company, yearMonth);
-            const warnings = await PayrollEngine.getValidationWarnings(emp._id, companyId, yearMonth);
+            try {
+                const result = await PayrollEngine.calculatePayableDays(emp, company, yearMonth);
+                const warnings = await PayrollEngine.getValidationWarnings(emp._id, companyId, yearMonth);
 
-            const employeeName = (emp.first_name || emp.last_name)
-                ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim()
-                : (emp.username || 'Unknown Employee');
+                const employeeName = (emp.first_name || emp.last_name)
+                    ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim()
+                    : (emp.username || 'Unknown Employee');
 
-            const deptName = (emp.department_id && emp.department_id.department_name)
-                ? emp.department_id.department_name
-                : (emp.department || 'General');
+                const deptName = (emp.department_id && emp.department_id.department_name)
+                    ? emp.department_id.department_name
+                    : (emp.department || 'General');
 
-            const data = {
-                id: emp._id,
-                name: employeeName,
-                code: emp.employee_code || '---',
-                department: deptName,
-                employment_type: emp.employment_type || 'Full Time',
-                stats: {
-                    totalWorkingDays: result.summary.totalWorkingDays,
-                    present: result.stats.present,
-                    absent: result.stats.absent,
-                    leave: result.stats.leave,
-                    halfDay: result.stats.halfDay,
-                    weeklyOffs: result.summary.weeklyOffs,
-                    holidays: result.summary.holidays,
-                    workHours: result.stats.workHours.toFixed(1),
-                    payableDays: result.stats.payableDays,
-                    lopDays: result.stats.lopDays,
-                    overtimeHours: result.stats.overtimeHours.toFixed(1)
-                },
-                warnings: warnings
-            };
+                // Find employee team
+                const empTeam = await TeamModel.findOne({ 'members.userId': emp._id, isActive: true }).select('_id name');
 
-            if (isAdmin) {
-                data.salary = {
-                    monthlyBase: result.salary.monthlyBase,
-                    perDay: result.salary.perDay,
-                    lopDeduction: result.salary.lopDeduction,
-                    overtimePay: result.salary.overtimePay,
-                    final: result.salary.final
+                const data = {
+                    id: emp._id,
+                    name: employeeName,
+                    code: emp.employee_code || '---',
+                    department: deptName,
+                    teamId: empTeam ? empTeam._id.toString() : null,
+                    teamName: empTeam ? empTeam.name : null,
+                    employment_type: emp.employment_type || 'Full Time',
+                    stats: {
+                        totalWorkingDays: result.summary.totalWorkingDays,
+                        present: result.stats.present,
+                        absent: result.stats.absent,
+                        leave: result.stats.leave,
+                        halfDay: result.stats.halfDay,
+                        weeklyOffs: result.summary.weeklyOffs,
+                        holidays: result.summary.holidays,
+                        workHours: result.stats.workHours.toFixed(1),
+                        payableDays: result.stats.payableDays,
+                        lopDays: result.stats.lopDays,
+                        overtimeHours: result.stats.overtimeHours.toFixed(1)
+                    },
+                    warnings: warnings
+                };
+
+                if (isAdmin) {
+                    data.salary = {
+                        monthlyBase: result.salary.monthlyBase,
+                        perDay: result.salary.perDay,
+                        lopDeduction: result.salary.lopDeduction,
+                        overtimePay: result.salary.overtimePay,
+                        final: result.salary.final
+                    };
+                }
+
+                return data;
+            } catch (empErr) {
+                console.error(`Error processing payroll for employee ${emp._id}:`, empErr.message);
+                return {
+                    id: emp._id,
+                    name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username,
+                    error: empErr.message
                 };
             }
-
-            return data;
         }));
 
-        res.json({ success: true, data: payrollData, isLocked: await PayrollEngine.isLocked(company, yearMonth) });
+        res.json({ 
+            success: true, 
+            data: payrollData, 
+            employeeCount: employees.length,
+            month: targetMonth,
+            year: targetYear,
+            company: { id: company._id, name: company.company_name },
+            debug: { companyId, yearMonth, queryUsed: 'company_id match' },
+            isLocked: await PayrollEngine.isLocked(company, yearMonth) 
+        });
     } catch (err) {
         console.error('Payroll Export Error:', err);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+export const getPayrollEmployees = async (req, res) => {
+    try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Only admins can view payroll data' });
+        }
+        
+        let companyId = resolveCompanyId(req);
+        if (!companyId && req.user?.company_id) {
+            companyId = req.user.company_id;
+        }
+
+        if (!companyId) {
+            return res.status(400).json({ message: 'Company selection is required' });
+        }
+
+        const company = await Company.findById(companyId);
+        if (!company) {
+            return res.status(404).json({ message: 'Company not found', debug: { companyId } });
+        }
+
+        console.log('Fetching employees for company:', companyId);
+        
+        // Count with different conditions
+        const totalUsersInDb = await User.countDocuments();
+        const usersWithCompanyIdAsObjectId = await User.countDocuments({ 
+            company_id: new mongoose.Types.ObjectId(companyId) 
+        });
+        const usersWithCompanyIdAsString = await User.countDocuments({ 
+            company_id: companyId 
+        });
+        const nonAdminUsers = await User.countDocuments({
+            $or: [
+                { company_id: new mongoose.Types.ObjectId(companyId) },
+                { company_id: companyId }
+            ],
+            role: { $nin: ['ADMIN', 'Admin'] }
+        });
+
+        // Get actual employees
+        const employees = await User.find({
+            $or: [
+                { company_id: new mongoose.Types.ObjectId(companyId) },
+                { company_id: companyId }
+            ],
+            role: { $nin: ['ADMIN', 'Admin'] }
+        })
+            .select('first_name last_name username employee_code department role company_id joining_date')
+            .limit(20);
+
+        res.json({
+            success: true,
+            company: { id: company._id, name: company.company_name },
+            stats: {
+                totalUsersInDb,
+                usersWithCompanyIdAsObjectId,
+                usersWithCompanyIdAsString,
+                nonAdminUsers
+            },
+            employees: employees.map(e => ({
+                id: e._id,
+                name: `${e.first_name} ${e.last_name}`,
+                username: e.username,
+                code: e.employee_code,
+                role: e.role,
+                joinDate: e.joining_date,
+                companyId: e.company_id
+            })),
+            debug: { companyId }
+        });
+    } catch (err) {
+        console.error('Get Payroll Employees Error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 
@@ -3035,7 +3183,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                         half_day_session: leave.half_day_session || null,
                         start_half_session: leave.start_half_session || null,
                         end_half_session: leave.end_half_session || null,
-                        remarks: isPending ? 'Pending Leave Application' : 'Approved Leave',
+                        remarks: isPending ? (leave.reason || 'Pending Leave Application') : (leave.reason || 'Approved Leave'),
                         is_pending: isPending,
                         is_virtual: true
                     });

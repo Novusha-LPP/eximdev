@@ -98,7 +98,7 @@ const formatStatus = (s) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
-const getAttendanceDateLabel = (value) => formatAttendanceDate(value, 'D MMM, EEE', ATTENDANCE_TIME_ZONE);
+const getAttendanceDateLabel = (value) => formatAttendanceDate(value, 'd MMM, EEE', ATTENDANCE_TIME_ZONE);
 
 const getCalendarStatusClass = (status = '') => {
   const normalized = String(status || '').toLowerCase();
@@ -227,6 +227,22 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     }
     navigate(newPath);
   };
+
+  const handleSelectEmployee = (emp) => {
+    const empId = emp._id;
+    const username = emp.username || empId;
+
+    let newPath = '';
+    if (teamId) {
+      newPath = `/attendance/teams/${teamId}/user/${username}/performance`;
+    } else {
+      newPath = `/attendance/admin/employee/${empId}/performance`;
+    }
+    
+    setLocalEmployeeId(empId);
+    navigate(newPath);
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [groupBy, setGroupBy] = useState('none'); // 'none', 'organization', 'team'
   const [loading, setLoading] = useState(true);
@@ -1379,7 +1395,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase();
                       const goToProfile = (e) => {
                         e.stopPropagation();
-                        setLocalEmployeeId(emp._id);
+                        handleSelectEmployee(emp);
                       };
                       return (
                         <div 
@@ -1493,7 +1509,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         {group.items.map((emp) => (
                           <tr 
                             key={emp._id} 
-                            onClick={() => setLocalEmployeeId(emp._id)}
+                            onClick={() => handleSelectEmployee(emp)}
                             onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             style={{ borderBottom: `1px solid ${THEME.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
@@ -1923,8 +1939,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             </button>
             <button 
               onClick={() => {
-                if (localEmployeeId) setLocalEmployeeId(null);
-                else if (teamId) navigate(`/attendance/teams/${teamId}`);
+                setLocalEmployeeId(null);
+                if (teamId) navigate(`/attendance/teams/${teamId}`);
                 else navigate('/attendance/admin/attendance');
               }} 
               style={{

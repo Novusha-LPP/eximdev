@@ -7,7 +7,7 @@ import {
   FiCalendar, FiCheckSquare, FiFileText, FiActivity,
   FiCheck, FiX, FiSettings, FiBookOpen, FiClock, FiUsers,
   FiCheckCircle, FiXCircle, FiSun,
-  FiChevronLeft, FiChevronRight,
+  FiChevronLeft, FiChevronRight, FiList
 } from 'react-icons/fi';
 import Badge from './common/Badge';
 import attendanceAPI from '../../api/attendance/attendance.api';
@@ -16,7 +16,9 @@ import masterAPI from '../../api/attendance/master.api';
 import { getAttendanceDateKey, minutesToHours, isToday } from './utils/helpers';
 import toast from 'react-hot-toast';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
+import AdminMonthlySummaryTab from './AdminMonthlySummaryTab';
 import ApplyLeaveModal from './ApplyLeaveModal';
+import AttendanceAnalyticsModal from './AttendanceAnalyticsModal';
 import './Dashboard.css';
 
 /* -- Constants -- */
@@ -142,6 +144,13 @@ export default function Dashboard() {
   const [holidays, setHolidays] = useState([]);
   const [month, setMonth] = useState(new Date());
   const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
+  
+  // Analytics Modal
+  const [analyticsModal, setAnalyticsModal] = useState({
+    isOpen: false,
+    type: 'present',
+    initialDate: new Date().toISOString().split('T')[0]
+  });
   const [liveTimer, setLiveTimer] = useState('0h 00m 00s');
 
   // Adhoc Admin Tabs
@@ -149,6 +158,8 @@ export default function Dashboard() {
   const [adminData, setAdminData] = useState(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminDate, setAdminDate] = useState(new Date().toISOString().split('T')[0]);
+  const [adminEndDate, setAdminEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [adminMonth, setAdminMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
   const [adminCompanyId, setAdminCompanyId] = useState('');
   const [companies, setCompanies] = useState([]);
 
@@ -196,19 +207,26 @@ export default function Dashboard() {
   useEffect(() => {
     if (isAuthorizedAdmin) {
       masterAPI.getCompanies().then(res => {
-        if (res?.success) setCompanies(res.data || []);
+        if (res?.success) {
+          const list = res.data || [];
+          setCompanies(list);
+          if (list.length > 0 && !adminCompanyId) {
+            setAdminCompanyId(list[0]._id);
+          }
+        }
       }).catch(err => console.error('Failed to load companies', err));
     }
-  }, [isAuthorizedAdmin]);
+  }, [isAuthorizedAdmin, adminCompanyId]);
 
   useEffect(() => { load(month.getMonth() + 1, month.getFullYear()); }, [month]);
 
-  const loadAdminData = useCallback(async (date, companyId) => {
+  const loadAdminData = useCallback(async (date, companyId, endDate) => {
     if (!isAuthorizedAdmin) return;
     try {
       setAdminLoading(true);
       const res = await attendanceAPI.getAdminDashboard({ 
         date, 
+        end_date: endDate || undefined,
         company_id: companyId || undefined 
       });
       if (res?.success) setAdminData(res.data);
@@ -221,9 +239,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (activeTab === 'daily' && isAuthorizedAdmin) {
-      loadAdminData(adminDate, adminCompanyId);
+      loadAdminData(adminDate, adminCompanyId, adminEndDate);
     }
-  }, [activeTab, adminDate, adminCompanyId, isAuthorizedAdmin, loadAdminData]);
+  }, [activeTab, adminDate, adminEndDate, adminCompanyId, isAuthorizedAdmin, loadAdminData]);
 
   useEffect(() => {
     const h = () => load(month.getMonth() + 1, month.getFullYear());
@@ -291,6 +309,15 @@ export default function Dashboard() {
     } catch { toast.error('Action failed'); }
     finally { setApproving(p => ({ ...p, [id]: false })); }
   };
+
+  // const openAnalytics = (type) => {
+  //   if (!isAuthorizedAdmin) return;
+  //   setAnalyticsModal({
+  //     isOpen: true,
+  //     type,
+  //     initialDate: adminDate || new Date().toISOString().split('T')[0]
+  //   });
+  // };
 
   /* -- Calendar -- */
   const getCalDays = () => {
@@ -365,11 +392,19 @@ export default function Dashboard() {
   ];
 
   const managerTiles = [
-    { cls: 'green', val: stats.present ?? 0, lbl: 'Present Today', sub: `of ${stats.total ?? '—'} ${isAdmin ? 'employees' : 'team members'}` },
-    { cls: 'red', val: stats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences' },
-    { cls: 'amber', val: stats.late ?? 0, lbl: 'Late Arrivals', sub: 'after shift start' },
-    { cls: 'blue', val: stats.onLeave ?? stats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves' },
+    { cls: 'green', val: stats.present ?? 0, lbl: 'Present Today', sub: `of ${stats.total ?? '—'} ${isAdmin ? 'employees' : 'team members'}`, type: 'present' },
+    { cls: 'red', val: stats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences', type: 'absent' },
+    { cls: 'amber', val: stats.late ?? 0, lbl: 'Late Arrivals', sub: 'after shift start', type: 'late' },
+    { cls: 'blue', val: stats.onLeave ?? stats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves', type: 'leave' },
   ];
+
+  const openAnalytics = (type, date) => {
+    setAnalyticsModal({
+      isOpen: true,
+      type,
+      initialDate: date || new Date().toISOString().split('T')[0]
+    });
+  };
 
   /* -- Quick actions -- */
   const hodActions = [
@@ -431,7 +466,11 @@ export default function Dashboard() {
       <div className="db-tiles-wrap">
         <div className="db-tiles">
           {(isManager ? managerTiles : personalTiles).map((t, i) => (
-            <div key={i} className={`tile ${t.cls}`}>
+            <div 
+              key={i} 
+              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin ? 'clickable' : ''}`}
+              onClick={() => isManager && isAuthorizedAdmin && t.type && openAnalytics(t.type)}
+            >
               <div className="tile-val">{t.val}</div>
               <div className="tile-lbl">{t.lbl}</div>
               <div className="tile-sub">{t.sub}</div>
@@ -571,6 +610,12 @@ export default function Dashboard() {
                 onClick={() => setActiveTab('daily')}
               >
                 <FiActivity /> Daily Summary
+              </button>
+              <button 
+                className={`db-main-tab ${activeTab === 'monthly' ? 'active' : ''}`}
+                onClick={() => setActiveTab('monthly')}
+              >
+                <FiList /> Monthly Summary
               </button>
             </div>
           )}
@@ -807,17 +852,27 @@ export default function Dashboard() {
             </div>
           </div>
             </>
-          ) : (
+          ) : activeTab === 'daily' ? (
             <AdminAnalyticsTab 
               data={adminData} 
               loading={adminLoading}
               currentDate={adminDate}
+              endDate={adminEndDate}
               onDateChange={setAdminDate}
+              onEndDateChange={setAdminEndDate}
               companies={companies}
               selectedCompanyId={adminCompanyId}
               onCompanyChange={setAdminCompanyId}
             />
-          )}
+          ) : activeTab === 'monthly' ? (
+            <AdminMonthlySummaryTab 
+                currentMonth={adminMonth}
+                onMonthChange={setAdminMonth}
+                companies={companies}
+                selectedCompanyId={adminCompanyId}
+                onCompanyChange={setAdminCompanyId}
+            />
+          ) : null}
         </div>
 
         {/* -- RIGHT SIDEBAR -- */}
@@ -974,6 +1029,16 @@ export default function Dashboard() {
         onClose={() => setShowApplyLeaveModal(false)}
         onSuccess={handleApplyLeaveSuccess}
         balances={balances}
+      />
+
+      {/* -- Attendance Analytics Modal -- */}
+      <AttendanceAnalyticsModal
+        isOpen={analyticsModal.isOpen}
+        onClose={() => setAnalyticsModal({ ...analyticsModal, isOpen: false })}
+        type={analyticsModal.type}
+        initialDate={analyticsModal.initialDate}
+        companyId={adminCompanyId}
+        role={user?.role}
       />
 
     </div>

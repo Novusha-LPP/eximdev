@@ -659,3 +659,12 @@
 @media(max-width: 360px) {
   .atn-stats { grid-template-columns: 1fr; }
 }
+/* -- Monthly Summary Tooltip -- */
+adb-user-td { position: relative; }
+adb-leave-tooltip { position: absolute; left: 20px; top: 100%; z-index: 1000; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); width: 280px; padding: 14px; pointer-events: none; opacity: 0; visibility: hidden; transform: translateY(8px); transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+adb-user-td:hover .adb-leave-tooltip { opacity: 1; visibility: visible; transform: translateY(2px); }
+adb-lt-title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9; }
+adb-lt-item { font-size: 12px; color: #334155; margin-bottom: 8px; display: flex; flex-direction: column; }
+adb-lt-item:last-child { margin-bottom: 0; }
+adb-lt-date { font-weight: 600; color: #0f172a; }
+adb-lt-reason { color: #64748b; font-size: 11px; font-style: italic; margin-top: 1px; }

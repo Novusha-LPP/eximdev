@@ -31,7 +31,8 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         "Charge Heading": '',
         "Charge Head Category": '',
         "TDS Category": '94C',
-        "Description of Services": ''
+        "Description of Services": '',
+        "attachments": []
     });
 
     const [errorPopup, setErrorPopup] = useState({ isOpen: false, messages: [] });
@@ -90,7 +91,8 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     "Charge Heading": initialData.chargeHead || '',
                     "Charge Head Category": initialData.chargeHeadCategory || '',
                     "TDS Category": initialData.tdsCategory || '94C',
-                    "Description of Services": initialData.chargeHeading || ''
+                    "Description of Services": initialData.chargeHeading || '',
+                    "attachments": initialData.attachments || []
                 }));
             }
         };

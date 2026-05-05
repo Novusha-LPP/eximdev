@@ -39,7 +39,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "jobRef": '',
         "Charge Description": '',
         "Charge Head Category": '',
-        "TDS Category": '94C'
+        "TDS Category": '94C',
+        "attachments": []
     });
 
     useEffect(() => {
@@ -121,7 +122,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "jobRef": initialData.jobId || '',
                     "Charge Description": initialData.chargeDescription || '',
                     "Charge Head Category": initialData.chargeHeadCategory || '',
-                    "TDS Category": initialData.tdsCategory || '94C'
+                    "TDS Category": initialData.tdsCategory || '94C',
+                    "attachments": initialData.attachments || []
                 }));
             }
         };

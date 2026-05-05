@@ -40,6 +40,7 @@ const paymentRequestSchema = new mongoose.Schema({
   tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
   requestedBy: { type: String },
+  attachments: [{ type: String }],
   createdAt: { type: Date, default: Date.now }
 
 }, { timestamps: true });

@@ -231,7 +231,8 @@ const mapPurchaseEntryData = (data) => {
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
-    status: data["Status"] || data.status || ''
+    status: data["Status"] || data.status || '',
+    attachments: data.attachments || []
   };
 };
 
@@ -438,7 +439,8 @@ const mapPaymentRequestData = (data) => {
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
     chargeHeading: data["Charge Heading"] || data.chargeHeading || '',
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices || '',
-    status: data["Status"] || data.status || ''
+    status: data["Status"] || data.status || '',
+    attachments: data.attachments || []
   };
 };
 

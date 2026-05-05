@@ -826,12 +826,10 @@ export const getDashboardData = async (req, res) => {
         const punches = await AttendancePunch.find({ employee_id: user._id, punch_date: today }).sort({ punch_time: 1 });
         const lastPunch = punches[punches.length - 1];
 
-        // 2. Check for active session
         const activeSession = await ActiveSession.findOne({
             employee_id: user._id,
-            session_date: moment.utc(today).startOf('day').toDate(),
             session_status: 'active'
-        });
+        }).sort({ punch_in_time: -1 });
 
         const isInSession = !!activeSession;
 

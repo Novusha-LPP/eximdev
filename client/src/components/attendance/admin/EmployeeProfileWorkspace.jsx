@@ -64,6 +64,18 @@ const inputStyle = {
   lineHeight: '40px'
 };
 
+const RABS_ORG_KEY = 'rabs industries india private limited';
+const getOrgName = (emp) => emp?.company_id?.company_name || 'No Organization';
+const isRabsOrganization = (name = '') => String(name).trim().toLowerCase() === RABS_ORG_KEY;
+const sortGroupNamesWithRabsLast = (names = []) => {
+  return [...names].sort((a, b) => {
+    const aIsRabs = isRabsOrganization(a);
+    const bIsRabs = isRabsOrganization(b);
+    if (aIsRabs !== bIsRabs) return aIsRabs ? 1 : -1;
+    return String(a || '').localeCompare(String(b || ''));
+  });
+};
+
 const toWhole = (value) => Math.max(0, Math.floor(Number(value) || 0));
 const formatLeaveDays = (value) => {
   const num = Number(value);
@@ -247,6 +259,77 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     
     setLocalEmployeeId(empId);
     navigate(newPath);
+  };
+
+  const handlePreviousUser = () => {
+    if (!profile?.employee || !teamId || groupBy !== 'organization') {
+      toast.error('Navigation not available');
+      return;
+    }
+
+    const currentOrgName = profile.employee.company_id?.company_name || 'No Organization';
+    // Filter employees by the same organization
+    const orgEmployees = gridEmployees.filter(emp => {
+      const empOrgName = emp.company_id?.company_name || 'No Organization';
+      return empOrgName === currentOrgName;
+    });
+
+    if (orgEmployees.length === 0) {
+      toast.error('No other users in this organization');
+      return;
+    }
+
+    // Find the current user's index
+    const currentIndex = orgEmployees.findIndex(emp => emp._id === id || emp.username === userId);
+    if (currentIndex === -1) {
+      toast.error('Could not find current user in organization');
+      return;
+    }
+
+    // Get the previous user (loop to last if at beginning)
+    const prevIndex = currentIndex === 0 ? orgEmployees.length - 1 : currentIndex - 1;
+    const prevUser = orgEmployees[prevIndex];
+
+    const username = prevUser.username || prevUser._id;
+    navigate(`/attendance/teams/${teamId}/user/${username}/performance`);
+    setLocalEmployeeId(prevUser._id);
+  };
+
+  const handleNextUser = () => {
+    if (!profile?.employee || !teamId || groupBy !== 'organization') {
+      toast.error('Navigation not available');
+      return;
+    }
+
+    const groupedByOrg = {};
+    gridEmployees.forEach((emp) => {
+      const orgName = getOrgName(emp);
+      if (!groupedByOrg[orgName]) groupedByOrg[orgName] = [];
+      groupedByOrg[orgName].push(emp);
+    });
+
+    const orderedOrgNames = sortGroupNamesWithRabsLast(Object.keys(groupedByOrg));
+    const orderedEmployees = orderedOrgNames.flatMap((orgName) => groupedByOrg[orgName] || []);
+
+    if (orderedEmployees.length === 0) {
+      toast.error('No users found for navigation');
+      return;
+    }
+
+    // Move in visual order: users of current org, then first user of next org.
+    const currentIndex = orderedEmployees.findIndex(emp => emp._id === id || emp.username === userId);
+    if (currentIndex === -1) {
+      toast.error('Could not find current user in directory');
+      return;
+    }
+
+    // Loop to the first user after the last visible user.
+    const nextIndex = (currentIndex + 1) % orderedEmployees.length;
+    const nextUser = orderedEmployees[nextIndex];
+
+    const username = nextUser.username || nextUser._id;
+    navigate(`/attendance/teams/${teamId}/user/${username}/performance`);
+    setLocalEmployeeId(nextUser._id);
   };
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -469,7 +552,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         (emp.employee_code || '').toLowerCase().includes(lowerSearch)
       );
     }
-    return result;
+    return [...result].sort((a, b) => {
+      const aIsRabs = isRabsOrganization(getOrgName(a));
+      const bIsRabs = isRabsOrganization(getOrgName(b));
+      if (aIsRabs !== bIsRabs) return aIsRabs ? 1 : -1;
+      return 0;
+    });
   }, [gridEmployees, searchTerm]);
 
   const groupedEmployeesData = useMemo(() => {
@@ -920,8 +1008,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       setEndDate(startDate);
       return;
     }
+    if (tab === 'performance') {
+      fetchBrowseHistory(browseMonth, browseYear);
+      return;
+    }
     fetchData();
-  }, [id, startDate, endDate]);
+  }, [id, startDate, endDate, tab, browseMonth, browseYear]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -1374,7 +1466,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           ) : viewMode === 'grid' ? (
             /* Grid View */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : Object.keys(groupedEmployeesData).sort().map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
+              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : sortGroupNamesWithRabsLast(Object.keys(groupedEmployeesData)).map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
                 <div key={group.name || gIdx}>
                   {group.name && (
                     <h3 style={{ 
@@ -1472,7 +1564,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : Object.keys(groupedEmployeesData).sort().map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
+              {(groupBy === 'none' ? [{ name: null, items: paginatedEmployees }] : sortGroupNamesWithRabsLast(Object.keys(groupedEmployeesData)).map(name => ({ name, items: groupedEmployeesData[name] }))).map((group, gIdx) => (
                 <div key={group.name || gIdx}>
                   {group.name && (
                     <h3 style={{ 
@@ -1943,6 +2035,38 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             >
               Migrate
             </button>
+            {teamId && groupBy === 'organization' && (
+              <>
+                <button 
+                  onClick={handlePreviousUser} 
+                  style={{
+                    ...buttonStyle,
+                    background: '#1890ff',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    borderRadius: '8px'
+                  }}
+                >
+                  ← Previous User
+                </button>
+                <button 
+                  onClick={handleNextUser} 
+                  style={{
+                    ...buttonStyle,
+                    background: '#1890ff',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    borderRadius: '8px'
+                  }}
+                >
+                  Next User →
+                </button>
+              </>
+            )}
             <button 
               onClick={() => {
                 setLocalEmployeeId(null);
@@ -2039,7 +2163,6 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                           const prev = moment([browseYear, browseMonth - 1]).subtract(1, 'month');
                           setBrowseYear(prev.year());
                           setBrowseMonth(prev.month() + 1);
-                          fetchBrowseHistory(prev.month() + 1, prev.year());
                         }}
                         style={{ ...buttonStyle, background: '#fff', border: `1px solid ${THEME.border}`, padding: '4px 8px' }}
                       >←</button>
@@ -2051,7 +2174,6 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                           const next = moment([browseYear, browseMonth - 1]).add(1, 'month');
                           setBrowseYear(next.year());
                           setBrowseMonth(next.month() + 1);
-                          fetchBrowseHistory(next.month() + 1, next.year());
                         }}
                         style={{ ...buttonStyle, background: '#fff', border: `1px solid ${THEME.border}`, padding: '4px 8px' }}
                       >→</button>

@@ -101,7 +101,12 @@ class AttendanceEngine {
             let leave = null;
             if (shift) {
                 const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
-                const shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+                let shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+
+                // For cross-day shifts, the end time is on the next day
+                if (shift.is_cross_day || shiftEnd.isSameOrBefore(shiftStart)) {
+                    shiftEnd.add(1, 'days');
+                }
 
                 const punchInTime = moment(firstIn.punch_time).tz(tz);
                 const lateAllowed = shift.late_allowed_minutes || 0;
@@ -218,7 +223,10 @@ class AttendanceEngine {
             // Overtime Calculation
             let overtimeHours = 0;
             if (company.payroll_config?.overtime_enabled && lastOut && shift) {
-                const shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+                let shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+                if (shift.is_cross_day || shiftEnd.isSameOrBefore(shiftStart)) {
+                    shiftEnd.add(1, 'days');
+                }
                 const punchOutTime = moment(lastOut.punch_time).tz(tz);
                 const threshold = shift.overtime_threshold_minutes || company.payroll_config.overtime_threshold_hours * 60 || 30;
 

@@ -62,7 +62,7 @@ const getCalendarStatusBadge = (status = '') => {
     return map[normalized] || '';
 };
 
-const StatusPill = ({ status, session }) => {
+const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
     const map = { 
         present: ['Present', 'present'], 
         absent: ['Absent', 'absent'], 
@@ -73,10 +73,26 @@ const StatusPill = ({ status, session }) => {
         holiday: ['Holiday', 'holiday'],
         incomplete: ['Missed Punch', 'missed-punch']
     };
-    const [label, cls] = map[status] || [status, 'default'];
+    let [label, cls] = map[status] || [status, 'default'];
+
+    if (leaveType) {
+        const badge = formatLeaveBadge(leaveType);
+        const isApproved = leaveStatus === 'approved' || status === 'leave';
+        const statusTxt = isApproved ? 'Approved' : 'Applied';
+        
+        if (status === 'half_day') {
+            label = `${session ? (session.toLowerCase().includes('first') ? '1H' : '2H') : 'HD'} - ${badge} ${statusTxt}`;
+        } else {
+            label = `${badge} ${statusTxt}`;
+        }
+        cls = isApproved ? 'leave' : 'pending-leave';
+    } else if (status === 'half_day') {
+        label = session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : '½ Day';
+    }
+
     return (
         <span className={`ar-status-pill ar-pill-${cls}`}>
-            {status === 'half_day' ? (session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : ' ½ Day') : label}
+            {label}
         </span>
     );
 };
@@ -1547,7 +1563,14 @@ if (summarySheet) {
                                                         if (lType) {
                                                             const badge = formatLeaveBadge(lType);
                                                             const isApproved = lStatus === 'approved' || rec?.status === 'leave';
-                                                            leaveBadge = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+                                                            const statusTxt = isApproved ? 'Approved' : 'Applied';
+                                                            
+                                                            if (rec?.status === 'half_day') {
+                                                                statusBadge = `${statusBadge} (${badge})`;
+                                                                leaveBadge = statusTxt;
+                                                            } else {
+                                                                leaveBadge = `${badge} ${statusTxt}`;
+                                                            }
                                                         }
 
                                                         days.push(

@@ -808,16 +808,24 @@ export default function Dashboard() {
                 }
 
                 let statusLabel = CAL_LABELS[cls] || '';
+                let leaveLabel = '';
+
                 if (cls === 'half_day') {
                   const session = rec?.half_day_session || '';
                   statusLabel = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
                 }
-                let leaveLabel = '';
 
                 if (rec?.leaveType) {
                   const badge = formatLeaveBadge(rec.leaveType);
-                  const isApproved = rec.leaveStatus === 'approved' || cls === 'leave';
-                  leaveLabel = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+                  const isApproved = rec.leaveStatus === 'approved' || cls === 'leave' || rec.status === 'leave';
+                  const statusTxt = isApproved ? 'Approved' : (rec.leaveStatus === 'pending' ? 'Pending' : 'Applied');
+                  
+                  if (cls === 'half_day') {
+                    statusLabel = `${statusLabel} (${badge})`;
+                    leaveLabel = statusTxt;
+                  } else {
+                    leaveLabel = `${badge} ${statusTxt}`;
+                  }
                 }
 
                 return (

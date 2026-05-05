@@ -159,7 +159,13 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
   if (leaveType) {
     const badge = formatLeaveBadge(leaveType);
     const isApproved = leaveStatus === 'approved' || status === 'leave';
-    label = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+    const statusTxt = isApproved ? 'Approved' : 'Applied';
+    
+    if (status === 'half_day') {
+      label = `${session ? (session.toLowerCase().includes('first') ? '1H' : '2H') : 'HD'} - ${badge} ${statusTxt}`;
+    } else {
+      label = `${badge} ${statusTxt}`;
+    }
     cls = isApproved ? 'leave' : 'pending-leave';
   } else if (status === 'half_day') {
     label = session ? (session === 'First Half' || session === 'first_half' ? '1st Half' : '2nd Half') : '½ Day';
@@ -2078,10 +2084,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         const lType = record.leaveType || record.leave_type;
                         const lStatus = record.leaveStatus || record.approval_status;
                         let leaveBadge = null;
+                        
                         if (lType) {
                           const badge = formatLeaveBadge(lType);
-                          const isApproved = lStatus === 'approved' || record.status === 'leave';
-                          leaveBadge = `${badge} ${isApproved ? 'Approved' : 'Applied'}`;
+                          const isApproved = lStatus === 'approved' || record.status === 'leave' || record.leaveStatus === 'approved';
+                          const isPending = lStatus === 'pending' || record.leaveStatus === 'pending';
+                          const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
+                          
+                          if (record.status === 'half_day') {
+                            // Combine half-day and leave for better bifurcation
+                            statusBadge = `${statusBadge} (${badge})`;
+                            leaveBadge = statusTxt;
+                          } else {
+                            leaveBadge = `${badge} ${statusTxt}`;
+                          }
                         }
                         
                         cells.push(

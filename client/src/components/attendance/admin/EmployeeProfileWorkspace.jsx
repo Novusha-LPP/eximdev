@@ -1008,12 +1008,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       setEndDate(startDate);
       return;
     }
-    if (tab === 'performance') {
-      fetchBrowseHistory(browseMonth, browseYear);
-      return;
-    }
+    // if (tab === 'performance') {
+    //   fetchBrowseHistory(browseMonth, browseYear);
+    //   return;
+    // }
     fetchData();
-  }, [id, startDate, endDate, tab, browseMonth, browseYear]);
+  }, [id, startDate, endDate]);
 
   useEffect(() => {
     const fetchUsers = async () => {

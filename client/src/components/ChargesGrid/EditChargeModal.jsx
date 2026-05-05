@@ -1128,8 +1128,10 @@ const EditChargeModal = ({
                                     const renderCategory = (label, field, color) => {
                                         let urls = row.cost?.[field] || [];
                                         // Merge legacy 'url' field into 'Draft' for display
-                                        if (field === 'url_draft' && Array.isArray(row.cost?.url)) {
-                                            urls = [...row.cost.url, ...urls];
+                                        if (field === 'url_draft') {
+                                            const legacyUrl = row.cost?.url;
+                                            const legacyArr = Array.isArray(legacyUrl) ? legacyUrl : (legacyUrl ? [legacyUrl] : []);
+                                            urls = [...legacyArr, ...urls];
                                         }
                                         return (
                                             <div style={{ width: '100%', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1482,7 +1484,12 @@ const EditChargeModal = ({
                                             chargeHeadCategory: row.category,
                                             chargeDescription: row.cost?.chargeDescription || '',
                                             tdsCategory: row.cost?.tdsCategory || '94C',
-                                            awbBlNo: awbBlNo
+                                            awbBlNo: awbBlNo,
+                                            attachments: [
+                                              ...(Array.isArray(row.cost?.url) ? row.cost.url : []),
+                                              ...(Array.isArray(row.cost?.url_draft) ? row.cost.url_draft : []),
+                                              ...(Array.isArray(row.cost?.url_final) ? row.cost.url_final : [])
+                                            ]
                                           };
                                         });
                                       }}
@@ -1536,7 +1543,12 @@ const EditChargeModal = ({
                                           jobId: parentId,
                                           chargeHeadCategory: row.category,
                                           chargeDescription: row.cost?.chargeDescription || '',
-                                          tdsCategory: row.cost?.tdsCategory || '94C'
+                                          tdsCategory: row.cost?.tdsCategory || '94C',
+                                          attachments: [
+                                            ...(Array.isArray(row.cost?.url) ? row.cost.url : []),
+                                            ...(Array.isArray(row.cost?.url_draft) ? row.cost.url_draft : []),
+                                            ...(Array.isArray(row.cost?.url_final) ? row.cost.url_final : [])
+                                          ]
                                         });
                                       }}
                                     >
@@ -1593,7 +1605,7 @@ const EditChargeModal = ({
             ]}
             categorizedUrls={{
                 draft: [
-                    ...(formData[uploadIndex]?.[uploadSection]?.url || []),
+                    ...(Array.isArray(formData[uploadIndex]?.[uploadSection]?.url) ? formData[uploadIndex][uploadSection].url : (formData[uploadIndex]?.[uploadSection]?.url ? [formData[uploadIndex][uploadSection].url] : [])),
                     ...(formData[uploadIndex]?.[uploadSection]?.url_draft || [])
                 ],
                 final: formData[uploadIndex]?.[uploadSection]?.url_final || []

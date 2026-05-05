@@ -1244,6 +1244,7 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
           utrAddedBy: purchaseEntry.utrAddedBy,
           utrAddedAt: purchaseEntry.utrAddedAt,
           paymentReceiptUrl: purchaseEntry.paymentReceiptUrl,
+          attachments: purchaseEntry.attachments || [],
           approvedByFirst: purchaseEntry.approvedByFirst,
           approvedByLast: purchaseEntry.approvedByLast,
           approvedAt: purchaseEntry.approvedAt,
@@ -1257,7 +1258,7 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
     }
 
     // Fetch associated charge attachments from the Job record
-    let attachments = [];
+    let attachments = request.attachments || [];
     let jobRef = request.jobRef;
     let chargeRef = request.chargeRef;
 
@@ -1325,11 +1326,19 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
                   request.supplierInvDate = request.supplierInvDate || linkedCharge.invoice_date || "";
                 }
 
-              const revUrls = Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : []);
-              const costUrls = Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : []);
+              const revUrls = [
+                ...(Array.isArray(linkedCharge.revenue?.url) ? linkedCharge.revenue.url : (linkedCharge.revenue?.url ? [linkedCharge.revenue.url] : [])),
+                ...(Array.isArray(linkedCharge.revenue?.url_draft) ? linkedCharge.revenue.url_draft : []),
+                ...(Array.isArray(linkedCharge.revenue?.url_final) ? linkedCharge.revenue.url_final : [])
+              ];
+              const costUrls = [
+                ...(Array.isArray(linkedCharge.cost?.url) ? linkedCharge.cost.url : (linkedCharge.cost?.url ? [linkedCharge.cost.url] : [])),
+                ...(Array.isArray(linkedCharge.cost?.url_draft) ? linkedCharge.cost.url_draft : []),
+                ...(Array.isArray(linkedCharge.cost?.url_final) ? linkedCharge.cost.url_final : [])
+              ];
               
               // Combine and deduplicate
-              attachments = [...new Set([...revUrls, ...costUrls])];
+              attachments = [...new Set([...attachments, ...revUrls, ...costUrls])];
             }
           }
         }

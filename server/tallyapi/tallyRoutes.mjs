@@ -330,13 +330,28 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
 
       // Update individual charge in Job record
       if (entryData.chargeRef && entryData.jobRef) {
-        await JobModel.updateOne(
-          { _id: entryData.jobRef, "charges._id": entryData.chargeRef },
-          { $set: { 
-            "charges.$.purchase_book_no": entryData.entryNo,
-            "charges.$.purchase_book_status": 'Pending'
-          }}
-        );
+        const job = await JobModel.findById(entryData.jobRef);
+        if (job) {
+          const charge = job.charges.id(entryData.chargeRef);
+          if (charge && charge.sharedGroupId) {
+            await JobModel.updateMany(
+              { "charges.sharedGroupId": charge.sharedGroupId },
+              { $set: { 
+                "charges.$[elem].purchase_book_no": entryData.entryNo,
+                "charges.$[elem].purchase_book_status": 'Pending'
+              }},
+              { arrayFilters: [{ "elem.sharedGroupId": charge.sharedGroupId }] }
+            );
+          } else {
+            await JobModel.updateOne(
+              { _id: entryData.jobRef, "charges._id": entryData.chargeRef },
+              { $set: { 
+                "charges.$.purchase_book_no": entryData.entryNo,
+                "charges.$.purchase_book_status": 'Pending'
+              }}
+            );
+          }
+        }
       }
     }
 
@@ -491,17 +506,34 @@ router.post("/payment-request", authApiKey, async (req, res) => {
     if (!request) throw new Error("Failed to generate a unique Request No after multiple attempts.");
 
     if (data.jobRef && data.chargeRef) {
-      await JobModel.updateOne(
-        { _id: data.jobRef, "charges._id": data.chargeRef },
-        {
-          $set: {
-            "charges.$.payment_request_no": request.requestNo,
-            "charges.$.payment_request_status": "Pending",
-            "charges.$.payment_request_requested_by": request.requestedBy,
-            "charges.$.payment_request_transaction_type": request.transactionType
-          }
+      const job = await JobModel.findById(data.jobRef);
+      if (job) {
+        const charge = job.charges.id(data.chargeRef);
+        if (charge && charge.sharedGroupId) {
+          await JobModel.updateMany(
+            { "charges.sharedGroupId": charge.sharedGroupId },
+            { $set: { 
+              "charges.$[elem].payment_request_no": request.requestNo,
+              "charges.$[elem].payment_request_status": "Pending",
+              "charges.$[elem].payment_request_requested_by": request.requestedBy,
+              "charges.$[elem].payment_request_transaction_type": request.transactionType
+            }},
+            { arrayFilters: [{ "elem.sharedGroupId": charge.sharedGroupId }] }
+          );
+        } else {
+          await JobModel.updateOne(
+            { _id: data.jobRef, "charges._id": data.chargeRef },
+            {
+              $set: {
+                "charges.$.payment_request_no": request.requestNo,
+                "charges.$.payment_request_status": "Pending",
+                "charges.$.payment_request_requested_by": request.requestedBy,
+                "charges.$.payment_request_transaction_type": request.transactionType
+              }
+            }
+          );
         }
-      );
+      }
     }
 
     res.status(201).json({

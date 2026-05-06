@@ -638,6 +638,7 @@ const ViewBillingJob = () => {
                 jobNumber={data?.job_no}
                 jobDisplayNumber={data?.job_number}
                 jobYear={data?.year}
+                branch_code={data?.branch_code}
                 invoiceNumber={data?.invoice_number}
                 invoiceDate={data?.invoice_date}
                 invoiceValue={data?.total_inv_value}

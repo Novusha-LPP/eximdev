@@ -190,6 +190,8 @@ const ChargeSchema = new mongoose.Schema({
   // New fields for heading and tax reporting
   isHeader: { type: Boolean, default: false },
   sacHsn: { type: String, trim: true },
+  sharedGroupId: { type: String, trim: true },
+  sharedWith: [{ type: String, trim: true }],
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

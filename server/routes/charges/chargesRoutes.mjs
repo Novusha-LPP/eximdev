@@ -4,6 +4,7 @@ import ChargeHeadModel from '../../model/ChargeHead.mjs';
 import verifyToken from '../../middleware/authMiddleware.mjs';
 import { findChanges, logAuditTrail } from '../../services/auditTrailService.mjs';
 import AuditTrailModel from '../../model/auditTrailModel.mjs';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -109,6 +110,32 @@ router.delete('/charge-heads/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Charge head not found' });
     }
     res.json({ success: true, message: 'Charge head deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/jobs/search-by-number', verifyToken, async (req, res) => {
+  try {
+    const { search, year, branch_code } = req.query;
+    if (!search) return res.json({ success: true, data: [] });
+
+    const query = {
+      $or: [
+        { job_number: { $regex: search, $options: 'i' } },
+        { job_no: { $regex: search, $options: 'i' } }
+      ]
+    };
+
+    if (year) query.year = year;
+    if (branch_code) query.branch_code = branch_code;
+
+    const jobs = await JobModel.find(query)
+    .select('job_number job_no importer year branch_code')
+    .limit(10)
+    .lean();
+
+    res.json({ success: true, data: jobs });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -220,6 +247,53 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
       }
     }
     await job.save();
+
+    // --- SHARED CHARGE SYNC LOGIC ---
+    if (charge.sharedWith && charge.sharedWith.length > 0) {
+      if (!charge.sharedGroupId) {
+        charge.sharedGroupId = crypto.randomUUID();
+        await job.save();
+      }
+
+      const syncData = charge.toObject();
+      const sharedWithList = Array.isArray(charge.sharedWith) ? charge.sharedWith : [];
+
+      for (const otherJobNo of sharedWithList) {
+        if (otherJobNo === job.job_number) continue;
+
+        const otherJob = await JobModel.findOne({ job_number: otherJobNo });
+        if (!otherJob) continue;
+
+        let otherCharge = otherJob.charges.find(c => c.sharedGroupId === charge.sharedGroupId);
+        if (!otherCharge) {
+          // Create new charge in other job
+          const newChargeData = {
+            ...syncData,
+            _id: undefined,
+            createdAt: undefined,
+            updatedAt: undefined,
+            purchase_book_no: charge.purchase_book_no, // Sync PB/PR numbers too
+            purchase_book_status: charge.purchase_book_status,
+            payment_request_no: charge.payment_request_no,
+            payment_request_status: charge.payment_request_status,
+            sharedWith: [job.job_number, ...sharedWithList.filter(jno => jno !== otherJobNo)]
+          };
+          otherJob.charges.push(newChargeData);
+        } else {
+          // Update existing charge
+          const excludedSyncFields = ['_id', 'createdAt', 'updatedAt', 'sharedWith'];
+          for (const key of Object.keys(syncData)) {
+            if (!excludedSyncFields.includes(key)) {
+              otherCharge[key] = syncData[key];
+            }
+          }
+          // Ensure sharedWith is also correct in the other job (circular reference)
+          otherCharge.sharedWith = [job.job_number, ...sharedWithList.filter(jno => jno !== otherJobNo)];
+        }
+        await otherJob.save();
+      }
+    }
+    // --------------------------------
 
     // Log targeted audit trail for the charge
     const updatedCharge = charge.toObject();

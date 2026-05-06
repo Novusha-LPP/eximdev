@@ -30,6 +30,7 @@ const EditChargeModal = ({
   jobInvoiceDate = '',
   jobInvoiceValue = '',
   jobCthNo = '',
+  branch_code = '',
   workMode = 'Payment',
   readOnly = false,
   isAuthorized = false,
@@ -70,6 +71,47 @@ const EditChargeModal = ({
       setLogsLoading(false);
     }
   };
+
+  const [jobSearchResults, setJobSearchResults] = useState([]);
+  const [jobSearchTerm, setJobSearchTerm] = useState('');
+
+  const handleJobSearch = async (term) => {
+    setJobSearchTerm(term);
+    if (term.length < 2) {
+      setJobSearchResults([]);
+      return;
+    }
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/jobs/search-by-number`, { 
+        params: { 
+          search: term,
+          year: jobYear,
+          branch_code: branch_code
+        },
+        withCredentials: true 
+      });
+      if (res.data.success) {
+        setJobSearchResults(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error searching jobs", err);
+    }
+  };
+
+  const addSharedJob = (index, jobNo) => {
+    const currentShared = formData[index].sharedWith || [];
+    if (!currentShared.includes(jobNo)) {
+      handleFieldChange(index, 'sharedWith', [...currentShared, jobNo]);
+    }
+    setJobSearchTerm('');
+    setJobSearchResults([]);
+  };
+
+  const removeSharedJob = (index, jobNo) => {
+    const currentShared = formData[index].sharedWith || [];
+    handleFieldChange(index, 'sharedWith', currentShared.filter(jno => jno !== jobNo));
+  };
+
   const [transporters, setTransporters] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState({ index: null, section: null }); // Track which row/section has open dropdown
   const [paymentDetailsAudit, setPaymentDetailsAudit] = useState({});
@@ -166,6 +208,8 @@ const EditChargeModal = ({
         payment_request_status: charge.payment_request_status || '',
         purchase_book_no: charge.purchase_book_no || '',
         purchase_book_status: charge.purchase_book_status || '',
+        sharedWith: charge.sharedWith || [],
+        sharedGroupId: charge.sharedGroupId || '',
         revenue: {
           ...(charge.revenue || {}),
           isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
@@ -738,6 +782,47 @@ const EditChargeModal = ({
                   <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
                     <span className="charges-form-label">SAC/HSN code</span>
                     <input type="text" disabled={effectiveReadOnly} placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} />
+                  </div>
+                  <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                    <span className="charges-form-label">Shared with Jobs</span>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type="text" 
+                        disabled={effectiveReadOnly} 
+                        placeholder="Type job number to link..." 
+                        value={jobSearchTerm} 
+                        onChange={e => handleJobSearch(e.target.value)} 
+                        style={{ width: '100%' }}
+                      />
+                      {jobSearchResults.length > 0 && (
+                        <div className="charges-dropdown" style={{ display: 'block', top: '100%', left: 0, right: 0, maxHeight: '200px', overflowY: 'auto', zIndex: 1000 }}>
+                          {jobSearchResults.map(job => (
+                            <div 
+                              key={job._id} 
+                              className="charges-dropdown-item" 
+                              onClick={() => addSharedJob(i, job.job_number)}
+                              style={{ display: 'flex', flexDirection: 'column', padding: '8px' }}
+                            >
+                              <span style={{ fontWeight: 'bold' }}>{job.job_number} {job.job_no ? `(${job.job_no})` : ''}</span>
+                              <span style={{ fontSize: '10px', color: '#666' }}>{job.importer} | {job.branch_code}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                      {(row.sharedWith || []).map(jobNo => (
+                        <Chip 
+                          key={jobNo}
+                          label={jobNo}
+                          size="small"
+                          onDelete={effectiveReadOnly ? undefined : () => removeSharedJob(i, jobNo)}
+                          style={{ fontSize: '11px', height: '22px' }}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </div>
                   </div>
                   <div className="charges-form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="charges-form-label" style={{ marginBottom: 0 }}>Is Header?</span>

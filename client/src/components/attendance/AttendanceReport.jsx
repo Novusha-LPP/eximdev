@@ -702,6 +702,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 toast.error('Punch-Out cannot be before Punch-In');
                 return;
             }
+            const durationHours = moment(editForm.last_out).diff(moment(editForm.first_in), 'hours', true);
+            if (durationHours > 20) {
+                toast.error(`Invalid Time: Work duration (${durationHours.toFixed(1)}h) exceeds 20-hour limit. Please check dates.`);
+                return;
+            }
         }
 
         setSaving(true);

@@ -335,6 +335,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [searchTerm, setSearchTerm] = useState('');
   const [groupBy, setGroupBy] = useState('none'); // 'none', 'organization', 'team'
   const [loading, setLoading] = useState(true);
+  console.log("LOading",loading);
   const [profile, setProfile] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leavePolicies, setLeavePolicies] = useState([]);
@@ -796,8 +797,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     try {
         const start = moment([targetYear, targetMonth - 1]).startOf('month').format('YYYY-MM-DD');
         const end = moment([targetYear, targetMonth - 1]).endOf('month').format('YYYY-MM-DD');
+        
+        // Use the current company ID if available to maintain consistency across migration boundaries
+        const effectiveCompanyId = profile?.employee?.company_id?._id || profile?.employee?.company_id;
+
         const [r, leaveBalanceRes] = await Promise.all([
-          attendanceAPI.getEmployeeFullProfile(id, start, end),
+          attendanceAPI.getEmployeeFullProfile(id, start, end, effectiveCompanyId),
           leaveAPI.getBalance(id).catch(() => ({ data: [] }))
         ]);
         setProfile({
@@ -805,6 +810,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           balances: Array.isArray(leaveBalanceRes?.data) ? leaveBalanceRes.data : (r?.balances || [])
         });
     } catch (error) {
+        console.error('Performance fetch error:', error);
         toast.error('Failed to load history for selected period');
     } finally {
         setLoading(false);
@@ -1008,12 +1014,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       setEndDate(startDate);
       return;
     }
-    // if (tab === 'performance') {
-    //   fetchBrowseHistory(browseMonth, browseYear);
-    //   return;
-    // }
     fetchData();
   }, [id, startDate, endDate]);
+
+  // Sync performance calendar data when navigation or tab changes
+  useEffect(() => {
+    if (id && tab === 'performance') {
+      fetchBrowseHistory(browseMonth, browseYear);
+    }
+  }, [id, browseMonth, browseYear, tab]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -2196,10 +2205,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       for (let d = 1; d <= totalDays; d++) {
                         const dateStr = moment([browseYear, browseMonth - 1, d]).format('YYYY-MM-DD');
                         const record = empHistory.find(r => getAttendanceDateKey(r.attendance_date) === dateStr) || { attendance_date: dateStr, status: 'none' };
-                        const statusClass = getCalendarStatusClass(record.status);
-                        let statusBadge = getCalendarStatusBadge(record.status);
-                        if (record.status === 'half_day') {
-                          const session = record.half_day_session || '';
+
+                        // Respect explicit half-day flags returned by APIs (is_half_day / isHalfDay)
+                        const isHalfFlag = Boolean(record.is_half_day || record.isHalfDay || record.is_half || record.half_day || (String(record.status || '').toLowerCase() === 'half_day'));
+                        const displayStatus = isHalfFlag ? 'half_day' : (record.status || 'none');
+
+                        const statusClass = getCalendarStatusClass(displayStatus);
+                        let statusBadge = getCalendarStatusBadge(displayStatus);
+                        if (displayStatus === 'half_day') {
+                          const session = record.half_day_session || record.start_half_session || record.end_half_session || '';
                           statusBadge = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
                         }
                         

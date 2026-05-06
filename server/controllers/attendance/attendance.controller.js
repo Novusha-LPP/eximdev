@@ -2317,6 +2317,20 @@ export const updateAttendanceRecord = async (req, res) => {
             last_out = parsed.isValid() ? parsed.toDate() : last_out;
         }
 
+        // Sanity Check: Prevent extreme durations (e.g., 62 hours)
+        if (apply_time_correction && first_in && last_out) {
+            const durationHours = moment(last_out).diff(moment(first_in), 'hours', true);
+            if (durationHours > 20) {
+                return res.status(400).json({ 
+                    message: `Invalid Time: Work duration (${durationHours.toFixed(1)}h) exceeds 20-hour limit. Please check dates.`,
+                    error: 'DURATION_TOO_LONG'
+                });
+            }
+            if (durationHours < 0) {
+                return res.status(400).json({ message: 'Punch-Out cannot be before Punch-In' });
+            }
+        }
+
         if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
             return res.status(403).json({ message: 'Unauthorized: Only admins and HODs can edit records' });
         }
@@ -2546,6 +2560,20 @@ export const createManualAdjustment = async (req, res) => {
         if (last_out && typeof last_out === 'string') {
             const parsed = moment.tz(last_out, 'Asia/Kolkata');
             last_out = parsed.isValid() ? parsed.toDate() : last_out;
+        }
+
+        // Sanity Check: Prevent extreme durations (e.g., 62 hours)
+        if (apply_time_correction && first_in && last_out) {
+            const durationHours = moment(last_out).diff(moment(first_in), 'hours', true);
+            if (durationHours > 20) {
+                return res.status(400).json({ 
+                    message: `Invalid Time: Work duration (${durationHours.toFixed(1)}h) exceeds 20-hour limit. Please check dates.`,
+                    error: 'DURATION_TOO_LONG'
+                });
+            }
+            if (durationHours < 0) {
+                return res.status(400).json({ message: 'Punch-Out cannot be before Punch-In' });
+            }
         }
 
         if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
@@ -2928,7 +2956,7 @@ async function recalculatePunctuality(record, employee, company) {
 
     if (record.first_in && record.last_out) {
         const diff = moment(record.last_out).diff(moment(record.first_in), 'hours', true);
-        const totalWorkHours = diff > 0 ? diff : 0;
+        const totalWorkHours = Math.min(24.0, diff > 0 ? diff : 0);
         record.total_work_hours = totalWorkHours;
         record.net_work_hours = totalWorkHours;
 
@@ -3089,7 +3117,6 @@ export const getEmployeeFullProfile = async (req, res) => {
         const results = await Promise.all([
             AttendanceRecord.find({
                 employee_id: id,
-                company_id: effectiveCompanyId,
                 attendance_date: { $gte: start, $lte: end }
             }).sort({ attendance_date: -1 }).lean(),
 
@@ -3244,11 +3271,21 @@ export const getEmployeeFullProfile = async (req, res) => {
             .filter((item) => String(item.status).toLowerCase() === 'holiday')
             .map((item) => ({ holiday_date: item.attendance_date, holiday_name: item.remarks || 'Holiday' }));
 
+        // Ensure explicit half-day flags are authoritative: if a record signals half-day,
+        // return status 'half_day' unless it's already a leave. This keeps profile and
+        // team/dashboard views consistent when `is_half_day` is present on records.
         const normalizedAttendance = continuityAttendance.map((record) => {
-            const status = normalizeAttendanceStatus(record, employee);
+            const rec = { ...record };
+            const isHalfFlag = Boolean(rec.is_half_day || rec.isHalfDay || rec.is_half || rec.half_day);
+            const currentStatus = String(rec.status || '').toLowerCase();
+            if (isHalfFlag && currentStatus !== 'leave') {
+                rec.status = 'half_day';
+            }
+
+            const status = normalizeAttendanceStatus(rec, employee);
             return status && status !== String(record.status || '').toLowerCase()
-                ? { ...record, status }
-                : record;
+                ? { ...rec, status }
+                : rec;
         });
 
         const startYear = moment(start).year();

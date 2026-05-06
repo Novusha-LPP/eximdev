@@ -281,9 +281,21 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
           otherJob.charges.push(newChargeData);
         } else {
           // Update existing charge
-          const excludedSyncFields = ['_id', 'createdAt', 'updatedAt', 'sharedWith'];
+          const excludedSyncFields = ['_id', 'createdAt', 'updatedAt', 'sharedWith', 'revenue'];
+          const costExcludes = ['amount', 'amountINR', 'basicAmount', 'gstAmount', 'tdsAmount', 'netPayable'];
+
           for (const key of Object.keys(syncData)) {
-            if (!excludedSyncFields.includes(key)) {
+            if (excludedSyncFields.includes(key)) continue;
+
+            if (key === 'cost' && syncData.cost) {
+              // Partial update of cost to allow bifurcation of amounts
+              if (!otherCharge.cost) otherCharge.cost = {};
+              for (const costKey of Object.keys(syncData.cost)) {
+                if (!costExcludes.includes(costKey)) {
+                  otherCharge.cost[costKey] = syncData.cost[costKey];
+                }
+              }
+            } else {
               otherCharge[key] = syncData[key];
             }
           }

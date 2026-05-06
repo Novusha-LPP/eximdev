@@ -165,7 +165,7 @@ const ChargesGrid = ({
         chargeHead: finalName,
         category: head.category,
         isPurchaseBookMandatory: head.isPurchaseBookMandatory,
-        revenue: { isGst: true },
+        revenue: { isGst: true, partyType: 'Customer', partyName: importerName || '' },
         cost: { isGst: true },
         copyToCost: true
       };
@@ -255,7 +255,7 @@ const ChargesGrid = ({
           }
         }
 
-        const isReimbursement = row.category === 'Reimbursement' || row.isReimbursement;
+        const isReimbursement = (row.category || '').toUpperCase() === 'REIMBURSEMENT' || row.isReimbursement;
         if (isReimbursement) {
           basic = amt;
           totalGst = 0;

@@ -213,7 +213,8 @@ const EditChargeModal = ({
         revenue: {
           ...(charge.revenue || {}),
           isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
-          partyType: charge.revenue?.partyType || 'Customer'
+          partyType: charge.revenue?.partyType || 'Customer',
+          partyName: charge.revenue?.partyName || importerName || ''
         },
         cost: {
           ...(charge.cost || {}),
@@ -414,7 +415,8 @@ const EditChargeModal = ({
           // Net Payable Calculation:
           // "Include GST" (Checked): Net = Total Amount - TDS
           // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
-          if (includeGst) {
+          // For Reimbursement: Always use Total Amount - TDS
+          if (updated[index].category === 'Reimbursement' || includeGst) {
             sectionRef.netPayable = Math.round(amount - sectionRef.tdsAmount);
           } else {
             sectionRef.netPayable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
@@ -652,8 +654,7 @@ const EditChargeModal = ({
         const partyDetails = findPartyDetails(row);
         const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
         const isGujarat = branch.gst?.startsWith('24');
-        const isReimbursement = row.category === 'Reimbursement' || row.isReimbursement;
-
+        const isReimbursement = (row.category || '').toUpperCase() === 'REIMBURSEMENT' || row.isReimbursement;
         if (isReimbursement) {
           basic = amt;
           totalGst = 0;
@@ -1664,8 +1665,9 @@ const EditChargeModal = ({
                                             partyDetails,
                                             amount: parseFloat(cost.amount) || 0,
                                             basicAmount: parseFloat(cost.basicAmount) || parseFloat(cost.amount) || 0,
+                                            taxableValue: ((row.category || '').toUpperCase() === 'REIMBURSEMENT' || row.isReimbursement) ? (parseFloat(cost.amount) || 0) : (parseFloat(cost.basicAmount) || parseFloat(cost.amount) || 0),
                                             gstAmount: parseFloat(cost.gstAmount) || 0,
-                                            gstRate: (row.category === 'Reimbursement') ? 0 : (parseFloat(cost.gstRate) || 0),
+                                            gstRate: ((row.category || '').toUpperCase() === 'REIMBURSEMENT' || row.isReimbursement) ? 0 : (parseFloat(cost.gstRate) || 0),
                                             cgst: isGujarat ? (parseFloat(cost.gstAmount) / 2 || 0) : 0,
                                             sgst: isGujarat ? (parseFloat(cost.gstAmount) / 2 || 0) : 0,
                                             igst: !isGujarat ? (parseFloat(cost.gstAmount) || 0) : 0,

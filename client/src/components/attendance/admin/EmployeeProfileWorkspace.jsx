@@ -160,11 +160,11 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
     absent: ['Absent', 'absent'], 
     leave: ['Leave', 'leave'], 
     pending_leave: ['Leave', 'leave'],
-    half_day: ['Half Day', 'half-day'], 
-    weekly_off: ['Off', 'off'], 
+    half_day: ['Half Day', 'half_day'], 
+    weekly_off: ['WeekOff', 'weekly_off'], 
     holiday: ['Holiday', 'holiday'],
-    incomplete: ['Missed Punch', 'missed-punch'],
-    missed_punch: ['Missed Punch', 'missed-punch']
+    incomplete: ['Miss Punch', 'missed_punch'],
+    missed_punch: ['Miss Punch', 'missed_punch']
   };
   let [label, cls] = map[status] || [status, 'default'];
 
@@ -184,9 +184,11 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
   }
 
   return (
-      <span className={`ar-status-pill ar-pill-${cls}`}>
-          {label}
-      </span>
+    <td className={`ar-status-cell ar-status-${cls}`} style={{ border: '1px solid #dee2e6' }}>
+      <div className="ar-status-inner">
+        {label}
+      </div>
+    </td>
   );
 };
 
@@ -2207,7 +2209,10 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         const record = empHistory.find(r => getAttendanceDateKey(r.attendance_date) === dateStr) || { attendance_date: dateStr, status: 'none' };
 
                         // Respect explicit half-day flags returned by APIs (is_half_day / isHalfDay)
-                        const isHalfFlag = Boolean(record.is_half_day || record.isHalfDay || record.is_half || record.half_day || (String(record.status || '').toLowerCase() === 'half_day'));
+                        const explicitStatus = String(record.status || '').toLowerCase();
+                        const isHalfFlag = explicitStatus
+                          ? explicitStatus === 'half_day'
+                          : Boolean(record.is_half_day || record.isHalfDay || record.is_half || record.half_day);
                         const displayStatus = isHalfFlag ? 'half_day' : (record.status || 'none');
 
                         const statusClass = getCalendarStatusClass(displayStatus);
@@ -2385,37 +2390,66 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   </div>
                 </div>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <div style={{ overflowX: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                <table className="ar-log-table">
                   <thead>
-                    <tr style={{ borderBottom: `1px solid ${THEME.border}`, color: THEME.text }}>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>Date</th>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>Status</th>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>In</th>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: '600' }}>Out</th>
-                      <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: '600' }}>Hours</th>
+                    <tr>
+                      <th>Name</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Attendance InTime</th>
+                      <th>Attendance OutTime</th>
+                      <th>Shift Name</th>
+                      <th>Shift Hours</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(profile.attendance || []).map((row) => (
-                      <tr key={row._id} style={{ borderBottom: `1px solid ${THEME.border}`, transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                        <td style={{ padding: '12px 8px', color: THEME.navy }}>{formatDateOrdinal(row.attendance_date)}</td>
-                        <td style={{ padding: '12px 8px' }}>
+                    {(profile.attendance || []).map((row) => {
+                      const statusClass = getCalendarStatusClass(row.status);
+                      
+                      // Robust shift fallback: Row -> Assigned Policy -> Employee Default
+                      const shift = row.shift_id || assignedShiftOptions?.[0] || profile?.employee?.shift_id || {};
+                      const shiftName = shift.shift_name || row.shift_name || (assignedShiftOptions?.[0]?.shift_name) || '--';
+                      
+                      const fmtShiftTime = (t) => t ? moment(t, 'HH:mm').format('h:mma') : '';
+                      const shiftTimeRange = shift.start_time && shift.end_time 
+                        ? ` ${fmtShiftTime(shift.start_time)} To ${fmtShiftTime(shift.end_time)}` 
+                        : '';
+                      const fullShiftName = shiftName + shiftTimeRange;
+                      
+                      // Calculate shift hours if not explicitly provided
+                      let shiftHours = shift.full_day_hours || shift.total_hours || row.shift_hours;
+                      if (!shiftHours && shift.start_time && shift.end_time) {
+                          const start = moment(shift.start_time, 'HH:mm');
+                          const end = moment(shift.end_time, 'HH:mm');
+                          if (start.isValid() && end.isValid()) {
+                              let diff = end.diff(start, 'hours', true);
+                              if (diff < 0) diff += 24; // Overnight shift
+                              shiftHours = Math.round(diff);
+                          }
+                      }
+                      if (!shiftHours) shiftHours = '--';
+
+                      return (
+                        <tr key={row._id}>
+                          <td>{employeeName}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{moment(row.attendance_date).format('YYYY-MM-DD')}</td>
                           <StatusPill 
-                            status={getCalendarStatusClass(row.status)} 
+                            status={statusClass} 
                             session={row.half_day_session}
                             leaveType={row.leaveType || row.leave_type}
                             leaveStatus={row.leaveStatus || row.approval_status}
                           />
-                        </td>
-                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.first_in ? formatTime12Hr(row.first_in) : '--'}</td>
-                        <td style={{ padding: '12px 8px', color: THEME.muted, fontWeight: '500' }}>{row.last_out ? formatTime12Hr(row.last_out) : '--'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '500', color: THEME.text }}>{toWhole(row.total_work_hours || 0)}h</td>
-                      </tr>
-                    ))}
+                          <td style={{ whiteSpace: 'nowrap' }}>{row.first_in ? moment(row.first_in).format('DD-MM-YYYY h:mm A') : ''}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{row.last_out ? moment(row.last_out).format('DD-MM-YYYY h:mm A') : ''}</td>
+                          <td>{fullShiftName}</td>
+                          <td style={{ textAlign: 'center' }}>{shiftHours}</td>
+                        </tr>
+                      );
+                    })}
                     {(profile.attendance || []).length === 0 && (
                       <tr>
-                        <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: THEME.muted }}>No records in selected period</td>
+                        <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: THEME.muted }}>No records in selected period</td>
                       </tr>
                     )}
                   </tbody>
@@ -3324,3 +3358,6 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 };
 
 export default EmployeeProfileWorkspace;
+
+
+

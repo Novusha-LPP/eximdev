@@ -713,7 +713,9 @@ app.use(function onError(err, req, res, next) {
 });
 
 
-if (cluster.isPrimary) {
+const disableCluster = process.env.DISABLE_CLUSTER === "true";
+
+if (!disableCluster && cluster.isPrimary) {
   console.log(`🚀 Primary Process running. Detected ${numOfCPU} CPUs. Forking ${numOfCPU} workers...`);
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -723,6 +725,9 @@ if (cluster.isPrimary) {
   });
 } else {
   // Worker Process
+  if (disableCluster) {
+    console.log("🚀 Running in single-process mode (DISABLE_CLUSTER=true)");
+  }
   mongoose.set("strictQuery", true);
 
   // Connect to DB and Start Server (Skipped in Test Mode)

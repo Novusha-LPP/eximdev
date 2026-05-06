@@ -2255,6 +2255,37 @@ export const applyManualCorrectionTimes = (record, attendanceDate, status, shift
     if (providedLastOut !== undefined) record.last_out = providedLastOut || null;
 };
 
+const normalizeManualCorrectionFlags = (record) => {
+    const normalizedStatus = String(record.status || '').toLowerCase();
+    const hasFirstIn = Boolean(record.first_in);
+    const hasLastOut = Boolean(record.last_out);
+
+    record.is_half_day = normalizedStatus === 'half_day';
+    record.half_day_session = normalizedStatus === 'half_day' ? (record.half_day_session || 'first_half') : null;
+
+    record.is_on_leave = normalizedStatus === 'leave';
+    record.is_holiday = normalizedStatus === 'holiday';
+    record.is_weekly_off = normalizedStatus === 'weekly_off';
+
+    if (['present', 'late', 'half_day', 'on_duty'].includes(normalizedStatus)) {
+        record.missed_punch = false;
+        record.missed_punch_reason = null;
+        record.missed_punch_marked_at = null;
+        record.missed_punch_source = null;
+        record.has_incomplete_session = false;
+    } else if (['absent', 'leave', 'weekly_off', 'holiday'].includes(normalizedStatus)) {
+        record.missed_punch = false;
+        record.missed_punch_reason = null;
+        record.missed_punch_marked_at = null;
+        record.missed_punch_source = null;
+        record.has_incomplete_session = false;
+    }
+
+    record.total_punches = (hasFirstIn ? 1 : 0) + (hasLastOut ? 1 : 0);
+    if (!record.total_work_sessions) record.total_work_sessions = 0;
+    if (!Array.isArray(record.work_sessions)) record.work_sessions = [];
+};
+
 const applyStatusCorrectionTimes = (record, attendanceDate, status, shift, companyTz = 'Asia/Kolkata') => {
     const normalized = String(status || '').toLowerCase();
     const nonWorkingStatuses = new Set(['absent', 'leave', 'weekly_off', 'holiday']);
@@ -2515,7 +2546,9 @@ export const updateAttendanceRecord = async (req, res) => {
         record.processed_at = new Date();
 
         // 5. Shared Calculation Logic
+        normalizeManualCorrectionFlags(record);
         await recalculatePunctuality(record, employee, company);
+        normalizeManualCorrectionFlags(record);
 
         await record.save();
         await syncUserTodayStatus(record, company);
@@ -2762,7 +2795,9 @@ export const createManualAdjustment = async (req, res) => {
         record.processed_by = 'admin';
         record.processed_at = new Date();
 
+        normalizeManualCorrectionFlags(record);
         await recalculatePunctuality(record, employee, company);
+        normalizeManualCorrectionFlags(record);
         await record.save();
         await syncUserTodayStatus(record, company);
 
@@ -2908,7 +2943,7 @@ async function recalculatePunctuality(record, employee, company) {
     const halfDayThreshold = Number(
         shift?.half_day_hours || deptHalfDayThreshold || company?.attendance_config?.half_day_threshold_hours || 4
     );
-    const normalizedStatus = String(record.status || '').toLowerCase();
+    let normalizedStatus = String(record.status || '').toLowerCase();
 
     if (['absent', 'leave', 'weekly_off', 'holiday'].includes(normalizedStatus)) {
         record.is_late = false;
@@ -2972,15 +3007,6 @@ async function recalculatePunctuality(record, employee, company) {
             }
         }
 
-        // If the record status is 'present' or 'late' but work hours are below threshold, force update to 'half_day'
-        if (['present', 'late'].includes(record.status) && record.total_work_hours < fullDayThreshold) {
-            record.status = 'half_day';
-            record.is_half_day = true;
-        } else if (record.status === 'half_day' && record.total_work_hours >= fullDayThreshold) {
-            record.status = 'present';
-            record.is_half_day = false;
-        }
-
         const overtimeThresholdHours = ((shift?.overtime_threshold_minutes || 0) / 60);
         if (shift?.end_time && totalWorkHours > 0) {
             const shiftEnd = moment.tz(`${dateStr} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
@@ -2992,6 +3018,12 @@ async function recalculatePunctuality(record, employee, company) {
         } else if (totalWorkHours > fullDayThreshold + overtimeThresholdHours) {
             record.overtime_hours = Math.max(0, totalWorkHours - fullDayThreshold);
         }
+    }
+
+    normalizedStatus = String(record.status || '').toLowerCase();
+    record.is_half_day = normalizedStatus === 'half_day';
+    if (normalizedStatus !== 'half_day') {
+        record.half_day_session = null;
     }
 }
 
@@ -3216,10 +3248,12 @@ export const getEmployeeFullProfile = async (req, res) => {
                     });
                 } else {
                     // Merge leave info into existing record (e.g. half-day present)
+                    const existingStatus = String(existingRecord.status || '').toLowerCase();
+                    const isWorkingStatus = ['present', 'late', 'half_day'].includes(existingStatus);
                     existingRecord.leaveType = leave.leave_type || null;
                     existingRecord.leaveStatus = leave.approval_status || 'pending';
                     existingRecord.is_pending = isPending;
-                    if (!isHalfLeave) {
+                    if (!isHalfLeave && !isWorkingStatus) {
                         existingRecord.status = 'leave';
                     }
                 }

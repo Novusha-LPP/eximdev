@@ -6,13 +6,17 @@ import dotenv from 'dotenv';
 import path from 'path';
 import moment from 'moment';
 
-dotenv.config({ path: path.resolve('./.env') });
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, '../.env');
+dotenv.config({ path: envPath });
 
 async function repairAnomalies() {
     try {
-        const mongoUri = process.env.DEV_MONGODB_URI;
+        const mongoUri = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || process.env.SERVER_MONGODB_URI;
         if (!mongoUri) {
-            console.error('MONGO_URI not found in .env');
+            console.error('DEV_MONGODB_URI or MONGODB_URI not found in .env at', envPath);
             process.exit(1);
         }
         await mongoose.connect(mongoUri);

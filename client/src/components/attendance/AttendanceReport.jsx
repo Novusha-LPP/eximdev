@@ -388,7 +388,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             if (employeeIds.length === 0) return data;
             
             const balanceRes = await attendanceAPI.getLeaveBalances(employeeIds);
-            const privilegeBalanceMap = new Map();
+            const privilegeOpeningMap = new Map();
+            const privilegeAvailableMap = new Map();
             const privilegeUsedMap = new Map();
             const lwpUsedMap = new Map();
             
@@ -399,7 +400,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     const leaveType = String(balance.leave_type || '').toLowerCase();
 
                     if (leaveType === 'privilege') {
-                        privilegeBalanceMap.set(empId, Number(balance.closing_balance || 0));
+                        privilegeOpeningMap.set(empId, Number(balance.opening_balance || 0));
+                        privilegeAvailableMap.set(empId, Number(balance.closing_balance || 0));
                         privilegeUsedMap.set(empId, Number(balance.used || 0));
                     } else if (leaveType === 'lwp') {
                         lwpUsedMap.set(empId, Number(balance.used || 0));
@@ -410,7 +412,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             // Enrich report data with leave balance
             return data.map(emp => ({
                 ...emp,
-                leave_balance: privilegeBalanceMap.get(emp.id) || 0,
+                opening_balance: privilegeOpeningMap.get(emp.id) || 0,
+                available_balance: privilegeAvailableMap.get(emp.id) || 0,
+                leave_balance: privilegeAvailableMap.get(emp.id) || 0,
                 privilege_taken: privilegeUsedMap.get(emp.id) || 0,
                 lwp_taken: lwpUsedMap.get(emp.id) || 0
             }));
@@ -419,6 +423,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             // Return data without balance enrichment
             return data.map(emp => ({
                 ...emp,
+                opening_balance: 0,
+                available_balance: 0,
                 leave_balance: 0,
                 privilege_taken: 0,
                 lwp_taken: 0
@@ -815,6 +821,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Exim Application';
+    const reportMetricsById = new Map(reportData.map(row => [row.id, row]));
 
     // ── Helper: style a header row ──────────────────────────────────────
     const styleHeader = (row, bgArgb, textArgb = 'FF0F172A') => {
@@ -828,6 +835,112 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         });
     };
+
+    const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+    const getLeaveMetrics = (employeeId) => reportMetricsById.get(employeeId) || {};
+    const isPrivilegeLeave = (leaveType = '') => {
+        const type = String(leaveType || '').toLowerCase();
+        return type.includes('privilege') || type.includes('earned');
+    };
+    const isLwpLeave = (leaveType = '') => {
+        const type = String(leaveType || '').toLowerCase();
+        return type.includes('lwp') || type.includes('without pay');
+    };
+    const getPayrollPresentDays = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) {
+            return Number(employee.present || 0) + Number(employee.late || 0) + Number(employee.halfDay || 0);
+        }
+
+        return roundLeave(employee.history.reduce((total, day) => {
+            const status = String(day?.status || '').toLowerCase();
+            const leaveType = day?.leaveType || day?.leave_type || '';
+
+            if (status === 'present' || status === 'late' || status === 'weekly_off') return total + 1;
+            if (status === 'leave') return isPrivilegeLeave(leaveType) ? total + 1 : total;
+            if (status === 'half_day') {
+                if (isPrivilegeLeave(leaveType)) return total + 1;
+                if (isLwpLeave(leaveType)) return total + 0.5;
+                return total + 1;
+            }
+
+            return total;
+        }, 0));
+    };
+    const isHalfDayLeave = (day) => Boolean(day?.is_half_day_leave || day?.is_half_day || day?.isHalfDayLeave);
+    const getActualHalfDays = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.halfDay || 0);
+
+        return roundLeave(employee.history.reduce((total, day) => {
+            const status = String(day?.status || '').toLowerCase();
+            const leaveType = day?.leaveType || day?.leave_type || '';
+            if (status === 'half_day' && !leaveType && !isHalfDayLeave(day)) return total + 1;
+            return total;
+        }, 0));
+    };
+    const getLeaveTakenDays = (employee, matcher) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
+
+        return roundLeave(employee.history.reduce((total, day) => {
+            const status = String(day?.status || '').toLowerCase();
+            const leaveType = day?.leaveType || day?.leave_type || '';
+
+            if (!matcher(leaveType)) return total;
+            if (status === 'leave') return total + (isHalfDayLeave(day) ? 0.5 : 1);
+            if (status === 'half_day') return total + 0.5;
+
+            return total;
+        }, 0));
+    };
+    const getLeaveCountForReport = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+
+        return roundLeave(employee.history.reduce((total, day) => {
+            const status = String(day?.status || '').toLowerCase();
+            const leaveType = day?.leaveType || day?.leave_type || '';
+
+            if (status === 'leave') return total + (isHalfDayLeave(day) ? 0.5 : 1);
+            if (status === 'half_day' && (leaveType || isHalfDayLeave(day))) return total + 0.5;
+
+            return total;
+        }, 0));
+    };
+    const getHalfDayLeaveCountForReport = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
+
+        return roundLeave(employee.history.reduce((total, day) => {
+            const status = String(day?.status || '').toLowerCase();
+            const leaveType = day?.leaveType || day?.leave_type || '';
+            if (status === 'half_day' && (leaveType || isHalfDayLeave(day))) return total + 1;
+            if (status === 'leave' && isHalfDayLeave(day)) return total + 1;
+            return total;
+        }, 0));
+    };
+    const getFullDayLeaveCountForReport = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+
+        return roundLeave(employee.history.reduce((total, day) => {
+            const status = String(day?.status || '').toLowerCase();
+            if (status === 'leave' && !isHalfDayLeave(day)) return total + 1;
+            return total;
+        }, 0));
+    };
+    const getPrivilegeTakenForReport = (employee) => getLeaveTakenDays(employee, isPrivilegeLeave);
+    const getLwpTakenForReport = (employee) => getLeaveTakenDays(employee, isLwpLeave);
+    const getAvailableBalanceForReport = (employee) => {
+        const metrics = getLeaveMetrics(employee.id);
+        return Math.max(0, roundLeave(Number(metrics.opening_balance || 0) - getPrivilegeTakenForReport(employee)));
+    };
+    const sumLeaveMetric = (employees, key) => roundLeave(
+        employees.reduce((sum, employee) => {
+            const metrics = getLeaveMetrics(employee.id);
+            let value;
+            if (key === 'available_balance') value = getAvailableBalanceForReport(employee);
+            else if (key === 'privilege_taken') value = getPrivilegeTakenForReport(employee);
+            else if (key === 'lwp_taken') value = getLwpTakenForReport(employee);
+            else value = metrics[key] ?? 0;
+            return sum + Number(value || 0);
+        }, 0)
+    );
 
     // ── Group filtered employees by company ─────────────────────────────
     const byCompany = {};
@@ -847,12 +960,12 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         titleRow.height = 28;
         titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
         titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        ws.mergeCells(`A${titleRow.number}:J${titleRow.number}`);
+        ws.mergeCells(`A${titleRow.number}:L${titleRow.number}`);
 
         ws.addRow([]); // spacer
 
         // ── Column headers ────────────────────────────────────────────
-        const COLS = ['Employee', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Privilege Balance', 'Privilege Taken', 'LWP Taken', 'Avg Hours/Day'];
+        const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
         const headerRow = ws.addRow(COLS);
         headerRow.height = 22;
         styleHeader(headerRow, 'FF334155', 'FFFFFFFF');
@@ -861,31 +974,30 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         const STATUS_COLORS = {
             present : 'FF10b981',
             absent  : 'FFef4444',
-            late    : 'FFf59e0b',
             halfDay : 'FF3b82f6',
             leaves  : 'FF8b5cf6',
             pending : 'FFf97316',
         };
 
         employees.forEach((e, idx) => {
-            const leaveMetrics = reportData
-                .find(r => r.id === e.id)
-                || {};
-
-            const leaveBalance = leaveMetrics.leave_balance ?? 0;
-            const privilegeTaken = leaveMetrics.privilege_taken ?? 0;
-            const lwpTaken = leaveMetrics.lwp_taken ?? 0;
+            const leaveMetrics = getLeaveMetrics(e.id);
+            const openingBalance = leaveMetrics.opening_balance ?? 0;
+            const privilegeTaken = getPrivilegeTakenForReport(e);
+            const lwpTaken = getLwpTakenForReport(e);
+            const availableBalance = getAvailableBalanceForReport(e);
 
             const row = ws.addRow([
                 e.name,
-                e.present,
+                getPayrollPresentDays(e),
                 e.absent,
-                e.late,
-                e.halfDay || 0,
-                e.leaves  || 0,
-                Math.round(leaveBalance * 10) / 10,  // Round to 1 decimal place
-                Math.round(privilegeTaken * 10) / 10,
-                Math.round(lwpTaken * 10) / 10,
+                getActualHalfDays(e),
+                getHalfDayLeaveCountForReport(e),
+                getFullDayLeaveCountForReport(e),
+                getLeaveCountForReport(e),
+                roundLeave(openingBalance),
+                roundLeave(privilegeTaken),
+                roundLeave(lwpTaken),
+                roundLeave(availableBalance),
                 e.avgHours,
             ]);
 
@@ -901,16 +1013,17 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             }
 
             // Colour-code numeric cells
-            [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.late],
-             [5, STATUS_COLORS.halfDay], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.pending],
-             [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending]]
+            [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.halfDay],
+             [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
+             [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending], [10, STATUS_COLORS.pending],
+             [11, STATUS_COLORS.pending]]
             .forEach(([col, color]) => {
                 const cell = row.getCell(col);
                 cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
             });
 
-            row.getCell(10).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
 
             // Border on every row
             row.eachCell(cell => {
@@ -926,32 +1039,16 @@ ws.addRow([]); // spacer
 
 const totalRow = ws.addRow([
     `Total  (${employees.length} employees)`,
-    employees.reduce((s, e) => s + (e.present || 0), 0),
+    employees.reduce((s, e) => s + getPayrollPresentDays(e), 0),
     employees.reduce((s, e) => s + (e.absent || 0), 0),
-    employees.reduce((s, e) => s + (e.late || 0), 0),
-    employees.reduce((s, e) => s + (e.halfDay || 0), 0),
-    employees.reduce((s, e) => s + (e.leaves || 0), 0),
-    (() => {
-        const total = employees.reduce((s, e) => {
-            const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.leave_balance ?? 0);
-        }, 0);
-        return Math.round(total * 10) / 10;
-    })(),
-    (() => {
-        const total = employees.reduce((s, e) => {
-            const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.privilege_taken ?? 0);
-        }, 0);
-        return Math.round(total * 10) / 10;
-    })(),
-    (() => {
-        const total = employees.reduce((s, e) => {
-            const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.lwp_taken ?? 0);
-        }, 0);
-        return Math.round(total * 10) / 10;
-    })(),
+    employees.reduce((s, e) => s + getActualHalfDays(e), 0),
+    employees.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+    employees.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+    employees.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+    sumLeaveMetric(employees, 'opening_balance'),
+    sumLeaveMetric(employees, 'privilege_taken'),
+    sumLeaveMetric(employees, 'lwp_taken'),
+    sumLeaveMetric(employees, 'available_balance'),
     (() => {
         const total = employees.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
         return employees.length > 0 ? (total / employees.length).toFixed(1) : '0.0';
@@ -962,8 +1059,8 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
 
         // ── Column widths ─────────────────────────────────────────────
         ws.getColumn(1).width = 30;
-        [2,3,4,5,6,7,8,9].forEach(c => ws.getColumn(c).width = 13);
-        ws.getColumn(10).width = 16;
+        [2,3,4,5,6,7,8,9,10,11].forEach(c => ws.getColumn(c).width = 15);
+        ws.getColumn(12).width = 16;
 
         // Freeze pane below header
         ws.views = [{ state: 'frozen', ySplit: 3 }];
@@ -978,39 +1075,28 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
     sTitleRow.height = 28;
     sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
     sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-    summaryWs.mergeCells(`A1:K1`);
+    summaryWs.mergeCells(`A1:M1`);
 
     summaryWs.addRow([]);
 
-    const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Late', 'Half Day', 'Leaves', 'Privilege Balance', 'Privilege Taken', 'LWP Taken', 'Avg Hrs/Day']);
+    const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hrs/Day']);
     sHeaderRow.height = 22;
     styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
 
     Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([co, emps], idx) => {
-        const totLeaveBalance = emps.reduce((s, e) => {
-            const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.leave_balance ?? 0);
-        }, 0);
-        const totPrivilegeTaken = emps.reduce((s, e) => {
-            const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.privilege_taken ?? 0);
-        }, 0);
-        const totLwpTaken = emps.reduce((s, e) => {
-            const raw = reportData.find(r => r.id === e.id);
-            return s + (raw?.lwp_taken ?? 0);
-        }, 0);
-
         const row = summaryWs.addRow([
             co,
             emps.length,
-            emps.reduce((s, e) => s + e.present, 0),
+            emps.reduce((s, e) => s + getPayrollPresentDays(e), 0),
             emps.reduce((s, e) => s + e.absent,  0),
-            emps.reduce((s, e) => s + e.late,    0),
-            emps.reduce((s, e) => s + (e.halfDay || 0), 0),
-            emps.reduce((s, e) => s + (e.leaves  || 0), 0),
-            Math.round(totLeaveBalance * 10) / 10,
-            Math.round(totPrivilegeTaken * 10) / 10,
-            Math.round(totLwpTaken * 10) / 10,
+            emps.reduce((s, e) => s + getActualHalfDays(e), 0),
+            emps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+            emps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+            emps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+            sumLeaveMetric(emps, 'opening_balance'),
+            sumLeaveMetric(emps, 'privilege_taken'),
+            sumLeaveMetric(emps, 'lwp_taken'),
+            sumLeaveMetric(emps, 'available_balance'),
             (emps.reduce((s,e) => s + parseFloat(e.avgHours||0), 0) / emps.length).toFixed(1),
         ]);
         row.height = 20;
@@ -1020,12 +1106,12 @@ styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
             });
         }
         row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-        [2,3,4,5,6,7,8,9,10,11].forEach(c => { row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
+        [2,3,4,5,6,7,8,9,10,11,12,13].forEach(c => { row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
     });
 
     summaryWs.getColumn(1).width = 32;
-    [2,3,4,5,6,7,8,9,10].forEach(c => summaryWs.getColumn(c).width = 14);
-    summaryWs.getColumn(11).width = 14;
+    [2,3,4,5,6,7,8,9,10,11,12].forEach(c => summaryWs.getColumn(c).width = 15);
+    summaryWs.getColumn(13).width = 14;
 
     // Move Summary to first position
    const summarySheet = workbook._worksheets.find(ws => ws && ws.name === 'Summary');
